@@ -1,0 +1,225 @@
+{
+  "_comment": [
+    "The nav tree for the FoodBridge mock platform.",
+    "",
+    "Each leaf points at a module mockup published by its own team on GitHub Pages.",
+    "Nothing here is copied — the platform iframes the live URL, so when a team pushes,",
+    "this reflects it on the next load.",
+    "",
+    "clipLeft / clipTop: every module renders its OWN copy of the QA sidebar and header.",
+    "The platform owns the sidebar, so each module's sidebar is clipped away by offsetting",
+    "its iframe left by clipLeft px inside an overflow-hidden wrapper. clipTop is 0",
+    "everywhere on purpose: the module's own header is kept and serves as the app header,",
+    "because clipping vertically would push any sticky toolbar out of view.",
+    "",
+    "Every value here was MEASURED in a browser, one destination at a time — see",
+    "tools/measuring-clip-offsets.md. Do not infer one from a sibling: four widths are",
+    "in use (0, 212, 250, 256), and two screens in the same repo can differ."
+  ],
+
+  "brand": { "name": "QA store" },
+  "user": { "displayName": "Mahesh", "role": "Admin" },
+
+  "nav": [
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "icon": "layoutGrid",
+      "url": "https://nidhimehta9399.github.io/foodbridge-dashboard-mockup/v1/screens/dashboard/dashboard.html",
+      "clipLeft": 256,
+      "owner": "nidhimehta9399/foodbridge-dashboard-mockup"
+    },
+    {
+      "id": "product-master",
+      "name": "Product Master",
+      "icon": "package",
+      "submenus": [
+        {
+          "id": "finished-goods",
+          "name": "Finished Goods",
+          "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html",
+          "clipLeft": 250,
+          "owner": "exagon-ai/foodbridge-module-products"
+        },
+        {
+          "id": "product-categories",
+          "name": "Product Categories",
+          "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html",
+          "clipLeft": 250,
+          "owner": "exagon-ai/foodbridge-module-products"
+        },
+        {
+          "id": "raw-materials",
+          "name": "Raw Materials",
+          "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html",
+          "clipLeft": 250,
+          "owner": "exagon-ai/foodbridge-module-products"
+        }
+      ]
+    },
+    {
+      "id": "customer-management",
+      "name": "Customer Management",
+      "icon": "usersRound",
+      "submenus": [
+        {
+          "id": "b2b-customers",
+          "name": "B2B Customers",
+          "url": "https://nidhimehta9399.github.io/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html",
+          "clipLeft": 256,
+          "owner": "nidhimehta9399/foodbridge-customer-mockup"
+        },
+        {
+          "id": "retail-customers",
+          "name": "Retail Customers",
+          "url": "https://nidhimehta9399.github.io/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html",
+          "clipLeft": 256,
+          "owner": "nidhimehta9399/foodbridge-customer-mockup"
+        }
+      ]
+    },
+    {
+      "id": "sales-orders",
+      "name": "Sales Orders",
+      "icon": "shoppingCart",
+      "url": "https://nishant-devekar.github.io/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
+      "clipLeft": 256,
+      "owner": "nishant-devekar/foodbridge-sales-orders-mockup"
+    },
+    {
+      "id": "distribution-logistics",
+      "name": "Distribution & Logistics",
+      "icon": "usersShare",
+      "submenus": [
+        {
+          "id": "route-planning",
+          "name": "Route Planning",
+          "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html",
+          "clipLeft": 250,
+          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+        },
+        {
+          "id": "delivery-management",
+          "name": "Delivery Management",
+          "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html",
+          "clipLeft": 0,
+          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+        },
+        {
+          "id": "logistic-returns",
+          "name": "Logistic Returns",
+          "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html",
+          "clipLeft": 250,
+          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+        }
+      ]
+    },
+    {
+      "id": "production",
+      "name": "Production",
+      "icon": "factory",
+      "submenus": [
+        {
+          "id": "batch-management",
+          "name": "Batch Management",
+          "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html",
+          "clipLeft": 0,
+          "owner": "nishant-devekar/foodbridge-production-discovery"
+        },
+        {
+          "id": "semifinished-products",
+          "name": "Semifinished Products",
+          "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/batch-management/screens/batch/semi-finished-products.html",
+          "clipLeft": 0,
+          "owner": "nishant-devekar/foodbridge-production-discovery"
+        },
+        {
+          "id": "configure-recipe",
+          "name": "Configure Recipe",
+          "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html",
+          "clipLeft": 212,
+          "owner": "nishant-devekar/foodbridge-production-discovery"
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "name": "Inventory",
+      "icon": "warehouse",
+      "submenus": [
+        {
+          "id": "finished-goods-inventory",
+          "name": "Finished Goods Inventory",
+          "url": "https://nishant-devekar.github.io/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup"
+        },
+        {
+          "id": "raw-material-inventory",
+          "name": "Raw Material Inventory",
+          "url": "https://nishant-devekar.github.io/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup"
+        }
+      ]
+    },
+    {
+      "id": "procurement",
+      "name": "Procurement",
+      "icon": "clipboardCheck",
+      "submenus": [
+        {
+          "id": "purchase-orders",
+          "name": "Purchase Orders",
+          "url": "https://love-scripter.github.io/foodbridge-module-procurement/screens/screen-02.html",
+          "clipLeft": 256,
+          "owner": "love-scripter/foodbridge-module-procurement"
+        },
+        {
+          "id": "supplier-management",
+          "name": "Supplier Management",
+          "url": "https://love-scripter.github.io/foodbridge-module-procurement/screens/screen-09.html",
+          "clipLeft": 256,
+          "owner": "love-scripter/foodbridge-module-procurement"
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "icon": "banknote",
+      "submenus": [
+        {
+          "id": "customer-receivables",
+          "name": "Customer Receivables",
+          "url": "https://kdansari02.github.io/invoice-payment-overview/screens/invoices-payments.html",
+          "clipLeft": 250,
+          "owner": "kdansari02/invoice-payment-overview"
+        },
+        {
+          "id": "supplier-payables",
+          "name": "Supplier Payables",
+          "url": "https://kdansari02.github.io/invoice-payment-overview/screens/supplier-invoices-payments.html",
+          "clipLeft": 250,
+          "owner": "kdansari02/invoice-payment-overview"
+        }
+      ]
+    },
+    {
+      "id": "workforce-management",
+      "name": "Workforce Management",
+      "icon": "userCog",
+      "url": "https://nishant-devekar.github.io/foodbridge-staff-mockup/screens/screen-01-staff-list.html",
+      "clipLeft": 256,
+      "owner": "nishant-devekar/foodbridge-staff-mockup"
+    }
+  ],
+
+  "hidden": [
+    { "name": "Image Gallery", "under": "Product Master", "why": "No mockup exists in the products module." },
+    { "name": "Production Settlement", "under": "Production", "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav." },
+    { "name": "Stock Audit Settlement", "under": "(top level)", "why": "No mockup supplied." },
+    { "name": "Route Delivery", "under": "(sidebar footer)", "why": "No mockup supplied." },
+    { "name": "Store QR Code", "under": "(sidebar footer)", "why": "No mockup supplied." }
+  ]
+}
