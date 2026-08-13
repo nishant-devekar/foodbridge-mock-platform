@@ -57,6 +57,46 @@
   display: none !important;
 }
 
+/* ── Mobile: one header + a floating module switcher ────────────────────────
+   On mobile the module renders its OWN header, so the platform's slim top bar
+   would be a second, duplicate header. Hide it, and replace its hamburger with
+   a left-edge floating tab that opens the platform drawer — so there is exactly
+   one header and cross-module navigation still works. */
+.fb-fab {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10000;
+  width: 34px;
+  height: 54px;
+  border: 0;
+  border-radius: 0 14px 14px 0;
+  background: #059669;
+  color: #fff;
+  box-shadow: 2px 3px 12px rgba(0, 0, 0, 0.28);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.fb-fab:hover {
+  background: #047857;
+}
+@media (max-width: 1023.98px) {
+  [data-mobile-bar] {
+    display: none !important;
+  }
+  .fb-fab {
+    display: flex;
+  }
+}
+/* The full-bleed storefront owns the whole window — no launcher over it. */
+.fb-fullbleed .fb-fab {
+  display: none !important;
+}
+
 /* ── Loading + error overlays ─────────────────────────────────────────────── */
 .fb-overlay {
   position: absolute;

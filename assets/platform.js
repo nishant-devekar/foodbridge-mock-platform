@@ -220,6 +220,14 @@
       renderSidebarContent(config) +
       "</aside></div>" +
 
+      // Mobile-only launcher: a left-edge tab that opens the platform drawer
+      // (module switcher). On mobile the module renders its own header, so the
+      // platform hides its top bar and offers this instead — one header, plus
+      // cross-module navigation. Reuses the [data-mobile-toggle] handler.
+      '<button type="button" data-mobile-toggle class="fb-fab" aria-label="Open modules menu">' +
+      icon("layoutGrid", "w-5 h-5") +
+      "</button>" +
+
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
       '<div data-mobile-bar class="lg:hidden flex-shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 shadow-sm">' +
       '<button type="button" data-mobile-toggle aria-label="Toggle sidebar" ' +
