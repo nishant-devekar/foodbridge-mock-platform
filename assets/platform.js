@@ -201,10 +201,33 @@
   }
 
   /* ── Shell ───────────────────────────────────────────────────────────────
-     Layout.jsx. The platform renders no header of its own: each module's
-     header stays visible inside the iframe and serves as the app header, so
-     there is exactly one. On mobile the platform supplies a slim bar, because
-     the module's header is off to the left of the clip. */
+     Layout.jsx.
+     Desktop: the platform owns the sidebar; the module's own header stays
+     visible inside the iframe and serves as the app header (one header).
+     Mobile: the module collapses its own chrome, so the platform provides the
+     WHOLE QA-store chrome — a single top header (which overlays and hides the
+     module's own header) plus the drawer — mirroring the desktop experience.
+     There is one header and one sidebar, both the platform's, everywhere. */
+
+  // Mobile-only QA-store header. It is absolutely positioned over the top of the
+  // viewport so it covers the module's own header (which sits at the iframe top),
+  // leaving exactly one header. The hamburger opens the platform drawer; the
+  // title tracks the active module; the user block mirrors the desktop header.
+  function renderMobileHeader(config) {
+    var u = config.user || {};
+    return (
+      '<header data-mobile-bar class="fb-mhead">' +
+      '<button type="button" data-mobile-toggle class="fb-mhead-burger" aria-label="Open menu">' +
+      icon("menu", "w-5 h-5") +
+      "</button>" +
+      '<span class="fb-mhead-title" data-mobile-title></span>' +
+      '<div class="fb-mhead-user">' +
+      '<span class="fb-mhead-user-txt"><span class="nm">' + esc(u.displayName || "") + '</span><span class="rl">' + esc(u.role || "") + "</span></span>" +
+      '<span class="fb-mhead-ava">' + icon("user", "w-4 h-4") + "</span>" +
+      "</div></header>"
+    );
+  }
+
   function renderShell(config) {
     return (
       '<div class="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">' +
@@ -220,24 +243,9 @@
       renderSidebarContent(config) +
       "</aside></div>" +
 
-      // Mobile-only launcher: a left-edge tab that opens the platform drawer
-      // (module switcher). On mobile the module renders its own header, so the
-      // platform hides its top bar and offers this instead — one header, plus
-      // cross-module navigation. Reuses the [data-mobile-toggle] handler.
-      '<button type="button" data-mobile-toggle class="fb-fab" aria-label="Open modules menu">' +
-      icon("layoutGrid", "w-5 h-5") +
-      "</button>" +
-
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
-      '<div data-mobile-bar class="lg:hidden flex-shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 shadow-sm">' +
-      '<button type="button" data-mobile-toggle aria-label="Toggle sidebar" ' +
-      'class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">' +
-      icon("menu", "w-5 h-5 text-gray-600") +
-      "</button>" +
-      '<h1 class="text-base font-semibold text-gray-700 tracking-tight" data-mobile-title></h1>' +
-      "</div>" +
-
       '<div class="fb-viewport" data-viewport>' +
+      renderMobileHeader(config) +
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
       '<div class="fb-overlay" data-error hidden></div>' +
       // allow: delegate device/permissions policies to the cross-origin module

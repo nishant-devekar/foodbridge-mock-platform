@@ -57,44 +57,84 @@
   display: none !important;
 }
 
-/* ── Mobile: one header + a floating module switcher ────────────────────────
-   On mobile the module renders its OWN header, so the platform's slim top bar
-   would be a second, duplicate header. Hide it, and replace its hamburger with
-   a left-edge floating tab that opens the platform drawer — so there is exactly
-   one header and cross-module navigation still works. */
-.fb-fab {
+/* ── Mobile: the platform's single QA-store header ──────────────────────────
+   Below lg the module collapses its own chrome, so the platform supplies the
+   whole header. It is absolutely positioned over the top of the viewport so it
+   covers the module's own header (which sits at the iframe's top edge) — one
+   header, one drawer, mirroring desktop. Hidden on desktop and for full-bleed. */
+.fb-mhead {
   display: none;
-  position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10000;
-  width: 34px;
-  height: 54px;
-  border: 0;
-  border-radius: 0 14px 14px 0;
-  background: #059669;
-  color: #fff;
-  box-shadow: 2px 3px 12px rgba(0, 0, 0, 0.28);
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-}
-.fb-fab:hover {
-  background: #047857;
 }
 @media (max-width: 1023.98px) {
-  [data-mobile-bar] {
-    display: none !important;
-  }
-  .fb-fab {
+  .fb-mhead {
     display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    z-index: 4;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 }
-/* The full-bleed storefront owns the whole window — no launcher over it. */
-.fb-fullbleed .fb-fab {
-  display: none !important;
+.fb-mhead-burger {
+  padding: 6px;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  color: #4b5563;
+  display: inline-flex;
+  cursor: pointer;
+}
+.fb-mhead-burger:hover {
+  background: #f3f4f6;
+}
+.fb-mhead-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fb-mhead-user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fb-mhead-user-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: right;
+}
+.fb-mhead-user-txt .nm {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.fb-mhead-user-txt .rl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+}
+.fb-mhead-ava {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #059669;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* ── Loading + error overlays ─────────────────────────────────────────────── */
