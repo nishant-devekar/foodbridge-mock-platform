@@ -34,6 +34,18 @@
   display: block;
 }
 
+/* Below the lg breakpoint (1024px) the platform hides its own sidebar and every
+   module collapses its QA sidebar into a hamburger — so there is nothing to clip.
+   The per-module clipLeft (set inline on .fb-viewport) would otherwise shove the
+   module's content off-screen to the left on phones/tablets. Force it to 0 here
+   for ALL modules so each renders full-width and responsive. !important beats the
+   inline custom property. */
+@media (max-width: 1023.98px) {
+  .fb-viewport {
+    --fb-clip-left: 0px !important;
+  }
+}
+
 /* ── Full-bleed modules ────────────────────────────────────────────────────
    A module flagged `fullBleed` in modules.json (e.g. the customer storefront)
    is its own experience, not an admin sub-screen. While it is active the shell
