@@ -232,7 +232,10 @@
       '<div class="fb-viewport" data-viewport>' +
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
       '<div class="fb-overlay" data-error hidden></div>' +
-      '<iframe data-frame title="Module" referrerpolicy="no-referrer"></iframe>' +
+      // allow: delegate device/permissions policies to the cross-origin module
+      // frame — without this, camera/mic getUserMedia is blocked inside the iframe
+      // (e.g. Image Gallery → Take photos), even though the module page itself is allowed.
+      '<iframe data-frame title="Module" referrerpolicy="no-referrer" allow="camera; microphone; fullscreen; clipboard-write"></iframe>' +
       "</div></div></div>" +
       renderQrModal(config)
     );
