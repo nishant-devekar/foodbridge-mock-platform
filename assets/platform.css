@@ -34,15 +34,20 @@
   display: block;
 }
 
-/* Below the lg breakpoint (1024px) the platform hides its own sidebar and every
-   module collapses its QA sidebar into a hamburger — so there is nothing to clip.
-   The per-module clipLeft (set inline on .fb-viewport) would otherwise shove the
-   module's content off-screen to the left on phones/tablets. Force it to 0 here
-   for ALL modules so each renders full-width and responsive. !important beats the
-   inline custom property. */
+/* Below lg the module goes mobile and the platform supplies its own 56px header
+   that overlays the top of the iframe. Two per-module knobs, set inline by JS:
+     --fb-clip-left-m : horizontal clip on mobile (0 for modules that collapse
+        their sidebar; = clipLeft for non-responsive ones that keep it).
+     --fb-clip-top-m  : vertical offset = 56 - (module's own mobile header height).
+        Positive (module has no/short header) pushes the iframe DOWN so content
+        clears our header; negative (module header taller than 56) pulls it UP so
+        our header fully covers it. This makes one clean header on every module. */
 @media (max-width: 1023.98px) {
-  .fb-viewport {
-    --fb-clip-left: 0px !important;
+  .fb-viewport iframe {
+    left: calc(-1 * var(--fb-clip-left-m, 0px));
+    width: calc(100% + var(--fb-clip-left-m, 0px));
+    top: var(--fb-clip-top-m, 0px);
+    height: calc(100% - var(--fb-clip-top-m, 0px));
   }
 }
 

@@ -45,8 +45,9 @@
 
   /* A module may ship a phone-specific screen (urlMobile). Below this width we
      load it instead of the desktop url, and swap live when the width crosses.
-     768px matches the `md` breakpoint the embedded modules are built against. */
-  var mobileMQ = window.matchMedia("(max-width: 767px)");
+     Aligned with the lg breakpoint where the platform switches to its mobile
+     chrome (header + clip offsets), so url and chrome change together. */
+  var mobileMQ = window.matchMedia("(max-width: 1023.98px)");
 
   function pickUrl(leaf) {
     return leaf.urlMobile && mobileMQ.matches ? leaf.urlMobile : leaf.url;
@@ -327,11 +328,19 @@
     var loading = document.querySelector("[data-loading]");
     var error = document.querySelector("[data-error]");
 
-    // A full-bleed module fills the window (sidebar hidden), so nothing is
-    // clipped; otherwise offset the iframe left to hide the module's own sidebar.
-    var fullBleed = !!dest.leaf.fullBleed;
+    // Clip offsets. Desktop hides the module's sidebar (clipLeft). Mobile hides
+    // the module's own header behind the platform's 56px bar via a vertical
+    // offset (56 - mHeaderH), and only clips horizontally for non-responsive
+    // modules that keep a sidebar on mobile (clipLeftMobile). Full-bleed skips
+    // all of it and fills the window.
+    var leaf = dest.leaf;
+    var fullBleed = !!leaf.fullBleed;
+    var PLATFORM_MHEAD = 56; // keep in sync with .fb-mhead height in platform.css
+    var mH = leaf.mHeaderH != null ? leaf.mHeaderH : PLATFORM_MHEAD;
     if (state.rootEl) state.rootEl.classList.toggle("fb-fullbleed", fullBleed);
-    viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : dest.leaf.clipLeft || 0) + "px");
+    viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
+    viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");
+    viewport.style.setProperty("--fb-clip-top-m", (fullBleed ? 0 : PLATFORM_MHEAD - mH) + "px");
     frame.title = dest.leaf.name;
     loading.hidden = false;
     error.hidden = true;

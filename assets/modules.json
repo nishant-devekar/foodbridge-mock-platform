@@ -24,6 +24,16 @@
     "urlMobile (optional): a phone-specific screen. The platform loads it instead",
     "of url below 768px, and swaps live when the viewport crosses that width.",
     "",
+    "mHeaderH (optional, default 56): the height in px of the module's OWN header",
+    "on mobile. Below lg the platform draws a single 56px QA-store header that",
+    "overlays the module's; this value aligns them (0 = module has no header, so",
+    "content is pushed down; 67 = taller header, pulled up and fully covered).",
+    "Measured per module in a browser at ~390px.",
+    "",
+    "clipLeftMobile (optional, default 0): horizontal clip to keep on mobile. 0 for",
+    "modules that collapse their sidebar into a hamburger; = clipLeft for the few",
+    "non-responsive modules that still render a fixed sidebar at phone width.",
+    "",
     "standalone: destinations that are routable by URL (#/<id>) but NOT shown in",
     "the sidebar. The storefront lives here: it is reached by scanning the Store",
     "QR code (storeQr.targetRoute), not from the admin nav."
@@ -57,6 +67,7 @@
           "name": "Finished Goods",
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products"
         },
         {
@@ -64,6 +75,7 @@
           "name": "Product Categories",
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products"
         },
         {
@@ -71,6 +83,7 @@
           "name": "Raw Materials",
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products"
         },
         {
@@ -78,6 +91,7 @@
           "name": "Image Gallery",
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products"
         }
       ]
@@ -121,6 +135,7 @@
           "name": "Route Planning",
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "kdansari02/foodbridge-module-distribution-logistics"
         },
         {
@@ -128,6 +143,7 @@
           "name": "Delivery Management",
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html",
           "clipLeft": 0,
+          "fullBleed": true,
           "owner": "kdansari02/foodbridge-module-distribution-logistics"
         },
         {
@@ -135,6 +151,7 @@
           "name": "Logistic Returns",
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html",
           "clipLeft": 250,
+          "mHeaderH": 67,
           "owner": "kdansari02/foodbridge-module-distribution-logistics"
         }
       ]
@@ -149,6 +166,7 @@
           "name": "Batch Management",
           "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html",
           "clipLeft": 0,
+          "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-production-discovery"
         },
         {
@@ -156,13 +174,16 @@
           "name": "Semifinished Products",
           "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/batch-management/screens/batch/semi-finished-products.html",
           "clipLeft": 0,
+          "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-production-discovery"
         },
         {
           "id": "configure-recipe",
           "name": "Configure Recipe",
           "url": "https://nishant-devekar.github.io/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html",
+          "urlMobile": "https://nishant-devekar.github.io/foodbridge-production-discovery/production-planning/screens/recipie/mobile-v4.html",
           "clipLeft": 212,
+          "mHeaderH": 144,
           "owner": "nishant-devekar/foodbridge-production-discovery"
         }
       ]
@@ -198,6 +219,8 @@
           "name": "Purchase Orders",
           "url": "https://love-scripter.github.io/foodbridge-module-procurement/screens/screen-02.html",
           "clipLeft": 256,
+          "clipLeftMobile": 256,
+          "mHeaderH": 0,
           "owner": "love-scripter/foodbridge-module-procurement"
         },
         {
@@ -205,6 +228,8 @@
           "name": "Supplier Management",
           "url": "https://love-scripter.github.io/foodbridge-module-procurement/screens/screen-09.html",
           "clipLeft": 256,
+          "clipLeftMobile": 256,
+          "mHeaderH": 86,
           "owner": "love-scripter/foodbridge-module-procurement"
         }
       ]
