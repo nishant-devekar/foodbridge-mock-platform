@@ -72,6 +72,13 @@
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html",
           "clipLeft": 250,
           "owner": "exagon-ai/foodbridge-module-products"
+        },
+        {
+          "id": "image-gallery",
+          "name": "Image Gallery",
+          "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html",
+          "clipLeft": 250,
+          "owner": "exagon-ai/foodbridge-module-products"
         }
       ]
     },
@@ -246,7 +253,6 @@
   ],
 
   "hidden": [
-    { "name": "Image Gallery", "under": "Product Master", "why": "No mockup exists in the products module." },
     { "name": "Production Settlement", "under": "Production", "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav." },
     { "name": "Stock Audit Settlement", "under": "(top level)", "why": "No mockup supplied." },
     { "name": "Route Delivery", "under": "(sidebar footer)", "why": "No mockup supplied." },
