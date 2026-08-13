@@ -158,6 +158,22 @@
     );
   }
 
+  // The real app pins Store QR Code (and Route Delivery) below the scrolling
+  // nav. We mirror the pinned Store QR Code — a footer that stays put while the
+  // list scrolls, opening the QR modal.
+  function renderSidebarFooter(config) {
+    if (!config.storeQr) return "";
+    var q = config.storeQr;
+    return (
+      '<div class="fb-sidebar-footer">' +
+      '<button type="button" data-store-qr ' +
+      'class="text-md w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-gray-600 hover:text-green-600 hover:bg-gray-100">' +
+      icon("qrCode", "w-5 h-5") +
+      "<span>" + esc(q.label || "Store QR Code") + "</span>" +
+      "</button></div>"
+    );
+  }
+
   function renderSidebarContent(config) {
     var items = config.nav
       .map(function (item) {
@@ -172,7 +188,9 @@
       "</div>" +
       '<div class="flex-1 overflow-y-auto sidebar-scroll">' +
       '<ul class="mt-2 space-y-2 pb-4">' + items + "</ul>" +
-      "</div></div>"
+      "</div>" +
+      renderSidebarFooter(config) +
+      "</div>"
     );
   }
 
@@ -209,6 +227,47 @@
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
       '<div class="fb-overlay" data-error hidden></div>' +
       '<iframe data-frame title="Module" referrerpolicy="no-referrer"></iframe>' +
+      "</div></div></div>" +
+      renderQrModal(config)
+    );
+  }
+
+  /* ── Store QR modal ──────────────────────────────────────────────────────
+     Two steps, like the real app: an intro with a Generate button, then the
+     rendered QR with Regenerate / Download / Print. The QR encodes a deep link
+     to the storefront module (config.storeQr.targetRoute), so a phone that
+     scans it opens straight onto the shop. */
+  function renderQrModal(config) {
+    if (!config.storeQr) return "";
+    var q = config.storeQr;
+    var brand = esc((config.brand && config.brand.name) || "the store");
+    var label = esc(q.label || "Store QR Code");
+    return (
+      '<div class="fb-modal" data-qr-modal hidden>' +
+      '<div class="fb-modal-backdrop" data-qr-close></div>' +
+      '<div class="fb-modal-card" role="dialog" aria-modal="true" aria-label="' + label + '">' +
+      '<div class="fb-modal-head">' +
+      '<span class="fb-qr-badge">' + icon("qrCode", "w-5 h-5") + "</span>" +
+      "<div><h2>" + label + "</h2><p>" + esc(q.subtitle || "") + "</p></div>" +
+      '<button type="button" class="fb-modal-close" data-qr-close aria-label="Close">' + icon("x", "w-5 h-5") + "</button>" +
+      "</div>" +
+
+      '<div class="fb-qr-body">' +
+      '<div data-qr-intro>' +
+      '<div class="fb-qr-placeholder">' + icon("qrCode", null, 40) + "</div>" +
+      '<p class="fb-qr-lead">Generate a QR code for your store</p>' +
+      '<p class="fb-qr-sub">Customers scan this QR code to access your store.</p>' +
+      '<button type="button" class="fb-btn fb-btn-primary" data-qr-generate>' + icon("qrCode", null, 16) + " Generate QR Code</button>" +
+      "</div>" +
+
+      '<div data-qr-result hidden>' +
+      '<div class="fb-qr-canvas" data-qr-canvas></div>' +
+      '<p class="fb-qr-sub">Customers scan this QR to access <b>' + brand + "</b> and place orders directly.</p>" +
+      '<div class="fb-qr-actions">' +
+      '<button type="button" class="fb-btn fb-btn-ghost" data-qr-generate>' + icon("refreshCw", null, 16) + " Regenerate</button>" +
+      '<button type="button" class="fb-btn fb-btn-ghost" data-qr-download>' + icon("download", null, 16) + " Download</button>" +
+      '<button type="button" class="fb-btn fb-btn-primary" data-qr-print>' + icon("printer", null, 16) + " Print</button>" +
+      "</div></div>" +
       "</div></div></div>"
     );
   }
@@ -271,6 +330,83 @@
     if (mt) mt.textContent = dest.leaf.name;
   }
 
+  /* ── Store QR ─────────────────────────────────────────────────────────────
+     The QR encodes an absolute deep link to the storefront module, built from
+     the shell's own location so it works on whatever host serves the platform. */
+  function qrTargetUrl() {
+    var q = state.config && state.config.storeQr;
+    var route = (q && q.targetRoute) || "";
+    return location.href.split("#")[0] + "#/" + route;
+  }
+
+  function openQrModal() {
+    var m = document.querySelector("[data-qr-modal]");
+    if (!m) return;
+    m.querySelector("[data-qr-intro]").hidden = false;
+    m.querySelector("[data-qr-result]").hidden = true;
+    m.hidden = false;
+  }
+
+  function closeQrModal() {
+    var m = document.querySelector("[data-qr-modal]");
+    if (m) m.hidden = true;
+  }
+
+  function generateQr() {
+    var m = document.querySelector("[data-qr-modal]");
+    if (!m || typeof QRCode === "undefined") return;
+    var holder = m.querySelector("[data-qr-canvas]");
+    holder.innerHTML = "";
+    new QRCode(holder, {
+      text: qrTargetUrl(),
+      width: 196,
+      height: 196,
+      colorDark: "#111827",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+    m.querySelector("[data-qr-intro]").hidden = true;
+    m.querySelector("[data-qr-result]").hidden = false;
+  }
+
+  function qrDataUrl() {
+    var holder = document.querySelector("[data-qr-modal] [data-qr-canvas]");
+    if (!holder) return null;
+    var canvas = holder.querySelector("canvas");
+    if (canvas) return canvas.toDataURL("image/png");
+    var img = holder.querySelector("img");
+    return img ? img.src : null;
+  }
+
+  function downloadQr() {
+    var url = qrDataUrl();
+    if (!url) return;
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "store-qr-code.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function printQr() {
+    var url = qrDataUrl();
+    if (!url) return;
+    var brand = (state.config && state.config.brand && state.config.brand.name) || "Store";
+    var w = window.open("", "_blank", "width=420,height=560");
+    if (!w) return; // popup blocked
+    w.document.write(
+      "<title>" + esc(brand) + " — Store QR</title>" +
+      '<div style="font:600 18px system-ui;text-align:center;padding:28px;color:#111">' +
+      esc(brand) +
+      '<br><img src="' + url + '" style="width:300px;height:300px;margin:16px 0">' +
+      '<br><span style="font:13px system-ui;color:#555">Scan to open the store</span></div>'
+    );
+    w.document.close();
+    w.focus();
+    setTimeout(function () { w.print(); }, 200);
+  }
+
   /* ── Navigation ────────────────────────────────────────────────────────── */
   function refreshSidebars() {
     var html = renderSidebarContent(state.config);
@@ -307,6 +443,12 @@
         refreshSidebars();
         return;
       }
+      if (e.target.closest("[data-store-qr]")) { openQrModal(); return; }
+      if (e.target.closest("[data-qr-generate]")) { generateQr(); return; }
+      if (e.target.closest("[data-qr-download]")) { downloadQr(); return; }
+      if (e.target.closest("[data-qr-print]")) { printQr(); return; }
+      if (e.target.closest("[data-qr-close]")) { closeQrModal(); return; }
+
       var link = e.target.closest("[data-route]");
       if (link) {
         // Let the hash change drive navigation so back/forward stay honest.
@@ -325,7 +467,10 @@
     });
 
     window.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeMobileNav();
+      if (e.key === "Escape") {
+        closeMobileNav();
+        closeQrModal();
+      }
     });
 
     // When the viewport crosses the mobile breakpoint, a module with a phone

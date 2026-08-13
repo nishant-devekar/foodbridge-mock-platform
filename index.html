@@ -62,6 +62,9 @@
   </noscript>
 
   <script src="assets/icons.js"></script>
+  <!-- QR encoder, vendored (no network at view time), MIT — davidshimjs/qrcodejs.
+       Powers the sidebar-footer "Store QR Code" that deep-links to the storefront. -->
+  <script src="assets/qrcode.min.js"></script>
   <script src="assets/platform.js"></script>
   <script>
     window.FBPlatform.mount(document.getElementById("root")).catch(function (err) {

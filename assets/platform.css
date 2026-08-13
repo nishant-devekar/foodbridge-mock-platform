@@ -81,6 +81,171 @@
   display: none;
 }
 
+/* ── Sidebar footer ────────────────────────────────────────────────────────
+   Mirrors the real app: a pinned footer (Store QR Code) that stays put while
+   the nav list above it scrolls. It sits outside .sidebar-scroll, so the flex
+   column keeps it at the bottom. */
+.fb-sidebar-footer {
+  flex-shrink: 0;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e5e7eb;
+}
+
+/* ── Store QR modal ─────────────────────────────────────────────────────────
+   The "Store QR Code" footer item opens this. It renders a QR (client-side,
+   from the vendored encoder) that deep-links to the storefront module, so a
+   phone that scans it lands straight on the shop. */
+.fb-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.fb-modal[hidden] {
+  display: none;
+}
+.fb-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+.fb-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: fb-modal-in 0.18s ease;
+}
+@keyframes fb-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.fb-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 8px;
+}
+.fb-modal-head .fb-qr-badge {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-modal-head h2 {
+  font: 600 16px/1.3 system-ui, sans-serif;
+  color: #1f2937;
+  margin: 0;
+}
+.fb-modal-head p {
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #6b7280;
+  margin: 2px 0 0;
+}
+.fb-modal-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 8px;
+  color: #9ca3af;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.fb-modal-close:hover {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.fb-qr-body {
+  padding: 12px 24px 28px;
+  text-align: center;
+}
+.fb-qr-placeholder {
+  width: 96px;
+  height: 96px;
+  margin: 12px auto;
+  border-radius: 16px;
+  background: #ecfdf5;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-qr-lead {
+  font: 600 15px/1.4 system-ui, sans-serif;
+  color: #1f2937;
+  margin: 8px 0 4px;
+}
+.fb-qr-sub {
+  font: 13px/1.5 system-ui, sans-serif;
+  color: #6b7280;
+  margin: 0 0 18px;
+}
+.fb-qr-canvas {
+  width: 220px;
+  height: 220px;
+  margin: 8px auto 16px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-qr-canvas canvas,
+.fb-qr-canvas img {
+  width: 196px !important;
+  height: 196px !important;
+  display: block;
+}
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.fb-btn-primary {
+  background: #059669;
+  color: #fff;
+}
+.fb-btn-primary:hover {
+  background: #047857;
+}
+.fb-btn-ghost {
+  background: #fff;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+.fb-btn-ghost:hover {
+  background: #f9fafb;
+}
+.fb-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .fb-spinner {
@@ -88,5 +253,8 @@
   }
   .fb-overlay {
     transition: none;
+  }
+  .fb-modal-card {
+    animation: none;
   }
 }

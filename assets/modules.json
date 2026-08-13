@@ -28,6 +28,12 @@
   "brand": { "name": "QA store" },
   "user": { "displayName": "Mahesh", "role": "Admin" },
 
+  "storeQr": {
+    "label": "Store QR Code",
+    "subtitle": "Share with customers to let them join your store",
+    "targetRoute": "retails-overview"
+  },
+
   "nav": [
     {
       "id": "dashboard",
