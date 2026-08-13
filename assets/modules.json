@@ -212,6 +212,14 @@
       "url": "https://nishant-devekar.github.io/foodbridge-staff-mockup/screens/screen-01-staff-list.html",
       "clipLeft": 256,
       "owner": "nishant-devekar/foodbridge-staff-mockup"
+    },
+    {
+      "id": "retails-overview",
+      "name": "Store",
+      "icon": "store",
+      "url": "https://kdansari02.github.io/retails-overview/discovery/screens/desktop-v6.html",
+      "clipLeft": 0,
+      "owner": "kdansari02/retails-overview"
     }
   ],
 
