@@ -71,6 +71,12 @@
         order.push(group.id);
       }
     });
+    // Standalone destinations are addressable by #/<id> (e.g. the storefront,
+    // reached via the Store QR) but are deliberately absent from `order`, so
+    // they never become the default landing or appear in the sidebar.
+    (config.standalone || []).forEach(function (leaf) {
+      routes[leaf.id] = { leaf: leaf, group: null, key: leaf.id };
+    });
     return { routes: routes, order: order };
   }
 

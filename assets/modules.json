@@ -22,7 +22,11 @@
     "ignored. Use browser back to return to the admin.",
     "",
     "urlMobile (optional): a phone-specific screen. The platform loads it instead",
-    "of url below 768px, and swaps live when the viewport crosses that width."
+    "of url below 768px, and swaps live when the viewport crosses that width.",
+    "",
+    "standalone: destinations that are routable by URL (#/<id>) but NOT shown in",
+    "the sidebar. The storefront lives here: it is reached by scanning the Store",
+    "QR code (storeQr.targetRoute), not from the admin nav."
   ],
 
   "brand": { "name": "QA store" },
@@ -226,11 +230,13 @@
       "url": "https://nishant-devekar.github.io/foodbridge-staff-mockup/screens/screen-01-staff-list.html",
       "clipLeft": 256,
       "owner": "nishant-devekar/foodbridge-staff-mockup"
-    },
+    }
+  ],
+
+  "standalone": [
     {
       "id": "retails-overview",
       "name": "Store",
-      "icon": "store",
       "url": "https://kdansari02.github.io/retails-overview/discovery/screens/desktop-v6.html",
       "urlMobile": "https://kdansari02.github.io/retails-overview/discovery/screens/mobile-v6.html",
       "clipLeft": 0,
@@ -244,6 +250,6 @@
     { "name": "Production Settlement", "under": "Production", "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav." },
     { "name": "Stock Audit Settlement", "under": "(top level)", "why": "No mockup supplied." },
     { "name": "Route Delivery", "under": "(sidebar footer)", "why": "No mockup supplied." },
-    { "name": "Store QR Code", "under": "(sidebar footer)", "why": "No mockup supplied." }
+    { "name": "Store QR Code", "under": "(sidebar footer)", "why": "Present: opens a QR that deep-links to the 'retails-overview' standalone storefront." }
   ]
 }
