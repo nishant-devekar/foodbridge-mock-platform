@@ -34,6 +34,17 @@
   display: block;
 }
 
+/* ── Full-bleed modules ────────────────────────────────────────────────────
+   A module flagged `fullBleed` in modules.json (e.g. the customer storefront)
+   is its own experience, not an admin sub-screen. While it is active the shell
+   root carries .fb-fullbleed, which hides the platform's own sidebar and mobile
+   bar so the module fills the whole window. Its own header/nav is all that's
+   shown; use browser back to return to the admin. */
+.fb-fullbleed [data-desktop-sidebar],
+.fb-fullbleed [data-mobile-bar] {
+  display: none !important;
+}
+
 /* ── Loading + error overlays ─────────────────────────────────────────────── */
 .fb-overlay {
   position: absolute;

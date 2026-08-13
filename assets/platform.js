@@ -37,9 +37,20 @@
     routes: {},   // "group/leaf" or "leaf" -> destination
     order: [],    // route keys, in sidebar order
     current: null,
+    currentUrl: null,
+    rootEl: null,
     openGroups: {},
     mobileNavOpen: false,
   };
+
+  /* A module may ship a phone-specific screen (urlMobile). Below this width we
+     load it instead of the desktop url, and swap live when the width crosses.
+     768px matches the `md` breakpoint the embedded modules are built against. */
+  var mobileMQ = window.matchMedia("(max-width: 767px)");
+
+  function pickUrl(leaf) {
+    return leaf.urlMobile && mobileMQ.matches ? leaf.urlMobile : leaf.url;
+  }
 
   /* ── Routes ───────────────────────────────────────────────────────────────
      A destination is addressed by its own id for top-level items, and by
@@ -186,7 +197,7 @@
       "</aside></div>" +
 
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
-      '<div class="lg:hidden flex-shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 shadow-sm">' +
+      '<div data-mobile-bar class="lg:hidden flex-shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 shadow-sm">' +
       '<button type="button" data-mobile-toggle aria-label="Toggle sidebar" ' +
       'class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">' +
       icon("menu", "w-5 h-5 text-gray-600") +
@@ -214,7 +225,7 @@
       "</div>" +
       '<h2 class="text-base font-semibold text-gray-800 mb-1">' + esc(dest.leaf.name) + " did not load</h2>" +
       '<p class="text-sm text-gray-500 mb-4">' + esc(reason) + "</p>" +
-      '<a href="' + esc(dest.leaf.url) + '" target="_blank" rel="noopener noreferrer" ' +
+      '<a href="' + esc(pickUrl(dest.leaf)) + '" target="_blank" rel="noopener noreferrer" ' +
       'class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700">' +
       "Open it directly</a>" +
       '<p class="text-xs text-gray-400 mt-4">Owned by <code>' + esc(dest.leaf.owner || "—") + "</code></p>" +
@@ -232,7 +243,11 @@
     var loading = document.querySelector("[data-loading]");
     var error = document.querySelector("[data-error]");
 
-    viewport.style.setProperty("--fb-clip-left", (dest.leaf.clipLeft || 0) + "px");
+    // A full-bleed module fills the window (sidebar hidden), so nothing is
+    // clipped; otherwise offset the iframe left to hide the module's own sidebar.
+    var fullBleed = !!dest.leaf.fullBleed;
+    if (state.rootEl) state.rootEl.classList.toggle("fb-fullbleed", fullBleed);
+    viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : dest.leaf.clipLeft || 0) + "px");
     frame.title = dest.leaf.name;
     loading.hidden = false;
     error.hidden = true;
@@ -249,7 +264,8 @@
       loading.hidden = true;
     };
 
-    frame.src = dest.leaf.url;
+    state.currentUrl = pickUrl(dest.leaf);
+    frame.src = state.currentUrl;
     document.title = dest.leaf.name + " — FoodBridge";
     var mt = document.querySelector("[data-mobile-title]");
     if (mt) mt.textContent = dest.leaf.name;
@@ -311,6 +327,17 @@
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") closeMobileNav();
     });
+
+    // When the viewport crosses the mobile breakpoint, a module with a phone
+    // screen needs the other url. Reload only if the pick actually changed.
+    var onBreakpoint = function () {
+      var dest = state.current && state.routes[state.current];
+      if (dest && dest.leaf.urlMobile && pickUrl(dest.leaf) !== state.currentUrl) {
+        loadModule(state.current);
+      }
+    };
+    if (mobileMQ.addEventListener) mobileMQ.addEventListener("change", onBreakpoint);
+    else mobileMQ.addListener(onBreakpoint); // older Safari
   }
 
   /* ── Boot ──────────────────────────────────────────────────────────────── */
@@ -319,6 +346,7 @@
     if (!res.ok) throw new Error("modules.json " + res.status);
     var config = await res.json();
     state.config = config;
+    state.rootEl = el;
 
     var built = buildRoutes(config);
     state.routes = built.routes;

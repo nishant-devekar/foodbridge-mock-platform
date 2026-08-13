@@ -14,7 +14,15 @@
     "",
     "Every value here was MEASURED in a browser, one destination at a time — see",
     "tools/measuring-clip-offsets.md. Do not infer one from a sibling: four widths are",
-    "in use (0, 212, 250, 256), and two screens in the same repo can differ."
+    "in use (0, 212, 250, 256), and two screens in the same repo can differ.",
+    "",
+    "fullBleed (optional): a module that is its OWN experience, not an admin sub-",
+    "screen — e.g. the customer storefront. When it is active the platform hides",
+    "its sidebar (and mobile bar) so the module fills the whole window; clipLeft is",
+    "ignored. Use browser back to return to the admin.",
+    "",
+    "urlMobile (optional): a phone-specific screen. The platform loads it instead",
+    "of url below 768px, and swaps live when the viewport crosses that width."
   ],
 
   "brand": { "name": "QA store" },
@@ -218,7 +226,9 @@
       "name": "Store",
       "icon": "store",
       "url": "https://kdansari02.github.io/retails-overview/discovery/screens/desktop-v6.html",
+      "urlMobile": "https://kdansari02.github.io/retails-overview/discovery/screens/mobile-v6.html",
       "clipLeft": 0,
+      "fullBleed": true,
       "owner": "kdansari02/retails-overview"
     }
   ],
