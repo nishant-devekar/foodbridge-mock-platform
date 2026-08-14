@@ -107,9 +107,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* While a module overlay (drawer / modal) is open, hide the platform's mobile
-   header so the drawer can cover the entire page. */
-.fb-module-overlay .fb-mhead {
+/* While a module overlay (drawer / modal) is open, hide the platform chrome that
+   sits over the iframe — the mobile header and the header hamburger — so the
+   drawer can cover the entire page without the ☰ painting over its title. */
+.fb-module-overlay .fb-mhead,
+.fb-module-overlay .fb-burger-mask {
   display: none !important;
 }
 .fb-mhead-brand {
