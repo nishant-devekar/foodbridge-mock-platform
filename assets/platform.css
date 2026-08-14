@@ -442,3 +442,22 @@
 @media (prefers-reduced-motion: reduce) {
   [data-desktop-sidebar], .fb-edge, .fb-edge-i { transition: none !important; }
 }
+
+/* ── Masking each module's dead hamburger ──────────────────────────────────
+   Every module renders a hamburger in its own header. Inside the platform it
+   does nothing: it toggles that module's sidebar, which the clip has already
+   removed. The frames are cross-origin so the button cannot be deleted — it is
+   covered instead, opt-in per module via `hideBurger` in modules.json, because
+   several modules have no hamburger and Finance puts its page title at exactly
+   that x. Sits above the iframe but below the edge handle. */
+.fb-burger-mask {
+  position: absolute;
+  z-index: 5;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+.fb-burger-mask[hidden] { display: none; }
+/* Below lg the platform's own header already covers the module's, mask and all. */
+@media (max-width: 1023.98px) {
+  .fb-burger-mask { display: none !important; }
+}

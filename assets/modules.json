@@ -38,16 +38,18 @@
     "the sidebar. The storefront lives here: it is reached by scanning the Store",
     "QR code (storeQr.targetRoute), not from the admin nav."
   ],
-
-  "brand": { "name": "QA store" },
-  "user": { "displayName": "Mahesh", "role": "Admin" },
-
+  "brand": {
+    "name": "QA store"
+  },
+  "user": {
+    "displayName": "Mahesh",
+    "role": "Admin"
+  },
   "storeQr": {
     "label": "Store QR Code",
     "subtitle": "Share with customers to let them join your store",
     "targetRoute": "retails-overview"
   },
-
   "nav": [
     {
       "id": "dashboard",
@@ -55,7 +57,8 @@
       "icon": "layoutGrid",
       "url": "https://nidhimehta9399.github.io/foodbridge-dashboard-mockup/v1/screens/dashboard/dashboard.html",
       "clipLeft": 256,
-      "owner": "nidhimehta9399/foodbridge-dashboard-mockup"
+      "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
+      "hideBurger": true
     },
     {
       "id": "product-master",
@@ -68,7 +71,8 @@
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "exagon-ai/foodbridge-module-products"
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
         },
         {
           "id": "product-categories",
@@ -76,7 +80,8 @@
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "exagon-ai/foodbridge-module-products"
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
         },
         {
           "id": "raw-materials",
@@ -84,7 +89,8 @@
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "exagon-ai/foodbridge-module-products"
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
         },
         {
           "id": "image-gallery",
@@ -92,7 +98,8 @@
           "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "exagon-ai/foodbridge-module-products"
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
         }
       ]
     },
@@ -106,14 +113,16 @@
           "name": "B2B Customers",
           "url": "https://nidhimehta9399.github.io/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html",
           "clipLeft": 256,
-          "owner": "nidhimehta9399/foodbridge-customer-mockup"
+          "owner": "nidhimehta9399/foodbridge-customer-mockup",
+          "hideBurger": true
         },
         {
           "id": "retail-customers",
           "name": "Retail Customers",
           "url": "https://nidhimehta9399.github.io/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html",
           "clipLeft": 256,
-          "owner": "nidhimehta9399/foodbridge-customer-mockup"
+          "owner": "nidhimehta9399/foodbridge-customer-mockup",
+          "hideBurger": true
         }
       ]
     },
@@ -123,7 +132,8 @@
       "icon": "shoppingCart",
       "url": "https://nishant-devekar.github.io/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
       "clipLeft": 256,
-      "owner": "nishant-devekar/foodbridge-sales-orders-mockup"
+      "owner": "nishant-devekar/foodbridge-sales-orders-mockup",
+      "hideBurger": true
     },
     {
       "id": "distribution-logistics",
@@ -136,7 +146,8 @@
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+          "owner": "kdansari02/foodbridge-module-distribution-logistics",
+          "hideBurger": true
         },
         {
           "id": "delivery-management",
@@ -152,7 +163,8 @@
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+          "owner": "kdansari02/foodbridge-module-distribution-logistics",
+          "hideBurger": true
         },
         {
           "id": "live-tracking",
@@ -160,7 +172,8 @@
           "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/live-tracking/index.html",
           "clipLeft": 250,
           "mHeaderH": 67,
-          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+          "owner": "kdansari02/foodbridge-module-distribution-logistics",
+          "hideBurger": true
         }
       ]
     },
@@ -206,14 +219,16 @@
           "name": "Finished Goods Inventory",
           "url": "https://nishant-devekar.github.io/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html",
           "clipLeft": 256,
-          "owner": "nishant-devekar/foodbridge-inventory-mockup"
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true
         },
         {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
           "url": "https://nishant-devekar.github.io/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html",
           "clipLeft": 256,
-          "owner": "nishant-devekar/foodbridge-inventory-mockup"
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true
         }
       ]
     },
@@ -229,7 +244,8 @@
           "clipLeft": 256,
           "clipLeftMobile": 256,
           "mHeaderH": 56,
-          "owner": "love-scripter/foodbridge-module-procurement"
+          "owner": "love-scripter/foodbridge-module-procurement",
+          "hideBurger": true
         },
         {
           "id": "supplier-management",
@@ -238,7 +254,8 @@
           "clipLeft": 256,
           "clipLeftMobile": 256,
           "mHeaderH": 86,
-          "owner": "love-scripter/foodbridge-module-procurement"
+          "owner": "love-scripter/foodbridge-module-procurement",
+          "hideBurger": true
         }
       ]
     },
@@ -269,10 +286,10 @@
       "icon": "userCog",
       "url": "https://nishant-devekar.github.io/foodbridge-staff-mockup/screens/screen-01-staff-list.html",
       "clipLeft": 256,
-      "owner": "nishant-devekar/foodbridge-staff-mockup"
+      "owner": "nishant-devekar/foodbridge-staff-mockup",
+      "hideBurger": true
     }
   ],
-
   "standalone": [
     {
       "id": "retails-overview",
@@ -284,11 +301,26 @@
       "owner": "kdansari02/retails-overview"
     }
   ],
-
   "hidden": [
-    { "name": "Production Settlement", "under": "Production", "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav." },
-    { "name": "Stock Audit Settlement", "under": "(top level)", "why": "No mockup supplied." },
-    { "name": "Route Delivery", "under": "(sidebar footer)", "why": "No mockup supplied." },
-    { "name": "Store QR Code", "under": "(sidebar footer)", "why": "Present: opens a QR that deep-links to the 'retails-overview' standalone storefront." }
+    {
+      "name": "Production Settlement",
+      "under": "Production",
+      "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav."
+    },
+    {
+      "name": "Stock Audit Settlement",
+      "under": "(top level)",
+      "why": "No mockup supplied."
+    },
+    {
+      "name": "Route Delivery",
+      "under": "(sidebar footer)",
+      "why": "No mockup supplied."
+    },
+    {
+      "name": "Store QR Code",
+      "under": "(sidebar footer)",
+      "why": "Present: opens a QR that deep-links to the 'retails-overview' standalone storefront."
+    }
   ]
 }

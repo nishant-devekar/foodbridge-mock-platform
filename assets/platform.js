@@ -267,6 +267,12 @@
       '<span class="fb-edge-i">' + icon("chevronLeft", "w-4 h-4") + "</span>" +
       "</button>" +
       '<div class="fb-viewport" data-viewport>' +
+      // Each module draws its own hamburger in its header, and in here it is
+      // dead: it toggles the module's own sidebar, which the clip has removed.
+      // We cannot reach into a cross-origin frame to delete it, so we cover it.
+      // Opt-in per module (`hideBurger`), because several modules have none and
+      // one of them puts its page title at exactly that x.
+      '<div class="fb-burger-mask" data-burger-mask hidden></div>' +
       renderMobileHeader(config) +
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
       '<div class="fb-overlay" data-error hidden></div>' +
@@ -363,6 +369,28 @@
     viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
     viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");
     viewport.style.setProperty("--fb-clip-top-m", (fullBleed ? 0 : PLATFORM_MHEAD - mH) + "px");
+
+    /* Cover the module's dead hamburger. Default box measured across three
+       owners (burgers land at x 24-26, y 10-15, 36x36); `burgerBox` overrides
+       it for any module that differs. Below lg the platform's own header
+       already covers the module's, so the mask is desktop-only via CSS. */
+    var mask = document.querySelector("[data-burger-mask]");
+    if (mask) {
+      if (fullBleed || !leaf.hideBurger) {
+        mask.hidden = true;
+      } else {
+        // Burgers measured at x 24-26 w 36 (so they end at 60-62) and y 10-15
+        // h 36 (ending 46-51). The box has to stop at 62: any wider and it eats
+        // the page title, which starts ~4px later.
+        var b = leaf.burgerBox || [16, 4, 46, 52];
+        mask.style.left = b[0] + "px";
+        mask.style.top = b[1] + "px";
+        mask.style.width = b[2] + "px";
+        mask.style.height = b[3] + "px";
+        mask.style.background = leaf.burgerBg || "#fff";
+        mask.hidden = false;
+      }
+    }
     frame.title = dest.leaf.name;
     loading.hidden = false;
     error.hidden = true;
