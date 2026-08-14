@@ -123,6 +123,15 @@
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",
           "hideBurger": true
+        },
+        {
+          "id": "catalog",
+          "name": "Catalog",
+          "url": "https://exagon-ai.github.io/foodbridge-module-products/discovery/paths/products-directory/screens/products/catalog.html",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
         }
       ]
     },
