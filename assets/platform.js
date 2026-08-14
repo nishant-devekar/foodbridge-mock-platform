@@ -40,11 +40,8 @@
     currentUrl: null,
     rootEl: null,
     openGroups: {},
-    // Whether the platform's own sidebar is collapsed. Persisted, because a
-    // collapse that resets on every reload is worse than none.
-    sidebarCollapsed: (function () {
-      try { return localStorage.getItem("fb-sidebar-collapsed") === "1"; } catch (e) { return false; }
-    })(),
+    // Sidebar collapse was removed — the sidebar always stays expanded.
+    sidebarCollapsed: false,
     mobileNavOpen: false,
   };
 
@@ -256,16 +253,6 @@
       "</aside></div>" +
 
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
-      // The sidebar control lives on the platform's own edge, not in a module's
-      // header. Overlaying the module hamburger was tried and does not
-      // generalise: some modules have no hamburger at all (Finance's title
-      // starts exactly where it would sit), so the button covered their text.
-      // An edge handle belongs unmistakably to the platform, never collides
-      // with module content, and its chevron points the way the panel moves.
-      '<button type="button" data-sidebar-toggle class="fb-edge" ' +
-      'aria-label="Toggle sidebar" title="Toggle sidebar">' +
-      '<span class="fb-edge-i">' + icon("chevronLeft", "w-4 h-4") + "</span>" +
-      "</button>" +
       '<div class="fb-viewport" data-viewport>' +
       // Each module draws its own hamburger in its header, and in here it is
       // dead: it toggles the module's own sidebar, which the clip has removed.
