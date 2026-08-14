@@ -226,15 +226,21 @@
   // Mobile-only QA-store header. It is absolutely positioned over the top of the
   // viewport so it covers the module's own header (which sits at the iframe top),
   // leaving exactly one header. The hamburger opens the platform drawer; the
-  // title tracks the active module; the user block mirrors the desktop header.
+  // brand (bag + store name) mirrors the desktop store selector; the module's own
+  // in-content page heading names the screen (so no duplicate title here). The
+  // user block mirrors the desktop header.
   function renderMobileHeader(config) {
     var u = config.user || {};
+    var name = esc((config.brand && config.brand.name) || "");
     return (
       '<header data-mobile-bar class="fb-mhead">' +
       '<button type="button" data-mobile-toggle class="fb-mhead-burger" aria-label="Open menu">' +
       icon("menu", "w-5 h-5") +
       "</button>" +
-      '<span class="fb-mhead-title" data-mobile-title></span>' +
+      '<a href="#/" class="fb-mhead-brand" title="' + name + '">' +
+      '<img src="' + BAG_ICON + '" alt="Storefront Logo" />' +
+      '<span class="fb-mhead-brand-name">' + name + "</span>" +
+      "</a>" +
       '<div class="fb-mhead-user">' +
       '<span class="fb-mhead-user-txt"><span class="nm">' + esc(u.displayName || "") + '</span><span class="rl">' + esc(u.role || "") + "</span></span>" +
       '<span class="fb-mhead-ava">' + icon("user", "w-4 h-4") + "</span>" +
@@ -353,7 +359,7 @@
     var fullBleed = !!leaf.fullBleed;
     var PLATFORM_MHEAD = 56; // keep in sync with .fb-mhead height in platform.css
     var mH = leaf.mHeaderH != null ? leaf.mHeaderH : PLATFORM_MHEAD;
-    if (state.rootEl) state.rootEl.classList.toggle("fb-fullbleed", fullBleed);
+    if (state.rootEl) { state.rootEl.classList.toggle("fb-fullbleed", fullBleed); state.rootEl.classList.remove("fb-module-overlay"); }
     applySidebar();
     viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
     viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");
@@ -377,8 +383,6 @@
     state.currentUrl = pickUrl(dest.leaf);
     frame.src = state.currentUrl;
     document.title = dest.leaf.name + " — FoodBridge";
-    var mt = document.querySelector("[data-mobile-title]");
-    if (mt) mt.textContent = dest.leaf.name;
   }
 
   /* ── Store QR ─────────────────────────────────────────────────────────────
@@ -537,6 +541,15 @@
         closeMobileNav();
         closeQrModal();
       }
+    });
+
+    // A module opens a drawer / modal inside its iframe, which cannot paint over
+    // the platform's own mobile header. When it signals an overlay is open, hide
+    // that header so the drawer covers the whole page; restore it on close.
+    window.addEventListener("message", function (e) {
+      var d = e.data;
+      if (!d || d.source !== "fb-module" || d.type !== "overlay") return;
+      if (state.rootEl) state.rootEl.classList.toggle("fb-module-overlay", !!d.active);
     });
 
     // When the viewport crosses the mobile breakpoint, a module with a phone

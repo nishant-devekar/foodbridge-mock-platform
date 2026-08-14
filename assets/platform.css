@@ -107,6 +107,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* While a module overlay (drawer / modal) is open, hide the platform's mobile
+   header so the drawer can cover the entire page. */
+.fb-module-overlay .fb-mhead {
+  display: none !important;
+}
+.fb-mhead-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  text-decoration: none;
+}
+.fb-mhead-brand img {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.fb-mhead-brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .fb-mhead-user {
   margin-left: auto;
   display: flex;
