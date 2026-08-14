@@ -453,9 +453,19 @@
 .fb-burger-mask {
   position: absolute;
   z-index: 5;
+  border: 0;
   border-radius: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  cursor: pointer;
   pointer-events: auto;
+  transition: color .15s;
 }
+.fb-burger-mask:hover { color: #047857; }
+.fb-burger-mask:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
 .fb-burger-mask[hidden] { display: none; }
 /* Below lg the platform's own header already covers the module's, mask and all. */
 @media (max-width: 1023.98px) {

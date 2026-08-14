@@ -267,7 +267,7 @@
       // We cannot reach into a cross-origin frame to delete it, so we cover it.
       // Opt-in per module (`hideBurger`), because several modules have none and
       // one of them puts its page title at exactly that x.
-      '<div class="fb-burger-mask" data-burger-mask hidden></div>' +
+      '<button type="button" class="fb-burger-mask" data-burger-mask data-sidebar-toggle hidden aria-label="Toggle sidebar" title="Toggle sidebar">' + icon("menu", "w-5 h-5") + "</button>" +
       renderMobileHeader(config) +
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
       '<div class="fb-overlay" data-error hidden></div>' +
