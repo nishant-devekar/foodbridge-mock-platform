@@ -359,7 +359,11 @@
     var fullBleed = !!leaf.fullBleed;
     var PLATFORM_MHEAD = 56; // keep in sync with .fb-mhead height in platform.css
     var mH = leaf.mHeaderH != null ? leaf.mHeaderH : PLATFORM_MHEAD;
-    if (state.rootEl) { state.rootEl.classList.toggle("fb-fullbleed", fullBleed); state.rootEl.classList.remove("fb-module-overlay"); }
+    // Start every module expanded: the sidebar-collapse hamburger lives in the
+    // module header, so a collapse must not strand a module whose header can't
+    // toggle it back.
+    state.sidebarCollapsed = false;
+    if (state.rootEl) { state.rootEl.classList.toggle("fb-fullbleed", fullBleed); state.rootEl.classList.remove("fb-module-overlay"); state.rootEl.classList.remove("fb-sidebar-collapsed"); }
     applySidebar();
     viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
     viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");
@@ -564,13 +568,18 @@
       }
     });
 
-    // A module opens a drawer / modal inside its iframe, which cannot paint over
-    // the platform's own mobile header. When it signals an overlay is open, hide
-    // that header so the drawer covers the whole page; restore it on close.
+    // Messages from a module's iframe:
+    //  • overlay        — it opened a drawer/modal; hide the mobile header so the
+    //                     overlay can cover the whole page.
+    //  • toggle-sidebar — its header hamburger was clicked; the module's own
+    //                     sidebar is clipped away, so the click drives the
+    //                     platform's sidebar collapse instead (one control that
+    //                     actually works, right where the real app puts it).
     window.addEventListener("message", function (e) {
       var d = e.data;
-      if (!d || d.source !== "fb-module" || d.type !== "overlay") return;
-      if (state.rootEl) state.rootEl.classList.toggle("fb-module-overlay", !!d.active);
+      if (!d || d.source !== "fb-module") return;
+      if (d.type === "overlay") { if (state.rootEl) state.rootEl.classList.toggle("fb-module-overlay", !!d.active); }
+      else if (d.type === "toggle-sidebar") { setSidebarCollapsed(!state.sidebarCollapsed); }
     });
 
     // When the viewport crosses the mobile breakpoint, a module with a phone
