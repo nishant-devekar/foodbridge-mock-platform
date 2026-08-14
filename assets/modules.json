@@ -153,6 +153,14 @@
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "kdansari02/foodbridge-module-distribution-logistics"
+        },
+        {
+          "id": "live-tracking",
+          "name": "Live Delivery Tracking",
+          "url": "https://kdansari02.github.io/foodbridge-module-distribution-logistics/discovery/paths/live-tracking/index.html",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "kdansari02/foodbridge-module-distribution-logistics"
         }
       ]
     },
