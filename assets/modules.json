@@ -55,7 +55,7 @@
       "id": "dashboard",
       "name": "Dashboard",
       "icon": "layoutGrid",
-      "url": "https://nidhimehta9399.github.io/foodbridge-dashboard-mockup/v1/screens/dashboard/dashboard.html",
+      "url": "https://nidhimehta9399.github.io/foodbridge-dashboard-mockup/discovery/screens/dashboard/dashboard.html",
       "clipLeft": 256,
       "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
       "hideBurger": true

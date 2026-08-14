@@ -32,6 +32,14 @@
   var BAG_ICON =
     "data:image/svg+xml,%3csvg%20width='16'%20height='19'%20viewBox='0%200%2016%2019'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M12.5714%205.71429V4.57143C12.5714%202.05071%2010.5207%200%208%200C5.47929%200%203.42857%202.05071%203.42857%204.57143V5.71429H0V15.4286C0%2017.0065%201.27918%2018.2857%202.85714%2018.2857H13.1429C14.7208%2018.2857%2016%2017.0065%2016%2015.4286V5.71429H12.5714ZM5.71429%204.57143C5.71429%203.31107%206.73964%202.28571%208%202.28571C9.26036%202.28571%2010.2857%203.31107%2010.2857%204.57143V5.71429H5.71429V4.57143ZM11.4286%208.85714C10.9552%208.85714%2010.5714%208.47339%2010.5714%208C10.5714%207.52661%2010.9552%207.14286%2011.4286%207.14286C11.902%207.14286%2012.2857%207.52661%2012.2857%208C12.2857%208.47339%2011.902%208.85714%2011.4286%208.85714ZM4.57143%208.85714C4.09804%208.85714%203.71429%208.47339%203.71429%208C3.71429%207.52661%204.09804%207.14286%204.57143%207.14286C5.04482%207.14286%205.42857%207.52661%205.42857%208C5.42857%208.47339%205.04482%208.85714%204.57143%208.85714Z'%20fill='%2310B981'/%3e%3c/svg%3e";
 
+  // This script's own ?v= token, reused to cache-bust modules.json (see mount).
+  // Read here, at load time: document.currentScript is only set while the
+  // script executes synchronously, and is null by the time mount() runs.
+  var BUILD = (function () {
+    var s = document.currentScript;
+    return s ? (s.src.split("?v=")[1] || "") : "";
+  })();
+
   var state = {
     config: null,
     routes: {},   // "group/leaf" or "leaf" -> destination
@@ -579,7 +587,13 @@
 
   /* ── Boot ──────────────────────────────────────────────────────────────── */
   async function mount(el, configPath) {
-    var res = await fetch(configPath || "assets/modules.json");
+    // modules.json carries the URLs, so a stale copy pins the whole platform to
+    // the previous set of destinations. platform.js/.css are cache-busted by the
+    // ?v= token on their script/link tags; this file had nothing, and Pages
+    // serves it with a ten-minute max-age. Reuse this script's own token so one
+    // bump invalidates all three.
+    var url = configPath || "assets/modules.json";
+    var res = await fetch(url + (BUILD && url.indexOf("?") === -1 ? "?v=" + BUILD : ""));
     if (!res.ok) throw new Error("modules.json " + res.status);
     var config = await res.json();
     state.config = config;
