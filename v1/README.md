@@ -40,28 +40,6 @@ changing shape shows up here — which is the point.
 [`assets/modules.json`](assets/modules.json). Adding a module means adding an
 entry there; there is no other place to change.
 
-## Versions
-
-`v1/` is a **frozen, self-contained snapshot** — the shell plus a local copy of every module
-screen it shows on the freeze date. Nothing in it loads from a module team's Pages site, so it
-renders the same however those repos change afterwards. That is the point: the live platform at
-`/` follows the teams, and `v1/` does not.
-
-| | Live (`/`) | Frozen (`v1/`) |
-| --- | ---------- | -------------- |
-| Module screens | fetched from each team's Pages site at view time | local copies under `v1/modules/<repo>/` |
-| Changes when a team pushes | yes, on the next load | no |
-| Share as | a link | a link, or the folder / release zip |
-
-- Browse: <https://nishant-devekar.github.io/foodbridge-mock-platform/v1/>
-- What is inside, where each screen came from, and the two limitations:
-  [`v1/VERSION.md`](v1/VERSION.md)
-- Tagged `v1` in git, with the same folder attached as a zip on the GitHub release.
-
-Rebuild or cut a later snapshot with `tools/pack.py` (see its docstring). It re-crawls every
-destination in `assets/modules.json`, keeps each module's own directory layout so relative links
-survive, vendors the CDN assets, and rewrites `modules.json` to local paths.
-
 ## How the seam works
 
 Each module renders its *own* copy of the QA sidebar, so naive embedding would
