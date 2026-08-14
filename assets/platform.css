@@ -391,33 +391,54 @@
   border-right-width: 0 !important;
 }
 
-/* The way back. Only rendered while collapsed, and only on desktop, since below
-   lg the platform's own mobile header already carries a burger. */
-.fb-reopen {
+/* ── The sidebar control ────────────────────────────────────────────────────
+   It sits on the platform's own edge, between the sidebar and the module.
+
+   Two earlier attempts were wrong and are worth recording. A chevron in the
+   sidebar's brand row competed with the module's header hamburger — two
+   controls that look like they do the same job, and the one people reach for
+   (the hamburger) is dead, because it targets the module's own sidebar which
+   the clip has already removed. Overlaying that hamburger with a working one
+   does not generalise either: several modules have no hamburger at all, and
+   Finance's page title starts at exactly the x where it would sit, so the
+   button covered the text.
+
+   An edge handle belongs unmistakably to the platform rather than to any
+   module, cannot collide with module content whatever a module's header looks
+   like, and its chevron points the way the panel will move. */
+.fb-edge {
   display: none;
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 6;
-  width: 36px;
-  height: 36px;
+  position: fixed;
+  top: 50%;
+  left: 256px;
+  transform: translate(-50%, -50%);
+  z-index: 45;
+  width: 22px;
+  height: 46px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--fb-line, #e5e7eb);
-  border-radius: 10px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   background: #fff;
-  color: #4b5563;
-  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.12);
+  color: #6b7280;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.1);
+  transition: background-color .15s, color .15s, left .3s ease-in-out;
 }
-.fb-reopen:hover { background: #f9fafb; color: #111827; }
-@media (min-width: 1024px) {
-  .fb-sidebar-collapsed .fb-reopen { display: inline-flex; }
-}
-/* Full-bleed modules hide the sidebar already; a reopen button would be a
-   second control for the same thing. */
-.fb-fullbleed .fb-reopen { display: none !important; }
+.fb-edge:hover { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.fb-edge:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+.fb-edge-i { display: inline-flex; transition: transform .3s ease-in-out; }
+
+/* Collapsed: hug the screen edge and flip the chevron outward. */
+.fb-sidebar-collapsed .fb-edge { left: 0; transform: translate(0, -50%); border-radius: 0 8px 8px 0; }
+.fb-sidebar-collapsed .fb-edge-i { transform: rotate(180deg); }
+
+@media (min-width: 1024px) { .fb-edge { display: inline-flex; } }
+
+/* Full-bleed modules hide the sidebar entirely, so there is nothing to toggle. */
+.fb-fullbleed .fb-edge { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-desktop-sidebar] { transition: none !important; }
+  [data-desktop-sidebar], .fb-edge, .fb-edge-i { transition: none !important; }
 }

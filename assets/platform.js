@@ -101,15 +101,7 @@
       '<a href="#/" class="flex-shrink-0"><img src="' + BAG_ICON + '" alt="Storefront Logo" class="w-7 h-7" /></a>' +
       '<div class="flex flex-col min-w-0 flex-1">' +
       '<span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight" title="' + name + '">' + name + "</span>" +
-      "</div>" +
-      // The platform has to own this. The only other hamburger on screen belongs
-      // to the module inside the iframe, and it targets the module's own sidebar
-      // — which we clip out of view — so it is a dead control here.
-      '<button type="button" data-sidebar-collapse aria-label="Collapse sidebar" title="Collapse sidebar" ' +
-      'class="hidden lg:inline-flex flex-shrink-0 items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">' +
-      icon("chevronLeft", "w-4 h-4") +
-      "</button>" +
-      "</div></div>"
+      "</div></div></div>"
     );
   }
 
@@ -264,8 +256,15 @@
       "</aside></div>" +
 
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
-      '<button type="button" data-sidebar-expand aria-label="Show sidebar" title="Show sidebar" class="fb-reopen">' +
-      icon("menu", "w-5 h-5") +
+      // The sidebar control lives on the platform's own edge, not in a module's
+      // header. Overlaying the module hamburger was tried and does not
+      // generalise: some modules have no hamburger at all (Finance's title
+      // starts exactly where it would sit), so the button covered their text.
+      // An edge handle belongs unmistakably to the platform, never collides
+      // with module content, and its chevron points the way the panel moves.
+      '<button type="button" data-sidebar-toggle class="fb-edge" ' +
+      'aria-label="Toggle sidebar" title="Toggle sidebar">' +
+      '<span class="fb-edge-i">' + icon("chevronLeft", "w-4 h-4") + "</span>" +
       "</button>" +
       '<div class="fb-viewport" data-viewport>' +
       renderMobileHeader(config) +
@@ -511,8 +510,7 @@
         refreshSidebars();
         return;
       }
-      if (e.target.closest("[data-sidebar-collapse]")) { setSidebarCollapsed(true); return; }
-      if (e.target.closest("[data-sidebar-expand]")) { setSidebarCollapsed(false); return; }
+      if (e.target.closest("[data-sidebar-toggle]")) { setSidebarCollapsed(!state.sidebarCollapsed); return; }
       if (e.target.closest("[data-store-qr]")) { openQrModal(); return; }
       if (e.target.closest("[data-qr-generate]")) { generateQr(); return; }
       if (e.target.closest("[data-qr-download]")) { downloadQr(); return; }
