@@ -40,6 +40,11 @@
     currentUrl: null,
     rootEl: null,
     openGroups: {},
+    // Whether the platform's own sidebar is collapsed. Persisted, because a
+    // collapse that resets on every reload is worse than none.
+    sidebarCollapsed: (function () {
+      try { return localStorage.getItem("fb-sidebar-collapsed") === "1"; } catch (e) { return false; }
+    })(),
     mobileNavOpen: false,
   };
 
@@ -96,7 +101,15 @@
       '<a href="#/" class="flex-shrink-0"><img src="' + BAG_ICON + '" alt="Storefront Logo" class="w-7 h-7" /></a>' +
       '<div class="flex flex-col min-w-0 flex-1">' +
       '<span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight" title="' + name + '">' + name + "</span>" +
-      "</div></div></div>"
+      "</div>" +
+      // The platform has to own this. The only other hamburger on screen belongs
+      // to the module inside the iframe, and it targets the module's own sidebar
+      // — which we clip out of view — so it is a dead control here.
+      '<button type="button" data-sidebar-collapse aria-label="Collapse sidebar" title="Collapse sidebar" ' +
+      'class="hidden lg:inline-flex flex-shrink-0 items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">' +
+      icon("chevronLeft", "w-4 h-4") +
+      "</button>" +
+      "</div></div>"
     );
   }
 
@@ -245,6 +258,9 @@
       "</aside></div>" +
 
       '<div class="flex flex-col flex-1 w-full min-w-0">' +
+      '<button type="button" data-sidebar-expand aria-label="Show sidebar" title="Show sidebar" class="fb-reopen">' +
+      icon("menu", "w-5 h-5") +
+      "</button>" +
       '<div class="fb-viewport" data-viewport>' +
       renderMobileHeader(config) +
       '<div class="fb-overlay" data-loading><div class="fb-spinner" role="status" aria-label="Loading module"></div></div>' +
@@ -338,6 +354,7 @@
     var PLATFORM_MHEAD = 56; // keep in sync with .fb-mhead height in platform.css
     var mH = leaf.mHeaderH != null ? leaf.mHeaderH : PLATFORM_MHEAD;
     if (state.rootEl) state.rootEl.classList.toggle("fb-fullbleed", fullBleed);
+    applySidebar();
     viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
     viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");
     viewport.style.setProperty("--fb-clip-top-m", (fullBleed ? 0 : PLATFORM_MHEAD - mH) + "px");
@@ -442,6 +459,19 @@
   }
 
   /* ── Navigation ────────────────────────────────────────────────────────── */
+  /* Collapsing is a class on the root, not a style on the aside, so the reopen
+     button and the viewport can react to the same switch. */
+  function applySidebar() {
+    var root = state.rootEl || document.getElementById("root");
+    if (root) root.classList.toggle("fb-sidebar-collapsed", !!state.sidebarCollapsed);
+  }
+
+  function setSidebarCollapsed(v) {
+    state.sidebarCollapsed = !!v;
+    try { localStorage.setItem("fb-sidebar-collapsed", state.sidebarCollapsed ? "1" : "0"); } catch (e) {}
+    applySidebar();
+  }
+
   function refreshSidebars() {
     var html = renderSidebarContent(state.config);
     document.querySelector("[data-desktop-sidebar]").innerHTML = html;
@@ -477,6 +507,8 @@
         refreshSidebars();
         return;
       }
+      if (e.target.closest("[data-sidebar-collapse]")) { setSidebarCollapsed(true); return; }
+      if (e.target.closest("[data-sidebar-expand]")) { setSidebarCollapsed(false); return; }
       if (e.target.closest("[data-store-qr]")) { openQrModal(); return; }
       if (e.target.closest("[data-qr-generate]")) { generateQr(); return; }
       if (e.target.closest("[data-qr-download]")) { downloadQr(); return; }
@@ -534,6 +566,7 @@
 
     el.innerHTML = renderShell(config);
     wire(el);
+    applySidebar();
     refreshSidebars();
     loadModule(state.current);
 

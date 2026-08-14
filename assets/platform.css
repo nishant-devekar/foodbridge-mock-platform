@@ -355,3 +355,44 @@
     animation: none;
   }
 }
+
+/* ── Sidebar collapse ───────────────────────────────────────────────────────
+   The platform has to own this control. The only other hamburger on screen
+   belongs to the module inside the iframe, and it targets that module's own
+   sidebar — which the clip has already pushed out of view — so it does nothing
+   here. Before this, the desktop sidebar simply could not be collapsed. */
+.fb-sidebar-collapsed [data-desktop-sidebar] {
+  width: 0 !important;
+  border-right-width: 0 !important;
+}
+
+/* The way back. Only rendered while collapsed, and only on desktop, since below
+   lg the platform's own mobile header already carries a burger. */
+.fb-reopen {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fb-line, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+  color: #4b5563;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.12);
+  cursor: pointer;
+}
+.fb-reopen:hover { background: #f9fafb; color: #111827; }
+@media (min-width: 1024px) {
+  .fb-sidebar-collapsed .fb-reopen { display: inline-flex; }
+}
+/* Full-bleed modules hide the sidebar already; a reopen button would be a
+   second control for the same thing. */
+.fb-fullbleed .fb-reopen { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-desktop-sidebar] { transition: none !important; }
+}
