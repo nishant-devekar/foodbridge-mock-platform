@@ -1,90 +1,90 @@
 # FoodBridge v1 — source
 
-The **source** half of v1. Its companion, `foodbridge-mock-platform-v1.zip`, is the runtime
-half: a self-contained build you open in a browser and click through without installing
-anything. Use that one to *see* the product; use this one to *work* on it.
+Everything behind the platform: 12 repositories, their full history, and the decision log
+for every screen. Its companion `foodbridge-mock-platform-v1.zip` is the runtime build —
+open that one in a browser to *look* at the product; use this one to *work* on it.
 
-## Run it, in one command
-
-The repos are already laid out the way the tooling expects. From this folder:
+## Run
 
 ```bash
-cd repos/foodbridge-mock-platform
-python3 tools/dev.py
+./run.sh
 ```
 
-It prints a URL. Open it. Python 3 and a browser — nothing to install, no build step.
+It prints a URL. Open it. That's the whole setup — Python 3 and a browser, no install, no
+build step. Edit any file under `repos/` and refresh.
 
-Edit any file under `repos/` and refresh; the change is there. Full notes, including the
-`development/` npm workspaces and the things that otherwise catch people out, are in
-[`repos/foodbridge-mock-platform/DEVELOPMENT.md`](repos/foodbridge-mock-platform/DEVELOPMENT.md).
+## Update
 
-> **Why a script rather than "serve the folder"?** Published, the shell iframes each team's
-> live GitHub Pages site. Serving the shell on its own would still load every module from the
-> internet, and nothing you edited locally would appear. `dev.py` repoints every destination at
-> the checkouts and serves them from one root.
+```bash
+./update.sh
+```
+
+Pulls every checkout up to date with GitHub. Anything with uncommitted changes is reported
+and left alone rather than clobbered.
+
+## Maintain
+
+`repos/` holds ordinary git clones with their GitHub `origin` already set. Work in them
+normally:
+
+```bash
+cd repos/foodbridge-dashboard-mockup
+git checkout -b my-change
+# edit, refresh the browser, repeat
+git commit -am "…"
+git push -u origin my-change
+```
+
+Nothing to reassemble, no remotes to fix.
 
 ## What is here
 
 ```
-repos/<name>/           full working tree at the v1 commit — plain files, no git needed
-bundles/<name>.bundle   the same repository with complete history, branches and tags
-MANIFEST.md             every repository, its exact commit SHA and date
+run.sh          start the platform against these checkouts
+update.sh       pull them all up to date
+repos/<name>/   a full git clone of each repository
+MANIFEST.md     every repository, its commit at v1, and its GitHub URL
 ```
 
-12 repositories, 1347 files.
+## The one thing worth knowing
 
-## If you are going to commit
+Published, the shell iframes each team's **live GitHub Pages site**. So serving this folder
+with a plain static server would still load every module from the internet, and nothing you
+edited locally would appear — silently, with nothing looking broken.
 
-`repos/` holds plain files with **no `.git`** — fine for reading and for a quick experiment, but
-you cannot commit from it. The history is in `bundles/`, and a bundle clones like a remote. To get
-a set of real, committable repos:
+`run.sh` is what avoids that: it repoints all 26 destinations at `repos/` and serves them
+from one root with `Cache-Control: no-store`. It also writes `modules.local.json`, which is
+gitignored — `assets/modules.json` stays canonical.
+
+Two repositories publish Pages from a `discovery/` subdirectory, so their published URL paths
+don't match their paths on disk. Every destination is resolved against the real files, and
+anything missing is reported at startup instead of 404-ing later. A missing checkout isn't
+fatal either, so you can delete the repos you don't care about and still run the rest.
+
+## Editing seed data
+
+Each mockup is driven by a seed file, usually `seed-data/seed.json`. Several modules also ship
+`seed.inline.js`, a verbatim copy as a script, because `file://` blocks fetching local JSON.
+**Where both exist, edit both** — otherwise they disagree and which one you see depends on how
+the page was opened.
+
+## Read the addenda before changing a screen
+
+Each module keeps `discovery/instructions/` — an addendum per iteration recording what was
+asked, what was decided, and what was rejected. That reasoning isn't in the code, and it is the
+main thing this package has that the runtime build does not.
+
+## The two npm trees
+
+`invoice-payment-overview` and `foodbridge-module-procurement` have gone past discovery and
+carry `development/` npm workspaces:
 
 ```bash
-mkdir work && cd work
-for b in ../bundles/*.bundle; do
-  git clone -q "$b" "$(basename "$b" .bundle)"
-done
+cd repos/invoice-payment-overview/development
+npm install
+npm test
 ```
 
-You now have every commit, branch and tag — `git log`, `git diff` and `git blame` all work
-offline. `tools/dev.py` picks these up with no arguments, because they sit side by side exactly
-as it expects:
-
-```bash
-cd foodbridge-mock-platform
-python3 tools/dev.py
-```
-
-**Repoint `origin` before doing real work.** A bundle clone's `origin` is the bundle file, so
-pushing would go nowhere useful:
-
-```bash
-git remote set-url origin https://github.com/<owner>/<name>.git
-```
-
-`MANIFEST.md` lists the owner for each repository.
-
-## Why this is separate from the runtime package
-
-The runtime package was built by crawling what a browser loads, so it holds only the 155 files
-needed to render the 24 screens — about 14% of the source. Everything below is invisible to a
-browser and therefore absent from it:
-
-- `discovery/instructions/` — the addenda and decision log for every module. The *why* behind
-  each design choice.
-- `development/` — where modules have gone past discovery: TypeScript services and repositories,
-  OpenAPI specs, tests, and `sources-of-truth/` (state machine, domain model, component library,
-  workflow model, collaboration contract).
-- Screens reached only by JavaScript rather than by a link.
-- Canonical `seed-data/*.json` where a module ships an inlined mirror for the browser.
-- Superseded and frozen version folders.
-- Briefs, walkthroughs and screenshots of the as-is system.
-- All git history.
-
-## Known issue on arrival
-
-`npm test` in `repos/invoice-payment-overview/development` exits non-zero: 8 of its 9 test files
-pass, and the `functional` suite fails with `ReferenceError: document is not defined` because
-vitest has no jsdom environment configured for it. Pre-existing in the module, not caused by the
-packaging. See DEVELOPMENT.md.
+`npm install` works. `npm test` currently exits non-zero: 8 of its 9 test files pass, and the
+`functional` suite fails with `ReferenceError: document is not defined` because vitest has no
+jsdom environment configured for it. Pre-existing in the module, not caused by the packaging.

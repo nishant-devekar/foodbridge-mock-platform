@@ -59,7 +59,7 @@ carries **two** assets, because "look at it" and "work on it" need different thi
 | Asset | For | Size |
 | ----- | --- | ---- |
 | `foodbridge-mock-platform-v1.zip` | Seeing it run — the folder below, self-contained. | 2.6 MB |
-| `foodbridge-v1-source.zip` | Handing to a developer — all 12 repos, full working trees, complete git history, and the decision log behind every screen. | 46.5 MB |
+| `foodbridge-v1-source.zip` | Handing to a developer — all 12 repos as ready-to-work git clones. Unzip, `./run.sh`, `./update.sh`. | 46.6 MB |
 
 The runtime half was built by crawling what a browser loads, so it holds **155 of 1,141 module
 files (~14%)** — enough to render every screen, and nothing else. `discovery/instructions/`,
