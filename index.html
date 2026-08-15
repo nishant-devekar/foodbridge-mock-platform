@@ -67,7 +67,11 @@
   <script src="assets/qrcode.min.js"></script>
   <script src="assets/platform.js?v=20260814d"></script>
   <script>
-    window.FBPlatform.mount(document.getElementById("root")).catch(function (err) {
+    // ?config=<path> swaps the nav config. Local development uses it to point every
+    // destination at a checkout on disk instead of the team's live Pages site —
+    // see tools/dev.py. Absent, the published assets/modules.json is used.
+    var fbConfig = new URLSearchParams(location.search).get("config") || undefined;
+    window.FBPlatform.mount(document.getElementById("root"), fbConfig).catch(function (err) {
       document.getElementById("root").innerHTML =
         '<p style="font:14px system-ui;padding:24px;color:#b91c1c">' +
         "Could not start the platform shell: " + err.message +

@@ -119,6 +119,19 @@ Two mappings are worth knowing about:
 
 ## Running locally
 
+For **development** — editing modules and seeing the change — see
+**[DEVELOPMENT.md](DEVELOPMENT.md)**. Short version, with the checkouts side by side:
+
+```bash
+python3 tools/dev.py
+```
+
+which rewrites every destination to point at your checkouts and serves them from one root.
+Without that step the shell keeps loading each module from its live Pages site, and nothing you
+edit locally appears.
+
+### Just viewing it
+
 `modules.json` is read with `fetch()`, which browsers block on `file://`. Serve
 over HTTP:
 
