@@ -101,6 +101,13 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
 
+    # the banner is the tool's whole UI; unbuffer so it appears immediately even
+    # when stdout is a pipe or a log file rather than a terminal
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
+
     root = pathlib.Path(args.root).resolve()
     if not (root / PLATFORM.name).is_dir():
         sys.exit(f"No {PLATFORM.name}/ under {root}.\n"
