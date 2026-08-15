@@ -53,10 +53,23 @@ renders the same however those repos change afterwards. That is the point: the l
 | Changes when a team pushes | yes, on the next load | no |
 | Share as | a link | a link, or the folder / release zip |
 
+The [`v1` release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases/tag/v1)
+carries **two** assets, because "look at it" and "work on it" need different things:
+
+| Asset | For | Size |
+| ----- | --- | ---- |
+| `foodbridge-mock-platform-v1.zip` | Seeing it run — the folder below, self-contained. | 2.6 MB |
+| `foodbridge-v1-source.zip` | Handing to a developer — all 12 repos, full working trees, complete git history, and the decision log behind every screen. | 46.5 MB |
+
+The runtime half was built by crawling what a browser loads, so it holds **155 of 1,141 module
+files (~14%)** — enough to render every screen, and nothing else. `discovery/instructions/`,
+`development/` trees, screens reached only by JavaScript, canonical seed JSON, superseded version
+folders and all git history are invisible to a browser and live in the source half instead.
+
 - Browse: <https://nishant-devekar.github.io/foodbridge-mock-platform/v1/>
 - What is inside, where each screen came from, and the two limitations:
   [`v1/VERSION.md`](v1/VERSION.md)
-- Tagged `v1` in git, with the same folder attached as a zip on the GitHub release.
+- Tagged `v1` in git; the source half records every repository's exact commit SHA in its `MANIFEST.md`.
 
 Rebuild or cut a later snapshot with `tools/pack.py` (see its docstring). It re-crawls every
 destination in `assets/modules.json`, keeps each module's own directory layout so relative links
