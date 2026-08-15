@@ -571,11 +571,25 @@
     refreshSidebars();
   }
 
+  /* Re-rendering replaces the sidebar's innerHTML, which destroys the element
+     the user had scrolled and sends it back to the top. On a nav list taller
+     than the viewport that meant every click bounced you away from where you
+     were working — pick Supplier Payables and the menu jumps to Dashboard.
+     Carry the scroll offset across the swap. */
   function refreshSidebars() {
     var html = renderSidebarContent(state.config);
-    document.querySelector("[data-desktop-sidebar]").innerHTML = html;
-    var mob = document.querySelector("[data-mobile-sidebar] aside");
-    if (mob) mob.innerHTML = html;
+    [document.querySelector("[data-desktop-sidebar]"),
+     document.querySelector("[data-mobile-sidebar] aside")].forEach(function (host) {
+      if (!host) return;
+      var prev = host.querySelector(".sidebar-scroll");
+      var top = prev ? prev.scrollTop : 0;
+      host.innerHTML = html;
+      if (!top) return;
+      var next = host.querySelector(".sidebar-scroll");
+      // clamp: the list can get shorter (a business type with fewer screens),
+      // and restoring past the new end would silently land at the bottom
+      if (next) next.scrollTop = Math.min(top, Math.max(0, next.scrollHeight - next.clientHeight));
+    });
   }
 
   function go(key, opts) {
