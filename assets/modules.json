@@ -90,7 +90,10 @@
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products",
-          "hideBurger": true
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
         },
         {
           "id": "image-gallery",
@@ -216,6 +219,9 @@
           "mHeaderH": 144,
           "owner": "nishant-devekar/foodbridge-production-discovery"
         }
+      ],
+      "personas": [
+        "manufacturer"
       ]
     },
     {
@@ -237,7 +243,10 @@
           "url": "https://nishant-devekar.github.io/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
-          "hideBurger": true
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
         }
       ]
     },
@@ -331,5 +340,18 @@
       "under": "(sidebar footer)",
       "why": "Present: opens a QR that deep-links to the 'retails-overview' standalone storefront."
     }
-  ]
+  ],
+  "personas": [
+    {
+      "id": "manufacturer",
+      "name": "Manufacturer",
+      "blurb": "Makes and sells — the whole platform"
+    },
+    {
+      "id": "distributor",
+      "name": "Distributor",
+      "blurb": "Buys finished goods and resells"
+    }
+  ],
+  "personaDefault": "manufacturer"
 }

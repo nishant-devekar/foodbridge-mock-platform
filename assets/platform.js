@@ -59,6 +59,22 @@
      chrome (header + clip offsets), so url and chrome change together. */
   var mobileMQ = window.matchMedia("(max-width: 1023.98px)");
 
+  /* One gate, read by BOTH buildRoutes and the sidebar. If they each filtered
+     separately they would eventually disagree, and a hidden route would still be
+     reachable by hash — the nav would say a distributor has no Production while
+     #/production/batch-management quietly still worked. */
+  function forPersona(node) {
+    return !node.personas || node.personas.indexOf(state.persona) !== -1;
+  }
+
+  function personaNav(config) {
+    return (config.nav || []).filter(forPersona).map(function (g) {
+      if (!g.submenus) return g;
+      var kids = g.submenus.filter(forPersona);
+      return kids.length ? Object.assign({}, g, { submenus: kids }) : null;
+    }).filter(Boolean);   // a group whose children are all hidden disappears too
+  }
+
   function pickUrl(leaf) {
     return leaf.urlMobile && mobileMQ.matches ? leaf.urlMobile : leaf.url;
   }
@@ -70,7 +86,7 @@
   function buildRoutes(config) {
     var routes = {};
     var order = [];
-    config.nav.forEach(function (group) {
+    personaNav(config).forEach(function (group) {
       if (group.submenus) {
         group.submenus.forEach(function (leaf) {
           var key = group.id + "/" + leaf.id;
@@ -91,21 +107,50 @@
     return { routes: routes, order: order };
   }
 
+  /* Falling back silently was not enough: asking for a hidden route left the
+     bogus hash in the address bar while a different screen rendered, so the URL
+     lied about what you were looking at. Rewrite it to what actually loaded. */
   function routeFromHash() {
     var h = (location.hash || "").replace(/^#\/?/, "");
-    return state.routes[h] ? h : state.order[0];
+    if (state.routes[h]) return h;
+    var fallback = state.order[0];
+    if (h && fallback) location.replace("#/" + fallback);
+    return fallback;
   }
 
   /* ── Sidebar ─────────────────────────────────────────────────────────────
      SidebarContent.jsx. Class strings are verbatim from the port. */
+  /* The business-type picker sits under the store name because that is what it
+     is — a property of the tenant, not a filter the user applies to a list. It
+     changes what the platform HAS, so it belongs with the tenant's identity. */
   function renderStoreSelector(config) {
     var name = esc(config.brand && config.brand.name);
+    var list = config.personas || [];
+    var cur = list.filter(function (p) { return p.id === state.persona; })[0];
     return (
-      '<div class="relative">' +
+      '<div class="relative w-full">' +
       '<div class="flex items-center gap-3 px-1 py-1.5 rounded-md transition-colors cursor-default">' +
       '<a href="#/" class="flex-shrink-0"><img src="' + BAG_ICON + '" alt="Storefront Logo" class="w-7 h-7" /></a>' +
       '<div class="flex flex-col min-w-0 flex-1">' +
       '<span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight" title="' + name + '">' + name + "</span>" +
+      (list.length
+        ? '<span class="relative mt-0.5 block">' +
+          // autocomplete=off or the browser restores the previous value across a
+          // reload, leaving the control showing one business while the platform
+          // is filtered for the other
+          '<select data-persona aria-label="Business type" autocomplete="off" ' +
+            'class="w-full cursor-pointer appearance-none truncate rounded bg-transparent py-0 pl-0 pr-4 ' +
+            'text-[11px] font-medium leading-tight text-green-700 hover:text-green-800 focus:outline-none">' +
+            list.map(function (p) {
+              return '<option value="' + esc(p.id) + '"' + (p.id === state.persona ? " selected" : "") + ">" +
+                esc(p.name) + "</option>";
+            }).join("") +
+          "</select>" +
+          '<span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-green-700">' +
+            icon("chevronDown", "h-3 w-3") + "</span>" +
+        "</span>" +
+        (cur ? '<span class="sr-only">' + esc(cur.blurb) + "</span>" : "")
+        : "") +
       "</div></div></div>"
     );
   }
@@ -192,7 +237,7 @@
   }
 
   function renderSidebarContent(config) {
-    var items = config.nav
+    var items = personaNav(config)
       .map(function (item) {
         return item.submenus ? renderGroup(item) : renderTopLevel(item);
       })
@@ -502,6 +547,30 @@
     applySidebar();
   }
 
+  /* Switching business type changes which routes EXIST, so the route table has
+     to be rebuilt — and if the current screen is one the new persona does not
+     have, we move rather than leave a dead frame on screen. */
+  function setPersona(id) {
+    if (!id || id === state.persona) return;
+    state.persona = id;
+    try { localStorage.setItem("fb-persona", id); } catch (e) {}
+
+    var built = buildRoutes(state.config);
+    state.routes = built.routes;
+    state.order = built.order;
+
+    if (!state.routes[state.current]) {
+      var to = state.order[0];
+      // Do NOT pre-assign state.current: go() only reloads the frame when the
+      // key changes, so setting it first left the old module on screen while
+      // the hash and the sidebar said otherwise.
+      location.replace("#/" + to);
+      go(to, { force: true });
+      return;
+    }
+    refreshSidebars();
+  }
+
   function refreshSidebars() {
     var html = renderSidebarContent(state.config);
     document.querySelector("[data-desktop-sidebar]").innerHTML = html;
@@ -538,6 +607,7 @@
         return;
       }
       if (e.target.closest("[data-sidebar-toggle]")) { setSidebarCollapsed(!state.sidebarCollapsed); return; }
+      if (e.target.closest("[data-persona]")) return;   // the select handles itself
       if (e.target.closest("[data-store-qr]")) { openQrModal(); return; }
       if (e.target.closest("[data-qr-generate]")) { generateQr(); return; }
       if (e.target.closest("[data-qr-download]")) { downloadQr(); return; }
@@ -555,6 +625,11 @@
         return;
       }
       if (e.target.closest("[data-mobile-backdrop]")) closeMobileNav();
+    });
+
+    root.addEventListener("change", function (e) {
+      var sel = e.target.closest("[data-persona]");
+      if (sel) setPersona(sel.value);
     });
 
     window.addEventListener("hashchange", function () {
@@ -607,6 +682,12 @@
     var config = await res.json();
     state.config = config;
     state.rootEl = el;
+
+    var saved = null;
+    try { saved = localStorage.getItem("fb-persona"); } catch (e) {}
+    var known = (config.personas || []).map(function (p) { return p.id; });
+    state.persona = known.indexOf(saved) !== -1 ? saved
+                  : (config.personaDefault || known[0] || null);
 
     var built = buildRoutes(config);
     state.routes = built.routes;
