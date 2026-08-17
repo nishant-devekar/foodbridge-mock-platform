@@ -232,9 +232,9 @@
         {
           "id": "inventory-intelligence",
           "name": "Inventory Intelligence",
-          "url": "https://exagon-ai.github.io/foodbridge-module-inventory-management/versions/inventory-intelligence-v1/screens/inventory-intelligence/index.html",
+          "url": "https://exagon-ai.github.io/foodbridge-inventory-intelligence/v1/screens/inventory-intelligence/index.html",
           "clipLeft": 256,
-          "owner": "exagon-ai/foodbridge-module-inventory-management",
+          "owner": "exagon-ai/foodbridge-inventory-intelligence",
           "hideBurger": true
         },
         {
