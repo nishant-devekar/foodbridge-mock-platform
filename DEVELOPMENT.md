@@ -50,6 +50,28 @@ python3 tools/dev.py --root ../..     # if the checkouts are somewhere else
 python3 tools/dev.py --port 8080
 ```
 
+### When the checkout is named differently from the repo
+
+`dev.py` finds a module by the **repository name in its published URL** — for
+`https://user.github.io/some-repo/screens/x.html` it looks for `<root>/some-repo/`. That works
+until a module's content moves to a differently named repository while the published URL, owned by
+someone else, still points at the old one.
+
+`tools/local-checkouts.json` records those cases, and only those:
+
+```json
+{ "map": { "foodbridge-inventory-mockup": "foodbridge-module-inventory-management" } }
+```
+
+Directory names only — never absolute paths. `--root` supplies the location, so the file stays
+portable across machines. A repository **not** listed resolves to a directory of its own name,
+exactly as before, so this file changes nothing for a module that already works.
+
+`dev.py` refuses to start on a bad map rather than silently serving the wrong checkout under a
+module's name: invalid JSON, an empty or path-like target, or two repositories claiming the same
+directory all stop it with the reason. A duplicate destination `id` in `assets/modules.json` stops
+it too — the shell would route both to one hash and the loser would simply never open.
+
 ### Things that will otherwise catch you out
 
 | | |
