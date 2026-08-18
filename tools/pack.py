@@ -30,6 +30,7 @@ BINARY = re.compile(r"\.(png|jpe?g|gif|webp|woff2?|ttf|eot|ico|mp4|pdf)$", re.I)
 VENDORABLE = ("fonts.googleapis.com", "fonts.gstatic.com", "cdn.tailwindcss.com", "unpkg.com")
 
 cache, files, failed, notfound = {}, {}, [], []
+doclogs = {}       # (repo, path) -> decision-log markdown
 external = collections.Counter()
 vendor = {}          # absolute url -> vendor/<name>
 
@@ -135,6 +136,68 @@ def rewrite(text, depth_to_root, in_vendor=False):
     return text
 
 
+def owners_of(cfg):
+    """repo name -> owner/repo, read off the nav (each entry carries `owner`)."""
+    out = {}
+
+    def walk(items):
+        for it in items:
+            if it.get("submenus"):
+                walk(it["submenus"])
+            if it.get("owner"):
+                out[it["owner"].split("/")[-1]] = it["owner"]
+            for k in ("url", "urlMobile"):
+                if it.get(k):
+                    u = urllib.parse.urlsplit(it[k])
+                    name = u.path.lstrip("/").split("/")[0]
+                    out.setdefault(name, f"{u.netloc.split('.')[0]}/{name}")
+    walk(cfg["nav"]); walk(cfg.get("standalone", []))
+    return out
+
+
+def pull_docs(cfg):
+    """Fetch each module's decision log — the addenda under instructions/.
+
+    A browser never loads these, so the crawl cannot find them, and they are the
+    main thing this package would otherwise lack: the reasoning behind every
+    screen. Markdown only. The non-markdown inputs beside them (screenshots of
+    the as-is system) come to 17.5 MB against a 2.6 MB package, so they stay in
+    the source release.
+
+    Filed at modules/<repo>/instructions/ for every module regardless of where
+    the repo keeps them, so the layout is the same everywhere.
+    """
+    owners, added, skipped = owners_of(cfg), 0, 0
+    for repo in sorted({r for r, _ in files}):
+        slug = owners.get(repo)
+        if not slug:
+            continue
+        tree = get(f"https://api.github.com/repos/{slug}/git/trees/HEAD?recursive=1")
+        if not tree:
+            print(f"  ! could not list {slug} — decision log omitted", flush=True)
+            continue
+        for node in json.loads(tree).get("tree", []):
+            path = node.get("path", "")
+            if node.get("type") != "blob":
+                continue
+            if "instructions/" not in path and not path.endswith("design-principles.md"):
+                continue
+            if not path.endswith(".md"):
+                skipped += 1
+                continue
+            body = get(f"https://raw.githubusercontent.com/{slug}/HEAD/{path}")
+            if body is None:
+                continue
+            # normalise: <anything>/instructions/<rest>  ->  instructions/<rest>
+            if "instructions/" in path:
+                rest = "instructions/" + path.split("instructions/", 1)[1]
+            else:
+                rest = "instructions/" + path.rsplit("/", 1)[-1]
+            doclogs[(repo, rest)] = body
+            added += 1
+    print(f"\n  {added} decision-log files added ({skipped} non-markdown left in the source release)")
+
+
 def main():
     cfg = json.loads((PLATFORM / "assets/modules.json").read_text())
     seeds = []
@@ -152,6 +215,7 @@ def main():
     for u in seeds:
         crawl(u)
     pull_vendor()
+    pull_docs(cfg)
 
     by_repo = collections.Counter(r for r, _ in files)
     print(f"{'repo':44} files")
@@ -261,12 +325,23 @@ Faithfully reproduced from the live sites rather than silently patched:
 ## Layout
 
 ```
-index.html          the shell
-assets/             shell JS/CSS + modules.json, rewritten to local paths
-modules/<repo>/…    each module in its OWN original directory layout, so every
-                    relative link inside it still resolves
-vendor/             Google Fonts, Tailwind, Leaflet
+index.html                    the shell
+assets/                       shell JS/CSS + modules.json, rewritten to local paths
+modules/<repo>/…              each module as its published site root, so every
+                              relative link inside it still resolves
+modules/<repo>/instructions/  that module's decision log — an addendum per
+                              iteration, filed in the same place for every module
+vendor/                       Google Fonts, Tailwind, Leaflet
 ```
+
+`modules/<repo>/` is exactly what `owner.github.io/<repo>/` serves. That is why
+nothing needed its links rewritten, and why every module has the same shape here
+even though the repositories are organised differently underneath.
+
+The decision logs are markdown only. The screenshots of the as-is system that sit
+beside them in some repositories come to 17.5 MB against this package's 2.6 MB, so
+they stay in the source release. Links from an addendum to a path outside this
+package will not resolve — the originals are in place in the source release.
 
 {repolist}
 
@@ -312,6 +387,11 @@ def write(cfg):
         if not BINARY.search(name):
             body = rewrite(body.decode("utf-8", "replace"), 0, in_vendor=True).encode("utf-8")
         (OUT / "vendor" / name).write_bytes(body)
+
+    for (repo, rest), body in doclogs.items():
+        p = OUT / "modules" / repo / rest
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(body)
 
     for (repo, rest), body in files.items():
         p = OUT / "modules" / repo / rest
