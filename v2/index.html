@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  FOODBRIDGE MOCK PLATFORM
+
+  A nav shell that makes ten independently-built module mockups — published by
+  six different people, each on their own GitHub Pages site — behave like one
+  application. Pick a module in the sidebar and it loads in place.
+
+  Nothing is vendored. Every destination is loaded live from the owning team's
+  URL, so when they push, this reflects it on the next load. The nav tree,
+  every URL and every per-module clip offset lives in assets/modules.json.
+
+  Sidebar markup is copied class-for-class from the storefront-frontend port,
+  which was itself verified against the running app at b2bgreens.com.
+
+  Serve over HTTP — modules.json is read with fetch(), which browsers block on
+  file://:  python3 -m http.server 8000
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FoodBridge — Mock Platform</title>
+
+  <!-- Tailwind, vendored: no build step and no network dependency at view time.
+       Downloaded once from https://cdn.tailwindcss.com/3.4.16 -->
+  <script src="assets/tailwind-play-3.4.16.js"></script>
+  <script>
+    // Mirrors storefront-frontend/tailwind.config.js — the custom `screens`
+    // scale REPLACES Tailwind's defaults there, so it must here too or the
+    // responsive breakpoints diverge from the modules being embedded.
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        screens: {
+          xss: "320px", xs: "420px", sm: "640px", md: "768px",
+          ipad: { min: "960px", max: "1023px" },
+          lg: "1024px", xl: "1280px", "2xl": "1440px",
+        },
+        extend: {
+          fontFamily: {
+            sans: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+            serif: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+          },
+          boxShadow: {
+            bottom: "0 5px 6px -7px rgba(0, 0, 0, 0.6), 0 2px 4px -5px rgba(0, 0, 0, 0.06)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="assets/platform.css?v=20260815b" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <noscript>
+    <p style="font:14px system-ui;padding:24px">
+      This shell needs JavaScript to load the module mockups. The modules
+      themselves are listed in <a href="assets/modules.json">assets/modules.json</a>.
+    </p>
+  </noscript>
+
+  <script src="assets/icons.js"></script>
+  <!-- QR encoder, vendored (no network at view time), MIT — davidshimjs/qrcodejs.
+       Powers the sidebar-footer "Store QR Code" that deep-links to the storefront. -->
+  <script src="assets/qrcode.min.js"></script>
+  <script src="assets/platform.js?v=20260815b"></script>
+  <script>
+    // ?config=<path> swaps the nav config. Local development uses it to point every
+    // destination at a checkout on disk instead of the team's live Pages site —
+    // see tools/dev.py. Absent, the published assets/modules.json is used.
+    var fbConfig = new URLSearchParams(location.search).get("config") || undefined;
+    window.FBPlatform.mount(document.getElementById("root"), fbConfig).catch(function (err) {
+      document.getElementById("root").innerHTML =
+        '<p style="font:14px system-ui;padding:24px;color:#b91c1c">' +
+        "Could not start the platform shell: " + err.message +
+        ". Serve this over HTTP rather than opening the file directly.</p>";
+    });
+  </script>
+<style>#v1-badge{position:fixed;right:10px;bottom:10px;z-index:2147483647;font:500 11px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.02em;background:rgba(15,23,42,.72);color:#fff;padding:6px 10px;border-radius:999px;text-decoration:none;opacity:.45;transition:opacity .15s;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}#v1-badge:hover{opacity:1}@media print{#v1-badge{display:none}}</style><a id="v1-badge" href="VERSION.md" title="Frozen snapshot — click for what is inside">v2 · frozen 22 August 2026</a>
+</body>
+</html>

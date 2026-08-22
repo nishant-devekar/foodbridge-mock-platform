@@ -1,0 +1,32 @@
+<!doctype html>
+<!--
+  Batch Detail — discovery v7. Faithful static port of
+  development/frontend/src/components/batch/BatchDetailDrawer.tsx, as it exists at the 2026-08-10
+  fork point (post 16+ commits of drift since the v6 freeze on 2026-07-28 — see CHANGELOG).
+  HTML/CSS/vanilla JS only. Data from ../../seed-data/seed.json via batch-shared.js's MockApi.
+  Opened as batch-detail.html?id=<batchId>.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Batch Detail — Discovery v7</title>
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="fbp-root">
+    <div class="scrim" onclick="window.location.href = 'batch-workspace.html'"></div>
+    <!-- addendum-005 feedback: the Ingredients tab's 8-column summary grid needs more room than
+         720px gave it — widened to 980px, one constant width across all three tabs (a per-tab
+         width made switching tabs visibly resize the drawer). -->
+    <aside class="drawer drawer-batch in" role="dialog" aria-label="Batch detail" style="width:min(980px,96vw)">
+      <div class="detail-drawer-body" id="detail-root"></div>
+    </aside>
+    <div id="print-label-root"></div>
+  </div>
+
+  <script src="batch-shared.js"></script>
+  <script src="batch-detail.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Semi-Finished Products — discovery v7. Faithful static port of
+  development/frontend/src/components/batch/SemiFinishedProductsScreen.tsx (SSOT-2 addendum-0043).
+  Entirely new screen — no prior discovery draft existed for it (never covered by the v5/v6
+  freeze). Read-only browse: reuses the same .ps-* search + table/mobile-card + pagination shell
+  the (separately-discovered) production-settlement path's own SettlementWorkspaceScreen
+  established, simplified down to a plain list — no expand panel, no bulk footer.
+  HTML/CSS/vanilla JS only. Data from ../../seed-data/seed.json via batch-shared.js's MockApi.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Semi-Finished Products — Discovery v7</title>
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="fbp-root">
+    <div id="sfp-root"></div>
+  </div>
+
+  <script src="batch-shared.js"></script>
+  <script src="semi-finished-products.js"></script>
+</body>
+</html>

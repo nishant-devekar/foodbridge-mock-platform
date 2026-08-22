@@ -1,0 +1,357 @@
+{
+  "_comment": "Discovery seed for the batch-management path (v7 fork point, 2026-08-10). Field names/shapes are copied 1:1 from the real API contracts this module's frontend actually renders from: ProductionBatchListItemVM / ProductionBatchDetailVM / BatchPackagingLineVM / BatchStatusHistoryEntryVM / BatchDateEditEntryVM / BatchOperatorHandoverEntryVM / IngredientSummaryRowVM / IngredientTransactionVM / InventorySync* / RecipeHeaderVM / PackagingLineVM / RecipeListItemVM / SemiFinishedProductVM / HostProductVM / HostOperatorVM (development/sources-of-truth/04-frontend-domain-model + development/frontend/src/api-client/types.ts). Never invent a field here that the real API doesn't return.",
+
+  "recipes": [
+    { "id": "premium-butter-cookies", "name": "Premium Butter Cookies", "subtitle": "1 version", "active": true, "hasPublishedVersion": true },
+    { "id": "classic-noodles-masala", "name": "Classic Noodles Masala", "subtitle": "1 version", "active": false, "hasPublishedVersion": false }
+  ],
+
+  "recipeHeaders": {
+    "premium-butter-cookies": {
+      "recipeId": "premium-butter-cookies",
+      "name": "Premium Butter Cookies",
+      "versions": [{ "id": "cookies-v4-2", "label": "V4.2", "subLabel": "50/100/200 kg" }],
+      "activeVersionId": "cookies-v4-2",
+      "statusLabel": "published",
+      "allowedBatchSizes": [50, 100, 200],
+      "bestBeforeDays": 180,
+      "batchBaseSize": 100,
+      "referenceBatchQty": 50,
+      "batchYieldPct": 100,
+      "batchBaseUnit": "kg",
+      "isLocked": true,
+      "branchActions": []
+    },
+    "classic-noodles-masala": {
+      "recipeId": "classic-noodles-masala",
+      "name": "Classic Noodles Masala",
+      "versions": [{ "id": "masala-v1-0", "label": "V1.0" }],
+      "activeVersionId": "masala-v1-0",
+      "statusLabel": "draft",
+      "allowedBatchSizes": [],
+      "batchBaseSize": 1,
+      "batchYieldPct": 100,
+      "isLocked": false,
+      "branchActions": []
+    }
+  },
+
+  "packagingLines": {
+    "cookies-v4-2": [
+      { "id": "cp-100g", "productRef": "prod-cookies-100g", "packTitle": "Cookies 100g", "name": "Cookies 100g", "packSize": 100, "packUnit": "g", "productName": "Cookies 100g", "costPerPack": 25, "attributable": true, "costPerPackDisplay": "₹25.00", "variantMassDisplay": "0.1 kg" },
+      { "id": "cp-250g", "productRef": "prod-cookies-250g", "packTitle": "Cookies 250g", "name": "Cookies 250g", "packSize": 250, "packUnit": "g", "productName": "Cookies 250g", "costPerPack": 58, "attributable": true, "costPerPackDisplay": "₹58.00", "variantMassDisplay": "0.25 kg" },
+      { "id": "cp-bulk", "productRef": "prod-cookies-bulk", "packTitle": "Cookies Bulk Pack", "name": "Cookies Bulk Pack", "productName": "Cookies Bulk Pack", "attributable": false, "costPerPackDisplay": "not costed" }
+    ]
+  },
+
+  "_operators_comment": "SSOT-2 addendum-0040 — the real staff roster OperatorPicker searches (Create/Edit Batch, status-update handover, Inventory Sync operator field).",
+  "operators": [
+    { "id": "op-suresh", "name": "Suresh Kumar", "contact": "9876543210" },
+    { "id": "op-dharmendar", "name": "Dharmendar Ji", "contact": "9812345678" },
+    { "id": "op-priya", "name": "Priya Sharma", "contact": "9800011122" }
+  ],
+
+  "_hostProducts_comment": "SSOT-2 addendum-0038 — the host inventory catalogue Inventory Sync's product-link search resolves against.",
+  "hostProducts": [
+    { "id": "hp-cookies-100g", "name": "Cookies 100g", "articleNo": "ART-C100" },
+    { "id": "hp-cookies-250g", "name": "Cookies 250g", "articleNo": "ART-C250" },
+    { "id": "hp-cookies-bulk", "name": "Cookies Bulk Pack", "articleNo": "ART-CBULK" },
+    { "id": "hp-noodles-masala", "name": "Noodles Masala Pack", "articleNo": "ART-NM01" }
+  ],
+
+  "_semiFinishedProducts_comment": "SSOT-2 addendum-0043 — bulk/leftover residual captured during Inventory Sync, browsed read-only from the new Semi-Finished Products screen.",
+  "semiFinishedProducts": [
+    { "id": "sfp-cookies-183", "name": "Cookies Dough Bulk", "batchNumber": "PB-2026-00183", "stock": 50, "measurement": "kg-Box-Pallet", "status": "ACTIVE", "createdAt": "2026-07-22T10:00:00.000Z" },
+    { "id": "sfp-noodles-150", "name": "Noodles Masala Bulk", "batchNumber": "PB-2026-00150", "stock": 12, "measurement": "kg-Box-Pallet", "status": "ACTIVE", "createdAt": "2026-07-07T09:30:00.000Z" },
+    { "id": "sfp-cookies-140", "name": "Cookies Dough Bulk (old)", "batchNumber": "PB-2026-00140", "stock": 0, "measurement": "kg-Box-Pallet", "status": "INACTIVE", "createdAt": "2026-06-30T09:00:00.000Z" }
+  ],
+
+  "_batch_states_covered": "one of each real bucket: Planned (waiting), In Progress (on time), In Progress overdue (attention), On Hold (attention), Rejected (its OWN bucket/tab now, not folded into attention), Completed — matched (done), Completed — outcome+inventory-sync mismatch (done, demonstrates every Track B/addendum-0038 variance path), Closed — fully synced (done, terminal).",
+
+  "batches": [
+    {
+      "id": "batch-planned-1",
+      "batchNumber": "PB-2026-00190",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "planned",
+      "statusLabel": "Planned",
+      "batchSize": 100,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-28",
+      "expectedFinishDate": "2026-07-29",
+      "operator": "Dharmendar Ji",
+      "packagingLines": [],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-24T09:12:00.000Z", "actor": "admin" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "ingredientSummary": [],
+      "ingredientTransactions": [],
+      "inventorySync": null,
+      "availableTransitions": [{ "trigger": "start", "label": "Start" }]
+    },
+    {
+      "id": "batch-inprogress-ontime",
+      "batchNumber": "PB-2026-00191",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "in-progress",
+      "statusLabel": "In Progress",
+      "batchSize": 200,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-24",
+      "expectedFinishDate": "2026-07-27",
+      "operator": "Suresh Kumar",
+      "packagingLines": [
+        { "packagingConfigId": "cp-100g", "productRef": "prod-cookies-100g", "name": "Cookies 100g", "plannedUnits": 1000, "weightKg": 100, "ratioPct": 50 },
+        { "packagingConfigId": "cp-250g", "productRef": "prod-cookies-250g", "name": "Cookies 250g", "plannedUnits": 400, "weightKg": 100, "ratioPct": 50 }
+      ],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-23T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-24T08:30:00.000Z", "actor": "admin", "comment": "Line 2 online" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [
+        { "fromOperator": "Dharmendar Ji", "toOperator": "Suresh Kumar", "timestamp": "2026-07-24T13:00:00.000Z", "actor": "admin", "comment": "Shift change" }
+      ],
+      "ingredientSummary": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "uom": "kg", "recommendedQty": 120, "issuedQty": 120, "returnedQty": 5, "netConsumed": 115, "remainingRecommended": 5, "variance": -5, "recipeIngredient": true },
+        { "ingredientId": "ing-butter", "ingredientName": "Butter", "uom": "kg", "recommendedQty": 60, "issuedQty": 65, "returnedQty": 0, "netConsumed": 65, "remainingRecommended": 0, "variance": 5, "recipeIngredient": true },
+        { "ingredientId": "ing-sugar", "ingredientName": "Sugar", "uom": "kg", "recommendedQty": 40, "issuedQty": 40, "returnedQty": 0, "netConsumed": 40, "remainingRecommended": 0, "variance": 0, "recipeIngredient": true }
+      ],
+      "ingredientTransactions": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "transactionType": "issue", "quantity": 120, "uom": "kg", "warehouseId": "WH-01", "remarks": "Morning batch", "timestamp": "2026-07-24T08:35:00.000Z", "actor": "admin" },
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "transactionType": "return", "quantity": 5, "uom": "kg", "warehouseId": "WH-01", "remarks": "Excess after mixing", "timestamp": "2026-07-24T11:00:00.000Z", "actor": "admin" },
+        { "ingredientId": "ing-butter", "ingredientName": "Butter", "transactionType": "issue", "quantity": 65, "uom": "kg", "warehouseId": "WH-01", "timestamp": "2026-07-24T08:40:00.000Z", "actor": "admin" },
+        { "ingredientId": "ing-sugar", "ingredientName": "Sugar", "transactionType": "issue", "quantity": 40, "uom": "kg", "warehouseId": "WH-01", "timestamp": "2026-07-24T08:42:00.000Z", "actor": "admin" }
+      ],
+      "inventorySync": null,
+      "availableTransitions": [{ "trigger": "hold", "label": "Hold" }, { "trigger": "complete", "label": "Complete" }]
+    },
+    {
+      "id": "batch-inprogress-overdue",
+      "batchNumber": "PB-2026-00183",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "in-progress",
+      "statusLabel": "In Progress",
+      "batchSize": 100,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-20",
+      "expectedFinishDate": "2026-07-22",
+      "operator": "Dharmendar Ji",
+      "packagingLines": [
+        { "packagingConfigId": "cp-100g", "productRef": "prod-cookies-100g", "name": "Cookies 100g", "plannedUnits": 500, "weightKg": 50, "ratioPct": 50 }
+      ],
+      "semiFinishedKg": 50,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-19T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-20T08:00:00.000Z", "actor": "admin" }
+      ],
+      "dateEditHistory": [
+        { "timestamp": "2026-07-21T09:00:00.000Z", "actor": "admin", "expectedFinishDate": { "from": "2026-07-21", "to": "2026-07-22" }, "note": "Delayed due to oven maintenance" }
+      ],
+      "operatorHandoverHistory": [],
+      "ingredientSummary": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "uom": "kg", "recommendedQty": 60, "issuedQty": 55, "returnedQty": 0, "netConsumed": 55, "remainingRecommended": 5, "variance": -5, "recipeIngredient": true },
+        { "ingredientId": "ing-eggs", "ingredientName": "Eggs (Liquid)", "uom": "kg", "recommendedQty": 8, "issuedQty": 8, "returnedQty": 0, "netConsumed": 8, "remainingRecommended": 0, "variance": 0, "recipeIngredient": false }
+      ],
+      "ingredientTransactions": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "transactionType": "issue", "quantity": 55, "uom": "kg", "warehouseId": "WH-01", "timestamp": "2026-07-20T08:10:00.000Z", "actor": "admin" },
+        { "ingredientId": "ing-eggs", "ingredientName": "Eggs (Liquid)", "transactionType": "issue", "quantity": 8, "uom": "kg", "warehouseId": "WH-02", "remarks": "Manual pick, off-recipe substitute", "timestamp": "2026-07-20T08:20:00.000Z", "actor": "admin" }
+      ],
+      "inventorySync": null,
+      "availableTransitions": [{ "trigger": "hold", "label": "Hold" }, { "trigger": "complete", "label": "Complete" }],
+      "_note": "expectedFinishDate is in the past — this is what bucketOf()/attentionReason move into Needs Attention as 'Overdue', matching the real shipped behaviour (iteration-1 A-070, iteration-2 A-114/133)."
+    },
+    {
+      "id": "batch-onhold-1",
+      "batchNumber": "PB-2026-00175",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "on-hold",
+      "statusLabel": "On Hold",
+      "batchSize": 150,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-18",
+      "expectedFinishDate": "2026-07-20",
+      "operator": "Suresh Kumar",
+      "packagingLines": [],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-17T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-18T08:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "In Progress", "toStatusLabel": "On Hold", "triggerLabel": "Hold", "timestamp": "2026-07-18T14:20:00.000Z", "actor": "admin", "comment": "Butter delivery delayed" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "ingredientSummary": [],
+      "ingredientTransactions": [],
+      "inventorySync": null,
+      "availableTransitions": [{ "trigger": "resume", "label": "Resume" }, { "trigger": "reject", "label": "Reject" }]
+    },
+    {
+      "id": "batch-rejected-1",
+      "batchNumber": "PB-2026-00160",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "rejected",
+      "statusLabel": "Rejected",
+      "batchSize": 50,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-10",
+      "expectedFinishDate": "2026-07-11",
+      "operator": "Dharmendar Ji",
+      "packagingLines": [],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-09T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-10T08:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "In Progress", "toStatusLabel": "On Hold", "triggerLabel": "Hold", "timestamp": "2026-07-10T10:00:00.000Z", "actor": "admin", "comment": "Ingredient recall" },
+        { "fromStatusLabel": "On Hold", "toStatusLabel": "Rejected", "triggerLabel": "Reject", "timestamp": "2026-07-10T11:00:00.000Z", "actor": "admin", "comment": "Failed QC — butter batch recalled" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "ingredientSummary": [],
+      "ingredientTransactions": [],
+      "inventorySync": null,
+      "availableTransitions": [],
+      "_note": "Terminal — now its OWN 'Rejected' section/tab (not folded into Needs Attention), muted/gray, no kebab (iteration-1 A-064 muted styling carried forward; addendum this round: separate bucket)."
+    },
+    {
+      "id": "batch-completed-1",
+      "batchNumber": "PB-2026-00150",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "completed",
+      "statusLabel": "Completed",
+      "batchSize": 100,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-05",
+      "expectedFinishDate": "2026-07-06",
+      "operator": "Suresh Kumar",
+      "packagingLines": [
+        { "packagingConfigId": "cp-100g", "productRef": "prod-cookies-100g", "name": "Cookies 100g", "plannedUnits": 1000, "weightKg": 100, "ratioPct": 100 }
+      ],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-04T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-05T08:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "In Progress", "toStatusLabel": "Completed", "triggerLabel": "Complete", "timestamp": "2026-07-06T16:00:00.000Z", "actor": "admin" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "actualOutcome": {
+        "lines": [{ "packagingConfigId": "cp-100g", "name": "Cookies 100g", "plannedUnits": 1000, "actualUnits": 1000 }],
+        "settlementRequired": false
+      },
+      "ingredientSummary": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "uom": "kg", "recommendedQty": 60, "issuedQty": 60, "returnedQty": 0, "netConsumed": 60, "remainingRecommended": 0, "variance": 0, "recipeIngredient": true }
+      ],
+      "ingredientTransactions": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "transactionType": "issue", "quantity": 60, "uom": "kg", "warehouseId": "WH-01", "timestamp": "2026-07-05T08:10:00.000Z", "actor": "admin" }
+      ],
+      "inventorySync": {
+        "status": "pending",
+        "lines": [{ "lineRef": "cp-100g", "status": "pending", "expectedQty": 1000 }],
+        "events": []
+      },
+      "availableTransitions": [{ "trigger": "close", "label": "Close" }],
+      "_note": "SSOT-2 addendum-0038: Outcome Verification matched (no mismatch), but Inventory Sync is still pending — demonstrates the '⏳ Add to Inventory' path on both the Overview block and the new Inventory Sync workspace queue."
+    },
+    {
+      "id": "batch-completed-mismatch",
+      "batchNumber": "PB-2026-00195",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "completed",
+      "statusLabel": "Completed",
+      "batchSize": 100,
+      "batchUnit": "kg",
+      "plannedDate": "2026-07-30",
+      "expectedFinishDate": "2026-07-31",
+      "operator": "Priya Sharma",
+      "packagingLines": [
+        { "packagingConfigId": "cp-100g", "productRef": "prod-cookies-100g", "name": "Cookies 100g", "plannedUnits": 500, "weightKg": 50, "ratioPct": 50 },
+        { "packagingConfigId": "cp-250g", "productRef": "prod-cookies-250g", "name": "Cookies 250g", "plannedUnits": 200, "weightKg": 50, "ratioPct": 50 }
+      ],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-07-29T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-07-30T08:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "In Progress", "toStatusLabel": "Completed", "triggerLabel": "Complete", "timestamp": "2026-07-31T15:00:00.000Z", "actor": "admin", "comment": "Ran short on 100g trays" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "actualOutcome": {
+        "lines": [
+          { "packagingConfigId": "cp-100g", "name": "Cookies 100g", "plannedUnits": 500, "actualUnits": 495 },
+          { "packagingConfigId": "cp-250g", "name": "Cookies 250g", "plannedUnits": 200, "actualUnits": 200 }
+        ],
+        "settlementRequired": true
+      },
+      "ingredientSummary": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "uom": "kg", "recommendedQty": 60, "issuedQty": 60, "returnedQty": 0, "netConsumed": 60, "remainingRecommended": 0, "variance": 0, "recipeIngredient": true }
+      ],
+      "ingredientTransactions": [
+        { "ingredientId": "ing-flour", "ingredientName": "Refined Flour", "transactionType": "issue", "quantity": 60, "uom": "kg", "warehouseId": "WH-01", "timestamp": "2026-07-30T08:10:00.000Z", "actor": "admin" }
+      ],
+      "inventorySync": {
+        "status": "failed",
+        "lines": [
+          { "lineRef": "cp-100g", "status": "failed", "expectedQty": 495, "error": "Host product link missing" },
+          { "lineRef": "cp-250g", "status": "synced", "expectedQty": 200, "actualQty": 205, "hostProductId": "hp-cookies-250g", "manufacturingDate": "2026-07-31", "expiryDate": "2027-01-31" }
+        ],
+        "events": [
+          { "lineRef": "cp-250g", "action": "post", "status": "ok", "timestamp": "2026-07-31T16:00:00.000Z", "actor": "Priya Sharma" },
+          { "lineRef": "cp-100g", "action": "post", "status": "error", "timestamp": "2026-07-31T16:01:00.000Z", "actor": "Priya Sharma", "message": "Host product link missing" }
+        ]
+      },
+      "availableTransitions": [{ "trigger": "close", "label": "Close" }],
+      "_note": "Demonstrates both mismatch paths at once: Complete's own Outcome Verification (100g short by 5) AND Inventory Sync's own second checkpoint (250g posted 205 vs expected 200, plus a genuinely FAILED line needing Retry) — Activity tab shows the variance narration for both."
+    },
+    {
+      "id": "batch-closed-1",
+      "batchNumber": "PB-2026-00140",
+      "recipeVersionId": "cookies-v4-2",
+      "displayName": "Premium Butter Cookies",
+      "stateId": "closed",
+      "statusLabel": "Closed",
+      "batchSize": 200,
+      "batchUnit": "kg",
+      "plannedDate": "2026-06-28",
+      "expectedFinishDate": "2026-06-29",
+      "operator": "Dharmendar Ji",
+      "packagingLines": [
+        { "packagingConfigId": "cp-250g", "productRef": "prod-cookies-250g", "name": "Cookies 250g", "plannedUnits": 800, "weightKg": 200, "ratioPct": 100 }
+      ],
+      "semiFinishedKg": 0,
+      "statusHistory": [
+        { "toStatusLabel": "Planned", "triggerLabel": "Create", "timestamp": "2026-06-27T09:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Planned", "toStatusLabel": "In Progress", "triggerLabel": "Start", "timestamp": "2026-06-28T08:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "In Progress", "toStatusLabel": "Completed", "triggerLabel": "Complete", "timestamp": "2026-06-29T15:00:00.000Z", "actor": "admin" },
+        { "fromStatusLabel": "Completed", "toStatusLabel": "Closed", "triggerLabel": "Close", "timestamp": "2026-06-30T09:00:00.000Z", "actor": "admin" }
+      ],
+      "dateEditHistory": [],
+      "operatorHandoverHistory": [],
+      "actualOutcome": {
+        "lines": [{ "packagingConfigId": "cp-250g", "name": "Cookies 250g", "plannedUnits": 800, "actualUnits": 800 }],
+        "settlementRequired": false
+      },
+      "ingredientSummary": [],
+      "ingredientTransactions": [],
+      "inventorySync": {
+        "status": "synced",
+        "syncedAt": "2026-07-01T10:00:00.000Z",
+        "lines": [{ "lineRef": "cp-250g", "status": "synced", "expectedQty": 800, "actualQty": 800, "hostProductId": "hp-cookies-250g", "manufacturingDate": "2026-06-29", "expiryDate": "2026-12-29" }],
+        "events": [{ "lineRef": "cp-250g", "action": "post", "status": "ok", "timestamp": "2026-07-01T10:00:00.000Z", "actor": "Dharmendar Ji" }]
+      },
+      "availableTransitions": [],
+      "_note": "Fully synced, terminal — the Overview block shows the '✓ Pushed to inventory' read-only state instead of an action button."
+    }
+  ]
+}

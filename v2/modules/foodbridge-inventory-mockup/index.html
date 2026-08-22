@@ -1,0 +1,260 @@
+<!doctype html>
+<!--
+  DISCOVERY WIRING — Foodbridge Module Inventory Management
+  ---------------------------------------------------------
+  This file is the WIRING only — the hub + transition map. It holds NO screen
+  content; screens live in screens/<route>/. The transition map below is the
+  proto-FSM that SSOT-1 (state-machine) and SSOT-5 (workflow) are derived from.
+  Rules:
+  - HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  - Screens are standalone-openable and link to each other; this hub is the entry.
+  - Use seed-data/seed.json for any data.
+  - Disposable. Each ROUTE is frozen independently under versions/<route>-vN/.
+  - Nothing here is imported by development/. It only informs the SSOTs.
+
+  This round is a fidelity port of two LIVE storefront-frontend routes:
+  /inventory (src/pages/Inventory.jsx) and /raw-material-inventory
+  (src/pages/RawMaterialsInventory.jsx), as of storefront-frontend@develop.
+  See instructions/addendum-002-live-inventory-port.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory Management — Discovery Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --fg: #0f172a; --muted: #64748b; --line: #e2e8f0;
+      --brand: #059669; --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0; padding: 0; color: var(--fg); background: var(--bg); line-height: 1.55;
+    }
+    .wrap { max-width: 64rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    header.hero { border-bottom: 1px solid var(--line); background: #fff; }
+    .hero-inner { max-width: 64rem; margin: 0 auto; padding: 2.25rem 1.5rem 1.75rem; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--brand); background: #ecfdf5; border: 1px solid #a7f3d0;
+      padding: .2rem .55rem; border-radius: 9999px; margin-bottom: .75rem;
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+    .sub { color: var(--muted); margin: 0; max-width: 48rem; font-size: .95rem; }
+
+    h2 { font-size: 1.05rem; margin: 2.5rem 0 .3rem; letter-spacing: -.01em; }
+    h2:first-of-type { margin-top: 1.75rem; }
+    .route-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .78rem; font-weight: 500; color: var(--brand);
+      background: #ecfdf5; border: 1px solid #a7f3d0;
+      padding: .1rem .4rem; border-radius: .3rem; margin-left: .5rem;
+    }
+    .hint { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
+
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr)); }
+    a.card {
+      display: block; text-decoration: none; color: inherit;
+      background: #fff; border: 1px solid var(--line); border-radius: .6rem;
+      padding: .9rem 1rem; transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    a.card:hover {
+      border-color: #6ee7b7; box-shadow: 0 2px 10px rgba(5,150,105,.09); transform: translateY(-1px);
+    }
+    .card-id { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--brand); }
+    .card-title { font-weight: 600; font-size: .95rem; margin: .15rem 0 .2rem; }
+    .card-desc { color: var(--muted); font-size: .82rem; margin: 0; }
+    a.card.pending { opacity: .55; pointer-events: none; }
+    a.card.pending .card-id { color: var(--muted); }
+
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; background: #fff; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: .5rem .7rem; text-align: left; vertical-align: top; }
+    th { background: #f8fafc; font-weight: 600; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82em; background: #f1f5f9; padding: .1rem .3rem; border-radius: .25rem; }
+
+    .note {
+      background: #fff; border: 1px solid var(--line); border-left: 3px solid #fbbf24;
+      border-radius: .5rem; padding: .8rem 1rem; font-size: .85rem; color: #334155;
+    }
+    .note strong { color: var(--fg); }
+    .note ul { margin: .5rem 0 0; padding-left: 1.1rem; }
+    .note li { margin-bottom: .35rem; }
+
+    footer { color: var(--muted); font-size: .8rem; margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Discovery prototype</span>
+      <h1>Inventory Management</h1>
+      <p class="sub">
+        Disposable HTML prototypes for the <strong>Foodbridge Module Inventory Management</strong> module.
+        This round is a fidelity port of two live storefront routes — <code>/inventory</code> and
+        <code>/raw-material-inventory</code> — same structure, same classes, same edge cases, driven
+        entirely by seed data. Nothing here calls a real API, and nothing here is imported by
+        <code>development/</code>. Each route is frozen as its own version.
+      </p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <h2>Inventory <span class="route-tag">/inventory</span></h2>
+    <p class="hint">Four tabs over finished goods. Append <code>?bare=1</code> to any URL to hide the discovery back-link for a clean pixel comparison.</p>
+
+    <div class="grid">
+      <a class="card" href="screens/inventory/screen-01-current-stock.html">
+        <div class="card-id">Screen 01</div>
+        <div class="card-title">Current Stock</div>
+        <p class="card-desc">Landing tab — Total / Reserved / Available / Shortfall per product, searchable and sortable eight ways.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-02-quick-stock-upload.html">
+        <div class="card-id">Screen 02</div>
+        <div class="card-title">Quick Stock Upload</div>
+        <p class="card-desc">Inline per-row entry: batch quantity plus manufacturing and expiry dates, saved row by row.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-03-expiry-report.html">
+        <div class="card-id">Screen 03</div>
+        <div class="card-title">Expiry report</div>
+        <p class="card-desc">Live stock cross-joined with batch history, bucketed into Healthy / Near Expiry / Expired.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-04-batch-history.html">
+        <div class="card-id">Screen 04</div>
+        <div class="card-title">Batch History Report</div>
+        <p class="card-desc">Received batches newest first. Raw-material batches are stripped out here.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-05-upload-validation.html">
+        <div class="card-id">Screen 05</div>
+        <div class="card-title">Upload validation</div>
+        <p class="card-desc">Saving an empty row reveals every missing field at once, not one error per click.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-06-expiry-filtered.html">
+        <div class="card-id">Screen 06</div>
+        <div class="card-title">Expiry — expired only</div>
+        <p class="card-desc">Narrowed to the “Already Expired” window; stock columns recompute from surviving entries.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-07-no-results.html">
+        <div class="card-id">Screen 07</div>
+        <div class="card-title">Empty state</div>
+        <p class="card-desc">No products at all — the same branch a search with no matches reaches.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-08-batch-expanded.html">
+        <div class="card-id">Screen 08</div>
+        <div class="card-title">Batch expanded</div>
+        <p class="card-desc">A batch row opened into its detail panel: per-product dates, expiry badges, price, tax, supplier.</p>
+      </a>
+      <a class="card" href="screens/inventory/screen-09-loading.html">
+        <div class="card-id">Screen 09</div>
+        <div class="card-title">Loading</div>
+        <p class="card-desc">Skeleton shown while stock summary and batch history are in flight.</p>
+      </a>
+    </div>
+
+    <h2>Raw Material Inventory <span class="route-tag">/raw-material-inventory</span></h2>
+    <p class="hint">Four tabs over raw materials. Shares three sections with <code>/inventory</code> and adds Low Stock plus the Receive Stock drawer.</p>
+
+    <div class="grid" id="rm-grid">
+      <a class="card" href="screens/raw-material-inventory/screen-01-live-stock.html">
+        <div class="card-id">Screen 01</div>
+        <div class="card-title">Live Stock</div>
+        <p class="card-desc">Landing tab — the same section as <code>/inventory</code>, scoped to raw materials.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-02-low-stock.html">
+        <div class="card-id">Screen 02</div>
+        <div class="card-title">Low Stock</div>
+        <p class="card-desc">Materials at or below their reorder level, with the gap to close, bulk selection and per-row restock.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-03-inventory-health.html">
+        <div class="card-id">Screen 03</div>
+        <div class="card-title">Inventory Health</div>
+        <p class="card-desc">Raw-material stock bucketed into Healthy / Near Expiry / Expired.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-04-batch-history.html">
+        <div class="card-id">Screen 04</div>
+        <div class="card-title">Batch History Report</div>
+        <p class="card-desc">Receiving batches for raw materials — the mirror of <code>/inventory</code>’s filter.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-05-receive-stock.html">
+        <div class="card-id">Screen 05</div>
+        <div class="card-title">Receive Stock drawer</div>
+        <p class="card-desc">The Add Batch drawer open with nothing picked — category accordion and an empty matrix.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-06-batch-matrix.html">
+        <div class="card-id">Screen 06</div>
+        <div class="card-title">Batch matrix</div>
+        <p class="card-desc">Three materials picked: quantity, dates, price, tax and supplier per line, then preview and create.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-07-empty.html">
+        <div class="card-id">Screen 07</div>
+        <div class="card-title">Empty state</div>
+        <p class="card-desc">Live Stock with no raw materials at all.</p>
+      </a>
+      <a class="card" href="screens/raw-material-inventory/screen-08-loading.html">
+        <div class="card-id">Screen 08</div>
+        <div class="card-title">Loading</div>
+        <p class="card-desc">Skeleton shown while stock summary and batch history are in flight.</p>
+      </a>
+    </div>
+
+    <h2>Transition map (→ SSOT-1 state-machine / SSOT-5 workflow)</h2>
+    <p class="hint">This is the flow the FSM and workflow SSOTs are derived from. Data for every screen comes from <a href="seed-data/seed.json">seed-data/seed.json</a>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>From screen / state</th><th>Event</th><th>To</th></tr></thead>
+        <tbody>
+          <tr><td>Any tab</td><td>Select another tab</td><td>That tab, its own search/sort/page state preserved</td></tr>
+          <tr><td>Current Stock</td><td>Search (debounced 350ms)</td><td>Current Stock, filtered — page resets to 1</td></tr>
+          <tr><td>Current Stock</td><td>Choose a sort option</td><td>Current Stock, re-sorted — page resets to 1</td></tr>
+          <tr><td>Current Stock</td><td>Search matches nothing</td><td>“No products found” empty state</td></tr>
+          <tr><td>Quick Stock Upload</td><td>Save row, all fields valid</td><td>Row clears; a batch is created and stock increases</td></tr>
+          <tr><td>Quick Stock Upload</td><td>Save row, fields missing</td><td>Same row with every missing field revealed at once</td></tr>
+          <tr><td>Quick Stock Upload</td><td>Expiry date before manufacturing date</td><td>Row error: “Can’t be before the manufacturing date”</td></tr>
+          <tr><td>Expiry report</td><td>Select a time-window pill</td><td>Rows re-bucketed; rows with no surviving entry drop out</td></tr>
+          <tr><td>Expiry report</td><td>Select “Custom Range”</td><td>From/To date inputs appear</td></tr>
+          <tr><td>Expiry report</td><td>Clear all</td><td>Search and time filter reset to “All Dates”</td></tr>
+          <tr><td>Batch History</td><td>Expand a batch row</td><td>Batch detail panel, Products tab</td></tr>
+          <tr><td>Batch detail</td><td>Summary tab</td><td>Aggregate view: product count, total stock, suppliers</td></tr>
+          <tr><td>Batch History</td><td>Copy batch id</td><td>Clipboard write; tick confirmation for 2s</td></tr>
+          <tr><td>Live Stock (raw materials)</td><td>Low Stock tab</td><td>Materials at or below reorder level</td></tr>
+          <tr><td>Low Stock</td><td>Select rows + Create Purchase Order</td><td>Hands off to Sourcing Order, seeded (outside this module)</td></tr>
+          <tr><td>Low Stock</td><td>Restock (row action)</td><td>Sourcing Order pre-filled for that material</td></tr>
+          <tr><td>Low Stock</td><td>Sort “Most critical first”</td><td>Ordered by proportional shortfall, not absolute</td></tr>
+          <tr><td>Any raw-material tab</td><td>Receive Stock</td><td>Add Batch drawer, nothing selected</td></tr>
+          <tr><td>Add Batch drawer</td><td>Tick a product</td><td>Row appended to the Product Batch Matrix</td></tr>
+          <tr><td>Add Batch drawer</td><td>Copy first row’s dates to all</td><td>Mfg/exp dates propagate to every line</td></tr>
+          <tr><td>Add Batch drawer</td><td>Preview &amp; Create Batch</td><td>Preview modal listing every line</td></tr>
+          <tr><td>Preview modal</td><td>Create Batch</td><td>Batch created, stock raised, lands on Batch History</td></tr>
+          <tr><td>Add Batch drawer</td><td>Close with products selected</td><td>Discard-changes modal</td></tr>
+          <tr><td>Loading</td><td>Data arrives</td><td>Current Stock, or the empty state if none</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Known divergences from the live app</h2>
+    <div class="note">
+      <strong>Recorded deliberately rather than papered over:</strong>
+      <ul>
+        <li><strong>Batch dates are stored as offsets, not absolute dates.</strong> The seed carries <code>expiryInDays</code> / <code>mfgDaysAgo</code> / <code>createdDaysAgo</code>, resolved to real dates at load. Live the API returns absolute ISO dates — offsets keep the Healthy / Near Expiry / Expired buckets correct however long after freezing this prototype is opened.</li>
+        <li><strong>Product images are placeholder tiles.</strong> Live resolves real photos through <code>productImageBaseUrl</code>; discovery has no image host, so each product gets a deterministic initials tile at the same dimensions.</li>
+        <li><strong>The sidebar menu tree is an assumption.</strong> No reference screenshot was supplied for this module, so it is carried over from the staff module’s screenshot of the same tenant, with the two inventory routes placed under Inventory. The tenant’s real <code>storefrontMenus</code> is authoritative.</li>
+        <li><strong><code>AddBatchDrawer</code> is unreachable on <code>/inventory</code>.</strong> The live page mounts it but never renders a control that opens it — only <code>/raw-material-inventory</code> has the “Receive Stock” trigger. Reproduced as-is; this looks like a live defect worth raising separately.</li>
+        <li><strong><code>LiveStockModal</code> is dead code</strong> in the live repo — 518 lines imported by nothing. Not ported.</li>
+        <li><strong>Saving in Quick Stock Upload is local.</strong> It appends a batch to in-memory state so Batch History reflects the upload, standing in for the real create-batch call plus <code>reloadBatches()</code>.</li>
+      </ul>
+    </div>
+
+    <footer>
+      Governed by AMDS. Discovery is HTML-only and disposable (SPEC §3.1) — it produces the decisions
+      that become the SSOTs under <code>development/sources-of-truth/</code>, and is never imported by
+      <code>development/</code>. Working rules: <code>instructions/addendum-001-working-rules.md</code>.
+    </footer>
+  </div>
+</body>
+</html>

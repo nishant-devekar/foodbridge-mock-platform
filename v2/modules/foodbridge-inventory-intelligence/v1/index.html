@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Discovery version inventory-intelligence-v1 — snapshot | foodbridge-inventory-intelligence</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="Discovery version inventory-intelligence-v1 — snapshot" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Released discovery versions of the FoodBridge Inventory Intelligence module — frozen snapshots served for the mock platform." />
+<meta property="og:description" content="Released discovery versions of the FoodBridge Inventory Intelligence module — frozen snapshots served for the mock platform." />
+<link rel="canonical" href="https://exagon-ai.github.io/foodbridge-inventory-intelligence/v1/" />
+<meta property="og:url" content="https://exagon-ai.github.io/foodbridge-inventory-intelligence/v1/" />
+<meta property="og:site_name" content="foodbridge-inventory-intelligence" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Discovery version inventory-intelligence-v1 — snapshot" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Released discovery versions of the FoodBridge Inventory Intelligence module — frozen snapshots served for the mock platform.","headline":"Discovery version inventory-intelligence-v1 — snapshot","url":"https://exagon-ai.github.io/foodbridge-inventory-intelligence/v1/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="stylesheet" href="/foodbridge-inventory-intelligence/assets/css/style.css?v=2fe9789067ae16af75f273dfdac11c1bcf17767e">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/foodbridge-inventory-intelligence/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <div class="container-lg px-3 my-5 markdown-body">
+      
+      <h1><a href="https://exagon-ai.github.io/foodbridge-inventory-intelligence/">foodbridge-inventory-intelligence</a></h1>
+      
+
+      <h1 id="discovery-version-inventory-intelligence-v1--snapshot">Discovery version <code class="language-plaintext highlighter-rouge">inventory-intelligence-v1</code> — snapshot</h1>
+
+<p>Frozen snapshot of the Inventory Intelligence discovery prototype, accepted <strong>2026-08-16</strong>, taken
+per discovery working rule <strong>R6</strong> (“an accepted iteration becomes a version”).</p>
+
+<p>This freezes <strong>independently</strong> of <code class="language-plaintext highlighter-rouge">inventory-v1</code> and <code class="language-plaintext highlighter-rouge">raw-material-inventory-v1</code>, which are fidelity
+ports of the live routes. This one is not a port — it is the decision layer built on top of them.</p>
+
+<h2 id="what-it-is">What it is</h2>
+
+<blockquote>
+  <p>Inventory V1 helps a distributor understand what needs attention, what threatens sales, where
+inventory capital is tied up, what purchasing decisions need review, why an inventory problem
+exists, and which module owns the next action — while clearly distinguishing verified facts,
+estimates, uncertainty, and horizon-scoped projections.</p>
+</blockquote>
+
+<p>Five decisions, not a set of reports:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                    INVENTORY
+                        │
+        ┌───────────────┼───────────────┐
+        ↓               ↓               ↓
+     TODAY             BUY            MONEY
+ "What matters?"  "What should I do?" "Where is money?"
+        │               │               │
+        └───────────────┼───────────────┘
+                        ↓
+                  NOT WORKING
+                 "What's wrong?"
+                        │
+                        ↓
+                    LOOK UP
+                 "Show evidence"
+</code></pre></div></div>
+
+<p>And underneath every finding, the chain that separates a decision engine from a stock ledger:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>OBSERVATION → CAUSE → BUSINESS IMPACT → OWNER → ACTION / HANDOFF
+</code></pre></div></div>
+
+<h2 id="running-it">Running it</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 tools/serve.py 8081     <span class="c"># from the repo root, then open</span>
+<span class="c"># http://localhost:8081/screens/inventory-intelligence/index.html</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>node checks/check-invariants.mjs    <span class="c"># 38 checks, no dependencies</span>
+</code></pre></div></div>
+
+<p>The checks run against <strong>this snapshot’s own</strong> <code class="language-plaintext highlighter-rouge">mock-intel.js</code> and seed, so the frozen version stays
+verifiable on its own long after the working copy has moved on.</p>
+
+<h2 id="what-is-in-here">What is in here</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">assets/mock-intel.js</code></td>
+      <td>the whole experience and the engine</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">assets/mock-shell.*</code>, <code class="language-plaintext highlighter-rouge">icons.js</code>, <code class="language-plaintext highlighter-rouge">tailwind-play-3.4.16.js</code></td>
+      <td>the shared shell, vendored</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">screens/inventory-intelligence/index.html</code></td>
+      <td>the mount point</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seed-data/seed-intelligence.json</code></td>
+      <td>the simulated distributor</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seed-data/build-seed.py</code></td>
+      <td>the simulation that produced it, deterministic</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seed-data/seed.json</code></td>
+      <td>the source seed the shell reads</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">checks/check-invariants.mjs</code></td>
+      <td>38 semantic checks</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="provenance--what-is-real-and-what-is-simulated">Provenance — what is real and what is simulated</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Measured, from the source system</strong></td>
+      <td>batch quantities, expiry dates, landed cost, supplier attribution, physical vs traced stock</td>
+    </tr>
+    <tr>
+      <td><strong>Simulated</strong></td>
+      <td>90 days of sales history, selling prices (the source carries no selling price), promised delivery dates, demand signals, the purchase pipeline</td>
+    </tr>
+    <tr>
+      <td><strong>Derived</strong></td>
+      <td>everything else — sellability, shortfall, DOH, velocity, capital buckets, margin, return on capital, future position</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Margin and return therefore rest on <strong>illustrative selling prices</strong>, and the UI says so above the
+figures rather than in a footnote. Replacing them with real prices changes the numbers, not the
+model.</p>
+
+<h2 id="known-limitations-deliberately-frozen-with-them">Known limitations, deliberately frozen with them</h2>
+
+<p>Ageing buckets beyond 60 days are empty (the simulation runs 90 days) · the customer book is close
+to uniform where a real one is power-law · no inventory value history, so no inventory-vs-sales
+growth · “Working stock” is a residual, not an assessment (Q32) · DOH uses verified stock while the
+adjacent “on hand” uses physical (Q42).</p>
+
+<p>Full record: <a href="../../instructions/addendum-020-v1-freeze.md">addendum-020</a>.</p>
+
+
+      
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/anchor-js/4.1.0/anchor.min.js" integrity="sha256-lZaRhKri35AyJSypXXs4o6OPFTbTmUoltBbDCbdzegg=" crossorigin="anonymous"></script>
+    <script>anchors.add();</script>
+  </body>
+</html>
