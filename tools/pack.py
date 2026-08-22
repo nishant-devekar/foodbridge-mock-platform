@@ -6,15 +6,27 @@ Each module keeps its OWN directory layout under modules/<repo>/…, so every
 relative link inside it (../seed-data/seed.json, order.html?x=1) resolves
 unchanged. Only absolute and CDN URLs are rewritten.
 
-  python3 pack.py --dry     report what would be fetched
-  python3 pack.py           write the package to ./pkg
+  python3 pack.py --dry               report what would be fetched
+  python3 pack.py                     write the package to ./pkg, as v1
+  python3 pack.py --version 2         write it labelled as v2 instead
+  python3 pack.py --version 2 --frozen-on "22 August 2026"
 """
-import json, re, sys, hashlib, pathlib, shutil, urllib.request, urllib.parse, collections
+import json, re, sys, hashlib, pathlib, shutil, urllib.request, urllib.parse, collections, datetime
 
 HERE = pathlib.Path(__file__).parent
 PLATFORM = pathlib.Path(__file__).resolve().parent.parent   # the repo root
-OUT = PLATFORM / "pkg"   # move/rename to v2/ once verified
+OUT = PLATFORM / "pkg"   # move/rename to v<VERSION>/ once verified
 DRY = "--dry" in sys.argv
+
+
+def _arg(flag, default):
+    if flag in sys.argv:
+        return sys.argv[sys.argv.index(flag) + 1]
+    return default
+
+
+VERSION = _arg("--version", "1")
+FROZEN_ON = _arg("--frozen-on", datetime.date.today().strftime("%-d %B %Y"))
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -65,8 +77,17 @@ def refs(text, base):
         yield urllib.parse.urljoin(base, ref.split("#")[0])
 
 
-def crawl(url, depth=0):
+def crawl(url, depth=0, page_base=None):
     root, rest, repo = repo_of(url)
+    # A directory-index reference (bare repo root, or a path ending "/", like
+    # ".../v1/" alongside ".../v1/index.html" for the same content) resolves
+    # to a real file on disk once written — but "v1" the file and "v1/" the
+    # directory another entry needs can't both exist at that path. GitHub
+    # Pages serves index.html at a directory URL, so that's what gets
+    # written; this also naturally de-dupes against an index.html already
+    # found by its own explicit URL.
+    if rest == "" or rest.endswith("/"):
+        rest += "index.html"
     if (repo, rest) in files:
         return
     body = get(url)
@@ -79,10 +100,23 @@ def crawl(url, depth=0):
         text = body.decode("utf-8")
     except UnicodeDecodeError:
         return
-    base = urllib.parse.urljoin(url, ".")
-    for t in refs(text, base):
+    own_base = urllib.parse.urljoin(url, ".")
+    # Every module here is vanilla JS with no bundler and no type="module"
+    # (project-wide rule) — so a classic <script src> file's OWN relative
+    # fetch()/Image().src references resolve against the PAGE that loaded
+    # it, exactly like an inline <script> would, NOT against the .js file's
+    # own directory. Get this wrong and a page two directories deeper than
+    # its script (../../seed-data/x.json, common for a shared shell script)
+    # 404s on a path missing the depth the page itself sits at. CSS is the
+    # opposite — url()/@import truly are relative to the stylesheet — so
+    # only .js inherits the caller's page_base; everything else re-bases on
+    # its own location.
+    is_js = rest.endswith(".js")
+    resolve_base = page_base if (is_js and page_base) else own_base
+    next_page_base = page_base if is_js else own_base
+    for t in refs(text, resolve_base):
         if t.startswith(root):
-            crawl(t, depth + 1)
+            crawl(t, depth + 1, next_page_base)
         elif t.startswith(("http://", "https://")):
             external[t.split("#")[0]] += 1
 
@@ -178,13 +212,11 @@ def main():
     write(cfg)
 
 
-FROZEN_ON = "14 August 2026"
-
-
 def badge():
     """A small fixed marker so a copy of this folder, detached from any context,
     still says what it is. Fixed-position and z-indexed, so it overlays rather
-    than reflows — the shell underneath stays pixel-identical to what v1 was."""
+    than reflows — the shell underneath stays pixel-identical to what the live
+    version was on the freeze date."""
     f = OUT / "index.html"
     html = f.read_text()
     mark = (
@@ -198,7 +230,7 @@ def badge():
         '@media print{#v1-badge{display:none}}'
         '</style>'
         f'<a id="v1-badge" href="VERSION.md" title="Frozen snapshot — click for what is inside">'
-        f'v1 \u00b7 frozen {FROZEN_ON}</a>'
+        f'v{VERSION} \u00b7 frozen {FROZEN_ON}</a>'
     )
     f.write_text(html.replace("</body>", mark + "\n</body>", 1))
 
@@ -221,7 +253,40 @@ def docs(cfg):
     rows = "\n".join(f"| `#/{r}` | {name} | `{u}` |" for r, name, u in dests)
     repolist = "\n".join(f"- `modules/{r}/`" for r in repos)
 
-    (OUT / "VERSION.md").write_text(f"""# FoodBridge mock platform — Version 1
+    # live: whatever pull_vendor() left un-vendored (not a font/CDN host) —
+    # the network calls that survive packaging, whatever they turn out to be
+    # this run rather than only the one (OpenStreetMap) true for v1.
+    live_calls = sorted({u for u in external if not any(h in u for h in VENDORABLE)})
+    live_rows = "\n".join(f"| `{u}` |" for u in live_calls) or "| *(none this run)* |"
+
+    # notfound: real 404s on the live sites, reproduced rather than silently
+    # patched — same intent as v1's hand-picked two, just gathered from
+    # THIS crawl instead of re-typed by hand each version. Some entries are
+    # the crawler misreading a JS string literal as a path (e.g. `a.href`,
+    # `blob`) rather than a genuine broken reference — see tools/pack.py's
+    # own pull_vendor() docstring; left in rather than hand-filtered, since
+    # guessing which are real from the URL alone would be less honest than
+    # showing what was actually found.
+    defect_urls = sorted({u for u, _ in notfound})
+    defects = "\n".join(f"- `{u}`" for u in defect_urls) or "- *(none found this run)*"
+
+    # failed: real fetch errors (timeout, DNS, connection reset) rather than
+    # a clean 404 — a team's Pages site being down at crawl time, not a
+    # broken reference. Worth a name-and-shame separate from "inherited
+    # defect" so a re-run doesn't get blamed for someone else's outage.
+    fail_rows = sorted({(u, e) for u, e in failed})
+    fails_section = ""
+    if fail_rows:
+        fails = "\n".join(f"- `{u}` — {e}" for u, e in fail_rows)
+        fails_section = (
+            "\n## Fetch errors during packaging\n\n"
+            "Not a 404 — the site didn't answer at all when this snapshot was crawled, most "
+            "likely a team's Pages build being briefly unavailable rather than a broken "
+            "reference. Re-running the packager may pick these up cleanly:\n\n"
+            f"{fails}\n"
+        )
+
+    (OUT / "VERSION.md").write_text(f"""# FoodBridge mock platform — Version {VERSION}
 
 **Frozen {FROZEN_ON}.** A self-contained snapshot: the shell plus a local copy of every
 module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
@@ -247,16 +312,19 @@ then open <http://localhost:8000/>. On GitHub Pages it works as-is.
 | Shell — nav, routing, chrome, clip offsets | frozen |
 | All {len(dests)} module screens, their JS/CSS/seed data/images | frozen, local copies |
 | Google Fonts, Tailwind, Leaflet | frozen in `vendor/` |
-| **Map tiles on Live Delivery Tracking** | **not frozen** — `tile.openstreetmap.org`, the only remaining network call in the package. Offline that map shows its markers and controls on a blank background; every other screen is fully offline-capable. |
+| **{len(live_calls)} other reference(s)** | **not frozen** — see the table below. Offline, each shows whatever its screen does when that call fails (usually a blank background or a missing image); every other reference is fully offline-capable. |
+
+| Still reaches the network |
+| --- |
+{live_rows}
 
 ## Inherited defects
 
-Faithfully reproduced from the live sites rather than silently patched:
+Faithfully reproduced from the live sites rather than silently patched — {len(defect_urls)}
+found already 404 on the freeze date and packaged as-is:
 
-- `modules/foodbridge-production-discovery/batch-management/screens/batch/styles-b.css` — referenced
-  by Batch Management, already 404 on the live site on the freeze date.
-- `https://nishant-devekar.github.io/seed-data/seed.json` — an absolute URL missing its repo
-  segment, so already broken upstream; left as it was found.
+{defects}
+{fails_section}
 
 ## Layout
 
@@ -338,7 +406,7 @@ def write(cfg):
                     _, rest, repo = repo_of(it[k])
                     it[k] = f"modules/{repo}/{rest}"
     relocate(cfg["nav"]); relocate(cfg.get("standalone", []))
-    cfg["_frozen"] = ("Version 1 — a frozen, self-contained snapshot. Every destination below is a "
+    cfg["_frozen"] = (f"Version {VERSION} — a frozen, self-contained snapshot. Every destination below is a "
                       "local copy under modules/, not a live GitHub Pages URL, so this folder renders "
                       "the same whatever the module teams push next. See VERSION.md.")
     (OUT / "assets/modules.json").write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
