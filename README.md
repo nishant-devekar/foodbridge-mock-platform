@@ -42,36 +42,44 @@ entry there; there is no other place to change.
 
 ## Versions
 
-`v1/` is a **frozen, self-contained snapshot** — the shell plus a local copy of every module
-screen it shows on the freeze date. Nothing in it loads from a module team's Pages site, so it
-renders the same however those repos change afterwards. That is the point: the live platform at
-`/` follows the teams, and `v1/` does not.
+Each `v<N>/` is a **frozen, self-contained snapshot** — the shell plus a local copy of every
+module screen it showed on its freeze date. Nothing in one loads from a module team's Pages site,
+so it renders the same however those repos change afterwards. That is the point: the live
+platform at `/` follows the teams, and a frozen version does not — and never changes again once
+cut, so `v1` stays exactly what it was even after `v2` exists.
 
-| | Live (`/`) | Frozen (`v1/`) |
-| --- | ---------- | -------------- |
-| Module screens | fetched from each team's Pages site at view time | local copies under `v1/modules/<repo>/` |
-| Changes when a team pushes | yes, on the next load | no |
-| Share as | a link | a link, or the folder / release zip |
+**▶ Current frozen version:** <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/>
 
-The [`v1` release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases/tag/v1)
+| | Live (`/`) | Frozen (`v2/`, current) | Frozen (`v1/`) |
+| --- | ---------- | -------------- | -------------- |
+| Freeze date | — moves with every push | 22 August 2026 | 14 August 2026 |
+| Destinations | 26, whatever `assets/modules.json` says today | 26 | 24 |
+| Module screens | fetched from each team's Pages site at view time | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
+| Changes when a team pushes | yes, on the next load | no | no |
+| Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip |
+
+Every frozen version's [release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases)
 carries **two** assets, because "look at it" and "work on it" need different things:
 
-| Asset | For | Size |
-| ----- | --- | ---- |
-| `foodbridge-mock-platform-v1.zip` | Seeing it run — the folder below, self-contained. | 2.6 MB |
-| `foodbridge-v1-source.zip` | Handing to a developer — all 12 repos as ready-to-work git clones. Unzip, `./run.sh`, `./update.sh`. | 46.6 MB |
+| Asset | For |
+| ----- | --- |
+| `foodbridge-mock-platform-v<N>.zip` | Seeing it run — the folder below, self-contained. |
+| `foodbridge-v<N>-source.zip` | Handing to a developer — every repo behind it as a ready-to-work git clone. Unzip, `./run.sh`, `./update.sh`. |
 
-The runtime half was built by crawling what a browser loads, so it holds **155 of 1,141 module
-files (~14%)** — enough to render every screen, and nothing else. `discovery/instructions/`,
+The runtime half is built by crawling what a browser loads, so it holds a small fraction of each
+module's full source — enough to render every screen, and nothing else. `discovery/instructions/`,
 `development/` trees, screens reached only by JavaScript, canonical seed JSON, superseded version
 folders and all git history are invisible to a browser and live in the source half instead.
 
-- Browse: <https://nishant-devekar.github.io/foodbridge-mock-platform/v1/>
-- What is inside, where each screen came from, and the two limitations:
-  [`v1/VERSION.md`](v1/VERSION.md)
-- Tagged `v1` in git; the source half records every repository's exact commit SHA in its `MANIFEST.md`.
+- Browse the current version: <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/> —
+  or [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) for the version before it
+- What is inside each one, where every screen came from, and that version's own limitations:
+  [`v2/VERSION.md`](v2/VERSION.md) · [`v1/VERSION.md`](v1/VERSION.md)
+- Tagged `v2` / `v1` in git; each release's source half records every repository's exact commit SHA
+  in its own `MANIFEST.md`.
 
-Rebuild or cut a later snapshot with `tools/pack.py` (see its docstring). It re-crawls every
+Rebuild or cut a later snapshot with `tools/pack.py --version <N>` (see its docstring — `--dry`
+reports what would be fetched without writing anything). It re-crawls every
 destination in `assets/modules.json`, keeps each module's own directory layout so relative links
 survive, vendors the CDN assets, and rewrites `modules.json` to local paths.
 
