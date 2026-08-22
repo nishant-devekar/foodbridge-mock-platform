@@ -89,6 +89,7 @@ done
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
+    ap.add_argument("--version", default="1")
     ap.add_argument("--frozen-on", default="14 August 2026")
     args = ap.parse_args()
 
@@ -123,9 +124,9 @@ def main():
     shutil.copy2(PLATFORM / "tools" / "SOURCE-README.md", out / "README.md")
 
     total = sum(r["files"] for r in rows)
-    man = [f"""# FoodBridge v1 — source manifest
+    man = [f"""# FoodBridge v{args.version} — source manifest
 
-Every repository behind the platform, at the commit it was on when v1 was cut
+Every repository behind the platform, at the commit it was on when v{args.version} was cut
 ({args.frozen_on}). {len(rows)} repositories, {total} files.
 
 These are live clones with their GitHub `origin` intact — `./update.sh` moves them
@@ -137,7 +138,7 @@ forward whenever you want. The commits below are where they started.
             f"{r['branch']} | {r['commits']} | {r['files']} |" for r in rows]
     man += ["\n## Full commit SHAs\n\n```"]
     man += [f"{r['sha']}  {r['slug']}" for r in rows]
-    man += ["```\n", "Return any repository to exactly where v1 was:\n",
+    man += ["```\n", f"Return any repository to exactly where v{args.version} was:\n",
             "```\ngit -C repos/<name> checkout <sha>\n```"]
     (out / "MANIFEST.md").write_text("\n".join(man))
 

@@ -4,7 +4,7 @@
 module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
 folder renders the same however those repos change afterwards.
 
-201 files, 7.9 MB, 12 module repos, 26 destinations.
+200 files, 7.9 MB, 12 module repos, 26 destinations.
 
 ## Running it
 

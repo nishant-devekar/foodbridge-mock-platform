@@ -389,13 +389,23 @@ def write(cfg):
             body = rewrite(body.decode("utf-8", "replace"), depth).encode("utf-8")
         p.write_bytes(body)
 
-    # the shell, with every destination repointed at its local copy
+    # the shell, with every destination repointed at its local copy. Ignore
+    # whatever the platform's OWN .gitignore excludes — assets/modules.local.json
+    # is dev.py's local-checkout override, machine-specific and never meant to
+    # ship; copying it verbatim (shutil.copytree has no concept of gitignore)
+    # would leak whichever dev machine happened to cut this version, and every
+    # relocate() below still runs against the real modules.json regardless.
+    ignored_names = {ln.rsplit("/", 1)[-1] for ln in (PLATFORM / ".gitignore").read_text().splitlines()
+                      if ln.strip() and not ln.startswith("#")}
     for item in ["index.html", "assets", "tools", ".nojekyll", "README.md"]:
         src = PLATFORM / item
         if not src.exists():
             continue
         dst = OUT / item
-        shutil.copytree(src, dst) if src.is_dir() else shutil.copy2(src, dst)
+        if src.is_dir():
+            shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*ignored_names))
+        else:
+            shutil.copy2(src, dst)
 
     def relocate(items):
         for it in items:
