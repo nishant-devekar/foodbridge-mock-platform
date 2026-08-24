@@ -30,6 +30,13 @@
   the rep asks for one (the "Full Shelf Audit" secondary action, which is
   the original loop above, kept exactly as it was).
 
+  A later inline pass took the last modals out of that loop: the count is a
+  stepper in the product row (as in Delivery Management's Load Stock, not a
+  per-product bottom sheet), finishing is an inline ✓ / ✗ confirmation in the
+  sticky footer (as on Production's recipe page, not a slide-up sheet), and
+  picking a customer always starts a fresh visit with nothing asked on the
+  way in. See stock-audit.js's "inline pass" removal notes.
+
   Two query-param entry points, both read once at mount():
     ?customer=<id>                deep link straight into Customer Detail —
                                    unchanged, original behavior.
@@ -70,7 +77,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Stock Audit &amp; Health — Foodbridge Module Customer</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="stock-audit.css?v=202608258">
+  <link rel="stylesheet" href="stock-audit.css?v=202608269">
 </head>
 <body>
   <div class="app sah" id="app"></div>
@@ -85,7 +92,7 @@
        same reason. Bump the tag on any edit to stock-audit.css/.js or to the
        seed. (The other screens load the seed unversioned; they don't change
        it, so they don't need to.) -->
-  <script src="stock-audit.js?v=202608258"></script>
+  <script src="stock-audit.js?v=202608269"></script>
   <script>SAH.mount();</script>
 </body>
 </html>

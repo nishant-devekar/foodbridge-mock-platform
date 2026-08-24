@@ -246,106 +246,50 @@
 
 .info-card { background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 18px 0; }
 
-/* ── Audit workspace: the product list ───────────────────────────────────── */
+/* ── Audit workspace: the counting header ────────────────────────────────── */
 /* Persistent context, per the spec: a rep glancing down mid-count should
-   always see where they are, how far along they are, and how much is
-   flagged, without scrolling back up. */
-.ws-head { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-.ws-exit { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 700; color: var(--teal); }
-.ws-who { font-size: 15.5px; font-weight: 800; color: var(--ink); margin-top: 8px; }
-/* Only shown when the customer has no location on file at all — an edge
-   case, still styled as the same visible control as .ws-locpick below so it
-   doesn't read as a different, lesser kind of thing. */
-.ws-where { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--slate-50); font: inherit; font-size: 12px; font-weight: 700; color: var(--teal-d); }
-/* A visible control, not text that happens to be clickable — background,
-   border and a pin+chevron pair so "this is a button" reads before anyone
-   touches it. A select's own hit-target covers the whole pill (appearance:
-   none only removes the native arrow; the element underneath is still the
-   full-size <select>, so tapping the pin or the label text opens it too).
-   Always a real <select>, even for a customer with exactly one location —
-   the one thing that stayed the same as the plain-text version this
-   replaced is the URL; everything about how it looks changed. */
-.ws-locpick { position: relative; display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; height: 26px; padding: 0 22px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--slate-50); }
-.ws-locpick .pin { font-size: 11px; line-height: 1; }
-.ws-locpick select { appearance: none; -webkit-appearance: none; border: none; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: var(--teal-d); }
-.ws-locpick .chev { position: absolute; right: 9px; font-size: 9px; color: var(--teal-d); pointer-events: none; }
-.ws-progress { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
-.ws-progress .n { font-size: 12.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ws-progress .attn { font-size: 12.5px; font-weight: 700; color: var(--amber-tx); }
-.ws-progress .clear { font-size: 12.5px; font-weight: 600; color: var(--green-d); }
-.ws-bar { height: 7px; border-radius: 4px; background: #e5e7eb; overflow: hidden; margin-top: 10px; }
-.ws-bar > span { display: block; height: 100%; background: var(--teal); border-radius: 4px; transition: width .2s; }
+   always see where they are and how far along they are. It used to say that
+   in a padded card four rows deep — an Exit button, the name, the ratio and a
+   fat progress bar, ~130px of chrome above a list that IS the screen. All
+   four facts still fit on one line: the exit is the arrow every phone screen
+   puts top-left, and the progress bar earns its keep by doubling as the rule
+   that separates the header from the list rather than being a band of its
+   own. ~44px now, and nothing was dropped. */
+.ws-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 2px 11px; margin-bottom: 12px; }
+.ws-exit { flex-shrink: 0; width: 30px; height: 30px; margin-left: -6px; display: grid; place-items: center; background: none; border: none; padding: 0; border-radius: 8px; font-size: 19px; line-height: 1; color: var(--teal); }
+.ws-exit:hover { background: var(--teal-l); }
+.ws-who { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-count { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The rule under the header IS the track, so an empty audit still gets its
+   divider and a finished one shows a full teal line in the same place. */
+.ws-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.ws-bar > span { display: block; height: 100%; background: var(--teal); border-radius: 2px; transition: width .2s; }
 
-.ws-list { display: flex; flex-direction: column; gap: 8px; }
-.ws-row { display: flex; align-items: center; gap: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; cursor: pointer; }
-.ws-row.done { border-color: #bbf7d0; background: #f6fefa; }
-.ws-row .thumb { width: 36px; height: 36px; border-radius: 9px; background: #f1f5f9; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; overflow: hidden; }
-.ws-row .info { flex: 1; min-width: 0; }
-/* A span needs an explicit display:block for text-overflow to take effect —
-   without it the browser silently wraps instead of truncating. */
-.ws-row .nm { display: block; font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-row .meta { display: block; font-size: 11px; color: var(--muted-2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-row .status-tag { margin-top: 5px; font-size: 10.5px; padding: 3px 8px; }
-.ws-row .side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.ws-row .found { font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ws-row .tick { color: var(--green); font-weight: 800; font-size: 13px; }
-.btn-count { height: 32px; padding: 0 15px; border-radius: 9px; border: 1.5px solid var(--teal); background: #fff; color: var(--teal); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 
-/* Products / Attention / Review — the counts double as the way back to each
-   view, so the bar is navigation rather than decoration. */
 .ws-foot .inner { gap: 8px; align-items: stretch; }
-.foot-stat { flex: 0 0 auto; min-width: 66px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; padding: 6px 10px; text-align: center; line-height: 1.15; }
-.foot-stat b { display: block; font-size: 14px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.foot-stat span { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted-2); margin-top: 1px; }
-.foot-stat.flag { border-color: #fcd34d; background: var(--amber-bg); }
-.foot-stat.flag b, .foot-stat.flag span { color: var(--amber-tx); }
 
-/* ── Product audit: count → condition → next ─────────────────────────────── */
-.pd-head { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
-.pd-title { display: flex; align-items: center; gap: 11px; margin-top: 10px; }
-.pd-title .thumb { width: 42px; height: 42px; border-radius: 10px; background: #f1f5f9; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; overflow: hidden; }
-.pd-title h1 { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink); line-height: 1.2; }
-.pd-title p { margin: 2px 0 0; font-size: 11.5px; color: var(--muted-2); }
-.pd-expected { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line-soft); }
-.pd-expected span { font-size: 11.5px; color: var(--muted); }
-.pd-expected b { font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
-.pd-expected .var { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--muted-2); font-variant-numeric: tabular-nums; }
-.pd-expected .var.match { color: var(--green-d); }
-.pd-expected .var.up { color: var(--blue); }
-.pd-expected .var.down { color: var(--red); }
+/* ── Counting ────────────────────────────────────────────────────────────── */
+/* The Product Count Sheet these dressed (.pd-head/.pd-title/.pd-expected/
+   .pd-fields/.pd-splits/.pd-notfound/.pd-sheet-acts, and .btn-count, the row
+   button that opened it) is gone — the count is a stepper in the row now, see
+   stock-audit.js's inline-pass removal notes. .pd-stepper and .pd-opts are
+   what survived: the stepper because it IS the count, .pd-opts because the
+   End-this-visit sheet still picks a reason with it. */
 
-/* Big targets: the rep is one-handed, standing up, holding stock. */
-.pd-stepper { display: flex; align-items: center; gap: 7px; flex-shrink: 0; min-width: 0; }
-.pd-stepper button { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); font-size: 17px; font-weight: 700; flex-shrink: 0; }
+/* Big targets: the rep is one-handed, standing up, holding stock. One
+   segmented control rather than three floating buttons — Delivery
+   Management's .dm-stepper, at the same proportions, so a rep who counts
+   stock onto a truck there and off a shelf here operates the same widget. */
+.pd-stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #fff; }
+.pd-stepper button { width: 36px; height: 38px; border: none; background: #fff; color: var(--teal); font-size: 19px; font-weight: 700; flex-shrink: 0; }
 .pd-stepper button:hover { background: var(--slate-50); }
-.pd-stepper input { width: 58px; height: 36px; text-align: center; border: 1px solid var(--line); border-radius: 9px; font-size: 14px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--ink); }
-.pd-stepper input:focus { border-color: var(--teal); }
-
-/* Not found is a deliberate, quiet path — it must be reachable without
-   competing with the count itself. */
-.pd-notfound { display: block; width: 100%; background: none; border: none; padding: 2px 0 16px; font-size: 12.5px; font-weight: 700; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-.pd-notfound:hover { color: var(--red); }
-
-.pd-fields { display: flex; gap: 10px; flex-wrap: wrap; }
-.pd-fields label { flex: 1 1 130px; min-width: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted-2); }
-.pd-fields label small { text-transform: none; letter-spacing: 0; font-weight: 500; }
-.pd-fields input { display: block; width: 100%; margin-top: 5px; height: 38px; border: 1px solid var(--line); border-radius: 9px; padding: 0 10px; font: inherit; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); background: #fff; outline: none; }
-.pd-fields input:focus { border-color: var(--teal); }
+.pd-stepper input { width: 44px; height: 38px; text-align: center; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 15px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent; }
+.pd-stepper:focus-within { border-color: var(--teal); }
 
 .pd-opts { display: flex; flex-wrap: wrap; gap: 7px; }
 .pd-opt { border: 1.5px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; }
 .pd-opt.on { border-color: var(--teal); background: var(--teal-l); color: var(--teal); }
 .sheet-opts { margin-top: 16px; }
-
-.pd-splits { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.pd-split { display: flex; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
-.pd-split .lbl { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.pd-split .lbl small { font-weight: 500; color: var(--muted-2); }
-
-/* Skip / Save live inside the sheet's own scroll — a bottom sheet has no
-   separate sticky-footer region above the nav the way a full page did, so
-   the actions are just the last thing in the sheet instead. */
-.pd-sheet-acts { display: flex; gap: 10px; margin-top: 20px; }
 
 /* ── Audit history: a field-visit log ────────────────────────────────────── */
 /* A funnel, not a gear — a gear reads as settings, and this filters. */
@@ -525,9 +469,26 @@
 .btn-wide.primary { background: var(--teal); color: #fff; }
 .btn-wide.primary:disabled { background: #9db8b6; cursor: not-allowed; }
 
+/* ── Overlay layer (sheets + toasts) ──────────────────────────────────────── */
+/* One layer that every floating thing lives in, so "over the screen" means
+   over the SCREEN — the phone's, on desktop — and not over the browser window.
+   Fixed and full-viewport by default, which is what a real phone wants;
+   stock-audit.js pins it to #page's measured box above the desktop breakpoint
+   (see syncOverlayFrame), and the transparent border below reproduces the
+   bezel so the layer's content box is exactly the visible screen.
+   Inert itself, so an empty layer never intercepts a tap. */
+.sah-overlays {
+  position: fixed; inset: 0; z-index: 120;
+  box-sizing: border-box; overflow: hidden;
+  pointer-events: none;
+}
+.sah-overlays > * { pointer-events: auto; }
+
 /* ── Bottom sheet (confirmation) ──────────────────────────────────────────── */
+/* `absolute`, not `fixed`: it fills the overlay layer, which is the viewport on
+   a phone and the device screen on desktop. */
 .sah-sheet-scrim {
-  position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 60;
+  position: absolute; inset: 0; background: rgba(15,23,42,.45); z-index: 60;
   display: flex; align-items: flex-end; justify-content: center;
   opacity: 0; transition: opacity .2s;
 }
@@ -553,7 +514,10 @@
 .sheet-btn.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--ink); }
 
 /* Toasts reuse FB_SHELL's own .toasts/.toast (styles.css) — same component
-   every other screen in this module uses, so no local toast styling here. */
+   every other screen in this module uses. The only local change is where they
+   sit: inside the overlay layer, so `fixed` (which styles.css sets, meaning
+   the browser window) becomes `absolute` against the phone's own screen. */
+.sah-overlays .toasts { position: absolute; }
 
 @media (max-width: 560px) {
   .sah-hero h1 { font-size: 20px; }
@@ -604,32 +568,82 @@
      at the browser's edge. */
   .sah-nav, .sah-foot { position: absolute; }
 
-  /* A sheet still slides up from the real viewport's bottom, not the
-     phone's — but centering it in the sidebar-free width it's actually
-     free to use keeps it landing under the phone rather than dead-centre
-     of the whole monitor. */
-  .sah-sheet-scrim { left: var(--sidebar-w, 260px); }
+  /* Sheets and toasts belong to the phone, not to the browser window. The
+     layer is pinned to #page's measured box by syncOverlayFrame (a copy of
+     these numbers would drift the moment either side changed); the border
+     here is the bezel, drawn transparent so it lines up with the real one
+     without covering it. `overflow: hidden` then clips against the padding
+     box, which is exactly the visible screen — so a sheet slides up from the
+     phone's bottom edge and a toast drops in under its top edge, both with
+     the screen's own rounded corners.
+
+     This replaces an older compromise that left both `fixed` to the real
+     viewport and merely nudged the sheet right by the sidebar's width, so it
+     landed roughly under the phone instead of in it. */
+  .sah-overlays {
+    border: 12px solid transparent;
+    border-radius: 46px;
+  }
 }
 
 /* ==========================================================================
-   vNext — Quick Audit (quick-pick / quick-count / the quick count sheet).
-   Reuses .picker-row, .ws-row, .ws-list, .status-tag, .pd-* wholesale (see
-   stock-audit.js); the two rules below are the only genuinely new surface —
-   a prominent card for the single default Quantity stepper (echoing
-   .pd-total's card treatment for the same "total" concept) and the small
-   remove control a selected-but-not-yet-counted row needs that a full-audit
-   .ws-row never did.
+   vNext — Quick Audit (quick-pick / quick-count).
+   Reuses .picker-row, .status-tag, .pd-* wholesale (see stock-audit.js);
+   what follows is the genuinely new surface.
    ========================================================================== */
-.qc-qty { display: flex; justify-content: center; background: var(--card); border: 1.5px solid var(--teal); border-radius: 14px; padding: 14px; margin-bottom: 18px; }
-.qc-qty .pd-stepper { gap: 14px; }
-.qc-qty .pd-stepper button { width: 44px; height: 44px; font-size: 20px; }
-.qc-qty .pd-stepper input { width: 72px; height: 44px; font-size: 18px; }
 
-.ws-row .qc-remove {
-  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line);
-  background: #fff; color: var(--muted); font-size: 15px; line-height: 1; flex-shrink: 0;
+/* The counting sheet, as one card with a total on the bottom line — Delivery
+   Management's order card (.order-card / .order-line.editing / .order-line
+   .total), which is the same job: a list of products, one number each, and a
+   figure they add up to. Rows are divided rather than separately boxed, so a
+   long selection reads as one worksheet instead of a stack of cards. */
+.qc-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.qc-line { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.qc-line:last-child { border-bottom: none; }
+.qc-line .info { flex: 1; min-width: 0; }
+.qc-line .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qc-line .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The card's own closing line, where the order card puts "Order Total". */
+.qc-line.total { justify-content: space-between; background: var(--slate-50); font-weight: 700; font-size: 12.5px; color: var(--muted); padding: 12px 14px; }
+.qc-line.total b { font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* A counted row is tinted edge to edge — which is why .qc-card carries no
+   horizontal padding of its own and each line pads itself instead. */
+.qc-row.done { background: #f6fefa; }
+/* An untouched row reads as unanswered rather than as zero — the placeholder
+   is the "not counted yet" state, and typing anything at all is what turns
+   the row green. */
+.qc-row .pd-stepper input::placeholder { color: var(--muted-2); font-weight: 500; }
+.qc-row.done .pd-stepper { border-color: var(--green); }
+.qc-row.done .pd-stepper input { border-color: var(--green); color: var(--green-d); }
+
+/* The finish toast is held for 8s (longToast in stock-audit.js) instead of
+   shell.js's 3.2s, so its draining bar has to be re-timed to match — styles.css
+   animates .toast::after over 3.2s, which would empty the bar and then leave
+   the toast sitting there for five more seconds looking stuck. Duration only:
+   everything else is the shared toast, unchanged. */
+.toast.toast-long::after { animation-duration: 8s; }
+
+/* The inline finish confirmation, in the sticky footer — same ✓ / ✗ shape as
+   Production's recipe page uses to confirm a publish. It replaces the footer's
+   button rather than covering the screen, because the thing being confirmed
+   (what has and hasn't been counted) is the screen. */
+.confirm-inline { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.confirm-inline .ci-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.confirm-inline .ci-prompt { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.confirm-inline .ci-detail { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.ci-btn { flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; font-size: 18px; font-weight: 800; border: 1.5px solid transparent; }
+.ci-btn.yes { background: var(--teal); color: #fff; }
+.ci-btn.no { background: #fff; border-color: var(--line); color: var(--red); }
+.ci-btn.no:hover { border-color: var(--red); }
+
+/* Quieter than the stepper beside it: removing a product from the sheet is
+   housekeeping, not the task. */
+.qc-row .qc-remove {
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  background: none; color: var(--muted-2); font-size: 16px; line-height: 1; flex-shrink: 0;
 }
-.ws-row .qc-remove:hover { background: var(--slate-50); color: var(--red); border-color: var(--red); }
+.qc-row .qc-remove:hover { background: var(--slate-100); color: var(--red); }
 
 /* quick-count's product search reuses .picker-row (see renderCreateCustomer's
    pattern) but its .av holds thumbHTML(p) — a real photo/emoji, not a bare

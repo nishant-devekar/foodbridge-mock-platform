@@ -4,7 +4,7 @@
 module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
 folder renders the same however those repos change afterwards.
 
-200 files, 7.9 MB, 12 module repos, 26 destinations.
+202 files, 7.8 MB, 12 module repos, 26 destinations.
 
 ## Running it
 
@@ -24,6 +24,7 @@ then open <http://localhost:8000/>. On GitHub Pages it works as-is.
 | Shell — nav, routing, chrome, clip offsets | frozen |
 | All 26 module screens, their JS/CSS/seed data/images | frozen, local copies |
 | Google Fonts, Tailwind, Leaflet | frozen in `vendor/` |
+| **Stock Audit & Health** | frozen like the rest, but **authored in this repo rather than crawled** — see the section below |
 | **7 other reference(s)** | **not frozen** — see the table below. Offline, each shows whatever its screen does when that call fails (usually a blank background or a missing image); every other reference is fully offline-capable. |
 
 | Still reaches the network |
@@ -35,6 +36,35 @@ then open <http://localhost:8000/>. On GitHub Pages it works as-is.
 | `https://exagon-ai.github.io/instructions/addendum-020-v1-freeze.md` |
 | `https://wa.me/` |
 | `https://www.openstreetmap.org/copyright` |
+
+## The one screen that is not a crawl
+
+Every other screen here is a byte copy of what its team's Pages site served on the freeze
+date. **Customer Management → Stock Audit & Health is not** — it is authored and maintained
+in this repository, because `nidhimehta9399/foodbridge-customer-mockup`'s live site has not
+caught up with it. Three files:
+
+```
+modules/foodbridge-customer-mockup/v1/screens/customers/stock-audit.{html,css,js}
+```
+
+Each says so in its own header comment. The rest of that module — B2B Customers, Retail
+Customers, Catalog, the shared `shell.js` / `styles.css` / `seed.inline.js` those three build
+on — is a normal crawl, unmodified.
+
+What it is: a mobile-first field tool for a distributor's rep, one journey end to end —
+**find the customer → pick the products → count each → finish → leave** — with Audit History
+as a read-only record downstream. The counting screen carries no modal of its own: the count
+is a stepper in the product row (the same control Delivery Management's Load Stock uses),
+finishing is an inline ✓ / ✗ confirmation in the sticky footer, and picking a customer always
+starts a new visit. Sheets and toasts render inside the device frame on desktop rather than
+at the browser window's edges.
+
+> **If you re-run `tools/pack.py --version 3`, you will lose this screen.** The packager
+> re-crawls every destination in `assets/modules.json` and writes what it finds, so it would
+> replace these three files with the older versions still on the module's Pages site. Restore
+> them from git (they are tracked here like any other source) or hold them back before
+> re-packing.
 
 ## Inherited defects
 
@@ -110,7 +140,7 @@ vendor/             Google Fonts, Tailwind, Leaflet
 | `#/customer-management/b2b-customers` | B2B Customers | `modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html` |
 | `#/customer-management/retail-customers` | Retail Customers | `modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html` |
 | `#/customer-management/catalog` | Catalog | `modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html` |
-| `#/customer-management/stock-audit-health` | Stock Audit & Health | `modules/foodbridge-customer-mockup/v1/screens/customers/stock-audit.html` |
+| `#/customer-management/stock-audit-health` | Stock Audit & Health | `modules/foodbridge-customer-mockup/v1/screens/customers/stock-audit.html` — **authored here, not crawled**; see above |
 | `#/sales-orders` | Sales Orders | `modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html` |
 | `#/distribution-logistics/route-planning` | Route Planning | `modules/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html` |
 | `#/distribution-logistics/delivery-management` | Delivery Management | `modules/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html` |

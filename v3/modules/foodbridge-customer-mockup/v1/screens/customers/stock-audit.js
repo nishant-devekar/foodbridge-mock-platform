@@ -18,10 +18,11 @@
      never a second way to start counting, never a health-analytics screen.
 
    Views (CURRENT.view below):
-     quick-pick   Search-first customer entry — the only way into a visit.
-     quick-count  Search/select products AND count them, one screen; opens
-                  a persistent per-product sheet (Quantity + Can't Find
-                  Product only — no condition/shelf/notes/photo fields).
+     quick-pick   Search-first customer entry — the only way into a visit,
+                  and always a NEW visit; no resume prompt.
+     quick-count  Search/select products AND count them, one screen and no
+                  modal in it: the count is a stepper in the row, and Finish
+                  asks its one question inline in the sticky footer.
      audits       Audit History — every visit across every customer, newest
                   first, the "Audit History" tab in the bottom nav. A log:
                   who, when, what kind of visit, whether it finished, how
@@ -71,28 +72,94 @@
   function daysBetween(iso) {
     return Math.round((now() - new Date(iso)) / DAY);
   }
-  // "Today, 10:15 AM" / "Yesterday" / "N days ago" / "Never audited" — the
-  // relative phrasing the customer list reads against, instead of a bare date.
-  function fmtRelative(iso) {
-    if (!iso) return "Never audited";
-    const days = daysBetween(iso);
-    if (days <= 0) return "Today, " + new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    if (days === 1) return "Yesterday";
-    return days + " days ago";
-  }
+  // REMOVED (inline pass): fmtRelative — "Today, 10:15 AM" / "Yesterday" /
+  // "N days ago". Its last reader was the resume prompt's "started 2 hours
+  // ago" line, which went with that sheet (see the removal note just below
+  // startAuditFor). daysBetween stays: the Audit History date filter reads it
+  // directly.
   function addressLine(addr, state, pin) {
     return [addr, state && state.name, pin].filter(Boolean).join(", ") || "No address on file";
   }
 
+  /* ------------------------------------------------------- overlay layer */
+
+  // Everything that floats over the screen — sheets and toasts — goes in here
+  // rather than straight onto <body>, so that on desktop it lands INSIDE the
+  // phone instead of at the browser window's own edges. Both used to be
+  // `position: fixed` against the real viewport, which is the viewport on a
+  // phone but the whole monitor here: toasts appeared up by the platform's
+  // topbar and sheets slid up from the bottom of the browser, both outside
+  // the device frame they belong to.
+  //
+  // Deliberately a sibling of #page, not a child: frame() rewrites #page's
+  // innerHTML on every render, which would tear an open sheet — or a toast
+  // still counting down — out of the DOM mid-life.
+  //
+  // The layer itself is inert (pointer-events: none, see stock-audit.css);
+  // only what's inside it takes clicks, so an empty layer can't swallow a tap
+  // meant for the screen underneath.
+  let OVERLAYS = null;
+  function overlayHost() {
+    if (!OVERLAYS || !OVERLAYS.isConnected) {
+      OVERLAYS = document.createElement("div");
+      OVERLAYS.className = "sah-overlays";
+      document.body.appendChild(OVERLAYS);
+      // shell.js's own toast() looks up `.toasts` document-wide before making
+      // one, so seeding it here means the shared toasts land in the phone too,
+      // without this screen having to reach into shell.js and re-time or
+      // re-home a primitive every other screen in the module shares.
+      const toasts = document.createElement("div");
+      toasts.className = "toasts";
+      OVERLAYS.appendChild(toasts);
+    }
+    syncOverlayFrame();
+    return OVERLAYS;
+  }
+
+  // The phone is a real, measurable box (#page, sized and centred by the
+  // desktop rules in stock-audit.css), so the layer is pinned to whatever
+  // that box currently is rather than to a copy of its numbers that would
+  // drift the moment either side changed. Below the desktop breakpoint the
+  // frame doesn't exist and the layer goes back to being the whole viewport.
+  function syncOverlayFrame() {
+    if (!OVERLAYS) return;
+    if (!PAGE || window.innerWidth < 1024) { OVERLAYS.removeAttribute("style"); return; }
+    const r = PAGE.getBoundingClientRect();
+    OVERLAYS.style.cssText = `top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px;right:auto;bottom:auto;`;
+  }
+
+  /* ---------------------------------------------------------- long toast */
+
+  // Finishing an audit is the one thing on this screen worth a longer look
+  // than shell.js's 3.2s toast gives — the count is filed and the rep is
+  // already walking, so it should still be on screen when they glance back.
+  // A local variant rather than a change to shell.js's toast(), which every
+  // other screen in this module shares and none of them wants held for 8
+  // seconds. Same markup and same classes, so it IS that toast visually; only
+  // the dismissal timer and the drain animation are re-timed (.toast-long in
+  // stock-audit.css keeps the bar and the timer in step — a 3.2s bar under an
+  // 8s toast would sit empty for five seconds and read as stuck).
+  const LONG_TOAST_MS = 8000;
+  function longToast(message) {
+    const host = overlayHost().querySelector(".toasts");
+    const el = document.createElement("div");
+    el.className = "toast toast-long";
+    el.innerHTML = `<span class="ticon">✓</span><span class="tmsg"></span><button class="tclose" aria-label="Close">✕</button>`;
+    el.querySelector(".tmsg").textContent = message;
+    el.querySelector(".tclose").onclick = () => el.remove();
+    host.appendChild(el);
+    setTimeout(() => el.remove(), LONG_TOAST_MS);
+  }
+
   /* --------------------------------------------------------- bottom sheet */
 
-  // Notes on the Product Count Sheet: it carries `.pd-persist` and is
-  // deliberately excluded here. A rep tapping "Can't find this product" or
-  // exiting mid-count opens a second, transient sheet (notFoundSheet,
-  // exitAuditSheet) layered on top — that sheet must not sweep away the
-  // product sheet still holding the count underneath it.
+  // Every sheet left in this feature is transient, so opening one always
+  // sweeps away whatever is already up. (This used to carry a `:not(.pd-persist)`
+  // carve-out for the Product Count Sheet, which stayed open underneath the
+  // transient sheets layered over it — that sheet is gone; see the inline-count
+  // removal note above quickRowHTML.)
   function sheet({ eyebrow, title, sub, body, actions }) {
-    document.querySelectorAll(".sah-sheet-scrim:not(.pd-persist)").forEach((n) => n.remove());
+    document.querySelectorAll(".sah-sheet-scrim").forEach((n) => n.remove());
     const scrim = document.createElement("div");
     scrim.className = "sah-sheet-scrim";
     scrim.innerHTML = `<div class="sah-sheet"><div class="grip"></div>
@@ -104,7 +171,7 @@
         .map((a, i) => `<button class="sheet-btn ${a.cls || "ghost"}" data-a="${i}">${esc(a.label)}</button>`)
         .join("")}</div>
     </div>`;
-    document.body.appendChild(scrim);
+    overlayHost().appendChild(scrim);
     requestAnimationFrame(() => scrim.classList.add("show"));
     const close = () => {
       scrim.classList.remove("show");
@@ -296,15 +363,6 @@
     });
     DraftStore.put(DRAFT);
   }
-  function draftProgress(d) {
-    const captured = Object.keys(d.lines || {}).filter((id) => d.lines[id] && lineIsCaptured(d.lines[id])).length;
-    // A quick draft's "total" is what the rep chose to check, not the whole
-    // catalogue — matches the same scope rule completeAudit() snapshots onto
-    // expectedProducts (see completeAudit/abandonAudit).
-    const total = d.mode === "full" ? (SEED.products || []).length : (d.selected || []).length;
-    return { captured, total };
-  }
-
   const products = SEED.products || [];
   const productById = (id) => products.find((p) => p.id === id);
   const productName = (id) => (productById(id) || {}).name || id;
@@ -334,15 +392,12 @@
     { k: "damaged", label: "Damaged", legacy: "damaged", icon: "⚠️" },
   ];
   // "Couldn't find it" and "confirmed zero on hand" are different business
-  // states and must not collapse into each other — one is an unverified
-  // line, the other is a stock-out. Hence a line status of its own.
-  const NOT_FOUND_REASONS = [
-    { k: "not_on_shelf", label: "Not on shelf" },
-    { k: "not_in_backroom", label: "Not in backroom" },
-    { k: "customer_says_oos", label: "Customer says out of stock" },
-    { k: "no_access", label: "Unable to access" },
-    { k: "other", label: "Other" },
-  ];
+  // states and must not collapse into each other — one is an unverified line,
+  // the other is a stock-out. Hence a line status of its own, `not_found`,
+  // still carried on the model and still rendered wherever a record has it.
+  // NOT_FOUND_REASONS — the picker that used to set it — went with the count
+  // sheet; on the count screen an untouched row now IS the unverified state,
+  // and a 0 typed into it is the stock-out. See the inline-pass removal note.
   // Badge vocabulary — the single worst thing true about a line, for the many
   // places a list has room for one pill rather than a whole breakdown.
   const CONDITIONS = [
@@ -778,55 +833,28 @@
   }
 
   // The one entry point for "count this customer's stock" — no setup screen
-  // in between. An existing draft always wins over starting fresh, so a
-  // stray tap can never throw away a real count.
+  // in between, and no question asked on the way in: picking a customer always
+  // starts a brand-new visit. Any half-finished draft still sitting under that
+  // customer is cleared here rather than offered back.
   function startAuditFor(customerId) {
-    const open = DraftStore.get(customerId);
-    if (open) { resumeOrRestartSheet(customerId, open); return; }
+    DraftStore.clear(customerId);
     DRAFT = newDraft(customerId);
     go("quick-count", { customerId });
   }
 
-  function resumeDraft(customerId) {
-    const d = DraftStore.get(customerId);
-    if (!d) { startAuditFor(customerId); return; }
-    DRAFT = d;
-    DRAFT.status = "in_progress";
-    DRAFT.pausedAt = null;
-    DRAFT.actorsLastEditedBy = AUDITOR.name;
-    persistDraft();
-    go("quick-count", { customerId }, true);
-  }
+  /* =============================================================================================
+     REMOVED (inline pass): resumeDraft / resumeOrRestartSheet — the "You have a
+     visit in progress here → Resume that visit / Start a new one instead" bottom
+     sheet that stood between picking a customer and counting. Every visit starts
+     fresh now (startAuditFor, above), so there is nothing to ask about. Two
+     things followed it out: pauseAudit and the exit sheet's "Pause — keep my
+     progress" action, which promised a resumption that can no longer happen (see
+     exitAuditSheet), and draftProgress, whose only caller was this sheet.
 
-  // Starting fresh would throw away a real count, so it's a decision the rep
-  // makes explicitly rather than something a stray tap does for them.
-  function resumeOrRestartSheet(customerId, open) {
-    const prog = draftProgress(open);
-    const customer = loadCustomer(customerId);
-    // open.status is "paused" only when the rep explicitly chose Pause; a
-    // draft can also just be sitting here "in_progress" because the app was
-    // closed mid-count without that — same resumable state, but "paused"
-    // would be claiming an action that never happened.
-    const whenLabel = open.status === "paused" ? "paused" : "started";
-    const whenStamp = open.status === "paused" ? open.pausedAt : open.startedAt || open.createdAt;
-    sheet({
-      eyebrow: placeLine(customer, open.locationId),
-      title: "You have a visit in progress here",
-      sub: `${progressSummaryText(prog).replace(/\.$/, "")}, ${whenLabel} ${fmtRelative(whenStamp).toLowerCase()}.`,
-      actions: [
-        { label: "Resume that visit", cls: "primary", onClick: () => resumeDraft(customerId) },
-        {
-          label: "Start a new one instead",
-          cls: "ghost",
-          onClick: () => {
-            DraftStore.clear(customerId);
-            DRAFT = newDraft(customerId);
-            go("quick-count", { customerId });
-          },
-        },
-      ],
-    });
-  }
+     DraftStore itself STAYS and still saves on every count — it is the
+     crash-safety net a rep needs when a page reloads mid-visit, not a resume
+     feature; startAuditFor simply never reads it back.
+     ================================================================================================= */
 
   /* --------------------------------------------------------- persistent nav */
 
@@ -841,17 +869,14 @@
   // anymore) and Audit History (a downstream record, not a competing way to
   // start a visit — see the removed-view block near the end of this file
   // for what used to live in this bar and why it doesn't anymore).
-  // UX audit: the active count itself (quick-count) is the one task-focused
-  // screen in this feature — it already has its own way out (← Exit Audit,
-  // which routes through the real Pause/Discard/End-visit decision, never a
-  // silent nav tap) and its own sticky Finish action. Stacking a second,
-  // unrelated "Stock Audit / Audit History" bar under that made the active
-  // task feel like a dashboard rather than a focused job. Every other kept
-  // view (quick-pick, Audit History, Audit Detail — Inventory is gone, see
-  // the removal note above productsCheckedSectionHTML) still gets it — it's
-  // the only way back to either of them once you're there.
+  //
+  // It renders on EVERY view, quick-count included. It used to be suppressed
+  // during a count, on the argument that a task screen shouldn't also be a
+  // dashboard — but that left the rep with no way to check Audit History
+  // mid-visit and come back, and the two tabs are a toggle, not a departure:
+  // see wireNav, where Stock Audit returns to the count in progress rather
+  // than to the picker.
   function navHTML(view) {
-    if (view === "quick-count") return "";
     const active = navActiveKey(view);
     return `
       <div class="sah-nav">
@@ -859,12 +884,23 @@
         <button class="nav-btn ${active === "audits" ? "active" : ""}" data-nav="audits"><span class="ic">🗂️</span>Audit History</button>
       </div>`;
   }
+
+  // A toggle between the two tabs, so stepping over to Audit History and back
+  // costs a rep nothing. The Stock Audit tab is therefore "whatever I'm doing
+  // in Stock Audit right now": the live count if one is open, the customer
+  // picker if not. That is NOT the resume prompt coming back — nothing here
+  // reads a saved draft off DraftStore or asks a question; it just doesn't
+  // throw away the count already open in this session. Leaving a count for
+  // real is still Exit Audit's job, which asks first.
   function wireNav() {
     PAGE.querySelectorAll("[data-nav]").forEach((b) => {
       b.onclick = () => {
         const k = b.dataset.nav;
-        if (k === "stock-audit") { DRAFT = null; QP_STATE = { q: "", primed: false }; go("quick-pick", {}, true); }
-        else if (k === "audits") go("audits", {}, true);
+        if (k === "stock-audit") {
+          if (DRAFT && DRAFT.customerId) { go("quick-count", { customerId: DRAFT.customerId }, true); return; }
+          QP_STATE = { q: "", primed: false };
+          go("quick-pick", {}, true);
+        } else if (k === "audits") go("audits", {}, true);
       };
     });
   }
@@ -1286,10 +1322,51 @@
 
   // Search-first product selection AND counting on one screen — no
   // navigation between "select" and "count" (requirements doc: "one
-  // continuous task, not multiple forms"). DRAFT.selected is the rep's
-  // curated scope; DRAFT.lines gains an entry only once a product is
-  // actually counted, exactly like the full-audit Workspace.
+  // continuous task, not multiple forms"), and since the inline pass, no
+  // sheet in between either: the count happens in the row. DRAFT.selected is
+  // the rep's curated scope; DRAFT.lines gains an entry only once a product
+  // is actually counted.
   let QC_STATE = { q: "" };
+  // Whether the sticky footer is showing the inline "Finish this audit?"
+  // confirmation rather than the Finish button. Any re-render of the whole
+  // view (a search, an add, a remove) puts it back — those are all changes to
+  // what would be finished, so a confirmation raised against the older scope
+  // should not survive them.
+  let QC_CONFIRM = false;
+
+  // The rep's own scope and how much of it is counted — the numbers the head,
+  // the progress bar and the footer all read, computed one way in one place.
+  function quickStats() {
+    const selected = DRAFT.selected.map(productById).filter(Boolean);
+    const counted = selected.filter((p) => DRAFT.lines[p.id] && lineIsCaptured(DRAFT.lines[p.id]));
+    const units = counted.reduce((n, p) => n + linePhysical(DRAFT.lines[p.id]), 0);
+    return {
+      selected,
+      captured: counted.length,
+      units,
+      total: selected.length,
+      pct: selected.length ? Math.round((counted.length / selected.length) * 100) : 0,
+    };
+  }
+
+  // Two states, sized for the one-line header this now sits in. A ratio is
+  // meaningless before anything is selected ("0 / 0 counted" reads as broken),
+  // so that case says what to do instead; from the first selection on, the
+  // ratio is the honest answer and "0 / 4 counted" is a fine way to start.
+  // (There used to be a third, "4 products selected", for the not-yet-counted
+  // case — a whole line to say the same thing as 0 / 4.)
+  function quickProgressText(s) {
+    if (!s.total) return "Select products";
+    return `${s.captured} / ${s.total} counted`;
+  }
+
+  // The card's own bottom line, in the place Delivery Management's order card
+  // puts "Order Total". Units, not a repeat of the header's product ratio —
+  // it's the one number nothing else on the screen adds up.
+  function quickUnitsText(s) {
+    if (!s.captured) return "Nothing counted yet";
+    return `${plural(s.units, "unit")} · ${plural(s.captured, "product")}`;
+  }
 
   function renderQuickCount() {
     const customer = loadCustomer(CURRENT.params.customerId);
@@ -1297,33 +1374,19 @@
     if (!DRAFT.startedAt) DRAFT.startedAt = new Date().toISOString();
     if (DRAFT.status === "draft") DRAFT.status = "in_progress";
     persistDraft();
+    QC_CONFIRM = false;
 
     const q = QC_STATE.q.trim().toLowerCase();
     const matches = (p) => p.name.toLowerCase().includes(q) || String(p.artNo).toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q);
     const results = q ? products.filter((p) => matches(p) && !DRAFT.selected.includes(p.id)) : [];
-
-    const selectedProducts = DRAFT.selected.map(productById).filter(Boolean);
-    const captured = selectedProducts.filter((p) => DRAFT.lines[p.id] && lineIsCaptured(DRAFT.lines[p.id])).length;
-    const pct = selectedProducts.length ? Math.round((captured / selectedProducts.length) * 100) : 0;
-    // Three states, not one number that reads as "0/0 counted" before the
-    // rep has even picked anything: nothing selected yet, selected but not
-    // yet counted, and actually in progress. Each says what's true right
-    // now rather than a ratio that's technically accurate and practically
-    // meaningless at zero.
-    const progressText = !selectedProducts.length
-      ? "Select products to audit"
-      : captured === 0
-        ? `${plural(selectedProducts.length, "product")} selected`
-        : `${captured} / ${selectedProducts.length} counted`;
+    const s = quickStats();
 
     frame(`
       <div class="ws-head">
-        <button type="button" class="ws-exit" id="qcExit">← Exit Audit</button>
+        <button type="button" class="ws-exit" id="qcExit" aria-label="Exit audit">←</button>
         <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
-        <div class="ws-progress">
-          <span class="n">${esc(progressText)}</span>
-        </div>
-        ${selectedProducts.length ? `<div class="ws-bar"><span style="width:${pct}%"></span></div>` : ""}
+        <div class="ws-count" id="qcProg">${esc(quickProgressText(s))}</div>
+        <div class="ws-bar"><span style="width:${s.pct}%"></span></div>
       </div>
 
       <div class="sah-search-row">
@@ -1331,7 +1394,13 @@
       </div>
 
       ${q
-        ? (results.length
+        ? // Searching is picking, not counting: the results own the screen
+          // while the box has a query, and the counting sheet comes back the
+          // moment it's cleared. Showing both stacked meant the rep scrolled
+          // past a list they were done with to reach the one they were working
+          // in — and the sheet they'd just added to sat below the fold, so the
+          // add appeared to do nothing.
+          (results.length
             ? `<div class="picker-list">${results.map((p) => `
               <button type="button" class="picker-row" data-add="${esc(p.id)}">
                 <span class="av">${thumbHTML(p)}</span>
@@ -1339,36 +1408,70 @@
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")}</div>`
             : `<div class="sah-empty"><div class="big">🔍</div><p>No product matches that.</p></div>`)
-        : ""}
-
-      <div class="section-head-row"><h2>Selected products</h2></div>
-      ${selectedProducts.length
-        ? `<div class="ws-list">${selectedProducts.map((p) => quickRowHTML(p)).join("")}</div>`
-        : `<div class="sah-empty"><div class="big">📋</div><p>No products selected.<br>Search above to add one.</p></div>`}
-    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        <button type="button" class="btn-wide primary" id="qcFinish" ${captured === 0 ? "disabled" : ""}>Finish Audit</button>
-      </div></div>` });
+        : `<div class="section-head-row"><h2>Selected products</h2></div>
+          ${s.total
+            ? `<div class="qc-card">${s.selected.map((p) => quickRowHTML(p)).join("")}
+                <div class="qc-line total"><span>Total counted</span><b id="qcUnits">${esc(quickUnitsText(s))}</b></div>
+              </div>`
+            : `<div class="sah-empty"><div class="big">📋</div><p>No products selected.<br>Search above to add one.</p></div>`}`}
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner" id="qcFoot">${quickFootHTML(customer)}</div></div>` });
 
     wireQuickCount(customer);
   }
 
+  // The count lives IN the row, and the rows live in ONE card with a total on
+  // the bottom line — Delivery Management's order card (.order-card /
+  // .order-line.editing / .dm-stepper, styled here as .qc-card / .qc-line /
+  // .pd-stepper inside .qc-row), which is the same job: a list of products,
+  // one number each, entered standing up. The old "Count" button that opened a
+  // per-product bottom sheet is gone; a sheet per product meant a modal
+  // round-trip for a number the row had room for all along.
+  //
+  // No thumbnail, matching that reference. It cost more than it gave: at a
+  // phone's width it squeezed the product name into "NATURAL WA…", and the
+  // name plus SKU is what a rep matches against the shelf label anyway. The
+  // search results above still carry photos — picking the right product from a
+  // catalogue is the part where a picture helps.
+  //
+  // An untouched row's stepper is EMPTY, not 0. That preserves the distinction
+  // the removed sheet spent a whole "Can't find this product" flow on: blank
+  // means nobody verified this line, 0 means the rep looked and there were
+  // none. Coverage still counts only the lines actually touched.
   function quickRowHTML(p) {
     const line = DRAFT.lines[p.id];
     const done = line && lineIsCaptured(line);
     return `
-      <div class="ws-row ${done ? "done" : ""}" data-product="${esc(p.id)}">
-        <span class="thumb">${thumbHTML(p)}</span>
-        <span class="info">
-          <span class="nm">${esc(p.name)}</span>
-          <span class="meta">SKU ${esc(p.artNo)}</span>
-        </span>
-        <span class="side">
-          ${done
-            ? `<span class="found">${line.status === "not_found" ? "Not found" : `${linePhysical(line)} ${esc(p.unit)}`}</span><span class="tick">✓</span>`
-            : `<span class="status-tag neutral">Not counted</span><button type="button" class="btn-count" data-count="${esc(p.id)}">Count</button>`}
-          <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button>
-        </span>
+      <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
+        <div class="info">
+          <div class="nm">${esc(p.name)}</div>
+          <div class="meta">SKU ${esc(p.artNo)} · ${esc(p.unit)}</div>
+        </div>
+        ${stepperHTML(p.id, done && line.status !== "not_found" ? linePhysical(line) : "")}
+        <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button>
       </div>`;
+  }
+
+  // The sticky footer, in its two states. Everything it reports is recomputed
+  // from the draft on every call, so the confirmation can sit open while the
+  // rep keeps counting behind it and still describe what they'd actually be
+  // finishing.
+  function quickFootHTML(customer) {
+    const s = quickStats();
+    if (!QC_CONFIRM) {
+      return `<button type="button" class="btn-wide primary" id="qcFinish" ${s.captured === 0 ? "disabled" : ""}>Finish Audit</button>`;
+    }
+    const cov = auditCoverage(draftAsAudit(customer));
+    const detail = cov.skipped
+      ? `${cov.audited + cov.notFound} of ${cov.expected} counted — the ${plural(cov.skipped, "product")} left over will be recorded as partial coverage.`
+      : `All ${plural(cov.expected, "product")} counted.`;
+    return `<span class="confirm-inline">
+        <span class="ci-copy">
+          <span class="ci-prompt">Finish this audit?</span>
+          <span class="ci-detail">${esc(detail)}</span>
+        </span>
+        <button type="button" class="ci-btn yes" id="qcYes" aria-label="Finish audit">✓</button>
+        <button type="button" class="ci-btn no" id="qcNo" aria-label="Keep counting">✗</button>
+      </span>`;
   }
 
   function wireQuickCount(customer) {
@@ -1380,192 +1483,113 @@
       persistDraft();
       renderQuickCount();
     }));
-    PAGE.querySelectorAll("[data-product]").forEach((el) => (el.onclick = () => openQuickCountSheet(customer, el.dataset.product)));
-    PAGE.querySelectorAll("[data-count]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openQuickCountSheet(customer, b.dataset.count); }));
-    PAGE.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = (e) => {
-      e.stopPropagation();
+    PAGE.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => {
       const id = b.dataset.remove;
       DRAFT.selected = DRAFT.selected.filter((x) => x !== id);
       delete DRAFT.lines[id];
       persistDraft();
       renderQuickCount();
     }));
+    wireQuickSteppers(customer);
     $("#qcExit", PAGE).onclick = () => exitAuditSheet(customer);
-    $("#qcFinish", PAGE).onclick = () => finishAuditSheet(customer);
+    wireQuickFoot(customer);
   }
 
-  // Quick-only, and NOT an extraction of the full-audit sheet's behavior —
-  // openProductSheet/advance() (below) intentionally returns to the list
-  // after every product rather than auto-advancing (see advance()'s own
-  // comment), so there is no live full-audit behavior to share here. This
-  // walks only the rep's own selection, in the order they picked it.
-  function nextUncapturedInSelection(afterId) {
-    const ordered = DRAFT.selected.map(productById).filter(Boolean);
-    const pending = ordered.filter((p) => !(DRAFT.lines[p.id] && lineIsCaptured(DRAFT.lines[p.id])));
-    if (!afterId) return pending[0] || null;
-    const from = ordered.findIndex((p) => p.id === afterId);
-    return pending.find((p) => ordered.indexOf(p) > from) || pending[0] || null;
-  }
-
-  /* ============================================================ SHEET: quick count (vNext) */
-
-  // Deliberately not a call into openProductSheet/renderProductSheet: that
-  // sheet defaults to four condition-bucket steppers, evidence capture,
-  // shelf availability and notes up front — the Layer 2/3 density the
-  // stakeholder flow (FIND → PICK → COUNT → FINISH → LEAVE) explicitly
-  // excludes. This sheet has exactly one field: Quantity. Condition/shelf/
-  // notes/evidence stay real fields on the data model (blankLine/
-  // conditionBreakdown, still read by Audit Detail for any line that has
-  // them from elsewhere) — there is just no UI here to set them; a Quick
-  // Audit line's whole count is "good", the same bucket the Finish sheet
-  // and every score/coverage calculation already reads off physical/good.
-  let QC_SHEET = null; // { customerId, productId, el, bodyEl }
-
-  function openQuickCountSheet(customer, productId) {
-    const p = productById(productId);
-    if (!customer || !DRAFT || !p) return;
-    if (!QC_SHEET) {
-      const scrim = document.createElement("div");
-      scrim.className = "sah-sheet-scrim pd-persist";
-      scrim.innerHTML = `<div class="sah-sheet pd-sheet"><div class="grip"></div><div class="pd-sheet-body"></div></div>`;
-      document.body.appendChild(scrim);
-      requestAnimationFrame(() => scrim.classList.add("show"));
-      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeQuickCountSheet(); });
-      QC_SHEET = { customerId: customer._id, productId, el: scrim, bodyEl: scrim.querySelector(".pd-sheet-body") };
-    } else {
-      QC_SHEET.productId = productId;
-    }
-    renderQuickCountSheet();
-  }
-
-  function closeQuickCountSheet() {
-    if (!QC_SHEET) return;
-    const scrim = QC_SHEET.el;
-    scrim.classList.remove("show");
-    setTimeout(() => scrim.remove(), 200);
-    QC_SHEET = null;
-    if (CURRENT.view === "quick-count") renderQuickCount();
-  }
-
-  function renderQuickCountSheet() {
-    if (!QC_SHEET) return;
-    const customer = loadCustomer(QC_SHEET.customerId);
-    const p = productById(QC_SHEET.productId);
-    if (!customer || !DRAFT || !p) { closeQuickCountSheet(); return; }
-
-    const line = ensureDraftLine(p, locationHasShelf(customer, DRAFT.locationId));
-    const cb = line.conditionBreakdown;
-
-    QC_SHEET.bodyEl.innerHTML = `
-      <div class="pd-head">
-        <div class="pd-title"><span class="thumb">${thumbHTML(p)}</span>
-          <div><h1>${esc(p.name)}</h1><p>SKU ${esc(p.artNo)} · ${esc(p.category)}</p></div>
-        </div>
-      </div>
-
-      <div class="sec-label">Quantity</div>
-      <div class="qc-qty">${stepperHTML("qty", cb.good || 0)}</div>
-
-      <button type="button" class="pd-notfound" id="qcNotFound">Can't find this product</button>
-
-      <div class="pd-sheet-acts">
-        <button class="btn-wide ghost" id="qcSkip">Skip</button>
-        <button class="btn-wide primary" id="qcSave">Save &amp; Next</button>
-      </div>
-    `;
-
-    wireQuickCountSheet(customer, p, line);
-  }
-
-  function wireQuickCountSheet(customer, p, line) {
-    const root = QC_SHEET.el;
-    const cb = line.conditionBreakdown;
-    const num = (v) => Math.max(0, Number(v) || 0);
-
-    const focusKey = (() => {
-      const el = document.activeElement;
-      const st = el && el.closest && el.closest(".pd-stepper");
-      return st ? st.dataset.field : null;
-    })();
-    const rerender = () => {
-      renderQuickCountSheet();
-      if (!focusKey) return;
-      const el = root.querySelector(`.pd-stepper[data-field="${focusKey}"] input`);
-      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-    };
-
-    // Quantity writes straight into the "good" bucket — the only bucket
-    // this sheet exposes. Physical stock is that same number; there is no
-    // separate total to reconcile against once condition/damage/expiry
-    // aren't fields here.
-    const writeField = (val) => {
-      cb.good = val;
-      line.physical = val;
-      line.status = "audited";
-      persistDraft();
-      rerender();
-    };
-
-    root.querySelectorAll(".pd-stepper").forEach((st) => {
+  // In place, never a re-render: a full renderQuickCount() on every tap would
+  // rebuild the input the rep is typing into and drop the caret. Same shape as
+  // DM.onStep in Delivery Management — the row writes its own value, then the
+  // header/progress/footer chrome is refreshed around it.
+  function wireQuickSteppers(customer) {
+    const hasShelf = locationHasShelf(customer, DRAFT.locationId);
+    PAGE.querySelectorAll(".qc-row .pd-stepper").forEach((st) => {
+      const p = productById(st.dataset.field);
+      if (!p) return;
       const input = st.querySelector("input");
-      const current = cb.good || 0;
-      input.oninput = () => writeField(num(input.value));
-      st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => writeField(num(current + Number(b.dataset.delta)))));
+      // Quantity writes straight into the "good" bucket — the only bucket this
+      // flow exposes. Physical stock is that same number; there is no separate
+      // total to reconcile against once condition/damage/expiry aren't fields
+      // here. (They stay real fields on the model — see blankLine — with no UI
+      // in this flow to set them.)
+      const set = (v) => {
+        v = Math.max(0, Math.floor(Number(v) || 0));
+        input.value = v;
+        const line = ensureDraftLine(p, hasShelf);
+        line.conditionBreakdown.good = v;
+        line.physical = v;
+        line.status = "audited";
+        line.notFoundReason = null;
+        persistDraft();
+        st.closest(".qc-row").classList.add("done");
+        refreshQuickChrome(customer);
+      };
+      st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
+      input.oninput = () => set(input.value);
     });
-
-    $("#qcNotFound", root).onclick = () => notFoundSheet(customer, p, line, quickAdvance);
-    $("#qcSkip", root).onclick = () => quickAdvance(customer, p, true);
-    $("#qcSave", root).onclick = () => {
-      line.status = "audited";
-      line.notFoundReason = null;
-      toast(`${p.name}: ${line.physical} found.`);
-      quickAdvance(customer, p, false);
-    };
   }
 
-  // The auto-advance the requirements doc asks for: Save & Next moves to the
-  // next uncounted SELECTED product, in selection order, without the rep
-  // ever returning to the search/list screen — the sheet just re-renders in
-  // place for the next product, same persistent-DOM-node trick the full
-  // sheet uses (see PD_SHEET's own note above). Runs out → back to the list.
-  function quickAdvance(customer, p, skipped) {
-    if (skipped) delete DRAFT.lines[p.id];
-    persistDraft();
-    const next = nextUncapturedInSelection(p.id);
-    if (next) {
-      QC_SHEET.productId = next.id;
-      renderQuickCountSheet();
-    } else {
-      closeQuickCountSheet();
-    }
+  function refreshQuickChrome(customer) {
+    const s = quickStats();
+    const prog = $("#qcProg", PAGE);
+    if (prog) prog.textContent = quickProgressText(s);
+    const bar = PAGE.querySelector(".ws-bar > span");
+    if (bar) bar.style.width = s.pct + "%";
+    const units = $("#qcUnits", PAGE);
+    if (units) units.textContent = quickUnitsText(s);
+    const foot = $("#qcFoot", PAGE);
+    if (foot) { foot.innerHTML = quickFootHTML(customer); wireQuickFoot(customer); }
+  }
+
+  // Finish is a two-tap decision made in place: the footer becomes the
+  // question. See quickFootHTML for why it isn't a sheet.
+  function wireQuickFoot(customer) {
+    const finish = $("#qcFinish", PAGE);
+    if (finish) finish.onclick = () => { QC_CONFIRM = true; refreshQuickChrome(customer); };
+    const no = $("#qcNo", PAGE);
+    if (no) no.onclick = () => { QC_CONFIRM = false; refreshQuickChrome(customer); };
+    const yes = $("#qcYes", PAGE);
+    if (yes) yes.onclick = () => {
+      if (!DRAFT) return;
+      if (auditCoverage(draftAsAudit(customer)).skipped) DRAFT.partial = { isPartial: true, reason: null, note: "" };
+      QC_CONFIRM = false;
+      completeAudit(customer);
+    };
   }
 
   /* =============================================================================================
      REMOVED (vNext hard reset): the old full-catalogue Workspace
      (WS_STATE, productPriority, wsAttentionFor, renderWorkspace, wsRowHTML,
-     wireWorkspace, nextUncaptured — the last of which was already dead
-     before this pass; see quickAdvance's own note) and the original,
+     wireWorkspace, nextUncaptured) and the original,
      four-condition-stepper-by-default Product Count Sheet (openProductSheet,
      closeProductSheet, renderProductSheet, wireProductSheet, PD_SHEET,
      PD_ADVANCED, advancedDetailsHTML, expiryEntry, advance, DISPOSITIONS,
      DAMAGE_TYPES). Both were the comprehensive-audit journey the stakeholder
      flow replaces outright — not reachable from anywhere in this file
-     anymore. wsProgress stayed (exitAuditSheet/pauseAudit, both kept, still
-     read it); stepperHTML/ensureDraftLine/notFoundSheet/CONDITION_KEYS/
-     NOT_FOUND_REASONS all stayed too — Quick Count's own sheet (above) is
-     built on the same primitives, not a copy of them. evidenceHTML/
+     anymore. wsProgress stayed (exitAuditSheet still reads it), as did
+     stepperHTML/ensureDraftLine/CONDITION_KEYS. evidenceHTML/
      saveBlockers did NOT stay a second time — see the Layer-2/3 removal
      note just below. (STORAGE_KEYS/SHELF_AVAILABILITY did stay at that
      point, for Audit Detail's benefit — a later Layer 2/3 pass over Audit
      History/Audit Detail removed their one remaining reader and took them
      with it; see the removal note above productsCheckedSectionHTML.)
+
+     REMOVED (inline pass), one layer further: Quick Count's OWN per-product
+     bottom sheet — QC_SHEET, openQuickCountSheet, closeQuickCountSheet,
+     renderQuickCountSheet, wireQuickCountSheet, quickAdvance (Save & Next /
+     Skip auto-advance), nextUncapturedInSelection, and notFoundSheet with its
+     NOT_FOUND_REASONS. The count is a stepper in the row now (quickRowHTML),
+     so there is no sheet to advance through, nothing to skip, and no separate
+     screen on which "Can't find this product" was a distinct affordance — a
+     row left blank says exactly that. `status: "not_found"` and
+     `notFoundReason` stay on the model and are still rendered wherever an
+     existing record carries them (productsCheckedSectionHTML, auditCoverage,
+     followUpLines, suggestedOutcome); this flow just no longer writes them.
      ================================================================================================= */
 
-  // Shared by exitAuditSheet/pauseAudit (both full-audit AND Quick Audit now
-  // route through them) as well as full Workspace itself — the scope is the
-  // whole catalogue for a full audit, unchanged, or the rep's own selection
-  // for a Quick Audit. Byte-identical to the pre-vNext behavior whenever
-  // DRAFT.mode === "full".
+  // Read by exitAuditSheet — the scope is the whole catalogue for a full audit,
+  // unchanged, or the rep's own selection for a Quick Audit. Byte-identical to
+  // the pre-vNext behavior whenever DRAFT.mode === "full". (quickStats is the
+  // same shape for the live count screen; this one survives because it also
+  // handles the historical "full" scope, which quickStats deliberately doesn't.)
   function wsProgress() {
     const scope = DRAFT.mode === "full" ? products : DRAFT.selected.map(productById).filter(Boolean);
     const captured = scope.filter((p) => DRAFT.lines[p.id] && lineIsCaptured(DRAFT.lines[p.id])).length;
@@ -1577,42 +1601,28 @@
   // "0 of 0 products counted" reads as broken, not as "nothing to leave
   // behind yet", so it gets its own copy rather than falling through to the
   // generic X-of-Y line (flagged explicitly in the UX audit as a bad pattern
-  // to avoid, see renderQuickCount's own progressText for the sibling fix).
+  // to avoid, see quickProgressText for the sibling fix).
   function progressSummaryText(prog) {
     if (!prog.total) return "You haven't selected any products yet.";
     if (!prog.captured) return "No products counted yet.";
     return `${prog.captured} of ${prog.total} products counted so far.`;
   }
 
+  // "Pause — keep my progress" used to lead this list. It doesn't anymore:
+  // every visit now starts fresh (see startAuditFor), so there is no resume
+  // to pause into and offering one would promise a return that never comes.
+  // Leaving is therefore either "not yet" or a recorded, deliberate end.
   function exitAuditSheet(customer) {
     const prog = wsProgress();
     sheet({
       eyebrow: placeLine(customer, DRAFT.locationId),
       title: "Leave this audit?",
-      sub: progressSummaryText(prog),
+      sub: progressSummaryText(prog) + " Leaving without finishing does not keep it.",
       actions: [
-        { label: "Pause — keep my progress", cls: "primary", onClick: () => pauseAudit(customer) },
-        { label: "Keep counting", cls: "ghost" },
+        { label: "Keep counting", cls: "primary" },
         { label: "End this visit", cls: "danger", onClick: () => { endVisitSheet(customer); return false; } },
       ],
     });
-  }
-
-  // UX audit (double-tap protection): every one of this sheet's own action
-  // buttons closes the sheet ~200ms after firing (see sheet()'s own close()),
-  // so a real double-tap on Pause/End visit/Finish can call this a second
-  // time before the sheet visually goes away. The first call already sets
-  // DRAFT = null, so a second one crashes on DRAFT.status of null instead of
-  // silently doing nothing — same fix applied to abandonAudit/completeAudit.
-  function pauseAudit(customer) {
-    if (!DRAFT) return;
-    DRAFT.status = "paused";
-    DRAFT.pausedAt = new Date().toISOString();
-    persistDraft();
-    const prog = wsProgress();
-    DRAFT = null;
-    toast(prog.total ? `Paused — ${prog.captured} of ${prog.total} products saved.` : "Paused — nothing counted yet.");
-    go("quick-pick", {}, true);
   }
 
   // A visit that couldn't happen is still a fact worth recording. The
@@ -1678,11 +1688,10 @@
      (PD_ADVANCED, PD_SHEET, openProductSheet, closeProductSheet,
      renderProductSheet, wireProductSheet, advancedDetailsHTML, expiryEntry,
      advance) — four condition-bucket steppers up front by default, the
-     density the locked interaction decision explicitly moved away from.
-     Quick Count's own sheet (openQuickCountSheet/renderQuickCountSheet/
-     wireQuickCountSheet, above) is what a rep uses now; it's built from the
-     same primitives below (stepperHTML, ensureDraftLine, notFoundSheet),
-     not a copy of this one.
+     density the locked interaction decision explicitly moved away from. Its
+     replacement, Quick Count's own one-field sheet, is gone too (see the
+     inline-pass note above wsProgress); the row's own stepper is what a rep
+     uses now, built on the same stepperHTML/ensureDraftLine primitives below.
      ================================================================================================= */
 
   /* =============================================================================================
@@ -1690,9 +1699,10 @@
      "Condition, shelf & notes" fold Quick Count's sheet used to open into
      (condition-bucket steppers, photo evidence, shelf availability, notes),
      plus the photo-required-if-damaged/expired gate on Save. None of that
-     is required to physically count stock, so the stakeholder flow's own
-     sheet (renderQuickCountSheet, above) no longer renders it — Quantity
-     and "Can't find this product" are the whole form now. The DATA these
+     is required to physically count stock, so the stakeholder flow no longer
+     renders it — at that point Quantity and "Can't find this product" were
+     the whole form, and after the inline pass the quantity is the whole
+     form (quickRowHTML's own stepper). The DATA these
      fields fed (conditionBreakdown, evidence[], shelfAvailability, notes)
      is untouched: still real fields on a line, computed into the scoring
      engine same as always. (At the time of this comment they were also
@@ -1720,50 +1730,6 @@
       DRAFT.lines[p.id] = line;
     }
     return DRAFT.lines[p.id];
-  }
-
-  // "Couldn't find it" is not "there are zero" — one is an unverified line,
-  // the other a confirmed stock-out — so it records a reason and no count.
-  // advanceFn is which "what happens after Save" logic to hand off to —
-  // only Quick Count calls this now (passing quickAdvance), the old full
-  // sheet's own advance() is gone with it.
-  function notFoundSheet(customer, p, line, advanceFn) {
-    let picked = line.notFoundReason || null;
-    const s = sheet({
-      eyebrow: p.name,
-      title: "Can't find this product?",
-      sub: "This records that the stock couldn't be verified — not that there is none.",
-      body: `<div class="pd-opts sheet-opts">${NOT_FOUND_REASONS.map((r) => `<button type="button" class="pd-opt" data-nf="${r.k}">${esc(r.label)}</button>`).join("")}</div>`,
-      actions: [
-        { label: "Cancel", cls: "ghost" },
-        {
-          label: "Mark as not found",
-          cls: "primary",
-          onClick: () => {
-            if (!picked) { toast("Pick a reason first.", "info"); return false; }
-            line.status = "not_found";
-            line.notFoundReason = picked;
-            line.physical = null;
-            line.conditionBreakdown = emptyCondition();
-            line.storageBreakdown = emptyStorage();
-            // Nobody verified this stock, so it says nothing about the shelf
-            // either — leaving the default "available" on it would quietly
-            // inflate shelf health with an observation never made.
-            line.shelfAvailability = null;
-            line.facings = null;
-            line.expiryDetails = [];
-            line.disposition = null;
-            line.damageType = null;
-            toast(`${p.name} marked as not found.`);
-            advanceFn(customer, p, false);
-          },
-        },
-      ],
-    });
-    s.el.querySelectorAll("[data-nf]").forEach((b) => (b.onclick = () => {
-      picked = b.dataset.nf;
-      s.el.querySelectorAll("[data-nf]").forEach((x) => x.classList.toggle("on", x === b));
-    }));
   }
 
   /* ------------------------------------------------------ finish helpers */
@@ -1828,46 +1794,17 @@
     return "healthy";
   }
 
-  /* ================================================================= SHEET: finish audit */
-
-  // The only decision left once counting is "done": is it actually done?
-  // The system already knows — it calculates coverage the moment this opens
-  // — so there is nothing here to fill in, just one thing to confirm. Full
-  // coverage needs a tap; partial coverage names what's missing and offers
-  // a way back in, once. No findings list, no outcome picker, no note —
-  // those were the Review/Coverage Check/Complete Audit pages this sheet
-  // replaces, and none of them were a decision the rep needed to make here.
-  function finishAuditSheet(customer) {
-    const a = draftAsAudit(customer);
-    const cov = auditCoverage(a);
-
-    if (cov.skipped === 0) {
-      sheet({
-        title: "Finish Audit",
-        sub: `${cov.audited + cov.notFound} / ${cov.expected} products counted`,
-        body: `<div class="rv-line ok" style="padding:14px 0 2px"><span class="ic">✓</span><span class="txt">Everything is ready.</span></div>`,
-        actions: [{ label: "Finish Audit", cls: "primary", onClick: () => completeAudit(customer) }],
-      });
-      return;
-    }
-
-    sheet({
-      title: "Finish Audit",
-      sub: `${cov.audited + cov.notFound} / ${cov.expected} products counted`,
-      body: `<div class="rv-line warn" style="padding:14px 0 2px"><span class="ic">⚠</span><span class="txt">${plural(cov.skipped, "product")} haven't been counted yet. You can continue counting or finish with partial coverage.</span></div>`,
-      actions: [
-        { label: "Continue Counting", cls: "ghost" },
-        {
-          label: "Finish Anyway",
-          cls: "primary",
-          onClick: () => {
-            DRAFT.partial = { isPartial: true, reason: null, note: "" };
-            completeAudit(customer);
-          },
-        },
-      ],
-    });
-  }
+  /* =============================================================================================
+     REMOVED (inline pass): finishAuditSheet — the "Finish Audit / 1 / 4
+     products counted / Continue Counting / Finish Anyway" bottom sheet. Asking
+     "is this actually done?" meant covering the very list that answers it, so
+     the question moved into the sticky footer the rep already had their thumb
+     on: the Finish button becomes an inline ✓ / ✗ confirmation naming the
+     coverage, the same pattern Production's recipe page uses to confirm a
+     publish. Its logic is unchanged and now lives in quickFootHTML (the copy,
+     including the partial-coverage warning) and wireQuickFoot (the partial
+     flag, then completeAudit).
+     ================================================================================================= */
 
   /* ------------------------------------------------------- complete audit */
 
@@ -1912,46 +1849,38 @@
     DRAFT = null;
     // vNext: the stakeholder flow's originating context is Stock Audit's own
     // customer search, not Customer Detail (removed from this journey
-    // entirely — see the removed-view block near the end of this file).
-    // Tapping Done, tapping the scrim, or doing nothing all leave the rep
-    // back at a fresh search, ready for the next visit, never at a stale
-    // Workspace with a cleared draft under it.
+    // entirely — see the removed-view block near the end of this file), so
+    // finishing lands the rep on a fresh search, ready for the next visit and
+    // never on a stale Workspace with a cleared draft under it.
+    //
+    // The confirmation is a toast, not a sheet: the audit is already saved by
+    // the time this runs, so there is no decision left to take and nothing to
+    // block the screen for. It's the long one (see longToast) — this is the
+    // end of the whole journey, not a passing acknowledgement.
     go("quick-pick", {}, true);
-    finishedSheet(customer, audit);
+    longToast(`Audit saved — ${plural(auditLines(audit).length, "product")} checked.`);
   }
 
-  // Layer-1 UX audit: FIND → PICK → COUNT → FINISH → LEAVE ends here, with
-  // exactly what that journey promised and nothing the engine also computes
-  // — no score, breakdown, issues or recommended actions. Those are Layer
-  // 2/3 analytics that live downstream in Audit Detail (Audit History →
-  // tap a visit), reading this exact same saved record; they are
-  // deliberately not repeated on the way out the door. The audit is already
-  // saved by this point, so this sheet only ever reads a closed record —
-  // nothing on it can trigger a second save, which is what actually
-  // prevents duplicate completion (completeAudit's own `if (!DRAFT) return`
-  // guard is the other half: DRAFT is nulled before this sheet opens, so a
-  // stray second tap on Finish Audit — e.g. the ~200ms window before the
-  // Finish sheet visually closes — is a no-op).
-  function finishedSheet(customer, audit) {
-    const checked = auditLines(audit).length;
-    // Entry Point B opened this tab itself (window.open, a real top-level
-    // navigation across modules — see stop-detail.js's openStockAuditLink),
-    // so it's the one case with somewhere real to return to besides Done.
-    const fromRouteDelivery = new URLSearchParams(location.search).get("source") === "route-delivery";
-    sheet({
-      body: `<div style="text-align:center;padding:8px 0 4px">
-        <div style="font-size:34px;line-height:1">✓</div>
-        <h2 style="margin:10px 0 0">Audit completed</h2>
-        <p class="sub">${esc(plural(checked, "product"))} checked</p>
-      </div>`,
-      actions: fromRouteDelivery
-        ? [
-            { label: "Done", cls: "ghost" },
-            { label: "Return to Route", cls: "primary", onClick: () => { if (window.opener) window.close(); } },
-          ]
-        : [{ label: "Done", cls: "primary" }],
-    });
-  }
+  /* =============================================================================================
+     REMOVED (inline pass): finishedSheet — the "✓ Audit completed / N products
+     checked / Done" bottom sheet. Layer-1's journey (FIND → PICK → COUNT →
+     FINISH → LEAVE) already ended with nothing left to decide, which is
+     precisely why it didn't need a sheet: the audit is saved before it would
+     have opened, so its only job was to say so and be dismissed. completeAudit
+     says it in a toast now and leaves the screen alone.
+
+     Duplicate completion is unaffected — that was never this sheet's doing.
+     completeAudit's own `if (!DRAFT) return` is the whole guard: DRAFT is
+     nulled before anything else can fire, so a stray second tap on ✓ is a
+     no-op.
+
+     Its "Return to Route" action is gone with it, and so is the inline strip
+     that briefly replaced it (.qp-return / RETURN_TO_ROUTE). Entry Point B —
+     a tab Delivery Management opened for this one audit (window.open across
+     modules; see stop-detail.js's openStockAuditLink) — now ends the same way
+     every other entry does: the toast, then a fresh picker. Nothing in this
+     module closes that tab anymore; the rep does, the way they close any tab.
+     ================================================================================================= */
 
   /* =============================================================================================
      REMOVED (Layer 2/3 UX pass): axisCls/healthAxesHTML — the Stock/Shelf/
@@ -2045,6 +1974,13 @@
   // #/customer-management/stock-audit-health.
   function mount() {
     PAGE = mountShell($("#app"), { screen: "stock-audit", crumb: "Stock Audit & Health", tenant: SEED.tenant });
+    // Built up front so shell.js's toast() finds this screen's `.toasts` host
+    // already in place (inside the phone) rather than making its own on <body>.
+    overlayHost();
+    // The phone's box moves when the window does — it's centred, and its
+    // height is capped against the viewport — so the layer is re-measured
+    // rather than positioned once at mount.
+    window.addEventListener("resize", syncOverlayFrame);
     LocationStore.load();
     DraftStore.load();
     AuditStore.load();
