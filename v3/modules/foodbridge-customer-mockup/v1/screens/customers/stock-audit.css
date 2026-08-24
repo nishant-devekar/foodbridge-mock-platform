@@ -592,20 +592,18 @@
    what follows is the genuinely new surface.
    ========================================================================== */
 
-/* The counting sheet, as one card with a total on the bottom line — Delivery
-   Management's order card (.order-card / .order-line.editing / .order-line
-   .total), which is the same job: a list of products, one number each, and a
-   figure they add up to. Rows are divided rather than separately boxed, so a
-   long selection reads as one worksheet instead of a stack of cards. */
+/* The counting sheet, as one card — Delivery Management's order card
+   (.order-card / .order-line.editing), which is the same job: a list of
+   products, one number each. Rows are divided rather than separately boxed, so
+   a long selection reads as one worksheet instead of a stack of cards. That
+   card's closing "Order Total" line has no counterpart here; see the removal
+   note above renderQuickCount. */
 .qc-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .qc-line { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
 .qc-line:last-child { border-bottom: none; }
 .qc-line .info { flex: 1; min-width: 0; }
 .qc-line .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qc-line .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The card's own closing line, where the order card puts "Order Total". */
-.qc-line.total { justify-content: space-between; background: var(--slate-50); font-weight: 700; font-size: 12.5px; color: var(--muted); padding: 12px 14px; }
-.qc-line.total b { font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* A counted row is tinted edge to edge — which is why .qc-card carries no
    horizontal padding of its own and each line pads itself instead. */

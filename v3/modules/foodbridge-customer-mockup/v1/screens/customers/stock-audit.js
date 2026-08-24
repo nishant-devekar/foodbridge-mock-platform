@@ -1339,11 +1339,9 @@
   function quickStats() {
     const selected = DRAFT.selected.map(productById).filter(Boolean);
     const counted = selected.filter((p) => DRAFT.lines[p.id] && lineIsCaptured(DRAFT.lines[p.id]));
-    const units = counted.reduce((n, p) => n + linePhysical(DRAFT.lines[p.id]), 0);
     return {
       selected,
       captured: counted.length,
-      units,
       total: selected.length,
       pct: selected.length ? Math.round((counted.length / selected.length) * 100) : 0,
     };
@@ -1360,13 +1358,11 @@
     return `${s.captured} / ${s.total} counted`;
   }
 
-  // The card's own bottom line, in the place Delivery Management's order card
-  // puts "Order Total". Units, not a repeat of the header's product ratio —
-  // it's the one number nothing else on the screen adds up.
-  function quickUnitsText(s) {
-    if (!s.captured) return "Nothing counted yet";
-    return `${plural(s.units, "unit")} · ${plural(s.captured, "product")}`;
-  }
+  // REMOVED: quickUnitsText and the card's "Total counted" bottom line, which
+  // mirrored Delivery Management's "Order Total". A running total earns that
+  // slot on an order — the money is the point — but a stock count has no such
+  // figure: the header already says N / M counted, and summing units across
+  // bottles, packets and pieces adds a number nobody asked for.
 
   function renderQuickCount() {
     const customer = loadCustomer(CURRENT.params.customerId);
@@ -1410,9 +1406,7 @@
             : `<div class="sah-empty"><div class="big">🔍</div><p>No product matches that.</p></div>`)
         : `<div class="section-head-row"><h2>Selected products</h2></div>
           ${s.total
-            ? `<div class="qc-card">${s.selected.map((p) => quickRowHTML(p)).join("")}
-                <div class="qc-line total"><span>Total counted</span><b id="qcUnits">${esc(quickUnitsText(s))}</b></div>
-              </div>`
+            ? `<div class="qc-card">${s.selected.map((p) => quickRowHTML(p)).join("")}</div>`
             : `<div class="sah-empty"><div class="big">📋</div><p>No products selected.<br>Search above to add one.</p></div>`}`}
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner" id="qcFoot">${quickFootHTML(customer)}</div></div>` });
 
@@ -1533,8 +1527,6 @@
     if (prog) prog.textContent = quickProgressText(s);
     const bar = PAGE.querySelector(".ws-bar > span");
     if (bar) bar.style.width = s.pct + "%";
-    const units = $("#qcUnits", PAGE);
-    if (units) units.textContent = quickUnitsText(s);
     const foot = $("#qcFoot", PAGE);
     if (foot) { foot.innerHTML = quickFootHTML(customer); wireQuickFoot(customer); }
   }
