@@ -1431,6 +1431,17 @@
   // the removed sheet spent a whole "Can't find this product" flow on: blank
   // means nobody verified this line, 0 means the rep looked and there were
   // none. Coverage still counts only the lines actually touched.
+  // Removing is confirmed in the row itself, the same ✓ / ✗ the footer uses for
+  // Finish — the × discards a count with no undo behind it, and it sits one
+  // thumb-width from the stepper's +.
+  //
+  // Both states are in the markup from the start and CSS swaps them on
+  // `.confirming` (see stock-audit.css), rather than a re-render or DOM
+  // surgery on click. Asking and taking the question back are then pure class
+  // toggles that touch neither the draft nor the DOM's shape, only confirming
+  // re-renders, and any other re-render drops the question on its own without
+  // a state flag to keep in sync. The warning clause hangs off `.done`, the
+  // same class that tints a counted row, so the two can never disagree.
   function quickRowHTML(p) {
     const line = DRAFT.lines[p.id];
     const done = line && lineIsCaptured(line);
@@ -1439,9 +1450,12 @@
         <div class="info">
           <div class="nm">${esc(p.name)}</div>
           <div class="meta">SKU ${esc(p.artNo)} · ${esc(p.unit)}</div>
+          <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
         ${stepperHTML(p.id, done && line.status !== "not_found" ? linePhysical(line) : "")}
         <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button>
+        <button type="button" class="ci-btn sm yes" data-remove-yes="${esc(p.id)}" aria-label="Confirm removing ${esc(p.name)}">✓</button>
+        <button type="button" class="ci-btn sm no" data-remove-no="${esc(p.id)}" aria-label="Keep ${esc(p.name)}">✗</button>
       </div>`;
   }
 
@@ -1477,8 +1491,19 @@
       persistDraft();
       renderQuickCount();
     }));
+    // Ask, undo the asking, and do it — the row swaps by class, so only the
+    // last of the three touches the draft or re-renders anything. One row asks
+    // at a time: opening a second question closes the first, which otherwise
+    // leaves a list of pending removals nobody meant to queue up.
     PAGE.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => {
-      const id = b.dataset.remove;
+      PAGE.querySelectorAll(".qc-row.confirming").forEach((r) => r.classList.remove("confirming"));
+      b.closest(".qc-row").classList.add("confirming");
+    }));
+    PAGE.querySelectorAll("[data-remove-no]").forEach((b) => (b.onclick = () => {
+      b.closest(".qc-row").classList.remove("confirming");
+    }));
+    PAGE.querySelectorAll("[data-remove-yes]").forEach((b) => (b.onclick = () => {
+      const id = b.dataset.removeYes;
       DRAFT.selected = DRAFT.selected.filter((x) => x !== id);
       delete DRAFT.lines[id];
       persistDraft();

@@ -608,6 +608,26 @@
 /* A counted row is tinted edge to edge — which is why .qc-card carries no
    horizontal padding of its own and each line pads itself instead. */
 .qc-row.done { background: #f6fefa; }
+
+/* Removing a product asks first, in the row. Both states ship in the markup
+   (see quickRowHTML) and this swaps them, so asking costs nothing but a class.
+   The warning clause keys off `.done` — the same class that tints a counted
+   row — so the question can never claim a count that isn't there. */
+.qc-row .ask,
+.qc-row .ci-btn { display: none; }
+.qc-row .ask .lost { display: none; }
+.qc-row.done .ask .lost { display: inline; }
+.qc-row.confirming { background: var(--amber-bg); }
+.qc-row.confirming .meta:not(.ask),
+.qc-row.confirming .pd-stepper,
+.qc-row.confirming .qc-remove { display: none; }
+/* The SKU line truncates because a product name has to; this one is a
+   question and must be readable to the end, so it wraps instead. */
+.qc-row.confirming .ask {
+  display: block; color: var(--amber-tx); font-weight: 600;
+  white-space: normal; overflow: visible; line-height: 1.35; margin-top: 2px;
+}
+.qc-row.confirming .ci-btn { display: grid; place-items: center; }
 /* An untouched row reads as unanswered rather than as zero — the placeholder
    is the "not counted yet" state, and typing anything at all is what turns
    the row green. */
@@ -634,6 +654,9 @@
 .ci-btn.yes { background: var(--teal); color: #fff; }
 .ci-btn.no { background: #fff; border-color: var(--line); color: var(--red); }
 .ci-btn.no:hover { border-color: var(--red); }
+/* The in-row variant (removing a product), sized to the stepper it replaces
+   rather than to the footer's full-height buttons. */
+.ci-btn.sm { width: 34px; height: 34px; border-radius: 9px; font-size: 15px; }
 
 /* Quieter than the stepper beside it: removing a product from the sheet is
    housekeeping, not the task. */
