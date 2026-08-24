@@ -28,6 +28,7 @@ DM.sections["stop-detail"] = function (body, params) {
     <div class="dm-foot" style="flex-direction:column;gap:10px;padding-top:14px">
       <button class="btn green" id="collect" style="height:52px;flex:0 0 52px">💰 Collect ${DM.money(due)}</button>
       <div style="display:flex;gap:10px;width:100%"><button class="btn ghost" id="edit" style="height:52px;font-size:14.5px">✏️ Edit Order</button><button class="btn ghost-red" id="skip" style="height:52px;font-size:14.5px">Skip Stop →</button></div>
+      <button class="btn ghost" id="stockAudit" style="height:52px;font-size:14.5px">🧾 Stock Audit</button>
     </div>`;
 
   body.querySelector("#tbBack").addEventListener("click", () => DM.go("delivery-queue", { routeId: r.id }, true));
@@ -39,5 +40,31 @@ DM.sections["stop-detail"] = function (body, params) {
     DM.sheet({ eyebrow: "Skip stop", title: `Skip ${s.name}?`, sub: "You can revisit this stop later from the queue.",
       actions: [ { label: "Cancel", cls: "ghost" }, { label: "Skip Stop", cls: "primary", onClick: () => { s.status = "skipped"; s._time = nowTime(); DM.toast("Stop skipped"); DM.go("delivery-queue", { routeId: r.id }, true); } } ] });
   });
+  body.querySelector("#stockAudit").addEventListener("click", () => openStockAuditLink(s));
   function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 };
+
+// Entry Point B (vNext Customer Stock Audit): Delivery Management and
+// Customer Management are different modules, published from different
+// repos — different origins in production, only coincidentally same-origin
+// in this repo's local v2 snapshot (see DEVELOPMENT.md's explicit warning
+// not to depend on that). There is also no shared customer-id space between
+// a delivery stop and a Customer Management record — stops only carry a
+// name/phone (see data.js's stop() factory), which happens to match a
+// customer's own phone in this seed but is not a real foreign key. So this
+// can only pass a best-effort search hint, opened as a real top-level
+// navigation, never an in-app transition — the rep confirms the match
+// themselves in Stock Audit's own customer picker.
+//
+// STOCK_AUDIT_URL is a local-snapshot convenience (this repo happens to
+// serve every module from one root), standing in for what a real deployment
+// would need to supply per-environment — e.g. the same per-module URL
+// configuration assets/modules.json already keeps for the platform shell,
+// just made available to this module too. Do not treat this relative path
+// as something production can rely on.
+const STOCK_AUDIT_URL = "../../../../../../foodbridge-customer-mockup/v1/screens/customers/stock-audit.html";
+
+function openStockAuditLink(stop) {
+  const params = new URLSearchParams({ entry: "quick", hint: stop.phone || "", source: "route-delivery" });
+  window.open(STOCK_AUDIT_URL + "?" + params.toString(), "_blank");
+}
