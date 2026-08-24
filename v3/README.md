@@ -48,21 +48,15 @@ so it renders the same however those repos change afterwards. That is the point:
 platform at `/` follows the teams, and a frozen version does not — and never changes again once
 cut, so `v1` stays exactly what it was even after `v2` exists.
 
-**▶ Current frozen version:** <https://nishant-devekar.github.io/foodbridge-mock-platform/v3/>
+**▶ Current frozen version:** <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/>
 
-| | Live (`/`) | Frozen (`v3/`, current) | Frozen (`v2/`) | Frozen (`v1/`) |
-| --- | ---------- | -------------- | -------------- | -------------- |
-| Freeze date | — moves with every push | 24 August 2026 | 22 August 2026 | 14 August 2026 |
-| Destinations | 26, whatever `assets/modules.json` says today | 26 | 26 | 24 |
-| Module screens | fetched from each team's Pages site at view time | local copies under `v3/modules/<repo>/` | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
-| Changes when a team pushes | yes, on the next load | no | no | no |
-| Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip | a link, or the folder / release zip |
-
-`v3` carries one deliberate exception to "everything is a local copy of whatever a team last
-published": Customer Management's Stock Audit & Health screen (and the "🧾 Stock Audit" entry
-point on Delivery Management's stop detail) were reworked directly in this repo rather than
-crawled from `nidhimehta9399/foodbridge-customer-mockup`'s live site, which hasn't caught up yet.
-Both files say so in their own header comments.
+| | Live (`/`) | Frozen (`v2/`, current) | Frozen (`v1/`) |
+| --- | ---------- | -------------- | -------------- |
+| Freeze date | — moves with every push | 22 August 2026 | 14 August 2026 |
+| Destinations | 26, whatever `assets/modules.json` says today | 26 | 24 |
+| Module screens | fetched from each team's Pages site at view time | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
+| Changes when a team pushes | yes, on the next load | no | no |
+| Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip |
 
 Every frozen version's [release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases)
 carries **two** assets, because "look at it" and "work on it" need different things:
@@ -77,13 +71,12 @@ module's full source — enough to render every screen, and nothing else. `disco
 `development/` trees, screens reached only by JavaScript, canonical seed JSON, superseded version
 folders and all git history are invisible to a browser and live in the source half instead.
 
-- Browse the current version: <https://nishant-devekar.github.io/foodbridge-mock-platform/v3/> —
-  or [`v2`](https://nishant-devekar.github.io/foodbridge-mock-platform/v2/) /
-  [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) for what came before it
+- Browse the current version: <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/> —
+  or [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) for the version before it
 - What is inside each one, where every screen came from, and that version's own limitations:
-  [`v3/VERSION.md`](v3/VERSION.md) · [`v2/VERSION.md`](v2/VERSION.md) · [`v1/VERSION.md`](v1/VERSION.md)
-- Tagged `v3` / `v2` / `v1` in git; each release's source half records every repository's exact
-  commit SHA in its own `MANIFEST.md`.
+  [`v2/VERSION.md`](v2/VERSION.md) · [`v1/VERSION.md`](v1/VERSION.md)
+- Tagged `v2` / `v1` in git; each release's source half records every repository's exact commit SHA
+  in its own `MANIFEST.md`.
 
 Rebuild or cut a later snapshot with `tools/pack.py --version <N>` (see its docstring — `--dry`
 reports what would be fetched without writing anything). It re-crawls every

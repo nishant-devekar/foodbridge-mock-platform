@@ -1,0 +1,108 @@
+{
+  "_comment": "Version-2-only fixtures (Addendum 003). Additive to seed.json — never edits it. V2 screens fetch both files and reuse seed.json where the two designs overlap.",
+
+  "store": {
+    "name": "Gupta Wholesale Store",
+    "subtitle": "Authorised distributor for ABC Beverages",
+    "location": "Amritsar, Punjab",
+    "verified": true,
+    "logoInitial": "G",
+    "phone": "+91 98140 22110",
+    "whatsapp": "+91 98140 22110",
+    "gstin": "03ABCDE1234F1Z5",
+    "supportHours": "9AM – 8PM",
+    "year": 2025
+  },
+
+  "account": { "initials": "RA", "name": "Retailer Account", "role": "Owner" },
+
+  "promo": {
+    "badge": "Summer Stock-up Offer",
+    "headline": "Save up to 15% on selected beverages",
+    "validTill": "31 Jul, 8:00 PM",
+    "offerCount": 12,
+    "freeDeliveryAbove": 2000
+  },
+
+  "categoriesV2": [
+    { "id": "all", "label": "All" },
+    { "id": "offers", "label": "Offers" },
+    { "id": "buy-again", "label": "Buy again" },
+    { "id": "water", "label": "Water" },
+    { "id": "soda", "label": "Soda" },
+    { "id": "juices", "label": "Juices" },
+    { "id": "energy", "label": "Energy Drinks" },
+    { "id": "new", "label": "New Arrivals" }
+  ],
+
+  "productsV2": [
+    { "id": "v2-kinley-250", "name": "250ml PET Bottle", "brand": "Kinley", "category": "water", "packSize": "Pack of 24", "price": 252, "mrp": 288, "discount": 12, "available": 39, "offer": true, "buyAgain": true },
+    { "id": "v2-coke-500", "name": "500ml PET Bottle", "brand": "Coca-Cola", "category": "soda", "packSize": "Pack of 24", "price": 378, "mrp": 432, "discount": 13, "available": 58, "offer": true, "buyAgain": true },
+    { "id": "v2-natural-water", "name": "Natural Water", "brand": "Bisleri", "category": "water", "packSize": "Pack of 24", "price": 310, "mrp": 344, "discount": 10, "available": 100, "offer": true, "buyAgain": true },
+    { "id": "v2-fanta-orange", "name": "Fanta Orange", "brand": "Fanta", "category": "soda", "packSize": "Pack of 12", "price": 410, "mrp": 468, "discount": 12, "available": 18, "offer": true, "buyAgain": false },
+    { "id": "v2-sprite-600", "name": "Sprite 600ml", "brand": "Sprite", "category": "soda", "packSize": "Pack of 24", "price": 410, "mrp": 468, "discount": 12, "available": 44, "offer": false, "buyAgain": true },
+    { "id": "v2-real-juice", "name": "Mixed Fruit Juice 1L", "brand": "Real", "category": "juices", "packSize": "Pack of 12", "price": 540, "mrp": 600, "discount": 10, "available": 26, "offer": true, "buyAgain": false },
+    { "id": "v2-sting-energy", "name": "Sting Energy Drink", "brand": "Sting", "category": "energy", "packSize": "Pack of 24", "price": 480, "mrp": 528, "discount": 9, "available": 32, "offer": false, "buyAgain": false },
+    { "id": "v2-limca-500", "name": "Limca 500ml", "brand": "Limca", "category": "new", "packSize": "Pack of 24", "price": 395, "mrp": 440, "discount": 10, "available": 21, "offer": false, "buyAgain": false }
+  ],
+
+  "purchasesV2": {
+    "thisMonthTotal": 24600,
+    "openOrders": 2,
+    "orders": [
+      { "id": "ORD-1256", "date": "2026-07-12", "total": 8250, "status": "Delivered", "items": [{ "name": "250ml PET Bottle", "qty": 20, "total": 5040 }, { "name": "Natural Water", "qty": 10, "total": 3100 }] },
+      { "id": "ORD-1241", "date": "2026-07-05", "total": 7180, "status": "In transit", "items": [{ "name": "500ml PET Bottle", "qty": 15, "total": 5670 }, { "name": "Fanta Orange", "qty": 3, "total": 1230 }] },
+      { "id": "ORD-1230", "date": "2026-07-01", "total": 9170, "status": "Pending", "items": [{ "name": "Sprite 600ml", "qty": 18, "total": 7380 }, { "name": "Mixed Fruit Juice 1L", "qty": 3, "total": 1620 }] }
+    ]
+  },
+
+  "payments": {
+    "purchasedThisMonth": 24600,
+    "purchasedDeltaPct": 12,
+    "paid": 20000,
+    "paidDeltaPct": 8,
+    "balanceDue": 4600,
+    "invoicesPending": 2,
+    "nextDueDate": "2026-07-31",
+    "nextDueInDays": 3,
+    "recent": [
+      { "date": "2026-07-12", "mode": "UPI", "ref": "4872", "amount": 10000, "status": "Paid" },
+      { "date": "2026-06-28", "mode": "NEFT", "ref": "HDFC 7431", "amount": 5000, "status": "Paid" },
+      { "date": "2026-06-14", "mode": "UPI", "ref": "9218", "amount": 8000, "status": "Paid" },
+      { "date": "2026-05-30", "mode": "NEFT", "ref": "ICICI 5621", "amount": 7000, "status": "Paid" }
+    ],
+    "invoices": [
+      { "no": "INV-7821", "date": "2026-07-15", "dueDate": "2026-07-31", "amount": 2800, "status": "Due in 3 days" },
+      { "no": "INV-7734", "date": "2026-07-01", "dueDate": "2026-07-15", "amount": 1800, "status": "Overdue" },
+      { "no": "INV-7650", "date": "2026-06-15", "dueDate": "2026-06-30", "amount": 0, "status": "Paid" },
+      { "no": "INV-7562", "date": "2026-06-01", "dueDate": "2026-06-15", "amount": 0, "status": "Paid" }
+    ]
+  },
+
+  "help": {
+    "topics": [
+      { "id": "ask-seller", "title": "Ask seller a question", "subtitle": "Have a question about products, pricing or your order?", "icon": "chat" },
+      { "id": "report-issue", "title": "Report damaged or missing items", "subtitle": "Let us know if something is wrong with your order.", "icon": "warning" },
+      { "id": "payment-query", "title": "Payment query", "subtitle": "Need help with payments, refunds or balance?", "icon": "rupee" },
+      { "id": "delivery-query", "title": "Delivery query", "subtitle": "Track your delivery or report a delivery issue.", "icon": "truck" }
+    ],
+    "openQueries": [
+      { "id": "QRY-1256", "type": "Products", "title": "Question about stock", "date": "2026-07-31", "time": "10:30 AM", "status": "In Progress" },
+      { "id": "QRY-1255", "type": "Order Issue", "title": "Damaged items received", "date": "2026-07-30", "time": "04:15 PM", "status": "In Progress" },
+      { "id": "QRY-1254", "type": "Payment", "title": "Payment not reflected", "date": "2026-07-29", "time": "11:05 AM", "status": "Resolved" },
+      { "id": "QRY-1253", "type": "Delivery", "title": "Delayed delivery", "date": "2026-07-28", "time": "09:20 AM", "status": "Resolved" }
+    ],
+    "commonTopics": [
+      { "title": "Ordering", "subtitle": "How to place an order" },
+      { "title": "Delivery", "subtitle": "Delivery time and tracking" },
+      { "title": "Returns", "subtitle": "Return and replacement" },
+      { "title": "Payments", "subtitle": "Payments, refunds and balance" }
+    ]
+  },
+
+  "trustBadges": [
+    { "title": "100% Genuine Products" },
+    { "title": "Secure & Easy Ordering" },
+    { "title": "On-time Delivery" }
+  ]
+}
