@@ -1528,9 +1528,10 @@
           <div class="nm">${esc(p.name)}</div>
           <div class="meta">SKU ${esc(p.artNo)} ·
             <span class="unit-pick">
+              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">▾</span>
               <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">
-                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per})` : ""}</option>`).join("")}
-              </select><span class="chev" aria-hidden="true">▾</span>
+                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
+              </select>
             </span><span class="equiv">${esc(equiv)}</span>
           </div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
@@ -1643,6 +1644,8 @@
       // they picked the wrong pack size is exactly the busywork this avoids.
       // On an untouched row it only records the choice — no count is invented.
       if (select) select.onchange = () => {
+        const lbl = row.querySelector(".unit-pick .lbl");
+        if (lbl) lbl.textContent = select.value;
         const line = DRAFT.lines[p.id];
         if (line && lineIsCaptured(line)) { write(Number(input.value) || 0, select.value); return; }
         ensureDraftLine(p, hasShelf).countUnit = select.value;

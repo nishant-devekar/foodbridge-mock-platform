@@ -40,7 +40,9 @@
    silently computes to nothing: `background: var(--teal)` becomes
    transparent, and a button ends up white-on-white rather than teal. */
 :root, .sah {
-  --teal: #12615e; --teal-d: #0e4f4c; --teal-l: #e6f2f1;
+  /* --teal-l2 sits between the flat tint and the full teal: a border that
+     reads as an edge on a tinted chip without shouting like the ink does. */
+  --teal: #12615e; --teal-d: #0e4f4c; --teal-l: #e6f2f1; --teal-l2: #bcd9d7;
   --green: #16a34a; --green-d: #15803d;
   --blue: #2563eb; --navy: #3b5aa6; --red: #c53434; --orange: #d08420;
   --ink: #0f172a; --muted: #64748b; --muted-2: #94a3b8;
@@ -609,20 +611,38 @@
    row counted in a bigger unit grows, and only while it is. */
 .qc-line .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4; }
 
-/* The counting unit, inline in the SKU line — a real <select>, styled down to
-   the weight of the text around it so the row still reads as one line rather
-   than as a form. The chevron is the only thing marking it as a control at
-   rest; the select underneath keeps its full native hit target and its native
-   picker on a phone, which is the right widget for three options. */
-.qc-line .unit-pick { position: relative; display: inline-flex; align-items: center; }
-.qc-line .unit-pick select {
-  appearance: none; -webkit-appearance: none;
-  border: none; background: none; padding: 0 11px 0 0; margin: 0;
-  font: inherit; font-size: 11.5px; font-weight: 700; color: var(--teal-d);
-  line-height: inherit; outline: none;
+/* The counting unit, inline in the SKU line — a real <select>, but dressed as
+   a visible control rather than as text that happens to be clickable: a
+   tinted pill, a border and a chevron, so "you can change this" reads before
+   anyone touches it. Bare coloured text with a hairline chevron did not: the
+   rep had no reason to think the unit was theirs to set, which is the whole
+   point of it being there. (Same reasoning, and near enough the same
+   treatment, as the location picker this screen used to carry.)
+
+   The <select> is laid over the chip at full size and made invisible, with a
+   .lbl span carrying the text. A native select is as wide as its LONGEST
+   option, so letting it size the chip made "Pc" occupy "Carton (144 Pc)" of
+   room — a pill three times wider than its own word, on every row. This way
+   the chip fits the selection, while the select keeps its real hit target and
+   its native picker, which is the right widget for three options on a phone.
+   .lbl is aria-hidden: the select is the accessible control and already
+   announces its own value. */
+.qc-line .unit-pick {
+  position: relative; display: inline-flex; align-items: center; gap: 3px;
+  height: 19px; padding: 0 6px; margin: 0 1px;
+  border: 1px solid var(--teal-l2); border-radius: 6px;
+  background: var(--teal-l); vertical-align: -4px;
 }
-.qc-line .unit-pick select:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 3px; }
-.qc-line .unit-pick .chev { position: absolute; right: 1px; font-size: 8px; color: var(--teal-d); pointer-events: none; }
+.qc-line .unit-pick:hover { border-color: var(--teal); }
+.qc-line .unit-pick .lbl { font-size: 11px; font-weight: 800; color: var(--teal); line-height: 1; white-space: nowrap; }
+.qc-line .unit-pick .chev { font-size: 8px; color: var(--teal); line-height: 1; }
+.qc-line .unit-pick select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  appearance: none; -webkit-appearance: none;
+  border: none; background: none; padding: 0; margin: 0;
+  font: inherit; opacity: 0; cursor: pointer;
+}
+.qc-line .unit-pick:focus-within { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(18,97,94,.25); }
 /* The base-unit equivalent, only present while a bigger unit is in use. */
 .qc-line .equiv { color: var(--muted-2); }
 
