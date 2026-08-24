@@ -438,6 +438,41 @@
   // the employee type their own name, role, team".
   const AUDITOR = { id: "u-mahesh", name: "Mahesh", role: "Sales Executive", team: "Pune Team" };
 
+  /* --------------------------------------------------------------- units */
+
+  // Stock does not sit on a shelf one piece at a time. A rep facing a stack of
+  // sealed boxes counts boxes, and making them multiply in their head — or
+  // open the boxes — is how a count goes wrong. So each product's base unit
+  // (SEED.products[].unit) opens onto the pack sizes it actually travels in.
+  //
+  // Keyed by base unit rather than per product: the seed carries one `unit`
+  // string and no packaging at all, and inventing a bespoke ladder for each of
+  // twelve mock products would be twelve made-up numbers instead of five. In a
+  // real system this table is the product master's packaging config, per SKU —
+  // this screen only needs `unitsFor(p)` to keep returning the same shape.
+  const UNIT_LADDERS = {
+    Pc: [["Pc", 1], ["Tray", 12], ["Carton", 144]],
+    Packet: [["Packet", 1], ["Box", 12], ["Pallet", 144]],
+    Bottle: [["Bottle", 1], ["Crate", 24], ["Pallet", 480]],
+    Crate: [["Crate", 1], ["Pallet", 20]],
+    Box: [["Box", 1], ["Pallet", 48]],
+  };
+  // A product whose base unit isn't in the table still gets a valid ladder of
+  // exactly one rung, so every caller can assume there is always a base.
+  function unitsFor(p) {
+    const base = (p && p.unit) || "Unit";
+    return (UNIT_LADDERS[base] || [[base, 1]]).map(([label, per]) => ({ label, per }));
+  }
+  function unitFactor(p, label) {
+    const u = unitsFor(p).find((x) => x.label === label);
+    return u ? u.per : 1;
+  }
+  const baseUnit = (p) => unitsFor(p)[0].label;
+  // NOT plural() — a unit name is a label, not a noun to inflect. "Pcs" would
+  // scrape by; "Boxs" and "Crates"-but-also-"Pallets" is how you get one of
+  // them wrong. Trade paperwork writes "3 Box" and so does this.
+  const qtyText = (n, unit) => `${n} ${unit}`;
+
   const emptyCondition = () => ({ good: 0, nearExpiry: 0, expired: 0, damaged: 0 });
   const emptyStorage = () => ({ shelf: 0, backroom: 0, warehouse: 0, other: 0 });
   const sumOf = (obj) => Object.keys(obj || {}).reduce((n, k) => n + (Number(obj[k]) || 0), 0);
@@ -446,7 +481,15 @@
     return {
       productId,
       expected: Number(expected) || 0,
+      // `physical` is ALWAYS in base units, so variance, stock-out risk,
+      // coverage and the condition buckets keep reading the one scale they
+      // always did. What the rep actually keyed lives beside it: countQty of
+      // countUnit, with physical = countQty × that unit's pack size. Switching
+      // the unit keeps the quantity and recomputes physical — "3" that turns
+      // out to be boxes means thirty-six pieces, not three.
       physical: null,
+      countQty: null,
+      countUnit: null,
       conditionBreakdown: emptyCondition(),
       storageBreakdown: emptyStorage(),
       shelfAvailability: null,
@@ -485,6 +528,7 @@
       // reconciliation rule, so deriving it here rather than repeating it in
       // the seed keeps the two from ever disagreeing.
       if (line.physical == null && line.status === "audited") line.physical = sumOf(line.conditionBreakdown);
+      backfillCountUnit(line);
       return line;
     }
     const physical = Number(raw.counted) || 0;
@@ -498,6 +542,18 @@
     const onShelf = raw.shelfAvailable !== false;
     line.storageBreakdown[onShelf ? "shelf" : "backroom"] = physical;
     line.shelfAvailability = onShelf ? "available" : "not_on_shelf";
+    backfillCountUnit(line);
+    return line;
+  }
+
+  // Every line written before units existed was counted in base units, by
+  // definition — that was the only scale there was. Saying so explicitly beats
+  // leaving countUnit null for every reader to special-case.
+  function backfillCountUnit(line) {
+    if (!line.countUnit) line.countUnit = baseUnit(productById(line.productId));
+    if (line.countQty == null && line.physical != null) {
+      line.countQty = line.physical / unitFactor(productById(line.productId), line.countUnit);
+    }
     return line;
   }
 
@@ -1222,6 +1278,20 @@
      (removed just above) were gone.
      ================================================================================================= */
 
+  // What the rep counted, in the words they counted it in. A line taken in
+  // boxes says so and gives the base-unit total in brackets — "3 Box (36 Pc)"
+  // — because both are the record: the second is what reconciles against
+  // system stock, the first is what someone can walk back into the store and
+  // check. Base-unit lines, which is every line before units existed, read
+  // exactly as they always did.
+  function countedText(p, l) {
+    const base = baseUnit(p);
+    const unit = l.countUnit || base;
+    const physical = linePhysical(l);
+    if (unit === base || l.countQty == null) return `${physical} ${base}`.trim();
+    return `${l.countQty} ${unit} (${qtyText(physical, base)})`;
+  }
+
   // A flat log of what was counted on this visit — not a findings view.
   // Every captured line shows, in the order the rep counted them, with
   // exactly the fact that matters: how many, or that it wasn't found.
@@ -1241,7 +1311,7 @@
                   <span class="sku">SKU ${esc(p.artNo || "—")}</span>
                 </span>
                 <span class="right">
-                  <span class="qty">${nf ? "Not found" : esc(`${linePhysical(l)} ${p.unit || ""}`.trim())}</span>
+                  <span class="qty">${nf ? "Not found" : esc(countedText(p, l))}</span>
                 </span>
               </div>`;
             }).join("")
@@ -1445,14 +1515,27 @@
   function quickRowHTML(p) {
     const line = DRAFT.lines[p.id];
     const done = line && lineIsCaptured(line);
+    const units = unitsFor(p);
+    const unit = (line && line.countUnit) || baseUnit(p);
+    const qty = done && line.status !== "not_found" ? line.countQty : "";
+    // The equivalent in base units, shown only when the rep is counting in
+    // something bigger and the multiplication is therefore doing real work.
+    const per = unitFactor(p, unit);
+    const equiv = done && per > 1 && Number(qty) > 0 ? ` · ${qtyText(linePhysical(line), baseUnit(p))}` : "";
     return `
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
           <div class="nm">${esc(p.name)}</div>
-          <div class="meta">SKU ${esc(p.artNo)} · ${esc(p.unit)}</div>
+          <div class="meta">SKU ${esc(p.artNo)} ·
+            <span class="unit-pick">
+              <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">
+                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per})` : ""}</option>`).join("")}
+              </select><span class="chev" aria-hidden="true">▾</span>
+            </span><span class="equiv">${esc(equiv)}</span>
+          </div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
-        ${stepperHTML(p.id, done && line.status !== "not_found" ? linePhysical(line) : "")}
+        ${stepperHTML(p.id, qty == null ? "" : qty)}
         <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button>
         <button type="button" class="ci-btn sm yes" data-remove-yes="${esc(p.id)}" aria-label="Confirm removing ${esc(p.name)}">✓</button>
         <button type="button" class="ci-btn sm no" data-remove-no="${esc(p.id)}" aria-label="Keep ${esc(p.name)}">✗</button>
@@ -1523,27 +1606,62 @@
     PAGE.querySelectorAll(".qc-row .pd-stepper").forEach((st) => {
       const p = productById(st.dataset.field);
       if (!p) return;
+      const row = st.closest(".qc-row");
       const input = st.querySelector("input");
+      const select = row.querySelector("[data-unit]");
+
       // Quantity writes straight into the "good" bucket — the only bucket this
-      // flow exposes. Physical stock is that same number; there is no separate
-      // total to reconcile against once condition/damage/expiry aren't fields
-      // here. (They stay real fields on the model — see blankLine — with no UI
-      // in this flow to set them.)
-      const set = (v) => {
-        v = Math.max(0, Math.floor(Number(v) || 0));
-        input.value = v;
+      // flow exposes. Physical stock is that same number CONVERTED TO BASE
+      // UNITS; there is no separate total to reconcile against once
+      // condition/damage/expiry aren't fields here. (They stay real fields on
+      // the model — see blankLine — with no UI in this flow to set them.)
+      const write = (qty, unit) => {
         const line = ensureDraftLine(p, hasShelf);
-        line.conditionBreakdown.good = v;
-        line.physical = v;
+        const physical = qty * unitFactor(p, unit);
+        line.countQty = qty;
+        line.countUnit = unit;
+        line.physical = physical;
+        line.conditionBreakdown.good = physical;
         line.status = "audited";
         line.notFoundReason = null;
         persistDraft();
-        st.closest(".qc-row").classList.add("done");
+        row.classList.add("done");
+        showEquiv(p, line, row);
         refreshQuickChrome(customer);
       };
+      const set = (v) => {
+        const qty = Math.max(0, Math.floor(Number(v) || 0));
+        input.value = qty;
+        write(qty, select ? select.value : baseUnit(p));
+      };
+
       st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
       input.oninput = () => set(input.value);
+
+      // Switching the unit keeps the quantity the rep entered and re-reads what
+      // it means: three of something bigger. Re-counting from scratch because
+      // they picked the wrong pack size is exactly the busywork this avoids.
+      // On an untouched row it only records the choice — no count is invented.
+      if (select) select.onchange = () => {
+        const line = DRAFT.lines[p.id];
+        if (line && lineIsCaptured(line)) { write(Number(input.value) || 0, select.value); return; }
+        ensureDraftLine(p, hasShelf).countUnit = select.value;
+        showEquiv(p, DRAFT.lines[p.id], row);
+      };
     });
+  }
+
+  // The "· 36 Pc" tail on a row counted in something bigger. Kept in step by
+  // hand rather than by re-rendering the row, for the same reason the stepper
+  // is: the input the rep is typing into must survive.
+  function showEquiv(p, line, row) {
+    const el = row.querySelector(".equiv");
+    if (!el) return;
+    const captured = line && lineIsCaptured(line);
+    const per = unitFactor(p, (line && line.countUnit) || baseUnit(p));
+    el.textContent = captured && per > 1 && linePhysical(line) > 0
+      ? ` · ${qtyText(linePhysical(line), baseUnit(p))}`
+      : "";
   }
 
   function refreshQuickChrome(customer) {
