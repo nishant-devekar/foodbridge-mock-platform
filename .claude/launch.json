@@ -4,14 +4,36 @@
     {
       "name": "foodbridge-v2",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8000", "--directory", "v2"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8000",
+        "--directory",
+        "v2"
+      ],
       "port": 8000
     },
     {
       "name": "foodbridge-v3",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8001", "--directory", "v3"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8001",
+        "--directory",
+        "v3"
+      ],
       "port": 8001
+    },
+    {
+      "name": "mock-platform-live",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8005"
+      ],
+      "port": 8005
     }
   ]
 }
