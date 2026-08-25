@@ -1570,7 +1570,14 @@
     QC_CONFIRM = false;
 
     const q = QC_STATE.q.trim().toLowerCase();
-    const matches = (p) => p.name.toLowerCase().includes(q) || String(p.artNo).toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q);
+    // Both levels of the catalogue's own hierarchy, not just the top one. The
+    // group ("SPICE", "PICKLE AND MURABBA") is what a rep reaches for when they
+    // want everything of a kind; the sub-category is the word that separates
+    // one jar from the next ("GARLIC PICKLE" vs "MANGO PICKLE"), and for a
+    // product named after its pack size it can be the only place that word
+    // appears at all.
+    const matches = (p) =>
+      [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const results = q ? products.filter((p) => matches(p) && !DRAFT.selected.includes(p.id)) : [];
     const s = quickStats();
 
@@ -1653,7 +1660,7 @@
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
           <div class="nm">${esc(p.name)}</div>
-          <div class="meta">SKU ${esc(p.artNo)} ·
+          <div class="meta"><span class="sku" title="${esc(p.artNo)}">SKU ${esc(p.artNo)}</span> ·
             <span class="unit-pick">
               <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">▾</span>
               <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">

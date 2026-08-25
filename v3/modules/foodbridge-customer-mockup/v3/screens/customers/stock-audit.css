@@ -639,9 +639,24 @@
 .qc-line .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The name truncates because a product name has to fit one line; the meta
    wraps, because it now carries a control and a conversion the rep needs to
-   read to the end. Short rows ("SKU a103 · Pc") still take one line — only a
-   row counted in a bigger unit grows, and only while it is. */
-.qc-line .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4; }
+   read to the end.
+   The article number is the part that gives way first. This catalogue's are
+   18 digits, which on a 402px iPhone pushed the unit chip onto a third line
+   and made every row in the list taller — the old assumption that a short
+   "SKU a103 · Pc" fits one line does not survive real article numbers. The
+   chip and the conversion keep their space; the number ellipsizes, and the
+   full value stays on the element's title. Search still matches the whole
+   thing, so nothing is lost but the middle digits of a number nobody reads
+   off a phone. */
+.qc-line .meta {
+  font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px;
+}
+/* `flex: 1 1 0`, not `0 1 auto`. With a content-sized basis the nowrap number
+   is hypothetically wider than the row, so flex gives it a line of its own and
+   wraps the chip underneath before it ever shrinks it. A zero basis makes it
+   take what is left after the chip instead, which is the whole point. */
+.qc-line .meta .sku { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The counting unit, inline in the SKU line — a real <select>, but dressed as
    a visible control rather than as text that happens to be clickable: a
