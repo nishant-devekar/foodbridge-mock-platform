@@ -106,7 +106,14 @@
       const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
       // Small deltas are the toolbar sliding, not a keyboard. Treating those as
       // a keyboard makes the whole app jitter as a rep scrolls.
-      document.documentElement.style.setProperty("--kb", (covered > 120 ? covered : 0) + "px");
+      const open = covered > 120;
+      document.documentElement.style.setProperty("--kb", (open ? covered : 0) + "px");
+      // The same measurement as a class, so CSS can react to the keyboard and
+      // not just subtract it. A phone in LANDSCAPE has ~100px of app left once
+      // the keyboard is up, and the topbar/action bar/nav are 190px between
+      // them — the column overflowed and pushed the CTA and the search results
+      // off screen together. See the max-height block in stock-audit.css.
+      document.documentElement.classList.toggle("sah-kb-open", open);
       syncOverlayFrame();
     };
     vv.addEventListener("resize", sync);
@@ -228,7 +235,12 @@
     }
   }
   window.addEventListener("popstate", () => {
-    if (ACTIVE_SHEET || SHEET_HISTORY) closeActiveSheet(true);
+    // A sheet is the innermost thing Back can close, so it goes first.
+    if (ACTIVE_SHEET || SHEET_HISTORY) { closeActiveSheet(true); return; }
+    // Our own history.back() from an in-app back button: the view already moved.
+    if (POPPING) { POPPING = false; return; }
+    // The phone's Back button. Walk the view stack instead of leaving the page.
+    back(true);
   });
 
   function sheet({ eyebrow, title, sub, body, actions }) {
@@ -909,17 +921,37 @@
   let CURRENT = { view: "quick-pick", params: {} };
   let DRAFT = null; // in-progress audit while Quick Audit is open
 
+  // Every view the STACK remembers is also a history entry, so the phone's own
+  // Back — Android's gesture/button, Safari's swipe — walks this flow instead
+  // of leaving it. Without the pushState below, history.length stayed 1 for the
+  // whole journey and a rep three screens deep who swiped back was dropped out
+  // of the app entirely, mid-audit. Verified on device: Back from Audit Detail
+  // exited Chrome to the launcher.
+  //
+  // POPPING marks the one popstate we cause ourselves (an in-app back button
+  // calls history.back()), so the listener does not pop the STACK a second time
+  // for a move it has already made.
+  let POPPING = false;
+
   function go(view, params, replace) {
     const changed = view !== CURRENT.view;
-    if (!replace) STACK.push(CURRENT);
+    if (!replace) {
+      STACK.push(CURRENT);
+      try { history.pushState({ sahView: STACK.length }, ""); } catch (e) { /* file:// */ }
+    }
     CURRENT = { view, params: params || {} };
     renderCurrent();
     if (changed) scrollTop();
   }
-  function back() {
+  // fromPopstate: the history entry is already gone, so do not spend another.
+  function back(fromPopstate) {
     const prev = STACK.pop();
     if (prev) { CURRENT = prev; renderCurrent(); scrollTop(); }
     else go("quick-pick", {}, true);
+    if (fromPopstate !== true) {
+      POPPING = true;
+      try { history.back(); } catch (e) { POPPING = false; }
+    }
   }
   function scrollTop() {
     const el = document.scrollingElement || document.documentElement;
@@ -1052,6 +1084,17 @@
 
   /* ----------------------------------------------------------- shared bits */
 
+  // What a phone keyboard must NOT do to a search box in a field tool.
+  // A rep types store names and SKUs — "b401", "250ML PET" — into these, and
+  // by default iOS and Android both capitalise the first letter and run
+  // autocorrect over the rest, so "b401" arrives as "B401" and an unusual
+  // store name gets silently rewritten to a dictionary word mid-typing. The
+  // matcher lowercases, so capitalisation alone was survivable; a substituted
+  // SKU is not. enterkeyhint puts "Search" on the return key instead of a
+  // newline glyph that does nothing here.
+  const SEARCH_ATTRS =
+    'autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search"';
+
   function wireSearchInput(id, onInput) {
     const box = $("#" + id, PAGE);
     if (!box) return;
@@ -1163,7 +1206,7 @@
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="audQ" value="${esc(AUD_STATE.q)}" placeholder="Search customer or note…"></div>
+        <div class="sah-search"><input type="search" id="audQ" ${SEARCH_ATTRS} value="${esc(AUD_STATE.q)}" placeholder="Search customer or note…"></div>
         <button type="button" class="filter-btn ${filters ? "on" : ""}" id="audFilter" aria-label="Filter visits">
           <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M2.5 4.5h15L12 11v5.5l-4 2V11L2.5 4.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           ${filters ? `<span class="n">${filters}</span>` : ""}
@@ -1418,7 +1461,9 @@
       ${productsCheckedSectionHTML(a)}
     `);
 
-    $("#auBack", PAGE).onclick = back;
+    // Wrapped, not passed directly: as a handler, back would receive the click
+    // Event as its fromPopstate argument and skip spending the history entry.
+    $("#auBack", PAGE).onclick = () => back();
   }
 
   /* =============================================================================================
@@ -1451,7 +1496,7 @@
       <div class="sah-page-head">
         <h1>Customer Stock Audit</h1><p>Who are you visiting?</p>
       </div>
-      <div class="sah-search-row"><div class="sah-search"><input type="search" id="qpQ" value="${esc(QP_STATE.q)}" placeholder="Search customers…"></div></div>
+      <div class="sah-search-row"><div class="sah-search"><input type="search" id="qpQ" ${SEARCH_ATTRS} value="${esc(QP_STATE.q)}" placeholder="Search customers…"></div></div>
       ${!q
         ? `<div class="sah-empty"><div class="big">🔍</div><p>Search for the customer you're visiting.</p></div>`
         : rows.length
@@ -1538,7 +1583,7 @@
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="qcQ" value="${esc(QC_STATE.q)}" placeholder="Search product name or SKU…"></div>
+        <div class="sah-search"><input type="search" id="qcQ" ${SEARCH_ATTRS} value="${esc(QC_STATE.q)}" placeholder="Search product name or SKU…"></div>
       </div>
 
       ${q
@@ -1936,7 +1981,7 @@
   function stepperHTML(key, value) {
     return `<span class="pd-stepper" data-field="${esc(key)}">
       <button type="button" data-delta="-1">−</button>
-      <input type="text" inputmode="numeric" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
+      <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
       <button type="button" data-delta="1">+</button>
     </span>`;
   }

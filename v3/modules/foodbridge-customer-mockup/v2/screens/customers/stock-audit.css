@@ -817,6 +817,42 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   SHORT VIEWPORT + KEYBOARD (phone held in landscape)
+   ──────────────────────────────────────────────────────────────────────────
+   Measured on a Pixel 8 in landscape: the viewport is 304px tall, the keyboard
+   takes 203 of it, and the app shell is left with ~101px. The topbar (56), the
+   action bar (69) and the nav (65) are 190px between them, so the flex column
+   could not fit its own chrome — the action bar and the nav were pushed off
+   the bottom of the screen, taking the search results with them. What the rep
+   actually saw was a search box, a keyboard, and nothing else.
+
+   Below 480px of viewport height, and ONLY while the keyboard is open, the two
+   chrome rows that are not the task in hand give up their space: the nav
+   navigates away from a count that is mid-flight, and Finish is not a decision
+   anyone takes with a half-typed product search on screen. Both come straight
+   back when the keyboard closes, so the product ask — a nav bar present
+   through every view — holds everywhere it can actually be honoured.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* max-width as well as max-height: above 1024px #page is a phone-shaped FRAME
+   on a desktop page, and a short desktop window must not start stripping that
+   frame's chrome. Same breakpoint as every other mobile rule in this file. */
+@media (max-width: 1023px) and (max-height: 480px) {
+  html.sah-kb-open .sah-nav,
+  html.sah-kb-open .sah-foot,
+  /* The shell's own topbar goes with them. 67px of the viewport survive the
+     keyboard here, and the topbar is 56 of it — leaving 11px of app, so even
+     the field being typed into sat below the fold. It carries the store
+     switcher and the account menu: chrome, not the count. */
+  html.sah-kb-open .main > .topbar,
+  /* And the visit header — customer name and progress bar — for the same
+     reason: 35px of the 67 went to it, which pushed the bottom of the search
+     field 12px past the fold. In this much space exactly one thing can be
+     whole, and it has to be the field the rep is typing into. */
+  html.sah-kb-open .ws-head { display: none; }
+  html.sah-kb-open .sah-wrap { padding-top: 6px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    MOBILE INPUT + TOUCH
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {
@@ -855,12 +891,29 @@
   .sah-sheet .pd-opts { gap: 10px; }
   .sah-sheet .pd-opt { min-height: 44px; padding: 7px 15px; }
   .sah-sheet .sheet-btn { min-height: 48px; }
+  /* The filter sheet's five selects came out at 41px — under the target, and
+     for the same WebKit reason as the sort control above, immune to
+     min-height. Its text input takes the same height so the column reads as
+     one control stack. */
+  .sheet-form select { height: 44px; }
+  .sheet-form input { min-height: 44px; }
+  /* And 16px type, for the reason the #page rule above gives. These controls
+     sit in .sah-overlays, OUTSIDE #page, so that rule never reached them —
+     an accident of where the sheet mounts, not a decision. iOS 26 happens not
+     to zoom for a <select> (it opens a popover instead; checked on device),
+     but the text input in the same form would, and older iOS zooms for both. */
+  .sheet-form input, .sheet-form select { font-size: 16px; }
 
   /* Audit History / Audit Detail — the downstream half of the flow, reached
      from the bottom nav, and just as much a phone screen as the count is. */
   .chip { height: 44px; }
   .chips { gap: 10px; }
-  .sort-field select { min-height: 44px; }
+  /* `height`, not `min-height`. WebKit ignores min-height on a <select> that
+     still has its native appearance, so this rule read as 44px everywhere and
+     measured 32px on iOS Safari only — a third of the target missing on the
+     one engine nobody checked. Verified on device: min-height 32px, height
+     44px, same element. Chrome honours either. */
+  .sort-field select { height: 44px; }
   .filter-summary button { min-height: 44px; padding: 0 6px; }
   .aud-more button { min-height: 44px; padding: 0 16px; }
   .sah-page-head .back, button.back { min-height: 44px; padding: 4px 0; margin-bottom: 4px; }
@@ -870,8 +923,14 @@
      exactly as it is. */
   .sah-overlays .toast .tclose { top: 0; right: 0; width: 40px; height: 40px; font-size: 1rem; }
   /* viewport-fit=cover puts the layer's y=0 behind the notch, so the toast
-     needs the status bar's height added to its own offset. */
-  .sah-overlays .toasts { top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+     needs the status bar's height added to its own offset — and the app's own
+     topbar after that. The overlay layer is fixed to the VIEWPORT, whose y=0 is
+     above the topbar, while on desktop it is pinned to #page, which starts
+     below it; without --header-h here the end-of-audit toast landed across the
+     header, covering the user menu and putting its own ✕ under "Admin". */
+  .sah-overlays .toasts {
+    top: calc(var(--header-h, 3.5rem) + 0.75rem + env(safe-area-inset-top, 0px));
+  }
   /* Same trick for the unit chip: the invisible <select> already covers the
      chip, so it is stretched past it to a comfortable target without moving
      the pill it sits behind. */
