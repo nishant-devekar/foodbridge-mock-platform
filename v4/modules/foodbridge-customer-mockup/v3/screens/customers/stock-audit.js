@@ -530,7 +530,7 @@
 
   // The signed-in rep. Auto-populated everywhere the spec says "do not make
   // the employee type their own name, role, team".
-  const AUDITOR = { id: "u-mahesh", name: "Mahesh", role: "Sales Executive", team: "Pune Team" };
+  const AUDITOR = { id: "u-anupam", name: "Anupam", role: "Sales Executive", team: "Pune Team" };
 
   /* --------------------------------------------------------------- units */
 

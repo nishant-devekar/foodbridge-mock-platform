@@ -146,7 +146,7 @@
   padding: 0 14px 0 38px; font-size: 14px; outline: none; background: #fff;
 }
 .sah-search input:focus { border-color: var(--teal); }
-.sah-search::before { content: "🔍"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .55; }
+.sah-search::before { content: "\01F50D"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .55; }
 
 .chips { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; margin-bottom: 14px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
@@ -250,7 +250,7 @@
 .picker-row.on { border-color: var(--teal); background: var(--teal-l); }
 .picker-row .check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0; }
 .picker-row.on .check { border-color: var(--teal); background: var(--teal); position: relative; }
-.picker-row.on .check::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 11px; }
+.picker-row.on .check::after { content: "\2713"; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 11px; }
 
 .info-card { background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 18px 0; }
 
