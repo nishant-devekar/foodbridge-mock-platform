@@ -56,9 +56,22 @@ What it is: a mobile-first field tool for a distributor's rep, one journey end t
 **find the customer → pick the products → count each → finish → leave** — with Audit History
 as a read-only record downstream. The counting screen carries no modal of its own: the count
 is a stepper in the product row (the same control Delivery Management's Load Stock uses),
-finishing is an inline ✓ / ✗ confirmation in the sticky footer, and picking a customer always
-starts a new visit. Sheets and toasts render inside the device frame on desktop rather than
-at the browser window's edges.
+finishing is an inline ✓ / ✗ confirmation in the footer, and picking a customer always starts
+a new visit. Products can be counted in packs (Packet → Box → Pallet), with `physical` still
+stored in base units so every existing calculation reads one scale.
+
+It is built as a phone app shell, not a document: one column the height of the *dynamic*
+viewport (`100dvh`, not `100vh`), only the product list scrolling, and the action bar and nav
+as ordinary rows at the bottom rather than `position: fixed` elements competing with a mobile
+browser's own toolbar. `viewport-fit=cover` plus `env(safe-area-inset-*)` keep it clear of the
+home indicator, controls carry 16px text so iOS does not zoom on focus (pinch-zoom is left
+enabled), and the on-screen keyboard is measured from `visualViewport` because iOS shrinks only
+the visual viewport. On desktop the same column runs inside the device frame, so sheets and
+toasts land in the phone rather than at the browser window's edges.
+
+**Not yet validated on real phone hardware.** The mobile pass was tested in Chromium under
+device emulation across seven viewports and all 18 flow states; real iOS Safari and real
+Android Chrome, and therefore the actual `env(safe-area-inset-*)` values, remain unverified.
 
 > **If you re-run `tools/pack.py --version 3`, you will lose this screen.** The packager
 > re-crawls every destination in `assets/modules.json` and writes what it finds, so it would
