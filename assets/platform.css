@@ -49,6 +49,26 @@
     top: var(--fb-clip-top-m, 0px);
     height: calc(100% - var(--fb-clip-top-m, 0px));
   }
+
+  /* The shell's root column is Tailwind's `h-screen`, i.e. `height: 100vh` —
+     the LARGE viewport, which on a phone is as tall as the page would be with
+     the browser toolbar hidden. The toolbar is showing, so the column ran 56px
+     past the bottom of what you can actually see, the outer page grew a
+     scrollbar, and the last 56px of every module iframe went under the toolbar.
+     For a module whose own bottom bar is the last row of its layout — Stock
+     Audit's nav, and its Finish action above it — that is precisely the row
+     that disappeared: reachable only by scrolling the PLATFORM, which does not
+     look like a scrollable page.
+
+     `dvh` is the honest measure while a mobile toolbar slides in and out; `svh`
+     is the fallback for engines that have it but not `dvh`, and plain `vh` is
+     the last resort. Specificity beats Tailwind's own `.h-screen` (0,1,0)
+     rather than relying on which stylesheet the Play CDN injects last. */
+  body .flex.h-screen {
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+  }
 }
 
 /* ── Full-bleed modules ────────────────────────────────────────────────────
