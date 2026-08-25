@@ -26,6 +26,22 @@ pushed the Finish CTA off screen. Same provenance rule as before — the work wa
 here, cut as `v3` in the module repo, and crawled back. The superseded local copy of the
 module's `v2` is gone with it; nothing routed to it any more.
 
+**Refined the vNext Quick Audit flow** on 26 August 2026, authored directly in this repo
+(not yet ported upstream). Audit Detail is cut down to what a visit record actually is —
+date/time and the products checked, no Coverage box, no thumbnails, no purpose/status
+chrome; Audit History's cards match: customer, date/time, a plain count, nothing else.
+Customer and product search now share one dropdown treatment for every state a search box
+is "in use" in — a capped, first-5-A-Z preview on focus before typing, the live unbounded
+match list once typing starts, both scrollable in their own box so a long result list no
+longer carries the search box and page head off-screen with it. Ending a visit — the ←
+exit sheet, and Finish Audit when nothing's been counted, which now routes to the same
+sheet instead of dead-ending in "count something first" — genuinely discards it: no
+half-written "abandoned" record, no toast implying one was kept. Fixed along the way: a
+sheet closed by its own button (not the phone's Back) could, on the button after it,
+silently pop the rep a screen further out than the sheet they'd just closed — a
+history-timing race between the sheet's own `history.back()` and the listener meant to
+catch a real Back press.
+
 One deliberate exception remains, and is *not* reflected below since the packager has no way
 to know about it: the "🧾 Stock Audit" entry point on Delivery Management's stop detail is
 hand-patched into `modules/foodbridge-module-distribution-logistics/…/stop-detail.js` —

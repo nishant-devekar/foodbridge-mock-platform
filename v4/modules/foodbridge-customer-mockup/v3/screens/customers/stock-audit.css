@@ -138,7 +138,7 @@
 .status-tag.ok { background: #dcfce7; color: var(--green-d); }
 .status-tag.info { background: #dbeafe; color: var(--blue); }
 
-/* ── Search + filter chips (reused everywhere) ───────────────────────────── */
+/* ── Search (reused everywhere) ───────────────────────────────────────────── */
 .sah-search-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .sah-search { flex: 1; min-width: 160px; position: relative; }
 .sah-search input {
@@ -147,12 +147,6 @@
 }
 .sah-search input:focus { border-color: var(--teal); }
 .sah-search::before { content: "\01F50D"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .55; }
-
-.chips { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; margin-bottom: 14px; scrollbar-width: none; }
-.chips::-webkit-scrollbar { display: none; }
-.chip { flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--muted); font-weight: 600; font-size: 12.5px; }
-.chip.on { background: var(--teal); color: #fff; border-color: var(--teal); }
-.chip .count { opacity: .75; margin-left: 3px; }
 
 /* ── Section header with a sort control (Customers list) ─────────────────── */
 .section-head-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 10px; }
@@ -252,6 +246,28 @@
 .picker-row.on .check { border-color: var(--teal); background: var(--teal); position: relative; }
 .picker-row.on .check::after { content: "\2713"; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 11px; }
 
+/* The one look for every search-box-active state — the first-5-A-Z preview
+   AND a real typed search alike (see wireSearchInput's onFocus and
+   renderQuickPick/renderQuickCount in stock-audit.js). Reads as a search
+   dropdown, not a page section: one bordered, shadowed panel with flush
+   rows, not N separate cards — replaces the plain, un-styled .picker-list
+   these screens used to fall back to the moment a query was typed. */
+.picker-list.dropdown {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 14px 28px -10px rgba(15, 23, 42, .16); padding: 6px; gap: 0;
+  /* A long result set scrolls in its own box, not the page: without a cap
+     here the dropdown just grows and .sah-wrap (the real page scroller —
+     see the mobile block below) takes over, carrying the search box and
+     page head off the top with it — exactly the "type, then hunt for the
+     box you just typed into" a dropdown is supposed to prevent. */
+  max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.picker-list.dropdown .picker-row { border: none; border-radius: 10px; }
+.picker-list.dropdown .picker-row + .picker-row { border-top: 1px solid var(--line-soft); border-radius: 0; }
+.suggest-hint { padding: 10px 10px 6px; font-size: 11.5px; color: var(--muted-2); text-align: center; }
+.dropdown-empty { padding: 28px 16px; text-align: center; color: var(--muted-2); font-size: 13px; }
+
 .info-card { background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 18px 0; }
 
 /* ── Audit workspace: the counting header ────────────────────────────────── */
@@ -280,9 +296,9 @@
 /* The Product Count Sheet these dressed (.pd-head/.pd-title/.pd-expected/
    .pd-fields/.pd-splits/.pd-notfound/.pd-sheet-acts, and .btn-count, the row
    button that opened it) is gone — the count is a stepper in the row now, see
-   stock-audit.js's inline-pass removal notes. .pd-stepper and .pd-opts are
-   what survived: the stepper because it IS the count, .pd-opts because the
-   End-this-visit sheet still picks a reason with it. */
+   stock-audit.js's inline-pass removal notes. .pd-stepper survived because
+   it IS the count; .pd-opts/.pd-opt/.sheet-opts, the End-this-visit sheet's
+   reason picker, went with that sheet (see exitAuditSheet). */
 
 /* Big targets: the rep is one-handed, standing up, holding stock. One
    segmented control rather than three floating buttons — Delivery
@@ -294,38 +310,12 @@
 .pd-stepper input { width: 44px; height: 38px; text-align: center; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 15px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent; }
 .pd-stepper:focus-within { border-color: var(--teal); }
 
-.pd-opts { display: flex; flex-wrap: wrap; gap: 7px; }
-.pd-opt { border: 1.5px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; }
-.pd-opt.on { border-color: var(--teal); background: var(--teal-l); color: var(--teal); }
-.sheet-opts { margin-top: 16px; }
-
 /* ── Audit history: a field-visit log ────────────────────────────────────── */
-/* A funnel, not a gear — a gear reads as settings, and this filters. */
-.filter-btn { position: relative; flex-shrink: 0; width: 46px; height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--muted); display: grid; place-items: center; }
-.filter-btn.on { border-color: var(--teal); background: var(--teal-l); color: var(--teal); }
-.filter-btn .n { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; border-radius: 999px; background: var(--teal); color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; padding: 0 4px; }
-.filter-summary { display: flex; align-items: center; gap: 10px; background: var(--teal-l); border-radius: 10px; padding: 8px 12px; margin-bottom: 14px; }
-.filter-summary span { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.filter-summary button { border: none; background: none; color: var(--teal); font-size: 11.5px; font-weight: 800; flex-shrink: 0; }
 .aud-list { display: flex; flex-direction: column; gap: 10px; }
-.aud-card { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 13px 13px 11px; position: relative; }
-/* The thread runs through the gap between cards, so a run of visits reads as
-   one history rather than as unrelated rows. */
-.aud-card .rail { position: relative; flex-shrink: 0; align-self: stretch; width: 34px; display: flex; justify-content: flex-start; }
-/* Reaches exactly into the 10px gap to meet the next card. A fixed long
-   height would run past the end of the list and down the empty page. */
-.aud-card .rail::after { content: ""; position: absolute; top: 38px; bottom: -11px; left: 50%; width: 2px; background: var(--line-soft); transform: translateX(-50%); }
-.aud-card:last-child .rail::after { display: none; }
-.aud-card .rail .ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: var(--slate-100); position: relative; z-index: 1; }
-.aud-card .rail .ic.ok { background: #dcfce7; }
-.aud-card .rail .ic.warn { background: var(--amber-bg); }
-.aud-card .rail .ic.danger { background: #fee2e2; }
-.aud-card .rail .ic.info { background: #dbeafe; }
-.aud-card .rail .ic.muted { background: var(--slate-100); filter: grayscale(1); }
+.aud-card { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 13px 13px 11px; position: relative; }
 .aud-card .body { flex: 1; min-width: 0; }
 .aud-card .nm { display: block; font-size: 14px; font-weight: 800; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aud-card .when { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-.aud-card .type { display: inline-block; font-size: 11px; font-weight: 700; color: var(--muted); background: var(--slate-100); border-radius: 999px; padding: 3px 9px; margin-top: 7px; }
 .aud-card .signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .aud-card .signals:empty { display: none; }
 .aud-card .calm { font-size: 11.5px; color: var(--green-d); font-weight: 600; line-height: 1.35; }
@@ -900,11 +890,7 @@
   .ws-exit { width: 44px; height: 44px; margin-left: -12px; }
 
   /* Sheet controls. These live in .sah-overlays, outside #page, which is
-     exactly why they were missed on the first sweep. The End-this-visit
-     reason chips were 31px tall and 7px apart — small enough to miss, close
-     enough to hit the wrong one. */
-  .sah-sheet .pd-opts { gap: 10px; }
-  .sah-sheet .pd-opt { min-height: 44px; padding: 7px 15px; }
+     exactly why they were missed on the first sweep. */
   .sah-sheet .sheet-btn { min-height: 48px; }
   /* The filter sheet's five selects came out at 41px — under the target, and
      for the same WebKit reason as the sort control above, immune to
@@ -921,15 +907,12 @@
 
   /* Audit History / Audit Detail — the downstream half of the flow, reached
      from the bottom nav, and just as much a phone screen as the count is. */
-  .chip { height: 44px; }
-  .chips { gap: 10px; }
   /* `height`, not `min-height`. WebKit ignores min-height on a <select> that
      still has its native appearance, so this rule read as 44px everywhere and
      measured 32px on iOS Safari only — a third of the target missing on the
      one engine nobody checked. Verified on device: min-height 32px, height
      44px, same element. Chrome honours either. */
   .sort-field select { height: 44px; }
-  .filter-summary button { min-height: 44px; padding: 0 6px; }
   .aud-more button { min-height: 44px; padding: 0 16px; }
   .sah-page-head .back, button.back { min-height: 44px; padding: 4px 0; margin-bottom: 4px; }
 

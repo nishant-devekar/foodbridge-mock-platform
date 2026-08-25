@@ -39,6 +39,22 @@ Everything else, and on purpose. Same shell, same routing, same clip offsets, sa
 the module draws its own sidebar and this shell clips it away exactly as the full platform
 does, which is why removing the *platform's* sidebar does not make the module's appear.
 
+## Refined 26 August 2026
+
+The tenant rebrand (`QA store`/`Mahesh` → `Miha's`/`Anupam`) and the 40-account real
+customer roster swap landed first; this pass is the same Quick Audit UX refinement made to
+`v3`'s copy of the screen, carried over here so the two don't drift. Audit Detail now shows
+just date/time and the products checked — no Coverage box, no thumbnails, no purpose/status
+chrome; Audit History's cards match: customer, date/time, a plain count. Customer and
+product search share one dropdown for every state the search box is in use — capped,
+first-5-A-Z preview on focus, live unbounded matches once typing starts, both scrollable in
+their own box rather than the page. Ending a visit (← exit sheet, or Finish Audit with
+nothing counted, now routed to the same sheet) discards it outright — no "abandoned" record,
+no toast implying one was kept — and a sheet closed by its own button no longer risks
+popping the rep an extra screen out, a `history.back()` timing race the exit flow's testing
+surfaced. `matches`' catalogue-aware search (name/SKU/category/sub-category) and the
+qc-row's SKU tooltip, both specific to this module's real 86-SKU catalogue, are unchanged.
+
 ## Offline
 
 Fully self-contained. Every asset the screen needs is packaged, including the product tiles,
