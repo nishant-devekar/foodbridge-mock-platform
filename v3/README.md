@@ -48,25 +48,15 @@ so it renders the same however those repos change afterwards. That is the point:
 platform at `/` follows the teams, and a frozen version does not — and never changes again once
 cut, so `v1` stays exactly what it was even after `v2` exists.
 
-**▶ Current frozen version:** <https://nishant-devekar.github.io/foodbridge-mock-platform/v3/>
+**▶ Current frozen version:** <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/>
 
-| | Live (`/`) | Frozen (`v3/`, current) | Frozen (`v2/`) | Frozen (`v1/`) |
-| --- | ---------- | -------------- | -------------- | -------------- |
-| Freeze date | — moves with every push | 25 August 2026 | 22 August 2026 | 14 August 2026 |
-| Destinations | 26, whatever `assets/modules.json` says today | 26 | 26 | 24 |
-| Module screens | fetched from each team's Pages site at view time | local copies under `v3/modules/<repo>/` | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
-| Changes when a team pushes | yes, on the next load | no | no | no |
-| Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip | a link, or the folder / release zip |
-
-`v3` was recut on 25 August 2026 once `nidhimehta9399/foodbridge-customer-mockup`'s live site
-caught up: Customer Management's Stock Audit & Health screen is now a real crawl of that repo like
-every other screen, replacing the version authored directly here while the source lagged. One
-deliberate exception remains — the "🧾 Stock Audit" entry point on Delivery Management's stop
-detail is still hand-patched into `foodbridge-module-distribution-logistics`'s own
-`stop-detail.js` here, because it is cross-module deep-link glue specific to this local snapshot
-(see the comment above `STOCK_AUDIT_URL` in that file) rather than something that belongs in that
-team's own repo. Re-running `tools/pack.py --version 3` will silently drop it; restore the file
-from git or hold it back before re-packing.
+| | Live (`/`) | Frozen (`v2/`, current) | Frozen (`v1/`) |
+| --- | ---------- | -------------- | -------------- |
+| Freeze date | — moves with every push | 22 August 2026 | 14 August 2026 |
+| Destinations | 26, whatever `assets/modules.json` says today | 26 | 24 |
+| Module screens | fetched from each team's Pages site at view time | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
+| Changes when a team pushes | yes, on the next load | no | no |
+| Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip |
 
 Every frozen version's [release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases)
 carries **two** assets, because "look at it" and "work on it" need different things:
@@ -81,13 +71,12 @@ module's full source — enough to render every screen, and nothing else. `disco
 `development/` trees, screens reached only by JavaScript, canonical seed JSON, superseded version
 folders and all git history are invisible to a browser and live in the source half instead.
 
-- Browse the current version: <https://nishant-devekar.github.io/foodbridge-mock-platform/v3/> —
-  or [`v2`](https://nishant-devekar.github.io/foodbridge-mock-platform/v2/) /
-  [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) for what came before it
+- Browse the current version: <https://nishant-devekar.github.io/foodbridge-mock-platform/v2/> —
+  or [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) for the version before it
 - What is inside each one, where every screen came from, and that version's own limitations:
-  [`v3/VERSION.md`](v3/VERSION.md) · [`v2/VERSION.md`](v2/VERSION.md) · [`v1/VERSION.md`](v1/VERSION.md)
-- Tagged `v3` / `v2` / `v1` in git; each release's source half records every repository's exact
-  commit SHA in its own `MANIFEST.md`.
+  [`v2/VERSION.md`](v2/VERSION.md) · [`v1/VERSION.md`](v1/VERSION.md)
+- Tagged `v2` / `v1` in git; each release's source half records every repository's exact commit SHA
+  in its own `MANIFEST.md`.
 
 Rebuild or cut a later snapshot with `tools/pack.py --version <N>` (see its docstring — `--dry`
 reports what would be fetched without writing anything). It re-crawls every

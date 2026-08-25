@@ -121,8 +121,7 @@ def main():
     (out / "update.sh").write_text(UPDATE)
     (out / "run.sh").chmod(0o755)
     (out / "update.sh").chmod(0o755)
-    (out / "README.md").write_text(
-        (PLATFORM / "tools" / "SOURCE-README.md").read_text().format(version=args.version))
+    shutil.copy2(PLATFORM / "tools" / "SOURCE-README.md", out / "README.md")
 
     total = sum(r["files"] for r in rows)
     man = [f"""# FoodBridge v{args.version} — source manifest

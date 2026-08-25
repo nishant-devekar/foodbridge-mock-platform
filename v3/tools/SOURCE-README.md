@@ -1,7 +1,7 @@
-# FoodBridge v{version} — source
+# FoodBridge v1 — source
 
 Everything behind the platform: 12 repositories, their full history, and the decision log
-for every screen. Its companion `foodbridge-mock-platform-v{version}.zip` is the runtime build —
+for every screen. Its companion `foodbridge-mock-platform-v1.zip` is the runtime build —
 open that one in a browser to *look* at the product; use this one to *work* on it.
 
 ## Run
@@ -43,7 +43,7 @@ Nothing to reassemble, no remotes to fix.
 run.sh          start the platform against these checkouts
 update.sh       pull them all up to date
 repos/<name>/   a full git clone of each repository
-MANIFEST.md     every repository, its commit at v{version}, and its GitHub URL
+MANIFEST.md     every repository, its commit at v1, and its GitHub URL
 ```
 
 ## The one thing worth knowing

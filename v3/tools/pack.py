@@ -212,12 +212,27 @@ def main():
     write(cfg)
 
 
-# REMOVED: badge() — a small fixed "vN · frozen <date>" marker stamped into the
-# packaged index.html. It sat `position: fixed; bottom: 10px` at the maximum
-# z-index, which on a phone put it squarely over the bottom-right of every
-# screen the shell framed, including Stock Audit's own footer CTA and bottom
-# nav. A provenance marker is not worth covering a thumb target on the primary
-# device, and VERSION.md carries the same fact without overlaying anything.
+def badge():
+    """A small fixed marker so a copy of this folder, detached from any context,
+    still says what it is. Fixed-position and z-indexed, so it overlays rather
+    than reflows — the shell underneath stays pixel-identical to what the live
+    version was on the freeze date."""
+    f = OUT / "index.html"
+    html = f.read_text()
+    mark = (
+        '<style>'
+        '#v1-badge{position:fixed;right:10px;bottom:10px;z-index:2147483647;'
+        'font:500 11px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.02em;'
+        'background:rgba(15,23,42,.72);color:#fff;padding:6px 10px;border-radius:999px;'
+        'text-decoration:none;opacity:.45;transition:opacity .15s;backdrop-filter:blur(4px);'
+        '-webkit-backdrop-filter:blur(4px)}'
+        '#v1-badge:hover{opacity:1}'
+        '@media print{#v1-badge{display:none}}'
+        '</style>'
+        f'<a id="v1-badge" href="VERSION.md" title="Frozen snapshot — click for what is inside">'
+        f'v{VERSION} \u00b7 frozen {FROZEN_ON}</a>'
+    )
+    f.write_text(html.replace("</body>", mark + "\n</body>", 1))
 
 
 def docs(cfg):
@@ -407,6 +422,7 @@ def write(cfg):
     (OUT / "assets/modules.json").write_text(json.dumps(cfg, indent=2, ensure_ascii=False))
 
     (OUT / "favicon.ico").write_bytes(favicon())
+    badge()
     docs(cfg)
 
     total = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file())

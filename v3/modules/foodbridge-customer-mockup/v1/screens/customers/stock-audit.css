@@ -40,7 +40,9 @@
    silently computes to nothing: `background: var(--teal)` becomes
    transparent, and a button ends up white-on-white rather than teal. */
 :root, .sah {
-  --teal: #12615e; --teal-d: #0e4f4c; --teal-l: #e6f2f1;
+  /* --teal-l2 sits between the flat tint and the full teal: a border that
+     reads as an edge on a tinted chip without shouting like the ink does. */
+  --teal: #12615e; --teal-d: #0e4f4c; --teal-l: #e6f2f1; --teal-l2: #bcd9d7;
   --green: #16a34a; --green-d: #15803d;
   --blue: #2563eb; --navy: #3b5aa6; --red: #c53434; --orange: #d08420;
   --ink: #0f172a; --muted: #64748b; --muted-2: #94a3b8;
@@ -54,16 +56,22 @@
 #page button, #page input, #page select, #page textarea { font-family: inherit; cursor: pointer; box-sizing: border-box; }
 #page input, #page select, #page textarea { cursor: text; }
 
-.sah-wrap { max-width: 640px; margin: 0 auto; padding-bottom: 110px; }
-.sah-wrap.has-foot { padding-bottom: 176px; } /* room for a view's own sticky action bar ABOVE the nav */
+.sah-wrap { max-width: 640px; margin: 0 auto; }
+/* `.has-foot` used to add 176px of bottom padding so a fixed footer would not
+   bury the end of the list. Both the phone and the desktop frame are flex
+   columns now, where the footer takes its own row and cannot overlap anything
+   — so the guess, and the class's whole reason to exist, are gone. */
 .r { text-align: right; }
 
 /* ── Persistent bottom nav (Delivery Management's .dm-nav, reproduced) ───── */
+/* In flow, not fixed: it is the last row of the app-shell column above. The
+   safe-area padding is what keeps it clear of the iPhone home indicator and
+   Android's gesture bar. */
 .sah-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  flex: 0 0 auto; z-index: 50;
   display: flex; align-items: stretch; background: #fff;
   border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(15,23,42,.05);
-  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0));
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
 }
 .nav-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -121,10 +129,6 @@
 .cond-badge.out_of_stock { background: #e2e8f0; color: var(--muted); }
 /* Never verified, so it reads as an open question rather than a finding. */
 .cond-badge.not_found { background: #ede9fe; color: #5b21b6; }
-.shelf-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--muted); }
-.shelf-badge.not_on_shelf { color: var(--red); }
-.shelf-badge.partial { color: var(--amber-tx); }
-
 .status-tag { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; display: inline-block; }
 .status-tag.neutral { background: #e2e8f0; color: var(--muted); }
 .status-tag.warn { background: var(--amber-bg); color: var(--amber-tx); }
@@ -230,18 +234,6 @@
 .detail-line .var.up { color: var(--blue); }
 .detail-line .var.down { color: var(--red); }
 
-.followup-box { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--teal-l); border: 1px solid #bcdedb; }
-.followup-box.set { background: #fff7ed; border-color: #fed7aa; }
-.followup-box p { margin: 0 0 8px; font-size: 12.5px; color: var(--ink); }
-.followup-box textarea {
-  width: 100%; min-height: 60px; border: 1px solid var(--line); border-radius: 8px;
-  padding: 8px 10px; font-size: 13px; outline: none; resize: vertical; margin-bottom: 8px;
-}
-.followup-box .btn-row { display: flex; gap: 8px; }
-.btn-sm { height: 34px; padding: 0 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; border: 1.5px solid var(--teal); background: #fff; color: var(--teal); }
-.btn-sm.primary { background: var(--teal); color: #fff; }
-.btn-sm.danger { border-color: #fca5a5; color: #b91c1c; }
-
 .sah-empty { text-align: center; color: var(--muted-2); padding: 40px 20px; font-size: 13.5px; }
 .sah-empty .big { font-size: 34px; margin-bottom: 8px; }
 
@@ -262,161 +254,50 @@
 
 .info-card { background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; margin: 18px 0; }
 
-/* ── Audit workspace: the product list ───────────────────────────────────── */
+/* ── Audit workspace: the counting header ────────────────────────────────── */
 /* Persistent context, per the spec: a rep glancing down mid-count should
-   always see where they are, how far along they are, and how much is
-   flagged, without scrolling back up. */
-.ws-head { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-.ws-exit { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 700; color: var(--teal); }
-.ws-who { font-size: 15.5px; font-weight: 800; color: var(--ink); margin-top: 8px; }
-/* Only shown when the customer has no location on file at all — an edge
-   case, still styled as the same visible control as .ws-locpick below so it
-   doesn't read as a different, lesser kind of thing. */
-.ws-where { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--slate-50); font: inherit; font-size: 12px; font-weight: 700; color: var(--teal-d); }
-/* A visible control, not text that happens to be clickable — background,
-   border and a pin+chevron pair so "this is a button" reads before anyone
-   touches it. A select's own hit-target covers the whole pill (appearance:
-   none only removes the native arrow; the element underneath is still the
-   full-size <select>, so tapping the pin or the label text opens it too).
-   Always a real <select>, even for a customer with exactly one location —
-   the one thing that stayed the same as the plain-text version this
-   replaced is the URL; everything about how it looks changed. */
-.ws-locpick { position: relative; display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; height: 26px; padding: 0 22px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--slate-50); }
-.ws-locpick .pin { font-size: 11px; line-height: 1; }
-.ws-locpick select { appearance: none; -webkit-appearance: none; border: none; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: var(--teal-d); }
-.ws-locpick .chev { position: absolute; right: 9px; font-size: 9px; color: var(--teal-d); pointer-events: none; }
-.ws-progress { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
-.ws-progress .n { font-size: 12.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ws-progress .attn { font-size: 12.5px; font-weight: 700; color: var(--amber-tx); }
-.ws-progress .clear { font-size: 12.5px; font-weight: 600; color: var(--green-d); }
-.ws-bar { height: 7px; border-radius: 4px; background: #e5e7eb; overflow: hidden; margin-top: 10px; }
-.ws-bar > span { display: block; height: 100%; background: var(--teal); border-radius: 4px; transition: width .2s; }
+   always see where they are and how far along they are. It used to say that
+   in a padded card four rows deep — an Exit button, the name, the ratio and a
+   fat progress bar, ~130px of chrome above a list that IS the screen. All
+   four facts still fit on one line: the exit is the arrow every phone screen
+   puts top-left, and the progress bar earns its keep by doubling as the rule
+   that separates the header from the list rather than being a band of its
+   own. ~44px now, and nothing was dropped. */
+.ws-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 2px 11px; margin-bottom: 12px; }
+.ws-exit { flex-shrink: 0; width: 30px; height: 30px; margin-left: -6px; display: grid; place-items: center; background: none; border: none; padding: 0; border-radius: 8px; font-size: 19px; line-height: 1; color: var(--teal); }
+.ws-exit:hover { background: var(--teal-l); }
+.ws-who { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-count { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The rule under the header IS the track, so an empty audit still gets its
+   divider and a finished one shows a full teal line in the same place. */
+.ws-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.ws-bar > span { display: block; height: 100%; background: var(--teal); border-radius: 2px; transition: width .2s; }
 
-.ws-list { display: flex; flex-direction: column; gap: 8px; }
-.ws-row { display: flex; align-items: center; gap: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; cursor: pointer; }
-.ws-row.done { border-color: #bbf7d0; background: #f6fefa; }
-.ws-row .thumb { width: 36px; height: 36px; border-radius: 9px; background: #f1f5f9; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; overflow: hidden; }
-.ws-row .info { flex: 1; min-width: 0; }
-/* A span needs an explicit display:block for text-overflow to take effect —
-   without it the browser silently wraps instead of truncating. */
-.ws-row .nm { display: block; font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-row .meta { display: block; font-size: 11px; color: var(--muted-2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-row .status-tag { margin-top: 5px; font-size: 10.5px; padding: 3px 8px; }
-.ws-row .side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.ws-row .found { font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ws-row .tick { color: var(--green); font-weight: 800; font-size: 13px; }
-.btn-count { height: 32px; padding: 0 15px; border-radius: 9px; border: 1.5px solid var(--teal); background: #fff; color: var(--teal); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 
-/* Products / Attention / Review — the counts double as the way back to each
-   view, so the bar is navigation rather than decoration. */
 .ws-foot .inner { gap: 8px; align-items: stretch; }
-.foot-stat { flex: 0 0 auto; min-width: 66px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; padding: 6px 10px; text-align: center; line-height: 1.15; }
-.foot-stat b { display: block; font-size: 14px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.foot-stat span { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted-2); margin-top: 1px; }
-.foot-stat.flag { border-color: #fcd34d; background: var(--amber-bg); }
-.foot-stat.flag b, .foot-stat.flag span { color: var(--amber-tx); }
 
-/* ── Product audit: count → condition → next ─────────────────────────────── */
-.pd-head { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 16px; }
-.pd-title { display: flex; align-items: center; gap: 11px; margin-top: 10px; }
-.pd-title .thumb { width: 42px; height: 42px; border-radius: 10px; background: #f1f5f9; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; overflow: hidden; }
-.pd-title h1 { margin: 0; font-size: 17px; font-weight: 800; color: var(--ink); line-height: 1.2; }
-.pd-title p { margin: 2px 0 0; font-size: 11.5px; color: var(--muted-2); }
-.pd-expected { display: flex; align-items: baseline; gap: 8px; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line-soft); }
-.pd-expected span { font-size: 11.5px; color: var(--muted); }
-.pd-expected b { font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
-.pd-expected .var { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--muted-2); font-variant-numeric: tabular-nums; }
-.pd-expected .var.match { color: var(--green-d); }
-.pd-expected .var.up { color: var(--blue); }
-.pd-expected .var.down { color: var(--red); }
+/* ── Counting ────────────────────────────────────────────────────────────── */
+/* The Product Count Sheet these dressed (.pd-head/.pd-title/.pd-expected/
+   .pd-fields/.pd-splits/.pd-notfound/.pd-sheet-acts, and .btn-count, the row
+   button that opened it) is gone — the count is a stepper in the row now, see
+   stock-audit.js's inline-pass removal notes. .pd-stepper and .pd-opts are
+   what survived: the stepper because it IS the count, .pd-opts because the
+   End-this-visit sheet still picks a reason with it. */
 
-/* Read-only now — the total is the sum of the four condition counts below,
-   never typed on its own, so it can't disagree with them. */
-.pd-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--card); border: 1.5px solid var(--teal); border-radius: 14px; padding: 14px; margin-bottom: 18px; }
-.pd-total .lbl { font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0; }
-.pd-total b { font-size: 19px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-.pd-conditions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.pd-cond { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 13px; }
-.pd-cond .lbl { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.pd-cond.good .lbl { color: var(--green-d); }
-.pd-cond.nearExpiry .lbl { color: var(--amber-tx); }
-.pd-cond.expired .lbl { color: #7f1d1d; }
-.pd-cond.damaged .lbl { color: #b91c1c; }
-
-/* Big targets: the rep is one-handed, standing up, holding stock. */
-.pd-stepper { display: flex; align-items: center; gap: 7px; flex-shrink: 0; min-width: 0; }
-.pd-stepper button { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); font-size: 17px; font-weight: 700; flex-shrink: 0; }
+/* Big targets: the rep is one-handed, standing up, holding stock. One
+   segmented control rather than three floating buttons — Delivery
+   Management's .dm-stepper, at the same proportions, so a rep who counts
+   stock onto a truck there and off a shelf here operates the same widget. */
+.pd-stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex-shrink: 0; background: #fff; }
+.pd-stepper button { width: 36px; height: 38px; border: none; background: #fff; color: var(--teal); font-size: 19px; font-weight: 700; flex-shrink: 0; }
 .pd-stepper button:hover { background: var(--slate-50); }
-.pd-stepper input { width: 58px; height: 36px; text-align: center; border: 1px solid var(--line); border-radius: 9px; font-size: 14px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--ink); }
-.pd-stepper input:focus { border-color: var(--teal); }
-
-/* Not found is a deliberate, quiet path — it must be reachable without
-   competing with the count itself. */
-.pd-notfound { display: block; width: 100%; background: none; border: none; padding: 2px 0 16px; font-size: 12.5px; font-weight: 700; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-.pd-notfound:hover { color: var(--red); }
-
-/* Progressive disclosure: each of these appears only because something the
-   rep entered made it relevant. */
-.pd-block { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 14px; margin-top: 12px; }
-.pd-block.warn { border-color: #fcd34d; background: #fffbeb; }
-.pd-block.danger { border-color: #fca5a5; background: #fef6f6; }
-.pd-block .hd { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
-.pd-block .hd span { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted-2); text-transform: uppercase; letter-spacing: .03em; }
-.pd-block .hd span.req { color: var(--red); font-weight: 800; }
-.pd-block .pd-sub { font-size: 11.5px; color: var(--muted); margin: 12px 0 8px; font-weight: 600; }
-.pd-block textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; font: inherit; font-size: 13px; outline: none; background: #fff; color: var(--ink); }
-.pd-block textarea:focus { border-color: var(--teal); }
-
-.pd-fields { display: flex; gap: 10px; flex-wrap: wrap; }
-.pd-fields label { flex: 1 1 130px; min-width: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted-2); }
-.pd-fields label small { text-transform: none; letter-spacing: 0; font-weight: 500; }
-.pd-fields input { display: block; width: 100%; margin-top: 5px; height: 38px; border: 1px solid var(--line); border-radius: 9px; padding: 0 10px; font: inherit; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); background: #fff; outline: none; }
-.pd-fields input:focus { border-color: var(--teal); }
+.pd-stepper input { width: 44px; height: 38px; text-align: center; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 15px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--ink); background: transparent; }
+.pd-stepper:focus-within { border-color: var(--teal); }
 
 .pd-opts { display: flex; flex-wrap: wrap; gap: 7px; }
 .pd-opt { border: 1.5px solid var(--line); background: #fff; color: var(--muted); border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; }
 .pd-opt.on { border-color: var(--teal); background: var(--teal-l); color: var(--teal); }
 .sheet-opts { margin-top: 16px; }
-
-.pd-splits { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.pd-split { display: flex; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
-.pd-split .lbl { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.pd-split .lbl small { font-weight: 500; color: var(--muted-2); }
-
-.pd-evidence { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
-.ev-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--slate-100); border-radius: 999px; padding: 6px 8px 6px 11px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
-.ev-chip button { border: none; background: #fff; border-radius: 50%; width: 18px; height: 18px; line-height: 1; font-size: 13px; color: var(--muted); }
-.pd-photo { width: 100%; border: 1.5px dashed var(--line); background: none; border-radius: 11px; padding: 11px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.pd-photo:hover { border-color: var(--teal); color: var(--teal); }
-
-/* Disposition, damage type, storage split, shelf rating, note — reasoning
-   that helps but never blocks Save, so it's one tap away rather than always
-   on screen. */
-.pd-adv-toggle { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 14px; border: 1px solid var(--line); background: var(--slate-50); border-radius: 12px; padding: 11px 14px; font-size: 12.5px; font-weight: 700; color: var(--ink); }
-.pd-adv-toggle .hint { color: var(--muted-2); font-weight: 600; }
-.pd-adv-toggle .chev { margin-left: auto; color: var(--muted-2); transition: transform .15s; }
-.pd-adv-toggle .chev.open { transform: rotate(180deg); }
-.pd-adv-body .pd-block:first-child { margin-top: 12px; }
-
-/* One list of everything standing between this line and Save, so a greyed
-   out button is never a mystery. Each row is a button — tap it to jump to
-   the section that clears it. */
-.pd-blockers { margin-top: 14px; border-radius: 12px; background: var(--amber-bg); padding: 3px 14px; }
-.pd-blockers button { display: block; width: 100%; text-align: left; border: none; background: none; color: var(--amber-tx); font-size: 12.5px; font-weight: 600; padding: 8px 0; }
-.pd-blockers button::before { content: "• "; }
-.pd-blockers button:not(:last-child) { border-bottom: 1px solid rgba(0,0,0,.06); }
-
-/* Skip / Save live inside the sheet's own scroll, right under the
-   blockers — a bottom sheet has no separate sticky-footer region above the
-   nav the way a full page did, so the actions are just the last thing in
-   the sheet instead. */
-.pd-sheet-acts { display: flex; gap: 10px; margin-top: 20px; }
-
-/* A quick highlight when a blocker jump lands on a section, so the rep's
-   eye finds it instead of having to search the page. */
-@keyframes jumpFlash { 0%, 100% { box-shadow: none; } 25% { box-shadow: 0 0 0 3px var(--amber-tx); } }
-.jump-flash { animation: jumpFlash .9s ease; border-radius: 14px; }
 
 /* ── Audit history: a field-visit log ────────────────────────────────────── */
 /* A funnel, not a gear — a gear reads as settings, and this filters. */
@@ -426,15 +307,6 @@
 .filter-summary { display: flex; align-items: center; gap: 10px; background: var(--teal-l); border-radius: 10px; padding: 8px 12px; margin-bottom: 14px; }
 .filter-summary span { flex: 1; min-width: 0; font-size: 11.5px; font-weight: 700; color: var(--teal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-summary button { border: none; background: none; color: var(--teal); font-size: 11.5px; font-weight: 800; flex-shrink: 0; }
-.sheet-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 4px; }
-.sheet-toggle span { font-size: 12.5px; font-weight: 700; color: var(--ink); }
-/* Reinstated for the filter sheet only — the capture screens that used to
-   own this switch were replaced by the product screen's own controls. */
-.switch { position: relative; width: 40px; height: 23px; border-radius: 999px; background: #cbd5e1; border: none; flex-shrink: 0; }
-.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-.switch.on { background: var(--teal); }
-.switch.on::after { transform: translateX(17px); }
-
 .aud-list { display: flex; flex-direction: column; gap: 10px; }
 .aud-card { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px 13px 13px 11px; position: relative; }
 /* The thread runs through the gap between cards, so a run of visits reads as
@@ -457,12 +329,6 @@
 .aud-card .signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .aud-card .signals:empty { display: none; }
 .aud-card .calm { font-size: 11.5px; color: var(--green-d); font-weight: 600; line-height: 1.35; }
-.aud-card .right { flex-shrink: 0; text-align: center; width: 46px; }
-.aud-card .right .score { display: block; font-size: 18px; font-weight: 800; color: var(--muted-2); font-variant-numeric: tabular-nums; }
-.aud-card .right .score.excellent, .aud-card .right .score.good { color: var(--green-d); }
-.aud-card .right .score.fair { color: var(--orange); }
-.aud-card .right .score.poor { color: var(--red); }
-.aud-card .right .lbl { display: block; font-size: 9.5px; font-weight: 700; color: var(--muted-2); text-transform: uppercase; letter-spacing: .03em; margin-top: 1px; }
 .aud-card .chev { flex-shrink: 0; align-self: center; color: var(--muted-2); font-weight: 800; }
 
 .aud-more { display: flex; align-items: center; gap: 12px; background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 14px; }
@@ -489,17 +355,15 @@
 
 /* The next action, said as the button. Start Audit stays reachable beside it
    whenever the recommended action is something else. */
-.cd-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+.cd-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .cd-actions .btn-wide { height: 44px; font-size: 13.5px; }
-
-.cd-calm { display: flex; align-items: center; gap: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 14px 16px; margin-bottom: 18px; }
-.cd-calm .ic { font-size: 20px; }
-.cd-calm b { display: block; font-size: 13.5px; color: var(--green-d); }
-.cd-calm span { font-size: 12px; color: var(--muted); }
+/* vNext: Full Shelf Audit + Send Quick Audit Link — one tap under the
+   primary Quick Audit action, never competing with it for weight. */
+.cd-actions-secondary { display: flex; gap: 8px; }
+.cd-actions-secondary .btn-sm { flex: 1; }
 
 .section-head-row .src { font-size: 11px; color: var(--muted-2); font-weight: 600; }
 .cd-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 18px; }
-.cd-cta { display: block; width: 100%; margin-top: 12px; padding-top: 12px; border: none; border-top: 1px solid var(--line-soft); background: none; color: var(--teal); font-size: 12.5px; font-weight: 800; text-align: center; }
 .cd-blank { text-align: center; padding: 22px 18px; }
 .cd-blank .big { display: block; font-size: 28px; margin-bottom: 8px; }
 .cd-blank b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
@@ -535,21 +399,6 @@
 .health-ring .inner { position: absolute; inset: 9px; border-radius: 50%; background: var(--card); display: grid; place-items: center; line-height: 1.1; }
 .health-ring .inner b { display: block; font-size: 23px; font-weight: 800; color: var(--ink); }
 .health-ring .inner em { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; }
-.inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.inv-grid.snap-grid { flex: 1; min-width: 0; grid-template-columns: repeat(2, 1fr); }
-.inv-tile { border: 1px solid var(--line); border-radius: 11px; padding: 9px 4px; background: var(--card); text-align: center; line-height: 1.15; }
-.inv-tile b { display: block; font-size: 17px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.inv-tile span { display: block; font-size: 9.5px; font-weight: 700; color: var(--muted-2); margin-top: 2px; }
-.inv-tile:disabled { opacity: .55; }
-.inv-tile.ok b { color: var(--green-d); }
-.inv-tile.warn { border-color: #fde68a; background: #fffbeb; }
-.inv-tile.warn b, .inv-tile.warn span { color: var(--amber-tx); }
-.inv-tile.danger { border-color: #fecaca; background: #fef2f2; }
-.inv-tile.danger b, .inv-tile.danger span { color: #991b1b; }
-.inv-tile.info { border-color: #bfdbfe; background: #eff6ff; }
-.inv-tile.info b, .inv-tile.info span { color: #1e40af; }
-.inv-tile em { display: block; font-style: normal; font-size: 9px; font-weight: 600; color: var(--muted-2); margin-top: 1px; opacity: .8; }
-
 .ord-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
 .ord-row:last-of-type { border-bottom: none; }
 .ord-row .ic { width: 20px; text-align: center; flex-shrink: 0; }
@@ -616,109 +465,70 @@
 .cl-coverage.partial .why { color: var(--amber-tx); }
 .cl-coverage .cov-breakdown { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
 
-/* ── Audit Detail ────────────────────────────────────────────────────────── */
-/* A segmented bar reads at a glance; the legend is what makes it actionable. */
-.cond-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--slate-100); margin-bottom: 14px; }
-.cond-bar span { display: block; height: 100%; }
-.cond-bar .good { background: var(--green); }
-.cond-bar .nearExpiry { background: var(--orange); }
-.cond-bar .expired { background: #b91c1c; }
-.cond-bar .damaged { background: #7c3aed; }
-.cond-legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 12px; }
-.cond-legend .item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
-.cond-legend .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.cond-legend .dot.good { background: var(--green); }
-.cond-legend .dot.nearExpiry { background: var(--orange); }
-.cond-legend .dot.expired { background: #b91c1c; }
-.cond-legend .dot.damaged { background: #7c3aed; }
-.cond-legend b { margin-left: auto; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.cond-legend b small { font-weight: 500; color: var(--muted-2); }
-
-.evidence-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.evidence-tile { background: var(--slate-50); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 12px; text-align: center; }
-.evidence-tile .ic { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; background: var(--slate-100); }
-.evidence-tile .ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.evidence-tile .lb { display: block; font-size: 11px; font-weight: 700; color: var(--ink); line-height: 1.3; }
-.evidence-tile .meta { display: block; font-size: 10px; color: var(--muted-2); margin-top: 3px; line-height: 1.3; }
-
-.pd-sub { font-size: 11.5px; color: var(--muted); margin: 14px 0 8px; font-weight: 600; }
-
-/* ── Audit detail: score, health breakdown ───────────────────────────────── */
-.score-card { display: flex; align-items: center; gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 18px; }
-.score-ring {
-  width: 68px; height: 68px; border-radius: 50%; flex-shrink: 0;
-  display: grid; place-items: center; font-size: 20px; font-weight: 800; color: #fff;
-}
-.score-ring.good { background: var(--green-d); }
-.score-ring.fair { background: var(--orange); }
-.score-ring.poor { background: var(--red); }
-.score-card .lbl { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
-.score-card .desc { font-size: 15px; font-weight: 800; color: var(--ink); margin-top: 2px; }
-.score-card .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-.score-card .outcome { display: inline-block; margin-top: 8px; font-size: 11.5px; font-weight: 800; color: var(--teal); background: var(--teal-l); border-radius: 999px; padding: 4px 10px; }
-
-/* Four axes rather than one number: 72 doesn't tell a rep whether to bring
-   stock or rotate it, and these do. An axis this visit couldn't measure
-   shows a dash and an empty track rather than a zero, which would read as a
-   failing score for a question nobody asked. */
-.axes { display: flex; flex-direction: column; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 15px 16px; margin-bottom: 18px; }
-.axis .hd { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
-.axis .hd span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
-.axis .hd b { font-size: 14px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.axis .bar { height: 7px; border-radius: 4px; background: var(--slate-100); overflow: hidden; }
-.axis .bar > span { display: block; height: 100%; border-radius: 4px; background: var(--muted-2); }
-.axis.good .bar > span { background: var(--green); }
-.axis.fair .bar > span { background: var(--orange); }
-.axis.poor .bar > span { background: var(--red); }
-.axis.good .hd b { color: var(--green-d); }
-.axis.fair .hd b { color: var(--orange); }
-.axis.poor .hd b { color: var(--red); }
-.axis.none .hd b { color: var(--muted-2); }
-.axis .desc { font-size: 11px; color: var(--muted-2); margin-top: 4px; }
-
-.final-note { margin: 0; padding: 12px 0; font-size: 13px; font-style: italic; color: var(--muted); }
-.audit-meta { margin: 0 0 8px; font-size: 11.5px; font-weight: 700; color: var(--muted-2); text-transform: uppercase; letter-spacing: .03em; }
-
-
-.action-list { display: flex; flex-direction: column; gap: 8px; }
-.action-item { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
-.action-item .ic { font-size: 18px; flex-shrink: 0; }
-.action-item .txt { flex: 1; font-size: 12.5px; color: var(--ink); line-height: 1.35; }
-.action-item .txt b { display: block; font-size: 13px; }
-.action-item button { flex-shrink: 0; height: 30px; padding: 0 12px; border-radius: 8px; border: 1.5px solid var(--teal); background: #fff; color: var(--teal); font-size: 11.5px; font-weight: 700; }
-.action-item button:disabled { border-color: var(--line); color: var(--muted-2); }
-/* Severity as a left edge rather than a full colour wash — the list stays
-   scannable in order without three competing background colours. */
-.action-item { border-left-width: 4px; }
-.action-item.sev-high { border-left-color: var(--red); }
-.action-item.sev-mid { border-left-color: var(--orange); }
-.action-item.sev-low { border-left-color: var(--muted-2); }
-.action-item.sev-none { border-left-color: var(--green); }
-
-/* ── Fixed sticky action bar (sits ABOVE the persistent nav) ─────────────── */
+/* ── Action bar (sits directly above the persistent nav) ─────────────────── */
+/* In flow, like the nav. It used to be `position: fixed; bottom: 64px` — a
+   guess at the nav's height that was wrong on every phone with a home
+   indicator, where the nav's safe-area padding makes it ~34px taller and the
+   two overlapped. As a flex row above the nav there is no number to get
+   wrong. */
 .sah-foot {
-  position: fixed; left: 0; right: 0; bottom: 64px; z-index: 45;
+  flex: 0 0 auto; z-index: 45;
   background: var(--card); border-top: 1px solid var(--line);
-  padding: 12px 20px; display: flex; gap: 10px; justify-content: center;
+  padding: 10px 14px; display: flex; gap: 10px; justify-content: center;
 }
-.sah-foot .inner { max-width: 640px; width: 100%; display: flex; gap: 10px; }
-.btn-wide { flex: 1; height: 48px; border-radius: 12px; font-weight: 700; font-size: 14.5px; border: none; }
+.sah-foot .inner { max-width: 640px; width: 100%; display: flex; gap: 10px; align-items: center; }
+.btn-wide { flex: 1; height: 48px; border-radius: 12px; font-weight: 700; font-size: 15px; border: none; }
 .btn-wide.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--muted); }
 .btn-wide.primary { background: var(--teal); color: #fff; }
 .btn-wide.primary:disabled { background: #9db8b6; cursor: not-allowed; }
 
+/* ── Overlay layer (sheets + toasts) ──────────────────────────────────────── */
+/* One layer that every floating thing lives in, so "over the screen" means
+   over the SCREEN — the phone's, on desktop — and not over the browser window.
+   Fixed and full-viewport by default, which is what a real phone wants;
+   stock-audit.js pins it to #page's measured box above the desktop breakpoint
+   (see syncOverlayFrame), and the transparent border below reproduces the
+   bezel so the layer's content box is exactly the visible screen.
+   Inert itself, so an empty layer never intercepts a tap. */
+.sah-overlays {
+  position: fixed; inset: 0; z-index: 120;
+  box-sizing: border-box; overflow: hidden;
+  pointer-events: none;
+}
+.sah-overlays > * { pointer-events: auto; }
+/* A fixed `inset: 0` layer is as tall as the LAYOUT viewport, which on iOS
+   does not shrink for the keyboard — so a sheet aligned to its bottom edge
+   ends up behind the keys. Same --kb measurement the app shell uses. */
+@media (max-width: 1023px) {
+  .sah-overlays { bottom: var(--kb, 0px); }
+}
+
 /* ── Bottom sheet (confirmation) ──────────────────────────────────────────── */
+/* `absolute`, not `fixed`: it fills the overlay layer, which is the viewport on
+   a phone and the device screen on desktop. */
 .sah-sheet-scrim {
-  position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 60;
+  position: absolute; inset: 0; background: rgba(15,23,42,.45); z-index: 60;
   display: flex; align-items: flex-end; justify-content: center;
   opacity: 0; transition: opacity .2s;
 }
 .sah-sheet-scrim.show { opacity: 1; }
 .sah-sheet {
   width: 100%; max-width: 480px; background: #fff; border-radius: 20px 20px 0 0;
-  padding: 22px 22px calc(86px + env(safe-area-inset-bottom, 0));
+  /* The bottom padding used to be 86px, clearing a nav that was fixed OVER
+     the sheet. The nav is in flow now and the scrim covers it, so this is
+     just the home indicator plus breathing room. */
+  padding: 22px 22px calc(20px + env(safe-area-inset-bottom, 0px));
   transform: translateY(16px); transition: transform .2s;
-  max-height: 86vh; overflow-y: auto;
+  /* dvh, not vh: `86vh` measures the LARGE viewport, so with a mobile toolbar
+     showing, a tall sheet's own actions ended up underneath it. The scrim is
+     already only as tall as what you can see; the sheet stops short of it. */
+  max-height: 86vh;
+  max-height: 86svh;
+  max-height: 86dvh;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* The sheet scrolls; the list behind it must not pick up the flick when the
+     sheet hits its end. */
+  overscroll-behavior: contain;
 }
 .sah-sheet-scrim.show .sah-sheet { transform: translateY(0); }
 .sah-sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 16px; }
@@ -735,7 +545,10 @@
 .sheet-btn.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--ink); }
 
 /* Toasts reuse FB_SHELL's own .toasts/.toast (styles.css) — same component
-   every other screen in this module uses, so no local toast styling here. */
+   every other screen in this module uses. The only local change is where they
+   sit: inside the overlay layer, so `fixed` (which styles.css sets, meaning
+   the browser window) becomes `absolute` against the phone's own screen. */
+.sah-overlays .toasts { position: absolute; }
 
 @media (max-width: 560px) {
   .sah-hero h1 { font-size: 20px; }
@@ -747,15 +560,14 @@
 @media (min-width: 1024px) {
   .main { background: #dbe1e8; }
 
-  /* #page IS the phone: fixed size, a bezel around it. It does NOT scroll
-     itself — .sah-wrap does, as an absolutely-positioned inset layer, so
-     that .sah-nav/.sah-foot (its true siblings, not its descendants) can be
-     pinned against #page's own edge without the classic "absolute child
-     inside the very element that scrolls" trap, where the browser folds
-     that child into the scrollable area instead of anchoring it against
-     the box's edge. */
+  /* #page IS the phone: fixed size, a bezel around it, and the same flex
+     column the real phone uses — .sah-wrap takes the free space and scrolls,
+     the footer and nav are rows beneath it. `position: relative` stays
+     because syncOverlayFrame measures this box to pin the sheet/toast layer
+     over it. */
   #page.page {
     box-sizing: border-box;
+    display: flex; flex-direction: column;
     width: 400px;
     max-width: 400px;
     height: 860px;
@@ -770,25 +582,307 @@
     overflow: hidden;
   }
 
+  /* The same app-shell column the phone uses, inside the frame: only the list
+     scrolls, and the footer and nav are flex rows under it. This replaced an
+     absolutely-positioned scroll layer with the footer pinned at a guessed
+     `bottom: 64px` — the nav is not exactly 64px, so a sliver of scrolling
+     content showed through the gap between them. There is no offset to guess
+     now. */
   .sah-wrap {
-    position: absolute; inset: 0;
+    flex: 1 1 auto; min-height: 0; min-width: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding-left: 16px; padding-right: 16px; padding-top: 16px;
+    overscroll-behavior: contain;
+    padding: 16px 16px 10px;
     max-width: none; margin: 0;
   }
   .sah-wrap::-webkit-scrollbar { width: 0; }
 
-  /* Both were `fixed` to pin themselves to the viewport's bottom edge on a
-     real phone, where the viewport IS the screen. Here the screen is #page,
-     so `absolute` — as a sibling of the scrolling .sah-wrap, not a child of
-     it — does the same job: glued to the bottom of the FRAME regardless of
-     how far .sah-wrap has scrolled, rather than sitting under the sidebar
-     at the browser's edge. */
-  .sah-nav, .sah-foot { position: absolute; }
+  /* Flex rows at the bottom of the frame's column, exactly as on the phone. */
+  .sah-nav, .sah-foot { position: static; flex: 0 0 auto; }
+  /* The frame has no home indicator to clear. */
+  .sah-nav { padding-bottom: 8px; }
 
-  /* A sheet still slides up from the real viewport's bottom, not the
-     phone's — but centering it in the sidebar-free width it's actually
-     free to use keeps it landing under the phone rather than dead-centre
-     of the whole monitor. */
-  .sah-sheet-scrim { left: var(--sidebar-w, 260px); }
+  /* Sheets and toasts belong to the phone, not to the browser window. The
+     layer is pinned to #page's measured box by syncOverlayFrame (a copy of
+     these numbers would drift the moment either side changed); the border
+     here is the bezel, drawn transparent so it lines up with the real one
+     without covering it. `overflow: hidden` then clips against the padding
+     box, which is exactly the visible screen — so a sheet slides up from the
+     phone's bottom edge and a toast drops in under its top edge, both with
+     the screen's own rounded corners.
+
+     This replaces an older compromise that left both `fixed` to the real
+     viewport and merely nudged the sheet right by the sidebar's width, so it
+     landed roughly under the phone instead of in it. */
+  .sah-overlays {
+    border: 12px solid transparent;
+    border-radius: 46px;
+  }
+}
+
+/* ==========================================================================
+   vNext — Quick Audit (quick-pick / quick-count).
+   Reuses .picker-row, .status-tag, .pd-* wholesale (see stock-audit.js);
+   what follows is the genuinely new surface.
+   ========================================================================== */
+
+/* The counting sheet, as one card — Delivery Management's order card
+   (.order-card / .order-line.editing), which is the same job: a list of
+   products, one number each. Rows are divided rather than separately boxed, so
+   a long selection reads as one worksheet instead of a stack of cards. That
+   card's closing "Order Total" line has no counterpart here; see the removal
+   note above renderQuickCount. */
+.qc-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.qc-line { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.qc-line:last-child { border-bottom: none; }
+.qc-line .info { flex: 1; min-width: 0; }
+.qc-line .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The name truncates because a product name has to fit one line; the meta
+   wraps, because it now carries a control and a conversion the rep needs to
+   read to the end. Short rows ("SKU a103 · Pc") still take one line — only a
+   row counted in a bigger unit grows, and only while it is. */
+.qc-line .meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4; }
+
+/* The counting unit, inline in the SKU line — a real <select>, but dressed as
+   a visible control rather than as text that happens to be clickable: a
+   tinted pill, a border and a chevron, so "you can change this" reads before
+   anyone touches it. Bare coloured text with a hairline chevron did not: the
+   rep had no reason to think the unit was theirs to set, which is the whole
+   point of it being there. (Same reasoning, and near enough the same
+   treatment, as the location picker this screen used to carry.)
+
+   The <select> is laid over the chip at full size and made invisible, with a
+   .lbl span carrying the text. A native select is as wide as its LONGEST
+   option, so letting it size the chip made "Pc" occupy "Carton (144 Pc)" of
+   room — a pill three times wider than its own word, on every row. This way
+   the chip fits the selection, while the select keeps its real hit target and
+   its native picker, which is the right widget for three options on a phone.
+   .lbl is aria-hidden: the select is the accessible control and already
+   announces its own value. */
+.qc-line .unit-pick {
+  position: relative; display: inline-flex; align-items: center; gap: 3px;
+  height: 19px; padding: 0 6px; margin: 0 1px;
+  border: 1px solid var(--teal-l2); border-radius: 6px;
+  background: var(--teal-l); vertical-align: -4px;
+}
+.qc-line .unit-pick:hover { border-color: var(--teal); }
+.qc-line .unit-pick .lbl { font-size: 11px; font-weight: 800; color: var(--teal); line-height: 1; white-space: nowrap; }
+.qc-line .unit-pick .chev { font-size: 8px; color: var(--teal); line-height: 1; }
+.qc-line .unit-pick select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  appearance: none; -webkit-appearance: none;
+  border: none; background: none; padding: 0; margin: 0;
+  font: inherit; opacity: 0; cursor: pointer;
+}
+.qc-line .unit-pick:focus-within { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(18,97,94,.25); }
+/* The base-unit equivalent, only present while a bigger unit is in use. */
+.qc-line .equiv { color: var(--muted-2); }
+
+/* A counted row is tinted edge to edge — which is why .qc-card carries no
+   horizontal padding of its own and each line pads itself instead. */
+.qc-row.done { background: #f6fefa; }
+
+/* Removing a product asks first, in the row. Both states ship in the markup
+   (see quickRowHTML) and this swaps them, so asking costs nothing but a class.
+   The warning clause keys off `.done` — the same class that tints a counted
+   row — so the question can never claim a count that isn't there. */
+.qc-row .ask,
+.qc-row .ci-btn { display: none; }
+.qc-row .ask .lost { display: none; }
+.qc-row.done .ask .lost { display: inline; }
+.qc-row.confirming { background: var(--amber-bg); }
+.qc-row.confirming .meta:not(.ask),
+.qc-row.confirming .pd-stepper,
+.qc-row.confirming .qc-remove { display: none; }
+/* Belt and braces: the unit picker lives inside the SKU line that just went
+   away, but a <select> is exactly the sort of control that stays clickable
+   through a hidden ancestor in some engines. */
+.qc-row.confirming .unit-pick { display: none; }
+.qc-row.confirming .ask { display: block; color: var(--amber-tx); font-weight: 600; margin-top: 2px; }
+.qc-row.confirming .ci-btn { display: grid; place-items: center; }
+/* An untouched row reads as unanswered rather than as zero — the placeholder
+   is the "not counted yet" state, and typing anything at all is what turns
+   the row green. */
+.qc-row .pd-stepper input::placeholder { color: var(--muted-2); font-weight: 500; }
+.qc-row.done .pd-stepper { border-color: var(--green); }
+.qc-row.done .pd-stepper input { border-color: var(--green); color: var(--green-d); }
+
+/* The finish toast is held for 8s (longToast in stock-audit.js) instead of
+   shell.js's 3.2s, so its draining bar has to be re-timed to match — styles.css
+   animates .toast::after over 3.2s, which would empty the bar and then leave
+   the toast sitting there for five more seconds looking stuck. Duration only:
+   everything else is the shared toast, unchanged. */
+.toast.toast-long::after { animation-duration: 8s; }
+
+/* The inline finish confirmation, in the sticky footer — same ✓ / ✗ shape as
+   Production's recipe page uses to confirm a publish. It replaces the footer's
+   button rather than covering the screen, because the thing being confirmed
+   (what has and hasn't been counted) is the screen. */
+.confirm-inline { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.confirm-inline .ci-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.confirm-inline .ci-prompt { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.confirm-inline .ci-detail { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.ci-btn { flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; font-size: 18px; font-weight: 800; border: 1.5px solid transparent; }
+.ci-btn.yes { background: var(--teal); color: #fff; }
+.ci-btn.no { background: #fff; border-color: var(--line); color: var(--red); }
+.ci-btn.no:hover { border-color: var(--red); }
+/* The in-row variant (removing a product), sized to the stepper it replaces
+   rather than to the footer's full-height buttons. */
+.ci-btn.sm { width: 34px; height: 34px; border-radius: 9px; font-size: 15px; }
+
+/* Quieter than the stepper beside it: removing a product from the sheet is
+   housekeeping, not the task. */
+.qc-row .qc-remove {
+  width: 24px; height: 24px; border-radius: 50%; border: none;
+  background: none; color: var(--muted-2); font-size: 16px; line-height: 1; flex-shrink: 0;
+}
+.qc-row .qc-remove:hover { background: var(--slate-100); color: var(--red); }
+
+/* quick-count's product search reuses .picker-row (see renderCreateCustomer's
+   pattern) but its .av holds thumbHTML(p) — a real photo/emoji, not a bare
+   text initial like the customer picker's — so it needs its own sizing; a
+   plain <img> otherwise renders at natural size and blows the row out. */
+.picker-row .av img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.picker-row .av { overflow: hidden; font-size: 16px; }
+
+/* UX audit: a bare product row didn't make "tap to add" obvious the way a
+   bare customer row makes "tap to select" obvious — selecting a customer is
+   a familiar pattern, adding a product to a working list isn't. margin-left:
+   auto pushes this past whatever width the name/SKU wrapper settles on,
+   without needing to touch that markup. Customer rows (no .add-ic) are
+   unaffected. */
+.picker-row .add-ic {
+  flex-shrink: 0; margin-left: auto; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--teal-l); color: var(--teal-d); font-size: 15px; font-weight: 800;
+  display: grid; place-items: center; line-height: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE APP SHELL — the layout every other rule here sits inside.
+
+   This screen is a phone task, so the page is built as an app shell rather
+   than as a document: one column exactly as tall as the visible viewport,
+   with ONLY the middle region scrolling. The footer CTA and the nav are
+   ordinary flex items at the bottom of that column — not `position: fixed`
+   elements racing the browser's own toolbar.
+
+   That single decision is what fixes, at the root rather than one screen at a
+   time: a CTA hidden behind Chrome's or Safari's bottom bar; a CTA you had to
+   scroll to reach; content disappearing under a fixed footer; the magic
+   `padding-bottom: 176px` that guessed at the footer's height and was wrong
+   the moment the footer grew a second line; double scrollbars; and the whole
+   page scrolling when only a list should.
+
+   Height is `100dvh` — the DYNAMIC viewport, which is the honest one while a
+   mobile toolbar is sliding in and out. `100vh` is the LARGE viewport, always
+   taller than what you can see whenever the toolbar is showing, which is
+   precisely how a bottom CTA ends up underneath it. `svh` is the fallback for
+   engines with `svh` but not `dvh`; plain `vh` is the last resort.
+
+   `--kb` is the on-screen keyboard's height, measured from visualViewport in
+   stock-audit.js. Android Chrome shrinks the layout viewport when the
+   keyboard opens, so `dvh` already accounts for it and `--kb` measures 0.
+   iOS Safari does NOT — it shrinks only the visual viewport — so without this
+   the footer sits behind the keyboard on every iPhone.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; }
+  .app {
+    min-height: 0;
+    height: 100vh;
+    height: 100svh;
+    height: calc(100dvh - var(--kb, 0px));
+  }
+  .main { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+  /* The shell's topbar is the column's first row; it no longer needs to be
+     sticky because nothing scrolls past it. */
+  .main > .topbar { flex: 0 0 auto; position: static; }
+  #page.page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
+  .sah-wrap {
+    flex: 1 1 auto; min-height: 0;
+    /* `margin: 0` is load-bearing, not tidying. The desktop rule's
+       `margin: 0 auto` makes this a flex item with auto cross-axis margins,
+       which suppresses `stretch` and sizes it to its CONTENT instead — so a
+       long product name pushed the list to 640px inside a 320px phone and
+       scrolled sideways. min-width: 0 is the matching guard for the flex
+       item's default `min-width: auto`. */
+    max-width: none; margin: 0; min-width: 0; width: 100%;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    /* Keeps a flick at the end of this list from scrolling the page behind
+       it — there is nothing behind it to scroll, and the rubber-band reads
+       as the app coming loose. */
+    overscroll-behavior: contain;
+    padding: 12px 14px 10px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE INPUT + TOUCH
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  /* iOS Safari zooms the page when you focus a control whose text is under
+     16px, and does not zoom back out — one tap on the search box and the rep
+     is panning a magnified layout one-handed. 16px is the whole fix. Note
+     what this is NOT: `maximum-scale=1` / `user-scalable=no` in the viewport
+     meta would also stop it, by taking pinch-zoom away from everyone who
+     needs it. Accessibility zoom stays on; the type gets bigger instead,
+     which on a phone it should have been anyway. */
+  #page input, #page select, #page textarea { font-size: 16px; }
+  /* The quantity field is a fixed-width cell in a segmented control, so it
+     needs the room the larger type takes. */
+  .qc-row .pd-stepper input { width: 52px; }
+
+  /* Thumb targets. The visible shapes stay as designed — these grow the hit
+     areas around them, which is what a finger actually needs and what a
+     44px-minimum guideline is really asking for. */
+  .pd-stepper button { width: 44px; height: 44px; }
+  .pd-stepper input { height: 44px; }
+  .ci-btn.sm { width: 44px; height: 44px; }
+  /* The remove × keeps its quiet 24px circle but answers to a 44px square:
+     the padding is the target, the background is not painted over it. */
+  .qc-row .qc-remove {
+    width: 44px; height: 44px; margin: -10px -10px -10px 0;
+    background: none; border-radius: 12px;
+  }
+  .qc-row .qc-remove:active { background: var(--slate-100); }
+  /* The header's ← is the way out of a visit; it was a 30px glyph. */
+  .ws-exit { width: 44px; height: 44px; margin-left: -12px; }
+
+  /* Sheet controls. These live in .sah-overlays, outside #page, which is
+     exactly why they were missed on the first sweep. The End-this-visit
+     reason chips were 31px tall and 7px apart — small enough to miss, close
+     enough to hit the wrong one. */
+  .sah-sheet .pd-opts { gap: 10px; }
+  .sah-sheet .pd-opt { min-height: 44px; padding: 7px 15px; }
+  .sah-sheet .sheet-btn { min-height: 48px; }
+
+  /* Audit History / Audit Detail — the downstream half of the flow, reached
+     from the bottom nav, and just as much a phone screen as the count is. */
+  .chip { height: 44px; }
+  .chips { gap: 10px; }
+  .sort-field select { min-height: 44px; }
+  .filter-summary button { min-height: 44px; padding: 0 6px; }
+  .aud-more button { min-height: 44px; padding: 0 16px; }
+  .sah-page-head .back, button.back { min-height: 44px; padding: 4px 0; margin-bottom: 4px; }
+
+  /* The shared toast's dismiss × is 16x20. Scoped to this screen's own
+     overlay layer so the other screens in the module keep the component
+     exactly as it is. */
+  .sah-overlays .toast .tclose { top: 0; right: 0; width: 40px; height: 40px; font-size: 1rem; }
+  /* viewport-fit=cover puts the layer's y=0 behind the notch, so the toast
+     needs the status bar's height added to its own offset. */
+  .sah-overlays .toasts { top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+  /* Same trick for the unit chip: the invisible <select> already covers the
+     chip, so it is stretched past it to a comfortable target without moving
+     the pill it sits behind. */
+  .qc-line .unit-pick select { inset: -13px -8px; width: auto; height: auto; }
+  .nav-btn { min-height: 48px; }
+  .picker-row, .qc-line { min-height: 56px; }
+
+  /* A phone has no hover. Every :hover in this file is decoration on top of a
+     state that also reads without it, but the tap feedback below is what a
+     finger actually gets back. */
+  .picker-row:active { background: var(--slate-50); }
+  .pd-stepper button:active { background: var(--slate-100); }
+  .btn-wide:active, .sheet-btn:active, .ci-btn:active { filter: brightness(.93); }
 }
