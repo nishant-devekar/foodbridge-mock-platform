@@ -52,17 +52,21 @@ cut, so `v1` stays exactly what it was even after `v2` exists.
 
 | | Live (`/`) | Frozen (`v3/`, current) | Frozen (`v2/`) | Frozen (`v1/`) |
 | --- | ---------- | -------------- | -------------- | -------------- |
-| Freeze date | — moves with every push | 24 August 2026 | 22 August 2026 | 14 August 2026 |
+| Freeze date | — moves with every push | 25 August 2026 | 22 August 2026 | 14 August 2026 |
 | Destinations | 26, whatever `assets/modules.json` says today | 26 | 26 | 24 |
 | Module screens | fetched from each team's Pages site at view time | local copies under `v3/modules/<repo>/` | local copies under `v2/modules/<repo>/` | local copies under `v1/modules/<repo>/` |
 | Changes when a team pushes | yes, on the next load | no | no | no |
 | Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip | a link, or the folder / release zip |
 
-`v3` carries one deliberate exception to "everything is a local copy of whatever a team last
-published": Customer Management's Stock Audit & Health screen (and the "🧾 Stock Audit" entry
-point on Delivery Management's stop detail) were reworked directly in this repo rather than
-crawled from `nidhimehta9399/foodbridge-customer-mockup`'s live site, which hasn't caught up yet.
-Both files say so in their own header comments.
+`v3` was recut on 25 August 2026 once `nidhimehta9399/foodbridge-customer-mockup`'s live site
+caught up: Customer Management's Stock Audit & Health screen is now a real crawl of that repo like
+every other screen, replacing the version authored directly here while the source lagged. One
+deliberate exception remains — the "🧾 Stock Audit" entry point on Delivery Management's stop
+detail is still hand-patched into `foodbridge-module-distribution-logistics`'s own
+`stop-detail.js` here, because it is cross-module deep-link glue specific to this local snapshot
+(see the comment above `STOCK_AUDIT_URL` in that file) rather than something that belongs in that
+team's own repo. Re-running `tools/pack.py --version 3` will silently drop it; restore the file
+from git or hold it back before re-packing.
 
 Every frozen version's [release](https://github.com/nishant-devekar/foodbridge-mock-platform/releases)
 carries **two** assets, because "look at it" and "work on it" need different things:
