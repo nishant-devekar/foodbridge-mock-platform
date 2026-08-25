@@ -56,16 +56,22 @@
 #page button, #page input, #page select, #page textarea { font-family: inherit; cursor: pointer; box-sizing: border-box; }
 #page input, #page select, #page textarea { cursor: text; }
 
-.sah-wrap { max-width: 640px; margin: 0 auto; padding-bottom: 110px; }
-.sah-wrap.has-foot { padding-bottom: 176px; } /* room for a view's own sticky action bar ABOVE the nav */
+.sah-wrap { max-width: 640px; margin: 0 auto; }
+/* `.has-foot` used to add 176px of bottom padding so a fixed footer would not
+   bury the end of the list. Both the phone and the desktop frame are flex
+   columns now, where the footer takes its own row and cannot overlap anything
+   — so the guess, and the class's whole reason to exist, are gone. */
 .r { text-align: right; }
 
 /* ── Persistent bottom nav (Delivery Management's .dm-nav, reproduced) ───── */
+/* In flow, not fixed: it is the last row of the app-shell column above. The
+   safe-area padding is what keeps it clear of the iPhone home indicator and
+   Android's gesture bar. */
 .sah-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  flex: 0 0 auto; z-index: 50;
   display: flex; align-items: stretch; background: #fff;
   border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(15,23,42,.05);
-  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0));
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
 }
 .nav-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -459,14 +465,19 @@
 .cl-coverage.partial .why { color: var(--amber-tx); }
 .cl-coverage .cov-breakdown { margin: 8px 0 0; font-size: 11.5px; color: var(--muted); }
 
-/* ── Fixed sticky action bar (sits ABOVE the persistent nav) ─────────────── */
+/* ── Action bar (sits directly above the persistent nav) ─────────────────── */
+/* In flow, like the nav. It used to be `position: fixed; bottom: 64px` — a
+   guess at the nav's height that was wrong on every phone with a home
+   indicator, where the nav's safe-area padding makes it ~34px taller and the
+   two overlapped. As a flex row above the nav there is no number to get
+   wrong. */
 .sah-foot {
-  position: fixed; left: 0; right: 0; bottom: 64px; z-index: 45;
+  flex: 0 0 auto; z-index: 45;
   background: var(--card); border-top: 1px solid var(--line);
-  padding: 12px 20px; display: flex; gap: 10px; justify-content: center;
+  padding: 10px 14px; display: flex; gap: 10px; justify-content: center;
 }
-.sah-foot .inner { max-width: 640px; width: 100%; display: flex; gap: 10px; }
-.btn-wide { flex: 1; height: 48px; border-radius: 12px; font-weight: 700; font-size: 14.5px; border: none; }
+.sah-foot .inner { max-width: 640px; width: 100%; display: flex; gap: 10px; align-items: center; }
+.btn-wide { flex: 1; height: 48px; border-radius: 12px; font-weight: 700; font-size: 15px; border: none; }
 .btn-wide.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--muted); }
 .btn-wide.primary { background: var(--teal); color: #fff; }
 .btn-wide.primary:disabled { background: #9db8b6; cursor: not-allowed; }
@@ -485,6 +496,12 @@
   pointer-events: none;
 }
 .sah-overlays > * { pointer-events: auto; }
+/* A fixed `inset: 0` layer is as tall as the LAYOUT viewport, which on iOS
+   does not shrink for the keyboard — so a sheet aligned to its bottom edge
+   ends up behind the keys. Same --kb measurement the app shell uses. */
+@media (max-width: 1023px) {
+  .sah-overlays { bottom: var(--kb, 0px); }
+}
 
 /* ── Bottom sheet (confirmation) ──────────────────────────────────────────── */
 /* `absolute`, not `fixed`: it fills the overlay layer, which is the viewport on
@@ -497,9 +514,21 @@
 .sah-sheet-scrim.show { opacity: 1; }
 .sah-sheet {
   width: 100%; max-width: 480px; background: #fff; border-radius: 20px 20px 0 0;
-  padding: 22px 22px calc(86px + env(safe-area-inset-bottom, 0));
+  /* The bottom padding used to be 86px, clearing a nav that was fixed OVER
+     the sheet. The nav is in flow now and the scrim covers it, so this is
+     just the home indicator plus breathing room. */
+  padding: 22px 22px calc(20px + env(safe-area-inset-bottom, 0px));
   transform: translateY(16px); transition: transform .2s;
-  max-height: 86vh; overflow-y: auto;
+  /* dvh, not vh: `86vh` measures the LARGE viewport, so with a mobile toolbar
+     showing, a tall sheet's own actions ended up underneath it. The scrim is
+     already only as tall as what you can see; the sheet stops short of it. */
+  max-height: 86vh;
+  max-height: 86svh;
+  max-height: 86dvh;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* The sheet scrolls; the list behind it must not pick up the flick when the
+     sheet hits its end. */
+  overscroll-behavior: contain;
 }
 .sah-sheet-scrim.show .sah-sheet { transform: translateY(0); }
 .sah-sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 16px; }
@@ -531,15 +560,14 @@
 @media (min-width: 1024px) {
   .main { background: #dbe1e8; }
 
-  /* #page IS the phone: fixed size, a bezel around it. It does NOT scroll
-     itself — .sah-wrap does, as an absolutely-positioned inset layer, so
-     that .sah-nav/.sah-foot (its true siblings, not its descendants) can be
-     pinned against #page's own edge without the classic "absolute child
-     inside the very element that scrolls" trap, where the browser folds
-     that child into the scrollable area instead of anchoring it against
-     the box's edge. */
+  /* #page IS the phone: fixed size, a bezel around it, and the same flex
+     column the real phone uses — .sah-wrap takes the free space and scrolls,
+     the footer and nav are rows beneath it. `position: relative` stays
+     because syncOverlayFrame measures this box to pin the sheet/toast layer
+     over it. */
   #page.page {
     box-sizing: border-box;
+    display: flex; flex-direction: column;
     width: 400px;
     max-width: 400px;
     height: 860px;
@@ -554,21 +582,25 @@
     overflow: hidden;
   }
 
+  /* The same app-shell column the phone uses, inside the frame: only the list
+     scrolls, and the footer and nav are flex rows under it. This replaced an
+     absolutely-positioned scroll layer with the footer pinned at a guessed
+     `bottom: 64px` — the nav is not exactly 64px, so a sliver of scrolling
+     content showed through the gap between them. There is no offset to guess
+     now. */
   .sah-wrap {
-    position: absolute; inset: 0;
+    flex: 1 1 auto; min-height: 0; min-width: 0;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding-left: 16px; padding-right: 16px; padding-top: 16px;
+    overscroll-behavior: contain;
+    padding: 16px 16px 10px;
     max-width: none; margin: 0;
   }
   .sah-wrap::-webkit-scrollbar { width: 0; }
 
-  /* Both were `fixed` to pin themselves to the viewport's bottom edge on a
-     real phone, where the viewport IS the screen. Here the screen is #page,
-     so `absolute` — as a sibling of the scrolling .sah-wrap, not a child of
-     it — does the same job: glued to the bottom of the FRAME regardless of
-     how far .sah-wrap has scrolled, rather than sitting under the sidebar
-     at the browser's edge. */
-  .sah-nav, .sah-foot { position: absolute; }
+  /* Flex rows at the bottom of the frame's column, exactly as on the phone. */
+  .sah-nav, .sah-foot { position: static; flex: 0 0 auto; }
+  /* The frame has no home indicator to clear. */
+  .sah-nav { padding-bottom: 8px; }
 
   /* Sheets and toasts belong to the phone, not to the browser window. The
      layer is pinned to #page's measured box by syncOverlayFrame (a copy of
@@ -723,4 +755,134 @@
   flex-shrink: 0; margin-left: auto; width: 22px; height: 22px; border-radius: 50%;
   background: var(--teal-l); color: var(--teal-d); font-size: 15px; font-weight: 800;
   display: grid; place-items: center; line-height: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE APP SHELL — the layout every other rule here sits inside.
+
+   This screen is a phone task, so the page is built as an app shell rather
+   than as a document: one column exactly as tall as the visible viewport,
+   with ONLY the middle region scrolling. The footer CTA and the nav are
+   ordinary flex items at the bottom of that column — not `position: fixed`
+   elements racing the browser's own toolbar.
+
+   That single decision is what fixes, at the root rather than one screen at a
+   time: a CTA hidden behind Chrome's or Safari's bottom bar; a CTA you had to
+   scroll to reach; content disappearing under a fixed footer; the magic
+   `padding-bottom: 176px` that guessed at the footer's height and was wrong
+   the moment the footer grew a second line; double scrollbars; and the whole
+   page scrolling when only a list should.
+
+   Height is `100dvh` — the DYNAMIC viewport, which is the honest one while a
+   mobile toolbar is sliding in and out. `100vh` is the LARGE viewport, always
+   taller than what you can see whenever the toolbar is showing, which is
+   precisely how a bottom CTA ends up underneath it. `svh` is the fallback for
+   engines with `svh` but not `dvh`; plain `vh` is the last resort.
+
+   `--kb` is the on-screen keyboard's height, measured from visualViewport in
+   stock-audit.js. Android Chrome shrinks the layout viewport when the
+   keyboard opens, so `dvh` already accounts for it and `--kb` measures 0.
+   iOS Safari does NOT — it shrinks only the visual viewport — so without this
+   the footer sits behind the keyboard on every iPhone.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; }
+  .app {
+    min-height: 0;
+    height: 100vh;
+    height: 100svh;
+    height: calc(100dvh - var(--kb, 0px));
+  }
+  .main { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+  /* The shell's topbar is the column's first row; it no longer needs to be
+     sticky because nothing scrolls past it. */
+  .main > .topbar { flex: 0 0 auto; position: static; }
+  #page.page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0; }
+  .sah-wrap {
+    flex: 1 1 auto; min-height: 0;
+    /* `margin: 0` is load-bearing, not tidying. The desktop rule's
+       `margin: 0 auto` makes this a flex item with auto cross-axis margins,
+       which suppresses `stretch` and sizes it to its CONTENT instead — so a
+       long product name pushed the list to 640px inside a 320px phone and
+       scrolled sideways. min-width: 0 is the matching guard for the flex
+       item's default `min-width: auto`. */
+    max-width: none; margin: 0; min-width: 0; width: 100%;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    /* Keeps a flick at the end of this list from scrolling the page behind
+       it — there is nothing behind it to scroll, and the rubber-band reads
+       as the app coming loose. */
+    overscroll-behavior: contain;
+    padding: 12px 14px 10px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE INPUT + TOUCH
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  /* iOS Safari zooms the page when you focus a control whose text is under
+     16px, and does not zoom back out — one tap on the search box and the rep
+     is panning a magnified layout one-handed. 16px is the whole fix. Note
+     what this is NOT: `maximum-scale=1` / `user-scalable=no` in the viewport
+     meta would also stop it, by taking pinch-zoom away from everyone who
+     needs it. Accessibility zoom stays on; the type gets bigger instead,
+     which on a phone it should have been anyway. */
+  #page input, #page select, #page textarea { font-size: 16px; }
+  /* The quantity field is a fixed-width cell in a segmented control, so it
+     needs the room the larger type takes. */
+  .qc-row .pd-stepper input { width: 52px; }
+
+  /* Thumb targets. The visible shapes stay as designed — these grow the hit
+     areas around them, which is what a finger actually needs and what a
+     44px-minimum guideline is really asking for. */
+  .pd-stepper button { width: 44px; height: 44px; }
+  .pd-stepper input { height: 44px; }
+  .ci-btn.sm { width: 44px; height: 44px; }
+  /* The remove × keeps its quiet 24px circle but answers to a 44px square:
+     the padding is the target, the background is not painted over it. */
+  .qc-row .qc-remove {
+    width: 44px; height: 44px; margin: -10px -10px -10px 0;
+    background: none; border-radius: 12px;
+  }
+  .qc-row .qc-remove:active { background: var(--slate-100); }
+  /* The header's ← is the way out of a visit; it was a 30px glyph. */
+  .ws-exit { width: 44px; height: 44px; margin-left: -12px; }
+
+  /* Sheet controls. These live in .sah-overlays, outside #page, which is
+     exactly why they were missed on the first sweep. The End-this-visit
+     reason chips were 31px tall and 7px apart — small enough to miss, close
+     enough to hit the wrong one. */
+  .sah-sheet .pd-opts { gap: 10px; }
+  .sah-sheet .pd-opt { min-height: 44px; padding: 7px 15px; }
+  .sah-sheet .sheet-btn { min-height: 48px; }
+
+  /* Audit History / Audit Detail — the downstream half of the flow, reached
+     from the bottom nav, and just as much a phone screen as the count is. */
+  .chip { height: 44px; }
+  .chips { gap: 10px; }
+  .sort-field select { min-height: 44px; }
+  .filter-summary button { min-height: 44px; padding: 0 6px; }
+  .aud-more button { min-height: 44px; padding: 0 16px; }
+  .sah-page-head .back, button.back { min-height: 44px; padding: 4px 0; margin-bottom: 4px; }
+
+  /* The shared toast's dismiss × is 16x20. Scoped to this screen's own
+     overlay layer so the other screens in the module keep the component
+     exactly as it is. */
+  .sah-overlays .toast .tclose { top: 0; right: 0; width: 40px; height: 40px; font-size: 1rem; }
+  /* viewport-fit=cover puts the layer's y=0 behind the notch, so the toast
+     needs the status bar's height added to its own offset. */
+  .sah-overlays .toasts { top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+  /* Same trick for the unit chip: the invisible <select> already covers the
+     chip, so it is stretched past it to a comfortable target without moving
+     the pill it sits behind. */
+  .qc-line .unit-pick select { inset: -13px -8px; width: auto; height: auto; }
+  .nav-btn { min-height: 48px; }
+  .picker-row, .qc-line { min-height: 56px; }
+
+  /* A phone has no hover. Every :hover in this file is decoration on top of a
+     state that also reads without it, but the tap feedback below is what a
+     finger actually gets back. */
+  .picker-row:active { background: var(--slate-50); }
+  .pd-stepper button:active { background: var(--slate-100); }
+  .btn-wide:active, .sheet-btn:active, .ci-btn:active { filter: brightness(.93); }
 }

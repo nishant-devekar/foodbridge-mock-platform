@@ -81,6 +81,55 @@
     return [addr, state && state.name, pin].filter(Boolean).join(", ") || "No address on file";
   }
 
+  /* ---------------------------------------------------- keyboard insets */
+
+  // How much of the viewport the on-screen keyboard is covering, published as
+  // --kb for the app shell and the overlay layer to subtract (stock-audit.css).
+  //
+  // The two mobile engines disagree, and the disagreement is the whole reason
+  // this exists. Android Chrome shrinks the LAYOUT viewport when the keyboard
+  // opens, so `100dvh` already excludes it and this measures ~0 — subtracting
+  // again would leave a keyboard-sized gap. iOS Safari shrinks only the VISUAL
+  // viewport: the layout stays full height, `dvh` reports the same number it
+  // did a moment ago, and a bottom action bar sits calmly behind the keys.
+  // window.innerHeight − visualViewport.height is exactly that difference, and
+  // is 0 on Android by construction.
+  //
+  // Guarded on visualViewport: without it (older Android WebViews) nothing is
+  // published, --kb falls back to 0px, and the layout is what it was before.
+  function trackKeyboardInset() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      // offsetTop covers the case where the page is scrolled within the visual
+      // viewport, which iOS does on its own when focusing a low field.
+      const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      // Small deltas are the toolbar sliding, not a keyboard. Treating those as
+      // a keyboard makes the whole app jitter as a rep scrolls.
+      document.documentElement.style.setProperty("--kb", (covered > 120 ? covered : 0) + "px");
+      syncOverlayFrame();
+    };
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    sync();
+  }
+
+  // A field the rep has just focused must be visible above the keyboard. The
+  // shell only scrolls .sah-wrap, so the browser's own scroll-into-view often
+  // has nothing to act on; this asks the scrolling region directly, after the
+  // keyboard has actually resized the viewport.
+  function keepFocusVisible() {
+    document.addEventListener("focusin", (e) => {
+      const el = e.target;
+      if (!el || !el.matches || !el.matches("input, select, textarea")) return;
+      setTimeout(() => {
+        if (el.isConnected && typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }, 250);
+    });
+  }
+
   /* ------------------------------------------------------- overlay layer */
 
   // Everything that floats over the screen — sheets and toasts — goes in here
@@ -158,7 +207,32 @@
   // carve-out for the Product Count Sheet, which stayed open underneath the
   // transient sheets layered over it — that sheet is gone; see the inline-count
   // removal note above quickRowHTML.)
+  // On a phone, the system Back gesture is how people dismiss a sheet — on
+  // Android it is THE way. Without this it pops the whole page off instead,
+  // losing the visit to leave a confirmation dialog. One history entry is
+  // pushed per open sheet and consumed on close, so Back and the sheet's own
+  // buttons end in exactly the same place, and the entry never outlives the
+  // sheet that pushed it (see closeActiveSheet, which every path goes through).
+  let ACTIVE_SHEET = null; // { close }
+  let SHEET_HISTORY = false;
+
+  function closeActiveSheet(fromPopstate) {
+    const active = ACTIVE_SHEET;
+    ACTIVE_SHEET = null;
+    if (active) active.dismiss();
+    if (SHEET_HISTORY) {
+      SHEET_HISTORY = false;
+      // A popstate IS the entry being consumed; calling back() again would eat
+      // a second one and take the rep off the screen.
+      if (!fromPopstate) history.back();
+    }
+  }
+  window.addEventListener("popstate", () => {
+    if (ACTIVE_SHEET || SHEET_HISTORY) closeActiveSheet(true);
+  });
+
   function sheet({ eyebrow, title, sub, body, actions }) {
+    closeActiveSheet();
     document.querySelectorAll(".sah-sheet-scrim").forEach((n) => n.remove());
     const scrim = document.createElement("div");
     scrim.className = "sah-sheet-scrim";
@@ -173,10 +247,18 @@
     </div>`;
     overlayHost().appendChild(scrim);
     requestAnimationFrame(() => scrim.classList.add("show"));
-    const close = () => {
+    // dismiss() is the visual half; close() is what callers and the sheet's own
+    // buttons use, and it settles the history entry too.
+    const dismiss = () => {
       scrim.classList.remove("show");
       setTimeout(() => scrim.remove(), 200);
     };
+    const close = () => closeActiveSheet();
+    ACTIVE_SHEET = { dismiss };
+    if (!SHEET_HISTORY) {
+      SHEET_HISTORY = true;
+      try { history.pushState({ sahSheet: true }, ""); } catch (e) { SHEET_HISTORY = false; }
+    }
     scrim.addEventListener("click", (e) => {
       if (e.target === scrim) close();
     });
@@ -2119,6 +2201,9 @@
     // height is capped against the viewport — so the layer is re-measured
     // rather than positioned once at mount.
     window.addEventListener("resize", syncOverlayFrame);
+    window.addEventListener("orientationchange", syncOverlayFrame);
+    trackKeyboardInset();
+    keepFocusVisible();
     LocationStore.load();
     DraftStore.load();
     AuditStore.load();

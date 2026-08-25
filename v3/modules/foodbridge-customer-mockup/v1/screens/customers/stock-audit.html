@@ -74,10 +74,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
+       numbers on a notched iPhone; without it they are all 0 and the bottom
+       nav sits under the home indicator. Deliberately NO maximum-scale or
+       user-scalable=no: pinch-zoom stays available, and the input zoom this
+       screen used to suffer is fixed by giving controls 16px text instead
+       (see the mobile input block in stock-audit.css). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Stock Audit &amp; Health — Foodbridge Module Customer</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="stock-audit.css?v=2026082618">
+  <link rel="stylesheet" href="stock-audit.css?v=2026082628">
 </head>
 <body>
   <div class="app sah" id="app"></div>
@@ -92,7 +98,7 @@
        same reason. Bump the tag on any edit to stock-audit.css/.js or to the
        seed. (The other screens load the seed unversioned; they don't change
        it, so they don't need to.) -->
-  <script src="stock-audit.js?v=2026082618"></script>
+  <script src="stock-audit.js?v=2026082628"></script>
   <script>SAH.mount();</script>
 </body>
 </html>
