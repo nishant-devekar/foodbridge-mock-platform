@@ -4,14 +4,27 @@
 module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
 folder renders the same however those repos change afterwards.
 
-204 files, 7.9 MB, 12 module repos, 26 destinations.
+206 files, 8.0 MB, 12 module repos, 26 destinations.
 
 **Recut from the 24 August 2026 freeze** once `nidhimehta9399/foodbridge-customer-mockup`
-caught up. Customer Management's Stock Audit & Health screen is now a real crawl of that
-repo's **`v2`** — first the screen itself (a product-owner-driven simplification down to
-`quick-pick → quick-count → done`, and a real mobile-browser QA pass, both authored directly
+caught up. Customer Management's Stock Audit & Health screen is a real crawl of that repo —
+first the screen itself (a product-owner-driven simplification down to
+`quick-pick → quick-count → done`, and a mobile-browser QA pass, both authored directly
 in this repo while the source lagged and ported back once `v2` was cut there), then a link
 into Catalog its `shell.js` was missing, which `v2` also picked up.
+
+**Re-pointed at that repo's `v3`** on 25 August 2026. `v2`'s own release notes carried an
+explicit gap — its mobile QA pass had been done under Chromium device emulation, never on a
+real mobile browser. That pass has now been run for real, on an Android emulator (Pixel 8,
+Chrome 124) and an iOS Simulator (iPhone 16 Pro, Safari 605.1.15) with real touch input, and
+the four bugs it turned up are fixed: the end-of-audit toast covering the app header, the
+phone's Back button leaving the app entirely, `<select>` touch targets measuring 32px on
+WebKit only (which ignores `min-height` on a native-appearance select), and search boxes with
+no `autocapitalize`/`autocorrect` letting the keyboard rewrite a typed SKU. A fifth, found
+alongside: a phone in landscape with the keyboard up had no room for its own chrome and
+pushed the Finish CTA off screen. Same provenance rule as before — the work was authored
+here, cut as `v3` in the module repo, and crawled back. The superseded local copy of the
+module's `v2` is gone with it; nothing routed to it any more.
 
 One deliberate exception remains, and is *not* reflected below since the packager has no way
 to know about it: the "🧾 Stock Audit" entry point on Delivery Management's stop detail is
@@ -122,7 +135,7 @@ vendor/             Google Fonts, Tailwind, Leaflet
 | `#/customer-management/b2b-customers` | B2B Customers | `modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html` |
 | `#/customer-management/retail-customers` | Retail Customers | `modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html` |
 | `#/customer-management/catalog` | Catalog | `modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html` |
-| `#/customer-management/stock-audit-health` | Stock Audit & Health | `modules/foodbridge-customer-mockup/v2/screens/customers/stock-audit.html` |
+| `#/customer-management/stock-audit-health` | Stock Audit & Health | `modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.html` |
 | `#/sales-orders` | Sales Orders | `modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html` |
 | `#/distribution-logistics/route-planning` | Route Planning | `modules/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html` |
 | `#/distribution-logistics/delivery-management` | Delivery Management | `modules/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html` |
