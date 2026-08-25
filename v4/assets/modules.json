@@ -1,0 +1,55 @@
+{
+  "_comment": [
+    "Stock-Audit-only cut of the platform. The nav carries exactly one",
+    "destination -- Customer Management > Stock Audit & Health -- and the shell",
+    "renders no sidebar at all (see renderShell in platform.js), so this file's",
+    "grouping is what names the screen rather than what navigates between them.",
+    "clipLeft still applies: the module draws its OWN sidebar, which this shell",
+    "clips away exactly as the full platform does."
+  ],
+  "brand": {
+    "name": "QA store"
+  },
+  "user": {
+    "displayName": "Mahesh",
+    "role": "Admin"
+  },
+  "storeQr": {
+    "label": "Store QR Code",
+    "subtitle": "Share with customers to let them join your store",
+    "targetRoute": "retails-overview"
+  },
+  "nav": [
+    {
+      "id": "customer-management",
+      "name": "Customer Management",
+      "icon": "usersRound",
+      "submenus": [
+        {
+          "id": "stock-audit-health",
+          "name": "Stock Audit & Health",
+          "url": "modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.html",
+          "clipLeft": 256,
+          "owner": "nidhimehta9399/foodbridge-customer-mockup",
+          "hideBurger": true
+        }
+      ]
+    }
+  ],
+  "standalone": [],
+  "hidden": [],
+  "personas": [
+    {
+      "id": "manufacturer",
+      "name": "Manufacturer",
+      "blurb": "Makes and sells — the whole platform"
+    },
+    {
+      "id": "distributor",
+      "name": "Distributor",
+      "blurb": "Buys finished goods and resells"
+    }
+  ],
+  "personaDefault": "manufacturer",
+  "_frozen": "Version 3 — a frozen, self-contained snapshot. Every destination below is a local copy under modules/, not a live GitHub Pages URL, so this folder renders the same whatever the module teams push next. See VERSION.md."
+}

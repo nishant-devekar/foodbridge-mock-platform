@@ -58,6 +58,21 @@ cut, so `v1` stays exactly what it was even after `v2` exists.
 | Changes when a team pushes | yes, on the next load | no | no | no |
 | Share as | a link | a link, or the folder / release zip | a link, or the folder / release zip | a link, or the folder / release zip |
 
+### `v4` — Stock Audit only
+
+<https://nishant-devekar.github.io/foodbridge-mock-platform/v4/>
+
+`v4` is **not the successor to `v3`** — it is a narrower cut standing beside it, and `v3`
+remains the current full platform. One destination, Customer Management → Stock Audit &
+Health, and **no sidebar**: with a single screen, a sidebar is a list of one item and a
+drawer that opens onto the screen you are already looking at, so both it and the mobile
+burger are gone from the shell.
+
+Its copy of the screen is also further ahead than `v3`'s: the tenant's real catalogue, 86
+SKUs imported from their own `products.csv`, with local SVG product tiles instead of
+hotlinked photos. `v3/` still carries the twelve invented products. The two are deliberately
+different — see [`v4/VERSION.md`](v4/VERSION.md).
+
 `v3` was recut on 26 August 2026: Customer Management's Stock Audit & Health screen is now a
 real crawl of `nidhimehta9399/foodbridge-customer-mockup`'s **`v2`** — the module's own repo
 caught up, first with the screen itself (a product-owner-driven simplification down to

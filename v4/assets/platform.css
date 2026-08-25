@@ -1,0 +1,501 @@
+/*
+  FoodBridge mock platform — shell styling.
+
+  Only two things here are load-bearing: the chrome-clipping viewport, and the
+  scrollbar hiding on the sidebar. Everything else in the shell is Tailwind,
+  copied class-for-class from the storefront-frontend port so the sidebar and
+  header match the real app.
+*/
+
+/* ── The clipping viewport ─────────────────────────────────────────────────
+   Every module mockup renders its own copy of the QA sidebar. The platform
+   owns the sidebar, so the module's is pushed out of view: the iframe is made
+   `clipLeft` px wider than its wrapper and offset left by the same amount,
+   inside overflow:hidden.
+
+   The module's own HEADER is deliberately kept — it becomes the app header.
+   Clipping vertically as well would work at rest but break the moment you
+   scroll, because a module's sticky toolbar sticks to the iframe's top edge,
+   which would then sit above the visible area. */
+.fb-viewport {
+  position: relative;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #f9fafb;
+}
+.fb-viewport iframe {
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--fb-clip-left, 0px));
+  width: calc(100% + var(--fb-clip-left, 0px));
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Below lg the module goes mobile and the platform supplies its own 56px header
+   that overlays the top of the iframe. Two per-module knobs, set inline by JS:
+     --fb-clip-left-m : horizontal clip on mobile (0 for modules that collapse
+        their sidebar; = clipLeft for non-responsive ones that keep it).
+     --fb-clip-top-m  : vertical offset = 56 - (module's own mobile header height).
+        Positive (module has no/short header) pushes the iframe DOWN so content
+        clears our header; negative (module header taller than 56) pulls it UP so
+        our header fully covers it. This makes one clean header on every module. */
+@media (max-width: 1023.98px) {
+  .fb-viewport iframe {
+    left: calc(-1 * var(--fb-clip-left-m, 0px));
+    width: calc(100% + var(--fb-clip-left-m, 0px));
+    top: var(--fb-clip-top-m, 0px);
+    height: calc(100% - var(--fb-clip-top-m, 0px));
+  }
+
+  /* The shell's root column is Tailwind's `h-screen`, i.e. `height: 100vh` —
+     the LARGE viewport, which on a phone is as tall as the page would be with
+     the browser toolbar hidden. The toolbar is showing, so the column ran 56px
+     past the bottom of what you can actually see, the outer page grew a
+     scrollbar, and the last 56px of every module iframe went under the toolbar.
+     For a module whose own bottom bar is the last row of its layout — Stock
+     Audit's nav, and its Finish action above it — that is precisely the row
+     that disappeared: reachable only by scrolling the PLATFORM, which does not
+     look like a scrollable page.
+
+     `dvh` is the honest measure while a mobile toolbar slides in and out; `svh`
+     is the fallback for engines that have it but not `dvh`, and plain `vh` is
+     the last resort. Specificity beats Tailwind's own `.h-screen` (0,1,0)
+     rather than relying on which stylesheet the Play CDN injects last. */
+  body .flex.h-screen {
+    height: 100vh;
+    height: 100svh;
+    height: 100dvh;
+  }
+}
+
+/* ── Full-bleed modules ────────────────────────────────────────────────────
+   A module flagged `fullBleed` in modules.json (e.g. the customer storefront)
+   is its own experience, not an admin sub-screen. While it is active the shell
+   root carries .fb-fullbleed, which hides the platform's own sidebar and mobile
+   bar so the module fills the whole window. Its own header/nav is all that's
+   shown; use browser back to return to the admin. */
+.fb-fullbleed [data-desktop-sidebar],
+.fb-fullbleed [data-mobile-bar] {
+  display: none !important;
+}
+
+/* ── Mobile: the platform's single QA-store header ──────────────────────────
+   Below lg the module collapses its own chrome, so the platform supplies the
+   whole header. It is absolutely positioned over the top of the viewport so it
+   covers the module's own header (which sits at the iframe's top edge) — one
+   header, one drawer, mirroring desktop. Hidden on desktop and for full-bleed. */
+.fb-mhead {
+  display: none;
+}
+@media (max-width: 1023.98px) {
+  .fb-mhead {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    z-index: 4;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+}
+.fb-mhead-burger {
+  padding: 6px;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  color: #4b5563;
+  display: inline-flex;
+  cursor: pointer;
+}
+.fb-mhead-burger:hover {
+  background: #f3f4f6;
+}
+.fb-mhead-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* While a module overlay (drawer / modal) is open, hide the platform chrome that
+   sits over the iframe — the mobile header and the header hamburger — so the
+   drawer can cover the entire page without the ☰ painting over its title. */
+.fb-module-overlay .fb-mhead,
+.fb-module-overlay .fb-burger-mask {
+  display: none !important;
+}
+.fb-mhead-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  text-decoration: none;
+}
+/* This cut has no burger, so the brand is the first thing in the bar. The
+   burger's own 6px of padding used to hold it off the edge; without that it
+   sits harder against the screen than the module's content below it does. */
+.fb-mhead-brand-lead {
+  padding-left: 2px;
+}
+.fb-mhead-brand img {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.fb-mhead-brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fb-mhead-user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fb-mhead-user-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: right;
+}
+.fb-mhead-user-txt .nm {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.fb-mhead-user-txt .rl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+}
+.fb-mhead-ava {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #059669;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Loading + error overlays ─────────────────────────────────────────────── */
+.fb-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  z-index: 5;
+  transition: opacity 0.25s ease;
+}
+.fb-overlay[hidden] {
+  display: none;
+}
+.fb-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #d1fae5;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: fb-spin 0.7s linear infinite;
+}
+@keyframes fb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Sidebar scrollbar, matching the app's `scrollbar-width: none` ────────── */
+.sidebar-scroll {
+  scrollbar-width: none;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Sidebar footer ────────────────────────────────────────────────────────
+   Mirrors the real app: a pinned footer (Store QR Code) that stays put while
+   the nav list above it scrolls. It sits outside .sidebar-scroll, so the flex
+   column keeps it at the bottom. */
+.fb-sidebar-footer {
+  flex-shrink: 0;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e5e7eb;
+}
+
+/* ── Store QR modal ─────────────────────────────────────────────────────────
+   The "Store QR Code" footer item opens this. It renders a QR (client-side,
+   from the vendored encoder) that deep-links to the storefront module, so a
+   phone that scans it lands straight on the shop. */
+.fb-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.fb-modal[hidden] {
+  display: none;
+}
+.fb-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+.fb-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: fb-modal-in 0.18s ease;
+}
+@keyframes fb-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.fb-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 8px;
+}
+.fb-modal-head .fb-qr-badge {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-modal-head h2 {
+  font: 600 16px/1.3 system-ui, sans-serif;
+  color: #1f2937;
+  margin: 0;
+}
+.fb-modal-head p {
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #6b7280;
+  margin: 2px 0 0;
+}
+.fb-modal-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 8px;
+  color: #9ca3af;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.fb-modal-close:hover {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.fb-qr-body {
+  padding: 12px 24px 28px;
+  text-align: center;
+}
+.fb-qr-placeholder {
+  width: 96px;
+  height: 96px;
+  margin: 12px auto;
+  border-radius: 16px;
+  background: #ecfdf5;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-qr-lead {
+  font: 600 15px/1.4 system-ui, sans-serif;
+  color: #1f2937;
+  margin: 8px 0 4px;
+}
+.fb-qr-sub {
+  font: 13px/1.5 system-ui, sans-serif;
+  color: #6b7280;
+  margin: 0 0 18px;
+}
+.fb-qr-canvas {
+  width: 220px;
+  height: 220px;
+  margin: 8px auto 16px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-qr-canvas canvas,
+.fb-qr-canvas img {
+  width: 196px !important;
+  height: 196px !important;
+  display: block;
+}
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font: 600 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.fb-btn-primary {
+  background: #059669;
+  color: #fff;
+}
+.fb-btn-primary:hover {
+  background: #047857;
+}
+.fb-btn-ghost {
+  background: #fff;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+.fb-btn-ghost:hover {
+  background: #f9fafb;
+}
+.fb-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .fb-spinner {
+    animation-duration: 2s;
+  }
+  .fb-overlay {
+    transition: none;
+  }
+  .fb-modal-card {
+    animation: none;
+  }
+}
+
+/* ── Sidebar collapse ───────────────────────────────────────────────────────
+   The platform has to own this control. The only other hamburger on screen
+   belongs to the module inside the iframe, and it targets that module's own
+   sidebar — which the clip has already pushed out of view — so it does nothing
+   here. Before this, the desktop sidebar simply could not be collapsed. */
+.fb-sidebar-collapsed [data-desktop-sidebar] {
+  width: 0 !important;
+  border-right-width: 0 !important;
+}
+
+/* ── The sidebar control ────────────────────────────────────────────────────
+   It sits on the platform's own edge, between the sidebar and the module.
+
+   Two earlier attempts were wrong and are worth recording. A chevron in the
+   sidebar's brand row competed with the module's header hamburger — two
+   controls that look like they do the same job, and the one people reach for
+   (the hamburger) is dead, because it targets the module's own sidebar which
+   the clip has already removed. Overlaying that hamburger with a working one
+   does not generalise either: several modules have no hamburger at all, and
+   Finance's page title starts at exactly the x where it would sit, so the
+   button covered the text.
+
+   An edge handle belongs unmistakably to the platform rather than to any
+   module, cannot collide with module content whatever a module's header looks
+   like, and its chevron points the way the panel will move. */
+.fb-edge {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 256px;
+  transform: translate(-50%, -50%);
+  z-index: 45;
+  width: 22px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.1);
+  transition: background-color .15s, color .15s, left .3s ease-in-out;
+}
+.fb-edge:hover { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.fb-edge:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+.fb-edge-i { display: inline-flex; transition: transform .3s ease-in-out; }
+
+/* Collapsed: hug the screen edge and flip the chevron outward. */
+.fb-sidebar-collapsed .fb-edge { left: 0; transform: translate(0, -50%); border-radius: 0 8px 8px 0; }
+.fb-sidebar-collapsed .fb-edge-i { transform: rotate(180deg); }
+
+@media (min-width: 1024px) { .fb-edge { display: inline-flex; } }
+
+/* Full-bleed modules hide the sidebar entirely, so there is nothing to toggle. */
+.fb-fullbleed .fb-edge { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-desktop-sidebar], .fb-edge, .fb-edge-i { transition: none !important; }
+}
+
+/* ── Masking each module's dead hamburger ──────────────────────────────────
+   Every module renders a hamburger in its own header. Inside the platform it
+   does nothing: it toggles that module's sidebar, which the clip has already
+   removed. The frames are cross-origin so the button cannot be deleted — it is
+   covered instead, opt-in per module via `hideBurger` in modules.json, because
+   several modules have no hamburger and Finance puts its page title at exactly
+   that x. Sits above the iframe but below the edge handle. */
+.fb-burger-mask {
+  position: absolute;
+  z-index: 5;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color .15s;
+}
+.fb-burger-mask:hover { color: #047857; }
+.fb-burger-mask:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+.fb-burger-mask[hidden] { display: none; }
+/* Below lg the platform's own header already covers the module's, mask and all. */
+@media (max-width: 1023.98px) {
+  .fb-burger-mask { display: none !important; }
+}
