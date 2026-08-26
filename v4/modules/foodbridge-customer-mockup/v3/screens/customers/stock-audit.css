@@ -955,33 +955,33 @@
    two figures on an order row, and the created/synced report.
    ========================================================================== */
 
-/* ── "Recommended based on" — provenance, not decoration ─────────────────── */
-.pb-card { padding: 12px 16px; }
-.pb-title {
-  font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--muted-2); margin-bottom: 4px;
+/* ── Provenance, as one tappable line ───────────────────────────────────── */
+/* A rep ordering does not need the audit date and the order counts on
+   screen; they need to know the numbers are grounded. One line says that,
+   and the "i" opens the detail for the rare moment it is questioned. */
+.ord-basis {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; padding: 2px 0 12px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted); text-align: left;
 }
+.ord-basis .i {
+  flex-shrink: 0; width: 15px; height: 15px; border-radius: 50%;
+  border: 1px solid var(--line); color: var(--muted-2);
+  font-size: 9px; font-weight: 800; font-style: normal;
+  display: grid; place-items: center; line-height: 1;
+}
+.ord-basis:hover { color: var(--teal); }
+.ord-basis:hover .i { border-color: var(--teal); color: var(--teal); }
 .pb-detail { color: var(--muted-2); font-weight: 500; }
-/* A source that did NOT feed the recommendation is struck through, not just
-   greyed: "we looked and there was nothing" has to be unmistakable from "we
-   used this", at a glance, on a phone in a shop. */
-.pb-card .rv-line.muted .txt { text-decoration: line-through; text-decoration-color: var(--line); }
+.pb-detail-list { margin-top: 14px; }
+.pb-detail-list .rv-line.muted .txt { text-decoration: line-through; text-decoration-color: var(--line); }
 
 /* ── The editable order row ──────────────────────────────────────────────── */
-/* Its own meta line, under the SKU: what they hold and what we expect them to
-   sell are the two numbers that make the recommended quantity legible, and
-   burying them in the SKU line would truncate both on a narrow phone. */
-.ord-row .ord-figures { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
-.ord-row .fig { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ord-row .fig.unit { color: var(--muted-2); }
-/* The rep changed the system's number. Said plainly, and kept — the review
-   screen and the stored order both keep the original beside it. */
-.ord-row .edited {
-  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
-  color: var(--teal); background: var(--teal-l); border-radius: 999px; padding: 1px 6px;
-}
-/* A zero-quantity line is still in the list — it just isn't in the order.
-   Dimmed rather than removed, because the rep may well type a number in. */
+/* One quiet line under the SKU. What the shop holds is the only figure that
+   changes the rep's decision here — the stepper beside it already IS the
+   recommendation, so it is not labelled as one. */
+.ord-row .ord-stock { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+/* A zero-quantity line is still in the list — it just isn't in the order. */
 .ord-row:not(.done) .info .nm { color: var(--muted); }
 
 /* ── + Add Product ───────────────────────────────────────────────────────── */
@@ -992,24 +992,18 @@
 }
 .ord-add:hover { border-color: var(--teal); background: var(--teal-l); }
 
-/* ── Notes: no history, no audit, prediction failed ──────────────────────── */
-.ord-note { padding: 14px 16px; }
-.ord-note b { display: block; font-size: 13.5px; color: var(--ink); margin-bottom: 4px; }
-.ord-note p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
-.ord-note.danger { border-color: #fecaca; background: #fef2f2; }
-.ord-note.danger b { color: #b91c1c; }
+/* ── Nothing to recommend ────────────────────────────────────────────────── */
+/* Deliberately not a card: an explanation box would give "no recommendation"
+   more weight than the + Add Product below it, which is the actual next move. */
+.ord-note { padding: 26px 4px; text-align: center; font-size: 13.5px; color: var(--muted-2); }
 
-/* ── Review + success shared blocks ──────────────────────────────────────── */
-.ord-summary { padding: 12px 16px; }
+/* ── Review + success shared ─────────────────────────────────────────────── */
+.ord-summary { padding: 2px 2px 12px; }
 .ord-summary .nm { font-size: 15px; font-weight: 800; color: var(--ink); }
 .ord-summary .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
-/* Where this is about to go. A chain, drawn as one, so "and then Zoho" is a
-   consequence of confirming rather than a separate thing to remember. */
-.ord-dest { padding: 12px 16px; }
-.dest-chain { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-top: 6px; }
-.dest-chain .dest { font-size: 13px; font-weight: 700; color: var(--ink); }
-.dest-chain .arrow { font-size: 12px; color: var(--muted-2); line-height: 1; padding-left: 2px; }
+/* Where it goes, on the header line rather than in a card of its own. */
+.ord-dest-inline { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--muted-2); white-space: nowrap; }
 
 /* ── Success ─────────────────────────────────────────────────────────────── */
 .ord-done { text-align: center; padding: 18px 12px 6px; }
@@ -1020,8 +1014,7 @@
 .ord-done .mark.ok { background: var(--green); }
 .ord-done .mark.warn { background: var(--orange); }
 .ord-done .mark.busy { background: var(--muted-2); }
-.ord-done h1 { margin: 0; font-size: 18px; font-weight: 800; color: var(--ink); }
-.ord-done p { margin: 6px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.ord-done h1 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: var(--ink); }
 
 /* Two systems, reported separately — they can genuinely disagree, and a
    half-synced order must never look like a failed one. */
@@ -1030,7 +1023,6 @@
 .ref-row:last-child { border-bottom: none; }
 .ref-row .lbl { font-size: 12px; color: var(--muted); flex: 1; min-width: 0; }
 .ref-row .val { font-size: 12.5px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ref-err { font-size: 11.5px; color: #b91c1c; padding: 0 0 11px; line-height: 1.45; }
 
 /* The analysing bar: no percentage to report, so it sweeps rather than
    claiming progress it cannot measure. */

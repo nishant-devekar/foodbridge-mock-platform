@@ -2338,20 +2338,11 @@
       ${!active
         ? `<div class="sah-empty"><div class="big">🛒</div><p>Search for the customer you're ordering for.</p></div>`
         : `<div class="picker-list dropdown">${rows.length
-            ? rows.map((c) => {
-                // The audit behind the recommendation, named up front — a rep
-                // deserves to know what the numbers will be built from before
-                // they commit to the screen, not after.
-                const a = latestCompletedAuditFor(c._id);
-                const sub = a
-                  ? `Last audit ${esc(fmtDateShort(a.at))} · ${esc(plural(auditLines(a).length, "product"))} checked`
-                  : "No stock audit on file";
-                return `
+            ? rows.map((c) => `
               <button type="button" class="picker-row" data-order-pick="${c._id}">
                 <span class="av">${esc(titleCase(nameOf(c)).charAt(0) || "C")}</span>
-                <span><span class="nm">${esc(titleCase(nameOf(c)))}</span><div class="sub">${sub}</div></span>
-              </button>`;
-              }).join("")
+                <span><span class="nm">${esc(titleCase(nameOf(c)))}</span><div class="sub">${esc(addressLine(c.adress1, c.state?.name, c.postnr))}</div></span>
+              </button>`).join("")
             : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
     `);
 
@@ -2370,36 +2361,49 @@
 
   /* ---- VIEW: order-build — the editable recommendation ------------------- */
 
-  // Why these numbers. Ticks only what actually fed the recommendation, so
-  // the list is a statement of provenance rather than decoration — a
-  // customer with no audit sees that line greyed and struck, which is the
-  // honest answer to "did it know what I had on the shelf?".
+  // Provenance, as one line. A rep needs to know the numbers came from the
+  // shop's own stock and buying history — not the audit date, the order
+  // counts, or which window each came from. That detail is real, so it is
+  // kept one tap away in a sheet rather than deleted; it just has no claim
+  // on the screen a rep is trying to order from.
+  const basisLabel = (ctx) =>
+    ctx.usedStockAudit ? "Based on stock + history" : "Based on history";
+
   function predictionBasisHTML(ctx) {
+    return `<button type="button" class="ord-basis" id="obBasis">
+        <span>${esc(basisLabel(ctx))}</span><span class="i" aria-hidden="true">i</span>
+      </button>`;
+  }
+
+  // The detail, on demand. Same sheet primitive every other explanation in
+  // this module uses.
+  function basisSheet(ctx) {
     const row = (on, label, detail) =>
       `<div class="rv-line ${on ? "ok" : "muted"}">
         <span class="ic">${on ? "✓" : "—"}</span>
         <span class="txt">${esc(label)}${detail ? `<span class="pb-detail"> · ${esc(detail)}</span>` : ""}</span>
       </div>`;
-    return `
-      <div class="cd-card pb-card">
-        <div class="pb-title">Recommended based on</div>
-        ${row(ctx.usedStockAudit, "Current stock audit",
-              ctx.usedStockAudit ? `${fmtDateShort(ctx.auditAt)} · ${plural(ctx.auditProductCount, "product")}` : "none on file")}
+    sheet({
+      title: "How this was calculated",
+      body: `<div class="pb-detail-list">
+        ${row(ctx.usedStockAudit, "Stock audit",
+              ctx.usedStockAudit ? `${fmtDateShort(ctx.auditAt)} · ${plural(ctx.auditProductCount, "product")}` : "none")}
         ${row(ctx.usedSamePeriodLastYear, "Same period last year",
-              ctx.usedSamePeriodLastYear ? plural(ctx.samePeriodOrderCount, "order") : "no orders in that window")}
-        ${row(ctx.usedRecentHistory, "Recent sales history",
-              ctx.usedRecentHistory ? plural(ctx.recentOrderCount, "order") : "no recent orders")}
-      </div>`;
+              ctx.usedSamePeriodLastYear ? plural(ctx.samePeriodOrderCount, "order") : "none")}
+        ${row(ctx.usedRecentHistory, "Recent orders",
+              ctx.usedRecentHistory ? plural(ctx.recentOrderCount, "order") : "none")}
+      </div>`,
+      actions: [{ label: "Close", cls: "primary" }],
+    });
   }
 
-  // One editable line. Same anatomy as the audit's counting row (.qc-line +
-  // stepperHTML) so the stepper behaves identically in both journeys, with
-  // the two figures that make the recommendation legible — what they hold,
-  // what we expect them to sell — on the meta line.
+  // One editable line: product, SKU, what the shop is holding, and the
+  // quantity control. The stepper's own value IS the recommendation — the
+  // section heading says so once, so the row does not repeat it, and the
+  // figures behind it (expected demand, what was recommended before the rep
+  // touched it) stay on the record without being on the screen.
   function orderRowHTML(l) {
-    const edited = l.recommendedQty != null && Number(l.qty) !== Number(l.recommendedQty);
-    const stockText = l.hasStock ? `Stock ${l.currentStock}` : "Stock —";
-    const recText = l.recommendedQty == null ? "Added manually" : `Rec. ${l.recommendedQty}`;
+    const stockText = `Stock ${l.hasStock ? l.currentStock : "—"} · ${l.unit}`;
     return `
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
@@ -2407,12 +2411,8 @@
           <div class="meta">
             <span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
           </div>
-          <div class="meta ord-figures">
-            <span class="fig">${esc(stockText)}</span>
-            <span class="fig">${esc(recText)}${edited ? ` <span class="edited">edited</span>` : ""}</span>
-            <span class="fig unit">${esc(l.unit)}</span>
-          </div>
-          <div class="meta ask">Remove from this order?<span class="lost"> Its quantity will be cleared.</span></div>
+          <div class="meta ord-stock">${esc(stockText)}</div>
+          <div class="meta ask">Remove from this order?</div>
         </div>
         ${stepperHTML(l.productId, l.qty == null ? "" : l.qty)}
         <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">×</button>
@@ -2421,49 +2421,30 @@
       </div>`;
   }
 
-  // The three states this screen can be in that are NOT a table of lines:
-  // still working, failed outright, or nothing to recommend. Each says what
-  // happened and leaves the rep a way forward rather than a dead end.
-  function orderEmptyStateHTML(customer) {
-    if (ORDER.error) {
-      return `<div class="cd-card ord-note danger">
-          <b>Unable to generate recommendation.</b>
-          <p>Something went wrong reading this customer's history. You can still build the order by hand — search for a product above.</p>
-        </div>`;
-    }
+  // Nothing to recommend, said once. WHY there is nothing — no orders on
+  // file, no audit, a read that threw — is a fact about our data, not a
+  // decision the rep can act on; the action they can take (+ Add Product,
+  // right below) is the same either way.
+  function orderEmptyStateHTML() {
+    if (ORDER.error) return `<div class="ord-note">Couldn't generate a recommendation</div>`;
     const pred = ORDER.prediction;
-    const hasAudit = pred && pred.context && pred.context.usedStockAudit;
-    if (pred && !pred.ok && pred.reason === "no_order_history") {
-      return `<div class="cd-card ord-note">
-          <b>Not enough order history to predict.</b>
-          <p>${hasAudit
-            ? "This customer has a recent stock audit but no sales orders on file, so there is no demand to compare it against."
-            : "This customer has no sales orders on file yet."} Add the products you want and set the quantities — nothing will be recommended for you.</p>
-        </div>`;
-    }
-    return `<div class="sah-empty"><div class="big">🛒</div><p>No products in this order yet.<br>Search above to add one.</p></div>`;
+    if (pred && !pred.ok) return `<div class="ord-note">No recommendation</div>`;
+    return `<div class="ord-note">No products yet</div>`;
   }
 
   function renderOrderBuild() {
     const customer = loadCustomer(CURRENT.params.customerId);
     if (!customer || !ORDER) { go("order-pick", {}, true); return; }
 
-    // Analysing. A deterministic engine finishes in microseconds, but the
-    // rep still gets to see what it consulted — this is the screen that
-    // earns their trust in the number.
+    // Working. The bar and the one line are the whole message — a checklist
+    // of what is being consulted is a progress report nobody asked for.
     if (ORDER_LOADING) {
       frame(`
         <div class="ws-head">
           <button type="button" class="ws-exit" id="obBack" aria-label="Back">←</button>
           <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
-          <div class="ws-count">Preparing recommendation…</div>
+          <div class="ws-count">Preparing order…</div>
           <div class="ws-bar indeterminate"><span></span></div>
-        </div>
-        <div class="cd-card pb-card">
-          <div class="pb-title">Analysing</div>
-          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Latest stock audit</span></div>
-          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Same period last year</span></div>
-          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Recent sales history</span></div>
         </div>
       `);
       const b = $("#obBack", PAGE);
@@ -2485,6 +2466,10 @@
 
     const t = orderTotals(ORDER.lines);
     const ctx = ORDER.prediction && ORDER.prediction.context;
+    // The basis line and the "Recommended" heading only earn their place if
+    // something was actually recommended — on a hand-built order they would
+    // be labelling the rep's own work as the system's.
+    const recommended = !!(ORDER.prediction && ORDER.prediction.ok && ctx);
 
     frame(`
       <div class="ws-head">
@@ -2507,11 +2492,11 @@
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
             : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
-        : `${ctx ? predictionBasisHTML(ctx) : ""}
-           <div class="section-head-row"><h2>Recommended Products</h2>${ORDER.lines.length ? `<span class="src">${plural(ORDER.lines.length, "product")}</span>` : ""}</div>
+        : `${recommended ? predictionBasisHTML(ctx) : ""}
+           ${ORDER.lines.length ? `<div class="section-head-row"><h2>${recommended ? "Recommended" : "Products"}</h2></div>` : ""}
            ${ORDER.lines.length
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
-              : orderEmptyStateHTML(customer)}
+              : orderEmptyStateHTML()}
            <button type="button" class="ord-add" id="obAdd">+ Add Product</button>`}
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
         <button type="button" class="btn-wide primary" id="obReview" ${t.products ? "" : "disabled"}>Confirm Order</button>
@@ -2559,29 +2544,19 @@
       if (!line) return;
       const row = st.closest(".qc-row");
       const input = st.querySelector("input");
-      // The "edited" badge is kept in step by hand for the same reason the
-      // count is: re-rendering the row would take the caret with it. Toggled
-      // here so it appears the moment the rep departs from the recommended
-      // number, not only after some later re-render.
-      const recCell = row.querySelectorAll(".ord-figures .fig")[1];
-      const syncEdited = (qty) => {
-        if (!recCell || line.recommendedQty == null) return;
-        const changed = Number(qty) !== Number(line.recommendedQty);
-        const badge = recCell.querySelector(".edited");
-        if (changed && !badge) recCell.insertAdjacentHTML("beforeend", ' <span class="edited">edited</span>');
-        else if (!changed && badge) badge.remove();
-      };
       const set = (v) => {
         const qty = Math.max(0, Math.floor(Number(v) || 0));
         input.value = qty;
         line.qty = qty;
         row.classList.toggle("done", qty > 0);
-        syncEdited(qty);
         refreshOrderChrome();
       };
       st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
       input.oninput = () => set(input.value);
     });
+
+    const basis = $("#obBasis", PAGE);
+    if (basis) basis.onclick = () => basisSheet(ORDER.prediction.context);
 
     const add = $("#obAdd", PAGE);
     if (add) add.onclick = () => {
@@ -2617,15 +2592,12 @@
   // ask, and mean it. Nothing has been created at this point, so ending it
   // genuinely discards — consistent with exitAuditSheet.
   function exitOrderSheet() {
-    const t = orderTotals(ORDER.lines);
     sheet({
       eyebrow: titleCase(nameOf(loadCustomer(ORDER.customerId) || {})),
-      title: "Leave this order?",
-      sub: (t.products ? `${plural(t.products, "product")} ready to order. ` : "Nothing has been ordered yet. ") +
-           "Leaving without confirming does not keep it.",
+      title: "Discard order?",
       actions: [
         { label: "Keep editing", cls: "primary" },
-        { label: "Discard order", cls: "danger", onClick: () => {
+        { label: "Discard", cls: "danger", onClick: () => {
           ORDER = null;
           OP_STATE = { q: "", focused: false };
           toast("Order discarded.");
@@ -2649,16 +2621,16 @@
     frame(`
       <div class="sah-page-head">
         <div class="row" style="align-items:center">
-          <button type="button" class="back" id="orBack">← Review Order</button>
+          <button type="button" class="back" id="orBack">← Review</button>
+          <span class="ord-dest-inline">FoodBridge → Zoho</span>
         </div>
       </div>
 
-      <div class="cd-card ord-summary">
+      <div class="ord-summary">
         <div class="nm">${esc(titleCase(nameOf(customer)))}</div>
         <div class="sub">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))}</div>
       </div>
 
-      <div class="section-head-row"><h2>Order Lines</h2></div>
       <div class="cd-card pi-card">
         ${t.active.map((l) => `
           <div class="pi-row static">
@@ -2668,15 +2640,6 @@
             </span>
             <span class="right"><span class="qty">${l.qty} ${esc(l.unit)}</span></span>
           </div>`).join("")}
-      </div>
-
-      <div class="cd-card ord-dest">
-        <div class="pb-title">This order will be created in</div>
-        <div class="dest-chain">
-          <span class="dest">FoodBridge</span>
-          <span class="arrow">↓</span>
-          <span class="dest">Zoho Sales Order</span>
-        </div>
       </div>
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
         <button type="button" class="btn-wide ghost" id="orEdit">Back &amp; Edit</button>
@@ -2819,42 +2782,25 @@
     frame(`
       <div class="ord-done">
         <div class="mark ${failed ? "warn" : done ? "ok" : "busy"}">${failed ? "!" : done ? "✓" : "⋯"}</div>
-        <h1>${failed ? "Order created — Zoho pending" : done ? "Order Created Successfully" : "Creating sales order…"}</h1>
-        <p>${failed
-            ? "The FoodBridge sales order is saved. It could not be sent to Zoho."
-            : done
-              ? "Sales order has been created in FoodBridge and Zoho."
-              : "Syncing with Zoho…"}</p>
+        <h1>${syncing ? "Creating order…" : "Order Created"}</h1>
       </div>
 
       <div class="cd-card ord-refs">
         <div class="ref-row">
-          <span class="lbl">FoodBridge Order</span>
+          <span class="lbl">FoodBridge</span>
           <span class="val">${esc(order.id)}</span>
           <span class="status-tag ok">Created</span>
         </div>
         <div class="ref-row">
-          <span class="lbl">Zoho Sales Order</span>
+          <span class="lbl">Zoho</span>
           <span class="val">${order.zohoOrderNumber ? esc(order.zohoOrderNumber) : "—"}</span>
           <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : "Syncing"}</span>
         </div>
-        ${failed && order.zohoError ? `<div class="ref-err">${esc(order.zohoError)}</div>` : ""}
       </div>
 
-      <div class="cd-card ord-summary">
+      <div class="ord-summary">
         <div class="nm">${esc(order.customerName)}</div>
         <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
-      </div>
-
-      <div class="cd-card pi-card">
-        ${order.lines.map((l) => `
-          <div class="pi-row static">
-            <span class="info">
-              <span class="nm">${esc(l.productName)}</span>
-              <span class="sku">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
-            </span>
-            <span class="right"><span class="qty">${l.qty} ${esc(l.unit)}</span></span>
-          </div>`).join("")}
       </div>
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
         ${failed ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Zoho</button>` : ""}
