@@ -117,10 +117,15 @@ quantities; a mismatch is reported as a failure, not a success.
 
 The bridge is scoped to ONE Zoho Books organisation on purpose — this is a PMF
 experiment. Customer and item mappings are two literal objects in
-`zoho-function/mappings.js`, which ships empty: FoodBridge ids are never sent to
-Zoho as Zoho ids, and an unmapped customer or product fails loudly. No price is
-sent, because FoodBridge holds none — Zoho applies the item's own configured
-rate. Setup, OAuth and the five required settings are in
+`zoho-function/mappings.js`, generated from the live organisation by
+`seed-catalogue.js`: all 40 customers and all 86 products, every id read back
+from Zoho rather than typed. FoodBridge ids are never sent to Zoho as Zoho ids,
+and an unmapped customer or product fails loudly rather than landing on the
+wrong record. Units were checked against each Zoho item, not assumed — Box,
+Crate and Pp bag agree on both sides, so the factor is 1 throughout.
+
+No price is sent, because FoodBridge holds none — Zoho applies the item's own
+configured rate. Setup, OAuth and the required settings are in
 `zoho-function/README.md`.
 
 **Seed.** `orderingSignals` gained product-level `lines` and previous-year orders — the
@@ -133,9 +138,13 @@ and four new views in `stock-audit.js`.
 
 ## Offline
 
-Fully self-contained. Every asset the screen needs is packaged, including the product tiles,
-so nothing here reaches the network for content. That is a difference from `v3`, whose
-product art was hotlinked from Wikimedia Commons at view time.
+Self-contained for **content**. Every asset the screen needs is packaged, including the
+product tiles, so nothing here reaches the network to render. That is a difference from
+`v3`, whose product art was hotlinked from Wikimedia Commons at view time.
+
+The one deliberate exception is the network call this cut exists to make: confirming a
+Predictive Sales Order posts to the Zoho bridge. Stock Audit is untouched by that and still
+runs entirely offline — a rep counting stock in a shop with no signal loses nothing.
 
 ## Running it
 
@@ -146,6 +155,43 @@ python3 -m http.server 8000
 ```
 
 then <http://localhost:8000/>. On GitHub Pages it works as-is.
+
+**Stock Audit needs nothing else.** Create Order does: it posts to the Zoho bridge, which
+is deployed separately (see below) because GitHub Pages cannot hold an OAuth secret.
+
+## Deployed — 26 August 2026
+
+| | |
+| --- | --- |
+| App | <https://nishant-devekar.github.io/foodbridge-mock-platform/v4/> |
+| Bridge | `https://zoho-function-nu.vercel.app` — source in `zoho-function/`, deploy with `./deploy.sh` |
+| Zoho | organisation **PMF Foodbridge**, India data centre, INR |
+
+The bridge's `ALLOWED_ORIGINS` is the GitHub Pages origin **only**, so a page served from
+`localhost:8003` cannot call production — that is deliberate, not a misconfiguration. For
+local work run `node dev-server.js` and point the page at it:
+
+```js
+localStorage.setItem("fb-api-base", "http://localhost:8787")
+```
+
+Each demo device is provisioned once with the bridge's shared key, which is kept out of this
+repo and lives in `zoho-function/.env`:
+
+```js
+localStorage.setItem("fb-api-key", "<FB_API_KEY>")
+```
+
+Without it the bridge answers `401`. That is the protection working: a public URL that
+creates real sales orders in a real accounting system should not accept whatever finds it.
+It is **not** authentication — the browser has to carry the key, so anyone reading the page
+source has it too.
+
+**Pricing is an open commercial question, not a technical one.** 63 of the 86 Zoho items are
+priced at the MRP printed in the tenant's own product names, which is retail rather than the
+trade price a distributor charges a shop; the remaining 23 have no MRP in their name and sit
+at zero. FoodBridge sends no price, so Zoho's rate is authoritative and demo totals read high
+until someone sets real trade pricing on the items.
 
 ## Where the screen came from
 
@@ -163,3 +209,14 @@ Driven on a real Android emulator (Pixel 8, Chrome 124) and a real iOS Simulator
 sidebar is absent in both orientations and at desktop width, that no burger remains to open
 one, that the module still fills the frame with its own sidebar clipped, and that the whole
 flow runs: search customer → select products → count → finish → saved.
+
+The Predictive Sales Order journey was then verified end to end against the real thing, from
+the deployed GitHub Pages app rather than a local copy: predict → edit a quantity away from
+the recommendation → confirm → the deployed bridge → Zoho Books. `SO-00005` carries
+reference `FB-SO-26-08-001`, the right customer, four correct items, and the **edited** 23
+rather than the recommended 40 — confirmed by reading the order back through the API and by
+opening it in the Zoho Books UI. Retrying an order whose local Zoho id had been wiped
+attached to the existing sales order instead of raising a second one; the organisation holds
+five sales orders and five distinct references. Stock Audit, Audit History and Audit Detail
+were re-run on the deployed app unchanged, at phone and desktop width, with no console
+errors.
