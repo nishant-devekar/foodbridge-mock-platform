@@ -138,15 +138,22 @@ ALLOWED_ORIGINS=https://nishant-devekar.github.io
 environment, and deploys. `api/*.js` become the endpoints. Nothing else moves —
 FoodBridge stays on GitHub Pages.
 
-Then point a demo device at it, once, from its browser console:
+Then provision each demo device once, by opening a link:
 
-```js
-localStorage.setItem("fb-api-base", "https://<your>.vercel.app")
-localStorage.setItem("fb-api-key",  "<FB_API_KEY>")
+```
+https://nishant-devekar.github.io/foodbridge-mock-platform/v4/?fbkey=<FB_API_KEY>#/customer-management/stock-audit-health
 ```
 
-Both live in localStorage rather than the committed config so the key stays out
-of a public repo.
+The key is stored and stripped from the address bar, so it does not linger in
+history or ride along when the URL is shared. `?fbapi=<url>` does the same for
+the bridge URL. Both end up in localStorage rather than the committed config,
+which is what keeps the key out of a public repo.
+
+The console equivalent, if you prefer it:
+
+```js
+localStorage.setItem("fb-api-key", "<FB_API_KEY>")
+```
 
 **About that key.** A deployed bridge creates real sales orders in a real Zoho
 organisation, and CORS does not stop a `curl`. `FB_API_KEY` means the URL alone

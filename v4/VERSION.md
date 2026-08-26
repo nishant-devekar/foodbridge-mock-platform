@@ -175,17 +175,28 @@ local work run `node dev-server.js` and point the page at it:
 localStorage.setItem("fb-api-base", "http://localhost:8787")
 ```
 
-Each demo device is provisioned once with the bridge's shared key, which is kept out of this
-repo and lives in `zoho-function/.env`:
+Each demo device is provisioned once by opening a link carrying the bridge's shared key,
+which is kept out of this repo and lives in `zoho-function/.env`:
 
-```js
-localStorage.setItem("fb-api-key", "<FB_API_KEY>")
 ```
+.../v4/?fbkey=<FB_API_KEY>#/customer-management/stock-audit-health
+```
+
+The key is stored and stripped from the address bar, so it does not linger in history or
+ride along when the URL is shared.
 
 Without it the bridge answers `401`. That is the protection working: a public URL that
 creates real sales orders in a real accounting system should not accept whatever finds it.
 It is **not** authentication — the browser has to carry the key, so anyone reading the page
 source has it too.
+
+**Order ids are per device.** `FB-SO-26-08-4G5F-001` — the four characters before the
+counter identify the browser. The counter is derived from that browser's own stored orders,
+so without the tag every device's first order of the month is `001`, and that id is exactly
+what Zoho stores as `reference_number` and what the bridge de-duplicates on. A second
+device's `001` would otherwise be handed the first device's sales order. The bridge also
+refuses outright a reference whose sales order belongs to a different customer, which covers
+ids minted before the tag existed.
 
 **Pricing is an open commercial question, not a technical one.** 63 of the 86 Zoho items are
 priced at the MRP printed in the tenant's own product names, which is retail rather than the
