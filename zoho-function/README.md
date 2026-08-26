@@ -218,7 +218,7 @@ customer, line count, item ids and quantities. A mismatch is reported as a
 npm test
 ```
 
-Twelve tests run `zoho.js` and `sync.js` unmodified over real HTTP against a
+Thirteen tests run `zoho.js` and `sync.js` unmodified over real HTTP against a
 local stand-in for Zoho ([`test/fake-zoho.js`](test/fake-zoho.js)): happy path,
 confirmed-quantity-not-recommended, unit conversion, unmapped customer,
 unmapped product, Zoho rejection, retry idempotency, timeout recovery,
