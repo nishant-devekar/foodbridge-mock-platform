@@ -438,6 +438,80 @@
     },
   };
 
+  /* -------------------------------------------------- sales orders (vNext) */
+
+  // Confirmed FoodBridge sales orders, same storage convention as AuditStore
+  // above: a flat list, newest first, persisted per browser. Separate from
+  // audits on purpose — an audit records what IS on the shelf, an order
+  // commits to what SHOULD ship, and conflating the two would make the audit
+  // history lie the moment a rep edits a recommendation.
+  //
+  // The Zoho half of the record lives on the SAME object rather than in a
+  // queue beside it, because "FoodBridge created / Zoho pending" is one
+  // order in two states, not two records to reconcile. That is also what
+  // makes retry safe: there is exactly one row to update.
+  const ORDERS_KEY = "fb-discovery-sales-orders-v1";
+
+  // Lifecycle. `confirmed` is the commit point — before it there is only an
+  // unsaved recommendation on screen, and nothing reaches Zoho.
+  const ORDER_STATUS = {
+    confirmed: { label: "Confirmed", cls: "ok" },
+    zoho_pending: { label: "Zoho pending", cls: "warn" },
+    zoho_created: { label: "Zoho created", cls: "ok" },
+    zoho_failed: { label: "Zoho failed", cls: "danger" },
+  };
+
+  const SalesOrderStore = {
+    state: [],
+    load() {
+      let saved = null;
+      try {
+        saved = JSON.parse(localStorage.getItem(ORDERS_KEY) || "null");
+      } catch (e) {
+        saved = null;
+      }
+      this.state = Array.isArray(saved) ? saved : [];
+      return this.state;
+    },
+    save() {
+      try {
+        localStorage.setItem(ORDERS_KEY, JSON.stringify(this.state));
+      } catch (e) {
+        /* private mode — the prototype still works, it just doesn't persist */
+      }
+    },
+    add(order) {
+      this.state.unshift(order);
+      this.save();
+      return order;
+    },
+    byId(id) {
+      return this.state.find((o) => o.id === id) || null;
+    },
+    // Mutate in place and persist: the caller holds the same object, so a
+    // Zoho retry updates the row it already created rather than adding one.
+    update(id, patch) {
+      const o = this.byId(id);
+      if (!o) return null;
+      Object.assign(o, patch);
+      this.save();
+      return o;
+    },
+  };
+
+  // FB-SO-YY-MM-NNN, sequential within the month so two orders raised on the
+  // same day are visibly ordered. Derived from what is already stored rather
+  // than a counter of its own, which would drift the moment storage is
+  // cleared but the orders are not.
+  function nextOrderId(when) {
+    const d = when ? new Date(when) : new Date();
+    const yy = String(d.getFullYear()).slice(2);
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const prefix = `FB-SO-${yy}-${mm}-`;
+    const n = SalesOrderStore.state.filter((o) => String(o.id).startsWith(prefix)).length + 1;
+    return prefix + String(n).padStart(3, "0");
+  }
+
   const DRAFTS_KEY = "fb-discovery-stock-draft-audits-v1";
   // An audit in progress. A rep walks out of a store mid-count all the time —
   // a delivery blocks the aisle, the shutters come down, the phone rings —
@@ -774,6 +848,17 @@
     return null;
   }
 
+  // The one current-stock source the Predictive Sales Order flow is allowed
+  // to read. COMPLETED only, and deliberately so: this flow discards an
+  // unfinished visit outright (see exitAuditSheet) precisely because a
+  // half-walked shop is not a stock position, and a live draft is a count
+  // still being taken. Either would put numbers a rep never stood behind
+  // into an order that ships. `auditsFor` is already newest-first, so the
+  // first completed record is the latest one.
+  function latestCompletedAuditFor(customerId) {
+    return auditsFor(customerId).find((a) => a.status === "completed") || null;
+  }
+
   /* ------------------------------------------------------- health signals */
 
   // Audit-visit cadence — independent of ordering. "Never audited" counts
@@ -947,6 +1032,10 @@
       audit: renderAudit,
       "quick-pick": renderQuickPick,
       "quick-count": renderQuickCount,
+      "order-pick": renderOrderPick,
+      "order-build": renderOrderBuild,
+      "order-review": renderOrderReview,
+      "order-success": renderOrderSuccess,
     })[CURRENT.view]?.();
   }
 
@@ -1014,6 +1103,7 @@
   function navActiveKey(view) {
     if (view === "quick-pick" || view === "quick-count") return "stock-audit";
     if (view === "audits" || view === "audit") return "audits";
+    if (view === "order-pick" || view === "order-build" || view === "order-review" || view === "order-success") return "create-order";
     return null;
   }
 
@@ -1034,6 +1124,7 @@
     return `
       <div class="sah-nav">
         <button class="nav-btn ${active === "stock-audit" ? "active" : ""}" data-nav="stock-audit"><span class="ic">🧾</span>Stock Audit</button>
+        <button class="nav-btn ${active === "create-order" ? "active" : ""}" data-nav="create-order"><span class="ic">🛒</span>Create Order</button>
         <button class="nav-btn ${active === "audits" ? "active" : ""}" data-nav="audits"><span class="ic">🗂️</span>Audit History</button>
       </div>`;
   }
@@ -1053,6 +1144,14 @@
           if (DRAFT && DRAFT.customerId) { go("quick-count", { customerId: DRAFT.customerId }, true); return; }
           QP_STATE = { q: "", primed: false, focused: false };
           go("quick-pick", {}, true);
+        } else if (k === "create-order") {
+          // Same courtesy the Stock Audit tab extends: an order being built
+          // is "whatever I'm doing in Create Order right now", so stepping
+          // over to another tab and back does not throw the edits away. Only
+          // a finished (or abandoned) order resets to a fresh search.
+          if (ORDER && ORDER.customerId) { go("order-build", { customerId: ORDER.customerId }, true); return; }
+          OP_STATE = { q: "", focused: false };
+          go("order-pick", {}, true);
         } else if (k === "audits") go("audits", {}, true);
       };
     });
@@ -2081,6 +2180,698 @@
     },
   };
 
+  /* =============================================================================================
+     PREDICTIVE SALES ORDER (vNext) — the second journey.
+
+         Create Order → Select Customer → Predictive Sales Order
+                      → Review Order → Confirm → FoodBridge order → Zoho
+
+     Deliberately a PEER of the audit flow, not a step inside it. Stock Audit
+     records what is on the shelf; this proposes what should ship. Keeping
+     them separate is what lets a rep audit today and order on Thursday, and
+     is why finishing an audit never launches this — the rep decides.
+
+     They meet through DATA only: `latestCompletedAuditFor` supplies current
+     stock, `SEED.orderingSignals` supplies demand, and the confirmed order
+     keeps `predictionContext` so the recommendation can be traced back to
+     the exact audit and orders it was drawn from.
+
+     Nothing here re-implements what the audit flow already has: the same
+     customer/product search shape and `wireSearchInput` focus contract, the
+     same `.picker-list.dropdown`, `.qc-card`/`.qc-line` rows, `stepperHTML`,
+     `.sah-foot` action bar, sheets and toasts.
+     ================================================================================================= */
+
+  // The order being built. Null unless a customer has been picked — the same
+  // "one live thing at a time" contract DRAFT holds for audits, and what the
+  // Create Order tab reads to decide between resuming and starting fresh.
+  let ORDER = null;
+  let OP_STATE = { q: "", focused: false };   // Create Order → customer search
+  let OB_STATE = { q: "", focused: false };   // Predictive order → add-product search
+  // Set while the recommendation is being generated, so the view can render
+  // the analysing state instead of an empty table.
+  let ORDER_LOADING = false;
+
+  /* ---- building the order from a recommendation ------------------------- */
+
+  // Turn the engine's output into the editable order the rep works on. The
+  // recommended quantity is COPIED into `qty` rather than referenced: `qty`
+  // is the rep's number from this point on, and `recommendedQty` stays
+  // untouched beside it so the review screen (and later, analytics) can see
+  // what the system proposed versus what was actually ordered.
+  function orderLineFromPrediction(l) {
+    const p = productById(l.productId) || {};
+    return {
+      productId: l.productId,
+      productName: p.name || l.productId,
+      artNo: p.artNo || "",
+      unit: baseUnit(p),
+      currentStock: l.currentStock,
+      hasStock: l.hasStock,
+      expectedDemand: l.expectedDemand,
+      recommendedQty: l.recommendedQty,
+      qty: l.recommendedQty,
+      basis: l.basis,
+      addedManually: false,
+    };
+  }
+
+  // A product the rep added themselves. No demand figure is invented for it —
+  // it starts at zero and is theirs to set.
+  function orderLineFromProduct(p, currentStock) {
+    return {
+      productId: p.id,
+      productName: p.name,
+      artNo: p.artNo || "",
+      unit: baseUnit(p),
+      currentStock: currentStock == null ? 0 : currentStock,
+      hasStock: currentStock != null,
+      expectedDemand: null,
+      recommendedQty: null,
+      qty: 0,
+      basis: "manual",
+      addedManually: true,
+    };
+  }
+
+  // Current stock per product from a completed audit, for lines the rep adds
+  // by hand — so an added product still shows what the shop was holding.
+  function stockMapFromAudit(audit) {
+    const m = {};
+    auditLines(audit || {}).forEach((l) => {
+      if (l && l.productId && l.status !== "not_found") m[l.productId] = Number(l.physical) || 0;
+    });
+    return m;
+  }
+
+  // Kick off a prediction for a customer and land on the build screen.
+  // Async only so the analysing state is actually visible — the engine is
+  // synchronous and deterministic, which is exactly what we want of it.
+  function startOrderFor(customerId) {
+    const customer = loadCustomer(customerId);
+    if (!customer) { go("order-pick", {}, true); return; }
+
+    ORDER_LOADING = true;
+    ORDER = { customerId, lines: [], prediction: null, stockMap: {}, error: null };
+    go("order-build", { customerId });
+
+    setTimeout(() => {
+      // The customer may have been abandoned mid-generation (tab switch,
+      // Back) — don't write a result onto an order that is no longer this
+      // one, and don't re-render a screen the rep has left.
+      if (!ORDER || ORDER.customerId !== customerId) return;
+      try {
+        const audit = latestCompletedAuditFor(customerId);
+        const sig = (SEED.orderingSignals && SEED.orderingSignals[customerId]) || null;
+        const result = FB_PREDICT.generatePredictiveOrder({
+          customerId,
+          latestCompletedAudit: audit,
+          orders: (sig && sig.orders) || [],
+          products,
+          now: new Date(),
+        });
+        ORDER.prediction = result;
+        ORDER.stockMap = stockMapFromAudit(audit);
+        ORDER.lines = result.ok ? result.lines.map(orderLineFromPrediction) : [];
+      } catch (e) {
+        // A prediction that throws must not take the screen down with it —
+        // the rep can still build the order by hand.
+        ORDER.error = e;
+        ORDER.prediction = null;
+        ORDER.lines = [];
+      }
+      ORDER_LOADING = false;
+      if (CURRENT.view === "order-build") renderOrderBuild();
+    }, 650);
+  }
+
+  const orderTotals = (lines) => {
+    const active = (lines || []).filter((l) => Number(l.qty) > 0);
+    return {
+      active,
+      products: active.length,
+      units: active.reduce((n, l) => n + (Number(l.qty) || 0), 0),
+    };
+  };
+
+  /* ---- VIEW: order-pick — which customer is this order for? -------------- */
+
+  // Intentionally the same screen as quick-pick in everything but its title
+  // and where a tap leads: same search contract, same dropdown, same rows.
+  // A rep should not have to learn a second way to find a customer.
+  function renderOrderPick() {
+    const q = OP_STATE.q.trim().toLowerCase();
+    const allCustomers = loadCustomers();
+    const active = OP_STATE.focused;
+    const previewing = active && !q;
+    const rows = !active
+      ? []
+      : q
+        ? allCustomers.filter((c) => [nameOf(c), c.phone].some((v) => String(v || "").toLowerCase().includes(q)))
+        : allCustomers.slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b))).slice(0, 5);
+
+    frame(`
+      <div class="sah-page-head">
+        <h1>Create Order</h1><p>Who is this order for?</p>
+      </div>
+      <div class="sah-search-row"><div class="sah-search"><input type="search" id="opQ" ${SEARCH_ATTRS} value="${esc(OP_STATE.q)}" placeholder="Search customers…"></div></div>
+      ${!active
+        ? `<div class="sah-empty"><div class="big">🛒</div><p>Search for the customer you're ordering for.</p></div>`
+        : `<div class="picker-list dropdown">${rows.length
+            ? rows.map((c) => {
+                // The audit behind the recommendation, named up front — a rep
+                // deserves to know what the numbers will be built from before
+                // they commit to the screen, not after.
+                const a = latestCompletedAuditFor(c._id);
+                const sub = a
+                  ? `Last audit ${esc(fmtDateShort(a.at))} · ${esc(plural(auditLines(a).length, "product"))} checked`
+                  : "No stock audit on file";
+                return `
+              <button type="button" class="picker-row" data-order-pick="${c._id}">
+                <span class="av">${esc(titleCase(nameOf(c)).charAt(0) || "C")}</span>
+                <span><span class="nm">${esc(titleCase(nameOf(c)))}</span><div class="sub">${sub}</div></span>
+              </button>`;
+              }).join("")
+            : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
+    `);
+
+    wireSearchInput("opQ", (v) => { OP_STATE.q = v; renderOrderPick(); }, () => {
+      if (OP_STATE.focused) return false;
+      OP_STATE.focused = true;
+      renderOrderPick();
+      return true;
+    });
+    PAGE.querySelectorAll("[data-order-pick]").forEach((b) => (b.onclick = () => {
+      OP_STATE = { q: "", focused: false };
+      OB_STATE = { q: "", focused: false };
+      startOrderFor(b.dataset.orderPick);
+    }));
+  }
+
+  /* ---- VIEW: order-build — the editable recommendation ------------------- */
+
+  // Why these numbers. Ticks only what actually fed the recommendation, so
+  // the list is a statement of provenance rather than decoration — a
+  // customer with no audit sees that line greyed and struck, which is the
+  // honest answer to "did it know what I had on the shelf?".
+  function predictionBasisHTML(ctx) {
+    const row = (on, label, detail) =>
+      `<div class="rv-line ${on ? "ok" : "muted"}">
+        <span class="ic">${on ? "✓" : "—"}</span>
+        <span class="txt">${esc(label)}${detail ? `<span class="pb-detail"> · ${esc(detail)}</span>` : ""}</span>
+      </div>`;
+    return `
+      <div class="cd-card pb-card">
+        <div class="pb-title">Recommended based on</div>
+        ${row(ctx.usedStockAudit, "Current stock audit",
+              ctx.usedStockAudit ? `${fmtDateShort(ctx.auditAt)} · ${plural(ctx.auditProductCount, "product")}` : "none on file")}
+        ${row(ctx.usedSamePeriodLastYear, "Same period last year",
+              ctx.usedSamePeriodLastYear ? plural(ctx.samePeriodOrderCount, "order") : "no orders in that window")}
+        ${row(ctx.usedRecentHistory, "Recent sales history",
+              ctx.usedRecentHistory ? plural(ctx.recentOrderCount, "order") : "no recent orders")}
+      </div>`;
+  }
+
+  // One editable line. Same anatomy as the audit's counting row (.qc-line +
+  // stepperHTML) so the stepper behaves identically in both journeys, with
+  // the two figures that make the recommendation legible — what they hold,
+  // what we expect them to sell — on the meta line.
+  function orderRowHTML(l) {
+    const edited = l.recommendedQty != null && Number(l.qty) !== Number(l.recommendedQty);
+    const stockText = l.hasStock ? `Stock ${l.currentStock}` : "Stock —";
+    const recText = l.recommendedQty == null ? "Added manually" : `Rec. ${l.recommendedQty}`;
+    return `
+      <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
+        <div class="info">
+          <div class="nm">${esc(l.productName)}</div>
+          <div class="meta">
+            <span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
+          </div>
+          <div class="meta ord-figures">
+            <span class="fig">${esc(stockText)}</span>
+            <span class="fig">${esc(recText)}${edited ? ` <span class="edited">edited</span>` : ""}</span>
+            <span class="fig unit">${esc(l.unit)}</span>
+          </div>
+          <div class="meta ask">Remove from this order?<span class="lost"> Its quantity will be cleared.</span></div>
+        </div>
+        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty)}
+        <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">×</button>
+        <button type="button" class="ci-btn sm yes" data-order-remove-yes="${esc(l.productId)}" aria-label="Confirm removing ${esc(l.productName)}">✓</button>
+        <button type="button" class="ci-btn sm no" data-order-remove-no="${esc(l.productId)}" aria-label="Keep ${esc(l.productName)}">✗</button>
+      </div>`;
+  }
+
+  // The three states this screen can be in that are NOT a table of lines:
+  // still working, failed outright, or nothing to recommend. Each says what
+  // happened and leaves the rep a way forward rather than a dead end.
+  function orderEmptyStateHTML(customer) {
+    if (ORDER.error) {
+      return `<div class="cd-card ord-note danger">
+          <b>Unable to generate recommendation.</b>
+          <p>Something went wrong reading this customer's history. You can still build the order by hand — search for a product above.</p>
+        </div>`;
+    }
+    const pred = ORDER.prediction;
+    const hasAudit = pred && pred.context && pred.context.usedStockAudit;
+    if (pred && !pred.ok && pred.reason === "no_order_history") {
+      return `<div class="cd-card ord-note">
+          <b>Not enough order history to predict.</b>
+          <p>${hasAudit
+            ? "This customer has a recent stock audit but no sales orders on file, so there is no demand to compare it against."
+            : "This customer has no sales orders on file yet."} Add the products you want and set the quantities — nothing will be recommended for you.</p>
+        </div>`;
+    }
+    return `<div class="sah-empty"><div class="big">🛒</div><p>No products in this order yet.<br>Search above to add one.</p></div>`;
+  }
+
+  function renderOrderBuild() {
+    const customer = loadCustomer(CURRENT.params.customerId);
+    if (!customer || !ORDER) { go("order-pick", {}, true); return; }
+
+    // Analysing. A deterministic engine finishes in microseconds, but the
+    // rep still gets to see what it consulted — this is the screen that
+    // earns their trust in the number.
+    if (ORDER_LOADING) {
+      frame(`
+        <div class="ws-head">
+          <button type="button" class="ws-exit" id="obBack" aria-label="Back">←</button>
+          <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+          <div class="ws-count">Preparing recommendation…</div>
+          <div class="ws-bar indeterminate"><span></span></div>
+        </div>
+        <div class="cd-card pb-card">
+          <div class="pb-title">Analysing</div>
+          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Latest stock audit</span></div>
+          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Same period last year</span></div>
+          <div class="rv-line muted"><span class="ic">•</span><span class="txt">Recent sales history</span></div>
+        </div>
+      `);
+      const b = $("#obBack", PAGE);
+      if (b) b.onclick = () => { ORDER = null; ORDER_LOADING = false; go("order-pick", {}, true); };
+      return;
+    }
+
+    const q = OB_STATE.q.trim().toLowerCase();
+    const matches = (p) => [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
+    const chosen = ORDER.lines.map((l) => l.productId);
+    const available = products.filter((p) => chosen.indexOf(p.id) === -1);
+    const previewing = !q && OB_STATE.focused && !ORDER.lines.length;
+    const searching = !!q || previewing;
+    const results = !searching
+      ? []
+      : q
+        ? available.filter(matches)
+        : available.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5);
+
+    const t = orderTotals(ORDER.lines);
+    const ctx = ORDER.prediction && ORDER.prediction.context;
+
+    frame(`
+      <div class="ws-head">
+        <button type="button" class="ws-exit" id="obBack" aria-label="Back">←</button>
+        <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+        <div class="ws-count">${t.products ? `${plural(t.products, "product")} · ${plural(t.units, "unit")}` : "Nothing to order yet"}</div>
+        <div class="ws-bar"><span style="width:${ORDER.lines.length ? Math.round((t.products / ORDER.lines.length) * 100) : 0}%"></span></div>
+      </div>
+
+      <div class="sah-search-row">
+        <div class="sah-search"><input type="search" id="obQ" ${SEARCH_ATTRS} value="${esc(OB_STATE.q)}" placeholder="Search product name or SKU…"></div>
+      </div>
+
+      ${searching
+        ? `<div class="picker-list dropdown">${results.length
+            ? results.map((p) => `
+              <button type="button" class="picker-row" data-order-add="${esc(p.id)}">
+                <span class="av">${thumbHTML(p)}</span>
+                <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
+                <span class="add-ic" aria-hidden="true">+</span>
+              </button>`).join("")
+            : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
+        : `${ctx ? predictionBasisHTML(ctx) : ""}
+           <div class="section-head-row"><h2>Recommended Products</h2>${ORDER.lines.length ? `<span class="src">${plural(ORDER.lines.length, "product")}</span>` : ""}</div>
+           ${ORDER.lines.length
+              ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
+              : orderEmptyStateHTML(customer)}
+           <button type="button" class="ord-add" id="obAdd">+ Add Product</button>`}
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
+        <button type="button" class="btn-wide primary" id="obReview" ${t.products ? "" : "disabled"}>Confirm Order</button>
+      </div></div>` });
+
+    wireOrderBuild(customer);
+  }
+
+  function wireOrderBuild(customer) {
+    wireSearchInput("obQ", (v) => { OB_STATE.q = v; renderOrderBuild(); }, () => {
+      if (OB_STATE.focused) return false;
+      OB_STATE.focused = true;
+      renderOrderBuild();
+      return true;
+    });
+
+    PAGE.querySelectorAll("[data-order-add]").forEach((b) => (b.onclick = () => {
+      const p = productById(b.dataset.orderAdd);
+      if (!p) return;
+      if (!ORDER.lines.some((l) => l.productId === p.id)) {
+        const known = Object.prototype.hasOwnProperty.call(ORDER.stockMap, p.id);
+        ORDER.lines.push(orderLineFromProduct(p, known ? ORDER.stockMap[p.id] : null));
+      }
+      OB_STATE.q = "";
+      renderOrderBuild();
+    }));
+
+    // Removal asks in the row, exactly as the audit's counting row does.
+    PAGE.querySelectorAll("[data-order-remove]").forEach((b) => (b.onclick = () => {
+      PAGE.querySelectorAll(".qc-row.confirming").forEach((r) => r.classList.remove("confirming"));
+      b.closest(".qc-row").classList.add("confirming");
+    }));
+    PAGE.querySelectorAll("[data-order-remove-no]").forEach((b) => (b.onclick = () => {
+      b.closest(".qc-row").classList.remove("confirming");
+    }));
+    PAGE.querySelectorAll("[data-order-remove-yes]").forEach((b) => (b.onclick = () => {
+      ORDER.lines = ORDER.lines.filter((l) => l.productId !== b.dataset.orderRemoveYes);
+      renderOrderBuild();
+    }));
+
+    // Quantity, in place — never a re-render, or the caret is lost mid-type.
+    // Same contract as wireQuickSteppers.
+    PAGE.querySelectorAll(".ord-row .pd-stepper").forEach((st) => {
+      const line = ORDER.lines.find((l) => l.productId === st.dataset.field);
+      if (!line) return;
+      const row = st.closest(".qc-row");
+      const input = st.querySelector("input");
+      // The "edited" badge is kept in step by hand for the same reason the
+      // count is: re-rendering the row would take the caret with it. Toggled
+      // here so it appears the moment the rep departs from the recommended
+      // number, not only after some later re-render.
+      const recCell = row.querySelectorAll(".ord-figures .fig")[1];
+      const syncEdited = (qty) => {
+        if (!recCell || line.recommendedQty == null) return;
+        const changed = Number(qty) !== Number(line.recommendedQty);
+        const badge = recCell.querySelector(".edited");
+        if (changed && !badge) recCell.insertAdjacentHTML("beforeend", ' <span class="edited">edited</span>');
+        else if (!changed && badge) badge.remove();
+      };
+      const set = (v) => {
+        const qty = Math.max(0, Math.floor(Number(v) || 0));
+        input.value = qty;
+        line.qty = qty;
+        row.classList.toggle("done", qty > 0);
+        syncEdited(qty);
+        refreshOrderChrome();
+      };
+      st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
+      input.oninput = () => set(input.value);
+    });
+
+    const add = $("#obAdd", PAGE);
+    if (add) add.onclick = () => {
+      OB_STATE.focused = true;
+      renderOrderBuild();
+      const box = $("#obQ", PAGE);
+      if (box) box.focus();
+    };
+
+    const back = $("#obBack", PAGE);
+    if (back) back.onclick = () => exitOrderSheet();
+
+    const review = $("#obReview", PAGE);
+    if (review) review.onclick = () => {
+      if (!orderTotals(ORDER.lines).products) { toast("Set a quantity on at least one product.", "info"); return; }
+      go("order-review", { customerId: customer._id });
+    };
+  }
+
+  // Header + footer only, so typing in a stepper survives. Mirrors
+  // refreshQuickChrome.
+  function refreshOrderChrome() {
+    const t = orderTotals(ORDER.lines);
+    const count = PAGE.querySelector(".ws-count");
+    if (count) count.textContent = t.products ? `${plural(t.products, "product")} · ${plural(t.units, "unit")}` : "Nothing to order yet";
+    const bar = PAGE.querySelector(".ws-bar > span");
+    if (bar) bar.style.width = (ORDER.lines.length ? Math.round((t.products / ORDER.lines.length) * 100) : 0) + "%";
+    const review = $("#obReview", PAGE);
+    if (review) review.disabled = !t.products;
+  }
+
+  // Leaving an order behind is the same conversation as leaving an audit:
+  // ask, and mean it. Nothing has been created at this point, so ending it
+  // genuinely discards — consistent with exitAuditSheet.
+  function exitOrderSheet() {
+    const t = orderTotals(ORDER.lines);
+    sheet({
+      eyebrow: titleCase(nameOf(loadCustomer(ORDER.customerId) || {})),
+      title: "Leave this order?",
+      sub: (t.products ? `${plural(t.products, "product")} ready to order. ` : "Nothing has been ordered yet. ") +
+           "Leaving without confirming does not keep it.",
+      actions: [
+        { label: "Keep editing", cls: "primary" },
+        { label: "Discard order", cls: "danger", onClick: () => {
+          ORDER = null;
+          OP_STATE = { q: "", focused: false };
+          toast("Order discarded.");
+          go("order-pick", {}, true);
+        } },
+      ],
+    });
+  }
+
+  /* ---- VIEW: order-review — the last look before anything is created ----- */
+
+  // A separate screen, not a sheet: this is the step that exists purely to
+  // make submission deliberate, and a sheet over the editable table invites
+  // exactly the accidental confirm it is meant to prevent.
+  function renderOrderReview() {
+    const customer = loadCustomer(CURRENT.params.customerId);
+    if (!customer || !ORDER) { go("order-pick", {}, true); return; }
+    const t = orderTotals(ORDER.lines);
+    if (!t.products) { go("order-build", { customerId: customer._id }, true); return; }
+
+    frame(`
+      <div class="sah-page-head">
+        <div class="row" style="align-items:center">
+          <button type="button" class="back" id="orBack">← Review Order</button>
+        </div>
+      </div>
+
+      <div class="cd-card ord-summary">
+        <div class="nm">${esc(titleCase(nameOf(customer)))}</div>
+        <div class="sub">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))}</div>
+      </div>
+
+      <div class="section-head-row"><h2>Order Lines</h2></div>
+      <div class="cd-card pi-card">
+        ${t.active.map((l) => `
+          <div class="pi-row static">
+            <span class="info">
+              <span class="nm">${esc(l.productName)}</span>
+              <span class="sku">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
+            </span>
+            <span class="right"><span class="qty">${l.qty} ${esc(l.unit)}</span></span>
+          </div>`).join("")}
+      </div>
+
+      <div class="cd-card ord-dest">
+        <div class="pb-title">This order will be created in</div>
+        <div class="dest-chain">
+          <span class="dest">FoodBridge</span>
+          <span class="arrow">↓</span>
+          <span class="dest">Zoho Sales Order</span>
+        </div>
+      </div>
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
+        <button type="button" class="btn-wide ghost" id="orEdit">Back &amp; Edit</button>
+        <button type="button" class="btn-wide primary" id="orConfirm">Confirm Order</button>
+      </div></div>` });
+
+    const backBtn = $("#orBack", PAGE);
+    if (backBtn) backBtn.onclick = () => back();
+    const edit = $("#orEdit", PAGE);
+    if (edit) edit.onclick = () => back();
+    const confirm = $("#orConfirm", PAGE);
+    if (confirm) confirm.onclick = () => confirmOrder(customer, confirm);
+  }
+
+  /* ---- commit: FoodBridge order, then Zoho ------------------------------- */
+
+  // THE commit point. Everything before this is editable and unsaved;
+  // everything after is a record that exists. The two steps are strictly
+  // ordered and independently represented: FoodBridge first, and Zoho only
+  // once FoodBridge has actually succeeded — never in parallel, never
+  // optimistically.
+  function confirmOrder(customer, buttonEl) {
+    if (!ORDER || ORDER.committing) return;
+    const t = orderTotals(ORDER.lines);
+    if (!t.products) { toast("Set a quantity on at least one product.", "info"); return; }
+
+    ORDER.committing = true;
+    if (buttonEl) { buttonEl.disabled = true; buttonEl.textContent = "Creating sales order…"; }
+
+    let record;
+    try {
+      const stamp = new Date().toISOString();
+      const ctx = (ORDER.prediction && ORDER.prediction.context) || {};
+      record = {
+        id: nextOrderId(stamp),
+        customerId: customer._id,
+        customerName: titleCase(nameOf(customer)),
+        createdAt: stamp,
+        createdBy: AUDITOR.name,
+        source: "predictive_order",
+        status: "confirmed",
+        zohoStatus: "pending",
+        zohoOrderNumber: null,
+        zohoOrderId: null,
+        zohoError: null,
+        // Traceability: which audit, which orders, and what the system
+        // proposed versus what the rep actually sent. This is the record a
+        // later "was the prediction any good?" question is answered from.
+        predictionContext: {
+          auditId: ctx.auditId || null,
+          auditAt: ctx.auditAt || null,
+          usedStockAudit: !!ctx.usedStockAudit,
+          usedSamePeriodLastYear: !!ctx.usedSamePeriodLastYear,
+          usedRecentHistory: !!ctx.usedRecentHistory,
+          sourceOrderDates: ctx.sourceOrderDates || [],
+          generatedAt: ctx.generatedAt || stamp,
+        },
+        lines: t.active.map((l) => ({
+          productId: l.productId,
+          productName: l.productName,
+          artNo: l.artNo,
+          unit: l.unit,
+          qty: l.qty,
+          currentStock: l.currentStock,
+          expectedDemand: l.expectedDemand,
+          recommendedQty: l.recommendedQty,
+          addedManually: l.addedManually,
+        })),
+        productCount: t.products,
+        unitCount: t.units,
+      };
+      SalesOrderStore.add(record);
+    } catch (e) {
+      // FoodBridge creation failed — Zoho must NOT be attempted.
+      ORDER.committing = false;
+      if (buttonEl) { buttonEl.disabled = false; buttonEl.textContent = "Confirm Order"; }
+      sheet({
+        title: "Order could not be created.",
+        sub: "Nothing was sent to Zoho. Please try again.",
+        actions: [{ label: "Close", cls: "primary" }],
+      });
+      return;
+    }
+
+    // The FoodBridge order now EXISTS. From here the order id is the thing
+    // that matters, and ORDER (the editable draft) has done its job — the
+    // success screen reads the stored record, so a retry can never produce a
+    // second FoodBridge order.
+    ORDER = null;
+    OB_STATE = { q: "", focused: false };
+    go("order-success", { orderId: record.id }, true);
+    syncOrderToZoho(record.id);
+  }
+
+  // Zoho, as its own step against an order that already exists. Called on
+  // confirm and again on retry — both times with the SAME order id, which is
+  // what keeps a failure from multiplying records.
+  function syncOrderToZoho(orderId) {
+    const order = SalesOrderStore.byId(orderId);
+    if (!order || order.zohoStatus === "created") return;
+    SalesOrderStore.update(orderId, { zohoStatus: "syncing", zohoError: null });
+    if (CURRENT.view === "order-success") renderOrderSuccess();
+
+    FB_ZOHO.createSalesOrder(order)
+      .then((res) => {
+        SalesOrderStore.update(orderId, {
+          zohoStatus: "created",
+          zohoOrderNumber: res.zohoOrderNumber,
+          zohoOrderId: res.zohoOrderId,
+          zohoError: null,
+          status: "zoho_created",
+        });
+      })
+      .catch((err) => {
+        SalesOrderStore.update(orderId, {
+          zohoStatus: "failed",
+          zohoError: (err && err.message) || "Zoho sales order could not be created.",
+          status: "zoho_failed",
+        });
+      })
+      .then(() => {
+        if (CURRENT.view === "order-success" && CURRENT.params.orderId === orderId) renderOrderSuccess();
+      });
+  }
+
+  /* ---- VIEW: order-success — what exists, and where ---------------------- */
+
+  // Reports the two systems SEPARATELY, because they genuinely can disagree:
+  // a FoodBridge order with a failed Zoho sync is a real, valid order that
+  // needs re-syncing, not a failed order to raise again.
+  function renderOrderSuccess() {
+    const order = SalesOrderStore.byId(CURRENT.params.orderId);
+    if (!order) { go("order-pick", {}, true); return; }
+
+    const zoho = order.zohoStatus;
+    const done = zoho === "created";
+    const failed = zoho === "failed";
+    const syncing = zoho === "syncing" || zoho === "pending";
+
+    frame(`
+      <div class="ord-done">
+        <div class="mark ${failed ? "warn" : done ? "ok" : "busy"}">${failed ? "!" : done ? "✓" : "⋯"}</div>
+        <h1>${failed ? "Order created — Zoho pending" : done ? "Order Created Successfully" : "Creating sales order…"}</h1>
+        <p>${failed
+            ? "The FoodBridge sales order is saved. It could not be sent to Zoho."
+            : done
+              ? "Sales order has been created in FoodBridge and Zoho."
+              : "Syncing with Zoho…"}</p>
+      </div>
+
+      <div class="cd-card ord-refs">
+        <div class="ref-row">
+          <span class="lbl">FoodBridge Order</span>
+          <span class="val">${esc(order.id)}</span>
+          <span class="status-tag ok">Created</span>
+        </div>
+        <div class="ref-row">
+          <span class="lbl">Zoho Sales Order</span>
+          <span class="val">${order.zohoOrderNumber ? esc(order.zohoOrderNumber) : "—"}</span>
+          <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : "Syncing"}</span>
+        </div>
+        ${failed && order.zohoError ? `<div class="ref-err">${esc(order.zohoError)}</div>` : ""}
+      </div>
+
+      <div class="cd-card ord-summary">
+        <div class="nm">${esc(order.customerName)}</div>
+        <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
+      </div>
+
+      <div class="cd-card pi-card">
+        ${order.lines.map((l) => `
+          <div class="pi-row static">
+            <span class="info">
+              <span class="nm">${esc(l.productName)}</span>
+              <span class="sku">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
+            </span>
+            <span class="right"><span class="qty">${l.qty} ${esc(l.unit)}</span></span>
+          </div>`).join("")}
+      </div>
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
+        ${failed ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Zoho</button>` : ""}
+        <button type="button" class="btn-wide primary" id="osDone" ${syncing ? "disabled" : ""}>Done</button>
+      </div></div>` });
+
+    const retry = $("#osRetry", PAGE);
+    // Re-syncs the EXISTING order. It never re-runs confirmOrder, which is
+    // the only thing that can create a FoodBridge record.
+    if (retry) retry.onclick = () => syncOrderToZoho(order.id);
+    const doneBtn = $("#osDone", PAGE);
+    if (doneBtn) doneBtn.onclick = () => {
+      OP_STATE = { q: "", focused: false };
+      go("order-pick", {}, true);
+    };
+  }
+
   /* ------------------------------------------------------------------ mount */
 
   // Every entry converges on the one Stock Audit journey — there is no
@@ -2110,6 +2901,7 @@
     LocationStore.load();
     DraftStore.load();
     AuditStore.load();
+    SalesOrderStore.load();
 
     const params = new URLSearchParams(location.search);
     const id = params.get("customer");
