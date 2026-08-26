@@ -1556,6 +1556,10 @@
     // back into the box shouldn't bury it under an unrelated suggestion set.
     // Typing a query always wins regardless (see the dropdown block below).
     const previewing = !q && QC_STATE.focused && !s.total;
+    // (The order screen's equivalent below adds one more way in: "+ Add
+    // Product" is an explicit request to add, so it opens the dropdown even
+    // with a list already on screen. This screen has no such button — its
+    // search box IS the add affordance — so the rule stays as it was.)
     const searching = !!q || previewing;
     const available = products.filter((p) => !DRAFT.selected.includes(p.id));
     const results = !searching
@@ -2206,7 +2210,12 @@
   // Create Order tab reads to decide between resuming and starting fresh.
   let ORDER = null;
   let OP_STATE = { q: "", focused: false };   // Create Order → customer search
-  let OB_STATE = { q: "", focused: false };   // Predictive order → add-product search
+  // `adding` is set only by the "+ Add Product" button — an explicit ask to
+  // add, which opens the dropdown even when a list is already on screen.
+  // Incidental focus on the box does not (see `previewing` in
+  // renderOrderBuild): that would bury the rep's own list under an
+  // unrelated suggestion set every time they tapped near the top.
+  let OB_STATE = { q: "", focused: false, adding: false };   // Predictive order → add-product search
   // Whether the sticky footer is asking "Confirm order?" rather than showing
   // the button. Exactly QC_CONFIRM's role on the counting screen, and reset
   // by any re-render for the same reason: a question raised against a scope
@@ -2358,7 +2367,7 @@
     });
     PAGE.querySelectorAll("[data-order-pick]").forEach((b) => (b.onclick = () => {
       OP_STATE = { q: "", focused: false };
-      OB_STATE = { q: "", focused: false };
+      OB_STATE = { q: "", focused: false, adding: false };
       startOrderFor(b.dataset.orderPick);
     }));
   }
@@ -2464,7 +2473,9 @@
     const matches = (p) => [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const chosen = ORDER.lines.map((l) => l.productId);
     const available = products.filter((p) => chosen.indexOf(p.id) === -1);
-    const previewing = !q && OB_STATE.focused && !ORDER.lines.length;
+    // Two ways to an empty-query dropdown: the rep asked for one ("+ Add
+    // Product"), or there is no list yet for it to bury.
+    const previewing = !q && (OB_STATE.adding || (OB_STATE.focused && !ORDER.lines.length));
     const searching = !!q || previewing;
     const results = !searching
       ? []
@@ -2548,7 +2559,10 @@
         const known = Object.prototype.hasOwnProperty.call(ORDER.stockMap, p.id);
         ORDER.lines.push(orderLineFromProduct(p, known ? ORDER.stockMap[p.id] : null));
       }
+      // Picking one answers the "add" the button asked, so the dropdown
+      // gives the list back rather than staying open over it.
       OB_STATE.q = "";
+      OB_STATE.adding = false;
       renderOrderBuild();
     }));
 
@@ -2589,10 +2603,25 @@
     const add = $("#obAdd", PAGE);
     if (add) add.onclick = () => {
       OB_STATE.focused = true;
+      OB_STATE.adding = true;
       renderOrderBuild();
       const box = $("#obQ", PAGE);
       if (box) box.focus();
     };
+
+    // Tapping away from an add-dropdown the rep opened but didn't use puts
+    // the list back — the ordinary way a dropdown closes. Deferred because
+    // blur lands BEFORE the click that caused it: picking a product must be
+    // allowed to run first (it clears `adding` itself), and a re-render from
+    // typing re-focuses the box, which the activeElement check lets through
+    // so the caret is never stolen mid-word.
+    const box = $("#obQ", PAGE);
+    if (box) box.onblur = () => setTimeout(() => {
+      if (!ORDER || !OB_STATE.adding) return;
+      if (document.activeElement === $("#obQ", PAGE)) return;
+      OB_STATE.adding = false;
+      if (CURRENT.view === "order-build") renderOrderBuild();
+    }, 150);
 
     const back = $("#obBack", PAGE);
     if (back) back.onclick = () => exitOrderSheet();
@@ -2726,7 +2755,7 @@
     // success screen reads the stored record, so a retry can never produce a
     // second FoodBridge order.
     ORDER = null;
-    OB_STATE = { q: "", focused: false };
+    OB_STATE = { q: "", focused: false, adding: false };
     go("order-success", { orderId: record.id }, true);
     syncOrderToZoho(record.id);
   }
