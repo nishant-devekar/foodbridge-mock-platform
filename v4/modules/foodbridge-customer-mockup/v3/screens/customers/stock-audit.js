@@ -2366,8 +2366,11 @@
   // counts, or which window each came from. That detail is real, so it is
   // kept one tap away in a sheet rather than deleted; it just has no claim
   // on the screen a rep is trying to order from.
+  // Two words, riding on the "Recommended" heading's own row — the heading
+  // already says these are recommendations, so this only has to say what
+  // they came from.
   const basisLabel = (ctx) =>
-    ctx.usedStockAudit ? "Based on stock + history" : "Based on history";
+    ctx.usedStockAudit ? "Stock + history" : "History only";
 
   function predictionBasisHTML(ctx) {
     return `<button type="button" class="ord-basis" id="obBasis">
@@ -2492,8 +2495,7 @@
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
             : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
-        : `${recommended ? predictionBasisHTML(ctx) : ""}
-           ${ORDER.lines.length ? `<div class="section-head-row"><h2>${recommended ? "Recommended" : "Products"}</h2></div>` : ""}
+        : `${ORDER.lines.length ? `<div class="section-head-row"><h2>${recommended ? "Recommended" : "Products"}</h2>${recommended ? predictionBasisHTML(ctx) : ""}</div>` : ""}
            ${ORDER.lines.length
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
               : orderEmptyStateHTML()}
