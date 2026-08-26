@@ -1038,3 +1038,23 @@
 
 /* Three tabs now, not two — the labels need the room. */
 .sah-nav .nav-btn { font-size: 10.5px; }
+
+/* Why the Zoho sync did not land, shown only when it did not. Sized like the
+   summary line under it rather than an alert box: it is a fact about the
+   order, not an interruption, and the retry it belongs to is already in the
+   footer. */
+.ord-note {
+  margin: 8px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--orange, #b45309);
+}
+
+/* "Open in Zoho" is an <a>, not a <button>, so it needs the button metrics
+   spelled out to sit level with Retry / Done in the same footer row. */
+.sah-foot a.btn-wide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

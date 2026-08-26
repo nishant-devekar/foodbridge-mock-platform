@@ -1,0 +1,16 @@
+# Only the function needs to ship: api/*, zoho.js, sync.js, mappings.js.
+# Everything below is local tooling, and .env must NEVER end up in a
+# deployment bundle -- its values belong in Vercel's own environment,
+# which deploy.sh sets separately.
+.env
+.env.*
+node_modules
+test
+dev-server.js
+setup.js
+seed-catalogue.js
+read-seed.js
+check.js
+audit-mappings.js
+deploy.sh
+README.md

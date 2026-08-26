@@ -2707,10 +2707,20 @@
         createdBy: AUDITOR.name,
         source: "predictive_order",
         status: "confirmed",
+        // zohoStatus is the SYNC state (pending | syncing | created | failed).
+        // zohoOrderStatus is Zoho's OWN word for the order once it exists, kept
+        // separate so this screen never invents a processing state — what
+        // happens to the order after creation is the distributor's business,
+        // done in Zoho.
         zohoStatus: "pending",
         zohoOrderNumber: null,
         zohoOrderId: null,
+        zohoOrderStatus: null,
+        zohoCustomerId: null,
+        zohoUrl: null,
         zohoError: null,
+        zohoErrorCode: null,
+        zohoLastSyncedAt: null,
         // Traceability: which audit, which orders, and what the system
         // proposed versus what the rep actually sent. This is the record a
         // later "was the prediction any good?" question is answered from.
@@ -2766,24 +2776,40 @@
   function syncOrderToZoho(orderId) {
     const order = SalesOrderStore.byId(orderId);
     if (!order || order.zohoStatus === "created") return;
-    SalesOrderStore.update(orderId, { zohoStatus: "syncing", zohoError: null });
+    SalesOrderStore.update(orderId, { zohoStatus: "syncing", zohoError: null, zohoErrorCode: null });
     if (CURRENT.view === "order-success") renderOrderSuccess();
 
+    // The whole order goes over: the function needs the line quantities the
+    // salesperson CONFIRMED, which is what `lines` holds. It re-reads nothing
+    // from the prediction.
     FB_ZOHO.createSalesOrder(order)
       .then((res) => {
         SalesOrderStore.update(orderId, {
           zohoStatus: "created",
+          // Every one of these came back from Zoho. None is generated here.
           zohoOrderNumber: res.zohoOrderNumber,
           zohoOrderId: res.zohoOrderId,
+          zohoOrderStatus: res.zohoStatus || null,
+          zohoCustomerId: res.zohoCustomerId || null,
+          zohoUrl: res.zohoUrl || null,
           zohoError: null,
+          zohoErrorCode: null,
+          zohoLastSyncedAt: new Date().toISOString(),
           status: "zoho_created",
         });
       })
       .catch((err) => {
+        const code = (err && err.code) || "zoho_unavailable";
+        // A timeout is NOT a failure: Zoho may hold the order with only the
+        // reply lost. It stays PENDING, and the retry asks the function to
+        // look the reference up rather than post a second time.
+        const timedOut = code === "timeout";
         SalesOrderStore.update(orderId, {
-          zohoStatus: "failed",
+          zohoStatus: timedOut ? "pending" : "failed",
           zohoError: (err && err.message) || "Zoho sales order could not be created.",
-          status: "zoho_failed",
+          zohoErrorCode: code,
+          zohoLastSyncedAt: new Date().toISOString(),
+          status: timedOut ? "zoho_pending" : "zoho_failed",
         });
       })
       .then(() => {
@@ -2803,11 +2829,17 @@
     const zoho = order.zohoStatus;
     const done = zoho === "created";
     const failed = zoho === "failed";
-    const syncing = zoho === "syncing" || zoho === "pending";
+    // A sync still in flight. A "pending" that already carries an error code is
+    // a request that timed out — the order's fate in Zoho is genuinely unknown,
+    // so it is NOT reported as failed and NOT left spinning: it offers Retry,
+    // which asks the function to look the reference up before writing anything.
+    const unresolved = zoho === "pending" && !!order.zohoErrorCode;
+    const syncing = (zoho === "syncing" || zoho === "pending") && !unresolved;
+    const needsRetry = failed || unresolved;
 
     frame(`
       <div class="ord-done">
-        <div class="mark ${failed ? "warn" : done ? "ok" : "busy"}">${failed ? "!" : done ? "✓" : "⋯"}</div>
+        <div class="mark ${needsRetry ? "warn" : done ? "ok" : "busy"}">${needsRetry ? "!" : done ? "✓" : "⋯"}</div>
         <h1>${syncing ? "Creating order…" : "Order Created"}</h1>
       </div>
 
@@ -2820,16 +2852,29 @@
         <div class="ref-row">
           <span class="lbl">Zoho</span>
           <span class="val">${order.zohoOrderNumber ? esc(order.zohoOrderNumber) : "—"}</span>
-          <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : "Syncing"}</span>
+          <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : unresolved ? "Pending" : "Syncing"}</span>
         </div>
       </div>
+      ${needsRetry && order.zohoError
+        ? // One line, only when something went wrong. Without it "Failed" gives
+          // a rep nothing to act on, and the commonest cause here -- a product
+          // or customer with no Zoho mapping yet -- is fixable in a minute by
+          // whoever set the integration up.
+          `<p class="ord-note">${esc(order.zohoError)}</p>`
+        : ""}
 
       <div class="ord-summary">
         <div class="nm">${esc(order.customerName)}</div>
         <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
       </div>
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        ${failed ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Zoho</button>` : ""}
+        ${needsRetry ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Zoho</button>` : ""}
+        ${done && order.zohoUrl
+          // Only when the function supplied a URL for this tenant. Zoho's API
+          // returns none and nothing here invents one, so an unconfigured
+          // deployment simply shows the number.
+          ? `<a class="btn-wide ghost" id="osOpen" href="${esc(order.zohoUrl)}" target="_blank" rel="noopener">Open in Zoho</a>`
+          : ""}
         <button type="button" class="btn-wide primary" id="osDone" ${syncing ? "disabled" : ""}>Done</button>
       </div></div>` });
 

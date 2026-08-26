@@ -97,14 +97,31 @@ so the recommendation can be judged later.
 `Confirm order?` in the footer — the same two-tap commit Finish Audit uses. Then, strictly in
 order: the FoodBridge sales order is created, and only once that succeeds is Zoho called.
 
-**Zoho is a MOCK.** `zoho-adapter.js` is written as a real adapter — one async boundary,
-Zoho's own payload and response shapes, a config block, a typed error, a single
-`postToZoho` to swap for a `fetch` — but no request leaves the page. The success screen
-reports the two systems **separately**, because they can genuinely disagree: a FoodBridge
-order with a failed Zoho sync is a real order needing a re-sync, not a failed one to raise
-again. Retry is keyed on the FoodBridge order id and re-syncs that same order, so a failure
-can never multiply records. `window.FB_ZOHO_FAIL = true` in the console exercises that path
-deliberately; nothing fails at random.
+**Zoho is REAL.** `zoho-adapter.js` posts a confirmed order to
+`zoho-function/`, a dependency-free serverless bridge that holds the OAuth
+credentials and calls Zoho Books' own `POST /books/v3/salesorders`. Every sales
+order id, number and status the success screen shows came back from Zoho; there
+is no offline success path, so an unreachable or unconfigured bridge reports the
+order as **not** synced rather than pretending. The success screen still reports
+the two systems **separately**, because they can genuinely disagree: a
+FoodBridge order with a failed Zoho sync is a real order needing a re-sync, not
+a failed one to raise again.
+
+Duplicate protection is enforced by asking Zoho, not by remembering: the
+FoodBridge order id travels as Zoho's `reference_number`, and the bridge looks
+it up before every write. A retry therefore attaches to the sales order that
+already exists, and a timeout — where Zoho may hold the order with only the
+reply lost — is held as PENDING and verified by reference rather than re-posted.
+After creating, the bridge reads the order back and compares customer, lines and
+quantities; a mismatch is reported as a failure, not a success.
+
+The bridge is scoped to ONE Zoho Books organisation on purpose — this is a PMF
+experiment. Customer and item mappings are two literal objects in
+`zoho-function/mappings.js`, which ships empty: FoodBridge ids are never sent to
+Zoho as Zoho ids, and an unmapped customer or product fails loudly. No price is
+sent, because FoodBridge holds none — Zoho applies the item's own configured
+rate. Setup, OAuth and the five required settings are in
+`zoho-function/README.md`.
 
 **Seed.** `orderingSignals` gained product-level `lines` and previous-year orders — the
 existing structure extended, not a parallel order model, and additive enough that the

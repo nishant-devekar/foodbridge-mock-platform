@@ -1,0 +1,15 @@
+{
+  "name": "foodbridge-zoho-function",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal server-side bridge: confirmed FoodBridge order -> real Zoho Books sales order. No dependencies.",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "node dev-server.js",
+    "setup": "node setup.js",
+    "test": "node --test test/*.test.js"
+  }
+}
