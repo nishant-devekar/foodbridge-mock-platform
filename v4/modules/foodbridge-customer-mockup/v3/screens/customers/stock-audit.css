@@ -999,13 +999,12 @@
    more weight than the + Add Product below it, which is the actual next move. */
 .ord-note { padding: 26px 4px; text-align: center; font-size: 13.5px; color: var(--muted-2); }
 
-/* ── Review + success shared ─────────────────────────────────────────────── */
+/* ── Success summary ─────────────────────────────────────────────────────── */
+/* (Was shared with a Review screen; confirming happens inline in the footer
+   now — see orderFootHTML — so this is the success screen's alone.) */
 .ord-summary { padding: 2px 2px 12px; }
 .ord-summary .nm { font-size: 15px; font-weight: 800; color: var(--ink); }
 .ord-summary .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
-
-/* Where it goes, on the header line rather than in a card of its own. */
-.ord-dest-inline { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--muted-2); white-space: nowrap; }
 
 /* ── Success ─────────────────────────────────────────────────────────────── */
 .ord-done { text-align: center; padding: 18px 12px 6px; }

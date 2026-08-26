@@ -1034,7 +1034,6 @@
       "quick-count": renderQuickCount,
       "order-pick": renderOrderPick,
       "order-build": renderOrderBuild,
-      "order-review": renderOrderReview,
       "order-success": renderOrderSuccess,
     })[CURRENT.view]?.();
   }
@@ -1103,7 +1102,7 @@
   function navActiveKey(view) {
     if (view === "quick-pick" || view === "quick-count") return "stock-audit";
     if (view === "audits" || view === "audit") return "audits";
-    if (view === "order-pick" || view === "order-build" || view === "order-review" || view === "order-success") return "create-order";
+    if (view === "order-pick" || view === "order-build" || view === "order-success") return "create-order";
     return null;
   }
 
@@ -2208,6 +2207,11 @@
   let ORDER = null;
   let OP_STATE = { q: "", focused: false };   // Create Order → customer search
   let OB_STATE = { q: "", focused: false };   // Predictive order → add-product search
+  // Whether the sticky footer is asking "Confirm order?" rather than showing
+  // the button. Exactly QC_CONFIRM's role on the counting screen, and reset
+  // by any re-render for the same reason: a question raised against a scope
+  // the rep has since changed must not survive the change.
+  let OB_CONFIRM = false;
   // Set while the recommendation is being generated, so the view can render
   // the analysing state instead of an empty table.
   let ORDER_LOADING = false;
@@ -2438,6 +2442,7 @@
   function renderOrderBuild() {
     const customer = loadCustomer(CURRENT.params.customerId);
     if (!customer || !ORDER) { go("order-pick", {}, true); return; }
+    OB_CONFIRM = false;
 
     // Working. The bar and the one line are the whole message — a checklist
     // of what is being consulted is a progress report nobody asked for.
@@ -2500,11 +2505,32 @@
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
               : orderEmptyStateHTML()}
            <button type="button" class="ord-add" id="obAdd">+ Add Product</button>`}
-    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        <button type="button" class="btn-wide primary" id="obReview" ${t.products ? "" : "disabled"}>Confirm Order</button>
-      </div></div>` });
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner" id="obFoot">${orderFootHTML()}</div></div>` });
 
     wireOrderBuild(customer);
+  }
+
+  // The sticky footer, in its two states — the same two-tap commit the audit
+  // uses to finish a count (see quickFootHTML). Confirming is a decision made
+  // in place, against the list the rep is already looking at; a separate
+  // review screen re-listed what was on screen a moment ago and put the
+  // quantities a tap further away when the answer was "no, change one".
+  function orderFootHTML() {
+    const t = orderTotals(ORDER.lines);
+    if (ORDER.committing) {
+      return `<button type="button" class="btn-wide primary" disabled>Creating order…</button>`;
+    }
+    if (!OB_CONFIRM) {
+      return `<button type="button" class="btn-wide primary" id="obConfirm" ${t.products ? "" : "disabled"}>Confirm Order</button>`;
+    }
+    return `<span class="confirm-inline">
+        <span class="ci-copy">
+          <span class="ci-prompt">Confirm order?</span>
+          <span class="ci-detail">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))} · FoodBridge → Zoho</span>
+        </span>
+        <button type="button" class="ci-btn yes" id="obYes" aria-label="Confirm order">✓</button>
+        <button type="button" class="ci-btn no" id="obNo" aria-label="Keep editing">✗</button>
+      </span>`;
   }
 
   function wireOrderBuild(customer) {
@@ -2571,23 +2597,39 @@
     const back = $("#obBack", PAGE);
     if (back) back.onclick = () => exitOrderSheet();
 
-    const review = $("#obReview", PAGE);
-    if (review) review.onclick = () => {
+    wireOrderFoot(customer);
+  }
+
+  // Re-wired on every footer swap, since the footer replaces its own markup.
+  function wireOrderFoot(customer) {
+    const confirm = $("#obConfirm", PAGE);
+    if (confirm) confirm.onclick = () => {
       if (!orderTotals(ORDER.lines).products) { toast("Set a quantity on at least one product.", "info"); return; }
-      go("order-review", { customerId: customer._id });
+      OB_CONFIRM = true;
+      refreshOrderChrome();
+    };
+    const no = $("#obNo", PAGE);
+    if (no) no.onclick = () => { OB_CONFIRM = false; refreshOrderChrome(); };
+    const yes = $("#obYes", PAGE);
+    if (yes) yes.onclick = () => {
+      OB_CONFIRM = false;
+      confirmOrder(customer);
     };
   }
 
   // Header + footer only, so typing in a stepper survives. Mirrors
   // refreshQuickChrome.
-  function refreshOrderChrome() {
+  function refreshOrderChrome(customer) {
     const t = orderTotals(ORDER.lines);
     const count = PAGE.querySelector(".ws-count");
     if (count) count.textContent = t.products ? `${plural(t.products, "product")} · ${plural(t.units, "unit")}` : "Nothing to order yet";
     const bar = PAGE.querySelector(".ws-bar > span");
     if (bar) bar.style.width = (ORDER.lines.length ? Math.round((t.products / ORDER.lines.length) * 100) : 0) + "%";
-    const review = $("#obReview", PAGE);
-    if (review) review.disabled = !t.products;
+    const foot = $("#obFoot", PAGE);
+    if (foot) {
+      foot.innerHTML = orderFootHTML();
+      wireOrderFoot(customer || loadCustomer(ORDER.customerId));
+    }
   }
 
   // Leaving an order behind is the same conversation as leaving an audit:
@@ -2609,53 +2651,6 @@
     });
   }
 
-  /* ---- VIEW: order-review — the last look before anything is created ----- */
-
-  // A separate screen, not a sheet: this is the step that exists purely to
-  // make submission deliberate, and a sheet over the editable table invites
-  // exactly the accidental confirm it is meant to prevent.
-  function renderOrderReview() {
-    const customer = loadCustomer(CURRENT.params.customerId);
-    if (!customer || !ORDER) { go("order-pick", {}, true); return; }
-    const t = orderTotals(ORDER.lines);
-    if (!t.products) { go("order-build", { customerId: customer._id }, true); return; }
-
-    frame(`
-      <div class="sah-page-head">
-        <div class="row" style="align-items:center">
-          <button type="button" class="back" id="orBack">← Review</button>
-          <span class="ord-dest-inline">FoodBridge → Zoho</span>
-        </div>
-      </div>
-
-      <div class="ord-summary">
-        <div class="nm">${esc(titleCase(nameOf(customer)))}</div>
-        <div class="sub">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))}</div>
-      </div>
-
-      <div class="cd-card pi-card">
-        ${t.active.map((l) => `
-          <div class="pi-row static">
-            <span class="info">
-              <span class="nm">${esc(l.productName)}</span>
-              <span class="sku">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
-            </span>
-            <span class="right"><span class="qty">${l.qty} ${esc(l.unit)}</span></span>
-          </div>`).join("")}
-      </div>
-    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        <button type="button" class="btn-wide ghost" id="orEdit">Back &amp; Edit</button>
-        <button type="button" class="btn-wide primary" id="orConfirm">Confirm Order</button>
-      </div></div>` });
-
-    const backBtn = $("#orBack", PAGE);
-    if (backBtn) backBtn.onclick = () => back();
-    const edit = $("#orEdit", PAGE);
-    if (edit) edit.onclick = () => back();
-    const confirm = $("#orConfirm", PAGE);
-    if (confirm) confirm.onclick = () => confirmOrder(customer, confirm);
-  }
-
   /* ---- commit: FoodBridge order, then Zoho ------------------------------- */
 
   // THE commit point. Everything before this is editable and unsaved;
@@ -2663,13 +2658,13 @@
   // ordered and independently represented: FoodBridge first, and Zoho only
   // once FoodBridge has actually succeeded — never in parallel, never
   // optimistically.
-  function confirmOrder(customer, buttonEl) {
+  function confirmOrder(customer) {
     if (!ORDER || ORDER.committing) return;
     const t = orderTotals(ORDER.lines);
     if (!t.products) { toast("Set a quantity on at least one product.", "info"); return; }
 
     ORDER.committing = true;
-    if (buttonEl) { buttonEl.disabled = true; buttonEl.textContent = "Creating sales order…"; }
+    refreshOrderChrome(customer);
 
     let record;
     try {
@@ -2717,7 +2712,7 @@
     } catch (e) {
       // FoodBridge creation failed — Zoho must NOT be attempted.
       ORDER.committing = false;
-      if (buttonEl) { buttonEl.disabled = false; buttonEl.textContent = "Confirm Order"; }
+      refreshOrderChrome(customer);
       sheet({
         title: "Order could not be created.",
         sub: "Nothing was sent to Zoho. Please try again.",
