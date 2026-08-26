@@ -80,7 +80,7 @@ export class ZohoError extends Error {
     this.status = {
       not_configured: 503, auth_failed: 502, customer_not_mapped: 422,
       product_not_mapped: 422, zoho_rejected: 422, verification_failed: 422,
-      bad_request: 400, timeout: 504,
+      bad_request: 400, timeout: 504, reference_conflict: 409,
     }[category] || 502;
   }
   toJSON() { return { category: this.category, message: this.message, detail: this.detail }; }

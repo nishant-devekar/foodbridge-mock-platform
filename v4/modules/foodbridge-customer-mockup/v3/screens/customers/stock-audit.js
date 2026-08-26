@@ -499,15 +499,45 @@
     },
   };
 
-  // FB-SO-YY-MM-NNN, sequential within the month so two orders raised on the
-  // same day are visibly ordered. Derived from what is already stored rather
-  // than a counter of its own, which would drift the moment storage is
-  // cleared but the orders are not.
+  const DEVICE_KEY = "fb-discovery-device-tag";
+
+  // Four characters that identify THIS browser, minted once and kept.
+  //
+  // The counter below is derived from this browser's own stored orders, which
+  // is right for a prototype with no server to allocate numbers -- but it
+  // means two phones both raise "001" on the same day. That id becomes Zoho's
+  // reference_number, and the bridge de-duplicates on it: a second device's
+  // 001 would be handed the first device's sales order, for a different shop,
+  // and told it had synced. The tag is what keeps the two apart.
+  //
+  // The bridge refuses a reference that already belongs to another customer,
+  // so a collision fails loudly rather than silently -- this stops it
+  // happening at all.
+  function deviceTag() {
+    try {
+      let t = localStorage.getItem(DEVICE_KEY);
+      if (!t) {
+        t = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "0");
+        localStorage.setItem(DEVICE_KEY, t);
+      }
+      return t;
+    } catch (e) {
+      // Private mode: stable for the session, which is as far as anything
+      // else in this prototype persists anyway.
+      return "0000";
+    }
+  }
+
+  // FB-SO-YY-MM-TTTT-NNN, sequential within the month so two orders raised on
+  // the same day are visibly ordered, and tagged per device so two reps never
+  // mint the same reference. Derived from what is already stored rather than a
+  // counter of its own, which would drift the moment storage is cleared but
+  // the orders are not.
   function nextOrderId(when) {
     const d = when ? new Date(when) : new Date();
     const yy = String(d.getFullYear()).slice(2);
     const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const prefix = `FB-SO-${yy}-${mm}-`;
+    const prefix = `FB-SO-${yy}-${mm}-${deviceTag()}-`;
     const n = SalesOrderStore.state.filter((o) => String(o.id).startsWith(prefix)).length + 1;
     return prefix + String(n).padStart(3, "0");
   }

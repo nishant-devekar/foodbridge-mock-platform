@@ -212,6 +212,30 @@ test("auth failure is its own category and leaks no secret", async () => {
   } finally { await zoho.close(); }
 });
 
+test("a reference already belonging to another customer is REFUSED, not attached", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  ZOHO_CUSTOMER_MAP.c02 = "460000000000999999"; // a different shop
+  try {
+    // Device A raises FB-SO-26-08-001 for c01.
+    const first = await syncOrder(cfgFor(zoho), order({ id: "FB-SO-26-08-001" }));
+    assert.equal(first.created, true);
+
+    // Device B, whose counter also started at 001, raises the same id for a
+    // DIFFERENT customer. Handing back device A's sales order would tell the
+    // second rep their order synced -- to the wrong shop.
+    await assert.rejects(
+      () => syncOrder(cfgFor(zoho), order({ id: "FB-SO-26-08-001", customerId: "c02" })),
+      (e) => {
+        assert.equal(e.category, "reference_conflict");
+        assert.equal(e.status, 409);
+        return true;
+      }
+    );
+    assert.equal(zoho.state.posts, 1, "and nothing new may be written under that reference");
+  } finally { await zoho.close(); }
+});
+
 test("deep link is null unless the operator configured a pattern", async () => {
   const zoho = await startFakeZoho();
   clearMappings(); withMappings();

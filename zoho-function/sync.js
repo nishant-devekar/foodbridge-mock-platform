@@ -24,6 +24,30 @@ import {
   ZohoError, buildSalesOrderPayload, createSalesOrder, getSalesOrder,
   findByReference, verify, salesOrderUrl, missingConfig,
 } from "./zoho.js";
+import { ZOHO_CUSTOMER_MAP } from "./mappings.js";
+
+/**
+ * A reference that already exists in Zoho must belong to the SAME customer,
+ * or it is not this order's reference at all.
+ *
+ * FoodBridge order ids are counted out of each browser's own localStorage, so
+ * two devices can independently mint "FB-SO-26-08-001" for different shops.
+ * The de-duplication below keys on exactly that string. Without this check the
+ * second device would be handed the first device's sales order and told its
+ * order had synced -- the wrong customer, the wrong goods, silently.
+ *
+ * Refusing is the only safe answer: attaching is wrong, and creating a second
+ * order under a reference that already means something else is worse.
+ */
+function assertSameCustomer(order, found) {
+  const expected = ZOHO_CUSTOMER_MAP[order.customerId];
+  if (!expected || !found.customer_id) return;
+  if (String(found.customer_id) === String(expected)) return;
+  throw new ZohoError("reference_conflict",
+    "This order number already belongs to a different customer in Zoho.",
+    `${order.id} is already ${found.salesorder_number || found.salesorder_id} for ` +
+    `"${found.customer_name || found.customer_id}". Raise this order again to get a fresh number.`);
+}
 
 const log = (event, fields) =>
   process.stdout.write(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }) + "\n");
@@ -55,6 +79,7 @@ export async function syncOrder(cfg, order, fetchImpl = fetch) {
   if (order.zohoOrderId) {
     const existing = await getSalesOrder(cfg, order.zohoOrderId, fetchImpl).catch(() => null);
     if (existing) {
+      assertSameCustomer(order, existing);
       log("zoho.sync.already_linked", { orderId: order.id, salesorderId: existing.salesorder_id });
       return result(cfg, order, existing, { created: false });
     }
@@ -65,6 +90,7 @@ export async function syncOrder(cfg, order, fetchImpl = fetch) {
   //    browser gave up on it.
   const found = await findByReference(cfg, order.id, fetchImpl);
   if (found) {
+    assertSameCustomer(order, found);
     log("zoho.sync.already_exists", { orderId: order.id, salesorderId: found.salesorder_id });
     return result(cfg, order, found, { created: false });
   }
@@ -82,6 +108,7 @@ export async function syncOrder(cfg, order, fetchImpl = fetch) {
       log("zoho.sync.timeout_checking", { orderId: order.id });
       const recovered = await findByReference(cfg, order.id, fetchImpl).catch(() => null);
       if (recovered) {
+        assertSameCustomer(order, recovered);
         log("zoho.sync.recovered", { orderId: order.id, salesorderId: recovered.salesorder_id });
         return result(cfg, order, recovered, { created: true, recovered: true });
       }

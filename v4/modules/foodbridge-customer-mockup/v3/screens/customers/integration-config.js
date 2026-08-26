@@ -36,6 +36,52 @@
       return null; // Private mode: fall through to the compiled-in defaults.
     }
   }
+  function remember(name, value) {
+    try {
+      window.localStorage.setItem(name, value);
+    } catch (e) {
+      /* private mode: this visit still works, the next one needs the link again */
+    }
+  }
+
+  // Provisioning a demo device from a LINK rather than a console command:
+  //
+  //   .../v4/?fbkey=<key>#/customer-management/stock-audit-health
+  //
+  // The key is read once, stored, and stripped from the address bar so it does
+  // not sit in history, get screenshotted, or ride along when the URL is
+  // shared. This page runs inside the platform shell's iframe, so the query
+  // lives on the TOP window -- same origin, so it is readable and rewritable.
+  //
+  // It is a convenience, not a secret channel. The key reaches the browser
+  // either way; what this avoids is committing it to a public repo.
+  (function provisionFromUrl() {
+    var frames = [window];
+    try {
+      if (window.top && window.top !== window) frames.push(window.top);
+    } catch (e) {
+      return; // Cross-origin embed: nothing to read, nothing to strip.
+    }
+    for (var i = 0; i < frames.length; i++) {
+      try {
+        var win = frames[i];
+        var params = new URLSearchParams(win.location.search);
+        var key = params.get("fbkey");
+        var base = params.get("fbapi");
+        if (!key && !base) continue;
+        if (key) remember("fb-api-key", key);
+        if (base) remember("fb-api-base", base);
+        params.delete("fbkey");
+        params.delete("fbapi");
+        var q = params.toString();
+        win.history.replaceState(null, "",
+          win.location.pathname + (q ? "?" + q : "") + win.location.hash);
+      } catch (e) {
+        /* a frame we may not touch; try the next */
+      }
+    }
+  })();
+
   var override = stored("fb-api-base");
 
   window.FB_INTEGRATION = {
