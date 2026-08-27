@@ -2503,6 +2503,20 @@
   // same class that tints a counted row, so the two can never disagree.
   // `lines` defaults to the live draft's, so every existing caller is
   // unchanged; Edit Audit passes its own map to get the identical row.
+  // Names in this catalogue run from two words to fifteen, and a rep can create
+  // one of any length at all — this is the rail for that. Shown whole up to
+  // NAME_WORDS and elided after it, with the FULL name kept on the title and
+  // the aria-label so nothing is actually lost.
+  //
+  // On a phone the CSS two-line clamp is what usually does the truncating: it
+  // is width-aware and a word count is not. This bounds the pathological name,
+  // not the ordinary one.
+  const NAME_WORDS = 12;
+  function shortName(name) {
+    const words = String(name || "").trim().split(/\s+/);
+    return words.length <= NAME_WORDS ? String(name || "") : words.slice(0, NAME_WORDS).join(" ") + "…";
+  }
+
   function quickRowHTML(p, lines) {
     const line = (lines || DRAFT.lines)[p.id];
     const done = line && lineIsCaptured(line);
@@ -2512,8 +2526,7 @@
     return `
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
-          <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${esc(p.name)}</div>
-          <div class="meta">${p.artNo ? `<span class="sku" title="${esc(p.artNo)}">${esc(skuText(p))}</span>` : ""}</div>
+          <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" title="${esc(p.name)}" aria-label="Details for ${esc(p.name)}">${esc(shortName(p.name))}</div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
         ${stepperHTML(p.id, qty == null ? "" : qty, unitPickHTML("data-unit", p.id, p.name, unit, units, baseUnit(p), "Counting unit"))}
@@ -3474,8 +3487,7 @@
     return `
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
-          <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" aria-label="Details for ${esc(l.productName)}">${esc(l.productName)}</div>
-          <div class="meta"><span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span></div>
+          <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" title="${esc(l.productName)}" aria-label="Details for ${esc(l.productName)}">${esc(shortName(l.productName))}</div>
           <div class="meta ask">Remove from this order?</div>
         </div>
         ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit"))}

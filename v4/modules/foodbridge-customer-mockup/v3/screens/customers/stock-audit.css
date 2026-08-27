@@ -319,18 +319,17 @@
 /* The unit sits above this control, outside its border — see .qty-col. The
    middle cell is the number alone. `align-items: stretch` keeps all three
    cells one height. */
-/* Raised over the remove button on purpose. The bin's 44px target is painted
-   as a 24px circle and pulled left by a negative margin, which reaches 3px
-   past the row's gap and over the "+" button — so the rightmost sliver of "+"
-   opened a delete confirmation instead of adding one. The bin keeps its target
-   everywhere it does not collide; where the two overlap, the quantity wins. */
-.qty-col { position: relative; z-index: 1; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+/* The z-index that used to sit here is gone. It existed because the bin's 44px
+   target was pulled left over the "+" button; the two are now held apart by a
+   real margin instead (see .qc-remove). Separation beats stacking order —
+   there is no overlap left to arbitrate. */
+.qty-col { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
 .pd-stepper { display: inline-flex; align-items: stretch; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #fff; }
-.pd-stepper button { width: 30px; min-height: 42px; border: none; background: #fff; color: var(--teal); font-size: 17px; font-weight: 700; flex-shrink: 0; }
+.pd-stepper button { width: 40px; min-height: 42px; border: none; background: #fff; color: var(--teal); font-size: 17px; font-weight: 700; flex-shrink: 0; }
 .pd-stepper button:hover { background: var(--slate-50); }
 .pd-stepper .val {
   display: flex; align-items: center; justify-content: center;
-  min-width: 42px; padding: 4px 3px;
+  min-width: 52px; padding: 4px 3px;
   border-left: 1.5px solid var(--line); border-right: 1.5px solid var(--line);
 }
 .pd-stepper input { width: 100%; text-align: center; border: none; padding: 0; font-size: 15px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--muted-2); background: transparent; }
@@ -806,10 +805,10 @@
   font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4;
   display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px;
 }
-/* `flex: 1 1 0`, not `0 1 auto`: a content-sized basis would let the nowrap
-   number claim more than the row and push the line wide rather than ellipsing
-   inside it. A zero basis makes it take exactly what the line has left. */
-.qc-line .meta .sku { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The SKU was REMOVED from the row: eighteen digits nobody reads off a phone,
+   costing a line on every card. It is still on the product sheet, still on the
+   search results that identify a product, and still searchable. .meta now
+   carries only the remove question (.ask). */
 
 /* The counting unit, centred directly above the stepper and outside its
    border — a real <select>, but dressed as
@@ -972,12 +971,19 @@
 
 /* Quieter than the stepper beside it: removing a product from the sheet is
    housekeeping, not the task. */
+/* Red because it destroys a count, smaller because it should never compete
+   with the number beside it, and held further from the stepper than the row's
+   own gap: this is the one control whose mis-tap costs the rep work, so the
+   separation is deliberate rather than whatever the flex gap happened to be.
+   `.info` is flex:1 and absorbs the slack, so the margin steals width from the
+   name rather than pushing the icon off the card. */
 .qc-row .qc-remove {
   width: 24px; height: 24px; border-radius: 8px; border: none;
-  background: none; color: var(--muted-2); line-height: 1; flex-shrink: 0;
+  background: none; color: var(--red); line-height: 1; flex-shrink: 0;
+  margin-left: 2px;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.qc-row .qc-remove svg { width: 17px; height: 17px; }
+.qc-row .qc-remove svg { width: 15px; height: 15px; }
 .qc-row .qc-remove:hover { background: var(--slate-100); color: var(--red); }
 
 /* quick-count's product search reuses .picker-row (see renderCreateCustomer's
@@ -1108,7 +1114,7 @@
   #page input, #page select, #page textarea { font-size: 16px; }
   /* The quantity cell is fixed-width in a segmented control, so it needs the
      room the larger type takes. Sized on the cell, not the input. */
-  .qc-row .pd-stepper .val { min-width: 46px; }
+  .qc-row .pd-stepper .val { min-width: 56px; }
 
   /* Thumb targets. The visible shapes stay as designed — these grow the hit
      areas around them, which is what a finger actually needs and what a
@@ -1116,12 +1122,22 @@
   /* The visible cell stays narrow so the product name keeps the width; the
      44px thumb target is the button's HEIGHT plus the stepper's own padding,
      which is the dimension a finger actually misses on. */
-  .pd-stepper button { width: 34px; min-height: 44px; }
+  /* A full 44px on BOTH axes now — the width was the axis still short of the
+     guideline, and it is the one a thumb misses on a control this narrow. */
+  .pd-stepper button { width: 44px; min-height: 44px; }
   .ci-btn.sm { width: 44px; height: 44px; }
   /* The remove × keeps its quiet 24px circle but answers to a 44px square:
      the padding is the target, the background is not painted over it. */
+  /* 44px target, and the left margin is POSITIVE now: the old -10px reached
+     3px past the row gap and over the "+" button, so the rightmost sliver of
+     "+" opened a delete confirmation. The two no longer touch at all. */
+  /* The painted bin is 15px inside a 44px target, so the gap the eye sees is
+     the box offset PLUS half the box — which is why 8px of margin read as a
+     void. The box is pulled in from both sides instead: still 44px, still
+     never touching the stepper (a positive gap remains between the two target
+     boxes), but the icon now sits where the spacing looks intentional. */
   .qc-row .qc-remove {
-    width: 44px; height: 44px; margin: -10px -11px -10px -10px;
+    width: 44px; height: 44px; margin: -10px -4px -10px -4px;
     background: none; border-radius: 12px;
   }
   .qc-row .qc-remove:active { background: var(--slate-100); }

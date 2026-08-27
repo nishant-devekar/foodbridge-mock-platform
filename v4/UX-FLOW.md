@@ -158,22 +158,37 @@ One screen. The search box **is** the add affordance — there is no separate
                      [ Finish Audit ]
 ```
 
-**The row.** Product name — up to **two lines**, then ellipsis — with the SKU
-on one line below it; then the quantity column —
-the unit picker sitting directly above the stepper, outside its border — and a
-trash icon. The unit chip is a **button**: it opens the unit sheet (see §2),
-which replaced the invisible native `<select>` that used to sit over it. The unit appears **once**: it used to be both a chip in the SKU
-line and a label under the number inside the stepper, which said the same word
-twice and put the control you could change further from the number it governs.
-The second line is free: the quantity column is the taller of the two, so a
-name that wraps costs the row no height (measured at 402px — info 52px against
-the column's 72px), and a short name still sits on one line. It matters because
-these names carry the size and the price at the end — "AMLA PICKLE (1000 gm)
-(OLD MRP 700) NEW MRP 660" — and one line cut before both, leaving different
-products reading identically.
+**The row.** Product name, then the quantity column — the unit picker sitting
+directly above the stepper, outside its border — and a red bin. That is all:
+the **SKU was removed** from the row, eighteen digits nobody reads off a phone
+costing a line on every card. It is still on the product sheet, still on the
+search results that identify a product, and still searchable.
 
-Tapping the **product name** opens its detail sheet. A row with a quantity goes
-green — border, number and the unit chip above it together.
+The name gets **two lines**, then ellipsis, and is capped at `NAME_WORDS` (12)
+with the full name kept on the `title` and the `aria-label`. The two do
+different jobs: the CSS clamp is width-aware and does the truncating on a
+phone; the word cap bounds a pathological name — this catalogue's longest is
+fifteen words, and a rep can create one of any length. Neither costs the row
+height: the quantity column is the taller half (72px against the name's ~34),
+so a second line is free and a short name still sits on one.
+
+The unit chip is a **button** — it opens the unit sheet (see §2), which replaced
+the invisible native `<select>` that used to sit over it. Tapping the **product
+name** opens the product sheet (§8). A row with a quantity goes green — border,
+number and the unit chip above it together.
+
+The stepper's `−`/`+` are a full **44×44** — the width was the axis still short
+of the guideline, and it is the one a thumb misses on a control this narrow.
+
+**Touch targets are separated by construction, not by stacking order.** The
+bin's target box never touches the stepper's, so no part of `+` opens a delete
+confirmation; the unit chip's target stops at the column gap rather than
+reaching over `−`/`+`, where a mis-tap would silently change a counted
+quantity. Note the two distances differ: the painted bin is 15px inside a 44px
+target, so the gap the eye sees is much larger than the gap between the boxes —
+spacing this row means spacing the *paint* and checking the *boxes*. Measured
+at 375px: 18px painted, 3px between target boxes, and every edge of every
+control hit-tests to itself.
 
 **Empty ≠ zero.** An untouched stepper is blank, not `0`. Blank means nobody
 verified this line; `0` means the rep looked and there were none. Coverage
