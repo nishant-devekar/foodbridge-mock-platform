@@ -600,6 +600,90 @@
   // A real photo when the product has one, the emoji glyph as a fallback —
   // every `.thumb` in the app renders through this so the two never drift.
   const thumbHTML = (p) => (p && p.image ? `<img src="${esc(p.image)}" alt="">` : esc((p && p.emoji) || "📦"));
+  // Every seeded product has an article number; one a rep added in the field
+  // may not, because the SKU is optional there — a jar on a shelf does not
+  // always have a code the rep can read off it. In a LIST, the answer to "no
+  // SKU" is to say nothing rather than print a bare "SKU" or a dash: the row
+  // is identified by its name, and the label with nothing after it reads as a
+  // rendering fault. (The product sheet still shows "SKU —", which is right
+  // in a label/value context where the row is the field.)
+  const skuText = (p) => (p && p.artNo ? "SKU " + p.artNo : "");
+
+  const CATALOGUE_KEY = "fb-discovery-stock-catalogue-v1";
+  // Products a rep added from the shop floor, layered onto the seeded
+  // catalogue exactly the way LocationStore layers field-added locations onto
+  // a customer's registered addresses. The rep is standing in front of
+  // something Foodbridge has never heard of; without this the count simply
+  // cannot record it.
+  //
+  // load() PUSHES INTO `products` rather than replacing it. That array is this
+  // module's catalogue — search, productById, thumbHTML, the order screen, all
+  // of it reads that one binding — so a product that lands in it is, from
+  // every reader's point of view, a seeded product. That is the requirement:
+  // once created it must be indistinguishable, including next visit.
+  const CatalogueStore = {
+    state: [],
+    load() {
+      try {
+        this.state = JSON.parse(localStorage.getItem(CATALOGUE_KEY) || "null") || [];
+      } catch (e) {
+        this.state = [];
+      }
+      // Guarded on id: a seed that later ships a product a rep had already
+      // added by hand would otherwise appear twice, and every list keyed by
+      // product id would carry a duplicate row.
+      this.state.forEach((p) => { if (p && p.id && !productById(p.id)) products.push(p); });
+      return this.state;
+    },
+    save() {
+      try {
+        localStorage.setItem(CATALOGUE_KEY, JSON.stringify(this.state));
+        return true;
+      } catch (e) {
+        /* private mode, or the quota — see add() */
+        return false;
+      }
+    },
+    add(p) {
+      this.state.push(p);
+      products.push(p);
+      // A photo is an inlined data URL and every other store shares the same
+      // ~5MB origin quota, so this is the one write here that can realistically
+      // fail. The product matters and the picture does not: drop the image and
+      // keep the catalogue rather than losing both to a silent throw. (The
+      // in-memory `p` is the same object `products` holds, so the row the rep
+      // is about to count simply renders its emoji fallback.)
+      if (!this.save() && p.image) {
+        delete p.image;
+        if (this.save()) toast("Photo too large to save — product added without it", "info");
+      }
+      return p;
+    },
+  };
+
+  // Continues the seed's own p01…p86 rather than minting a uuid, so a
+  // rep-added product reads like catalogue and not like a foreign key that
+  // escaped. Derived from what is in `products` NOW, which already includes
+  // everything CatalogueStore.load() restored.
+  function nextProductId() {
+    const n = products.reduce((max, p) => {
+      const m = /^p(\d+)$/.exec(String(p.id || ""));
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 0);
+    return "p" + String(n + 1).padStart(2, "0");
+  }
+
+  // Two products are the same product if they share an SKU, or if their names
+  // differ only by case and spacing. Not concurrency control — the prototype
+  // has one tab and one rep — but enough that a rep who adds "Amla Pickle
+  // 500g" twice across two visits gets the row they already made.
+  const normName = (s) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
+  const normSku = (s) => String(s || "").trim().toLowerCase();
+  function findExistingProduct(name, sku) {
+    const n = normName(name);
+    const k = normSku(sku);
+    return products.find((p) => (k && normSku(p.artNo) === k) || (n && normName(p.name) === n)) || null;
+  }
 
   /* ---------------------------------------------------- observation model */
 
@@ -1664,6 +1748,198 @@
     });
   }
 
+  /* ------------------------------------------------- product not in the catalogue */
+
+  // A rep is looking at a jar that Foodbridge has never heard of. Until now the
+  // search simply said "no match" and the count had nowhere to put it — the
+  // product physically exists, so the audit was wrong before it started.
+  //
+  // The empty state carries the way out. Secondary and contextual: the answer
+  // to a search that failed, not a second thing the screen is offering.
+  function noProductFoundHTML() {
+    return `<div class="dropdown-empty">No product found
+      <button type="button" class="np-add" data-new-product>+ Add Product</button>
+    </div>`;
+  }
+
+  // The one genuinely new state in this flow, and a sheet rather than a view
+  // on purpose: adding a product is not somewhere the rep GOES, it is a
+  // detour inside the count they are already doing. The sheet keeps the audit
+  // on screen behind it, and Back closes it back onto the search — the
+  // existing sheet history entry (see sheet()) already does exactly that, so
+  // there is no new navigation behaviour here.
+  //
+  // Three fields, because three is what it takes to count something: what it
+  // is, how it is identified, and what a shelf-worth of it is measured in.
+  // Category, pricing, tax, supplier and the rest of a product master are
+  // real, and none of them are things a rep knows standing in an aisle.
+  //
+  // `onAdded` receives a REAL catalogue product — either the one just created
+  // or, if it turned out to exist, the one already there — so both callers
+  // add to their own audit the same way they add a search result.
+  function newProductSheet(query, onAdded) {
+    const units = Object.keys(UNIT_LADDERS);
+    // Every label says which it is, required and optional alike: a rep who has
+    // never seen this sheet before should not have to press Add to find out
+    // what it will refuse, and with the two halves mixed, marking only one
+    // side would read as an oversight on the other.
+    //
+    // Order is what the rep can answer, in the order they can answer it. Name
+    // and unit they know by looking at the thing. The SKU is a code they have
+    // to find printed somewhere and may not find at all, so it sits after the
+    // two required fields and does not block the count when the jar has no
+    // legible label on it.
+    const field = (id, label, req, control) =>
+      `<label for="${id}">${esc(label)}<span class="tag ${req ? "req" : "opt"}">${req ? "Required" : "Optional"}</span>${control}</label>` +
+      `<span class="sf-err" id="${id}Err"></span>`;
+
+    // Held here rather than read off the input at Add: the file input carries
+    // the original camera JPEG (several MB), and what the catalogue stores is
+    // the downscaled copy made when the shot was taken.
+    let photo = null;
+
+    const s = sheet({
+      title: "New Product",
+      body: `<div class="sheet-form np-form">
+        ${field("npName", "Name", true, `<input type="text" id="npName" autocomplete="off" value="${esc(query || "")}">`)}
+        ${field("npUnit", "Unit", true, `<select id="npUnit">${units
+          .map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join("")}</select>`)}
+        ${field("npSku", "SKU Code", false, `<input type="text" id="npSku" autocomplete="off" inputmode="numeric">`)}
+        <div class="np-photo">
+          <span class="lbl">Photo<span class="tag opt">Optional</span></span>
+          <span class="np-shot" id="npShot">📷</span>
+          <button type="button" class="np-cam" id="npCam">Take Photo</button>
+          <button type="button" class="np-cam ghost" id="npClear" hidden>Remove</button>
+          <input type="file" accept="image/*" capture="environment" id="npFile" hidden>
+        </div>
+      </div>`,
+      actions: [{
+        label: "Add",
+        cls: "primary",
+        onClick() {
+          const el = (id) => s.el.querySelector("#" + id);
+          const name = el("npName").value.trim();
+          const sku = el("npSku").value.trim();
+          const unit = el("npUnit").value;
+
+          // Every field is reported at once. Fixing one thing, pressing Add and
+          // being told about the next is the slowest possible way through a
+          // short form. SKU and photo are absent here by design — neither can
+          // fail, so neither can hold up a count.
+          const errs = { npName: name ? "" : "Name required", npUnit: unit ? "" : "Unit required" };
+          Object.keys(errs).forEach((id) => {
+            const n = el(id + "Err");
+            n.textContent = errs[id];
+            n.classList.toggle("show", !!errs[id]);
+          });
+          const firstBad = Object.keys(errs).find((id) => errs[id]);
+          if (firstBad) {
+            el(firstBad).focus();
+            return false; // sheet() keeps itself open on a false
+          }
+
+          // Adopt rather than duplicate. The rep gets the row they meant
+          // either way; the toast is only so the name on the row matching
+          // something they didn't type isn't a mystery.
+          //
+          // A photo taken here is deliberately NOT written onto the product
+          // that already exists: editing catalogue entries is a different job
+          // from adding one, and a seeded product's image isn't in
+          // CatalogueStore, so it would vanish on the next reload anyway.
+          const existing = findExistingProduct(name, sku);
+          if (existing) {
+            toast("Already in catalogue", "info");
+            onAdded(existing);
+            return;
+          }
+
+          // systemStock 0, not null: nothing has ever been booked in against
+          // this product, which is a fact and not a gap. `image` is set only
+          // when there is one — thumbHTML falls through to the 📦 glyph, the
+          // same fallback a seeded product with no art gets.
+          const p = { id: nextProductId(), name, artNo: sku, unit, systemStock: 0 };
+          if (photo) p.image = photo;
+          onAdded(CatalogueStore.add(p));
+        },
+      }],
+    });
+
+    /* ------------------------------------------------- the optional photo */
+
+    // `capture="environment"` asks a phone for the REAR camera directly, so
+    // the rep taps once and is shooting the shelf rather than picking their
+    // way through a gallery. A desktop browser ignores it and opens a file
+    // picker, which is the right fallback and needs no branch here.
+    const fileInput = s.el.querySelector("#npFile");
+    const shot = s.el.querySelector("#npShot");
+    const cam = s.el.querySelector("#npCam");
+    const clear = s.el.querySelector("#npClear");
+
+    const showPhoto = (url) => {
+      photo = url;
+      shot.innerHTML = url ? `<img src="${esc(url)}" alt="">` : "📷";
+      cam.textContent = url ? "Retake" : "Take Photo";
+      clear.hidden = !url;
+    };
+
+    cam.onclick = () => fileInput.click();
+    clear.onclick = () => { fileInput.value = ""; showPhoto(null); };
+    fileInput.onchange = () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      cam.disabled = true;
+      cam.textContent = "…";
+      downscalePhoto(f, (url) => {
+        cam.disabled = false;
+        if (url) showPhoto(url);
+        else { showPhoto(null); toast("Couldn't read that photo", "error"); }
+      });
+    };
+
+    // Only when there is nothing in the name yet. Once the search has filled
+    // it, every remaining field is either a dropdown with a working default or
+    // optional — so raising the keyboard would cover half the sheet to help
+    // with nothing, and the rep's next tap is most likely Add.
+    if (!query) {
+      const nameField = s.el.querySelector("#npName");
+      if (nameField) setTimeout(() => nameField.focus(), 60);
+    }
+    return s;
+  }
+
+  // A phone camera hands over 3–8MB of JPEG. localStorage gives this origin
+  // about 5MB for EVERY store it holds, and the biggest this image is ever
+  // drawn is the ~72px detail hero, so the full-size original buys nothing and
+  // costs the catalogue. 320px on the long edge at q0.7 lands around 20KB and
+  // still looks right on a 3x screen.
+  //
+  // Canvas, not the raw file: it also strips EXIF (including where the shop
+  // is) and normalises HEIC/PNG down to one JPEG, so what gets stored is one
+  // predictable shape rather than whatever the handset felt like producing.
+  function downscalePhoto(file, cb) {
+    const MAX = 320;
+    const reader = new FileReader();
+    reader.onerror = () => cb(null);
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => cb(null);
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(img.width * scale));
+          c.height = Math.max(1, Math.round(img.height * scale));
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          cb(c.toDataURL("image/jpeg", 0.7));
+        } catch (e) {
+          cb(null);
+        }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
   function productsCheckedSectionHTML(a) {
     const lines = auditLines(a);
     return `
@@ -1883,10 +2159,10 @@
             ? results.map((p) => `
               <button type="button" class="picker-row" data-edit-add="${esc(p.id)}">
                 <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
-                <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
+                <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
-            : `<div class="dropdown-empty">No product matches that.</div>`}</div>`
+            : noProductFoundHTML()}</div>`
         : `${selected.length
             ? `<div class="qc-card">${selected.map((p) => quickRowHTML(p, EDIT.lines)).join("")}</div>`
             : `<div class="sah-empty"><div class="big">📋</div><p>No products.<br>Search above to add one.</p></div>`}`}
@@ -1904,8 +2180,7 @@
     // untouched/zero distinction the count screen keeps is about coverage of a
     // visit in progress, and this visit is already closed — a line on it is a
     // number the audit now asserts.
-    PAGE.querySelectorAll("[data-edit-add]").forEach((b) => (b.onclick = () => {
-      const p = productById(b.dataset.editAdd);
+    const addToEdit = (p) => {
       if (!p) return;
       if (!EDIT.lines[p.id]) {
         const line = blankLine(p.id, 0);
@@ -1918,7 +2193,14 @@
       EDIT.q = "";
       EDIT.adding = false;
       renderAuditEdit();
-    }));
+    };
+    PAGE.querySelectorAll("[data-edit-add]").forEach((b) => (b.onclick = () => addToEdit(productById(b.dataset.editAdd))));
+    // Correcting a past visit hits the same wall as counting a live one: the
+    // jar was on the shelf that day too. The product is created the same way
+    // and joins the edit as an ordinary line, so the existing version/timeline
+    // rules apply to it unchanged — creating a product is not itself an edit.
+    const aeNp = $("[data-new-product]", PAGE);
+    if (aeNp) aeNp.onclick = () => newProductSheet(EDIT.q.trim(), addToEdit);
 
     // Removal asks in the row — the existing pattern, not a new one.
     PAGE.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => {
@@ -2150,10 +2432,10 @@
             ? results.map((p) => `
               <button type="button" class="picker-row" data-add="${esc(p.id)}">
                 <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
-                <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
+                <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
-            : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
+            : noProductFoundHTML()}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
         : `<div class="section-head-row"><h2>Selected products</h2></div>
           ${s.total
             ? `<div class="qc-card">${s.selected.map((p) => quickRowHTML(p)).join("")}</div>`
@@ -2210,7 +2492,7 @@
               <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">
                 ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
               </select>
-            </span><span class="sku" title="${esc(p.artNo)}">SKU ${esc(p.artNo)}</span>
+            </span>${p.artNo ? `<span class="sku" title="${esc(p.artNo)}">${esc(skuText(p))}</span>` : ""}
           </div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
@@ -2250,13 +2532,19 @@
       renderQuickCount();
       return true;
     });
-    PAGE.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => {
-      const id = b.dataset.add;
+    const addToCount = (id) => {
       if (!DRAFT.selected.includes(id)) DRAFT.selected.push(id);
       QC_STATE.q = "";
       persistDraft();
       renderQuickCount();
-    }));
+    };
+    PAGE.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => addToCount(b.dataset.add)));
+    // A product created here lands on the count through the SAME call a search
+    // result does, which is the whole point: the row that appears is an
+    // ordinary row, and the draft it appears in is the one already in progress
+    // — same customer, same lines, same counts.
+    const npBtn = $("[data-new-product]", PAGE);
+    if (npBtn) npBtn.onclick = () => newProductSheet(QC_STATE.q.trim(), (p) => addToCount(p.id));
     // Ask, undo the asking, and do it — the row swaps by class, so only the
     // last of the three touches the draft or re-renders anything. One row asks
     // at a time: opening a second question closes the first, which otherwise
@@ -3075,7 +3363,7 @@
             ? results.map((p) => `
               <button type="button" class="picker-row" data-order-add="${esc(p.id)}">
                 <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
-                <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
+                <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
             : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
@@ -3541,6 +3829,9 @@
     wireProductInfo();
     trackKeyboardInset();
     keepFocusVisible();
+    // First: a saved draft or audit may reference a product a rep added on an
+    // earlier visit, and productById has to find it.
+    CatalogueStore.load();
     LocationStore.load();
     DraftStore.load();
     AuditStore.load();

@@ -581,6 +581,38 @@
 .sheet-form label { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
 .sheet-form input, .sheet-form select { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font: inherit; font-size: 13.5px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink); }
 .sheet-form input:focus, .sheet-form select:focus { outline: none; border-color: var(--teal); }
+/* `.sheet-form input` above is a class+element selector, which outranks the UA
+   stylesheet's bare `[hidden] { display: none }` — without this the file input
+   the camera button stands in for renders as a live "Choose file" widget. */
+.sheet-form [hidden] { display: none; }
+/* Validation says the missing word and nothing else — the field it sits under
+   is what it is about, so "Name required" needs no sentence around it. Hidden
+   rather than absent so showing one doesn't reflow the form under the rep's
+   thumb. */
+.sf-err { display: none; margin-top: 5px; font-size: 11.5px; font-weight: 600; color: var(--red); }
+.sf-err.show { display: block; }
+/* Required/Optional rides in the label's own row, right-aligned, in the
+   lighter weight the label is not — it answers a question about the field
+   without competing with the field's name. */
+.sheet-form label, .np-photo .lbl { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; }
+.sheet-form label > input, .sheet-form label > select { flex: 0 0 100%; }
+.sheet-form .tag { font-size: 10px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.sheet-form .tag.req { color: var(--muted-2); }
+.sheet-form .tag.opt { color: var(--muted-2); font-style: italic; }
+/* The photo is one row, not a card: a thumb, and the button that fills it. */
+.np-photo { display: grid; grid-template-columns: 44px 1fr auto; grid-template-areas: "lbl lbl lbl" "shot cam clear"; align-items: center; gap: 8px; }
+.np-photo .lbl { grid-area: lbl; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
+.np-shot { grid-area: shot; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--slate-50); font-size: 18px; overflow: hidden; }
+.np-shot img { width: 100%; height: 100%; object-fit: cover; }
+.np-cam { grid-area: cam; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); color: var(--teal); font: inherit; font-size: 13px; font-weight: 700; }
+.np-cam:hover { border-color: var(--teal); }
+.np-cam[disabled] { opacity: .6; }
+.np-cam.ghost { grid-area: clear; border-color: transparent; color: var(--muted); font-weight: 600; }
+.np-cam.ghost:hover { color: var(--red); border-color: transparent; }
+/* The way out of a failed search. Quiet — it is an answer to "no product
+   found", not a competing call to action next to it. */
+.np-add { display: block; margin: 12px auto 0; padding: 9px 16px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); color: var(--teal); font: inherit; font-size: 13px; font-weight: 700; }
+.np-add:hover { border-color: var(--teal); }
 .sheet-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 .sheet-btn { height: 48px; border-radius: 12px; font-weight: 700; font-size: 14.5px; border: none; }
 .sheet-btn.primary { background: var(--teal); color: #fff; }
