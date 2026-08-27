@@ -342,146 +342,30 @@
   };
 
   /* ---- Ordering signals, backing Ordering Status and Ordering Pattern ----
-     Distributor-visible reorder behaviour per customer — synthesized for this
-     discovery (the real signal lives in the Sales Orders module, a separate
-     repo not wired into this seed). `orders` is newest-first; last order,
-     order value, average order value and the observed cycle are all derived
-     from it at render time, so there is one place to edit and nothing to
-     keep in sync. `avgCycleDays` is the expected cadence — expected next
-     order (orders[0].at + avgCycleDays) vs. today decides On Track /
-     Slipping / Overdue, and feeds the Ordering axis of customer health.
-     Customers absent here show "Unknown" — that's honest: it means the
-     platform has no ordering signal for them yet, not that all is well.
+     REAL trading history now, not a synthesized one. The orders below are the
+     tenant's own, imported from their Zoho Books sales-order export into
+     order-history.js, which this file simply adopts — see that file's header
+     for exactly which orders were kept, which were dropped, and why.
 
-     `lines` was added for the Predictive Sales Order flow: the same orders,
-     now carrying what was actually bought rather than only what it came to.
-     Quantities are in each product's own base unit (SEED.products[].unit),
-     the same scale the audit's `physical` uses, so demand and stock are
-     directly comparable without a conversion step. Purely additive —
-     orderingStatusFor() still reads `at`/`value` and never looks at these.
+     Shape is unchanged, so every existing reader keeps working: `orders` is
+     newest-first, and last order, order value, average order value and the
+     observed cycle are all still derived from it at render time.
+     `avgCycleDays` is no longer a cadence anyone hoped for — it is the MEDIAN
+     gap between that customer's actual orders, so expected next order
+     (orders[0].at + avgCycleDays) vs. today decides On Track / Slipping /
+     Overdue against how they really buy. Those cycles are much longer than
+     the invented 7-10 days this seed used to carry: the real median across
+     the roster is 34 days.
 
-     Each customer's list now reaches back through the SAME PERIOD LAST YEAR
-     (late Aug 2025) as well as the recent weeks, because that pairing is
-     what the prediction actually needs: a seasonal baseline plus a current
-     trend. Customers with no entry here have no ordering signal at all —
-     the predictive flow says so rather than inventing one. */
-  const orderingSignals = {
-    c01: { avgCycleDays: 7, orders: [
-      { at: "2026-08-19", value: 48200, lines: [
-        { productId: "p01", qty: 14 }, { productId: "p11", qty: 22 },
-        { productId: "p12", qty: 18 }, { productId: "p28", qty: 9 },
-      ] },
-      { at: "2026-08-12", value: 44100, lines: [
-        { productId: "p01", qty: 12 }, { productId: "p11", qty: 20 },
-        { productId: "p12", qty: 16 },
-      ] },
-      { at: "2026-08-05", value: 51600, lines: [
-        { productId: "p01", qty: 16 }, { productId: "p11", qty: 24 },
-        { productId: "p12", qty: 20 }, { productId: "p28", qty: 11 },
-      ] },
-      { at: "2026-07-29", value: 46800, lines: [
-        { productId: "p01", qty: 13 }, { productId: "p11", qty: 21 },
-        { productId: "p12", qty: 17 },
-      ] },
-      // Same period, previous year.
-      { at: "2025-08-21", value: 45100, lines: [
-        { productId: "p01", qty: 15 }, { productId: "p11", qty: 26 },
-        { productId: "p12", qty: 19 }, { productId: "p28", qty: 10 },
-      ] },
-      { at: "2025-08-14", value: 43800, lines: [
-        { productId: "p01", qty: 14 }, { productId: "p11", qty: 25 },
-        { productId: "p12", qty: 18 }, { productId: "p53", qty: 6 },
-      ] },
-    ] },
-    c02: { avgCycleDays: 10, orders: [
-      { at: "2026-08-03", value: 12400, lines: [
-        { productId: "p06", qty: 8 }, { productId: "p10", qty: 26 },
-      ] },
-      { at: "2026-07-24", value: 15900, lines: [
-        { productId: "p06", qty: 10 }, { productId: "p10", qty: 30 },
-        { productId: "p53", qty: 5 },
-      ] },
-      { at: "2026-07-13", value: 11200, lines: [
-        { productId: "p06", qty: 7 }, { productId: "p10", qty: 24 },
-      ] },
-      { at: "2025-08-27", value: 14600, lines: [
-        { productId: "p06", qty: 9 }, { productId: "p10", qty: 32 },
-        { productId: "p53", qty: 7 },
-      ] },
-      { at: "2025-08-16", value: 13200, lines: [
-        { productId: "p06", qty: 8 }, { productId: "p10", qty: 28 },
-      ] },
-    ] },
-    // No completed stock audit on file — exercises the "history only, no
-    // current stock" path in the predictive flow.
-    c03: { avgCycleDays: 14, orders: [
-      { at: "2026-07-20", value: 31500, lines: [
-        { productId: "p13", qty: 12 }, { productId: "p44", qty: 8 },
-      ] },
-      { at: "2026-07-06", value: 29800, lines: [
-        { productId: "p13", qty: 11 }, { productId: "p44", qty: 7 },
-      ] },
-      { at: "2026-06-21", value: 33400, lines: [
-        { productId: "p13", qty: 13 }, { productId: "p44", qty: 9 },
-      ] },
-      { at: "2025-08-24", value: 30700, lines: [
-        { productId: "p13", qty: 12 }, { productId: "p44", qty: 10 },
-      ] },
-    ] },
-    c04: { avgCycleDays: 7, orders: [
-      { at: "2026-08-17", value: 27800, lines: [
-        { productId: "p05", qty: 18 }, { productId: "p21", qty: 9 },
-      ] },
-      { at: "2026-08-10", value: 26400, lines: [
-        { productId: "p05", qty: 17 }, { productId: "p21", qty: 8 },
-      ] },
-      { at: "2026-08-03", value: 29100, lines: [
-        { productId: "p05", qty: 19 }, { productId: "p21", qty: 10 },
-      ] },
-      { at: "2025-08-25", value: 28300, lines: [
-        { productId: "p05", qty: 20 }, { productId: "p21", qty: 9 },
-      ] },
-    ] },
-    c05: { avgCycleDays: 14, orders: [
-      { at: "2026-08-15", value: 96300, lines: [
-        { productId: "p09", qty: 30 }, { productId: "p11", qty: 16 },
-        { productId: "p12", qty: 22 }, { productId: "p84", qty: 40 },
-      ] },
-      { at: "2026-08-01", value: 88700, lines: [
-        { productId: "p09", qty: 26 }, { productId: "p11", qty: 14 },
-        { productId: "p12", qty: 20 }, { productId: "p84", qty: 36 },
-      ] },
-      { at: "2026-07-18", value: 91500, lines: [
-        { productId: "p09", qty: 28 }, { productId: "p12", qty: 21 },
-        { productId: "p84", qty: 38 },
-      ] },
-      { at: "2025-08-23", value: 93400, lines: [
-        { productId: "p09", qty: 32 }, { productId: "p11", qty: 18 },
-        { productId: "p12", qty: 24 }, { productId: "p84", qty: 42 },
-      ] },
-    ] },
-    c11: { avgCycleDays: 5, orders: [
-      { at: "2026-08-20", value: 18900, lines: [
-        { productId: "p01", qty: 6 }, { productId: "p04", qty: 5 },
-        { productId: "p12", qty: 14 },
-      ] },
-      { at: "2026-08-15", value: 17600, lines: [
-        { productId: "p01", qty: 5 }, { productId: "p12", qty: 13 },
-        { productId: "p10", qty: 18 },
-      ] },
-      { at: "2026-08-10", value: 19400, lines: [
-        { productId: "p01", qty: 7 }, { productId: "p04", qty: 6 },
-        { productId: "p12", qty: 15 }, { productId: "p10", qty: 20 },
-      ] },
-      { at: "2026-08-05", value: 16800, lines: [
-        { productId: "p01", qty: 5 }, { productId: "p12", qty: 12 },
-      ] },
-      { at: "2025-08-22", value: 18100, lines: [
-        { productId: "p01", qty: 8 }, { productId: "p04", qty: 6 },
-        { productId: "p12", qty: 16 }, { productId: "p09", qty: 11 },
-      ] },
-    ] },
-  };
+     `lines` carries what was actually bought, in each product's own base unit
+     (SEED.products[].unit) — the same scale the audit's `physical` uses, so
+     demand and stock stay directly comparable without a conversion step.
+
+     One customer (c40) has no orders in the export and is therefore absent.
+     That is honest: it means there is no ordering signal for them, not that
+     all is well, and both Ordering Status and the predictive flow say so
+     rather than inventing one. */
+  const orderingSignals = window.FB_ORDER_HISTORY || {};
 
   /* ---- Per-customer offers, backing the Offers drawer -------------------
      OfferListView shows two columns only: Offer Name and Benefit. */

@@ -272,9 +272,29 @@ unsaved edits are ignored — only a saved, completed version counts.
 
 > An audit updated from `AMLA = 10` to `25` makes Predictive Order use **25**.
 
-Each row shows the recommended quantity, the shop's counted stock, a unit
-picker and a stepper. `Stock + history ⓘ` opens "How this was calculated" —
-which inputs were available, which were not.
+The history is the tenant's **real** trading record (see `order-history.js`),
+and the engine asks two separate questions of it:
+
+| Question | Evidence | Rule |
+| --- | --- | --- |
+| **Whether** to propose the product | how many of the last **6** orders included it | on fewer than half, it is left off |
+| **How much** | mean quantity across the last **3** orders that contained it | `max(0, expected − counted stock)` |
+
+A product held back by that floor is not hidden work — the rep can search the
+catalogue and add it like any other. There is no "same period last year"
+term: measured against the real history it made the recommendation worse, not
+better.
+
+Each row shows the recommended quantity, a unit picker and a stepper. The
+counted stock is **not** on the row — it has already been subtracted to reach
+the recommendation, and repeating it there gave the rep a second number to
+reconcile against the only one they can act on. It stays on the record, and
+on the product's detail sheet, which is where it answers a question the rep
+actually asked. `Stock + history ⓘ` opens "How this was calculated" —
+which inputs were available, which were not, and two admissions the engine
+makes about itself when they apply: that the customer's history is out of
+date (with how long since they last ordered), and how many occasional buys
+the floor kept off the order.
 
 `Confirm Order` is a two-tap commit: `Confirm order?` + `N products · N units
 · FoodBridge → Accounts`.

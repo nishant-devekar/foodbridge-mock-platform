@@ -3249,30 +3249,44 @@
         <span class="ic">${on ? "✓" : "—"}</span>
         <span class="txt">${esc(label)}${detail ? `<span class="pb-detail"> · ${esc(detail)}</span>` : ""}</span>
       </div>`;
+    // Reads the engine's own context, in the order the engine uses it:
+    // what is on the shelf, what the recent orders say the quantity is, and
+    // how many orders the repeat-buying test had to look at. The last two
+    // lines only appear when they have something to admit — that the history
+    // is out of date, or that occasional buys were deliberately left off.
     sheet({
       title: "How this was calculated",
       body: `<div class="pb-detail-list">
         ${row(ctx.usedStockAudit, "Stock audit",
               ctx.usedStockAudit ? `${fmtDateShort(ctx.auditAt)} · ${plural(ctx.auditProductCount, "product")}` : "none")}
-        ${row(ctx.usedSamePeriodLastYear, "Same period last year",
-              ctx.usedSamePeriodLastYear ? plural(ctx.samePeriodOrderCount, "order") : "none")}
         ${row(ctx.usedRecentHistory, "Recent orders",
               ctx.usedRecentHistory ? plural(ctx.recentOrderCount, "order") : "none")}
+        ${row(ctx.frequencyOrderCount > 0, "Repeat buying",
+              ctx.frequencyOrderCount ? `checked across ${plural(ctx.frequencyOrderCount, "order")}` : "none")}
+        ${ctx.historyIsStale && ctx.daysSinceLastOrder != null
+            ? row(false, "History is out of date",
+                  `last ordered ${plural(ctx.daysSinceLastOrder, "day")} ago`)
+            : ""}
+        ${ctx.belowFloorCount
+            ? row(false, "Occasional buys left off",
+                  `${plural(ctx.belowFloorCount, "product")} · search to add`)
+            : ""}
       </div>`,
       actions: [{ label: "Close", cls: "primary" }],
     });
   }
 
-  // One editable line: product, SKU, what the shop is holding, and the
-  // quantity control. The stepper's own value IS the recommendation — the
-  // section heading says so once, so the row does not repeat it, and the
-  // figures behind it (expected demand, what was recommended before the rep
-  // touched it) stay on the record without being on the screen.
+  // One editable line: product, unit, SKU, and the quantity control. The
+  // stepper's own value IS the recommendation — the section heading says so
+  // once, so the row does not repeat it, and the figures behind it (expected
+  // demand, the counted stock it was netted against, what was recommended
+  // before the rep touched it) stay on the record without being on the
+  // screen. `hasStock`/`currentStock` still ride on the line and still feed
+  // the product detail sheet; they are simply not a row of their own.
   function orderRowHTML(l) {
     const p = productById(l.productId) || {};
     const units = unitsFor(p);
     const unit = l.unit || baseUnit(p);
-    const stockText = `Stock ${l.hasStock ? l.currentStock : "—"} · ${baseUnit(p)}`;
     return `
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
@@ -3285,7 +3299,6 @@
               </select>
             </span><span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
           </div>
-          <div class="meta ord-stock">${esc(stockText)}</div>
           <div class="meta ask">Remove from this order?</div>
         </div>
         ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unit)}
@@ -3606,8 +3619,16 @@
           auditId: ctx.auditId || null,
           auditAt: ctx.auditAt || null,
           usedStockAudit: !!ctx.usedStockAudit,
-          usedSamePeriodLastYear: !!ctx.usedSamePeriodLastYear,
           usedRecentHistory: !!ctx.usedRecentHistory,
+          // Enough of the engine's own state to re-read this decision later:
+          // how many orders each of the two tests saw, whether the history
+          // was already stale when it ran, and how many products the repeat-
+          // buying floor held back.
+          recentOrderCount: ctx.recentOrderCount || 0,
+          frequencyOrderCount: ctx.frequencyOrderCount || 0,
+          historyIsStale: !!ctx.historyIsStale,
+          daysSinceLastOrder: ctx.daysSinceLastOrder == null ? null : ctx.daysSinceLastOrder,
+          belowFloorCount: ctx.belowFloorCount || 0,
           sourceOrderDates: ctx.sourceOrderDates || [],
           generatedAt: ctx.generatedAt || stamp,
         },

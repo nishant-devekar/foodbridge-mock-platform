@@ -75,10 +75,13 @@ it deleted no line of it.
 rule that an unfinished visit is discarded rather than recorded. Demand comes from that
 customer's order history.
 
-**The recommendation.** `predictive-order.js` is a pure, UI-free, deterministic engine:
-expected demand blends the **same period last year** (a ±21-day window around today's date,
-matched on real dates) with the **recent trend** (mean quantity across the last three
-orders), then
+**The recommendation.** `predictive-order.js` is a pure, UI-free, deterministic engine. It
+asks two separate questions, because the real history says they need different evidence:
+
+- **Whether** to propose a product at all — how many of the customer's last **six** orders
+  included it. Below half, it is left off the order (the rep can still search and add it).
+- **How much** — the mean quantity across the last **three** orders that actually contained
+  it, then
 
 ```
 recommended = max(0, expected demand − current stock)
@@ -86,7 +89,24 @@ recommended = max(0, expected demand − current stock)
 
 Clamped at zero; a product history has never seen is never invented; where there is nothing
 to go on, the screen says so instead of fabricating a number. The provenance sits behind one
-tappable line — `Stock + history`, or `History only` where there is no audit.
+tappable line — `Stock + history`, or `History only` where there is no audit — which also
+admits when the history is out of date and how many occasional buys were held back.
+
+**Fitted to real trading, not invented.** See "Real order history" below. The engine was
+back-tested against the tenant's own 532 buying occasions: each real order predicted from
+only what was known before it, tuned on 2025 and validated on unseen 2026 orders. Against
+that hold-out it lifts precision from 56.8% to 66.5% and cuts over-ordering from **+42.4%
+to +7.4%** of true volume, at the cost of recall (83.5% → 69.6%) — a deliberate trade, since
+a missing line costs the rep a search while a wrong line nobody notices becomes real stock
+in a shop and a real sales order in Zoho.
+
+An earlier **seasonal** term — the same ±21-day period last year, blended at half weight —
+was **removed**, having been measured as harmful rather than merely weak: per customer that
+window holds 0 or 1 orders 71% of the time, and a product found only in it was re-ordered
+just 25.3% of the time against 59.6% for one seen in recent history. That is not a finding
+that the business lacks seasonality, only that one customer's three weeks a year ago is too
+thin to measure it; doing it properly means pooling demand across customers by category,
+which is honest work for a later cut.
 
 Every quantity is the rep's to change: edit, zero out, remove, or search the full catalogue
 to add something that was never recommended. What the system proposed is kept beside what
@@ -128,13 +148,41 @@ No price is sent, because FoodBridge holds none — Zoho applies the item's own
 configured rate. Setup, OAuth and the required settings are in
 `zoho-function/README.md`.
 
-**Seed.** `orderingSignals` gained product-level `lines` and previous-year orders — the
-existing structure extended, not a parallel order model, and additive enough that the
-Ordering Status reader never notices. Customers with no entry there have no signal at all,
-and the flow says `No recommendation` rather than guessing.
+**Seed.** `orderingSignals` gained product-level `lines` — the existing structure extended,
+not a parallel order model, and additive enough that the Ordering Status reader never
+notices. Customers with no entry there have no signal at all, and the flow says
+`No recommendation` rather than guessing.
 
 Three files carry it: `predictive-order.js` (the engine), `zoho-adapter.js` (the boundary),
 and four new views in `stock-audit.js`.
+
+## Real order history — added 27 August 2026
+
+`orderingSignals` no longer holds invented orders. It is now the tenant's **actual trading
+history**, imported from their Zoho Books sales-order export into `order-history.js`, which
+`seed.inline.js` simply adopts — same shape, so every existing reader keeps working.
+
+**39 of the 40 customers, 532 buying occasions, 24 months.** Line items were matched to this
+app's 86-product catalogue by Zoho item id or exact product name, and customers by name; only
+`invoiced` / `partially_invoiced` / `confirmed` orders count, since a draft is not demand.
+
+Three judgement calls are worth knowing when reading those numbers, and each is recorded in
+the generated file's own header:
+
+- **One visit is one order.** A fifth of the export's orders share a date with another for
+  the same customer — one commercial order split across several Zoho sales orders. They are
+  merged, because otherwise "the last three orders" can be a single afternoon. Merging alone
+  raised forecast precision from 61.8% to 65.8%.
+- **`value` is partial.** The catalogue is a subset of the tenant's full Zoho item list, so
+  an order's value here sums only its matched lines, not the invoice total.
+- **32 weight-billed lines dropped** (`g`/`kg`, for p84–p86) — the same goods sold loose
+  rather than as packets. Averaging grams into a piece count would corrupt those three.
+
+`avgCycleDays` is now the **median** gap between a customer's real orders rather than a
+hoped-for cadence, so Ordering Status buckets against how they actually buy. Those cycles
+run 15–117 days against the invented 7–10, which is simply what the business looks like.
+One customer (c40) has no orders in the export and is therefore absent — honestly reported
+as no signal rather than filled in.
 
 ## Offline
 
