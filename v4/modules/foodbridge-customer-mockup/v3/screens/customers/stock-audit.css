@@ -87,16 +87,6 @@
 .sah-page-head .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: nowrap; }
 .sah-page-head h1 { margin: 0; font-size: 19px; font-weight: 800; color: var(--ink); line-height: 1.2; }
 .sah-page-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
-/* A plain back link on a light page head — no border, no fill, just the
-   arrow-prefixed text. Without this it falls through to the browser's
-   default button chrome (grey box, visible border). */
-.sah-page-head .back, button.back {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: none; border: none; padding: 0; margin: 0 0 8px;
-  font: inherit; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer;
-}
-.sah-page-head .back:hover, button.back:hover { color: var(--teal); }
-
 /* ── Stat tiles (KPI strip + customer-detail tiles share this) ───────────── */
 
 .sec-label { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted-2); margin: 4px 0 10px; }
@@ -148,21 +138,17 @@
 .sah-search input:focus { border-color: var(--teal); }
 .sah-search::before { content: "\01F50D"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .55; }
 
-/* ── Section header with a sort control (Customers list) ─────────────────── */
+/* ── Section header with a secondary control ─────────────────────────────── */
 .section-head-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 10px; }
 .section-head-row h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
-/* The default pushes the second item to the far edge, which is right for a
-   sort control or an Edit action — those act on the whole section and belong
-   at its opposite end. It is wrong for something that explains the heading
-   itself: across a phone's width the far edge reads as a separate status, not
-   as a footnote on the word. `.attached` sits it against the heading instead.
-   Harmless on a row with one child, where the two are identical. */
+/* The default pushes the second item to the far edge, which is right for an
+   Edit action — that acts on the whole section and belongs at its opposite
+   end. It is wrong for something that explains the heading itself: across a
+   phone's width the far edge reads as a separate status, not as a footnote on
+   the word. `.attached` sits it against the heading instead. Harmless on a row
+   with one child, where the two are identical — which Audit History's own
+   heading row now is, its sort picker having been removed. */
 .section-head-row.attached { justify-content: flex-start; gap: 7px; }
-.sort-field { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-.sort-field select {
-  border: 1px solid var(--line); border-radius: 999px; background: #fff;
-  padding: 5px 10px; font-size: 12px; font-weight: 700; color: var(--ink); outline: none;
-}
 
 /* ── Customer Health cards (the main list — cards, not a dense table) ────── */
 .customer-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
@@ -298,6 +284,17 @@
    that separates the header from the list rather than being a band of its
    own. ~44px now, and nothing was dropped. */
 .ws-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 2px 11px; margin-bottom: 12px; }
+/* Audit Detail reads a finished visit, so it has this header's shape but no
+   progress to draw — and an empty .ws-bar would read as 0%, which is worse
+   than no bar. It gets the rule as a plain divider instead, in the same place
+   the track would be, so the two headers still line up.
+
+   It used to be "← Customer Name" as ONE 13px link, which wrapped to two lines
+   on this tenant's longer names and made the name both the title and the back
+   button. Splitting it is what lets the name be the name everywhere: a .ws-exit
+   that goes back, and a .ws-who that opens the full name like every other
+   header in the module. */
+.ws-head.flat { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .ws-exit { flex-shrink: 0; width: 30px; height: 30px; margin-left: -6px; display: grid; place-items: center; background: none; border: none; padding: 0; border-radius: 8px; font-size: 19px; line-height: 1; color: var(--teal); }
 .ws-exit:hover { background: var(--teal-l); }
 /* ONE line, elided — and a <button>, because the whole name is in a sheet one
@@ -955,19 +952,18 @@
 
 /* Removing a product asks first, in the row. Both states ship in the markup
    (see quickRowHTML) and this swaps them, so asking costs nothing but a class.
-   The warning clause keys off `.done` — the same class that tints a counted
-   row — so the question can never claim a count that isn't there.
 
-   The question is just "Remove?". It used to name the list — "Remove from this
-   audit?" / "Remove from this order?" — which is a phrase the rep can only be
-   reading while standing inside that very list, with the row highlighted and
-   its ✓/✗ already in front of them. The words told them where they were, not
-   what they were about to lose. The audit's clause still does the second job,
-   and it is the only part worth the width. */
+   The question is TWO WORDS, on both lists: "Remove?". It has been cut twice.
+   It used to name the list — "Remove from this audit?" / "Remove from this
+   order?" — a phrase the rep can only be reading while standing inside that
+   very list, with the row gone amber and its ✓/✗ already in front of them; it
+   told them where they were, which they could see. And the audit's row carried
+   a second clause, "Its count will be cleared.", shown only on a counted row.
+   That is also gone. What the ✗ is for is changing your mind, and it is right
+   there — a question that has to be read before it can be answered is a worse
+   trade than one that can be undone by looking at the row afterwards. */
 .qc-row .ask,
 .qc-row .ci-btn { display: none; }
-.qc-row .ask .lost { display: none; }
-.qc-row.done .ask .lost { display: inline; }
 .qc-row.confirming { background: var(--amber-bg); }
 .qc-row.confirming .meta:not(.ask),
 .qc-row.confirming .qty-col,
@@ -1206,9 +1202,7 @@
      measured 32px on iOS Safari only — a third of the target missing on the
      one engine nobody checked. Verified on device: min-height 32px, height
      44px, same element. Chrome honours either. */
-  .sort-field select { height: 44px; }
   .aud-more button { min-height: 44px; padding: 0 16px; }
-  .sah-page-head .back, button.back { min-height: 44px; padding: 4px 0; margin-bottom: 4px; }
 
   /* The shared toast's dismiss × is 16x20. Scoped to this screen's own
      overlay layer so the other screens in the module keep the component

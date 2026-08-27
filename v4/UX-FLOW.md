@@ -158,14 +158,19 @@ One screen. The search box **is** the add affordance — there is no separate
                      [ Finish Audit ]
 ```
 
-**The header**, which Edit Audit and order-build share. Back, the customer's
-name, and the progress count — on **one line**, always. The name takes what is
-left of that line and is elided: "A N Enterprise (Golden Mart, Guwahati)" reads
-as "A N Enterprise (Golden…". The header is a place marker, not somewhere a
-long name is meant to be read, and holding it to one line keeps the screen's
-furniture in the same place whichever shop the rep walked into. A two-line
-clamp was tried here and reverted for exactly that: it grew the header to 55px
-on precisely the customers with long names.
+**The header — the standard one.** Back, the customer's name, and whatever the
+screen puts at the far end, on **one line**, always. This is the shape every
+screen that names a customer uses: this one, Edit Audit, both order-build
+states, and Audit Detail (§4.2). All five render the name through one helper,
+so none of them can drift on the truncation or the tap.
+
+The name takes what is left of the line and is elided: "A N Enterprise (Golden
+Mart, Guwahati)" reads as "A N Enterprise (Golden…" where something shares the
+line, and whole where nothing does. The header is a place marker, not somewhere
+a long name is meant to be read, and holding it to one line keeps the screen's
+furniture in the same place whichever shop the rep walked into. A two-line clamp
+was tried here and reverted for exactly that: it grew the header to 55px on
+precisely the customers with long names.
 
 **Tapping the name opens a sheet with the name in it and nothing else.** That
 is what makes the ellipsis a promise the app can keep rather than a loss. No
@@ -173,6 +178,14 @@ address, category, status or order count: those live on the customer's own
 screens, and any of them here would turn a one-line answer into a card that has
 to be read. It answers the one question a clipped header raises — which
 customer am I in?
+
+**Where this deliberately does not go.** A customer name that is a row you tap
+to *do* something — a picker result, an Audit History card — keeps its single
+target; a second one inside a row whose whole job is "select this" is the same
+mistake the search thumbnails were removed for (§8). And a name already whole
+on the screen — a sheet's eyebrow, the order-success summary — has nothing to
+reveal. The rule is: this exists wherever a name is **cut to fit**, and only
+there.
 
 **The row.** Product name, then the quantity column — the unit picker sitting
 directly above the stepper, outside its border — and a red bin. That is all:
@@ -221,8 +234,18 @@ counts only the lines actually touched.
 place. No dialog.
 
 **Finishing** is a two-tap commit in the footer: `Finish Audit` → `Finish this
-audit?` with ✓/✗, reporting coverage. Counting nothing and pressing Finish is
-an *exit*, not a completion, so it raises the leave confirmation instead.
+audit?` with ✓/✗, reporting coverage. **Finish never opens a modal.** With
+nothing counted it says so and stays — `Count at least one product first.` —
+the same toast-and-stay Save and Confirm Order use when their own list is
+empty.
+
+That reversed a rule. Counting nothing and pressing Finish used to raise the
+**leave** confirmation, on the reasoning that nothing counted is an exit rather
+than a completion. But the rep did not ask to leave — they pressed Finish — and
+being handed `End this visit` for pressing the wrong button is a far worse
+surprise than being told to count something. It also made that modal mean two
+different things; it now means one, which is what lets it be trusted the other
+times it appears (§7).
 
 On save: one audit record, status `completed`, `Audit saved — N products
 checked.`, and the rep lands back on a fresh customer search.
@@ -233,13 +256,31 @@ checked.`, and the rep lands back on a fresh customer search.
 
 ### 4.1 The list (`audits`)
 
-Every visit, newest first, searchable by customer or note, sortable
-newest/oldest, paged with "Load more". One row per audit — an updated audit
-does **not** get extra badges or a revision count.
+Every visit, **newest first**, always — paged with "Load more". One row per
+audit; an updated audit does **not** get extra badges or a revision count.
+
+There is no sort control. A Newest/Oldest picker used to sit on the "Recent
+Audits" heading, which put a switch for breaking the promise directly under the
+screen's own subtitle — and "oldest first" answers a question (what did I do
+first, ever) that a rep with a search box does not ask standing in a shop.
+
+The box is labelled **Search customer…** and that is the case it is there for.
+It still matches a visit's notes as well, which costs nothing and occasionally
+finds the visit a rep remembers by what they wrote rather than by who it was.
 
 ### 4.2 Audit Detail (`audit`)
 
-A **view** screen. There is no large call-to-action.
+A **view** screen. There is no large call-to-action. It carries the standard
+header (§3.2) — so the name truncates and opens the same sheet here as
+everywhere else.
+
+That took a change. This screen used to render "← Giriraj Store" as a SINGLE
+back link, which made the customer's name the label on the back button and, on
+this tenant's longer names, wrapped the header onto two lines. Splitting it —
+an arrow that goes back, a name that opens the name — is what let the name
+behave the same way on every screen. The rule under the header is a plain
+divider here, not the progress track it is on the capture screens: this visit
+is finished, and an empty track would read as 0%.
 
 ```
 ←  Giriraj Store                          18 Aug · 10:05 am
@@ -290,10 +331,18 @@ The rep can **change a quantity**, **change a unit**, **add a product**
 (footer `+ Add Product`, or just type in the search box), and **remove a
 product** (same in-row ✓/✗).
 
-`Save` is a two-tap commit: `Save changes?` with ✓/✗.
+`Save` is a two-tap commit: `Save changes?` with ✓/✗ — **every time it is
+tapped**, the same as Finish Audit and Confirm Order.
 
-**If nothing changed, Save writes nothing** — no version, no timeline entry,
-no toast — and simply returns. A question with no wrong answer is not asked.
+It used to skip the question when the lines were identical to the ones already
+on the record, on the reasoning that a question with no wrong answer is not
+worth asking. That reversed, because the rep cannot see which case they are in:
+Save asked sometimes and not others, and the difference was a comparison they
+had no way to run. A control that behaves differently for reasons invisible to
+the person pressing it is worse than one extra tap.
+
+**What ✓ commits is unchanged: if nothing changed, Save writes nothing** — no
+version, no timeline entry, no toast. It asks, then returns.
 
 ---
 
@@ -439,6 +488,12 @@ Three screens hold work that exists nowhere else. Each guards it **identically
 on every exit route**: the ← button, the phone's Back gesture, and closing or
 reloading the tab.
 
+**These modals belong to leaving, and to nothing else.** No committing
+action — Finish, Save, Confirm — ever raises one; those ask inline in the
+footer where the rep is already looking (§10). A modal here means the same
+thing every time it appears: you are about to walk away from work that exists
+nowhere else.
+
 | Screen | Guard | Fires when |
 | --- | --- | --- |
 | `quick-count` | **Leave this audit?** | ≥ 1 product counted |
@@ -566,6 +621,25 @@ was opened.
 - **Copy is one or two words** wherever a sentence is not doing real work:
   `Edit`, `Save`, `Close`, `Created`, `Updated`, `Retry Sync`.
 - **Search-first everywhere.** No screen opens with a full list.
+- **Every product search has `+ Add Product`, and it goes all the way.** The
+  button sits in the sticky footer of all three screens that pick products —
+  counting, Edit Audit, order-build — and is hidden while the dropdown is open,
+  where it would offer what the rep is already doing. Tapping it opens the
+  search. If nothing matches, the empty state itself carries `+ Add Product`
+  again, and that opens **New Product**: name, unit, optional SKU, optional
+  photo. What it creates joins the list through the same call a search result
+  does, so the row that appears is an ordinary row.
+
+  This took two fixes to become a rule. The counting screen had the create path
+  but no footer button — the only way to reach it was to search for the product
+  and read the empty state, which asks the rep to prove a product is missing
+  before offering to add it. The order screen had the footer button but its
+  empty state dead-ended at "No product matches that.", so a rep standing in a
+  shop with something the catalogue has never heard of could **count** it but
+  not **order** it. A product created on the order screen reaches Accounts
+  unmapped, which the sync reports as an error the rep can see and retry — the
+  same as any other unmapped product, and better than not being able to record
+  the order at all.
 - **Tapping a search box opens its options.** Focus alone is enough — before a
   character is typed — and an empty box offers the default set (first 5 A-Z).
   Typing filters from there; tapping away closes it and puts whatever the

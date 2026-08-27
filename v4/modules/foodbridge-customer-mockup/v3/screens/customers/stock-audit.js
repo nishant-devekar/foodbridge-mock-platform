@@ -334,18 +334,30 @@
     return loadCustomers().find((c) => c._id === id) || null;
   }
 
-  // The customer's name in a workspace header, as something you can open.
+  // The customer's name in a screen header, as something you can open. THE one
+  // way this module puts a customer's name at the top of a screen — count, Edit
+  // Audit, both order-build states, and Audit Detail all render through here,
+  // so none of them can drift on the truncation or the tap.
   //
-  // The header stays ONE line: it shares that line with a back button and a
-  // progress count, and it is a place marker, not somewhere a long name is
-  // meant to be read. So the name gets what is left and is elided — which on a
-  // phone means "A N Enterprise (Golden Mart, Guwahati)" reads as "A N
-  // Enterprise (Golden…", and that is fine, because the ellipsis is now a
-  // promise the app can keep: tapping the name opens the whole thing.
+  // The header stays ONE line: it shares that line with a back button and
+  // whatever sits at the far end — a progress count, a total, a visit date —
+  // and it is a place marker, not somewhere a long name is meant to be read.
+  // So the name gets what is left and is elided, which on a phone means
+  // "A N Enterprise (Golden Mart, Guwahati)" reads as "A N Enterprise
+  // (Golden…". That is fine, because the ellipsis is a promise the app keeps:
+  // tapping the name opens the whole thing.
   //
   // (A two-line clamp was tried and reverted. It showed those names whole, but
   // grew the header on exactly the customers with long names, so the screen's
   // furniture shifted depending on which shop the rep walked into.)
+  //
+  // WHERE THIS DELIBERATELY DOES NOT GO. A customer name that is a row you tap
+  // to do something — a picker result, an Audit History card — keeps its single
+  // target, because a second one inside a row whose whole job is "select this"
+  // is the mistake the search thumbnails were just removed for. And a name
+  // that is already whole on the screen — a sheet's eyebrow, the order-success
+  // summary — has nothing to reveal. The rule is: this exists wherever a name
+  // is CUT to fit, and only there.
   const whoHTML = (customer) => {
     const name = titleCase(nameOf(customer));
     return `<button type="button" class="ws-who" data-customer-name="${esc(name)}"
@@ -1475,13 +1487,8 @@
   // healthy they were left — in that order, because that's the order a rep
   // asks the questions in.
 
-  const AUD_SORTS = [
-    { k: "newest", label: "Newest" },
-    { k: "oldest", label: "Oldest" },
-  ];
-
   const AUD_PAGE = 8;
-  let AUD_STATE = { q: "", sort: "newest", shown: AUD_PAGE };
+  let AUD_STATE = { q: "", shown: AUD_PAGE };
 
   function allAuditRows() {
     const custMap = {};
@@ -1503,10 +1510,12 @@
       (r.audit.notes || "").toLowerCase().includes(q) ||
       (r.audit.finalNote || "").toLowerCase().includes(q));
 
-    rows.sort((x, y) => {
-      if (AUD_STATE.sort === "oldest") return new Date(x.audit.at) - new Date(y.audit.at);
-      return new Date(y.audit.at) - new Date(x.audit.at);
-    });
+    // Newest first, always. The Newest/Oldest picker that used to sit on the
+    // "Recent Audits" heading is gone: this screen's own subtitle promises
+    // newest first, so the control existed to break the promise printed above
+    // it, and "oldest" answers a question — what did I do first, ever — that a
+    // rep with a search box does not ask standing in a shop.
+    rows.sort((x, y) => new Date(y.audit.at) - new Date(x.audit.at));
 
     const shown = rows.slice(0, AUD_STATE.shown);
 
@@ -1516,14 +1525,11 @@
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="audQ" ${SEARCH_ATTRS} value="${esc(AUD_STATE.q)}" placeholder="Search customer or note…"></div>
+        <div class="sah-search"><input type="search" id="audQ" ${SEARCH_ATTRS} value="${esc(AUD_STATE.q)}" placeholder="Search customer…"></div>
       </div>
 
       <div class="section-head-row">
         <h2>Recent Audits</h2>
-        <label class="sort-field">Sort:
-          <select id="audSort">${AUD_SORTS.map((s) => `<option value="${s.k}" ${AUD_STATE.sort === s.k ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</select>
-        </label>
       </div>
 
       ${shown.length
@@ -1539,7 +1545,6 @@
     `);
 
     wireSearchInput("audQ", (v) => { AUD_STATE.q = v; AUD_STATE.shown = AUD_PAGE; renderAudits(); });
-    $("#audSort", PAGE).onchange = (e) => { AUD_STATE.sort = e.target.value; renderAudits(); };
     const more = $("#audMore", PAGE);
     if (more) more.onclick = () => { AUD_STATE.shown += AUD_PAGE; renderAudits(); };
     PAGE.querySelectorAll("[data-open-audit]").forEach((el) => {
@@ -2060,11 +2065,10 @@
     if (!customer || !a) { go("quick-pick", {}, true); return; }
 
     frame(`
-      <div class="sah-page-head">
-        <div class="row" style="align-items:center">
-          <button type="button" class="back" id="auBack">← ${esc(titleCase(nameOf(customer)))}</button>
-          <span class="au-when">${esc(fmtDateShort(a.at))} · ${esc(fmtTimeShort(a.at))}</span>
-        </div>
+      <div class="ws-head flat">
+        <button type="button" class="ws-exit" id="auBack" aria-label="Back">←</button>
+        ${whoHTML(customer)}
+        <span class="au-when">${esc(fmtDateShort(a.at))} · ${esc(fmtTimeShort(a.at))}</span>
       </div>
 
       ${productsCheckedSectionHTML(a)}
@@ -2114,9 +2118,11 @@
   }
 
   // Saving asks first, in the footer — the same two-tap commit finishing a
-  // count and confirming an order already use. No detail line under the
-  // prompt: those two are committing something new, where the totals are the
-  // decision, and this is a correction to a record the rep is looking at.
+  // count and confirming an order already use, and now on the same terms:
+  // every time, not only when the lines actually differ (see wireEditFoot).
+  // No detail line under the prompt: those two are committing something new,
+  // where the totals are the decision, and this is a correction to a record
+  // the rep is looking at.
   function editFootHTML() {
     if (!AE_CONFIRM) {
       // Add sits in the sticky footer, not under the list: with thirty
@@ -2146,10 +2152,18 @@
     if (save) save.onclick = () => {
       const lines = editLines();
       if (!lines.length) { toast("Count at least one product first.", "info"); return; }
-      // Nothing changed is nothing to confirm — saveAuditEdit already knows to
-      // write no version in that case, so this leaves without a question the
-      // rep has no way to answer wrong.
-      if (linesSignature(a.lines) === linesSignature(lines)) { saveAuditEdit(a); return; }
+      // ALWAYS ask. This DELIBERATELY REVERSES the rule that used to live here:
+      // an unchanged edit skipped the question and left, on the reasoning that
+      // a question with no wrong answer is not worth asking. What that missed
+      // is that the rep cannot see which case they are in — Save asked
+      // sometimes and not others, and the difference was a comparison they had
+      // no way to run. A control that behaves differently for reasons invisible
+      // to the person pressing it is worse than one extra tap.
+      //
+      // ✓ still writes nothing when nothing changed: commitAuditVersion
+      // returns false and saveAuditEdit adds no version, no timeline entry and
+      // no toast. The question is now always asked; what it commits is
+      // unchanged.
       AE_CONFIRM = true;
       refreshEditFoot(a);
     };
@@ -2391,7 +2405,19 @@
   // sheet in between either: the count happens in the row. DRAFT.selected is
   // the rep's curated scope; DRAFT.lines gains an entry only once a product
   // is actually counted.
-  let QC_STATE = { q: "", focused: false };
+  // `adding` is set only by the "+ Add Product" button — an explicit ask,
+  // which opens the dropdown the same way a tap on the box does. It is kept
+  // apart from `focused` so that closing the dropdown can retract the request
+  // rather than leave it standing; same contract as OB_STATE's.
+  let QC_STATE = { q: "", focused: false, adding: false };
+  // Focusing the box offers the first 5 A-Z, whether or not products are
+  // already selected. This used to be withheld once a Selected list existed,
+  // to avoid burying it under an unrelated suggestion set; the rule is now
+  // that a tapped search box always opens its options, and tapping away puts
+  // the list straight back. Typing a query wins regardless.
+  const quickPreviewing = () =>
+    !QC_STATE.q.trim() && (QC_STATE.adding || QC_STATE.focused);
+  const quickSearching = () => !!QC_STATE.q.trim() || quickPreviewing();
   // Whether the sticky footer is showing the inline "Finish this audit?"
   // confirmation rather than the Finish button. Any re-render of the whole
   // view (a search, an add, a remove) puts it back — those are all changes to
@@ -2447,13 +2473,8 @@
     const matches = (p) =>
       [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const s = quickStats();
-    // Focusing the box offers the first 5 A-Z, whether or not products are
-    // already selected. This used to be withheld once a Selected list existed,
-    // to avoid burying it under an unrelated suggestion set; the rule is now
-    // that a tapped search box always opens its options, and tapping away puts
-    // the list straight back. Typing a query wins regardless.
-    const previewing = !q && QC_STATE.focused;
-    const searching = !!q || previewing;
+    const previewing = quickPreviewing();
+    const searching = quickSearching();
     const available = products.filter((p) => !DRAFT.selected.includes(p.id));
     const results = !searching
       ? []
@@ -2559,7 +2580,7 @@
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
           <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" title="${esc(p.name)}" aria-label="Details for ${esc(p.name)}">${esc(shortName(p.name))}</div>
-          <div class="meta ask">Remove?<span class="lost"> Its count will be cleared.</span></div>
+          <div class="meta ask">Remove?</div>
         </div>
         ${stepperHTML(p.id, qty == null ? "" : qty, unitPickHTML("data-unit", p.id, p.name, unit, units, baseUnit(p), "Counting unit"))}
         <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">${TRASH_SVG}</button>
@@ -2574,7 +2595,16 @@
   // finishing.
   function quickFootHTML(customer) {
     if (!QC_CONFIRM) {
-      return `<button type="button" class="btn-wide primary" id="qcFinish">Finish Audit</button>`;
+      // Add sits in the sticky footer, the same place and on the same terms as
+      // Edit Audit's and the order screen's — see editFootHTML. Counting is a
+      // search-first screen, so this was the odd one out: the only way to
+      // create a product the catalogue has never heard of was to first search
+      // for it and read the empty state. That is the right place for it too,
+      // and it still works, but it asks the rep to prove the product is
+      // missing before offering to add it. Hidden while the dropdown is open,
+      // where it would be offering what the rep is already doing.
+      return `${quickSearching() ? "" : `<button type="button" class="btn-add" id="qcAdd">+ Add Product</button>`}
+        <button type="button" class="btn-wide primary" id="qcFinish">Finish Audit</button>`;
     }
     const cov = auditCoverage(draftAsAudit(customer));
     const detail = cov.skipped
@@ -2592,10 +2622,13 @@
 
   function wireQuickCount(customer) {
     wireSearchInput("qcQ", (v) => { QC_STATE.q = v; renderQuickCount(); }, {
-      isOpen: () => QC_STATE.focused,
+      isOpen: () => QC_STATE.focused || QC_STATE.adding,
+      // Closing clears the explicit "+ Add Product" request too, or the
+      // dropdown it opened would survive the tap that dismissed it.
       setOpen: (v) => {
         if (CURRENT.view !== "quick-count") return;
         QC_STATE.focused = v;
+        if (!v) QC_STATE.adding = false;
         renderQuickCount();
       },
     });
@@ -2606,6 +2639,7 @@
       // the edit screen add the same way, on purpose.
       if (!DRAFT.selected.includes(id)) DRAFT.selected.unshift(id);
       QC_STATE.q = "";
+      QC_STATE.adding = false;
       persistDraft();
       renderQuickCount();
     };
@@ -2707,15 +2741,33 @@
   // Finish is a two-tap decision made in place: the footer becomes the
   // question. See quickFootHTML for why it isn't a sheet.
   function wireQuickFoot(customer) {
+    // Bound here rather than in wireQuickCount because the footer replaces its
+    // own markup on every refresh — same reason as wireOrderFoot's.
+    const add = $("#qcAdd", PAGE);
+    if (add) add.onclick = () => {
+      QC_STATE.focused = true;
+      QC_STATE.adding = true;
+      renderQuickCount();
+      const box = $("#qcQ", PAGE);
+      if (box) box.focus();
+    };
     const finish = $("#qcFinish", PAGE);
     if (finish) finish.onclick = () => {
-      // Nothing counted — whether nothing was ever selected or a handful of
-      // products sit unselected/uncounted — is nothing to finish. That's an
-      // exit, not a completion, so it gets the same "Leave this audit?"
-      // sheet the ← button uses (and the same honest Abandoned outcome)
-      // instead of an inline confirm that could only dead-end in "count
-      // something first."
-      if (quickStats().captured === 0) { exitAuditSheet(customer); return; }
+      // Nothing counted is nothing to finish, and it is BLOCKED right here —
+      // the same toast-and-stay that Save and Confirm Order use when their own
+      // list has nothing in it. Finish never opens a sheet.
+      //
+      // This DELIBERATELY REVERSES what used to happen: an empty count opened
+      // the "Leave this audit?" sheet, on the reasoning that nothing counted is
+      // an exit rather than a completion and an inline confirm could only
+      // dead-end in "count something first". Two things were wrong with it.
+      // The rep did not ask to leave — they pressed FINISH — and being handed
+      // "End this visit" for pressing the wrong button is a far worse surprise
+      // than being told to count something. And it made that sheet mean two
+      // different things: leaving, and finishing-with-nothing. It now means
+      // exactly one, which is what lets it be trusted the other times it
+      // appears (see exitAuditSheet: the ← button, the phone's Back).
+      if (quickStats().captured === 0) { toast("Count at least one product first.", "info"); return; }
       QC_CONFIRM = true;
       refreshQuickChrome(customer);
     };
@@ -3608,7 +3660,7 @@
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
-            : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
+            : noProductFoundHTML()}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
         : `${ORDER.lines.length ? `<div class="section-head-row attached"><h2>${recommended ? "Recommended" : "Products"}</h2>${recommended ? predictionBasisHTML(ctx) : ""}</div>` : ""}
            ${ORDER.lines.length
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
@@ -3666,8 +3718,7 @@
       },
     });
 
-    PAGE.querySelectorAll("[data-order-add]").forEach((b) => (b.onclick = () => {
-      const p = productById(b.dataset.orderAdd);
+    const addToOrder = (p) => {
       if (!p) return;
       if (!ORDER.lines.some((l) => l.productId === p.id)) {
         const known = Object.prototype.hasOwnProperty.call(ORDER.stockMap, p.id);
@@ -3681,7 +3732,18 @@
       OB_STATE.q = "";
       OB_STATE.adding = false;
       renderOrderBuild();
-    }));
+    };
+    PAGE.querySelectorAll("[data-order-add]").forEach((b) => (b.onclick = () => addToOrder(productById(b.dataset.orderAdd))));
+    // A product created here joins the order through the SAME call a search
+    // result does — the line that appears is an ordinary line. This screen used
+    // to be the one search that dead-ended: its empty state said "No product
+    // matches that." and stopped, so a rep standing in a shop with something
+    // the catalogue has never heard of could count it but not order it. It
+    // reaches Accounts unmapped, which the sync reports as an error the rep can
+    // see and retry — the same as any other unmapped product, and better than
+    // having no way to record the order at all.
+    const obNp = $("[data-new-product]", PAGE);
+    if (obNp) obNp.onclick = () => newProductSheet(OB_STATE.q.trim(), addToOrder);
 
     // The ordering unit. Only the label and the line's own `unit` change —
     // `qty` is the number the rep typed and stays theirs, so "3" under a
