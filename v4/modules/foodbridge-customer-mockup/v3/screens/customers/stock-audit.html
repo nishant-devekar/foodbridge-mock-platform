@@ -83,13 +83,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Stock Audit &amp; Health — Foodbridge Module Customer</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="stock-audit.css?v=2026082733">
+  <link rel="stylesheet" href="stock-audit.css?v=2026082744">
 </head>
 <body>
   <div class="app sah" id="app"></div>
   <script src="icons.js"></script>
-  <script src="order-history.js?v=2026082733"></script>
-  <script src="seed.inline.js?v=2026082733"></script>
+  <script src="order-history.js?v=2026082744"></script>
+  <script src="seed.inline.js?v=2026082744"></script>
   <script src="shell.js"></script>
   <!-- ?v= busts the browser cache. Neither GitHub Pages nor python3's
        http.server sends Cache-Control, so without it a browser keeps serving
@@ -105,13 +105,13 @@
        resolving a fake response. Keeping them out of stock-audit.js is what
        lets the prediction be reasoned about, and the integration swapped,
        without touching a view. -->
-  <script src="predictive-order.js?v=2026082733"></script>
+  <script src="predictive-order.js?v=2026082744"></script>
   <!-- Where the Zoho function lives. No secrets: the OAuth credentials are the
        function's environment and never reach this page. Must load BEFORE the
        adapter, which reads window.FB_INTEGRATION. -->
-  <script src="integration-config.js?v=2026082733"></script>
-  <script src="zoho-adapter.js?v=2026082733"></script>
-  <script src="stock-audit.js?v=2026082733"></script>
+  <script src="integration-config.js?v=2026082744"></script>
+  <script src="zoho-adapter.js?v=2026082744"></script>
+  <script src="stock-audit.js?v=2026082744"></script>
   <script>SAH.mount();</script>
 </body>
 </html>

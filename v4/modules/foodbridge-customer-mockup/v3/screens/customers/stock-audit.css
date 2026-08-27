@@ -316,27 +316,31 @@
    segmented control rather than three floating buttons — Delivery
    Management's .dm-stepper, at the same proportions, so a rep who counts
    stock onto a truck there and off a shelf here operates the same widget. */
-/* The number and its unit share the middle cell, stacked — see stepperHTML.
-   `align-items: stretch` so all three cells are one height whether or not a
-   unit label is present. */
+/* The unit sits above this control, outside its border — see .qty-col. The
+   middle cell is the number alone. `align-items: stretch` keeps all three
+   cells one height. */
+/* Raised over the remove button on purpose. The bin's 44px target is painted
+   as a 24px circle and pulled left by a negative margin, which reaches 3px
+   past the row's gap and over the "+" button — so the rightmost sliver of "+"
+   opened a delete confirmation instead of adding one. The bin keeps its target
+   everywhere it does not collide; where the two overlap, the quantity wins. */
+.qty-col { position: relative; z-index: 1; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
 .pd-stepper { display: inline-flex; align-items: stretch; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #fff; }
 .pd-stepper button { width: 30px; min-height: 42px; border: none; background: #fff; color: var(--teal); font-size: 17px; font-weight: 700; flex-shrink: 0; }
 .pd-stepper button:hover { background: var(--slate-50); }
 .pd-stepper .val {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   min-width: 42px; padding: 4px 3px;
   border-left: 1.5px solid var(--line); border-right: 1.5px solid var(--line);
 }
 .pd-stepper input { width: 100%; text-align: center; border: none; padding: 0; font-size: 15px; font-weight: 700; outline: none; font-variant-numeric: tabular-nums; color: var(--muted-2); background: transparent; }
-/* The unit, quiet under the number it belongs to. */
-.pd-stepper .u { font-size: 10.5px; font-weight: 700; line-height: 1.1; color: var(--muted-2); margin-top: 1px; white-space: nowrap; }
 .pd-stepper:focus-within { border-color: var(--teal); }
-/* A row with a quantity on it goes green edge to edge — border, number, unit
-   — which is what separates "counted" from "not answered yet" at a glance. */
+/* A row with a quantity on it goes green edge to edge — border, number, and
+   the unit chip above — which is what separates "counted" from "not answered
+   yet" at a glance. */
 .qc-row.done .pd-stepper { border-color: var(--teal); }
 .qc-row.done .pd-stepper .val { border-left-color: var(--teal-l2); border-right-color: var(--teal-l2); }
-.qc-row.done .pd-stepper input,
-.qc-row.done .pd-stepper .u { color: var(--teal-d); }
+.qc-row.done .pd-stepper input { color: var(--teal-d); }
 
 /* ── Audit history: a field-visit log ────────────────────────────────────── */
 .aud-list { display: flex; flex-direction: column; gap: 10px; }
@@ -655,45 +659,15 @@
 .vs-list { max-height: 46vh; overflow-y: auto; overscroll-behavior: contain; }
 
 /* ── The product detail sheet ────────────────────────────────────────────── */
-/* Opened from anywhere a product is named (see productDetailSheet). The sheet
-   itself is the shared .sah-sheet; everything below is its body.
-
-   Three blocks, in the order the questions get asked: is this the right pack
-   (hero), what does it mean HERE (context), and what is it (facts, ladder). */
-.pdx-hero { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-.pdx-hero .thumb {
-  width: 56px; height: 56px; border-radius: 12px; background: var(--slate-100);
-  display: grid; place-items: center; font-size: 26px; flex-shrink: 0; overflow: hidden;
-}
-.pdx-hero .thumb img { width: 100%; height: 100%; object-fit: cover; }
-.pdx-hero .who { min-width: 0; }
-.pdx-hero .sku { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; word-break: break-all; }
-
-/* The one line that is about THIS screen rather than the catalogue — what was
-   counted, what is on the order. Tinted so it reads as the answer to the
-   question the rep opened the sheet with, not another catalogue field. */
-.pdx-ctx {
-  margin-top: 16px; padding: 11px 12px; border-radius: 11px;
-  background: var(--teal-l); border: 1px solid var(--teal-l2);
-}
-.pdx-ctx .lbl { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--teal-d); }
-.pdx-ctx .val { display: block; margin-top: 3px; font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-.pdx-ctx .note { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); }
-
-.pdx-facts { margin-top: 16px; }
-.pdx-fact { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
-.pdx-fact:last-child { border-bottom: none; }
-.pdx-fact .k { flex-shrink: 0; width: 108px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); }
-.pdx-fact .v { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
-
-/* The pack ladder, spelled out — the same rungs the row's unit chip offers,
-   with the multiplication the chip has no room for. */
-.pdx-units { margin-top: 16px; }
-.pdx-units-head { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-2); margin-bottom: 7px; }
-.pdx-unit { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px; }
-.pdx-unit + .pdx-unit { margin-top: 6px; }
-.pdx-unit .u { font-size: 13px; font-weight: 800; color: var(--ink); }
-.pdx-unit .p { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Opened from anywhere a product is named (see productDetailSheet), and now
+   deliberately four things: the name, the SKU, the unit and its price. The
+   hero picture, the category/sub-category/base-unit/system-stock table, the
+   "this visit" line and the pack ladder were all REMOVED — none of them
+   answered the question a rep opens this to ask, and together they pushed the
+   one that does below the fold. What is left is the .us-* block below, shared
+   with the unit sheet so the two cannot drift. Their styles (.pdx-hero,
+   .pdx-ctx, .pdx-facts, .pdx-units) went with them rather than being left
+   dead. */
 
 /* What a product name looks like when it opens something. Deliberately quiet:
    these sit inside rows whose real work is a count or an add, and an underline
@@ -811,29 +785,34 @@
 .qc-line { display: flex; align-items: center; gap: 7px; padding: 11px 11px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
 .qc-line:last-child { border-bottom: none; }
 .qc-line .info { flex: 1; min-width: 0; }
-.qc-line .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The name truncates because a product name has to fit one line; the meta
-   wraps, because it now carries a control and a conversion the rep needs to
-   read to the end.
-   The article number is the part that gives way first. This catalogue's are
-   18 digits, which on a 402px iPhone pushed the unit chip onto a third line
-   and made every row in the list taller — the old assumption that a short
-   "SKU a103 · Pc" fits one line does not survive real article numbers. The
-   chip and the conversion keep their space; the number ellipsizes, and the
-   full value stays on the element's title. Search still matches the whole
-   thing, so nothing is lost but the middle digits of a number nobody reads
-   off a phone. */
+/* Two lines for the name, then ellipsis. Moving the unit above the stepper
+   made the quantity column the tallest thing in the row, so the name had a
+   second line sitting unused — and these are names like "AMLA PICKLE (1000 gm)
+   (OLD MRP 700) NEW MRP 660", where one line cuts before the size and the
+   price and leaves two different products reading identically. The clamp buys
+   this for free: a short name still occupies one line, so no row grows that
+   did not need to. */
+.qc-line .nm {
+  font-weight: 700; font-size: 13.5px; color: var(--ink); line-height: 1.3;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* The SKU line under it is unchanged — one line, the article number giving way
+   first. This catalogue's are 18 digits, which on a 402px iPhone would push the
+   line wide and make every row in the list taller. It ellipsizes with the full
+   value on the element's title, and search still matches the whole thing, so
+   nothing is lost but the middle digits of a number nobody reads off a phone. */
 .qc-line .meta {
   font-size: 11.5px; color: var(--muted); margin-top: 1px; line-height: 1.4;
   display: flex; align-items: center; flex-wrap: wrap; gap: 0 4px;
 }
-/* `flex: 1 1 0`, not `0 1 auto`. With a content-sized basis the nowrap number
-   is hypothetically wider than the row, so flex gives it a line of its own and
-   wraps the chip underneath before it ever shrinks it. A zero basis makes it
-   take what is left after the chip instead, which is the whole point. */
+/* `flex: 1 1 0`, not `0 1 auto`: a content-sized basis would let the nowrap
+   number claim more than the row and push the line wide rather than ellipsing
+   inside it. A zero basis makes it take exactly what the line has left. */
 .qc-line .meta .sku { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* The counting unit, inline in the SKU line — a real <select>, but dressed as
+/* The counting unit, centred directly above the stepper and outside its
+   border — a real <select>, but dressed as
    a visible control rather than as text that happens to be clickable: a
    tinted pill, a border and a chevron, so "you can change this" reads before
    anyone touches it. Bare coloured text with a hairline chevron did not: the
@@ -851,23 +830,92 @@
    announces its own value. */
 .qc-line .unit-pick {
   position: relative; display: inline-flex; align-items: center; gap: 4px;
-  height: 24px; padding: 0 7px; margin: 0 6px 0 0;
+  height: 22px; padding: 0 7px;
   border: 1px solid var(--line); border-radius: 8px;
-  background: var(--slate-50); vertical-align: -6px;
+  background: var(--slate-50);
+  font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
 }
+.qc-line .unit-pick:active { opacity: .6; }
 /* Tinted to match the stepper once the row carries a quantity. */
 .qc-row.done .unit-pick { border-color: var(--teal-l2); background: var(--teal-l); }
 .qc-row.done .unit-pick .lbl, .qc-row.done .unit-pick .chev { color: var(--teal-d); }
 .qc-line .unit-pick:hover { border-color: var(--teal); }
 .qc-line .unit-pick .lbl { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1; white-space: nowrap; }
 .qc-line .unit-pick .chev { font-size: 11px; color: var(--muted-2); line-height: 1; }
-.qc-line .unit-pick select {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  appearance: none; -webkit-appearance: none;
-  border: none; background: none; padding: 0; margin: 0;
-  font: inherit; opacity: 0; cursor: pointer;
+.qc-line .unit-pick:focus-visible { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px rgba(18,97,94,.25); }
+
+/* Saved, said on the row for a moment and then gone — see flashUnitSaved. The
+   row grows by this and shrinks back; a badge that reserved permanent space
+   would be a label, and a label that reads "Updated" forever means nothing. */
+.unit-flash {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--teal-l); color: var(--teal-d);
+  font-size: 10.5px; font-weight: 800; white-space: nowrap;
+  opacity: 1; transition: opacity .2s ease;
 }
-.qc-line .unit-pick:focus-within { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(18,97,94,.25); }
+.unit-flash.out { opacity: 0; }
+.unit-flash .ic { font-size: 9.5px; }
+
+/* ── The unit sheet ──────────────────────────────────────────────────────────
+   Changing the unit changes what every number on the row means, so it is asked
+   against the consequence: what the pack costs, before and after. Three
+   stacked facts — what this is, what it costs now, what to change it to. */
+.us-name { font-size: 17px; font-weight: 800; line-height: 1.3; color: var(--ink); margin: 0; }
+/* Wraps rather than truncates: this is the one screen where the rep is being
+   asked to confirm WHICH product they are changing, so the size and the MRP at
+   the end of the name are the point. */
+.us-sku { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+
+.us-label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+
+/* Current price, with the pack it belongs to beside it — the two only mean
+   anything together. */
+.us-now {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 0; margin-top: 14px;
+  border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.us-now-copy { min-width: 0; }
+/* A price never breaks mid-number: "₹1,36,800.0 / 0" across two lines is not a
+   number anyone can read. */
+.us-price {
+  display: block; margin-top: 2px;
+  font-size: 24px; font-weight: 800; color: var(--teal-d);
+  font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap;
+}
+/* No MRP in the product name means no price configured in Zoho either — said
+   plainly rather than shown as a confident zero. */
+.us-price.none { font-size: 15px; font-weight: 700; color: var(--muted-2); }
+.us-badge {
+  flex-shrink: 0; padding: 8px 14px; border-radius: 10px;
+  background: var(--teal-l); color: var(--teal-d);
+  font-size: 13px; font-weight: 800; white-space: nowrap;
+}
+
+.us-pick { margin-top: 16px; }
+/* A real <select>: three options is exactly what a native picker is for, and
+   on a phone it is the control the rep already knows. Each option carries its
+   own price, so the packs are compared inside the list rather than one at a
+   time. The chevron is ours because the native arrow is suppressed. */
+.us-select { position: relative; display: block; margin-top: 7px; }
+.us-select select {
+  width: 100%; height: 48px; padding: 0 36px 0 13px;
+  border: 1.5px solid var(--line); border-radius: 12px; background: #fff;
+  font: inherit; font-size: 14.5px; font-weight: 700; color: var(--ink);
+  appearance: none; -webkit-appearance: none;
+  text-overflow: ellipsis;
+}
+.us-select select:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(18,97,94,.18); }
+.us-select .chev {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--muted-2); font-size: 13px; pointer-events: none;
+}
+
+/* Saving asks in the footer, in place — the same two-tap commit Finish Audit
+   and Confirm Order use. .sheet-acts is a column of buttons; the question is a
+   row, so it turns for as long as it is being asked. */
+.sheet-acts.asking { flex-direction: row; align-items: center; gap: 10px; }
 
 /* A counted row is tinted edge to edge — which is why .qc-card carries no
    horizontal padding of its own and each line pads itself instead. */
@@ -883,7 +931,7 @@
 .qc-row.done .ask .lost { display: inline; }
 .qc-row.confirming { background: var(--amber-bg); }
 .qc-row.confirming .meta:not(.ask),
-.qc-row.confirming .pd-stepper,
+.qc-row.confirming .qty-col,
 .qc-row.confirming .qc-remove { display: none; }
 /* Belt and braces: the unit picker lives inside the SKU line that just went
    away, but a <select> is exactly the sort of control that stays clickable
@@ -897,8 +945,7 @@
 .qc-row .pd-stepper input::placeholder { color: var(--muted-2); font-weight: 500; }
 .qc-row.done .pd-stepper { border-color: var(--green); }
 .qc-row.done .pd-stepper .val { border-left-color: var(--green); border-right-color: var(--green); }
-.qc-row.done .pd-stepper input,
-.qc-row.done .pd-stepper .u { color: var(--green-d); }
+.qc-row.done .pd-stepper input { color: var(--green-d); }
 
 /* The finish toast is held for 8s (longToast in stock-audit.js) instead of
    shell.js's 3.2s, so its draining bar has to be re-timed to match — styles.css
@@ -1060,8 +1107,7 @@
      which on a phone it should have been anyway. */
   #page input, #page select, #page textarea { font-size: 16px; }
   /* The quantity cell is fixed-width in a segmented control, so it needs the
-     room the larger type takes. Sized on the cell, not the input: the cell
-     also carries the unit label under the number. */
+     room the larger type takes. Sized on the cell, not the input. */
   .qc-row .pd-stepper .val { min-width: 46px; }
 
   /* Thumb targets. The visible shapes stay as designed — these grow the hit
@@ -1122,10 +1168,18 @@
   .sah-overlays .toasts {
     top: calc(var(--header-h, 3.5rem) + 0.75rem + env(safe-area-inset-top, 0px));
   }
-  /* Same trick for the unit chip: the invisible <select> already covers the
-     chip, so it is stretched past it to a comfortable target without moving
-     the pill it sits behind. */
-  .qc-line .unit-pick select { inset: -13px -8px; width: auto; height: auto; }
+  /* The unit chip keeps its painted pill exactly as designed and gains its
+     thumb target from a transparent overlay — the target, not the paint.
+     Growing the pill itself (padding plus a negative margin to absorb it) is
+     what broke this row once: the box grew into the column's 4px gap and sat
+     on the stepper's top edge.
+
+     The overlay is deliberately NOT symmetric. Downward it stops at the gap,
+     because past that it would be over the −/+ buttons and a mis-tap meant for
+     the unit would silently change a counted quantity — worse than a slightly
+     smaller target. So it takes the empty room above and to the sides instead,
+     which is where a thumb actually misses on a chip this size. */
+  .qc-line .unit-pick::after { content: ""; position: absolute; inset: -8px -12px -4px; }
   .nav-btn { min-height: 48px; }
   .picker-row, .qc-line { min-height: 56px; }
 

@@ -90,6 +90,41 @@ the ordering basis — reads `physical`, so the one scale never drifts.
 
 > `3 Tray` is stored as `countQty: 3, countUnit: "Tray", physical: 36`.
 
+**Changing the unit opens a sheet, not a wheel.** Tapping the unit chip opens a
+bottom sheet of three stacked facts: **what this is** (name and SKU), **what it
+costs now** (the current unit price with the pack it belongs to as a badge), and
+**what to change it to** — a dropdown whose every option carries its own price,
+so the packs are compared inside the list rather than one wheel-spin at a time.
+Choosing updates the price and the badge immediately.
+
+**Saving asks in the footer.** Save turns the button into the same two-tap
+question Finish Audit and Confirm Order use, and the detail line states the
+actual change — `Pc → Carton · ₹1,36,800.00`, or just the pack and price when
+nothing moved. ✗ puts Save back and writes nothing; changing the unit while the
+question is open also retracts it, because a pending ✓ the rep already read
+would otherwise silently re-point at a different pack. Only ✓ writes, and it
+closes the sheet, updates the chip, and flashes **Updated** on the row for a
+moment — the row changed behind a sheet that just disappeared, and without that
+the rep is left hunting for what moved.
+
+A price never wraps mid-number: it holds one line, because "₹1,36,800.0 / 0" is
+not a number anyone can read. Where a product has no MRP the options carry no
+price and the figure reads *No price set*.
+
+**Where the price comes from — read this before trusting it.** FoodBridge stores
+no price. The only price this catalogue has is the **MRP printed in the tenant's
+own product names**, which is what `baseMrp` parses, and it is also exactly what
+their Zoho items are priced at: 63 of the 86 names carry an MRP and the other 23
+sit at zero in Zoho, which is what the parser finds too. So this is a real
+configured price, not an invented one — but it is **retail MRP, not the trade
+price a distributor charges a shop**, and that gap is the open commercial
+question VERSION.md records. A product with no MRP in its name says *No price
+set* rather than a confident ₹0. A pack costs its pieces times the ladder, so
+the price and the count can never disagree about what a Carton is.
+
+The price is **shown, never sent**. Confirming an order still sends no price at
+all — Zoho applies the item's own rate, exactly as before.
+
 ---
 
 ## 3. Stock Audit — counting a shelf
@@ -123,10 +158,22 @@ One screen. The search box **is** the add affordance — there is no separate
                      [ Finish Audit ]
 ```
 
-**The row.** Product name; below it the unit picker then the SKU; a stepper
-whose middle cell carries the number with its unit underneath; a trash icon.
-Tapping the **product name** opens its detail sheet. A row with a quantity
-goes green — border, number and unit together.
+**The row.** Product name — up to **two lines**, then ellipsis — with the SKU
+on one line below it; then the quantity column —
+the unit picker sitting directly above the stepper, outside its border — and a
+trash icon. The unit chip is a **button**: it opens the unit sheet (see §2),
+which replaced the invisible native `<select>` that used to sit over it. The unit appears **once**: it used to be both a chip in the SKU
+line and a label under the number inside the stepper, which said the same word
+twice and put the control you could change further from the number it governs.
+The second line is free: the quantity column is the taller of the two, so a
+name that wraps costs the row no height (measured at 402px — info 52px against
+the column's 72px), and a short name still sits on one line. It matters because
+these names carry the size and the price at the end — "AMLA PICKLE (1000 gm)
+(OLD MRP 700) NEW MRP 660" — and one line cut before both, leaving different
+products reading identically.
+
+Tapping the **product name** opens its detail sheet. A row with a quantity goes
+green — border, number and the unit chip above it together.
 
 **Empty ≠ zero.** An untouched stepper is blank, not `0`. Blank means nobody
 verified this line; `0` means the rep looked and there were none. Coverage
@@ -285,7 +332,8 @@ catalogue and add it like any other. There is no "same period last year"
 term: measured against the real history it made the recommendation worse, not
 better.
 
-Each row shows the recommended quantity, a unit picker and a stepper. The
+Each row shows the recommended quantity and a stepper, with the unit picker
+directly above it — the same quantity column the count screen uses. The
 counted stock is **not** on the row — it has already been subtracted to reach
 the recommendation, and repeating it there gave the rep a second number to
 reconcile against the only one they can act on. It stays on the record, and
@@ -390,21 +438,27 @@ ours.
 
 ---
 
-## 8. Product details — available everywhere
+## 8. Product details — the start of the unit/price journey
 
 Any product name (or a search result's thumbnail, which carries a small ⓘ)
-opens a bottom sheet: picture, full untruncated name, SKU, category,
-sub-category, base unit, system stock, and the pack ladder with its
-multipliers.
+opens a bottom sheet of **four things**: the full untruncated name, the SKU, the
+**unit price**, and the **unit picker** that changes it. Choosing a pack updates
+the price on the spot. That is the whole sheet.
 
-One contextual line adapts to where it was opened from:
+It used to carry a picture, a category / sub-category / base-unit / system-stock
+table, a "this visit" line and the pack ladder spelled out. All of it was
+**removed**: none of it answered the question a rep opens this to ask, and
+together they pushed the one that does — what does a pack of this cost —
+below the fold. The sheet is a starting point, not a datasheet.
 
-| Opened from | Shows |
-| --- | --- |
-| Counting row | `Counted this visit — 3 Tray (36 Pc)` / `Not counted yet` / `Not found` |
-| Order row | `On this order — 24 Pc` + what the shop holds |
-| A past audit | `Counted on this visit — 10 Pc` |
-| A search result | catalogue facts only |
+The unit it opens on is the one the record is actually using, read from
+`data-product-ctx`: the draft's line when counting, the order's line when
+ordering, the audit's line when reading history. A search result nothing holds
+a number for yet opens on the base unit, which is the honest answer.
+
+The price-and-picker block is **shared with the unit sheet** (§2), so the two
+cannot drift. The difference is what each is for: this one reads, and closes;
+the unit sheet changes, and saves.
 
 This works through one delegated listener, so any surface that names a product
 inherits it by carrying `data-product-info` — there is no per-screen wiring to

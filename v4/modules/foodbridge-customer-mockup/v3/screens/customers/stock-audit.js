@@ -1679,119 +1679,116 @@
   // counted on this visit, what is going on this order, what a past audit
   // found. Absent, the sheet is catalogue facts alone — which is the honest
   // answer on a screen that isn't holding a number for it.
-  function productContextHTML(p, kind) {
-    const wrap = (label, value, note) =>
-      `<div class="pdx-ctx">
-         <span class="lbl">${esc(label)}</span>
-         <span class="val">${esc(value)}</span>
-         ${note ? `<span class="note">${esc(note)}</span>` : ""}
-       </div>`;
-
-    if (kind === "audit") {
-      const line = DRAFT.lines[p.id];
-      if (line && line.status === "not_found") return wrap("This visit", "Not found", "The rep looked and there were none on the shelf.");
-      if (line && lineIsCaptured(line)) return wrap("Counted this visit", countedText(p, line));
-      // Selected but untouched is a real, distinct state — see quickRowHTML on
-      // why an empty stepper is not a zero.
-      return wrap("This visit", "Not counted yet");
+  // Which pack this product is currently being handled in — the price a rep
+  // wants is for the unit they are counting or ordering in, not always the
+  // base one. `data-product-ctx` names WHICH record to read: the draft, the
+  // order, or the audit being viewed. Absent (a search result nothing holds a
+  // number for yet), the base unit is the honest answer.
+  function unitInUse(p, kind) {
+    const base = baseUnit(p);
+    try {
+      if (kind === "audit") {
+        const l = DRAFT && DRAFT.lines && DRAFT.lines[p.id];
+        return (l && l.countUnit) || base;
+      }
+      if (kind === "order") {
+        const l = ORDER && ORDER.lines && ORDER.lines.find((x) => x.productId === p.id);
+        return (l && l.unit) || base;
+      }
+      if (kind === "history") {
+        const a = auditsFor(CURRENT.params.customerId).find((x) => x.id === CURRENT.params.auditId);
+        const l = a && auditLines(a).find((x) => x.productId === p.id);
+        return (l && l.countUnit) || base;
+      }
+    } catch (e) {
+      /* the record moved under a saved draft — the base unit still answers */
     }
-
-    if (kind === "order") {
-      const l = ORDER.lines.find((x) => x.productId === p.id);
-      if (!l) return "";
-      // Two different sentences, not one with a hole in it: a line built by
-      // hand for a product the last audit never reached has no stock figure,
-      // and "holding not known" is not English.
-      const note = l.hasStock
-        ? `Shop is holding ${qtyText(l.currentStock, l.unit)}.`
-        : "No counted stock on file for this product.";
-      return wrap("On this order", qtyText(Number(l.qty) || 0, l.unit), note);
-    }
-
-    if (kind === "history") {
-      // The audit being viewed is the one in the route — renderAudit resolved
-      // it to get here, so re-reading it costs a lookup and keeps the sheet
-      // free of a parameter every caller would have to thread through.
-      const a = auditsFor(CURRENT.params.customerId).find((x) => x.id === CURRENT.params.auditId);
-      const line = a && auditLines(a).find((l) => l.productId === p.id);
-      if (!line) return "";
-      if (line.status === "not_found") return wrap("On this visit", "Not found");
-      return wrap("Counted on this visit", countedText(p, line));
-    }
-
-    return "";
+    return base;
   }
 
+  const unitMoney = (p, label) => {
+    const v = unitPrice(p, label);
+    return v == null ? null : fmtINR(v);
+  };
+  const priceBlockHTML = (p, label) => {
+    const v = unitMoney(p, label);
+    return v == null
+      ? `<span class="us-price none">No price set</span>`
+      : `<span class="us-price">${esc(v)}</span>`;
+  };
+
+  // The unit and its price, together, because neither means anything alone.
+  // Shared by the two sheets that show them — the product sheet, which reads
+  // them, and the unit sheet, which changes them — so the pair cannot drift
+  // apart. Every option carries its own price, so the packs are compared
+  // inside the list rather than one at a time.
+  function unitPriceHTML(p, picked, labels) {
+    const base = baseUnit(p);
+    return `
+      <div class="us-now">
+        <span class="us-now-copy">
+          <span class="us-label">${esc(labels.price)}</span>
+          <span id="usPrice">${priceBlockHTML(p, picked)}</span>
+        </span>
+        <span class="us-badge" id="usBadge">${esc(picked)}</span>
+      </div>
+      <div class="us-pick">
+        <label class="us-label" for="usUnit">${esc(labels.unit)}</label>
+        <span class="us-select">
+          <select id="usUnit">
+            ${unitsFor(p).map((u) => {
+              const packed = `${u.label}${u.per > 1 ? ` (${u.per} ${base})` : ""}`;
+              const v = unitMoney(p, u.label);
+              return `<option value="${esc(u.label)}" ${u.label === picked ? "selected" : ""}>${esc(v == null ? packed : `${packed} · ${v}`)}</option>`;
+            }).join("")}
+          </select>
+          <span class="chev" aria-hidden="true">⌄</span>
+        </span>
+      </div>`;
+  }
+
+  // Keeps the figure and the badge answering the picker, the moment it moves.
+  function wireUnitPrice(el, p, onPick) {
+    const sel = el.querySelector("#usUnit");
+    if (!sel) return;
+    const priceHost = el.querySelector("#usPrice");
+    const badge = el.querySelector("#usBadge");
+    sel.onchange = () => {
+      if (badge) badge.textContent = sel.value;
+      if (priceHost) priceHost.innerHTML = priceBlockHTML(p, sel.value);
+      if (onPick) onPick(sel.value);
+    };
+  }
+
+  // Deliberately four things and no more: which product, and what a pack of it
+  // costs. The picture, the category, the base unit, the system stock and the
+  // "this visit" line were all removed — none of them answered the question a
+  // rep opens this to ask, and together they pushed the one that does below
+  // the fold. This is the start of the unit/price journey, not a datasheet.
   function productDetailSheet(id, kind) {
     const p = productById(id);
     // A product id with nothing behind it means the catalogue moved under a
     // saved draft. Silence beats a sheet full of blanks.
     if (!p) return;
-
-    const base = baseUnit(p);
-    // The article number is NOT here: the hero already carries it, and the one
-    // place a rep reads it from should be the one next to the picture.
-    const facts = [
-      ["Category", p.category],
-      ["Sub-category", p.subCategory],
-      ["Base unit", base],
-      ["System stock", p.systemStock == null ? null : qtyText(p.systemStock, base)],
-    ].filter(([, v]) => v != null && v !== "");
-
-    // The ladder, spelled out. The row's unit chip offers exactly these and
-    // nothing else, so seeing them listed with their pack sizes is how a rep
-    // works out that "3 Tray" is the count they mean.
-    const units = unitsFor(p);
-
-    sheet({
-      eyebrow: "Product",
-      title: p.name,
+    const s2 = sheet({
       body: `
-        <div class="pdx-hero">
-          <span class="thumb">${thumbHTML(p)}</span>
-          <span class="who"><span class="sku">SKU ${esc(p.artNo || "—")}</span></span>
-        </div>
-        ${productContextHTML(p, kind)}
-        <div class="pdx-facts">
-          ${facts.map(([k, v]) => `<div class="pdx-fact"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("")}
-        </div>
-        <div class="pdx-units">
-          <div class="pdx-units-head">Counts in</div>
-          ${units.map((u) => `<div class="pdx-unit"><span class="u">${esc(u.label)}</span><span class="p">${u.per > 1 ? esc(`${u.per} ${base}`) : "base unit"}</span></div>`).join("")}
-        </div>`,
+        <h2 class="us-name">${esc(p.name)}</h2>
+        ${p.artNo ? `<p class="us-sku">${esc(skuText(p))}</p>` : ""}
+        ${unitPriceHTML(p, unitInUse(p, kind), { price: "Unit price", unit: "Unit" })}`,
       actions: [{ label: "Close", cls: "primary" }],
     });
+    wireUnitPrice(s2.el, p);
   }
 
-  /* ------------------------------------------------- product not in the catalogue */
-
-  // A rep is looking at a jar that Foodbridge has never heard of. Until now the
-  // search simply said "no match" and the count had nowhere to put it — the
-  // product physically exists, so the audit was wrong before it started.
-  //
-  // The empty state carries the way out. Secondary and contextual: the answer
-  // to a search that failed, not a second thing the screen is offering.
+  // The empty state of a product search, with the way out of it: a product the
+  // catalogue has never heard of is the one case where searching harder does
+  // not help, so the "add it" affordance lives in the result list itself.
   function noProductFoundHTML() {
     return `<div class="dropdown-empty">No product found
       <button type="button" class="np-add" data-new-product>+ Add Product</button>
     </div>`;
   }
 
-  // The one genuinely new state in this flow, and a sheet rather than a view
-  // on purpose: adding a product is not somewhere the rep GOES, it is a
-  // detour inside the count they are already doing. The sheet keeps the audit
-  // on screen behind it, and Back closes it back onto the search — the
-  // existing sheet history entry (see sheet()) already does exactly that, so
-  // there is no new navigation behaviour here.
-  //
-  // Three fields, because three is what it takes to count something: what it
-  // is, how it is identified, and what a shelf-worth of it is measured in.
-  // Category, pricing, tax, supplier and the rest of a product master are
-  // real, and none of them are things a rep knows standing in an aisle.
-  //
-  // `onAdded` receives a REAL catalogue product — either the one just created
-  // or, if it turned out to exist, the one already there — so both callers
-  // add to their own audit the same way they add a search result.
   function newProductSheet(query, onAdded) {
     const units = Object.keys(UNIT_LADDERS);
     // Every label says which it is, required and optional alike: a rep who has
@@ -2265,13 +2262,14 @@
       };
       st.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
         const step = Number(btn.dataset.delta) || 0;
-        write(Math.max(0, (Number(input.value) || 0) + step), select.value);
+        write(Math.max(0, (Number(input.value) || 0) + step), rowUnit(row, baseUnit(p)));
       }));
-      input.oninput = () => write(Math.max(0, Math.floor(Number(input.value) || 0)), select.value);
-      select.onchange = () => {
-        setRowUnitLabels(row, select.value);
-        write(Number(input.value) || 0, select.value);
-      };
+      input.oninput = () => write(Math.max(0, Math.floor(Number(input.value) || 0)), rowUnit(row, baseUnit(p)));
+      if (select) select.onclick = () => unitSheet(p, rowUnit(row, baseUnit(p)), (unit) => {
+        setRowUnitLabels(row, unit);
+        write(Number(input.value) || 0, unit);
+        flashUnitSaved(row);
+      });
     });
 
     wireEditFoot(a);
@@ -2515,17 +2513,10 @@
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
           <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${esc(p.name)}</div>
-          <div class="meta">
-            <span class="unit-pick">
-              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">⌄</span>
-              <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">
-                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
-              </select>
-            </span>${p.artNo ? `<span class="sku" title="${esc(p.artNo)}">${esc(skuText(p))}</span>` : ""}
-          </div>
+          <div class="meta">${p.artNo ? `<span class="sku" title="${esc(p.artNo)}">${esc(skuText(p))}</span>` : ""}</div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
-        ${stepperHTML(p.id, qty == null ? "" : qty, unit)}
+        ${stepperHTML(p.id, qty == null ? "" : qty, unitPickHTML("data-unit", p.id, p.name, unit, units, baseUnit(p), "Counting unit"))}
         <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-remove-yes="${esc(p.id)}" aria-label="Confirm removing ${esc(p.name)}">✓</button>
         <button type="button" class="ci-btn sm no" data-remove-no="${esc(p.id)}" aria-label="Keep ${esc(p.name)}">✗</button>
@@ -2638,7 +2629,7 @@
       const set = (v) => {
         const qty = Math.max(0, Math.floor(Number(v) || 0));
         input.value = qty;
-        write(qty, select ? select.value : baseUnit(p));
+        write(qty, rowUnit(row, baseUnit(p)));
       };
 
       st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
@@ -2648,12 +2639,13 @@
       // it means: three of something bigger. Re-counting from scratch because
       // they picked the wrong pack size is exactly the busywork this avoids.
       // On an untouched row it only records the choice — no count is invented.
-      if (select) select.onchange = () => {
-        setRowUnitLabels(row, select.value);
+      if (select) select.onclick = () => unitSheet(p, rowUnit(row, baseUnit(p)), (unit) => {
+        setRowUnitLabels(row, unit);
         const line = DRAFT.lines[p.id];
-        if (line && lineIsCaptured(line)) { write(Number(input.value) || 0, select.value); return; }
-        ensureDraftLine(p, hasShelf).countUnit = select.value;
-      };
+        if (line && lineIsCaptured(line)) write(Number(input.value) || 0, unit);
+        else ensureDraftLine(p, hasShelf).countUnit = unit;
+        flashUnitSaved(row);
+      });
     });
   }
 
@@ -2803,27 +2795,148 @@
      no remaining caller were removed here, not the model.
      ================================================================================================= */
 
-  // `unitLabel` puts the unit under the number, inside the stepper's middle
-  // cell — the quantity and what it is counted in read as one figure, which
-  // is the only place either of them means anything.
-  // A row shows its unit twice — the chip in the meta line and the label
-  // under the number — and the <select> over the chip is invisible, so
-  // neither updates itself. Both are written here so they cannot disagree.
+  // The <select> over the chip is invisible and the visible text is a .lbl
+  // span, so changing the unit does not update the label by itself. One label
+  // to write now that the unit is shown once, above the stepper.
   function setRowUnitLabels(row, unit) {
     const lbl = row.querySelector(".unit-pick .lbl");
     if (lbl) lbl.textContent = unit;
-    const u = row.querySelector(".pd-stepper .u");
-    if (u) u.textContent = unit;
   }
 
-  function stepperHTML(key, value, unitLabel) {
-    return `<span class="pd-stepper" data-field="${esc(key)}">
-      <button type="button" data-delta="-1">−</button>
-      <span class="val">
-        <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
-        ${unitLabel ? `<span class="u">${esc(unitLabel)}</span>` : ""}
+  // FoodBridge stores NO price — see VERSION.md. The only price this catalogue
+  // carries is the MRP printed in the tenant's own product names, and that is
+  // also exactly what their Zoho items are priced at: 63 of the 86 names carry
+  // an MRP and the other 23 sit at zero in Zoho, which is what this parser
+  // finds too. So this reads a real configured price rather than inventing
+  // one — and a product without an MRP reports null, so the sheet can say so
+  // instead of showing a confident ₹0.
+  //
+  // The LAST match wins: these names are written "(OLD MRP 700) NEW MRP 660",
+  // and the new price is the one that counts.
+  function baseMrp(p) {
+    const all = String((p && p.name) || "").match(/(?:NEW\s+MRP|MRP)\s*\.?\s*(\d+(?:\.\d+)?)/gi);
+    if (!all || !all.length) return null;
+    const last = all[all.length - 1].match(/(\d+(?:\.\d+)?)/);
+    return last ? Number(last[1]) : null;
+  }
+  // A pack costs what its pieces cost — the same ladder the quantities use, so
+  // the price and the count can never disagree about what a Carton is.
+  function unitPrice(p, unit) {
+    const base = baseMrp(p);
+    return base == null ? null : base * unitFactor(p, unit);
+  }
+  const fmtINR = (n) =>
+    "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // The unit picker, built in one place so the count row and the order row
+  // cannot drift apart on it. `attr` is the hook the screen's own wiring looks
+  // for — data-unit when counting, data-order-unit when ordering. It is a
+  // BUTTON, not a select: tapping it opens unitSheet, where the unit is chosen
+  // against the price it implies rather than blind in a native wheel.
+  function unitPickHTML(attr, id, name, unit, units, base, purpose) {
+    return `<button type="button" class="unit-pick" ${attr}="${esc(id)}"
+        aria-label="${esc(purpose)} for ${esc(name)}: ${esc(unit)}. Tap to change.">
+        <span class="lbl">${esc(unit)}</span><span class="chev" aria-hidden="true">⌄</span>
+      </button>`;
+  }
+
+  // The unit a row is currently set to, read off the chip rather than held in
+  // a second place that could disagree with it.
+  function rowUnit(row, fallback) {
+    const lbl = row && row.querySelector(".unit-pick .lbl");
+    return (lbl && lbl.textContent.trim()) || fallback;
+  }
+
+  // Changing the unit changes what the number means, so it is asked in a sheet
+  // that shows the consequence — the price for the pack being chosen — rather
+  // than in a bare list of words. Nothing is written until Save; dismissing
+  // the sheet leaves the row exactly as it was.
+  function unitSheet(p, currentUnit, onSave) {
+    let picked = currentUnit;
+
+    const s2 = sheet({
+      body: `
+        <h2 class="us-name">${esc(p.name)}</h2>
+        ${p.artNo ? `<p class="us-sku">${esc(skuText(p))}</p>` : ""}
+        ${unitPriceHTML(p, picked, { price: "Current unit price", unit: "Select unit" })}`,
+      // Returning false keeps the sheet open; the footer becomes the question.
+      actions: [{ label: "Save", cls: "primary", onClick: () => { ask(); return false; } }],
+    });
+
+    const el = s2.el;
+    const acts = el.querySelector(".sheet-acts");
+
+    // Save is a two-tap commit made in place — the same contract Finish Audit
+    // and Confirm Order use, so the footer asks rather than a second sheet
+    // stacking on this one. The detail line states the actual change, because
+    // "Save?" on its own is a question about nothing.
+    function ask() {
+      const to = unitMoney(p, picked);
+      const changed = picked !== currentUnit;
+      const detail = (changed ? `${currentUnit} → ${picked}` : picked) + (to ? ` · ${to}` : "");
+      acts.classList.add("asking");
+      acts.innerHTML = `<span class="confirm-inline">
+          <span class="ci-copy">
+            <span class="ci-prompt">${changed ? "Change unit?" : "Save unit?"}</span>
+            <span class="ci-detail">${esc(detail)}</span>
+          </span>
+          <button type="button" class="ci-btn yes" id="usYes" aria-label="Confirm">✓</button>
+          <button type="button" class="ci-btn no" id="usNo" aria-label="Keep editing">✗</button>
+        </span>`;
+      el.querySelector("#usYes").onclick = () => { onSave(picked); s2.close(); };
+      el.querySelector("#usNo").onclick = restore;
+    }
+
+    function restore() {
+      acts.classList.remove("asking");
+      acts.innerHTML = `<button type="button" class="sheet-btn primary" id="usSave">Save</button>`;
+      el.querySelector("#usSave").onclick = ask;
+    }
+
+    wireUnitPrice(el, p, (unit) => {
+      picked = unit;
+      // A pending question is about the OLD choice — putting Save back is
+      // safer than silently re-pointing a ✓ the rep already read.
+      if (acts.classList.contains("asking")) restore();
+    });
+  }
+
+  // "Updated", on the row itself, for a moment. Saving a unit closes the sheet
+  // and the row changes behind it; without this the rep is left looking for
+  // what moved. It sits between the chip and the stepper — the row grows by
+  // its height and shrinks back, which is the point: it is impossible to miss
+  // and impossible to mistake for part of the row.
+  function flashUnitSaved(row) {
+    const col = row && row.querySelector(".qty-col");
+    if (!col) return;
+    col.querySelectorAll(".unit-flash").forEach((n) => n.remove());
+    const b = document.createElement("span");
+    b.className = "unit-flash";
+    b.innerHTML = `<span class="ic" aria-hidden="true">✓</span>Updated`;
+    b.setAttribute("role", "status");
+    col.insertBefore(b, col.querySelector(".pd-stepper"));
+    setTimeout(() => {
+      b.classList.add("out");
+      setTimeout(() => b.remove(), 220);
+    }, 1500);
+  }
+
+  // The unit sits ABOVE the number and OUTSIDE the stepper's border, in a
+  // column the two share. It used to be in two places at once — a pill inline
+  // in the SKU line, and a small label stacked under the number inside the
+  // stepper — which meant the row said "Pc" twice and the thing you could
+  // change was the one further from the number it governed. One control now,
+  // directly over the quantity it applies to.
+  function stepperHTML(key, value, unitPick) {
+    return `<span class="qty-col">
+      ${unitPick || ""}
+      <span class="pd-stepper" data-field="${esc(key)}">
+        <button type="button" data-delta="-1">−</button>
+        <span class="val">
+          <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
+        </span>
+        <button type="button" data-delta="1">+</button>
       </span>
-      <button type="button" data-delta="1">+</button>
     </span>`;
   }
 
@@ -3362,17 +3475,10 @@
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
           <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" aria-label="Details for ${esc(l.productName)}">${esc(l.productName)}</div>
-          <div class="meta">
-            <span class="unit-pick">
-              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">⌄</span>
-              <select data-order-unit="${esc(l.productId)}" aria-label="Ordering unit for ${esc(l.productName)}">
-                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
-              </select>
-            </span><span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
-          </div>
+          <div class="meta"><span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span></div>
           <div class="meta ask">Remove from this order?</div>
         </div>
-        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unit)}
+        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit"))}
         <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-order-remove-yes="${esc(l.productId)}" aria-label="Confirm removing ${esc(l.productName)}">✓</button>
         <button type="button" class="ci-btn sm no" data-order-remove-no="${esc(l.productId)}" aria-label="Keep ${esc(l.productName)}">✗</button>
@@ -3529,11 +3635,16 @@
     // `qty` is the number the rep typed and stays theirs, so "3" under a
     // switch from Pc to Carton means three cartons, which is exactly what the
     // order record and the accounts payload then carry.
-    PAGE.querySelectorAll("[data-order-unit]").forEach((sel) => (sel.onchange = () => {
-      const line = ORDER.lines.find((x) => x.productId === sel.dataset.orderUnit);
-      if (!line) return;
-      line.unit = sel.value;
-      setRowUnitLabels(sel.closest(".qc-row"), sel.value);
+    PAGE.querySelectorAll("[data-order-unit]").forEach((btn) => (btn.onclick = () => {
+      const line = ORDER.lines.find((x) => x.productId === btn.dataset.orderUnit);
+      const p = productById(btn.dataset.orderUnit);
+      if (!line || !p) return;
+      const row = btn.closest(".qc-row");
+      unitSheet(p, rowUnit(row, baseUnit(p)), (unit) => {
+        line.unit = unit;
+        setRowUnitLabels(row, unit);
+        flashUnitSaved(row);
+      });
     }));
 
     // Removal asks in the row, exactly as the audit's counting row does.
