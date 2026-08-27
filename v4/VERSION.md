@@ -4,12 +4,17 @@
 is the whole platform, 26 destinations across 12 module repos. `v4` is one screen:
 Customer Management → **Stock Audit & Health**, and the shell around it, with no sidebar.
 
-57 files, 2.0 MB, 1 module repo, 1 destination — plus a second journey
+57 files, 2.1 MB, 1 module repo, 1 destination — plus a second journey
 (Predictive Sales Order) authored here, not crawled. See below.
 
-**Last released 27 August 2026**, carrying two changes worth naming up front: the
-Predictive Sales Order forecast is now fitted to the tenant's **real** order history rather
-than invented seed data, and Confirm Order works on **every** browser rather than only ones
+**Last released 28 August 2026** — a pass over the row and the screen furniture rather than
+over what the app can do: the unit became a control that carries a price, the row shed the
+SKU and the thumbnail, every product search can create a product, and modals were confined
+to leaving. Detailed under *Refined 28 August 2026*.
+
+The release before it, **27 August 2026**, carried the two changes still worth naming: the
+Predictive Sales Order forecast is fitted to the tenant's **real** order history rather than
+invented seed data, and Confirm Order works on **every** browser rather than only ones
 opened from a provisioning link. Both are detailed below.
 
 ## What is different from v3
@@ -55,7 +60,8 @@ chrome; Audit History's cards match: customer, date/time, a plain count. Custome
 product search share one dropdown for every state the search box is in use — capped,
 first-5-A-Z preview on focus, live unbounded matches once typing starts, both scrollable in
 their own box rather than the page. Ending a visit (← exit sheet, or Finish Audit with
-nothing counted, now routed to the same sheet) discards it outright — no "abandoned" record,
+nothing counted, now routed to the same sheet — **the Finish half of that was reversed on
+28 August**, see below) discards it outright — no "abandoned" record,
 no toast implying one was kept — and a sheet closed by its own button no longer risks
 popping the rep an extra screen out, a `history.back()` timing race the exit flow's testing
 surfaced. `matches`' catalogue-aware search (name/SKU/category/sub-category) and the
@@ -189,6 +195,86 @@ run 15–117 days against the invented 7–10, which is simply what the business
 One customer (c40) has no orders in the export and is therefore absent — honestly reported
 as no signal rather than filled in.
 
+## Refined 28 August 2026
+
+Seven commits, none of which change what the app can do. They change what the rep has to
+read, tap and trust while doing it. Every one of them was verified on a real iPhone 16 Pro
+simulator with touch input, and the geometry and outcomes were measured against the live DOM
+rather than eyeballed.
+
+**The unit became a control that carries a price.** It used to be the same word printed
+twice on a row — a chip in the SKU line and a label under the number — with the one you
+could change sitting further from the number it governs. There is one now, centred directly
+above the stepper, and tapping it opens a sheet where each pack option carries its own price,
+so packs are compared inside the list rather than one wheel-spin at a time. The price is the
+MRP printed in the tenant's own product names, which is what their Zoho items are actually
+priced at (63 of 86; the other 23 sit at zero and read "No price set"). It is **shown, never
+sent** — confirming an order still sends no price and Zoho still applies its own rate. The
+product sheet was cut to the four things that answer the question it is opened to ask: name,
+SKU, unit price, unit picker.
+
+**The row stopped carrying what nobody reads.** The SKU is gone from it — eighteen digits
+costing a line on every card, still on the product sheet, still searchable. The product
+thumbnail is gone from every search result, and with it the second tap it carried: the
+picture used to open a detail sheet of its own, marked with a small teal ⓘ. For *this*
+catalogue a picture never earned that, because what separates two entries is the size and the
+MRP inside the name — `(1000 gm) … NEW MRP 660` against `(475 gm) … NEW MRP 325` — and every
+one of them is the same jar in the same photo. The customer search lost its letter chip for
+the same reason. A search result is text now, on both lists, and no product row in the module
+carries a thumbnail.
+
+**Touch targets are separated by construction rather than by stacking order.** The stepper's
+−/+ are a full 44×44 on both axes; the bin is red, smaller, and held off the + by a real
+margin instead of a z-index arbitrating an overlap that should not exist. The unit lost its
+pill entirely — the word and a chevron, no border, no fill — which returns ~10px of height on
+the tallest column of every row. Measured at 402px: the quantity column went 72px to 62px,
+still the taller half against a two-line name, so the second line of name is still free.
+
+**The customer's name is one helper on every header that carries one.** It stays on one line
+and is elided; tapping it opens a sheet holding the name and nothing else, which is what makes
+the ellipsis a promise the app can keep. Audit Detail was the holdout — it rendered
+`← Customer Name` as a single back link, so the name was the label on the back button and
+wrapped to two lines on this tenant's longer names. Five headers, one code path. Where it
+deliberately does not go is written down: a name that is a row you tap to *do* something keeps
+its single target, and a name already whole on screen has nothing to reveal.
+
+**`+ Add Product` is on every product search, and goes all the way.** Two halves were missing
+at opposite ends. Counting had the create-a-product path but no footer button, so the only way
+in was to search for the product and read the empty state — which asks a rep to prove a
+product is missing before offering to add it. Ordering had the footer button but its empty
+state dead-ended at "No product matches that.", so a rep standing in a shop with something the
+catalogue has never heard of could **count** it but not **order** it. A product created on the
+order screen reaches Accounts unmapped, which the sync already reports as a visible, retryable
+error — better than having no way to record the order at all.
+
+**Modals are for leaving; footers are for committing.** Finish Audit with nothing counted used
+to raise the "Leave this audit?" sheet, on the reasoning that nothing counted is an exit rather
+than a completion — **this reverses that**. The rep did not ask to leave, they pressed Finish,
+and being handed `End this visit` for pressing the wrong button is a worse surprise than being
+told to count something first. It also made that modal mean two things at once. It now means
+one, which is what lets it be trusted on the routes it still owns: the ← button and the
+phone's Back, each screen with its own wording. Save on Edit Audit now asks **every** time
+rather than only when the lines differ — the rep cannot see which case they are in, and a
+control that behaves differently for invisible reasons is worse than one extra tap; what the
+tick commits is unchanged, so an unchanged Save still writes no version and no timeline entry.
+The in-row remove question is two words on both lists, `Remove?`.
+
+**Smaller, in the same pass.** What you add out of a search lands on **top** of the list
+rather than at the far end, on all three screens. Typing `12` into a stepper showing `0` no
+longer gives `120` — the first digit is intercepted in `beforeinput` while the field reads
+exactly `0`, which needs no timer and does not depend on where in a 3mm digit the tap landed.
+Tapping a search box opens its options everywhere, owned by `wireSearchInput` so no screen can
+drift from it. Audit History lost its Newest/Oldest picker — it put a switch for breaking a
+promise directly under the screen's own "newest first" subtitle — and its box is now
+`Search customer…`.
+
+**Not tested this release.** No new sales order was raised in Zoho Books, and none of this was
+re-run on the deployed GitHub Pages app or through `tools/mobile-test.sh` — so the Pixel 8 half
+of this cut's usual mobile bar is unverified for these changes. Nothing here touches the
+order-writing path (the unit sheet shows a price and sends none), but that is reasoning, not a
+test. Worth one real confirmed order and one Android pass on the deployed app before treating
+this release as proven.
+
 ## Offline
 
 Self-contained for **content**. Every asset the screen needs is packaged, including the
@@ -212,7 +298,7 @@ then <http://localhost:8000/>. On GitHub Pages it works as-is.
 **Stock Audit needs nothing else.** Create Order does: it posts to the Zoho bridge, which
 is deployed separately (see below) because GitHub Pages cannot hold an OAuth secret.
 
-## Deployed — 26 August 2026, redeployed 27 August 2026
+## Deployed — 26 August 2026, redeployed 27 and 28 August 2026
 
 | | |
 | --- | --- |
