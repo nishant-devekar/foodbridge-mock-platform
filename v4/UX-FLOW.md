@@ -426,7 +426,17 @@ Browser `localStorage` only. No backend, no build step, no framework.
 | `fb-discovery-device-tag` | per-device tag, so two devices cannot mint the same order reference |
 
 The one network call in the app is the accounts sync, which posts to a small
-serverless bridge. No credentials ever reach the browser.
+serverless bridge. The accounting system's **OAuth credentials never reach the
+browser** — they live in the bridge's own environment. The bridge's shared key
+does travel with the page, because a static page has no way to hide one; it is
+a speed bump against scanners, not authentication, and it is deliberately the
+same for every browser so that confirming an order never depends on how the app
+was opened.
+
+> There is no longer a per-device provisioning step. There used to be, and it
+> was a genuine source of failure: the link that carried the key deleted it from
+> the address bar, so the URL people kept and shared had none, and those
+> browsers only found out at Confirm Order.
 
 ---
 

@@ -4,8 +4,13 @@
 is the whole platform, 26 destinations across 12 module repos. `v4` is one screen:
 Customer Management → **Stock Audit & Health**, and the shell around it, with no sidebar.
 
-54 files, 1.8 MB, 1 module repo, 1 destination — plus a second journey
+57 files, 2.0 MB, 1 module repo, 1 destination — plus a second journey
 (Predictive Sales Order) authored here, not crawled. See below.
+
+**Last released 27 August 2026**, carrying two changes worth naming up front: the
+Predictive Sales Order forecast is now fitted to the tenant's **real** order history rather
+than invented seed data, and Confirm Order works on **every** browser rather than only ones
+opened from a provisioning link. Both are detailed below.
 
 ## What is different from v3
 
@@ -207,7 +212,7 @@ then <http://localhost:8000/>. On GitHub Pages it works as-is.
 **Stock Audit needs nothing else.** Create Order does: it posts to the Zoho bridge, which
 is deployed separately (see below) because GitHub Pages cannot hold an OAuth secret.
 
-## Deployed — 26 August 2026
+## Deployed — 26 August 2026, redeployed 27 August 2026
 
 | | |
 | --- | --- |
@@ -288,3 +293,28 @@ attached to the existing sales order instead of raising a second one; the organi
 five sales orders and five distinct references. Stock Audit, Audit History and Audit Detail
 were re-run on the deployed app unchanged, at phone and desktop width, with no console
 errors.
+
+### 27 August 2026 release
+
+**The forecast** was verified by back-test rather than by eye, which is the only way a
+recommendation can be checked: each of the tenant's real orders predicted from only what was
+known before it, tuned on 2025 and measured on 171 unseen 2026 orders. Both engines were run
+through the identical harness for a like-for-like comparison; the figures quoted above are
+that harness's output against the history this release ships. The whole flow was then driven
+in the app — customer search → recommendation → the basis sheet → the in-row remove
+confirmation — and cross-checked line for line against the same prediction computed outside
+the browser.
+
+**The bridge key** was reproduced as a live failure before it was fixed: a bare load of the
+deployed app reported `apiKeySet: false`, and a request to the deployed bridge with no key
+returned `401 auth_failed` while the same request carrying the key passed the auth gate and
+failed later on a deliberately malformed body. That probe was chosen so it could never write
+to Zoho. All four configuration paths — clean browser, browser holding a stale provisioned
+key, an old `?fbkey=` link, and a `?fbapi=` override — were then checked to send the right
+key against the right bridge.
+
+**Not tested this release:** no new sales order was raised in Zoho Books. The order-writing
+path is unchanged by both changes — the forecast only decides quantities before the commit
+point, and the key fix only decides whether the request is authorised — but the end-to-end
+write was last exercised on 26 August, not now. Worth one real confirmed order on the
+deployed app before anyone treats this release as proven in production.
