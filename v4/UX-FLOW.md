@@ -450,5 +450,28 @@ was opened.
 - **Copy is one or two words** wherever a sentence is not doing real work:
   `Edit`, `Save`, `Close`, `Created`, `Updated`, `Retry Sync`.
 - **Search-first everywhere.** No screen opens with a full list.
+- **Tapping a search box opens its options.** Focus alone is enough — before a
+  character is typed — and an empty box offers the default set (first 5 A-Z).
+  Typing filters from there; tapping away closes it and puts whatever the
+  dropdown was covering straight back. This holds even when the screen already
+  has a list: the count screen and the order screen used to withhold the
+  suggestions once products were selected, so the list underneath could not be
+  buried, and both now open like everywhere else. `wireSearchInput` owns the
+  whole interaction — a screen supplies only whether its box is open and how to
+  set that — so no screen can drift from the rule. Audit History's search
+  filters a list already on the page, has no dropdown, and passes nothing.
+- **What you add lands on top.** Any product picked out of a search — the
+  count, the order, an audit correction — is inserted at the head of the list,
+  not appended. The rep went looking for that one, so it belongs where they are
+  already looking: they can see the tap landed and set a quantity without
+  scrolling to the far end. On the order screen this puts a hand-added product
+  above the recommendations, which is the intent — the forecast is still all
+  there underneath. A product created on the spot arrives the same way, because
+  it joins through the same call a search result does.
+- **A quantity of `0` is a default, not an entry.** While a stepper reads
+  exactly `0`, the first digit typed REPLACES it rather than landing at the
+  caret — so `12` is `12` wherever in the field the rep happened to tap. A
+  stepper holding a real quantity is untouched: caret where they put it,
+  insertion and deletion ordinary. `+`/`−` are unaffected either way.
 - **Thumb targets are 44px**, even where the painted control is smaller — the
   padding is the target, not the paint.

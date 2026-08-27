@@ -1396,22 +1396,37 @@
   const SEARCH_ATTRS =
     'autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search"';
 
-  function wireSearchInput(id, onInput, onFocus) {
+  // Every search box in this app shares one interaction, and it lives here so
+  // the screens cannot drift apart on it: focusing a box opens its dropdown
+  // immediately — before a single character is typed — and tapping away closes
+  // it again. `dropdown` carries the two things only the screen knows: whether
+  // its box is open right now, and how to set that (its own flag, plus the
+  // re-render that paints it). A search that filters a list already on the
+  // page has no dropdown to open and passes nothing.
+  function wireSearchInput(id, onInput, dropdown) {
     const box = $("#" + id, PAGE);
     if (!box) return;
-    box.oninput = debounce(() => {
-      onInput(box.value);
-      const b = $("#" + id, PAGE);
-      if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); }
-    }, 220);
-    // onFocus returns true only the first time (a re-render replaces this
-    // node, so the programmatic .focus() below re-fires "focus" on the new
-    // one — returning false there stops that from looping).
-    if (onFocus) box.onfocus = () => {
-      if (!onFocus()) return;
+    const refocus = () => {
       const b = $("#" + id, PAGE);
       if (b) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); }
     };
+    box.oninput = debounce(() => { onInput(box.value); refocus(); }, 220);
+    if (!dropdown) return;
+    // A re-render replaces this node, so the refocus above re-fires "focus" on
+    // the new one; the already-open check is what stops that from looping.
+    box.onfocus = () => {
+      if (dropdown.isOpen()) return;
+      dropdown.setOpen(true);
+      refocus();
+    };
+    // Deferred because blur lands BEFORE the click that caused it: picking a
+    // result must be allowed to run first, and a re-render from typing
+    // re-focuses the box, which the activeElement check lets through so the
+    // caret is never stolen mid-word.
+    box.onblur = () => setTimeout(() => {
+      if (document.activeElement === $("#" + id, PAGE)) return;
+      if (dropdown.isOpen()) dropdown.setOpen(false);
+    }, 150);
   }
 
   /* =============================================================================================
@@ -2059,7 +2074,7 @@
   function startAuditEdit(a) {
     const lines = {};
     auditLines(a).forEach((l) => (lines[l.productId] = clone(l)));
-    EDIT = { auditId: a.id, customerId: a.customerId, lines, q: "", adding: false };
+    EDIT = { auditId: a.id, customerId: a.customerId, lines, q: "", adding: false, focused: false };
     AE_CONFIRM = false;
     go("audit-edit", { customerId: a.customerId, auditId: a.id });
   }
@@ -2083,7 +2098,7 @@
       // products counted, a button below the last row is a scroll away from
       // the rep who wants a thirty-first. Hidden while the search dropdown is
       // open, where it would be offering what the rep is already doing.
-      const searching = !!EDIT.q.trim() || EDIT.adding;
+      const searching = !!EDIT.q.trim() || EDIT.adding || EDIT.focused;
       return `${searching ? "" : `<button type="button" class="btn-add" id="aeAdd">+ Add Product</button>`}
         <button type="button" class="btn-wide primary" id="aeSave">Save</button>`;
     }
@@ -2134,9 +2149,9 @@
     const q = EDIT.q.trim().toLowerCase();
     const matches = (p) => [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const available = products.filter((p) => !EDIT.lines[p.id]);
-    // Same two ways in as the order screen's picker: a typed query, or an
-    // explicit "+ Add Product".
-    const searching = !!q || EDIT.adding;
+    // Same three ways in as the order screen's picker: a typed query, an
+    // explicit "+ Add Product", or simply focusing the box.
+    const searching = !!q || EDIT.adding || EDIT.focused;
     const results = !searching
       ? []
       : q
@@ -2172,7 +2187,15 @@
   }
 
   function wireAuditEdit(customer, a) {
-    wireSearchInput("aeQ", (v) => { EDIT.q = v; renderAuditEdit(); });
+    wireSearchInput("aeQ", (v) => { EDIT.q = v; renderAuditEdit(); }, {
+      isOpen: () => EDIT.focused || EDIT.adding,
+      setOpen: (v) => {
+        if (CURRENT.view !== "audit-edit" || !EDIT) return;
+        EDIT.focused = v;
+        if (!v) EDIT.adding = false;
+        renderAuditEdit();
+      },
+    });
 
     $("#aeBack", PAGE).onclick = () => { if (!askBeforeLeaving(pendingWork())) back(); };
 
@@ -2188,7 +2211,11 @@
         line.physical = 0;
         line.countQty = 0;
         line.countUnit = baseUnit(p);
-        EDIT.lines[p.id] = line;
+        // Rebuilt rather than assigned into, so the new id sits first in
+        // insertion order — which is the order editSelected() reads back and
+        // renders. See addToCount. Safe against the change check either way:
+        // linesSignature sorts by product id, so a reorder is never a diff.
+        EDIT.lines = Object.assign({ [p.id]: line }, EDIT.lines);
       }
       EDIT.q = "";
       EDIT.adding = false;
@@ -2223,6 +2250,7 @@
       const row = st.closest(".qc-row");
       const input = st.querySelector("input");
       const select = row.querySelector("[data-unit]");
+      wireZeroDefault(input);
       const write = (qty, unit) => {
         const line = EDIT.lines[p.id];
         if (!line) return;
@@ -2315,11 +2343,15 @@
             : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
     `);
 
-    wireSearchInput("qpQ", (v) => { QP_STATE.q = v; renderQuickPick(); }, () => {
-      if (QP_STATE.focused) return false;
-      QP_STATE.focused = true;
-      renderQuickPick();
-      return true;
+    wireSearchInput("qpQ", (v) => { QP_STATE.q = v; renderQuickPick(); }, {
+      isOpen: () => QP_STATE.focused,
+      // Guarded on the view because picking a customer navigates away, and the
+      // deferred close would otherwise re-render a screen that has gone.
+      setOpen: (v) => {
+        if (CURRENT.view !== "quick-pick") return;
+        QP_STATE.focused = v;
+        renderQuickPick();
+      },
     });
     PAGE.querySelectorAll("[data-pick]").forEach((b) => (b.onclick = () => {
       QP_STATE = { q: "", primed: false, focused: false };
@@ -2391,15 +2423,12 @@
     const matches = (p) =>
       [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const s = quickStats();
-    // A preview of the first 5 A-Z only offers itself before anything is
-    // selected — once the rep has a running Selected products list, tapping
-    // back into the box shouldn't bury it under an unrelated suggestion set.
-    // Typing a query always wins regardless (see the dropdown block below).
-    const previewing = !q && QC_STATE.focused && !s.total;
-    // (The order screen's equivalent below adds one more way in: "+ Add
-    // Product" is an explicit request to add, so it opens the dropdown even
-    // with a list already on screen. This screen has no such button — its
-    // search box IS the add affordance — so the rule stays as it was.)
+    // Focusing the box offers the first 5 A-Z, whether or not products are
+    // already selected. This used to be withheld once a Selected list existed,
+    // to avoid burying it under an unrelated suggestion set; the rule is now
+    // that a tapped search box always opens its options, and tapping away puts
+    // the list straight back. Typing a query wins regardless.
+    const previewing = !q && QC_STATE.focused;
     const searching = !!q || previewing;
     const available = products.filter((p) => !DRAFT.selected.includes(p.id));
     const results = !searching
@@ -2526,14 +2555,20 @@
   }
 
   function wireQuickCount(customer) {
-    wireSearchInput("qcQ", (v) => { QC_STATE.q = v; renderQuickCount(); }, () => {
-      if (QC_STATE.focused) return false;
-      QC_STATE.focused = true;
-      renderQuickCount();
-      return true;
+    wireSearchInput("qcQ", (v) => { QC_STATE.q = v; renderQuickCount(); }, {
+      isOpen: () => QC_STATE.focused,
+      setOpen: (v) => {
+        if (CURRENT.view !== "quick-count") return;
+        QC_STATE.focused = v;
+        renderQuickCount();
+      },
     });
     const addToCount = (id) => {
-      if (!DRAFT.selected.includes(id)) DRAFT.selected.push(id);
+      // Newest on top. The rep went looking for this one, so it belongs where
+      // they are already looking rather than at the far end of a list they'd
+      // have to scroll to confirm the tap even landed. The order screen and
+      // the edit screen add the same way, on purpose.
+      if (!DRAFT.selected.includes(id)) DRAFT.selected.unshift(id);
       QC_STATE.q = "";
       persistDraft();
       renderQuickCount();
@@ -2580,6 +2615,7 @@
       const row = st.closest(".qc-row");
       const input = st.querySelector("input");
       const select = row.querySelector("[data-unit]");
+      wireZeroDefault(input);
 
       // Quantity writes straight into the "good" bucket — the only bucket this
       // flow exposes. Physical stock is that same number CONVERTED TO BASE
@@ -2789,6 +2825,39 @@
       </span>
       <button type="button" data-delta="1">+</button>
     </span>`;
+  }
+
+  // A stepper reading `0` is showing its default, not a number the rep chose,
+  // and typing into it used to depend on where the tap put the caret: "12"
+  // typed after the 0 normalised to 12, but typed before it landed as 120.
+  //
+  // Selecting the 0 on focus does NOT fix this — the browser places the caret
+  // from the tap AFTER the focus handler runs and collapses the selection, so
+  // a select() there (even deferred a tick) is undone by the very tap that
+  // caused it. Measured, not assumed: left-edge tap → selection 0-0 → 120.
+  //
+  // So the first digit is intercepted instead. While the field still reads
+  // exactly "0", an inserted digit REPLACES it rather than being placed at the
+  // caret — which is what the placeholder already promises — with no timers
+  // and no dependence on where the caret happens to be. A field holding a real
+  // quantity is left completely alone, caret and all; so is a deletion, which
+  // is not an insert. Assigned rather than addEventListener'd so re-wiring a
+  // row cannot stack handlers, the same contract as the oninput around it.
+  function wireZeroDefault(input) {
+    if (!input) return;
+    input.onbeforeinput = (e) => {
+      if (input.value !== "0") return;
+      if (!e.inputType || e.inputType.indexOf("insert") !== 0) return;
+      // `data` is null for a paste, which carries its text on the transfer.
+      const raw = e.data != null ? e.data : (e.dataTransfer ? e.dataTransfer.getData("text") : "");
+      const typed = String(raw || "").replace(/\D/g, "");
+      if (!typed) return;
+      e.preventDefault();
+      input.value = typed;
+      // The row's own oninput does the writing — units, totals, chrome. This
+      // only decided what the field says; it must not become a second writer.
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
   }
 
   // Lucide trash-2, inlined the way icons.js inlines the rest of this app's
@@ -3209,11 +3278,13 @@
             : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
     `);
 
-    wireSearchInput("opQ", (v) => { OP_STATE.q = v; renderOrderPick(); }, () => {
-      if (OP_STATE.focused) return false;
-      OP_STATE.focused = true;
-      renderOrderPick();
-      return true;
+    wireSearchInput("opQ", (v) => { OP_STATE.q = v; renderOrderPick(); }, {
+      isOpen: () => OP_STATE.focused,
+      setOpen: (v) => {
+        if (CURRENT.view !== "order-pick") return;
+        OP_STATE.focused = v;
+        renderOrderPick();
+      },
     });
     PAGE.querySelectorAll("[data-order-pick]").forEach((b) => (b.onclick = () => {
       OP_STATE = { q: "", focused: false };
@@ -3395,11 +3466,13 @@
   // review screen re-listed what was on screen a moment ago and put the
   // quantities a tap further away when the answer was "no, change one".
   // Two ways to an empty-query dropdown: the rep asked for one ("+ Add
-  // Product"), or there is no list yet for it to bury. Shared by the view and
-  // the footer so the Add button can never be offered on top of the very
-  // dropdown it opens.
+  // Product"), or the search box has focus. The second used to be withheld
+  // once the order had lines, so a suggestion set could not bury them; a
+  // focused search box now always opens its options, and tapping away puts the
+  // lines back. Shared by the view and the footer so the Add button can never
+  // be offered on top of the very dropdown it opens.
   const orderPreviewing = () =>
-    !OB_STATE.q.trim() && (OB_STATE.adding || (OB_STATE.focused && !ORDER.lines.length));
+    !OB_STATE.q.trim() && (OB_STATE.adding || OB_STATE.focused);
   const orderSearching = () => !!OB_STATE.q.trim() || orderPreviewing();
 
   function orderFootHTML() {
@@ -3423,11 +3496,16 @@
   }
 
   function wireOrderBuild(customer) {
-    wireSearchInput("obQ", (v) => { OB_STATE.q = v; renderOrderBuild(); }, () => {
-      if (OB_STATE.focused) return false;
-      OB_STATE.focused = true;
-      renderOrderBuild();
-      return true;
+    wireSearchInput("obQ", (v) => { OB_STATE.q = v; renderOrderBuild(); }, {
+      isOpen: () => OB_STATE.focused || OB_STATE.adding,
+      // Closing clears the explicit "+ Add Product" request too, or the
+      // dropdown it opened would survive the tap that dismissed it.
+      setOpen: (v) => {
+        if (CURRENT.view !== "order-build") return;
+        OB_STATE.focused = v;
+        if (!v) OB_STATE.adding = false;
+        renderOrderBuild();
+      },
     });
 
     PAGE.querySelectorAll("[data-order-add]").forEach((b) => (b.onclick = () => {
@@ -3435,7 +3513,10 @@
       if (!p) return;
       if (!ORDER.lines.some((l) => l.productId === p.id)) {
         const known = Object.prototype.hasOwnProperty.call(ORDER.stockMap, p.id);
-        ORDER.lines.push(orderLineFromProduct(p, known ? ORDER.stockMap[p.id] : null));
+        // On top, above the recommendations — see addToCount. What the engine
+        // proposed is still all there underneath; this is the line the rep is
+        // about to put a quantity on, so it leads.
+        ORDER.lines.unshift(orderLineFromProduct(p, known ? ORDER.stockMap[p.id] : null));
       }
       // Picking one answers the "add" the button asked, so the dropdown
       // gives the list back rather than staying open over it.
@@ -3475,6 +3556,7 @@
       if (!line) return;
       const row = st.closest(".qc-row");
       const input = st.querySelector("input");
+      wireZeroDefault(input);
       const set = (v) => {
         const qty = Math.max(0, Math.floor(Number(v) || 0));
         input.value = qty;
@@ -3488,20 +3570,6 @@
 
     const basis = $("#obBasis", PAGE);
     if (basis) basis.onclick = () => basisSheet(ORDER.prediction.context);
-
-    // Tapping away from an add-dropdown the rep opened but didn't use puts
-    // the list back — the ordinary way a dropdown closes. Deferred because
-    // blur lands BEFORE the click that caused it: picking a product must be
-    // allowed to run first (it clears `adding` itself), and a re-render from
-    // typing re-focuses the box, which the activeElement check lets through
-    // so the caret is never stolen mid-word.
-    const box = $("#obQ", PAGE);
-    if (box) box.onblur = () => setTimeout(() => {
-      if (!ORDER || !OB_STATE.adding) return;
-      if (document.activeElement === $("#obQ", PAGE)) return;
-      OB_STATE.adding = false;
-      if (CURRENT.view === "order-build") renderOrderBuild();
-    }, 150);
 
     const back = $("#obBack", PAGE);
     if (back) back.onclick = () => exitOrderSheet();
