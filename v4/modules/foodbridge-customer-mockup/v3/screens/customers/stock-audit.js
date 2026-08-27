@@ -69,6 +69,12 @@
     if (isNaN(d)) return String(iso);
     return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
   }
+  function fmtTimeShort(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  }
   // REMOVED (inline pass): fmtRelative — "Today, 10:15 AM" / "Yesterday" /
   // "N days ago". Its last reader was the resume prompt's "started 2 hours
   // ago" line, which went with that sheet (see the removal note just below
@@ -245,11 +251,19 @@
     if (ACTIVE_SHEET || SHEET_HISTORY) { closeActiveSheet(true); return; }
     // Our own history.back() from an in-app back button: the view already moved.
     if (POPPING) { POPPING = false; return; }
+    // Unsaved work gets the screen's own confirmation rather than silently
+    // losing it — see guardedPop.
+    if (guardedPop()) return;
     // The phone's Back button. Walk the view stack instead of leaving the page.
     back(true);
   });
 
-  function sheet({ eyebrow, title, sub, body, actions }) {
+  // `center` renders the same component as a small centred modal instead of a
+  // bottom sheet. Reserved for the questions that INTERRUPT — leaving a visit,
+  // discarding an order — because those are not something the rep opened and
+  // can flick away; they are a decision the screen is waiting on. Sheets stay
+  // sheets for the things a rep asks to see (a product, a past version).
+  function sheet({ eyebrow, title, sub, body, actions, center }) {
     if (ACTIVE_SHEET) {
       // Chaining straight into a second sheet (e.g. "End this visit" opening
       // the reason picker) — not a real close. closeActiveSheet()'s
@@ -266,7 +280,7 @@
     }
     document.querySelectorAll(".sah-sheet-scrim").forEach((n) => n.remove());
     const scrim = document.createElement("div");
-    scrim.className = "sah-sheet-scrim";
+    scrim.className = "sah-sheet-scrim" + (center ? " center" : "");
     scrim.innerHTML = `<div class="sah-sheet"><div class="grip"></div>
       ${eyebrow ? `<div class="eyebrow">${esc(eyebrow)}</div>` : ""}
       ${title ? `<h2>${esc(title)}</h2>` : ""}
@@ -456,9 +470,9 @@
   // unsaved recommendation on screen, and nothing reaches Zoho.
   const ORDER_STATUS = {
     confirmed: { label: "Confirmed", cls: "ok" },
-    zoho_pending: { label: "Zoho pending", cls: "warn" },
-    zoho_created: { label: "Zoho created", cls: "ok" },
-    zoho_failed: { label: "Zoho failed", cls: "danger" },
+    zoho_pending: { label: "Accounts sync pending", cls: "warn" },
+    zoho_created: { label: "Invoice created", cls: "ok" },
+    zoho_failed: { label: "Accounts sync failed", cls: "danger" },
   };
 
   const SalesOrderStore = {
@@ -663,8 +677,9 @@
   };
   // A product whose base unit isn't in the table still gets a valid ladder of
   // exactly one rung, so every caller can assume there is always a base.
+  // A product with no `unit` at all falls back to Pc, the catalogue default.
   function unitsFor(p) {
-    const base = (p && p.unit) || "Unit";
+    const base = (p && p.unit) || "Pc";
     return (UNIT_LADDERS[base] || [[base, 1]]).map(([label, per]) => ({ label, per }));
   }
   function unitFactor(p, label) {
@@ -789,6 +804,27 @@
     // remembers that a rep already asked, so re-opening the record doesn't
     // invite them to ask again.
     if (!a.actionsTaken) a.actionsTaken = { replenish: false, pull: false };
+    // Every audit is a stack of saved versions, newest last. `a.lines` always
+    // mirrors the LAST one, so everything that already reads an audit —
+    // coverage, the health axes, Predictive Sales Order's current-stock basis
+    // — keeps reading the field it always did and gets the current count
+    // without knowing versions exist. The stack is what makes an update
+    // non-destructive: the 05 Aug count is still in versions[0] after the
+    // 27 Aug update rewrites a.lines.
+    // Audits written before versioning get their existing state as version 1,
+    // which is the honest reading: one count, taken when the visit closed.
+    if (!a.versions || !a.versions.length) {
+      a.versions = [{
+        id: (a.id || "aud") + "-v1",
+        auditId: a.id || null,
+        customerId: a.customerId,
+        at: a.completedAt || a.at,
+        by: (a.actors && a.actors.createdBy) || a.auditor,
+        action: "created",
+        prev: null,
+        lines: clone(a.lines),
+      }];
+    }
     return a;
   }
 
@@ -1051,6 +1087,75 @@
       try { history.back(); } catch (e) { POPPING = false; }
     }
   }
+  /* --------------------------------------------------------- losing work */
+
+  // Work that exists only on this screen and would be gone if the rep left.
+  // Deliberately narrow: a visit with nothing counted, or an order with no
+  // quantities, is nothing to lose, and asking about it would train people to
+  // dismiss the question that matters.
+  function pendingWork() {
+    if (CURRENT.view === "quick-count" && DRAFT && quickStats().captured > 0) return "audit";
+    if (CURRENT.view === "audit-edit" && EDIT && editDirty()) return "edit";
+    if (CURRENT.view === "order-build" && ORDER && (ORDER.lines || []).some((l) => Number(l.qty) > 0)) return "order";
+    return null;
+  }
+
+  // Edit Audit holds its changes in memory and writes nothing until Save, so
+  // "dirty" is the same comparison the save path makes.
+  function editDirty() {
+    const a = auditsFor(EDIT.customerId).find((x) => x.id === EDIT.auditId);
+    return !!a && linesSignature(a.lines) !== linesSignature(editLines());
+  }
+
+  // Leaving Edit Audit without saving. The count screen and the order screen
+  // already ask before dropping work; this screen was the one that didn't.
+  function exitEditSheet() {
+    sheet({
+      title: "Discard changes?",
+      center: true,
+      actions: [
+        { label: "Keep editing", cls: "primary" },
+        { label: "Discard", cls: "danger", onClick: () => {
+          EDIT = null;
+          AE_CONFIRM = false;
+          back();
+        } },
+      ],
+    });
+  }
+
+  // One question per kind of work, and always the screen's OWN question — the
+  // rep gets the same wording whether they used the ← button or the phone's
+  // Back gesture, which is what makes the two feel like one action.
+  function askBeforeLeaving(kind) {
+    if (kind === "audit") { exitAuditSheet(loadCustomer(DRAFT.customerId)); return true; }
+    if (kind === "edit") { exitEditSheet(); return true; }
+    if (kind === "order") { exitOrderSheet(); return true; }
+    return false;
+  }
+
+  // The phone's Back had been walking the view STACK straight past all of
+  // that: the ← button asked, the gesture did not, and the same tap that
+  // opens a confirmation on one screen threw the visit away on the other.
+  // The consumed history entry is replaced first, so answering "keep
+  // counting" leaves the rep exactly where they were with Back still working.
+  function guardedPop() {
+    const kind = pendingWork();
+    if (!kind) return false;
+    try { history.pushState({ sahGuard: true }, ""); } catch (e) { /* file:// */ }
+    return askBeforeLeaving(kind);
+  }
+
+  // Closing the tab, reloading, or following a link out. A page teardown can
+  // only ever raise the browser's own dialog — no custom sheet can run here —
+  // so this is the one place the wording is not ours.
+  window.addEventListener("beforeunload", (e) => {
+    if (!pendingWork()) return;
+    e.preventDefault();
+    e.returnValue = "";
+    return "";
+  });
+
   function scrollTop() {
     const el = document.scrollingElement || document.documentElement;
     if (el) el.scrollTop = 0;
@@ -1060,6 +1165,7 @@
     ({
       audits: renderAudits,
       audit: renderAudit,
+      "audit-edit": renderAuditEdit,
       "quick-pick": renderQuickPick,
       "quick-count": renderQuickCount,
       "order-pick": renderOrderPick,
@@ -1393,7 +1499,7 @@
      ================================================================================================= */
 
   // What the rep counted, in the words they counted it in. A line taken in
-  // boxes says so and gives the base-unit total in brackets — "3 Box (36 Pc)"
+  // trays says so and gives the base-unit total in brackets — "3 Tray (36 Pc)"
   // — because both are the record: the second is what reconciles against
   // system stock, the first is what someone can walk back into the store and
   // check. Base-unit lines, which is every line before units existed, read
@@ -1409,17 +1515,169 @@
   // A flat log of what was counted on this visit — not a findings view.
   // Every captured line shows, in the order the rep counted them, with
   // exactly the fact that matters: how many, or that it wasn't found.
+  /* --------------------------------------------------------- audit versions */
+
+  // What a version is FOR comparison: the counted lines, and nothing else.
+  // Two saves a minute apart with the same numbers are the same count, so the
+  // timestamp and the actor are deliberately not in here — they are what a
+  // version records, not what makes it different from the one before.
+  function linesSignature(lines) {
+    return (lines || [])
+      .slice()
+      .sort((a, b) => String(a.productId).localeCompare(String(b.productId)))
+      .map((l) => [l.productId, linePhysical(l), l.countQty, l.countUnit, l.status].join(":"))
+      .join("|");
+  }
+
+  // Append a version and make it current. Returns false when nothing changed,
+  // which is the caller's cue to save nothing at all — a Save that only moved
+  // the clock would put a "Updated" entry on the timeline for a visit nobody
+  // touched, and the timeline is the one place this feature has to stay honest.
+  function commitAuditVersion(audit, lines) {
+    if (linesSignature(audit.lines) === linesSignature(lines)) return false;
+    const prev = audit.versions[audit.versions.length - 1];
+    const at = new Date().toISOString();
+    audit.versions.push({
+      id: audit.id + "-v" + (audit.versions.length + 1),
+      auditId: audit.id,
+      customerId: audit.customerId,
+      at,
+      by: AUDITOR.name,
+      action: "updated",
+      prev: prev ? prev.id : null,
+      lines: clone(lines),
+    });
+    audit.lines = clone(lines);
+    // The visit's own date (`at`) is NOT touched: an update corrects what the
+    // 05 Aug visit found, it does not move the visit to today. Audit History
+    // sorts on `at`, so leaving it alone is also what keeps that list exactly
+    // where it was.
+    audit.actors.lastEditedBy = AUDITOR.name;
+    audit.updatedAt = at;
+    return true;
+  }
+
+  /* ------------------------------------------------- product detail sheet */
+
+  // One product, one sheet, reachable from anywhere the product is named.
+  // Every row that names a product can only ever show a truncated name and a
+  // SKU — and the question a rep actually has, standing in front of a shelf,
+  // is "is this the 475 gm or the 1000 gm?". The sheet is where the rest of
+  // the identity lives: the picture, the full untruncated name, the category
+  // it files under, and the pack ladder it travels in, which is what gives
+  // the unit chip in the row something to be read against.
+  //
+  // Opened by DELEGATION, never by per-screen wiring: a surface opts in by
+  // marking the product's name (or thumbnail) `data-product-info="<id>"`, and
+  // the single capture-phase listener in mount() does the rest. That is what
+  // makes "everywhere" hold — a new product surface inherits the sheet by
+  // carrying the attribute, with no handler anyone has to remember to attach,
+  // and re-rendering a screen can't detach it because nothing was attached to
+  // the screen in the first place.
+  //
+  // `data-product-ctx` names WHICH record the contextual line reads from,
+  // because the same product means a different thing on each screen: what was
+  // counted on this visit, what is going on this order, what a past audit
+  // found. Absent, the sheet is catalogue facts alone — which is the honest
+  // answer on a screen that isn't holding a number for it.
+  function productContextHTML(p, kind) {
+    const wrap = (label, value, note) =>
+      `<div class="pdx-ctx">
+         <span class="lbl">${esc(label)}</span>
+         <span class="val">${esc(value)}</span>
+         ${note ? `<span class="note">${esc(note)}</span>` : ""}
+       </div>`;
+
+    if (kind === "audit") {
+      const line = DRAFT.lines[p.id];
+      if (line && line.status === "not_found") return wrap("This visit", "Not found", "The rep looked and there were none on the shelf.");
+      if (line && lineIsCaptured(line)) return wrap("Counted this visit", countedText(p, line));
+      // Selected but untouched is a real, distinct state — see quickRowHTML on
+      // why an empty stepper is not a zero.
+      return wrap("This visit", "Not counted yet");
+    }
+
+    if (kind === "order") {
+      const l = ORDER.lines.find((x) => x.productId === p.id);
+      if (!l) return "";
+      // Two different sentences, not one with a hole in it: a line built by
+      // hand for a product the last audit never reached has no stock figure,
+      // and "holding not known" is not English.
+      const note = l.hasStock
+        ? `Shop is holding ${qtyText(l.currentStock, l.unit)}.`
+        : "No counted stock on file for this product.";
+      return wrap("On this order", qtyText(Number(l.qty) || 0, l.unit), note);
+    }
+
+    if (kind === "history") {
+      // The audit being viewed is the one in the route — renderAudit resolved
+      // it to get here, so re-reading it costs a lookup and keeps the sheet
+      // free of a parameter every caller would have to thread through.
+      const a = auditsFor(CURRENT.params.customerId).find((x) => x.id === CURRENT.params.auditId);
+      const line = a && auditLines(a).find((l) => l.productId === p.id);
+      if (!line) return "";
+      if (line.status === "not_found") return wrap("On this visit", "Not found");
+      return wrap("Counted on this visit", countedText(p, line));
+    }
+
+    return "";
+  }
+
+  function productDetailSheet(id, kind) {
+    const p = productById(id);
+    // A product id with nothing behind it means the catalogue moved under a
+    // saved draft. Silence beats a sheet full of blanks.
+    if (!p) return;
+
+    const base = baseUnit(p);
+    // The article number is NOT here: the hero already carries it, and the one
+    // place a rep reads it from should be the one next to the picture.
+    const facts = [
+      ["Category", p.category],
+      ["Sub-category", p.subCategory],
+      ["Base unit", base],
+      ["System stock", p.systemStock == null ? null : qtyText(p.systemStock, base)],
+    ].filter(([, v]) => v != null && v !== "");
+
+    // The ladder, spelled out. The row's unit chip offers exactly these and
+    // nothing else, so seeing them listed with their pack sizes is how a rep
+    // works out that "3 Tray" is the count they mean.
+    const units = unitsFor(p);
+
+    sheet({
+      eyebrow: "Product",
+      title: p.name,
+      body: `
+        <div class="pdx-hero">
+          <span class="thumb">${thumbHTML(p)}</span>
+          <span class="who"><span class="sku">SKU ${esc(p.artNo || "—")}</span></span>
+        </div>
+        ${productContextHTML(p, kind)}
+        <div class="pdx-facts">
+          ${facts.map(([k, v]) => `<div class="pdx-fact"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("")}
+        </div>
+        <div class="pdx-units">
+          <div class="pdx-units-head">Counts in</div>
+          ${units.map((u) => `<div class="pdx-unit"><span class="u">${esc(u.label)}</span><span class="p">${u.per > 1 ? esc(`${u.per} ${base}`) : "base unit"}</span></div>`).join("")}
+        </div>`,
+      actions: [{ label: "Close", cls: "primary" }],
+    });
+  }
+
   function productsCheckedSectionHTML(a) {
     const lines = auditLines(a);
     return `
-      <div class="section-head-row"><h2>Products Checked</h2>${lines.length ? `<span class="src">${plural(lines.length, "product")}</span>` : ""}</div>
+      <div class="section-head-row">
+        <h2>Products</h2>
+        <button type="button" class="hdr-act" id="auEdit">Edit</button>
+      </div>
       <div class="cd-card pi-card">
         ${lines.length
           ? lines.map((l) => {
               const p = productById(l.productId) || {};
               const nf = l.status === "not_found";
-              return `<div class="pi-row static">
-                <span class="info">
+              return `<div class="pi-row">
+                <span class="info" data-product-info="${esc(l.productId)}" data-product-ctx="history" role="button" tabindex="0" aria-label="Details for ${esc(p.name || l.productId)}">
                   <span class="nm">${esc(p.name || l.productId)}</span>
                   <span class="sku">SKU ${esc(p.artNo || "—")}</span>
                 </span>
@@ -1432,6 +1690,54 @@
       </div>`;
   }
 
+  // Newest first — the same direction Audit History reads, and the same
+  // direction a rep asks the question in ("what happened to this last?").
+  const versionAction = (v) => (v.action === "created" ? "Created" : "Updated");
+  const versionWhen = (v) => `${fmtDateShort(v.at)} · ${fmtTimeShort(v.at)}`;
+
+  // Oldest first, so the thread reads downward the way the visit actually
+  // happened. No card around it: a card per event turned three dates into
+  // three panels, which is most of a screen for what is one line of fact each.
+  function auditTimelineHTML(a) {
+    return `
+      <div class="section-head-row"><h2>Audit timeline</h2></div>
+      <div class="tl">
+        ${a.versions.map((v) => `
+          <button type="button" class="tl-row" data-version="${esc(v.id)}">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="tl-when">${esc(versionWhen(v))}</span>
+            <span class="tl-who">${esc(v.by || AUDITOR.name)} · ${versionAction(v)}</span>
+          </button>`).join("")}
+      </div>`;
+  }
+
+  // What the audit looked like at one point in time. Read-only, and rendered
+  // from THAT version's stored `lines` — never recomputed from the current
+  // audit, which is the whole reason the snapshot is kept.
+  function versionSheet(a, versionId) {
+    const v = a.versions.find((x) => x.id === versionId);
+    if (!v) return;
+    sheet({
+      title: versionAction(v),
+      sub: `${versionWhen(v)} · ${v.by || AUDITOR.name}`,
+      body: `
+        <div class="section-head-row" style="margin-top:16px"><h2>Products</h2></div>
+        <div class="vs-list">
+          ${v.lines.map((l) => {
+            const p = productById(l.productId) || {};
+            return `<div class="pi-row">
+              <span class="info">
+                <span class="nm">${esc(p.name || l.productId)}</span>
+                <span class="sku">SKU ${esc(p.artNo || "—")}</span>
+              </span>
+              <span class="right"><span class="qty">${l.status === "not_found" ? "Not found" : esc(countedText(p, l))}</span></span>
+            </div>`;
+          }).join("")}
+        </div>`,
+      actions: [{ label: "Close", cls: "primary" }],
+    });
+  }
+
   function renderAudit() {
     const customer = loadCustomer(CURRENT.params.customerId);
     const a = auditsFor(CURRENT.params.customerId).find((x) => x.id === CURRENT.params.auditId);
@@ -1441,16 +1747,238 @@
       <div class="sah-page-head">
         <div class="row" style="align-items:center">
           <button type="button" class="back" id="auBack">← ${esc(titleCase(nameOf(customer)))}</button>
-          <span style="font-size:12.5px;color:var(--muted)">${esc(fmtDate(a.at))}</span>
+          <span class="au-when">${esc(fmtDateShort(a.at))} · ${esc(fmtTimeShort(a.at))}</span>
         </div>
       </div>
 
       ${productsCheckedSectionHTML(a)}
+      ${auditTimelineHTML(a)}
     `);
 
     // Wrapped, not passed directly: as a handler, back would receive the click
     // Event as its fromPopstate argument and skip spending the history entry.
     $("#auBack", PAGE).onclick = () => back();
+    // Editing is a secondary action here — this screen is for reading the
+    // visit, not changing it, and a sticky full-width button said the opposite.
+    $("#auEdit", PAGE).onclick = () => startAuditEdit(a);
+    PAGE.querySelectorAll("[data-version]").forEach((b) => (b.onclick = () => versionSheet(a, b.dataset.version)));
+  }
+
+  /* ================================================================= VIEW: audit-edit */
+
+  // Editing a completed audit is the SAME screen as counting one, minus the
+  // parts that only make sense on a live visit: no progress header (the visit
+  // is over), no finish-confirmation (there is nothing left to walk), no
+  // outcome. What remains — the product rows, the stepper, the unit chip, the
+  // search dropdown, the in-row remove — is the count screen's own markup,
+  // rendered from this state instead of the draft.
+  //
+  // A separate state object rather than reusing DRAFT: DRAFT is the live-visit
+  // draft, persisted per customer by persistDraft, and loading a finished
+  // audit into it would put a phantom visit-in-progress under that customer.
+  // Editing touches nothing until Save.
+  let EDIT = null; // { auditId, customerId, lines, q, adding }
+  let AE_CONFIRM = false;
+
+  function startAuditEdit(a) {
+    const lines = {};
+    auditLines(a).forEach((l) => (lines[l.productId] = clone(l)));
+    EDIT = { auditId: a.id, customerId: a.customerId, lines, q: "", adding: false };
+    AE_CONFIRM = false;
+    go("audit-edit", { customerId: a.customerId, auditId: a.id });
+  }
+
+  function editSelected() {
+    return Object.keys(EDIT.lines).map(productById).filter(Boolean);
+  }
+
+  // The lines this edit would actually save.
+  function editLines() {
+    return Object.keys(EDIT.lines).map((id) => EDIT.lines[id]).filter(lineIsCaptured);
+  }
+
+  // Saving asks first, in the footer — the same two-tap commit finishing a
+  // count and confirming an order already use. No detail line under the
+  // prompt: those two are committing something new, where the totals are the
+  // decision, and this is a correction to a record the rep is looking at.
+  function editFootHTML() {
+    if (!AE_CONFIRM) {
+      // Add sits in the sticky footer, not under the list: with thirty
+      // products counted, a button below the last row is a scroll away from
+      // the rep who wants a thirty-first. Hidden while the search dropdown is
+      // open, where it would be offering what the rep is already doing.
+      const searching = !!EDIT.q.trim() || EDIT.adding;
+      return `${searching ? "" : `<button type="button" class="btn-add" id="aeAdd">+ Add Product</button>`}
+        <button type="button" class="btn-wide primary" id="aeSave">Save</button>`;
+    }
+    return `<span class="confirm-inline">
+        <span class="ci-copy"><span class="ci-prompt">Save changes?</span></span>
+        <button type="button" class="ci-btn yes" id="aeYes" aria-label="Save changes">✓</button>
+        <button type="button" class="ci-btn no" id="aeNo" aria-label="Keep editing">✗</button>
+      </span>`;
+  }
+
+  // Only the footer is rebuilt, never the screen: a full re-render would drop
+  // the caret out of whichever count the rep was typing into.
+  function refreshEditFoot(a) {
+    const foot = $("#aeFoot", PAGE);
+    if (foot) { foot.innerHTML = editFootHTML(); wireEditFoot(a); }
+  }
+
+  function wireEditFoot(a) {
+    const save = $("#aeSave", PAGE);
+    if (save) save.onclick = () => {
+      const lines = editLines();
+      if (!lines.length) { toast("Count at least one product first.", "info"); return; }
+      // Nothing changed is nothing to confirm — saveAuditEdit already knows to
+      // write no version in that case, so this leaves without a question the
+      // rep has no way to answer wrong.
+      if (linesSignature(a.lines) === linesSignature(lines)) { saveAuditEdit(a); return; }
+      AE_CONFIRM = true;
+      refreshEditFoot(a);
+    };
+    const add = $("#aeAdd", PAGE);
+    if (add) add.onclick = () => {
+      EDIT.adding = true;
+      renderAuditEdit();
+      const box = $("#aeQ", PAGE);
+      if (box) box.focus();
+    };
+    const no = $("#aeNo", PAGE);
+    if (no) no.onclick = () => { AE_CONFIRM = false; refreshEditFoot(a); };
+    const yes = $("#aeYes", PAGE);
+    if (yes) yes.onclick = () => { AE_CONFIRM = false; saveAuditEdit(a); };
+  }
+
+  function renderAuditEdit() {
+    const customer = loadCustomer(CURRENT.params.customerId);
+    const a = auditsFor(CURRENT.params.customerId).find((x) => x.id === CURRENT.params.auditId);
+    if (!customer || !a || !EDIT) { go("quick-pick", {}, true); return; }
+
+    const q = EDIT.q.trim().toLowerCase();
+    const matches = (p) => [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
+    const available = products.filter((p) => !EDIT.lines[p.id]);
+    // Same two ways in as the order screen's picker: a typed query, or an
+    // explicit "+ Add Product".
+    const searching = !!q || EDIT.adding;
+    const results = !searching
+      ? []
+      : q
+        ? available.filter(matches)
+        : available.slice().sort((x, y) => x.name.localeCompare(y.name)).slice(0, 5);
+    const selected = editSelected();
+
+    frame(`
+      <div class="ws-head">
+        <button type="button" class="ws-exit" id="aeBack" aria-label="Back">←</button>
+        <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+      </div>
+
+      <div class="sah-search-row">
+        <div class="sah-search"><input type="search" id="aeQ" ${SEARCH_ATTRS} value="${esc(EDIT.q)}" placeholder="Search product name or SKU…"></div>
+      </div>
+
+      ${searching
+        ? `<div class="picker-list dropdown">${results.length
+            ? results.map((p) => `
+              <button type="button" class="picker-row" data-edit-add="${esc(p.id)}">
+                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
+                <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
+                <span class="add-ic" aria-hidden="true">+</span>
+              </button>`).join("")
+            : `<div class="dropdown-empty">No product matches that.</div>`}</div>`
+        : `${selected.length
+            ? `<div class="qc-card">${selected.map((p) => quickRowHTML(p, EDIT.lines)).join("")}</div>`
+            : `<div class="sah-empty"><div class="big">📋</div><p>No products.<br>Search above to add one.</p></div>`}`}
+    `, { foot: `<div class="sah-foot ws-foot"><div class="inner" id="aeFoot">${editFootHTML()}</div></div>` });
+
+    wireAuditEdit(customer, a);
+  }
+
+  function wireAuditEdit(customer, a) {
+    wireSearchInput("aeQ", (v) => { EDIT.q = v; renderAuditEdit(); });
+
+    $("#aeBack", PAGE).onclick = () => { if (!askBeforeLeaving(pendingWork())) back(); };
+
+    // A product added here starts counted at zero rather than blank: the
+    // untouched/zero distinction the count screen keeps is about coverage of a
+    // visit in progress, and this visit is already closed — a line on it is a
+    // number the audit now asserts.
+    PAGE.querySelectorAll("[data-edit-add]").forEach((b) => (b.onclick = () => {
+      const p = productById(b.dataset.editAdd);
+      if (!p) return;
+      if (!EDIT.lines[p.id]) {
+        const line = blankLine(p.id, 0);
+        line.status = "audited";
+        line.physical = 0;
+        line.countQty = 0;
+        line.countUnit = baseUnit(p);
+        EDIT.lines[p.id] = line;
+      }
+      EDIT.q = "";
+      EDIT.adding = false;
+      renderAuditEdit();
+    }));
+
+    // Removal asks in the row — the existing pattern, not a new one.
+    PAGE.querySelectorAll("[data-remove]").forEach((b) => (b.onclick = () => {
+      PAGE.querySelectorAll(".qc-row.confirming").forEach((r) => r.classList.remove("confirming"));
+      b.closest(".qc-row").classList.add("confirming");
+    }));
+    PAGE.querySelectorAll("[data-remove-no]").forEach((b) => (b.onclick = () => {
+      b.closest(".qc-row").classList.remove("confirming");
+    }));
+    PAGE.querySelectorAll("[data-remove-yes]").forEach((b) => (b.onclick = () => {
+      delete EDIT.lines[b.dataset.removeYes];
+      renderAuditEdit();
+    }));
+
+    // In place, never a re-render — same contract as wireQuickSteppers, and
+    // for the same reason: a re-render rebuilds the input being typed into.
+    PAGE.querySelectorAll(".qc-row .pd-stepper").forEach((st) => {
+      const p = productById(st.dataset.field);
+      if (!p) return;
+      const row = st.closest(".qc-row");
+      const input = st.querySelector("input");
+      const select = row.querySelector("[data-unit]");
+      const write = (qty, unit) => {
+        const line = EDIT.lines[p.id];
+        if (!line) return;
+        line.countQty = qty;
+        line.countUnit = unit;
+        line.physical = qty * unitFactor(p, unit);
+        line.conditionBreakdown = emptyCondition();
+        line.conditionBreakdown.good = line.physical;
+        line.status = "audited";
+        input.value = qty;
+        row.classList.add("done");
+      };
+      st.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
+        const step = Number(btn.dataset.delta) || 0;
+        write(Math.max(0, (Number(input.value) || 0) + step), select.value);
+      }));
+      input.oninput = () => write(Math.max(0, Math.floor(Number(input.value) || 0)), select.value);
+      select.onchange = () => {
+        setRowUnitLabels(row, select.value);
+        write(Number(input.value) || 0, select.value);
+      };
+    });
+
+    wireEditFoot(a);
+  }
+
+  function saveAuditEdit(a) {
+    const lines = editLines();
+    if (!lines.length) { toast("Count at least one product first.", "info"); return; }
+    // No change means no version — see commitAuditVersion.
+    const changed = commitAuditVersion(a, lines);
+    if (changed) {
+      a.expectedProducts = Math.max(a.expectedProducts || 0, lines.length);
+      AuditStore.save();
+    }
+    EDIT = null;
+    back();
+    if (changed) toast("Saved", "success");
   }
 
   /* =============================================================================================
@@ -1621,7 +2149,7 @@
           `<div class="picker-list dropdown">${results.length
             ? results.map((p) => `
               <button type="button" class="picker-row" data-add="${esc(p.id)}">
-                <span class="av">${thumbHTML(p)}</span>
+                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
@@ -1664,32 +2192,30 @@
   // re-renders, and any other re-render drops the question on its own without
   // a state flag to keep in sync. The warning clause hangs off `.done`, the
   // same class that tints a counted row, so the two can never disagree.
-  function quickRowHTML(p) {
-    const line = DRAFT.lines[p.id];
+  // `lines` defaults to the live draft's, so every existing caller is
+  // unchanged; Edit Audit passes its own map to get the identical row.
+  function quickRowHTML(p, lines) {
+    const line = (lines || DRAFT.lines)[p.id];
     const done = line && lineIsCaptured(line);
     const units = unitsFor(p);
     const unit = (line && line.countUnit) || baseUnit(p);
     const qty = done && line.status !== "not_found" ? line.countQty : "";
-    // The equivalent in base units, shown only when the rep is counting in
-    // something bigger and the multiplication is therefore doing real work.
-    const per = unitFactor(p, unit);
-    const equiv = done && per > 1 && Number(qty) > 0 ? ` · ${qtyText(linePhysical(line), baseUnit(p))}` : "";
     return `
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
-          <div class="nm">${esc(p.name)}</div>
-          <div class="meta"><span class="sku" title="${esc(p.artNo)}">SKU ${esc(p.artNo)}</span> ·
+          <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${esc(p.name)}</div>
+          <div class="meta">
             <span class="unit-pick">
-              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">▾</span>
+              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">⌄</span>
               <select data-unit="${esc(p.id)}" aria-label="Counting unit for ${esc(p.name)}">
                 ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
               </select>
-            </span><span class="equiv">${esc(equiv)}</span>
+            </span><span class="sku" title="${esc(p.artNo)}">SKU ${esc(p.artNo)}</span>
           </div>
           <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
         </div>
-        ${stepperHTML(p.id, qty == null ? "" : qty)}
-        <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">×</button>
+        ${stepperHTML(p.id, qty == null ? "" : qty, unit)}
+        <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-remove-yes="${esc(p.id)}" aria-label="Confirm removing ${esc(p.name)}">✓</button>
         <button type="button" class="ci-btn sm no" data-remove-no="${esc(p.id)}" aria-label="Keep ${esc(p.name)}">✗</button>
       </div>`;
@@ -1783,7 +2309,6 @@
         line.notFoundReason = null;
         persistDraft();
         row.classList.add("done");
-        showEquiv(p, line, row);
         refreshQuickChrome(customer);
       };
       const set = (v) => {
@@ -1800,27 +2325,12 @@
       // they picked the wrong pack size is exactly the busywork this avoids.
       // On an untouched row it only records the choice — no count is invented.
       if (select) select.onchange = () => {
-        const lbl = row.querySelector(".unit-pick .lbl");
-        if (lbl) lbl.textContent = select.value;
+        setRowUnitLabels(row, select.value);
         const line = DRAFT.lines[p.id];
         if (line && lineIsCaptured(line)) { write(Number(input.value) || 0, select.value); return; }
         ensureDraftLine(p, hasShelf).countUnit = select.value;
-        showEquiv(p, DRAFT.lines[p.id], row);
       };
     });
-  }
-
-  // The "· 36 Pc" tail on a row counted in something bigger. Kept in step by
-  // hand rather than by re-rendering the row, for the same reason the stepper
-  // is: the input the rep is typing into must survive.
-  function showEquiv(p, line, row) {
-    const el = row.querySelector(".equiv");
-    if (!el) return;
-    const captured = line && lineIsCaptured(line);
-    const per = unitFactor(p, (line && line.countUnit) || baseUnit(p));
-    el.textContent = captured && per > 1 && linePhysical(line) > 0
-      ? ` · ${qtyText(linePhysical(line), baseUnit(p))}`
-      : "";
   }
 
   function refreshQuickChrome(customer) {
@@ -1925,6 +2435,7 @@
     sheet({
       eyebrow: placeLine(customer, DRAFT.locationId),
       title: "Leave this audit?",
+      center: true,
       sub: progressSummaryText(prog) + " Leaving without finishing does not keep it.",
       actions: [
         { label: "Keep counting", cls: "primary" },
@@ -1968,13 +2479,34 @@
      no remaining caller were removed here, not the model.
      ================================================================================================= */
 
-  function stepperHTML(key, value) {
+  // `unitLabel` puts the unit under the number, inside the stepper's middle
+  // cell — the quantity and what it is counted in read as one figure, which
+  // is the only place either of them means anything.
+  // A row shows its unit twice — the chip in the meta line and the label
+  // under the number — and the <select> over the chip is invisible, so
+  // neither updates itself. Both are written here so they cannot disagree.
+  function setRowUnitLabels(row, unit) {
+    const lbl = row.querySelector(".unit-pick .lbl");
+    if (lbl) lbl.textContent = unit;
+    const u = row.querySelector(".pd-stepper .u");
+    if (u) u.textContent = unit;
+  }
+
+  function stepperHTML(key, value, unitLabel) {
     return `<span class="pd-stepper" data-field="${esc(key)}">
       <button type="button" data-delta="-1">−</button>
-      <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
+      <span class="val">
+        <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="${value === "" || value == null ? "" : value}" placeholder="0">
+        ${unitLabel ? `<span class="u">${esc(unitLabel)}</span>` : ""}
+      </span>
       <button type="button" data-delta="1">+</button>
     </span>`;
   }
+
+  // Lucide trash-2, inlined the way icons.js inlines the rest of this app's
+  // glyphs. Removing is destructive and the bin says so; a bare × read as
+  // "close" on a row that has no closed state.
+  const TRASH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 
   function ensureDraftLine(p, hasShelf) {
     if (!DRAFT.lines[p.id]) {
@@ -2449,19 +2981,27 @@
   // figures behind it (expected demand, what was recommended before the rep
   // touched it) stay on the record without being on the screen.
   function orderRowHTML(l) {
-    const stockText = `Stock ${l.hasStock ? l.currentStock : "—"} · ${l.unit}`;
+    const p = productById(l.productId) || {};
+    const units = unitsFor(p);
+    const unit = l.unit || baseUnit(p);
+    const stockText = `Stock ${l.hasStock ? l.currentStock : "—"} · ${baseUnit(p)}`;
     return `
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
-          <div class="nm">${esc(l.productName)}</div>
+          <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" aria-label="Details for ${esc(l.productName)}">${esc(l.productName)}</div>
           <div class="meta">
-            <span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
+            <span class="unit-pick">
+              <span class="lbl" aria-hidden="true">${esc(unit)}</span><span class="chev" aria-hidden="true">⌄</span>
+              <select data-order-unit="${esc(l.productId)}" aria-label="Ordering unit for ${esc(l.productName)}">
+                ${units.map((u) => `<option value="${esc(u.label)}" ${u.label === unit ? "selected" : ""}>${esc(u.label)}${u.per > 1 ? ` (${u.per} ${esc(baseUnit(p))})` : ""}</option>`).join("")}
+              </select>
+            </span><span class="sku" title="${esc(l.artNo)}">${l.artNo ? "SKU " + esc(l.artNo) : "&nbsp;"}</span>
           </div>
           <div class="meta ord-stock">${esc(stockText)}</div>
           <div class="meta ask">Remove from this order?</div>
         </div>
-        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty)}
-        <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">×</button>
+        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unit)}
+        <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-order-remove-yes="${esc(l.productId)}" aria-label="Confirm removing ${esc(l.productName)}">✓</button>
         <button type="button" class="ci-btn sm no" data-order-remove-no="${esc(l.productId)}" aria-label="Keep ${esc(l.productName)}">✗</button>
       </div>`;
@@ -2503,10 +3043,8 @@
     const matches = (p) => [p.name, p.artNo, p.category, p.subCategory].join(" ").toLowerCase().includes(q);
     const chosen = ORDER.lines.map((l) => l.productId);
     const available = products.filter((p) => chosen.indexOf(p.id) === -1);
-    // Two ways to an empty-query dropdown: the rep asked for one ("+ Add
-    // Product"), or there is no list yet for it to bury.
-    const previewing = !q && (OB_STATE.adding || (OB_STATE.focused && !ORDER.lines.length));
-    const searching = !!q || previewing;
+    const previewing = orderPreviewing();
+    const searching = orderSearching();
     const results = !searching
       ? []
       : q
@@ -2536,7 +3074,7 @@
         ? `<div class="picker-list dropdown">${results.length
             ? results.map((p) => `
               <button type="button" class="picker-row" data-order-add="${esc(p.id)}">
-                <span class="av">${thumbHTML(p)}</span>
+                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">SKU ${esc(p.artNo)}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
@@ -2544,8 +3082,7 @@
         : `${ORDER.lines.length ? `<div class="section-head-row"><h2>${recommended ? "Recommended" : "Products"}</h2>${recommended ? predictionBasisHTML(ctx) : ""}</div>` : ""}
            ${ORDER.lines.length
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
-              : orderEmptyStateHTML()}
-           <button type="button" class="ord-add" id="obAdd">+ Add Product</button>`}
+              : orderEmptyStateHTML()}`}
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner" id="obFoot">${orderFootHTML()}</div></div>` });
 
     wireOrderBuild(customer);
@@ -2556,18 +3093,28 @@
   // in place, against the list the rep is already looking at; a separate
   // review screen re-listed what was on screen a moment ago and put the
   // quantities a tap further away when the answer was "no, change one".
+  // Two ways to an empty-query dropdown: the rep asked for one ("+ Add
+  // Product"), or there is no list yet for it to bury. Shared by the view and
+  // the footer so the Add button can never be offered on top of the very
+  // dropdown it opens.
+  const orderPreviewing = () =>
+    !OB_STATE.q.trim() && (OB_STATE.adding || (OB_STATE.focused && !ORDER.lines.length));
+  const orderSearching = () => !!OB_STATE.q.trim() || orderPreviewing();
+
   function orderFootHTML() {
     const t = orderTotals(ORDER.lines);
     if (ORDER.committing) {
       return `<button type="button" class="btn-wide primary" disabled>Creating order…</button>`;
     }
     if (!OB_CONFIRM) {
-      return `<button type="button" class="btn-wide primary" id="obConfirm" ${t.products ? "" : "disabled"}>Confirm Order</button>`;
+      // Same move as Edit Audit's, for the same reason — see editFootHTML.
+      return `${orderSearching() ? "" : `<button type="button" class="btn-add" id="obAdd">+ Add Product</button>`}
+        <button type="button" class="btn-wide primary" id="obConfirm" ${t.products ? "" : "disabled"}>Confirm Order</button>`;
     }
     return `<span class="confirm-inline">
         <span class="ci-copy">
           <span class="ci-prompt">Confirm order?</span>
-          <span class="ci-detail">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))} · FoodBridge → Zoho</span>
+          <span class="ci-detail">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))} · FoodBridge → Accounts</span>
         </span>
         <button type="button" class="ci-btn yes" id="obYes" aria-label="Confirm order">✓</button>
         <button type="button" class="ci-btn no" id="obNo" aria-label="Keep editing">✗</button>
@@ -2594,6 +3141,17 @@
       OB_STATE.q = "";
       OB_STATE.adding = false;
       renderOrderBuild();
+    }));
+
+    // The ordering unit. Only the label and the line's own `unit` change —
+    // `qty` is the number the rep typed and stays theirs, so "3" under a
+    // switch from Pc to Carton means three cartons, which is exactly what the
+    // order record and the accounts payload then carry.
+    PAGE.querySelectorAll("[data-order-unit]").forEach((sel) => (sel.onchange = () => {
+      const line = ORDER.lines.find((x) => x.productId === sel.dataset.orderUnit);
+      if (!line) return;
+      line.unit = sel.value;
+      setRowUnitLabels(sel.closest(".qc-row"), sel.value);
     }));
 
     // Removal asks in the row, exactly as the audit's counting row does.
@@ -2630,15 +3188,6 @@
     const basis = $("#obBasis", PAGE);
     if (basis) basis.onclick = () => basisSheet(ORDER.prediction.context);
 
-    const add = $("#obAdd", PAGE);
-    if (add) add.onclick = () => {
-      OB_STATE.focused = true;
-      OB_STATE.adding = true;
-      renderOrderBuild();
-      const box = $("#obQ", PAGE);
-      if (box) box.focus();
-    };
-
     // Tapping away from an add-dropdown the rep opened but didn't use puts
     // the list back — the ordinary way a dropdown closes. Deferred because
     // blur lands BEFORE the click that caused it: picking a product must be
@@ -2661,6 +3210,16 @@
 
   // Re-wired on every footer swap, since the footer replaces its own markup.
   function wireOrderFoot(customer) {
+    // Add lives in the footer now, so it is re-bound here rather than in
+    // wireOrderBuild — the footer replaces its own markup on every refresh.
+    const add = $("#obAdd", PAGE);
+    if (add) add.onclick = () => {
+      OB_STATE.focused = true;
+      OB_STATE.adding = true;
+      renderOrderBuild();
+      const box = $("#obQ", PAGE);
+      if (box) box.focus();
+    };
     const confirm = $("#obConfirm", PAGE);
     if (confirm) confirm.onclick = () => {
       if (!orderTotals(ORDER.lines).products) { toast("Set a quantity on at least one product.", "info"); return; }
@@ -2698,6 +3257,7 @@
     sheet({
       eyebrow: titleCase(nameOf(loadCustomer(ORDER.customerId) || {})),
       title: "Discard order?",
+      center: true,
       actions: [
         { label: "Keep editing", cls: "primary" },
         { label: "Discard", cls: "danger", onClick: () => {
@@ -2784,7 +3344,7 @@
       refreshOrderChrome(customer);
       sheet({
         title: "Order could not be created.",
-        sub: "Nothing was sent to Zoho. Please try again.",
+        sub: "Nothing was sent to accounts. Please try again.",
         actions: [{ label: "Close", cls: "primary" }],
       });
       return;
@@ -2836,7 +3396,7 @@
         const timedOut = code === "timeout";
         SalesOrderStore.update(orderId, {
           zohoStatus: timedOut ? "pending" : "failed",
-          zohoError: (err && err.message) || "Zoho sales order could not be created.",
+          zohoError: (err && err.message) || "Invoice could not be created.",
           zohoErrorCode: code,
           zohoLastSyncedAt: new Date().toISOString(),
           status: timedOut ? "zoho_pending" : "zoho_failed",
@@ -2870,7 +3430,7 @@
     frame(`
       <div class="ord-done">
         <div class="mark ${needsRetry ? "warn" : done ? "ok" : "busy"}">${needsRetry ? "!" : done ? "✓" : "⋯"}</div>
-        <h1>${syncing ? "Creating order…" : "Order Created"}</h1>
+        <h1>${syncing ? "Accounts sync in progress" : "Order Created"}</h1>
       </div>
 
       <div class="cd-card ord-refs">
@@ -2880,7 +3440,7 @@
           <span class="status-tag ok">Created</span>
         </div>
         <div class="ref-row">
-          <span class="lbl">Zoho</span>
+          <span class="lbl">Invoice</span>
           <span class="val">${order.zohoOrderNumber ? esc(order.zohoOrderNumber) : "—"}</span>
           <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : unresolved ? "Pending" : "Syncing"}</span>
         </div>
@@ -2898,12 +3458,12 @@
         <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
       </div>
     `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        ${needsRetry ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Zoho</button>` : ""}
+        ${needsRetry ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Sync</button>` : ""}
         ${done && order.zohoUrl
           // Only when the function supplied a URL for this tenant. Zoho's API
           // returns none and nothing here invents one, so an unconfigured
           // deployment simply shows the number.
-          ? `<a class="btn-wide ghost" id="osOpen" href="${esc(order.zohoUrl)}" target="_blank" rel="noopener">Open in Zoho</a>`
+          ? `<a class="btn-wide ghost" id="osOpen" href="${esc(order.zohoUrl)}" target="_blank" rel="noopener">Open Invoice</a>`
           : ""}
         <button type="button" class="btn-wide primary" id="osDone" ${syncing ? "disabled" : ""}>Done</button>
       </div></div>` });
@@ -2917,6 +3477,41 @@
       OP_STATE = { q: "", focused: false };
       go("order-pick", {}, true);
     };
+  }
+
+  /* ------------------------------------------------- product info, wired once */
+
+  // The whole of "tap a product, see the product" is this one listener. PAGE
+  // is created once at mount and every render only replaces its innerHTML, so
+  // a listener bound here outlives all of them — which is the point: the
+  // screens that name products re-render constantly (every keystroke in a
+  // search box rebuilds the list), and a per-row handler is a handler to
+  // rebind on each of those.
+  //
+  // CAPTURE phase, and it stops the event. Two of the surfaces put the product
+  // name inside a control that already does something with a click — the
+  // picker rows ARE the "add this product" button — so the sheet has to claim
+  // the click before it reaches them, or tapping a name to read about a
+  // product would silently add it to the audit instead.
+  //
+  // Keyboard: the marked elements are spans and divs inside existing rows
+  // rather than nested buttons (which the picker rows, being buttons
+  // themselves, cannot legally contain), so they carry role="button" and
+  // tabindex and this supplies the Enter/Space that a real button would have
+  // given for free.
+  function wireProductInfo() {
+    const open = (e) => {
+      const hit = e.target.closest && e.target.closest("[data-product-info]");
+      if (!hit) return;
+      e.preventDefault();
+      e.stopPropagation();
+      productDetailSheet(hit.dataset.productInfo, hit.dataset.productCtx || "");
+    };
+    PAGE.addEventListener("click", open, true);
+    PAGE.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      open(e);
+    }, true);
   }
 
   /* ------------------------------------------------------------------ mount */
@@ -2943,6 +3538,7 @@
     // rather than positioned once at mount.
     window.addEventListener("resize", syncOverlayFrame);
     window.addEventListener("orientationchange", syncOverlayFrame);
+    wireProductInfo();
     trackKeyboardInset();
     keepFocusVisible();
     LocationStore.load();

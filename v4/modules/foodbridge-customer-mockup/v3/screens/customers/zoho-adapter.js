@@ -45,8 +45,8 @@
    * UI never parses a message to decide what to show.
    */
   function ZohoError(message, category, detail) {
-    const e = new Error(message || "Zoho integration error.");
-    e.name = "ZohoError";
+    const e = new Error(message || "Accounts sync error.");
+    e.name = "AccountsSyncError";
     e.code = category || "zoho_unavailable";
     e.category = e.code;
     e.detail = detail || null;
@@ -92,7 +92,7 @@
         // PENDING and lets a retry check, rather than as a clean failure.
         const timedOut = e && e.name === "AbortError";
         throw ZohoError(
-          timedOut ? "Zoho did not respond in time." : "Zoho unavailable.",
+          timedOut ? "Accounts system did not respond in time." : "Accounts system unavailable.",
           timedOut ? "timeout" : "zoho_unavailable"
         );
       })
@@ -100,7 +100,7 @@
         return res.json().catch(function () { return null; }).then(function (json) {
           if (!res.ok) {
             throw ZohoError(
-              (json && json.message) || "Zoho integration error.",
+              (json && json.message) || "Accounts sync error.",
               (json && json.category) || "zoho_unavailable",
               (json && json.detail) || null
             );
@@ -124,7 +124,7 @@
     return fetch(apiBase() + "/api/health", { credentials: "omit", cache: "no-store" })
       .then(function (res) { return res.json(); })
       .catch(function () {
-        return { configured: false, missing: ["Zoho function unreachable"] };
+        return { configured: false, missing: ["Accounts service unreachable"] };
       });
   }
 
