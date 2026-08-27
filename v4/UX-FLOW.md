@@ -486,10 +486,26 @@ ours.
 
 ## 8. Product details — the start of the unit/price journey
 
-Any product name (or a search result's thumbnail, which carries a small ⓘ)
-opens a bottom sheet of **four things**: the full untruncated name, the SKU, the
-**unit price**, and the **unit picker** that changes it. Choosing a pack updates
-the price on the spot. That is the whole sheet.
+Any product **name** opens a bottom sheet of **four things**: the full
+untruncated name, the SKU, the **unit price**, and the **unit picker** that
+changes it. Choosing a pack updates the price on the spot. That is the whole
+sheet.
+
+A search result used to be a second way in — its thumbnail was separately
+tappable, marked with a small teal ⓘ. Both the thumbnail and that route are
+**gone**. Two targets in one row, one of them a 34px picture, is a lot to ask of
+a list whose only job is "tap to add", and this catalogue's photos did not earn
+it: what separates two entries here is the size and the MRP inside the name —
+`(1000 gm) … NEW MRP 660` against `(475 gm) … NEW MRP 325` — and every one of
+them is the same jar in the same photo. The picture was taking the width the
+distinguishing half of the name needed. No product row in the module carries a
+thumbnail now, so the rule has no exceptions to remember; a product's details
+are one tap away from the row it lands in once added.
+
+The **customer** search lost its square too — a letter chip, the first
+character of the name in a tinted box. It identified nothing a list of names
+does not already identify, and it cost every row 34px plus a gap on the side
+where the address sits. A search result is text now, on both lists.
 
 It used to carry a picture, a category / sub-category / base-unit / system-stock
 table, a "this visit" line and the pack ladder spelled out. All of it was
@@ -508,7 +524,7 @@ the unit sheet changes, and saves.
 
 This works through one delegated listener, so any surface that names a product
 inherits it by carrying `data-product-info` — there is no per-screen wiring to
-forget.
+forget. The workspace header's customer name rides the same listener (§3.2).
 
 ---
 

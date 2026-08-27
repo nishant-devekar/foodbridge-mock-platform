@@ -624,9 +624,6 @@
   const products = SEED.products || [];
   const productById = (id) => products.find((p) => p.id === id);
   const productName = (id) => (productById(id) || {}).name || id;
-  // A real photo when the product has one, the emoji glyph as a fallback —
-  // every `.thumb` in the app renders through this so the two never drift.
-  const thumbHTML = (p) => (p && p.image ? `<img src="${esc(p.image)}" alt="">` : esc((p && p.emoji) || "📦"));
   // Every seeded product has an article number; one a rep added in the field
   // may not, because the SKU is optional there — a jar on a shelf does not
   // always have a code the rep can read off it. In a LIST, the answer to "no
@@ -644,9 +641,9 @@
   // cannot record it.
   //
   // load() PUSHES INTO `products` rather than replacing it. That array is this
-  // module's catalogue — search, productById, thumbHTML, the order screen, all
-  // of it reads that one binding — so a product that lands in it is, from
-  // every reader's point of view, a seeded product. That is the requirement:
+  // module's catalogue — search, productById, the order screen, all of it reads
+  // that one binding — so a product that lands in it is, from every reader's
+  // point of view, a seeded product. That is the requirement:
   // once created it must be indistinguishable, including next visit.
   const CatalogueStore = {
     state: [],
@@ -677,9 +674,9 @@
       // A photo is an inlined data URL and every other store shares the same
       // ~5MB origin quota, so this is the one write here that can realistically
       // fail. The product matters and the picture does not: drop the image and
-      // keep the catalogue rather than losing both to a silent throw. (The
-      // in-memory `p` is the same object `products` holds, so the row the rep
-      // is about to count simply renders its emoji fallback.)
+      // keep the catalogue rather than losing both to a silent throw. Nothing
+      // on screen changes either way — see the note on `photo` below: no
+      // surface in this module renders a product image any more.
       if (!this.save() && p.image) {
         delete p.image;
         if (this.save()) toast("Photo too large to save — product added without it", "info");
@@ -1893,9 +1890,13 @@
           }
 
           // systemStock 0, not null: nothing has ever been booked in against
-          // this product, which is a fact and not a gap. `image` is set only
-          // when there is one — thumbHTML falls through to the 📦 glyph, the
-          // same fallback a seeded product with no art gets.
+          // this product, which is a fact and not a gap.
+          //
+          // `image` is still WRITTEN and still nothing renders it: the search
+          // results were the last surface that did, and they no longer carry a
+          // thumbnail. It is kept because the capture below is a deliberate
+          // field affordance and a photo already taken should not be silently
+          // thrown away — but nothing in this module displays it today.
           const p = { id: nextProductId(), name, artNo: sku, unit, systemStock: 0 };
           if (photo) p.image = photo;
           onAdded(CatalogueStore.add(p));
@@ -2197,7 +2198,6 @@
         ? `<div class="picker-list dropdown">${results.length
             ? results.map((p) => `
               <button type="button" class="picker-row" data-edit-add="${esc(p.id)}">
-                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
@@ -2362,7 +2362,6 @@
         : `<div class="picker-list dropdown">${rows.length
             ? rows.map((c) => `
               <button type="button" class="picker-row" data-pick="${c._id}">
-                <span class="av">${esc(titleCase(nameOf(c)).charAt(0) || "C")}</span>
                 <span><span class="nm">${esc(titleCase(nameOf(c)))}</span><div class="sub">${esc(addressLine(c.adress1, c.state?.name, c.postnr))}</div></span>
               </button>`).join("")
             : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
@@ -2485,7 +2484,6 @@
           `<div class="picker-list dropdown">${results.length
             ? results.map((p) => `
               <button type="button" class="picker-row" data-add="${esc(p.id)}">
-                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
@@ -2509,9 +2507,16 @@
   //
   // No thumbnail, matching that reference. It cost more than it gave: at a
   // phone's width it squeezed the product name into "NATURAL WA…", and the
-  // name plus SKU is what a rep matches against the shelf label anyway. The
-  // search results above still carry photos — picking the right product from a
-  // catalogue is the part where a picture helps.
+  // name plus SKU is what a rep matches against the shelf label anyway.
+  //
+  // The search results ABOVE used to be the exception, on the argument that
+  // picking the right product out of a catalogue is where a picture helps. It
+  // is not, for this catalogue: what separates two entries here is the size and
+  // the MRP inside the name — "(1000 gm) ... NEW MRP 660" against "(475 gm) ...
+  // NEW MRP 325" — and every one of them is the same jar in the same photo. The
+  // picture cost the name the width it needed to show the part that actually
+  // distinguishes it. So there is no thumbnail on any product row in the module
+  // now, and the rule has no exceptions to remember.
   //
   // An untouched row's stepper is EMPTY, not 0. That preserves the distinction
   // the removed sheet spent a whole "Can't find this product" flow on: blank
@@ -3425,7 +3430,6 @@
         : `<div class="picker-list dropdown">${rows.length
             ? rows.map((c) => `
               <button type="button" class="picker-row" data-order-pick="${c._id}">
-                <span class="av">${esc(titleCase(nameOf(c)).charAt(0) || "C")}</span>
                 <span><span class="nm">${esc(titleCase(nameOf(c)))}</span><div class="sub">${esc(addressLine(c.adress1, c.state?.name, c.postnr))}</div></span>
               </button>`).join("")
             : `<div class="dropdown-empty">No customers found.</div>`}${previewing && allCustomers.length > rows.length ? `<div class="suggest-hint">Showing ${rows.length} of ${plural(allCustomers.length, "customer")} — keep typing to search all</div>` : ""}</div>`}
@@ -3601,7 +3605,6 @@
         ? `<div class="picker-list dropdown">${results.length
             ? results.map((p) => `
               <button type="button" class="picker-row" data-order-add="${esc(p.id)}">
-                <span class="av" data-product-info="${esc(p.id)}" role="button" tabindex="0" aria-label="Details for ${esc(p.name)}">${thumbHTML(p)}</span>
                 <span><span class="nm">${esc(p.name)}</span><div class="sub">${esc(skuText(p))}</div></span>
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
