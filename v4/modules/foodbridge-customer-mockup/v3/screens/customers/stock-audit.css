@@ -956,7 +956,14 @@
 /* Removing a product asks first, in the row. Both states ship in the markup
    (see quickRowHTML) and this swaps them, so asking costs nothing but a class.
    The warning clause keys off `.done` — the same class that tints a counted
-   row — so the question can never claim a count that isn't there. */
+   row — so the question can never claim a count that isn't there.
+
+   The question is just "Remove?". It used to name the list — "Remove from this
+   audit?" / "Remove from this order?" — which is a phrase the rep can only be
+   reading while standing inside that very list, with the row highlighted and
+   its ✓/✗ already in front of them. The words told them where they were, not
+   what they were about to lose. The audit's clause still does the second job,
+   and it is the only part worth the width. */
 .qc-row .ask,
 .qc-row .ci-btn { display: none; }
 .qc-row .ask .lost { display: none; }

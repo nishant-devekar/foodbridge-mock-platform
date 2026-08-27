@@ -2559,7 +2559,7 @@
       <div class="qc-line qc-row ${done ? "done" : ""}" data-row="${esc(p.id)}">
         <div class="info">
           <div class="nm" data-product-info="${esc(p.id)}" data-product-ctx="audit" role="button" tabindex="0" title="${esc(p.name)}" aria-label="Details for ${esc(p.name)}">${esc(shortName(p.name))}</div>
-          <div class="meta ask">Remove from this audit?<span class="lost"> Its count will be cleared.</span></div>
+          <div class="meta ask">Remove?<span class="lost"> Its count will be cleared.</span></div>
         </div>
         ${stepperHTML(p.id, qty == null ? "" : qty, unitPickHTML("data-unit", p.id, p.name, unit, units, baseUnit(p), "Counting unit"))}
         <button type="button" class="qc-remove" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)}">${TRASH_SVG}</button>
@@ -3529,7 +3529,7 @@
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
           <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" title="${esc(l.productName)}" aria-label="Details for ${esc(l.productName)}">${esc(shortName(l.productName))}</div>
-          <div class="meta ask">Remove from this order?</div>
+          <div class="meta ask">Remove?</div>
         </div>
         ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit"))}
         <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">${TRASH_SVG}</button>
