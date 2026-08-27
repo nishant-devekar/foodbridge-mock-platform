@@ -151,6 +151,13 @@
 /* ── Section header with a sort control (Customers list) ─────────────────── */
 .section-head-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 10px; }
 .section-head-row h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
+/* The default pushes the second item to the far edge, which is right for a
+   sort control or an Edit action — those act on the whole section and belong
+   at its opposite end. It is wrong for something that explains the heading
+   itself: across a phone's width the far edge reads as a separate status, not
+   as a footnote on the word. `.attached` sits it against the heading instead.
+   Harmless on a row with one child, where the two are identical. */
+.section-head-row.attached { justify-content: flex-start; gap: 7px; }
 .sort-field { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .sort-field select {
   border: 1px solid var(--line); border-radius: 999px; background: #fff;
@@ -294,7 +301,35 @@
 .ws-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 2px 11px; margin-bottom: 12px; }
 .ws-exit { flex-shrink: 0; width: 30px; height: 30px; margin-left: -6px; display: grid; place-items: center; background: none; border: none; padding: 0; border-radius: 8px; font-size: 19px; line-height: 1; color: var(--teal); }
 .ws-exit:hover { background: var(--teal-l); }
-.ws-who { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ONE line, elided — and a <button>, because the whole name is in a sheet one
+   tap behind it (see whoHTML / customerNameSheet).
+
+   A two-line clamp was tried here and taken back out. It did show names like
+   "A N Enterprise (Golden Mart, Guwahati)" whole, but it bought that by
+   letting the header grow to 55px on exactly the customers whose names are
+   long — pushing the count screen's real work down the page, and doing it
+   inconsistently, so the screen's furniture moved depending on which shop the
+   rep walked into. A header is a place marker; it is not where a long name is
+   meant to be read. The ellipsis says "there is more", and the sheet is where
+   the more is — which is the whole reason the name became tappable.
+
+   The button reset is doing real work — a <button> defaults to centred text in
+   the UA's own font, and both would be wrong for what still reads as the
+   screen's title. */
+.ws-who {
+  flex: 1; min-width: 0;
+  font-family: inherit; font-size: 16px; font-weight: 800; color: var(--ink);
+  border: none; background: none; padding: 0; margin: 0;
+  text-align: left; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Quiet, like the product names: these are titles first and controls second,
+   so the affordance is the pressed state and a focus ring, not an underline. */
+.ws-who:active { opacity: .55; }
+.ws-who:focus-visible {
+  outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--teal);
+  border-radius: 6px;
+}
 .ws-count { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* The rule under the header IS the track, so an empty audit still gets its
    divider and a finished one shows a full teal line in the same place. */
@@ -811,37 +846,40 @@
    carries only the remove question (.ask). */
 
 /* The counting unit, centred directly above the stepper and outside its
-   border — a real <select>, but dressed as
-   a visible control rather than as text that happens to be clickable: a
-   tinted pill, a border and a chevron, so "you can change this" reads before
-   anyone touches it. Bare coloured text with a hairline chevron did not: the
-   rep had no reason to think the unit was theirs to set, which is the whole
-   point of it being there. (Same reasoning, and near enough the same
-   treatment, as the location picker this screen used to carry.)
+   border: the word, and a chevron next to it. No pill, no border, no
+   background.
 
-   The <select> is laid over the chip at full size and made invisible, with a
-   .lbl span carrying the text. A native select is as wide as its LONGEST
-   option, so letting it size the chip made "Pc" occupy "Carton (144 Pc)" of
-   room — a pill three times wider than its own word, on every row. This way
-   the chip fits the selection, while the select keeps its real hit target and
-   its native picker, which is the right widget for three options on a phone.
-   .lbl is aria-hidden: the select is the accessible control and already
-   announces its own value. */
+   This DELIBERATELY REVERSES what used to be argued here. The chip was a
+   tinted pill with a hairline border, on the reasoning that bare text does not
+   read as changeable and the rep needs to know the unit is theirs to set. What
+   that reasoning did not price was the cost: a border and its padding are ~10px
+   of height on the tallest column of every row, spent on decoration, and the
+   chevron alone already says "this opens". The word is what the rep reads; the
+   box around it was never the message.
+
+   (The comment here also described a native <select> laid over the chip and
+   made invisible. There has been no <select> since the unit sheet replaced it —
+   this is a real <button>. See unitPickHTML.)
+
+   What the pill was doing that the text must keep doing: standing apart from
+   the number below it. It still does — it is smaller, lighter and separated by
+   the column's gap, and once a row is counted it tints teal with the stepper. */
 .qc-line .unit-pick {
-  position: relative; display: inline-flex; align-items: center; gap: 4px;
-  height: 22px; padding: 0 7px;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--slate-50);
+  position: relative; display: inline-flex; align-items: center; gap: 3px;
+  height: auto; padding: 0;
+  border: none; background: none;
   font: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
 }
 .qc-line .unit-pick:active { opacity: .6; }
-/* Tinted to match the stepper once the row carries a quantity. */
-.qc-row.done .unit-pick { border-color: var(--teal-l2); background: var(--teal-l); }
+/* Tinted to match the stepper once the row carries a quantity. With no pill to
+   fill, the tint is carried by the text itself. */
 .qc-row.done .unit-pick .lbl, .qc-row.done .unit-pick .chev { color: var(--teal-d); }
-.qc-line .unit-pick:hover { border-color: var(--teal); }
+.qc-line .unit-pick:hover .lbl, .qc-line .unit-pick:hover .chev { color: var(--teal); }
 .qc-line .unit-pick .lbl { font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1; white-space: nowrap; }
 .qc-line .unit-pick .chev { font-size: 11px; color: var(--muted-2); line-height: 1; }
-.qc-line .unit-pick:focus-visible { outline: none; border-color: var(--teal); box-shadow: 0 0 0 2px rgba(18,97,94,.25); }
+/* The focus ring was the border turning teal, which there no longer is — so it
+   is an outline, offset off the glyphs rather than painted on top of them. */
+.qc-line .unit-pick:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 4px; }
 
 /* Saved, said on the row for a moment and then gone — see flashUnitSaved. The
    row grows by this and shrinks back; a badge that reserved permanent space
@@ -1184,18 +1222,27 @@
   .sah-overlays .toasts {
     top: calc(var(--header-h, 3.5rem) + 0.75rem + env(safe-area-inset-top, 0px));
   }
-  /* The unit chip keeps its painted pill exactly as designed and gains its
-     thumb target from a transparent overlay — the target, not the paint.
-     Growing the pill itself (padding plus a negative margin to absorb it) is
-     what broke this row once: the box grew into the column's 4px gap and sat
-     on the stepper's top edge.
+  /* The unit is painted as bare text and gains its thumb target from a
+     transparent overlay — the target, not the paint. Growing the control
+     itself (padding plus a negative margin to absorb it) is what broke this
+     row once: the box grew into the column's 4px gap and sat on the stepper's
+     top edge.
 
      The overlay is deliberately NOT symmetric. Downward it stops at the gap,
      because past that it would be over the −/+ buttons and a mis-tap meant for
      the unit would silently change a counted quantity — worse than a slightly
      smaller target. So it takes the empty room above and to the sides instead,
-     which is where a thumb actually misses on a chip this size. */
-  .qc-line .unit-pick::after { content: ""; position: absolute; inset: -8px -12px -4px; }
+     which is where a thumb actually misses on a control this size.
+
+     The top grew from 8px to 12px when the pill came off. Dropping the border
+     and its padding took the painted control from 22px tall to 12px, and the
+     target has to be bought back from somewhere — above is the only direction
+     that is free. Measured at 402px: the box runs 219→247 against a stepper
+     that starts at 247, so it is 28px tall (34px before) and stops flush on
+     the stepper without overlapping it. 12px is also all there is to take: the
+     row's own padding above the control is 11px, so the box already sits 1px
+     over the row's edge, into the empty bottom padding of the row above. */
+  .qc-line .unit-pick::after { content: ""; position: absolute; inset: -12px -12px -4px; }
   .nav-btn { min-height: 48px; }
   .picker-row, .qc-line { min-height: 56px; }
 
@@ -1222,12 +1269,14 @@
 /* A rep ordering does not need the audit date and the order counts on
    screen; they need to know the numbers are grounded. One line says that,
    and the "i" opens the detail for the rare moment it is questioned. */
-/* Sits on the "Recommended" heading's own row, where .section-head-row
-   already puts a secondary label — so the basis costs no vertical space. */
+/* Sits directly against the "Recommended" heading (see .section-head-row
+   .attached) — a footnote marker on the word it explains, which is what it
+   always was. It costs no vertical space and now no horizontal label either:
+   the two-word basis it used to carry is in the sheet, with the dates and
+   counts that make it mean something. See predictionBasisHTML. */
 .ord-basis {
-  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  position: relative; display: inline-flex; align-items: center; flex-shrink: 0;
   background: none; border: none; padding: 0;
-  font-size: 11.5px; font-weight: 600; color: var(--muted-2); white-space: nowrap;
 }
 .ord-basis .i {
   flex-shrink: 0; width: 15px; height: 15px; border-radius: 50%;
@@ -1235,8 +1284,26 @@
   font-size: 9px; font-weight: 800; font-style: normal;
   display: grid; place-items: center; line-height: 1;
 }
-.ord-basis:hover { color: var(--teal); }
+/* The label used to be most of the tap target. With it gone the target is a
+   transparent box instead of a 15px circle — the target, not the paint. To the
+   RIGHT the row is empty, so it takes that freely. On the LEFT it stops inside
+   the 7px gap, because past that it is over the heading, and a tap landing on
+   the last letters of "Recommended" opening a sheet is the kind of thing that
+   makes a rep stop trusting where they are pressing.
+
+   VERTICALLY it is boxed in and 11px is the most it can take: measured at
+   402px the circle sits between a search field ending at 179 and the first
+   order row starting at 220, and that row's top-left is the product name,
+   which opens a sheet of its own. 13px cleared the search but put the box
+   half a pixel INTO the row — the same one-sliver-of-a-neighbour bug the
+   stepper and the bin were just untangled from. 11px leaves ~2px either side.
+   So this target is 39x37, not 44: the room is not there, and inventing it
+   would mean taking it from a control that would then be mis-tapped. */
+.ord-basis::after { content: ""; position: absolute; inset: -11px -20px -11px -4px; }
 .ord-basis:hover .i { border-color: var(--teal); color: var(--teal); }
+/* There is no text left to carry focus, so the ring goes on the circle. */
+.ord-basis:focus-visible { outline: none; }
+.ord-basis:focus-visible .i { outline: 2px solid var(--teal); outline-offset: 2px; border-color: var(--teal); color: var(--teal); }
 .pb-detail { color: var(--muted-2); font-weight: 500; }
 .pb-detail-list { margin-top: 14px; }
 .pb-detail-list .rv-line.muted .txt { text-decoration: line-through; text-decoration-color: var(--line); }

@@ -334,6 +334,33 @@
     return loadCustomers().find((c) => c._id === id) || null;
   }
 
+  // The customer's name in a workspace header, as something you can open.
+  //
+  // The header stays ONE line: it shares that line with a back button and a
+  // progress count, and it is a place marker, not somewhere a long name is
+  // meant to be read. So the name gets what is left and is elided — which on a
+  // phone means "A N Enterprise (Golden Mart, Guwahati)" reads as "A N
+  // Enterprise (Golden…", and that is fine, because the ellipsis is now a
+  // promise the app can keep: tapping the name opens the whole thing.
+  //
+  // (A two-line clamp was tried and reverted. It showed those names whole, but
+  // grew the header on exactly the customers with long names, so the screen's
+  // furniture shifted depending on which shop the rep walked into.)
+  const whoHTML = (customer) => {
+    const name = titleCase(nameOf(customer));
+    return `<button type="button" class="ws-who" data-customer-name="${esc(name)}"
+      >${esc(name)}</button>`;
+  };
+
+  // The name, whole, and deliberately nothing else — no address, no category,
+  // no status, no order count. Those all live on the customer's own screens,
+  // and putting any of them here would turn a one-line answer into a summary
+  // card that has to be read. The only question this sheet exists to answer is
+  // the one a clipped header raises: which customer am I in?
+  function customerNameSheet(name) {
+    sheet({ title: name, actions: [{ label: "Close", cls: "primary" }] });
+  }
+
   // Every audit belongs to exactly one location — stock is never mixed
   // across two physical places in one visit. Customer-level intelligence is
   // the aggregate of the location-level history, not a shortcut around it.
@@ -2159,7 +2186,7 @@
     frame(`
       <div class="ws-head">
         <button type="button" class="ws-exit" id="aeBack" aria-label="Back">←</button>
-        <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+        ${whoHTML(customer)}
       </div>
 
       <div class="sah-search-row">
@@ -2438,7 +2465,7 @@
     frame(`
       <div class="ws-head">
         <button type="button" class="ws-exit" id="qcExit" aria-label="Exit audit">←</button>
-        <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+        ${whoHTML(customer)}
         <div class="ws-count" id="qcProg">${esc(quickProgressText(s))}</div>
         <div class="ws-bar"><span style="width:${s.pct}%"></span></div>
       </div>
@@ -3426,15 +3453,25 @@
   // counts, or which window each came from. That detail is real, so it is
   // kept one tap away in a sheet rather than deleted; it just has no claim
   // on the screen a rep is trying to order from.
-  // Two words, riding on the "Recommended" heading's own row — the heading
-  // already says these are recommendations, so this only has to say what
-  // they came from.
+  // The two-word label that used to ride here — "Stock + history" / "History
+  // only" — is GONE FROM THE SCREEN. Two reasons. It said what the sheet's
+  // first two lines already say, with the dates and counts attached, so on
+  // screen it was a summary of something one tap away. And sitting at the far
+  // edge of the heading's row it read as a status the heading was reporting,
+  // not as something to open: the "i" beside it was doing all the work of
+  // saying "tap me", from the one position that made it look like punctuation.
+  //
+  // What is left is the "i", against the heading it explains. The label
+  // survives as the button's ACCESSIBLE NAME, so a screen reader still gets
+  // the summary a sighted rep now gets by opening the sheet — an unlabelled
+  // "i" would have been a worse trade than the one being made here.
   const basisLabel = (ctx) =>
     ctx.usedStockAudit ? "Stock + history" : "History only";
 
   function predictionBasisHTML(ctx) {
-    return `<button type="button" class="ord-basis" id="obBasis">
-        <span>${esc(basisLabel(ctx))}</span><span class="i" aria-hidden="true">i</span>
+    return `<button type="button" class="ord-basis" id="obBasis"
+        aria-label="Based on ${esc(basisLabel(ctx).toLowerCase())} — how this was calculated">
+        <span class="i" aria-hidden="true">i</span>
       </button>`;
   }
 
@@ -3519,7 +3556,7 @@
       frame(`
         <div class="ws-head">
           <button type="button" class="ws-exit" id="obBack" aria-label="Back">←</button>
-          <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+          ${whoHTML(customer)}
           <div class="ws-count">Preparing order…</div>
           <div class="ws-bar indeterminate"><span></span></div>
         </div>
@@ -3551,7 +3588,7 @@
     frame(`
       <div class="ws-head">
         <button type="button" class="ws-exit" id="obBack" aria-label="Back">←</button>
-        <div class="ws-who">${esc(titleCase(nameOf(customer)))}</div>
+        ${whoHTML(customer)}
         <div class="ws-count">${t.products ? `${plural(t.products, "product")} · ${plural(t.units, "unit")}` : "Nothing to order yet"}</div>
         <div class="ws-bar"><span style="width:${ORDER.lines.length ? Math.round((t.products / ORDER.lines.length) * 100) : 0}%"></span></div>
       </div>
@@ -3569,7 +3606,7 @@
                 <span class="add-ic" aria-hidden="true">+</span>
               </button>`).join("")
             : `<div class="dropdown-empty">No product matches that.</div>`}${previewing && available.length > results.length ? `<div class="suggest-hint">Showing ${results.length} of ${plural(available.length, "product")} — keep typing to search all</div>` : ""}</div>`
-        : `${ORDER.lines.length ? `<div class="section-head-row"><h2>${recommended ? "Recommended" : "Products"}</h2>${recommended ? predictionBasisHTML(ctx) : ""}</div>` : ""}
+        : `${ORDER.lines.length ? `<div class="section-head-row attached"><h2>${recommended ? "Recommended" : "Products"}</h2>${recommended ? predictionBasisHTML(ctx) : ""}</div>` : ""}
            ${ORDER.lines.length
               ? `<div class="qc-card">${ORDER.lines.map(orderRowHTML).join("")}</div>`
               : orderEmptyStateHTML()}`}
@@ -3999,8 +4036,18 @@
   // themselves, cannot legally contain), so they carry role="button" and
   // tabindex and this supplies the Enter/Space that a real button would have
   // given for free.
-  function wireProductInfo() {
+  //
+  // The workspace header's customer name rides on the same mechanism, for the
+  // same reason: those headers are rebuilt on every progress tick.
+  function wireInfoTaps() {
     const open = (e) => {
+      const who = e.target.closest && e.target.closest("[data-customer-name]");
+      if (who) {
+        e.preventDefault();
+        e.stopPropagation();
+        customerNameSheet(who.dataset.customerName);
+        return;
+      }
       const hit = e.target.closest && e.target.closest("[data-product-info]");
       if (!hit) return;
       e.preventDefault();
@@ -4010,6 +4057,11 @@
     PAGE.addEventListener("click", open, true);
     PAGE.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
+      // A real <button> — which is what the customer name is, since nothing
+      // here forbids one — already turns Enter/Space into a click, and letting
+      // this fire too would open the sheet, tear it down and reopen it. This
+      // branch exists for the role="button" spans that get no such help.
+      if (e.target.tagName === "BUTTON") return;
       open(e);
     }, true);
   }
@@ -4038,7 +4090,7 @@
     // rather than positioned once at mount.
     window.addEventListener("resize", syncOverlayFrame);
     window.addEventListener("orientationchange", syncOverlayFrame);
-    wireProductInfo();
+    wireInfoTaps();
     trackKeyboardInset();
     keepFocusVisible();
     // First: a saved draft or audit may reference a product a rep added on an

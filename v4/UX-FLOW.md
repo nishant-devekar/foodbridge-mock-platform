@@ -90,7 +90,7 @@ the ordering basis — reads `physical`, so the one scale never drifts.
 
 > `3 Tray` is stored as `countQty: 3, countUnit: "Tray", physical: 36`.
 
-**Changing the unit opens a sheet, not a wheel.** Tapping the unit chip opens a
+**Changing the unit opens a sheet, not a wheel.** Tapping the unit opens a
 bottom sheet of three stacked facts: **what this is** (name and SKU), **what it
 costs now** (the current unit price with the pack it belongs to as a badge), and
 **what to change it to** — a dropdown whose every option carries its own price,
@@ -103,7 +103,7 @@ actual change — `Pc → Carton · ₹1,36,800.00`, or just the pack and price 
 nothing moved. ✗ puts Save back and writes nothing; changing the unit while the
 question is open also retracts it, because a pending ✓ the rep already read
 would otherwise silently re-point at a different pack. Only ✓ writes, and it
-closes the sheet, updates the chip, and flashes **Updated** on the row for a
+closes the sheet, updates the row's unit, and flashes **Updated** on the row for a
 moment — the row changed behind a sheet that just disappeared, and without that
 the rep is left hunting for what moved.
 
@@ -150,13 +150,29 @@ One screen. The search box **is** the add affordance — there is no separate
 
    Selected products
    ┌──────────────────────────────────────────────┐
-   │ TURMERIC - FINGER          ┌──┬────┬──┐      │
-   │ [Pc ⌄]  SKU 4053220…       │ −│  7 │ +│  🗑  │
-   │                            │  │ Pc │  │      │
+   │                             Pc ⌄             │
+   │ TURMERIC - FINGER          ┌──┬────┬──┐  🗑  │
+   │                            │ −│  7 │ +│      │
    └──────────────────────────────────────────────┘
 
                      [ Finish Audit ]
 ```
+
+**The header**, which Edit Audit and order-build share. Back, the customer's
+name, and the progress count — on **one line**, always. The name takes what is
+left of that line and is elided: "A N Enterprise (Golden Mart, Guwahati)" reads
+as "A N Enterprise (Golden…". The header is a place marker, not somewhere a
+long name is meant to be read, and holding it to one line keeps the screen's
+furniture in the same place whichever shop the rep walked into. A two-line
+clamp was tried here and reverted for exactly that: it grew the header to 55px
+on precisely the customers with long names.
+
+**Tapping the name opens a sheet with the name in it and nothing else.** That
+is what makes the ellipsis a promise the app can keep rather than a loss. No
+address, category, status or order count: those live on the customer's own
+screens, and any of them here would turn a one-line answer into a card that has
+to be read. It answers the one question a clipped header raises — which
+customer am I in?
 
 **The row.** Product name, then the quantity column — the unit picker sitting
 directly above the stepper, outside its border — and a red bin. That is all:
@@ -169,26 +185,33 @@ with the full name kept on the `title` and the `aria-label`. The two do
 different jobs: the CSS clamp is width-aware and does the truncating on a
 phone; the word cap bounds a pathological name — this catalogue's longest is
 fifteen words, and a rep can create one of any length. Neither costs the row
-height: the quantity column is the taller half (72px against the name's ~34),
+height: the quantity column is the taller half (62px against the name's 35),
 so a second line is free and a short name still sits on one.
 
-The unit chip is a **button** — it opens the unit sheet (see §2), which replaced
-the invisible native `<select>` that used to sit over it. Tapping the **product
-name** opens the product sheet (§8). A row with a quantity goes green — border,
-number and the unit chip above it together.
+**The unit is bare text and a chevron** — no pill, no border, no background. It
+is still a `<button>`, and it still opens the unit sheet (§2); what it lost is
+the box around it, which was ~10px of height on the tallest column of every row
+spent on decoration. The chevron already says the word opens something. Tapping
+the **product name** opens the product sheet (§8). A row with a quantity goes
+green — the stepper's border, its number, and the unit above it together, the
+unit now tinting its own text since there is no fill left to tint.
 
 The stepper's `−`/`+` are a full **44×44** — the width was the axis still short
 of the guideline, and it is the one a thumb misses on a control this narrow.
 
 **Touch targets are separated by construction, not by stacking order.** The
 bin's target box never touches the stepper's, so no part of `+` opens a delete
-confirmation; the unit chip's target stops at the column gap rather than
-reaching over `−`/`+`, where a mis-tap would silently change a counted
-quantity. Note the two distances differ: the painted bin is 15px inside a 44px
-target, so the gap the eye sees is much larger than the gap between the boxes —
-spacing this row means spacing the *paint* and checking the *boxes*. Measured
-at 375px: 18px painted, 3px between target boxes, and every edge of every
-control hit-tests to itself.
+confirmation; the unit's target stops flush at the stepper's top edge rather
+than reaching over `−`/`+`, where a mis-tap would silently change a counted
+quantity. It buys its height upward instead, which is the one free direction —
+28px of target around 12px of text.
+
+Note that painted distance and target distance are different numbers, and both
+have to be checked. The bin is 15px of ink inside a 44px box, so the gap the
+eye sees is far larger than the gap between the boxes. Measured at 402px: the
+column is 62px, the unit's target runs 219→247 against a stepper starting at
+247, and the bin's box opens 3px past where the stepper's ends. Every edge of
+every control hit-tests to itself.
 
 **Empty ≠ zero.** An untouched stepper is blank, not `0`. Blank means nobody
 verified this line; `0` means the rep looked and there were none. Coverage
@@ -353,11 +376,19 @@ counted stock is **not** on the row — it has already been subtracted to reach
 the recommendation, and repeating it there gave the rep a second number to
 reconcile against the only one they can act on. It stays on the record, and
 on the product's detail sheet, which is where it answers a question the rep
-actually asked. `Stock + history ⓘ` opens "How this was calculated" —
-which inputs were available, which were not, and two admissions the engine
-makes about itself when they apply: that the customer's history is out of
-date (with how long since they last ordered), and how many occasional buys
-the floor kept off the order.
+actually asked.
+
+**The provenance is a footnote, not a status.** An `ⓘ` sits against the
+**Recommended** heading and opens "How this was calculated" — which inputs
+were available, which were not, and two admissions the engine makes about
+itself when they apply: that the customer's history is out of date (with how
+long since they last ordered), and how many occasional buys the floor kept off
+the order. It used to carry a two-word label — `Stock + history` / `History
+only` — at the far end of the heading's row. That said what the sheet's first
+two lines say with the dates and counts attached, and the far edge made it read
+as a status the heading was reporting rather than something to open. The label
+is now the button's accessible name, so a screen reader still hears the summary
+a sighted rep gets by tapping.
 
 `Confirm Order` is a two-tap commit: `Confirm order?` + `N products · N units
 · FoodBridge → Accounts`.
