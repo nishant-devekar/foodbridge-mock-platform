@@ -138,21 +138,23 @@ ALLOWED_ORIGINS=https://nishant-devekar.github.io
 environment, and deploys. `api/*.js` become the endpoints. Nothing else moves —
 FoodBridge stays on GitHub Pages.
 
-Then provision each demo device once, by opening a link:
+**Devices no longer need provisioning.** `FB_API_KEY` must match `DEFAULT_KEY`
+in `v4/modules/foodbridge-customer-mockup/v3/screens/customers/integration-config.js`,
+which every browser sends. Rotating the key means changing both and redeploying
+both — the function (`./deploy.sh`) and the page.
 
-```
-https://nishant-devekar.github.io/foodbridge-mock-platform/v4/?fbkey=<FB_API_KEY>#/customer-management/stock-audit-health
-```
+The old `?fbkey=<key>` provisioning link is gone. It stored the key and then
+stripped it from the address bar, which meant the URL people actually kept and
+shared carried no key, and those browsers got a `401` at Confirm Order with a
+`Retry Sync` that could never succeed. Such links are now ignored and only
+stripped, and keys stored under the old scheme are dropped on load so no
+browser stays pinned to a rotated one.
 
-The key is stored and stripped from the address bar, so it does not linger in
-history or ride along when the URL is shared. `?fbapi=<url>` does the same for
-the bridge URL. Both end up in localStorage rather than the committed config,
-which is what keeps the key out of a public repo.
-
-The console equivalent, if you prefer it:
+`?fbapi=<url>` still overrides the bridge URL per device, which is what local
+work needs; a bridge run with `FB_API_KEY` unset skips the key check entirely.
 
 ```js
-localStorage.setItem("fb-api-key", "<FB_API_KEY>")
+localStorage.setItem("fb-api-base", "http://localhost:8787")
 ```
 
 **About that key.** A deployed bridge creates real sales orders in a real Zoho
@@ -161,6 +163,15 @@ is not enough. It is **not authentication** — the browser has to carry it, so
 anyone reading the page source has it. It is the difference between a scanner
 finding the endpoint and someone deliberately going after it. Leave it unset and
 the check is skipped, which is fine on localhost and not fine in public.
+
+Since the key now ships in a public repo, that speed bump is lower than it was:
+a scanner grepping GitHub can find it without ever loading the page. It was
+already public to every user of the app, so this is a difference of degree —
+but treat the key as **rotatable and expected to leak**, and let the real
+containment be what it always was: OAuth credentials that stay on the server,
+one Zoho organisation, and a mapping table that refuses anything it does not
+recognise. `ALLOWED_ORIGINS` still restricts browser traffic to the Pages
+origin, which is the control doing the most work for real users.
 
 ---
 

@@ -223,20 +223,29 @@ local work run `node dev-server.js` and point the page at it:
 localStorage.setItem("fb-api-base", "http://localhost:8787")
 ```
 
-Each demo device is provisioned once by opening a link carrying the bridge's shared key,
-which is kept out of this repo and lives in `zoho-function/.env`:
+## The bridge key ships with the app — changed 27 August 2026
 
-```
-.../v4/?fbkey=<FB_API_KEY>#/customer-management/stock-audit-health
-```
+The key now lives in `integration-config.js` as `DEFAULT_KEY`, and every browser that opens
+the app sends it. **No device needs provisioning.**
 
-The key is stored and stripped from the address bar, so it does not linger in history or
-ride along when the URL is shared.
+It used to be handed out per device by a link, `.../v4/?fbkey=<FB_API_KEY>#/...`, which
+stored the key and stripped it from the address bar. That stripping is what broke it: the
+URL left in the address bar — the one people then bookmarked, shared, or opened on a second
+phone — carried no key at all. Those browsers sent no `X-FB-Key`, the bridge answered `401`,
+and the rep only discovered it at **Confirm Order**, after building the whole order, in
+front of a `Retry Sync` button that could never succeed. Clearing site data, private mode,
+or Safari evicting `localStorage` put an already-working device back into the same state.
+Reproduced against the deployed bridge: no key → `401 auth_failed`; key → past the auth gate.
 
-Without it the bridge answers `401`. That is the protection working: a public URL that
-creates real sales orders in a real accounting system should not accept whatever finds it.
-It is **not** authentication — the browser has to carry the key, so anyone reading the page
-source has it too.
+`?fbkey=` in an old link is now **ignored** and only stripped, and any key a device stored
+under the old scheme is dropped on load, so no browser stays pinned to a rotated key.
+
+**What this costs.** The key is in a public repo, so it is discoverable by grep rather than
+only by opening devtools. That is a smaller step than it sounds — a static page has to hand
+the key to every visitor to use it, so it was never secret from anyone holding the app. It
+is a speed bump against scanners, **not** authentication. The Zoho OAuth credentials it
+stands in front of are on the server and never reach the browser. Rotate by editing
+`DEFAULT_KEY` and `FB_API_KEY` together and redeploying both.
 
 **Order ids are per device.** `FB-SO-26-08-4G5F-001` — the four characters before the
 counter identify the browser. The counter is derived from that browser's own stored orders,
