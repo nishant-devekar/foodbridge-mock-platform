@@ -73,13 +73,23 @@
   border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(15,23,42,.05);
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
 }
+/* The radius and the side margin live on EVERY tab, not just the active one,
+   so the tint has a pill to fill without any tab changing width when it
+   becomes active. Putting them on .active alone made the three tabs shift
+   sideways on every nav tap. */
 .nav-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; background: none; border: none; font-size: 11px; font-weight: 600;
   color: var(--muted); padding: 4px 0; line-height: 1;
+  margin: 0 4px; border-radius: 12px;
 }
 .nav-btn .ic { font-size: 20px; line-height: 1; }
-.nav-btn.active { color: var(--teal); font-weight: 800; }
+/* --teal-l is the palette's flat tint — the same one .picker-row.on uses to say
+   "this is the selected one". Deliberately the lightest step available: the
+   teal label and the 800 weight already carry the state, and the fill is only
+   there to give it an edge to sit in. A stronger step (--teal-l2) reads as a
+   pressed button rather than a location. */
+.nav-btn.active { color: var(--teal); font-weight: 800; background: var(--teal-l); }
 .nav-btn:active { opacity: .6; }
 
 /* ── Page header (list-style views) ──────────────────────────────────────── */
@@ -652,29 +662,11 @@
 .sheet-btn.primary { background: var(--teal); color: #fff; }
 .sheet-btn.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--ink); }
 
-/* ── Audit timeline ──────────────────────────────────────────────────────── */
-/* A dot, a thread, two lines of text — no card, no separators, no container.
-   Each event is a button: tapping one opens that version's snapshot in a
-   sheet (see versionSheet), which is why the row is a real control and not a
-   div with a click handler. */
-.tl { padding-left: 2px; margin-bottom: 18px; }
-.tl-row {
-  position: relative; display: block; width: 100%; text-align: left;
-  padding: 6px 0 6px 18px; border: none; background: none; cursor: pointer;
-}
-.tl-row .dot { position: absolute; left: 0; top: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
-/* The thread runs from this dot down into the next one, so it appears only
-   between events and never below the last. */
-.tl-row:not(:last-child)::before {
-  content: ""; position: absolute; left: 3px; top: 18px; bottom: -4px; width: 1px; background: var(--line);
-}
-.tl-row:active { opacity: .55; }
-.tl-row:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--teal); border-radius: 6px; }
-.tl-when { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.tl-who { display: block; font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 1px; }
-
-/* Audit Detail header: back link and the visit's date, nothing else. */
-.au-when { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Audit Detail header: back link, the customer, and who last touched the
+   visit — the one fact the Audit timeline section below used to spend a
+   heading and a row of its own on (see the REMOVED note in stock-audit.js).
+   The .tl* thread and .vs-list snapshot rules went with it. */
+.au-by { font-size: 12px; color: var(--muted); white-space: nowrap; }
 /* Edit rides in the Products heading row — attached to the thing it edits, and
    a quiet text action rather than a button shape, because this screen is for
    reading. .section-head-row is already space-between, so it needs no wrapper. */
@@ -683,10 +675,6 @@
   font-size: 13px; font-weight: 700; color: var(--teal); cursor: pointer;
 }
 .hdr-act:hover { color: var(--teal-d); }
-
-/* The snapshot list inside the version sheet. Capped so the sheet stays
-   compact when an audit ran long; the sheet's own actions stay reachable. */
-.vs-list { max-height: 46vh; overflow-y: auto; overscroll-behavior: contain; }
 
 /* ── The product detail sheet ────────────────────────────────────────────── */
 /* Opened from anywhere a product is named (see productDetailSheet), and now
@@ -888,8 +876,9 @@
 
 /* ── The unit sheet ──────────────────────────────────────────────────────────
    Changing the unit changes what every number on the row means, so it is asked
-   against the consequence: what the pack costs, before and after. Three
-   stacked facts — what this is, what it costs now, what to change it to. */
+   against the consequence: what the pack costs, before and after. Two facts —
+   what this is, and then a single row pairing what it costs with the pack that
+   price belongs to. */
 .us-name { font-size: 17px; font-weight: 800; line-height: 1.3; color: var(--ink); margin: 0; }
 /* Wraps rather than truncates: this is the one screen where the rep is being
    asked to confirm WHICH product they are changing, so the size and the MRP at
@@ -898,35 +887,39 @@
 
 .us-label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); }
 
-/* Current price, with the pack it belongs to beside it — the two only mean
-   anything together. */
+/* Price and picker on ONE row: the picker is what changes the figure, so the
+   two sit side by side and the change is read in place. The unit used to be
+   said three times over — a badge, the price's own pack, and the selected
+   option — and the badge went with the duplication.
+
+   Both columns are label + a 48px control, so the labels line up at the top
+   and the price sits on the select's centre line. */
 .us-now {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
   padding: 14px 0; margin-top: 14px;
   border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
 }
-.us-now-copy { min-width: 0; }
+.us-now-copy { min-width: 0; flex: 1 1 auto; }
+.us-now-copy #usPrice { display: flex; align-items: center; min-height: 48px; margin-top: 7px; }
 /* A price never breaks mid-number: "₹1,36,800.0 / 0" across two lines is not a
    number anyone can read. */
 .us-price {
-  display: block; margin-top: 2px;
+  display: block; margin-top: 0;
   font-size: 24px; font-weight: 800; color: var(--teal-d);
   font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap;
 }
 /* No MRP in the product name means no price configured in Zoho either — said
    plainly rather than shown as a confident zero. */
 .us-price.none { font-size: 15px; font-weight: 700; color: var(--muted-2); }
-.us-badge {
-  flex-shrink: 0; padding: 8px 14px; border-radius: 10px;
-  background: var(--teal-l); color: var(--teal-d);
-  font-size: 13px; font-weight: 800; white-space: nowrap;
-}
 
-.us-pick { margin-top: 16px; }
+/* Shrinks before the price does: the figure must never wrap mid-number, and an
+   option that ellipses still reads ("Carton (144 P…"), a half-price does not. */
+.us-pick { flex: 0 1 165px; min-width: 118px; display: block; }
 /* A real <select>: three options is exactly what a native picker is for, and
-   on a phone it is the control the rep already knows. Each option carries its
-   own price, so the packs are compared inside the list rather than one at a
-   time. The chevron is ours because the native arrow is suppressed. */
+   on a phone it is the control the rep already knows. The options name the pack
+   and nothing else — the price for whichever is selected is the figure sitting
+   next to it, so no number is printed twice. The chevron is ours because the
+   native arrow is suppressed. */
 .us-select { position: relative; display: block; margin-top: 7px; }
 .us-select select {
   width: 100%; height: 48px; padding: 0 36px 0 13px;

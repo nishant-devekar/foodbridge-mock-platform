@@ -44,13 +44,10 @@ flowchart TD
         AD["audit<br/>Audit Detail"]
         AE["audit-edit<br/>Change counts"]
         NEWV[["New version appended"]]
-        VS(["Version snapshot<br/>read-only sheet"])
         AUDS --> AD
         AD -->|"Edit"| AE
         AE -->|"Save → ✓<br/>only if something changed"| NEWV
         NEWV --> AD
-        AD -->|"tap a timeline entry"| VS
-        VS --> AD
     end
 
     subgraph TAB2["Create Order tab"]
@@ -91,11 +88,12 @@ the ordering basis — reads `physical`, so the one scale never drifts.
 > `3 Tray` is stored as `countQty: 3, countUnit: "Tray", physical: 36`.
 
 **Changing the unit opens a sheet, not a wheel.** Tapping the unit opens a
-bottom sheet of three stacked facts: **what this is** (name and SKU), **what it
-costs now** (the current unit price with the pack it belongs to as a badge), and
-**what to change it to** — a dropdown whose every option carries its own price,
-so the packs are compared inside the list rather than one wheel-spin at a time.
-Choosing updates the price and the badge immediately.
+bottom sheet of two facts: **what this is** (name and SKU), and then a single
+row pairing **what it costs** with **the pack that price belongs to** — the
+current unit price beside a dropdown of the pack sizes. The options name the
+pack and nothing else; the price for whichever is selected is the figure next to
+them, so no number is printed twice. Choosing updates the figure immediately,
+which is what makes the packs comparable.
 
 **Saving asks in the footer.** Save turns the button into the same two-tap
 question Finish Audit and Confirm Order use, and the detail line states the
@@ -108,8 +106,9 @@ moment — the row changed behind a sheet that just disappeared, and without tha
 the rep is left hunting for what moved.
 
 A price never wraps mid-number: it holds one line, because "₹1,36,800.0 / 0" is
-not a number anyone can read. Where a product has no MRP the options carry no
-price and the figure reads *No price set*.
+not a number anyone can read — the picker shrinks first, and an option that
+ellipses still reads. Where a product has no MRP the figure reads *No price
+set*.
 
 **Where the price comes from — read this before trusting it.** FoodBridge stores
 no price. The only price this catalogue has is the **MRP printed in the tenant's
@@ -146,7 +145,7 @@ One screen. The search box **is** the add affordance — there is no separate
 ```
 ←  Bohagi Store                                   1 / 1 counted
    ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-   🔍 Search product name or SKU…
+   🔍 Search product
 
    Selected products
    ┌──────────────────────────────────────────────┐
@@ -291,24 +290,14 @@ Products                                            Edit
 │ SKU 405322000007538481                                │
 └──────────────────────────────────────────────────────┘
 
-Audit timeline
-●  18 Aug · 10:05 am
-│  Anupam · Created
-●  27 Aug · 01:42 pm
-   Anupam · Updated
 ```
 
 - **Edit** is a quiet text action in the *Products* heading row — attached to
   the thing it edits, not a sticky bottom button.
 - **Counts** read in the words they were taken in: `3 Tray (36 Pc)`.
-- **Audit timeline** is oldest-first, a dot and a thread, no cards. Every
-  entry is tappable.
-
-### 4.3 A timeline entry → version snapshot
-
-Tapping an entry opens a **bottom sheet** showing what the audit looked like
-*at that moment*, rendered from that version's stored `lines` — never
-recomputed from the current state.
+- **Who last touched it** sits in the header beside the customer's name —
+  `Anupam · Created`, or `Anupam · Updated` once it has been edited. Versions
+  are still recorded on every edit; the app no longer draws the stack.
 
 ```
 Created
@@ -439,8 +428,7 @@ as a status the heading was reporting rather than something to open. The label
 is now the button's accessible name, so a screen reader still hears the summary
 a sighted rep gets by tapping.
 
-`Confirm Order` is a two-tap commit: `Confirm order?` + `N products · N units
-· FoodBridge → Accounts`.
+`Confirm Order` is a two-tap commit: `Confirm order?` + `N products · N units`.
 
 ### 6.3 Result (`order-success`)
 

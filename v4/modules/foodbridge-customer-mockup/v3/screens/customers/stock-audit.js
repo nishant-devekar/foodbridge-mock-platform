@@ -69,12 +69,10 @@
     if (isNaN(d)) return String(iso);
     return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
   }
-  function fmtTimeShort(iso) {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (isNaN(d)) return "";
-    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-  }
+  // REMOVED: fmtTimeShort — clock time to the minute. Its two readers were the
+  // Audit timeline's rows and the Audit Detail header's visit stamp, and both
+  // went in the same pass (see the REMOVED note above renderAudit). Nothing
+  // left in this file states a time of day.
   // REMOVED (inline pass): fmtRelative — "Today, 10:15 AM" / "Yesterday" /
   // "N days ago". Its last reader was the resume prompt's "started 2 hours
   // ago" line, which went with that sheet (see the removal note just below
@@ -1759,31 +1757,30 @@
           <span class="us-label">${esc(labels.price)}</span>
           <span id="usPrice">${priceBlockHTML(p, picked)}</span>
         </span>
-        <span class="us-badge" id="usBadge">${esc(picked)}</span>
-      </div>
-      <div class="us-pick">
-        <label class="us-label" for="usUnit">${esc(labels.unit)}</label>
-        <span class="us-select">
-          <select id="usUnit">
-            ${unitsFor(p).map((u) => {
-              const packed = `${u.label}${u.per > 1 ? ` (${u.per} ${base})` : ""}`;
-              const v = unitMoney(p, u.label);
-              return `<option value="${esc(u.label)}" ${u.label === picked ? "selected" : ""}>${esc(v == null ? packed : `${packed} · ${v}`)}</option>`;
-            }).join("")}
-          </select>
-          <span class="chev" aria-hidden="true">⌄</span>
+        <span class="us-pick">
+          <label class="us-label" for="usUnit">${esc(labels.unit)}</label>
+          <span class="us-select">
+            <select id="usUnit">
+              ${unitsFor(p).map((u) => {
+                const packed = `${u.label}${u.per > 1 ? ` (${u.per} ${base})` : ""}`;
+                return `<option value="${esc(u.label)}" ${u.label === picked ? "selected" : ""}>${esc(packed)}</option>`;
+              }).join("")}
+            </select>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </span>
         </span>
       </div>`;
   }
 
-  // Keeps the figure and the badge answering the picker, the moment it moves.
+  // Keeps the figure answering the picker, the moment it moves. The price is
+  // now the ONLY place a number appears — the options carry no price of their
+  // own — so this is what makes the pack comparison work: change the unit, read
+  // the figure beside it.
   function wireUnitPrice(el, p, onPick) {
     const sel = el.querySelector("#usUnit");
     if (!sel) return;
     const priceHost = el.querySelector("#usPrice");
-    const badge = el.querySelector("#usBadge");
     sel.onchange = () => {
-      if (badge) badge.textContent = sel.value;
       if (priceHost) priceHost.innerHTML = priceBlockHTML(p, sel.value);
       if (onPick) onPick(sel.value);
     };
@@ -2011,53 +2008,29 @@
       </div>`;
   }
 
-  // Newest first — the same direction Audit History reads, and the same
-  // direction a rep asks the question in ("what happened to this last?").
   const versionAction = (v) => (v.action === "created" ? "Created" : "Updated");
-  const versionWhen = (v) => `${fmtDateShort(v.at)} · ${fmtTimeShort(v.at)}`;
 
-  // Oldest first, so the thread reads downward the way the visit actually
-  // happened. No card around it: a card per event turned three dates into
-  // three panels, which is most of a screen for what is one line of fact each.
-  function auditTimelineHTML(a) {
-    return `
-      <div class="section-head-row"><h2>Audit timeline</h2></div>
-      <div class="tl">
-        ${a.versions.map((v) => `
-          <button type="button" class="tl-row" data-version="${esc(v.id)}">
-            <span class="dot" aria-hidden="true"></span>
-            <span class="tl-when">${esc(versionWhen(v))}</span>
-            <span class="tl-who">${esc(v.by || AUDITOR.name)} · ${versionAction(v)}</span>
-          </button>`).join("")}
-      </div>`;
+  // Who last touched this visit. The version stack is newest-LAST (see
+  // addVersion), so its tail is the answer to "who updated it" — which is what
+  // the header carries now, in place of the visit's own timestamp.
+  function auditByLine(a) {
+    const v = a.versions && a.versions[a.versions.length - 1];
+    return v ? `${v.by || AUDITOR.name} · ${versionAction(v)}` : "";
   }
 
-  // What the audit looked like at one point in time. Read-only, and rendered
-  // from THAT version's stored `lines` — never recomputed from the current
-  // audit, which is the whole reason the snapshot is kept.
-  function versionSheet(a, versionId) {
-    const v = a.versions.find((x) => x.id === versionId);
-    if (!v) return;
-    sheet({
-      title: versionAction(v),
-      sub: `${versionWhen(v)} · ${v.by || AUDITOR.name}`,
-      body: `
-        <div class="section-head-row" style="margin-top:16px"><h2>Products</h2></div>
-        <div class="vs-list">
-          ${v.lines.map((l) => {
-            const p = productById(l.productId) || {};
-            return `<div class="pi-row">
-              <span class="info">
-                <span class="nm">${esc(p.name || l.productId)}</span>
-                <span class="sku">SKU ${esc(p.artNo || "—")}</span>
-              </span>
-              <span class="right"><span class="qty">${l.status === "not_found" ? "Not found" : esc(countedText(p, l))}</span></span>
-            </div>`;
-          }).join("")}
-        </div>`,
-      actions: [{ label: "Close", cls: "primary" }],
-    });
-  }
+  /* =============================================================================================
+     REMOVED: the Audit timeline section (auditTimelineHTML, versionWhen) and
+     the version snapshot sheet it was the only way into (versionSheet). The
+     timeline was one titled section holding one row per saved version — when,
+     who, Created/Updated — and on a visit nobody has edited that is a heading
+     and a bullet spent restating the single fact the header can hold on its
+     own, next to the customer's name.
+
+     Versions are still WRITTEN on every edit (addVersion via saveAuditEdit),
+     and `a.lines` still carries the current count, so nothing about the record
+     changed — only that the app no longer draws the stack. The .tl* and
+     .vs-list rules went with it.
+     ================================================================================================= */
 
   function renderAudit() {
     const customer = loadCustomer(CURRENT.params.customerId);
@@ -2068,11 +2041,10 @@
       <div class="ws-head flat">
         <button type="button" class="ws-exit" id="auBack" aria-label="Back">←</button>
         ${whoHTML(customer)}
-        <span class="au-when">${esc(fmtDateShort(a.at))} · ${esc(fmtTimeShort(a.at))}</span>
+        <span class="au-by">${esc(auditByLine(a))}</span>
       </div>
 
       ${productsCheckedSectionHTML(a)}
-      ${auditTimelineHTML(a)}
     `);
 
     // Wrapped, not passed directly: as a handler, back would receive the click
@@ -2081,7 +2053,6 @@
     // Editing is a secondary action here — this screen is for reading the
     // visit, not changing it, and a sticky full-width button said the opposite.
     $("#auEdit", PAGE).onclick = () => startAuditEdit(a);
-    PAGE.querySelectorAll("[data-version]").forEach((b) => (b.onclick = () => versionSheet(a, b.dataset.version)));
   }
 
   /* ================================================================= VIEW: audit-edit */
@@ -2205,7 +2176,7 @@
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="aeQ" ${SEARCH_ATTRS} value="${esc(EDIT.q)}" placeholder="Search product name or SKU…"></div>
+        <div class="sah-search"><input type="search" id="aeQ" ${SEARCH_ATTRS} value="${esc(EDIT.q)}" placeholder="Search product"></div>
       </div>
 
       ${searching
@@ -2440,12 +2411,21 @@
 
   // Two states, sized for the one-line header this now sits in. A ratio is
   // meaningless before anything is selected ("0 / 0 counted" reads as broken),
-  // so that case says what to do instead; from the first selection on, the
-  // ratio is the honest answer and "0 / 4 counted" is a fine way to start.
-  // (There used to be a third, "4 products selected", for the not-yet-counted
-  // case — a whole line to say the same thing as 0 / 4.)
+  // so that case says nothing at all and the header drops the slot rather than
+  // filling it — see the render below. From the first selection on the ratio is
+  // the honest answer, and "0 / 4 counted" is a fine way to start.
+  //
+  // The empty case used to read "Select products", which restated the
+  // instruction the screen underneath was already giving twice: the "Selected
+  // products" heading, and the empty state's "No products selected. Search
+  // above to add one." Same reasoning as the .ws-bar note in the CSS — head
+  // chrome with nothing to say is omitted rather than rendered blank, because a
+  // placeholder sitting in a counter's slot gets read as a count.
+  //
+  // (There used to be a third state, "4 products selected", for the
+  // not-yet-counted case — a whole line to say the same thing as 0 / 4.)
   function quickProgressText(s) {
-    if (!s.total) return "Select products";
+    if (!s.total) return "";
     return `${s.captured} / ${s.total} counted`;
   }
 
@@ -2486,12 +2466,12 @@
       <div class="ws-head">
         <button type="button" class="ws-exit" id="qcExit" aria-label="Exit audit">←</button>
         ${whoHTML(customer)}
-        <div class="ws-count" id="qcProg">${esc(quickProgressText(s))}</div>
+        ${s.total ? `<div class="ws-count" id="qcProg">${esc(quickProgressText(s))}</div>` : ""}
         <div class="ws-bar"><span style="width:${s.pct}%"></span></div>
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="qcQ" ${SEARCH_ATTRS} value="${esc(QC_STATE.q)}" placeholder="Search product name or SKU…"></div>
+        <div class="sah-search"><input type="search" id="qcQ" ${SEARCH_ATTRS} value="${esc(QC_STATE.q)}" placeholder="Search product"></div>
       </div>
 
       ${searching
@@ -2607,8 +2587,12 @@
         <button type="button" class="btn-wide primary" id="qcFinish">Finish Audit</button>`;
     }
     const cov = auditCoverage(draftAsAudit(customer));
+    // The partial line states the ratio and stops. It used to carry a second
+    // clause naming what happens to the remainder ("the N left over will be
+    // recorded as partial coverage") — the ratio already says some are left,
+    // and the footer is not where the coverage model gets explained.
     const detail = cov.skipped
-      ? `${cov.audited + cov.notFound} of ${cov.expected} counted — the ${plural(cov.skipped, "product")} left over will be recorded as partial coverage.`
+      ? `${cov.audited + cov.notFound} of ${cov.expected} counted.`
       : `All ${plural(cov.expected, "product")} counted.`;
     return `<span class="confirm-inline">
         <span class="ci-copy">
@@ -3650,7 +3634,7 @@
       </div>
 
       <div class="sah-search-row">
-        <div class="sah-search"><input type="search" id="obQ" ${SEARCH_ATTRS} value="${esc(OB_STATE.q)}" placeholder="Search product name or SKU…"></div>
+        <div class="sah-search"><input type="search" id="obQ" ${SEARCH_ATTRS} value="${esc(OB_STATE.q)}" placeholder="Search product"></div>
       </div>
 
       ${searching
@@ -3698,7 +3682,7 @@
     return `<span class="confirm-inline">
         <span class="ci-copy">
           <span class="ci-prompt">Confirm order?</span>
-          <span class="ci-detail">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))} · FoodBridge → Accounts</span>
+          <span class="ci-detail">${esc(plural(t.products, "product"))} · ${esc(plural(t.units, "unit"))}</span>
         </span>
         <button type="button" class="ci-btn yes" id="obYes" aria-label="Confirm order">✓</button>
         <button type="button" class="ci-btn no" id="obNo" aria-label="Keep editing">✗</button>
