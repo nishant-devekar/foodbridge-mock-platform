@@ -4,18 +4,22 @@
 is the whole platform, 26 destinations across 12 module repos. `v4` is one screen:
 Customer Management → **Stock Audit & Health**, and the shell around it, with no sidebar.
 
-57 files, 2.1 MB, 1 module repo, 1 destination — plus a second journey
+58 files, 2.1 MB, 1 module repo, 1 destination — plus a second journey
 (Predictive Sales Order) authored here, not crawled. See below.
 
-**Last released 28 August 2026** — a pass over the row and the screen furniture rather than
-over what the app can do: the unit became a control that carries a price, the row shed the
-SKU and the thumbnail, every product search can create a product, and modals were confined
-to leaving. Detailed under *Refined 28 August 2026*.
+**Last released 29 August 2026** — confirming an order stopped being a screen and became a
+modal that only Close dismisses, and the invoice it offers is now a real document this cut
+owns. Detailed under *Refined 29 August 2026*.
 
-The release before it, **27 August 2026**, carried the two changes still worth naming: the
-Predictive Sales Order forecast is fitted to the tenant's **real** order history rather than
-invented seed data, and Confirm Order works on **every** browser rather than only ones
-opened from a provisioning link. Both are detailed below.
+The release before it, **28 August 2026**, was a pass over the row and the screen furniture
+rather than over what the app can do: the unit became a control that carries a price, the row
+shed the SKU and the thumbnail, every product search can create a product, and modals were
+confined to leaving. Detailed under *Refined 28 August 2026*.
+
+Before that, **27 August 2026** carried two changes still worth naming: the Predictive Sales
+Order forecast is fitted to the tenant's **real** order history rather than invented seed
+data, and Confirm Order works on **every** browser rather than only ones opened from a
+provisioning link. Both are detailed below.
 
 ## What is different from v3
 
@@ -194,6 +198,69 @@ hoped-for cadence, so Ordering Status buckets against how they actually buy. Tho
 run 15–117 days against the invented 7–10, which is simply what the business looks like.
 One customer (c40) has no orders in the export and is therefore absent — honestly reported
 as no signal rather than filled in.
+
+## Refined 29 August 2026
+
+**The order result stopped being a screen.** `order-success` — a view listing the FoodBridge
+reference and the Zoho number side by side, each with a status tag, whose only exit was
+`Done` — is gone. Confirming now returns the rep to a fresh customer search and states the
+result in a modal over it: a mark, **Order Created**, the customer, `N products · N units`,
+**Open Invoice**, **Close**. Both identifiers came off it; they are still on the record and
+the invoice prints the reference. A rep closing an order acts on *did it work* and *give me
+the invoice*, not on either number.
+
+**Close is the only way out.** Not a backdrop tap, not the phone's Back gesture, not the
+browser's Back button, not Escape, not a timer, and not Open Invoice or Retry Sync — both of
+which leave it standing. That is why it is not a `sheet()`: every one of those exits is
+something `sheet()` provides deliberately, for things the rep *asked* to see. Back is trapped
+by re-pushing the history entry it consumes, so the view underneath never moves; Close settles
+that entry the way `closeActiveSheet` does. All five refusals were driven on the simulator.
+
+**What did not come off is whether accounts took it.** The state mark, the failure reason and
+`Retry Sync` all survive the trim, because a green tick over a failed sync is the one outcome
+this feature must never produce. What went is chrome.
+
+**Open Invoice, and a FoodBridge invoice to open.** Which one it opens is decided by whether
+*this* order reached Zoho — the only signal the browser has, since the customer→Zoho mapping
+lives in the function's `mappings.js` and never reaches the page. Synced with a deep link
+configured → Zoho's own flow. Anything else → `invoice.html`, a standalone document this cut
+now owns, so a rep is never left holding a confirmed order with no way to invoice it. It
+loads no seed, no shell, no catalogue and reads exactly one localStorage key, because it opens
+precisely when the app's own sync path has failed.
+
+Two fields moved onto the order record to make that possible, both written at confirm time:
+`unitFactor` per line, because `Pallet` alone is ambiguous across the ladders (144, 480, 20 or
+48) and a reader that guesses can misprice a pack; and `customerAddress` / `customerPhone`,
+because nothing in this cut writes the customers key — `customers.js`, which owns it, is not
+one of v4's screens — and an invoice should show the address as it stood when the order was
+raised.
+
+**The invoice carries money, and says less about it than it used to.** Unit prices are the
+retail MRP parsed from each product name, multiplied up the pack ladder; tax is a placeholder
+rate (`GST_RATE`) that nothing in FoodBridge configures. A Notes panel stated both on the page
+and was removed by request, along with the seller strapline, so the rendered document now
+shows a grand total with nothing qualifying it. The PDF still carries that as fine print.
+**This is the open commercial question, not a solved one** — retail MRP is not the trade price
+a distributor charges a shop.
+
+**Print and Download PDF.** The PDF is assembled in the page from primitives — no library may
+be fetched here — using the base-14 Helvetica faces, which need no embedding. It says `Rs.`
+rather than `₹`, since the standard encoding has no rupee glyph and a missing one prints blank.
+
+**A counted line reads in the words it was counted in, and only those.** Audit Detail showed
+`4 Tray (48 Pc)`; the bracket is gone. `physical` still holds the conversion and still drives
+coverage, stock-out risk and the ordering basis — the second number was printed on every
+converted line to be skipped.
+
+**Verified this release.** One real sales order raised end to end from the app: `SO-00032`,
+Ahaana Bazaar, 10 products · 47 units, read back from Zoho as a single record with every
+quantity matching. Open Invoice was driven on both branches, Retry Sync re-ran against the
+same order without duplicating it, and the invoice page and its PDF were checked at 320, 393
+and 720px on the simulator and in a desktop browser.
+
+**Not tested this release.** The unresolved-timeout state, which needs a bridge that accepts a
+request and never answers; Escape, there being no keyboard on the simulator; and the Android
+half — none of this was re-run on a Pixel or through `tools/mobile-test.sh`.
 
 ## Refined 28 August 2026
 

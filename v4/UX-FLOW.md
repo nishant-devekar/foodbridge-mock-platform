@@ -23,7 +23,8 @@ Three tabs in a fixed bottom nav, present on every screen:
 | 🛒 **Create Order** | Customer search | Turn the latest count into a sales order |
 | 🗂️ **Audit History** | Visit list | Read, and correct, past visits |
 
-Eight views in one client-side router. Every view is also a browser history
+Seven views in one client-side router — eight until the order result stopped
+being a screen and became a modal (§6.3). Every view is also a browser history
 entry, so the phone's Back gesture walks the flow instead of leaving the page.
 
 ```mermaid
@@ -54,9 +55,10 @@ flowchart TD
         direction TB
         OP["order-pick<br/>Customer search"]
         OB["order-build<br/>Recommended order"]
-        OS["order-success<br/>FoodBridge ref + Invoice ref"]
+        OS[["Order Created · modal<br/>Open Invoice · Close"]]
         OP --> OB
         OB -->|"Confirm Order → ✓"| OS
+        OS -->|"Close"| OP
     end
 
     SAVED -.->|"latest completed audit<br/>= current stock"| OB
@@ -182,7 +184,7 @@ customer am I in?
 to *do* something — a picker result, an Audit History card — keeps its single
 target; a second one inside a row whose whole job is "select this" is the same
 mistake the search thumbnails were removed for (§8). And a name already whole
-on the screen — a sheet's eyebrow, the order-success summary — has nothing to
+on the screen — a sheet's eyebrow, the order-done modal's summary — has nothing to
 reveal. The rule is: this exists wherever a name is **cut to fit**, and only
 there.
 
@@ -286,7 +288,7 @@ is finished, and an empty track would read as 0%.
 
 Products                                            Edit
 ┌──────────────────────────────────────────────────────┐
-│ BAMBOO SHOOTS PICKLE …                     3 Tray (36 Pc) │
+│ BAMBOO SHOOTS PICKLE …                              3 Tray │
 │ SKU 405322000007538481                                │
 └──────────────────────────────────────────────────────┘
 
@@ -294,7 +296,15 @@ Products                                            Edit
 
 - **Edit** is a quiet text action in the *Products* heading row — attached to
   the thing it edits, not a sticky bottom button.
-- **Counts** read in the words they were taken in: `3 Tray (36 Pc)`.
+- **Counts** read in the words they were taken in, and only those: `3 Tray`.
+  The base-unit total used to follow in brackets — `3 Tray (36 Pc)` — so that
+  the row carried both the figure that reconciles against system stock and the
+  one a rep can re-count on the shelf. It is gone: reconciling is not what
+  anyone is doing while reading a finished visit, so the second number was
+  printed on every converted line to be skipped, and the pair read as one
+  quantity needing arithmetic. `physical` still holds the conversion and still
+  drives everything downstream; the pack ladder is one tap away on the product
+  sheet. Lines taken in the base unit never had a bracket and are unchanged.
 - **Who last touched it** sits in the header beside the customer's name —
   `Anupam · Created`, or `Anupam · Updated` once it has been edited. Versions
   are still recorded on every edit; the app no longer draws the stack.
@@ -430,20 +440,107 @@ a sighted rep gets by tapping.
 
 `Confirm Order` is a two-tap commit: `Confirm order?` + `N products · N units`.
 
-### 6.3 Result (`order-success`)
+### 6.3 Result — the order-done modal
 
-Two references, each with its own state:
+Confirming does **not** open a screen. The rep lands back on a fresh customer
+search and the result is stated in a modal over it:
 
 ```
-FoodBridge   FB-SO-26-08-S2E3-001            Created
-Invoice      SO-00214                        Created
+        ┌──────────────────────────────┐
+        │              ✓               │
+        │        Order Created         │
+        │        Giriraj Store         │
+        │    4 products · 23 units     │
+        │                              │
+        │       [ Open Invoice ]       │
+        │      [     Close      ]      │
+        └──────────────────────────────┘
 ```
 
-| State | Heading | Footer |
+There used to be an `order-success` **view** here, listing the FoodBridge
+reference and the invoice number side by side with a status tag on each. Both
+identifiers are gone from the result: they are still on the stored record, and
+the FoodBridge invoice prints the reference, but a rep closing an order acts on
+*did it work* and *give me the invoice*, not on either number. A whole screen
+whose only exit was `Done` was a step to dismiss rather than a place to be.
+
+| State | Mark | Actions |
 | --- | --- | --- |
-| In flight | `Accounts sync in progress` | `Done` (disabled) |
-| Created | `Order Created` | `Open Invoice` · `Done` |
-| Failed / unresolved | `Order Created` + reason line | `Retry Sync` · `Done` |
+| In flight | `⋯` | `Open Invoice` (inert) · `Close` |
+| Synced | `✓` | `Open Invoice` · `Close` |
+| Failed / unresolved | `!` + reason line | `Retry Sync` · `Open Invoice` · `Close` |
+
+**Whether accounts took it did not go.** The state mark, the failure reason and
+`Retry Sync` all survive the trim, because a green tick over a failed sync is
+the one thing this feature must never show. What was removed is chrome; this is
+the truth, and it stays.
+
+**The modal cannot be dismissed except by `Close`.** Not by tapping outside it,
+not by the phone's Back gesture or the browser's Back button, not by Escape,
+not on a timer, and not by opening the invoice. It is the only report a
+confirmed order gets, and Back in particular is far too easy to press by
+accident to be an exit here. This is why it is not a `sheet()` — every one of
+those dismissals is something `sheet()` provides deliberately, for things the
+rep *asked* to see (§7 covers the modals that interrupt, which are a different
+job again).
+
+**`Open Invoice` opens a new tab and leaves the modal standing.** Which
+invoice depends on whether *this order* reached the accounts system — the only
+signal the browser has, since the customer→accounts mapping lives on the server
+and is never sent to the page:
+
+- **Synced, with a deep link configured** → the accounting system's own invoice
+  flow.
+- **Anything else** → FoodBridge's own invoice page (`invoice.html?order=<id>`),
+  so a rep is never left holding a confirmed order with no way to invoice it.
+
+While the sync is still unresolved the button is inert, because which of the two
+to open is not known yet.
+
+#### The FoodBridge invoice page
+
+A standalone document, opened in its own tab. It loads no seed, no shell and no
+icons — only the order, read out of `localStorage` by id. That is deliberate:
+it opens precisely when the accounts sync has failed, so it must not depend on
+the app's own machinery being healthy.
+
+It prints the tenant, the customer, the order reference and date, who raised it,
+and every line with its SKU, confirmed quantity, unit price and line amount,
+then **subtotal, tax and grand total**. When the order has not synced it says
+so, with the reason, and points at Retry.
+
+Mobile first: below 640px each line is a block — name, SKU, then `10 Pc ×
+₹65.00` against the amount — because five columns do not fit on a phone. From
+640px up the same markup becomes a real table, which is what a document wants.
+
+**Read this before trusting a total.** FoodBridge stores no prices and no tax,
+so two figures on that page are *derived*, not held:
+
+- The **unit price** is the retail MRP parsed out of the product's own name —
+  the same parse the product sheet uses (§2) — multiplied up the pack ladder,
+  so a Tray costs twelve pieces. It is retail MRP, **not the trade price a
+  distributor charges a shop**, which is VERSION.md's open commercial question.
+  The 23 catalogue products with no MRP in their name read *No price set* and
+  add nothing to the subtotal; the page says how many did.
+- The **tax rate** is a placeholder constant in the page (`GST_RATE`), because
+  nothing in FoodBridge configures one.
+
+The page states both on its face rather than in a comment, since a document
+headed *Invoice* showing a grand total will be read as authoritative unless it
+says otherwise. The accounting system remains the authority on what is billed.
+
+To price a pack the page needs to know what one unit is worth in base units,
+and it has no catalogue to look that up in — so **the order line carries its own
+`unitFactor`**, written at confirm time. Without it `Pallet` alone is ambiguous
+across the ladders (144, 480, 20 or 48), and a reader that guesses can silently
+misprice a pack. Lines written before this existed fall back to the `Pc` ladder,
+which is correct for all 86 catalogue products.
+
+**Print** uses the browser's own dialog against a print stylesheet that drops
+the buttons and tints. **Download PDF** builds an actual PDF in the page — no
+library may be fetched, so it is assembled from primitives using the base-14
+Helvetica faces, which need no embedding. It says `Rs.` rather than `₹`, since
+the standard encoding has no rupee glyph and a missing one would print blank.
 
 ```mermaid
 stateDiagram-v2
@@ -451,22 +548,25 @@ stateDiagram-v2
     confirming: Confirm order · two-tap commit
     confirming --> fb: rep confirms
     fb: FoodBridge order created
-    fb --> syncing: post to the accounts bridge
-    syncing: Accounts sync in progress
+    fb --> syncing: modal opens · post to the accounts bridge
+    syncing: ⋯ Open Invoice inert
     syncing --> invoice: invoice number returned
     syncing --> failed: error returned
     syncing --> pending: request timed out
-    invoice: Invoice created · Open Invoice
-    failed: Accounts sync failed · Retry Sync
-    pending: Pending · fate unknown · Retry Sync
+    invoice: ✓ Open Invoice → accounts
+    failed: ! reason · Retry Sync · Open Invoice → FoodBridge
+    pending: ! fate unknown · Retry Sync · Open Invoice → FoodBridge
     failed --> syncing: Retry Sync
     pending --> syncing: Retry Sync
-    invoice --> [*]
+    invoice --> [*]: Close
+    failed --> [*]: Close
+    pending --> [*]: Close
 ```
 
 The FoodBridge order is created **first and independently**; the accounts sync
 is a second step that can fail without taking the order with it. `Retry Sync`
-re-syncs the existing order — it can never create a second one.
+re-syncs the existing order — it can never create a second one, and it leaves
+the modal open.
 
 ---
 

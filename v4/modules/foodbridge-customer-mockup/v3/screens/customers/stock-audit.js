@@ -245,6 +245,15 @@
     }
   }
   window.addEventListener("popstate", () => {
+    // The order-done modal is the one thing Back must NOT get through — it is
+    // the only report a confirmed order gets, and the gesture is easy to make
+    // by accident. Its entry has just been consumed, so put another one back
+    // and do nothing else: the modal stays and the view under it does not move.
+    // Checked before ACTIVE_SHEET because nothing may open over this modal.
+    if (ORDER_DONE && !POPPING) {
+      try { history.pushState({ sahOrderDone: true }, ""); ORDER_DONE_HISTORY = true; } catch (e) {}
+      return;
+    }
     // A sheet is the innermost thing Back can close, so it goes first.
     if (ACTIVE_SHEET || SHEET_HISTORY) { closeActiveSheet(true); return; }
     // Our own history.back() from an in-app back button: the view already moved.
@@ -1288,7 +1297,6 @@
       "quick-count": renderQuickCount,
       "order-pick": renderOrderPick,
       "order-build": renderOrderBuild,
-      "order-success": renderOrderSuccess,
     })[CURRENT.view]?.();
   }
 
@@ -1356,7 +1364,7 @@
   function navActiveKey(view) {
     if (view === "quick-pick" || view === "quick-count") return "stock-audit";
     if (view === "audits" || view === "audit") return "audits";
-    if (view === "order-pick" || view === "order-build" || view === "order-success") return "create-order";
+    if (view === "order-pick" || view === "order-build") return "create-order";
     return null;
   }
 
@@ -1624,18 +1632,28 @@
      (removed just above) were gone.
      ================================================================================================= */
 
-  // What the rep counted, in the words they counted it in. A line taken in
-  // trays says so and gives the base-unit total in brackets — "3 Tray (36 Pc)"
-  // — because both are the record: the second is what reconciles against
-  // system stock, the first is what someone can walk back into the store and
-  // check. Base-unit lines, which is every line before units existed, read
-  // exactly as they always did.
+  // What the rep counted, in the words they counted it in — "4 Tray".
+  //
+  // The base-unit total used to follow in brackets, "4 Tray (48 Pc)", on the
+  // reasoning that both halves are the record: the piece count reconciles
+  // against system stock, the tray count is what someone can walk back into the
+  // shop and re-count. That is still true of the DATA and no longer true of
+  // this ROW. Audit Detail is a read of what happened on a visit, and the
+  // reconciliation the bracket served is not a question anyone is asking while
+  // reading it — it printed a second number on every converted line to be
+  // ignored, and the two together read as one quantity needing arithmetic.
+  //
+  // Nothing is lost by dropping it: `physical` is untouched and is still what
+  // every downstream reader uses (coverage, stock-out risk, the ordering
+  // basis), and the pack ladder is one tap away on the product sheet. Base-unit
+  // lines — every line taken before units existed, and most lines since — are
+  // unchanged, because they never carried a bracket to lose.
   function countedText(p, l) {
     const base = baseUnit(p);
     const unit = l.countUnit || base;
     const physical = linePhysical(l);
     if (unit === base || l.countQty == null) return `${physical} ${base}`.trim();
-    return `${l.countQty} ${unit} (${qtyText(physical, base)})`;
+    return qtyText(l.countQty, unit);
   }
 
   // A flat log of what was counted on this visit — not a findings view.
@@ -3871,6 +3889,16 @@
         id: nextOrderId(stamp),
         customerId: customer._id,
         customerName: titleCase(nameOf(customer)),
+        // Billed-to details copied ONTO the order, the same way unitFactor is.
+        // Two reasons: the invoice page is standalone and has no customer list
+        // to look them up in (nothing in this cut writes the customers key —
+        // customers.js, which owns it, is not one of v4's screens), and an
+        // invoice should show the address as it was when the order was raised,
+        // not as it is whenever the document is opened.
+        customerAddress: customer.adress1
+          ? addressLine(customer.adress1, customer.state, customer.postnr)
+          : "",
+        customerPhone: customer.phone || "",
         createdAt: stamp,
         createdBy: AUDITOR.name,
         source: "predictive_order",
@@ -3914,6 +3942,12 @@
           productName: l.productName,
           artNo: l.artNo,
           unit: l.unit,
+          // How many base units one `unit` is. Written down HERE, at confirm
+          // time, because the invoice page is standalone and has no catalogue
+          // to look it up in — and because "Pallet" alone is ambiguous across
+          // the ladders (144, 480, 20 or 48 depending on the base unit). A
+          // reader that has to guess the factor can silently misprice a pack.
+          unitFactor: unitFactor(productById(l.productId), l.unit),
           qty: l.qty,
           currentStock: l.currentStock,
           expectedDemand: l.expectedDemand,
@@ -3942,7 +3976,12 @@
     // second FoodBridge order.
     ORDER = null;
     OB_STATE = { q: "", focused: false, adding: false };
-    go("order-success", { orderId: record.id }, true);
+    // Straight back to a fresh picker, with the result stated in a modal over
+    // it. Replacing the order-build entry rather than pushing means Back from
+    // here can never re-enter the order that was just confirmed.
+    OP_STATE = { q: "", focused: false };
+    go("order-pick", {}, true);
+    openOrderDoneModal(record.id);
     syncOrderToZoho(record.id);
   }
 
@@ -3953,7 +3992,7 @@
     const order = SalesOrderStore.byId(orderId);
     if (!order || order.zohoStatus === "created") return;
     SalesOrderStore.update(orderId, { zohoStatus: "syncing", zohoError: null, zohoErrorCode: null });
-    if (CURRENT.view === "order-success") renderOrderSuccess();
+    if (ORDER_DONE && ORDER_DONE.orderId === orderId) renderOrderDoneModal();
 
     // The whole order goes over: the function needs the line quantities the
     // salesperson CONFIRMED, which is what `lines` holds. It re-reads nothing
@@ -3989,18 +4028,87 @@
         });
       })
       .then(() => {
-        if (CURRENT.view === "order-success" && CURRENT.params.orderId === orderId) renderOrderSuccess();
+        if (ORDER_DONE && ORDER_DONE.orderId === orderId) renderOrderDoneModal();
       });
   }
 
-  /* ---- VIEW: order-success — what exists, and where ---------------------- */
+  /* ---- The order-done modal ----------------------------------------------
 
-  // Reports the two systems SEPARATELY, because they genuinely can disagree:
-  // a FoodBridge order with a failed Zoho sync is a real, valid order that
-  // needs re-syncing, not a failed order to raise again.
-  function renderOrderSuccess() {
-    const order = SalesOrderStore.byId(CURRENT.params.orderId);
-    if (!order) { go("order-pick", {}, true); return; }
+     This REPLACED the `order-success` view. A confirmed order no longer gets a
+     screen of its own: the rep is returned to a fresh customer search and the
+     result is stated in a modal over it. Confirming is the end of the job, and
+     a whole screen whose only exit was "Done" was a step to dismiss rather than
+     a place to be.
+
+     It is deliberately UNDISMISSABLE except by its own Close button — no scrim
+     click, no Escape, no phone Back, no timeout. That is exactly why it does
+     not go through sheet(): every one of those exits is something sheet()
+     provides on purpose, for things the rep ASKED to see and can flick away.
+     This is the opposite — the rep has just written to two systems and this is
+     the only place that says whether both took it, so it waits to be read.
+
+     What came OFF it, and why that is safe: the FoodBridge order id and the
+     Zoho invoice number. Both are still on the stored record and the FoodBridge
+     invoice page prints the reference; a rep closing an order acts on "did it
+     work" and "give me the invoice", not on either identifier.
+
+     What could NOT come off is whether accounts actually took it. A green tick
+     over a failed sync is the one outcome this feature must never produce (see
+     zoho-adapter.js), so the state mark, the failure reason and Retry Sync all
+     survive the trim. What went is chrome; this is the truth.
+  */
+
+  // The order id while the modal is up, and whether it owns a history entry —
+  // the same pair, for the same reason, as ACTIVE_SHEET / SHEET_HISTORY.
+  let ORDER_DONE = null;
+  let ORDER_DONE_HISTORY = false;
+
+  // The ?v= tag is the same cache-buster stock-audit.html carries, for the same
+  // reason: neither Pages nor http.server sends Cache-Control, and this URL is
+  // stable per order, so a browser that opened an invoice once would keep
+  // serving that copy of the PAGE after the page itself changed.
+  const invoiceUrlFor = (orderId) =>
+    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026082904";
+
+  function openOrderDoneModal(orderId) {
+    ORDER_DONE = { orderId };
+    // One entry for Back to consume. The popstate listener puts it straight
+    // back, so the gesture is absorbed instead of moving the view underneath.
+    if (!ORDER_DONE_HISTORY) {
+      ORDER_DONE_HISTORY = true;
+      try { history.pushState({ sahOrderDone: true }, ""); } catch (e) { ORDER_DONE_HISTORY = false; }
+    }
+    renderOrderDoneModal();
+  }
+
+  function closeOrderDoneModal() {
+    if (!ORDER_DONE) return;
+    ORDER_DONE = null;
+    document.querySelectorAll(".ord-done-scrim").forEach((n) => n.remove());
+    if (ORDER_DONE_HISTORY) {
+      ORDER_DONE_HISTORY = false;
+      // Settle the entry we pushed, exactly as closeActiveSheet does: POPPING
+      // tells the listener the coming popstate is our own echo and not a real
+      // Back press, which would otherwise walk the view stack a screen out.
+      POPPING = true;
+      try { history.back(); } catch (e) { POPPING = false; }
+    }
+  }
+
+  // Escape is swallowed while the modal is up. Nothing in this module binds it
+  // today, so this guards against a future handler — or a browser default —
+  // quietly becoming a way out that the spec says must not exist.
+  document.addEventListener("keydown", (e) => {
+    if (ORDER_DONE && (e.key === "Escape" || e.key === "Esc")) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  function renderOrderDoneModal() {
+    if (!ORDER_DONE) return;
+    const order = SalesOrderStore.byId(ORDER_DONE.orderId);
+    if (!order) { closeOrderDoneModal(); return; }
 
     const zoho = order.zohoStatus;
     const done = zoho === "created";
@@ -4013,56 +4121,60 @@
     const syncing = (zoho === "syncing" || zoho === "pending") && !unresolved;
     const needsRetry = failed || unresolved;
 
-    frame(`
-      <div class="ord-done">
-        <div class="mark ${needsRetry ? "warn" : done ? "ok" : "busy"}">${needsRetry ? "!" : done ? "✓" : "⋯"}</div>
-        <h1>${syncing ? "Accounts sync in progress" : "Order Created"}</h1>
-      </div>
+    // WHICH invoice Open Invoice opens is decided by whether THIS order
+    // reached Zoho, because that is the only signal the browser has: the
+    // customer → Zoho id mapping lives in the function's mappings.js and is
+    // never sent to the page. Synced, with a deep link the tenant configured →
+    // Zoho's own flow. Anything else — not synced, or no sales-order URL set —
+    // falls to FoodBridge's own invoice page, so the rep is never left with a
+    // confirmed order and no way to invoice it.
+    const invoiceHref = done && order.zohoUrl ? order.zohoUrl : invoiceUrlFor(order.id);
 
-      <div class="cd-card ord-refs">
-        <div class="ref-row">
-          <span class="lbl">FoodBridge</span>
-          <span class="val">${esc(order.id)}</span>
-          <span class="status-tag ok">Created</span>
-        </div>
-        <div class="ref-row">
-          <span class="lbl">Invoice</span>
-          <span class="val">${order.zohoOrderNumber ? esc(order.zohoOrderNumber) : "—"}</span>
-          <span class="status-tag ${done ? "ok" : failed ? "danger" : "warn"}">${done ? "Created" : failed ? "Failed" : unresolved ? "Pending" : "Syncing"}</span>
-        </div>
-      </div>
+    document.querySelectorAll(".ord-done-scrim").forEach((n) => n.remove());
+    const scrim = document.createElement("div");
+    scrim.className = "ord-done-scrim";
+    // No listener on the scrim. Its absence IS the requirement.
+    scrim.innerHTML = `<div class="ord-done-modal" role="dialog" aria-modal="true" aria-labelledby="odTitle">
+      <div class="mark ${needsRetry ? "warn" : done ? "ok" : "busy"}">${needsRetry ? "!" : done ? "✓" : "⋯"}</div>
+      <h2 id="odTitle">Order Created</h2>
+      <div class="nm">${esc(order.customerName)}</div>
+      <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
       ${needsRetry && order.zohoError
-        ? // One line, only when something went wrong. Without it "Failed" gives
-          // a rep nothing to act on, and the commonest cause here -- a product
-          // or customer with no Zoho mapping yet -- is fixable in a minute by
+        ? // Only when something went wrong. Without it the warning mark gives a
+          // rep nothing to act on, and the commonest cause — a product or
+          // customer with no Zoho mapping yet — is fixable in a minute by
           // whoever set the integration up.
-          `<p class="ord-note">${esc(order.zohoError)}</p>`
+          `<p class="why">${esc(order.zohoError)}</p>`
         : ""}
-
-      <div class="ord-summary">
-        <div class="nm">${esc(order.customerName)}</div>
-        <div class="sub">${esc(plural(order.productCount, "product"))} · ${esc(plural(order.unitCount, "unit"))}</div>
+      <div class="acts">
+        ${needsRetry ? `<button type="button" class="sheet-btn ghost" id="odRetry">Retry Sync</button>` : ""}
+        <a class="sheet-btn primary${syncing ? " is-disabled" : ""}" id="odInvoice"
+           href="${esc(invoiceHref)}" target="_blank" rel="noopener"
+           ${syncing ? 'aria-disabled="true" tabindex="-1"' : ""}>Open Invoice</a>
+        <button type="button" class="sheet-btn ghost" id="odClose">Close</button>
       </div>
-    `, { foot: `<div class="sah-foot ws-foot"><div class="inner">
-        ${needsRetry ? `<button type="button" class="btn-wide ghost" id="osRetry">Retry Sync</button>` : ""}
-        ${done && order.zohoUrl
-          // Only when the function supplied a URL for this tenant. Zoho's API
-          // returns none and nothing here invents one, so an unconfigured
-          // deployment simply shows the number.
-          ? `<a class="btn-wide ghost" id="osOpen" href="${esc(order.zohoUrl)}" target="_blank" rel="noopener">Open Invoice</a>`
-          : ""}
-        <button type="button" class="btn-wide primary" id="osDone" ${syncing ? "disabled" : ""}>Done</button>
-      </div></div>` });
+    </div>`;
+    overlayHost().appendChild(scrim);
+    requestAnimationFrame(() => scrim.classList.add("show"));
 
-    const retry = $("#osRetry", PAGE);
-    // Re-syncs the EXISTING order. It never re-runs confirmOrder, which is
-    // the only thing that can create a FoodBridge record.
-    if (retry) retry.onclick = () => syncOrderToZoho(order.id);
-    const doneBtn = $("#osDone", PAGE);
-    if (doneBtn) doneBtn.onclick = () => {
+    // Re-syncs the EXISTING order and leaves the modal standing. It never
+    // re-runs confirmOrder, which is the only thing that can create a
+    // FoodBridge record.
+    const retry = scrim.querySelector("#odRetry");
+    if (retry) retry.addEventListener("click", () => syncOrderToZoho(order.id));
+
+    // Open Invoice opens a new tab, so the modal is still there when the rep
+    // comes back. While the sync is unresolved there is no branch to take yet,
+    // so the link is inert rather than guessing.
+    const invoice = scrim.querySelector("#odInvoice");
+    if (invoice && syncing) invoice.addEventListener("click", (e) => e.preventDefault());
+
+    // The only way out.
+    scrim.querySelector("#odClose").addEventListener("click", () => {
+      closeOrderDoneModal();
       OP_STATE = { q: "", focused: false };
       go("order-pick", {}, true);
-    };
+    });
   }
 
   /* ------------------------------------------------- product info, wired once */
