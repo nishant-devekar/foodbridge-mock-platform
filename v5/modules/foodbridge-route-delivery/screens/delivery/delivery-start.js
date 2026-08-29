@@ -153,7 +153,9 @@
     const S = window.RD.state.scratch;
     if (!S.stockQtys) {
       const load = D.db.stockLoads[routeId];
-      const products = (load && load.products) ? load.products : D.db.products.slice(0, 10).map(function (p) {
+      // The whole catalogue, not a slice: a route with no stock load yet must
+      // still offer every product the depot carries, as the reference does.
+      const products = (load && load.products) ? load.products : D.db.products.map(function (p) {
         return { productId: p.productId, name: p.title.en, unitPrice: p.prices.priceMap.Piece, planQty: 0, loadedQty: 0 };
       });
       S.stockProducts = products.map(function (p) { return { productId: p.productId, name: p.name, price: p.unitPrice, planQty: p.planQty || 0 }; });
@@ -213,7 +215,11 @@
             backLabel: "Change Load", commitLabel: "Confirm Load",
             commitAct: "stock-commit", arg: p.routeId,
           })
-        : U.BtnXL({ variant: "brand", label: "Confirm " + totalUnits + " units →", actName: "stock-confirm", disabled: totalUnits === 0 });
+        : U.BtnXL({
+            variant: "brand",
+            label: totalUnits === 0 ? "Add stock quantities to continue" : "Confirm Stock ✓",
+            actName: "stock-confirm", disabled: totalUnits === 0,
+          });
 
     return U.MobileHeader({ title: "Load Stock", subtitle: route.name + " · " + (route.beatArea || ""), backLabel: route.name, backAct: "back" }) +
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.35 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +

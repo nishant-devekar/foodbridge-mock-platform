@@ -14,6 +14,63 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — Parity audit against the QA environment
+
+Delivery Management was audited screen by screen against the live QA build at
+`qa.foodbridge.io/platform/route-delivery`, driven by clicking through it rather than by reading
+source. QA was treated as the single source of truth, and it disagreed with the React source in
+several places the earlier port had followed.
+
+**Global typography.** QA's body is `13.5px / 1.5` and its form controls inherit that (Tailwind
+preflight); this cut had the browser default, `16px / normal`. Every heading, row, chip and input
+therefore rendered about 85% of its true height — the whole app read subtly cramped and no screen
+lined up. Fixed at the source in `styles.css`; header, tiles and controls now measure identically
+to QA to the pixel.
+
+**Home.** Section header is **"All Routes"**, not "Today's routes". The date chip defaults to
+**unset** ("Date"), not to today — an earlier guess from the React source. The sync pill reads
+**"Synced"** with no relative timestamp. The search field and date chip were rebuilt to QA's
+markup: inline SVG glyphs rather than emoji, the clear ✕ positioned *inside* the date chip with a
+28×28 target, and a grey circular clear button in the search field.
+
+**Queue.** QA renders one flat list in route order. A previous pass had grouped it into Next stop
+/ Upcoming / Completed; that grouping is **reverted** to match QA. Also added the **"Over Paid"**
+subtitle branch, which needed advance amounts in the seed to be reachable at all.
+
+**At Customer.** QA shows "Collect ₹0" on a stop with nothing due, so that button is no longer
+suppressed. Added the two **advance-balance** branches QA exercises: an advance paying down
+today's order (Total Due ₹0 while an order exists) and an advance balance with nothing ordered.
+
+**Stock Count** was rebuilt to QA's design: a PRODUCT / LOADED / EXPECTED / ACTUAL table where
+each numeric column carries a quantity *and* its value, a per-row **Match** button that fills the
+expected figure, and a live **TOTAL** row. Copy matched exactly — "Enter all counts to continue"
+until every row is counted, then "Confirm Stock Count ✓", and a confirm panel reading "STOCK
+COUNT / All counts match / Ready to submit" with "Edit Count" and "Submit Count".
+
+**Cash Handover** was rebuilt to QA's design: a SUMMARY block, **Expense** and **Cashbreak**
+toggles, **"Cash to Hand Over"**, **Actual Cash Counted**, a required **Delivery Person** (min. 3
+chars), and a denomination breakdown (500/200/100/50/20/10) that totals live and whose Save
+Breakdown fills the counted figure.
+
+**Print sheet** gained QA's Printer Device block with a connect action, Cancel/Print buttons, and
+QA's receipt format — a header carrying date, customer, bill number and payment method above the
+Item/Qty/Rate/Amt table.
+
+**Settlement.** The locked step's button reads **"Locked"**, not a padlock glyph, and the header
+subtitle is the route name alone.
+
+**Reproduced deliberately, not fixed:** QA's Stock Count table is 430px wide inside a 375px
+viewport, so its ACTUAL column — the only thing typed on that screen — sits partly off the right
+edge behind a horizontal scroll. An earlier pass had redesigned this into a vertical layout; that
+has been reverted to match QA. It is a genuine QA usability problem and is called out here rather
+than silently diverged from.
+
+Re-verified after the audit: 23/23 screens render with no console errors; payment collects
+outstanding + order through to DELIVERED, route total and settlement; the settlement chain closes
+a route; Match/TOTAL, the denomination breakdown and every confirm gate behave as QA does; zero
+network requests (16 local files); other v5 modules unaffected; no React, JSX, npm, Vite or build
+tooling under `v5/`.
+
 ### 29 August 2026 — UX pass over the ported Delivery Management
 
 A review of all 23 screens at 375x812 as a distributor would use them, not as a parity check.

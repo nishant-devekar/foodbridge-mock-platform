@@ -672,6 +672,27 @@
       },
     );
 
+    // A couple of customers carry an advance (they over-paid on an earlier
+    // visit). QA has several of these and they drive two branches the screens
+    // must handle: the queue's "Over Paid" subtitle, and At Customer showing
+    // Total Due ₹0 while an order exists because the advance covers it.
+    const S_STOPS_BUILT = clone(S_STOPS);
+    // Applied to the 2nd and 4th still-pending stop of each route rather than to
+    // fixed ids, so the branch stays reachable however the seed is edited.
+    const ADVANCE_AMOUNTS = [1200, 450];
+    Object.keys(S_STOPS_BUILT).forEach(function (rid) {
+      const pending = S_STOPS_BUILT[rid].filter(function (st) {
+        return st.status !== 'DELIVERED' && st.status !== 'SKIPPED';
+      });
+      [1, 3].forEach(function (idx, n) {
+        const st = pending[idx];
+        if (!st) return;
+        st.advanceAmount = ADVANCE_AMOUNTS[n];
+        st.outstandingAmount = 0;
+        st.totalDue = st.todayOrderAmount || 0;
+      });
+    });
+
     return {
       driver:          clone(S_DRIVER),
       products:        clone(S_PRODUCTS),
@@ -679,7 +700,7 @@
       routes:          clone(S_ROUTES),
       routeDetails:    clone(S_ROUTE_DETAILS),
       stockLoads:      clone(S_STOCK_LOADS),
-      stops:           clone(S_STOPS),
+      stops:           S_STOPS_BUILT,
       stopDetails:     {},
       stopNotes:       {},
       activityLog,

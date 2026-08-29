@@ -126,9 +126,11 @@
         '<div style="' + sty({ width: 7, height: 7, borderRadius: "50%", background: "#888", animation: "pulse 1s infinite" }) + '"></div>' +
         '<span style="' + sty({ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600 }) + '">Syncing…</span></div>';
     }
+    // QA renders "Synced" with no relative time, so this does too. The
+    // component still accepts syncedAt; it just is not surfaced, matching QA.
     return '<div style="' + sty(bar) + '">' +
       '<div style="' + sty({ width: 7, height: 7, borderRadius: "50%", background: GREEN }) + '"></div>' +
-      '<span style="' + sty({ fontSize: 10, color: "rgba(255,255,255,0.7)", fontWeight: 600 }) + '">Synced' + (ago ? " · " + esc(ago) : "") + "</span></div>";
+      '<span style="' + sty({ fontSize: 10, color: "rgba(255,255,255,0.7)", fontWeight: 600 }) + '">Synced</span></div>';
   }
 
   function DriverHeader(name, onNewLabel) {

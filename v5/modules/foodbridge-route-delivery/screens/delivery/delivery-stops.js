@@ -111,11 +111,12 @@
       );
     }
 
+    // QA subtitle order: outstanding warning, then over-payment, then a dash.
     const sub = stop.outstandingAmount > 0
       ? "⚠️ " + U.inr(stop.outstandingAmount) + " outstanding"
-      : "—";
+      : (stop.advanceAmount > 0 ? U.inr(stop.advanceAmount) + " Over Paid" : "—");
     return Row(
-      Avatar(initials, stop.outstandingAmount > 0 ? "orange" : "blue") +
+      Avatar(initials, stop.outstandingAmount > 0 ? "orange" : stop.advanceAmount > 0 ? "green" : "blue") +
       '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
         '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111" }) + '">' + U.esc(stop.customerName) + "</div>" +
         '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 1 }) + '">' + U.esc(sub) + "</div>" +
@@ -130,20 +131,16 @@
     const S = window.RD.state.scratch;
     const all = D.getStops(p.routeId);
     const search = (S.queueSearch || "").trim().toLowerCase();
+    const shown = search
+      ? all.filter(function (s) { return s.customerName.toLowerCase().indexOf(search) !== -1; })
+      : all;
 
-    const isDone = function (s) { return s.status === "DELIVERED" || s.status === "SKIPPED"; };
-    const doneStops = all.filter(isDone);
-    const liveStops = all.filter(function (s) { return !isDone(s); });
+    const done = all.filter(function (s) { return s.status === "DELIVERED" || s.status === "SKIPPED"; }).length;
 
-    // UX DECISION — differs from the React app on purpose.
-    // Upstream renders one flat list in sequence order, so a driver halfway
-    // through a 30-stop route opens this screen onto nine finished customers
-    // and has to scroll to find the one they are actually driving to. The whole
-    // job of this screen is "who is next". So: the current stop is pinned at the
-    // top, upcoming stops follow, and completed work collapses behind a count —
-    // still one tap away for checking what was collected, but never in the way.
-    const collapsed = S.showDone !== true;
-
+    // One flat list in route order, exactly as QA renders it. (An earlier pass
+    // grouped this into Next stop / Upcoming / Completed; QA does not, and QA
+    // is the reference.) Add Customer sits at the end of the list, not in the
+    // footer, and is hidden while searching.
     const addRow = !search
       ? '<button type="button" class="rd-row"' + U.act("queue-add-customer", p.routeId) + ' style="' + U.sty({
           width: "100%", display: "flex", alignItems: "center", padding: "12px 16px", gap: 12,
@@ -157,62 +154,27 @@
         "</div></button>"
       : "";
 
-    let body;
-    if (search) {
-      // Searching is a lookup, not a walk of the route: one flat list of every
-      // match, done or not, because the driver is answering "where is X".
-      const hits = all.filter(function (s) { return s.customerName.toLowerCase().indexOf(search) !== -1; });
-      body = hits.length
-        ? hits.map(StopRow).join("")
-        : '<div style="' + U.sty({ padding: "40px 24px", textAlign: "center" }) + '">' +
-            '<div style="' + U.sty({ fontSize: 32, marginBottom: 10 }) + '">🔍</div>' +
-            '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 4 }) + '">No stops found</div>' +
-            '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">No customer matches “' + U.esc(search) + '”</div></div>';
-    } else {
-      const current = liveStops.filter(function (s) { return s.status === "CURRENT"; });
-      const upcoming = liveStops.filter(function (s) { return s.status !== "CURRENT"; });
-
-      body =
-        (current.length ? U.SectionHeader("Next stop") + current.map(StopRow).join("") : "") +
-        (upcoming.length ? U.SectionHeader("Upcoming · " + upcoming.length) + upcoming.map(StopRow).join("") : "") +
-        (!liveStops.length
-          ? '<div style="' + U.sty({ padding: "32px 24px", textAlign: "center" }) + '">' +
-              '<div style="' + U.sty({ fontSize: 34, marginBottom: 10 }) + '">🎉</div>' +
-              '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 4 }) + '">Every stop is done</div>' +
-              '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">Settle the route to close the day.</div></div>'
-          : "") +
-        addRow +
-        (doneStops.length
-          ? '<button type="button" class="rd-row"' + U.act("queue-toggle-done") + ' style="' + U.sty({
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "13px 16px", marginTop: 8, background: "transparent", border: "none",
-              borderTop: "1px solid #e5e7eb", fontFamily: "inherit", cursor: "pointer", textAlign: "left",
-            }) + '">' +
-            '<span style="' + U.sty({ fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }) + '">Completed · ' + doneStops.length + "</span>" +
-            '<span style="' + U.sty({ fontSize: 13, color: "#9ca3af", fontWeight: 600 }) + '">' + (collapsed ? "Show ▾" : "Hide ▴") + "</span></button>" +
-            (collapsed ? "" : doneStops.map(StopRow).join(""))
-          : "");
-    }
+    const list = (shown.length === 0 && search)
+      ? '<div style="' + U.sty({ padding: "40px 24px", textAlign: "center" }) + '">' +
+          '<div style="' + U.sty({ fontSize: 32, marginBottom: 10 }) + '">🔍</div>' +
+          '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 4 }) + '">No stops found</div>' +
+          '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">No customer matches “' + U.esc(search) + '”</div></div>'
+      : shown.map(StopRow).join("") + addRow;
 
     return U.ProgressBar({
-        current: doneStops.length, total: all.length,
+        current: done, total: all.length,
         collected: collectedFor(p.routeId),
         backLabel: "Routes", backAct: "home",
       }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
         '<div style="margin:8px 12px 4px">' + U.SearchInput({ value: S.queueSearch || "", model: "queue-search", placeholder: "Search by name or phone…", clearAct: "queue-search-clear" }) + "</div>" +
-        body +
+        list +
         '<div style="height:16px"></div>' +
       "</div>" +
       U.ActionBar('<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
         U.BtnSm({ variant: "grey", label: "↻ Restock", actName: "queue-restock", arg: p.routeId }) +
         U.BtnSm({ variant: "brand", label: "₹ Return & Settle", actName: "queue-settle", arg: p.routeId }) +
       "</div>");
-  });
-
-  window.RD.action("queue-toggle-done", function () {
-    window.RD.state.scratch.showDone = !window.RD.state.scratch.showDone;
-    window.RD.render();
   });
 
   window.RD.action("queue-search-clear", function () { window.RD.state.scratch.queueSearch = ""; window.RD.render(); });
@@ -267,7 +229,13 @@
     // payment screen uses this same sum so the two screens never disagree.
     const orderTotal = S.items.reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0);
     const outstanding = stop.outstandingAmount || 0;
-    const totalDue = outstanding + orderTotal;
+    // An advance (over-payment carried from a previous visit) pays down today's
+    // order before anything is due, which is why Total Due can be ₹0 while an
+    // order exists — the state QA shows on customers with credit.
+    const advance = stop.advanceAmount || 0;
+    const appliedAdvance = Math.min(advance, orderTotal);
+    const remainingAdvance = Math.max(0, advance - appliedAdvance);
+    const totalDue = Math.max(0, outstanding + orderTotal - appliedAdvance);
 
     const card =
       '<div style="' + U.sty({ margin: 12, background: "white", borderRadius: 20, padding: "20px 18px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)", marginTop: 12 }) + '">' +
@@ -280,11 +248,19 @@
             "<div>" +
               '<div style="' + U.sty({ fontSize: 12, color: "#888", fontWeight: 600, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.3px" }) + '">Total Due</div>' +
               '<div style="' + U.sty({ fontSize: 36, fontWeight: 800, color: "#ef4444", lineHeight: 1 }) + '">' + U.inr(totalDue) + "</div>" +
+              // QA's four notes under Total Due, in its order: outstanding+order,
+              // outstanding alone, advance applied to today's order, and an
+              // advance balance with nothing ordered.
               (outstanding > 0 && orderTotal > 0
                 ? '<div style="' + U.sty({ fontSize: 12, color: "#f97316", marginTop: 3 }) + '">' + U.inr(outstanding) + " outstanding + " + U.inr(orderTotal) + " today's order</div>"
                 : outstanding > 0
                   ? '<div style="' + U.sty({ fontSize: 12, color: "#f97316", marginTop: 3 }) + '">' + U.inr(outstanding) + " outstanding</div>"
-                  : "") +
+                  : (advance > 0 && orderTotal > 0
+                    ? '<div style="' + U.sty({ fontSize: 12, color: "#16a34a", marginTop: 3 }) + '">' + U.inr(appliedAdvance) + " of " + U.inr(orderTotal) + " today's order paid using advance" +
+                        (remainingAdvance > 0 ? " · " + U.inr(remainingAdvance) + " advance balance remaining" : "") + "</div>"
+                    : advance > 0
+                      ? '<div style="' + U.sty({ fontSize: 12, color: "#16a34a", marginTop: 3 }) + '">' + U.inr(advance) + " advance balance available</div>"
+                      : "")) +
             "</div>" +
             (detail.customer && detail.customer.phone
               ? '<a href="tel:' + U.esc(detail.customer.phone) + '" class="rd-pressable" style="' + U.sty({ padding: "10px 14px", background: "#f0f2f5", borderRadius: 12, fontSize: 22, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center" }) + '">📞</a>' : "") +
@@ -359,7 +335,7 @@
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: "grey", label: "↩ Return", actName: "goto-returns", arg: p.routeId }) +
           U.BtnSm({ variant: "grey", label: "📦 Assets", actName: "goto-assets", arg: stop.customerId }) + "</div>"
-      : (editing || totalDue <= 0 ? "" : U.BtnXL({ variant: "green", label: "💰 Collect " + U.inr(totalDue), style: { marginBottom: 10 }, actName: "goto-payment", arg: p.stopId })) +
+      : (editing ? "" : U.BtnXL({ variant: "green", label: "💰 Collect " + U.inr(totalDue), style: { marginBottom: 10 }, actName: "goto-payment", arg: p.stopId })) +
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: editing ? "brand" : "green", label: editing ? "✓ Done Editing" : "✏️ Edit Order", actName: "toggle-edit" }) +
           (editing ? "" : U.BtnSm({ variant: "red", label: "Skip Stop →", actName: "goto-skip", arg: p.stopId })) +
@@ -564,58 +540,83 @@
       U.ActionBar(U.BtnXL({ variant: "brand", label: "Move to Delivery Stops →", actName: "back-to-queue", arg: p.routeId }));
   });
 
-  // The print sheet is a real part of the flow, not a stub: paper size changes
-  // the preview width, and "no printer connected" is the honest state in a
-  // browser. Ported from components/PrintReceiptSheet.jsx.
+  // Print sheet, matched to QA: printer type, a PRINTER DEVICE block with a
+  // connect action, paper size, and a monospace receipt preview whose width
+  // follows the selected paper. QA's receipt carries a header block (date, bill
+  // number, payment method) above the item table, reproduced here.
   function PrintSheet(p, stop) {
     const S = window.RD.state.scratch;
     const size = S.paper || "58mm";
+    const type = S.printerType || "USB";
     const detail = stopOr404(p.routeId, p.stopId);
+    const dash = size === "58mm" ? "--------------------------------" : "------------------------------------------";
+
     const lines = (detail.orderItems || []).map(function (it) {
-      return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontSize: 11 }) + '">' +
-        "<span>" + U.esc(it.productName || it.name) + " ×" + it.qty + "</span><span>" + rawInr(it.qty * (it.unitPrice || 0)) + "</span></div>";
+      const amt = it.lineTotal != null ? it.lineTotal : it.qty * (it.unitPrice || 0);
+      return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", gap: 6 }) + '">' +
+        '<span style="' + U.sty({ flex: 1, minWidth: 0, wordBreak: "break-word" }) + '">' + U.esc(it.productName || it.name) + "</span>" +
+        "<span>" + it.qty + "</span><span>" + (it.unitPrice || 0).toFixed(2) + "</span><span>Rs" + amt.toFixed(2) + "</span></div>";
     }).join("");
+
+    const now = new Date();
+    const billNo = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0") + String(stop.id).replace(/\D/g, "").slice(-8);
 
     return U.Card(
       U.CardTitle("🖨 Print Receipt") +
-      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Printer type</div>' +
+      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Printer Type</div>' +
       '<div style="' + U.sty({ display: "flex", gap: 8, marginBottom: 12 }) + '">' +
-        ["🖥 USB", "📶 Bluetooth"].map(function (t) {
-          const on = (S.printerType || "🖥 USB") === t;
-          return '<button type="button" class="rd-chip"' + U.act("printer-type", t) + ' style="' + U.sty({
+        [["USB", "🖥 USB"], ["Bluetooth", "📶 Bluetooth"]].map(function (t) {
+          const on = type === t[0];
+          return '<button type="button" class="rd-chip"' + U.act("printer-type", t[0]) + ' style="' + U.sty({
             flex: 1, padding: "10px 8px", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
             border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white", color: on ? U.BRAND : "#555",
-          }) + '">' + t + "</button>";
+          }) + '">' + t[1] + "</button>";
         }).join("") + "</div>" +
-      '<div style="' + U.sty({ padding: "12px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, fontSize: 13, color: "#6b7280", marginBottom: 12 }) + '">No printer connected</div>' +
-      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Paper size</div>' +
+      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Printer Device</div>' +
+      '<div style="' + U.sty({ padding: "12px 14px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 12, fontSize: 13, color: "#6b7280", marginBottom: 8 }) + '">No printer connected</div>' +
+      '<div style="margin-bottom:12px">' + U.BtnSm({ variant: "grey", label: "Connect " + type + " Printer", actName: "printer-connect" }) + "</div>" +
+      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Paper Size</div>' +
       '<div style="' + U.sty({ display: "flex", gap: 8, marginBottom: 12 }) + '">' +
-        ["58mm", "80mm"].map(function (t) {
-          const on = size === t;
-          return '<button type="button" class="rd-chip"' + U.act("paper-size", t) + ' style="' + U.sty({
+        [["58mm", "58mm (2 inch)"], ["80mm", "80mm (3.2 inch)"]].map(function (t) {
+          const on = size === t[0];
+          return '<button type="button" class="rd-chip"' + U.act("paper-size", t[0]) + ' style="' + U.sty({
             flex: 1, padding: "10px 8px", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
             border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white", color: on ? U.BRAND : "#555",
-          }) + '">' + t + (t === "58mm" ? " (2 inch)" : " (3.2 inch)") + "</button>";
+          }) + '">' + t[1] + "</button>";
         }).join("") + "</div>" +
-      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Receipt preview</div>' +
+      '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", marginBottom: 6 }) + '">Receipt Preview</div>' +
+      '<div style="' + U.sty({ fontSize: 11, color: "#888", marginBottom: 4 }) + '">' + size.replace("mm", " mm") + "</div>" +
       '<div style="' + U.sty({
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", background: "white",
         border: "1px dashed #cbd5e1", borderRadius: 8, padding: 12,
-        maxWidth: size === "58mm" ? 220 : 300, margin: "0 auto", fontSize: 11, color: "#111",
+        maxWidth: size === "58mm" ? 232 : 300, margin: "0 auto", fontSize: 10, color: "#111",
+        whiteSpace: "pre-wrap", overflowX: "auto",
       }) + '">' +
-        '<div style="text-align:center;font-weight:700">Invoice</div>' +
-        '<div style="text-align:center;font-size:10px;color:#666;margin-bottom:6px">' + U.esc(stop.customerName) + "</div>" +
-        '<div style="border-top:1px dashed #cbd5e1;margin:6px 0"></div>' + lines +
-        '<div style="border-top:1px dashed #cbd5e1;margin:6px 0"></div>' +
-        '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 12 }) + '"><span>Paid</span><span>' + U.inr(stop.collectedAmount) + "</span></div>" +
+        '<div style="text-align:center;font-weight:700">Invoice</div>' + dash +
+        '<div>Date : ' + now.toLocaleDateString("en-GB").replace(/\//g, "/") + ", " + now.toLocaleTimeString("en-GB") + "</div>" +
+        "<div>Customer: " + U.esc(stop.customerName) + "</div>" +
+        "<div>Bill No : " + billNo + "</div>" +
+        "<div>Payment : " + (stop.paymentMethod === "UPI" ? "UPI" : "Cash") + "</div>" + dash +
+        '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", gap: 6, fontWeight: 700 }) + '">' +
+          '<span style="flex:1">Item</span><span>Qty</span><span>Rate</span><span>Amt</span></div>' + dash +
+        lines + dash +
+        '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontWeight: 700 }) + '"><span>Paid</span><span>Rs' + Number(stop.collectedAmount || 0).toFixed(2) + "</span></div>" +
       "</div>" +
-      '<div style="margin-top:12px">' + U.BtnSm({ variant: "grey", label: "Close", actName: "print-close" }) + "</div>"
+      '<div style="' + U.sty({ display: "flex", gap: 10, marginTop: 12 }) + '">' +
+        U.BtnSm({ variant: "grey", label: "Cancel", actName: "print-close" }) +
+        U.BtnSm({ variant: "brand", label: "🖨 Print", actName: "print-do" }) +
+      "</div>"
     );
   }
 
   window.RD.action("print-open", function () { window.RD.state.scratch.printOpen = true; window.RD.render(); });
   window.RD.action("print-close", function () { window.RD.state.scratch.printOpen = false; window.RD.render(); });
   window.RD.action("printer-type", function (t) { window.RD.state.scratch.printerType = t; window.RD.render(); });
+  window.RD.action("printer-connect", function () {
+    // No hardware in a browser; QA shows the same "not connected" state.
+    window.RD.toast("No printer found — connect one from the device settings", "error");
+  });
+  window.RD.action("print-do", function () { window.RD.toast("Receipt sent to printer"); });
   window.RD.action("paper-size", function (t) { window.RD.state.scratch.paper = t; window.RD.render(); });
   window.RD.action("share-whatsapp", function () { window.RD.toast("Receipt shared on WhatsApp"); });
   window.RD.action("back-to-queue", function (routeId) { window.RD.go("/queue/" + routeId); });
@@ -646,11 +647,13 @@
         }) + '"><div style="font-size:22px;margin-bottom:4px">' + r.icon + "</div>" + r.label + "</button>";
       }).join("") + "</div>";
 
-    return U.MobileHeader({ title: "Why no delivery?", subtitle: stop.customerName, backLabel: stop.customerName, backAct: "back" }) +
+    // No subtitle: the customer's name is already the back label, and repeating
+    // it under the question reads as a stutter. Matches the reference.
+    return U.MobileHeader({ title: "Why no delivery?", backLabel: stop.customerName, backAct: "back" }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
         U.SectionHeader("Select Reason") + grid + U.Spacer(12) +
-        U.SectionHeader("Note (optional)") +
-        '<div style="padding:0 12px">' +
+        '<div style="padding:0 12px;margin-top:8px">' +
+          '<label style="' + U.sty({ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6, display: "block" }) + '">Note (optional)</label>' +
           '<textarea data-model="skip-note" placeholder="Add a note for the office…" style="' + U.sty({
             width: "100%", minHeight: 90, padding: 12, borderRadius: 12, border: "1.5px solid #e5e7eb",
             fontSize: 14, fontFamily: "inherit", color: "#111", resize: "vertical",
@@ -658,7 +661,7 @@
         U.Spacer(12) +
       "</div>" +
       U.ActionBar(U.BtnXL({
-        variant: "red", label: "Confirm Skip →",
+        variant: "red", label: "Skip This Stop",
         disabled: !S.skipReason, actName: "skip-commit", arg: p.stopId,
       }));
   });

@@ -37,14 +37,11 @@
     // Home filters
     search: "",
     statusFilter: null,
-    // Defaults to today, as the real dashboard does (selectedDate = TODAY in
-    // HomeDashboard.jsx). The screen is "what am I doing today", so an unfiltered
-    // list that mixes in yesterday's closed routes is the wrong first impression.
-    // Clearing the chip sets this to null and shows every day.
-    dateFilter: (function () {
-      const d = new Date();
-      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-    })(),
+    // No default date filter. Verified against QA directly: the chip reads
+    // "Date" on load and the list shows every route, not just today's. (An
+    // earlier read of the React source suggested a today default; QA is newer
+    // and is the source of truth.)
+    dateFilter: null,
     // Per-screen scratch space, cleared on navigation.
     scratch: {},
     toast: null,

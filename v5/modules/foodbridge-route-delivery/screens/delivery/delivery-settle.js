@@ -70,14 +70,14 @@
               padding: "9px 14px", background: isDone ? "#6b7280" : U.BRAND, color: "white", border: "none",
               borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: isDone ? "default" : "pointer", opacity: isDone ? 0.7 : 1,
             }) + '">' + (isDone ? "Done ✓" : "Start →") + "</button>"
-          : '<button type="button" disabled style="' + U.sty({ padding: "9px 14px", background: "#e5e7eb", color: "#9ca3af", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700 }) + '">🔒</button>') +
+          : '<button type="button" disabled style="' + U.sty({ padding: "9px 14px", background: "#e5e7eb", color: "#9ca3af", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700 }) + '">Locked</button>') +
         "</div>";
     }).join("");
 
     const allDone = flow.allDone;
     const closed = route.status === "CLOSED";
 
-    return U.MobileHeader({ title: "Settle Route", subtitle: ov.subtitle || route.name, onBack: false }) +
+    return U.MobileHeader({ title: "Settle Route", subtitle: route.name, onBack: false }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
         U.StatGrid(
           U.StatTile(String(stats.deliveredCount || 0), "Delivered", "green") +
@@ -115,8 +115,16 @@
   window.RD.action("settle-report", function (routeId) { window.RD.go("/closed/" + routeId); });
 
   /* ══ Stock Count ═══════════════════════════════════════════════════════ */
+  // Matched to QA: a PRODUCT / LOADED / EXPECTED / ACTUAL table where each of
+  // the three numeric columns shows a quantity and its value, a per-row "Match"
+  // button that fills the expected figure, and a TOTAL row that sums each
+  // column live. QA's own table is 430px wide inside a 375px viewport, so the
+  // ACTUAL column scrolls horizontally — reproduced rather than redesigned,
+  // since QA is the reference. Flagged in the report as a QA usability issue.
 
-  /* ══ Stock Count ═══════════════════════════════════════════════════════ */
+  const SC_GRID = "minmax(150px,1fr) 76px 84px 104px";
+
+  function money(n) { return "₹" + (Number(n) || 0).toFixed(2); }
 
   window.RD.screen("stockCount", function (p) {
     const S = window.RD.state.scratch;
@@ -124,57 +132,77 @@
     const items = sheet.items || [];
     if (!S.actuals) S.actuals = items.map(function () { return ""; });
 
-    const mismatches = items.map(function (it, i) {
-      const raw = S.actuals[i];
-      if (raw === "" || raw == null) return null;
-      const actual = parseInt(raw, 10);
-      if (actual === it.expectedReturn) return null;
-      return { productId: it.productId, name: it.name, expected: it.expectedReturn, actual: actual, diff: actual - it.expectedReturn };
-    }).filter(Boolean);
-
-    const counted = S.actuals.filter(function (v) { return v !== "" && v != null; }).length;
-
-    // UX DECISION — differs from the React app on purpose.
-    // Upstream lays this out as a 4-column table with a 430px minimum width and
-    // a sticky product column, so on a 375px phone the Actual field — the only
-    // thing anyone types into on this screen — sits off the right edge behind a
-    // horizontal scroll. A vertical row per product puts the input permanently
-    // on screen, with loaded/expected demoted to a subtitle where they belong:
-    // they are context for the number being typed, not columns to scan.
-    const rows = items.map(function (it, i) {
+    const rowOf = function (it, i) {
       const raw = S.actuals[i];
       const has = raw !== "" && raw != null;
-      const actual = has ? parseInt(raw, 10) : null;
-      const mismatch = has && actual !== it.expectedReturn;
-      const diff = has ? actual - it.expectedReturn : 0;
-      return '<div style="' + U.sty({
-          display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-          borderBottom: i < items.length - 1 ? "1px solid #f5f5f5" : "none",
-          background: mismatch ? "#fffbeb" : "white",
-        }) + '">' +
-        '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
-          '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111" }) + '">' + U.esc(it.name) + "</div>" +
-          '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 3 }) + '">' +
-            "Loaded " + it.loadedQty + " · Expect back <strong style=\"color:#374151\">" + it.expectedReturn + "</strong>" +
-            (mismatch ? ' <span style="color:#b45309;font-weight:700">· ' + (diff < 0 ? Math.abs(diff) + " missing" : diff + " excess") + "</span>" : "") +
-          "</div>" +
-        "</div>" +
-        '<input inputmode="numeric" data-model="count-' + i + '" value="' + U.esc(raw) + '" placeholder="' + it.expectedReturn + '" style="' + U.sty({
-          width: 76, height: 46, flexShrink: 0, textAlign: "center", fontSize: 17, fontWeight: 800,
-          border: "2px solid " + (mismatch ? "#fbbf24" : has ? "#86efac" : "#e5e7eb"),
-          borderRadius: 12, background: "white", color: "#111", outline: "none",
-        }) + '" />' +
+      const actual = has ? parseInt(raw, 10) : 0;
+      return {
+        it: it, i: i, has: has, actual: actual,
+        loadedVal: it.loadedQty * it.unitPrice,
+        expectedVal: it.expectedReturn * it.unitPrice,
+        actualVal: actual * it.unitPrice,
+        mismatch: has && actual !== it.expectedReturn,
+      };
+    };
+    const rows = items.map(rowOf);
+    const counted = rows.filter(function (r) { return r.has; }).length;
+    const allCounted = counted === items.length && items.length > 0;
+    const mismatches = rows.filter(function (r) { return r.mismatch; }).map(function (r) {
+      return { productId: r.it.productId, name: r.it.name, expected: r.it.expectedReturn, actual: r.actual, diff: r.actual - r.it.expectedReturn };
+    });
+
+    const totals = rows.reduce(function (a, r) {
+      a.loaded += r.loadedVal; a.expected += r.expectedVal; a.actual += r.actualVal; return a;
+    }, { loaded: 0, expected: 0, actual: 0 });
+
+    const cell = { padding: "10px 8px", fontSize: 13, display: "flex", flexDirection: "column", justifyContent: "center" };
+
+    const head = '<div style="' + U.sty({ display: "grid", gridTemplateColumns: SC_GRID, columnGap: 8, minWidth: 430, background: "white", borderBottom: "2px solid #e5e7eb", position: "sticky", top: 0, zIndex: 5 }) + '">' +
+      ["Product", "Loaded", "Expected", "Actual"].map(function (h, i) {
+        return '<div style="' + U.sty({ padding: i === 0 ? "10px 8px 10px 12px" : "10px 8px", fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", textAlign: i === 0 ? "left" : "right" }) + '">' + h + "</div>";
+      }).join("") + "</div>";
+
+    const body = rows.map(function (r, n) {
+      return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: SC_GRID, columnGap: 8, minWidth: 430, borderBottom: n < rows.length - 1 ? "1px solid #f5f5f5" : "none", background: r.mismatch ? "#fffbeb" : "white" }) + '">' +
+        '<div style="' + U.sty(U.mix(cell, { paddingLeft: 12 })) + '">' +
+          '<div style="' + U.sty({ fontWeight: 600, color: "#111" }) + '">' + U.esc(r.it.name) + "</div>" +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 2 }) + '">' + money(r.it.unitPrice) + "</div></div>" +
+        '<div style="' + U.sty(U.mix(cell, { alignItems: "flex-end" })) + '">' +
+          '<div style="' + U.sty({ fontWeight: 600, color: "#111" }) + '">' + r.it.loadedQty + "</div>" +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 2 }) + '">' + money(r.loadedVal) + "</div></div>" +
+        '<div style="' + U.sty(U.mix(cell, { alignItems: "flex-end" })) + '">' +
+          '<div style="' + U.sty({ fontWeight: 700, color: "#111" }) + '">' + r.it.expectedReturn + "</div>" +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 2 }) + '">' + money(r.expectedVal) + "</div></div>" +
+        '<div style="' + U.sty(U.mix(cell, { alignItems: "flex-end", gap: 4 })) + '">' +
+          '<input inputmode="numeric" data-model="count-' + r.i + '" value="' + U.esc(r.has ? String(r.actual) : "") + '" style="' + U.sty({
+            width: 50, height: 34, textAlign: "center", fontSize: 14, fontWeight: 700,
+            border: "2px solid " + (r.mismatch ? "#fbbf24" : r.has ? "#86efac" : "#e5e7eb"),
+            borderRadius: 8, background: "white", color: "#111", outline: "none",
+          }) + '" />' +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888" }) + '">' + money(r.actualVal) + "</div>" +
+          '<button type="button" class="rd-btn-sm"' + U.act("count-match", r.i) + ' style="' + U.sty({
+            padding: "3px 8px", fontSize: 11, fontWeight: 700, borderRadius: 8,
+            border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1e40af", cursor: "pointer",
+          }) + '">Match</button></div>' +
         "</div>";
     }).join("");
+
+    const totalRow = '<div style="' + U.sty({ display: "grid", gridTemplateColumns: SC_GRID, columnGap: 8, minWidth: 430, background: "#f9fafb", borderTop: "2px solid #e5e7eb" }) + '">' +
+      '<div style="' + U.sty({ padding: "12px 8px 12px 12px", fontSize: 12, fontWeight: 800, color: "#111", textTransform: "uppercase" }) + '">Total</div>' +
+      [totals.loaded, totals.expected, totals.actual].map(function (v) {
+        return '<div style="' + U.sty({ padding: "12px 8px", fontSize: 13, fontWeight: 800, color: "#111", textAlign: "right" }) + '">' + money(v) + "</div>";
+      }).join("") + "</div>";
 
     const confirming = !!S.countConfirming;
     const noteMissing = mismatches.length > 0 && !(S.countNote || "").trim();
 
     const footer = confirming
       ? U.ConfirmPanel({
-          action: "Stock Count", amount: items.length + " products counted",
-          context: mismatches.length > 0 ? mismatches.length + " need an explanation" : "Every count matches what was expected",
-          backLabel: "Recount", commitLabel: "Confirm Count",
+          // QA's exact copy on this panel.
+          action: "Stock Count",
+          amount: mismatches.length === 0 ? "All counts match" : mismatches.length + " count" + (mismatches.length > 1 ? "s" : "") + " differ",
+          context: mismatches.length === 0 ? "Ready to submit" : "Explain the difference to submit",
+          backLabel: "Edit Count", commitLabel: "Submit Count",
           disabled: noteMissing, commitAct: "count-commit", arg: p.routeId,
           extra: mismatches.length > 0
             ? '<div style="' + U.sty({ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }) + '">' +
@@ -193,27 +221,32 @@
         })
       : U.BtnXL({
           variant: "brand",
-          // Never a dead-end label: it says what is still needed, then commits.
-          label: counted === 0 ? "Enter your counts to continue"
-               : counted < items.length ? "Confirm " + counted + " of " + items.length + " counted →"
-               : "Confirm Stock Count →",
-          disabled: counted === 0,
-          actName: "count-confirm",
+          // QA: idle label until EVERY row is counted, then the ready label.
+          label: allCounted ? "Confirm Stock Count ✓" : "Enter all counts to continue",
+          disabled: !allCounted, actName: "count-confirm",
         });
 
     return U.MobileHeader({ title: "Stock Count", subtitle: "Count what's left in the vehicle", backLabel: "Settlement", backAct: "back" }) +
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.4 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +
-        '<div style="' + U.sty({ margin: "10px 12px", padding: "10px 12px", borderRadius: 12, fontSize: 12, fontWeight: 600, background: "#eff3ff", color: "#1e40af", border: "1px solid #bfdbfe", display: "flex", gap: 8, alignItems: "center" }) + '">' +
-          "<span>📱</span><span>Grey number is what we expect back. Type what you actually counted.</span></div>" +
-        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' + rows + "</div>" +
+        '<div style="' + U.sty({ margin: "10px 12px", padding: "12px 14px", borderRadius: 14, fontSize: 13, fontWeight: 600, background: "#eff3ff", color: "#1e40af", border: "1px solid #bfdbfe", display: "flex", gap: 8 }) + '">' +
+          "<span>📱</span><span>Expected return is auto-calculated. Enter actual count to verify.</span></div>" +
+        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
+          '<div style="' + U.sty({ overflowX: "auto", WebkitOverflowScrolling: "touch" }) + '">' +
+            '<div style="' + U.sty({ minWidth: 430 }) + '">' + head + body + totalRow + "</div></div></div>" +
         U.Spacer(8) +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
   });
 
-  // One handler for every per-product count field (see the wildcard note in
-  // delivery-core's onInput). Digits only; blank clears the count.
+  // QA's per-row Match: fills the input with the expected figure.
+  window.RD.action("count-match", function (idx) {
+    const S = window.RD.state.scratch;
+    const sheet = SDK.routeDelivery.getStockCountSheet({ routeId: window.RD.state.routeId }).data;
+    S.actuals[Number(idx)] = String((sheet.items[Number(idx)] || {}).expectedReturn || 0);
+    window.RD.render();
+  });
+
   window.RD.action("model:count#", function (value, idx) {
     const S = window.RD.state.scratch;
     const clean = String(value).replace(/\D/g, "");
@@ -251,6 +284,14 @@
 
   /* ══ Cash Handover ═════════════════════════════════════════════════════ */
 
+  /* ══ Cash Handover ═════════════════════════════════════════════════════ */
+  // Matched to QA: a SUMMARY block (opening cash, cash collected, UPI
+  // collected, Expense/Cashbreak toggles, Cash to Hand Over), then Actual Cash
+  // Counted, a required Delivery Person, and a denomination breakdown that
+  // totals live and can be saved.
+
+  const DENOMS = [500, 200, 100, 50, 20, 10];
+
   window.RD.screen("cashHandover", function (p) {
     const S = window.RD.state.scratch;
     const route = routeOr404(p.routeId);
@@ -258,53 +299,95 @@
     const openingCash = (route.checklist && route.checklist.openingCash && route.checklist.openingCash.amount) || 0;
     const cashCollected = stops.filter(function (s) { return s.paymentMethod === "CASH"; }).reduce(function (a, s) { return a + (s.collectedAmount || 0); }, 0);
     const upiCollected = stops.filter(function (s) { return s.paymentMethod === "UPI"; }).reduce(function (a, s) { return a + (s.collectedAmount || 0); }, 0);
-    const expense = Number(S.expense) || 0;
-    const expected = openingCash + cashCollected - expense;
 
+    if (S.denoms === undefined) S.denoms = {};
+    if (S.person === undefined) S.person = D.db.driver.name;
     if (S.counted === undefined) S.counted = "";
-    const counted = S.counted === "" ? null : Number(S.counted);
-    const diff = counted === null ? 0 : counted - expected;
-    const confirming = !!S.handoverConfirming;
-    const noteMissing = counted !== null && diff !== 0 && !(S.handoverNote || "").trim();
 
-    // UX DECISION — differs from the React app on purpose.
-    // The one number this screen exists to communicate is "how much should be in
-    // your hand". Upstream renders it as the last row of a five-row summary, at
-    // the same weight as UPI collected — which the driver cannot even hand over.
-    // Here it leads, big, and the rest of the arithmetic sits under it as the
-    // supporting detail it is. Expense and counted are one card, not two.
-    const target = U.Card(
-      '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" }) + '">Expected in hand</div>' +
-      '<div style="' + U.sty({ fontSize: 38, fontWeight: 900, color: "#111", lineHeight: 1.1, marginTop: 4 }) + '">' + U.inr(expected) + "</div>" +
-      '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 6 }) + '">' +
-        rawInr(openingCash) + " float + " + rawInr(cashCollected) + " cash collected" +
-        (expense > 0 ? " − " + rawInr(expense) + " expenses" : "") + "</div>" +
-      '<div style="' + U.sty({ marginTop: 10, paddingTop: 10, borderTop: "1px dashed #e5e7eb", display: "flex", justifyContent: "space-between", fontSize: 12, color: "#888" }) + '">' +
-        "<span>UPI collected (not handed over)</span><span style=\"font-weight:700;color:#2563eb\">" + U.inr(upiCollected) + "</span></div>"
+    const expense = Number(S.expense) || 0;
+    const toHandOver = openingCash + cashCollected - expense;
+    const counted = S.counted === "" ? null : Number(S.counted);
+    const diff = counted === null ? 0 : counted - toHandOver;
+    const confirming = !!S.handoverConfirming;
+    const personOk = (S.person || "").trim().length >= 3;
+    const noteMissing = counted !== null && diff !== 0 && !(S.handoverNote || "").trim();
+    const panel = S.cashPanel || null;   // 'expense' | 'cashbreak' | null
+
+    const denomTotal = DENOMS.reduce(function (a, d) { return a + d * (Number(S.denoms[d]) || 0); }, 0);
+
+    const row = function (label, value, color) {
+      return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "11px 0", borderBottom: "1px dashed #e5e7eb" }) + '">' +
+        '<span style="' + U.sty({ fontSize: 14, color: "#555" }) + '">' + label + "</span>" +
+        '<span style="' + U.sty({ fontSize: 15, fontWeight: 700, color: color || "#111" }) + '">' + value + "</span></div>";
+    };
+
+    const toggles = '<div style="' + U.sty({ display: "flex", gap: 8, padding: "10px 0 2px" }) + '">' +
+      [["expense", "Expense"], ["cashbreak", "Cashbreak"]].map(function (t) {
+        const on = panel === t[0];
+        return '<button type="button" class="rd-chip"' + U.act("cash-panel", t[0]) + ' style="' + U.sty({
+          flex: 1, padding: "9px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer",
+          border: "1.5px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#eef6f7" : "white",
+          color: on ? U.BRAND : "#6b7280",
+        }) + '">' + t[1] + "</button>";
+      }).join("") + "</div>";
+
+    const expensePanel = panel === "expense"
+      ? '<div style="' + U.sty({ padding: "10px 0 2px" }) + '">' +
+          '<input inputmode="numeric" data-model="expense" value="' + U.esc(S.expense || "") + '" placeholder="Enter amount…" style="' + U.sty({
+            width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #e5e7eb",
+            fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box",
+          }) + '" />' +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 6 }) + '">Fuel, tolls and loading are deducted from the cash you hand over.</div></div>'
+      : "";
+
+    const cashbreakPanel = panel === "cashbreak"
+      ? '<div style="' + U.sty({ padding: "10px 0 2px" }) + '">' +
+          '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 70px 90px", columnGap: 8, fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", paddingBottom: 6, borderBottom: "1px solid #e5e7eb" }) + '">' +
+            "<div>Currency</div><div style=\"text-align:center\">Qty</div><div style=\"text-align:right\">Amount</div></div>" +
+          DENOMS.map(function (d) {
+            const qty = Number(S.denoms[d]) || 0;
+            return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 70px 90px", columnGap: 8, alignItems: "center", padding: "7px 0", borderBottom: "1px solid #f5f5f5" }) + '">' +
+              '<div style="' + U.sty({ fontSize: 14, fontWeight: 600, color: "#111" }) + '">' + d + "</div>" +
+              '<input inputmode="numeric" data-model="denom-' + d + '" value="' + U.esc(qty ? String(qty) : "") + '" placeholder="0" style="' + U.sty({
+                width: "100%", height: 34, textAlign: "center", fontSize: 14, fontWeight: 700,
+                border: "1.5px solid #e5e7eb", borderRadius: 8, outline: "none", boxSizing: "border-box",
+              }) + '" />' +
+              '<div style="' + U.sty({ fontSize: 13, fontWeight: 700, textAlign: "right", color: "#111" }) + '">' + U.inr(d * qty) + "</div></div>";
+          }).join("") +
+          '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", padding: "10px 0 0", fontSize: 14, fontWeight: 800 }) + '">' +
+            "<span>Total</span><span>" + U.inr(denomTotal) + "</span></div>" +
+          '<div style="margin-top:10px">' + U.BtnSm({ variant: "grey", label: "Save Breakdown", actName: "cash-save-breakdown" }) + "</div></div>"
+      : "";
+
+    const summary = U.Card(
+      U.CardTitle("Summary") +
+      row("Opening Cash (change)", rawInr(openingCash)) +
+      row("Cash Collected", U.inr(cashCollected), "#16a34a") +
+      row("UPI Collected", U.inr(upiCollected), "#2563eb") +
+      toggles + expensePanel + cashbreakPanel +
+      '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, marginTop: 4, borderTop: "1px solid #e5e7eb" }) + '">' +
+        '<span style="' + U.sty({ fontSize: 15, fontWeight: 700, color: "#111" }) + '">Cash to Hand Over</span>' +
+        '<span style="' + U.sty({ fontSize: 20, fontWeight: 800, color: "#111" }) + '">' + U.inr(toHandOver) + "</span></div>"
     );
 
     const entry = U.Card(
-      '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }) + '">Cash you counted</div>' +
+      '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }) + '">Actual Cash Counted</div>' +
       '<input inputmode="numeric" data-model="counted" value="' + U.esc(S.counted) + '" placeholder="0" style="' + U.sty({
-        width: "100%", padding: "14px", borderRadius: 12,
+        width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
         border: "2px solid " + (counted === null ? "#e5e7eb" : diff === 0 ? "#86efac" : "#fbbf24"),
-        fontSize: 26, fontFamily: "inherit", fontWeight: 800, textAlign: "center",
+        fontSize: 22, fontFamily: "inherit", fontWeight: 800, textAlign: "center",
         background: counted !== null && diff !== 0 ? "#fffbeb" : "white", color: "#111", outline: "none",
       }) + '" />' +
       (counted !== null
-        ? '<div style="' + U.sty({ marginTop: 10, textAlign: "center", fontSize: 15, fontWeight: 800, color: diff === 0 ? "#16a34a" : "#b45309" }) + '">' +
+        ? '<div style="' + U.sty({ marginTop: 8, textAlign: "center", fontSize: 14, fontWeight: 800, color: diff === 0 ? "#16a34a" : "#b45309" }) + '">' +
           (diff === 0 ? "✓ Matches exactly" : (diff > 0 ? "▲ " + rawInr(Math.abs(diff)) + " over" : "▼ " + rawInr(Math.abs(diff)) + " short")) + "</div>"
         : "") +
-      '<div style="' + U.sty({ marginTop: 14, paddingTop: 12, borderTop: "1px solid #f0f0f0", display: "flex", alignItems: "center", gap: 10 }) + '">' +
-        '<div style="' + U.sty({ flex: 1 }) + '">' +
-          '<div style="' + U.sty({ fontSize: 13, fontWeight: 600, color: "#111" }) + '">Expenses</div>' +
-          '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 1 }) + '">Fuel, tolls, loading</div>' +
-        "</div>" +
-        '<input inputmode="numeric" data-model="expense" value="' + U.esc(S.expense || "") + '" placeholder="0" style="' + U.sty({
-          width: 92, padding: "10px", borderRadius: 10, border: "1.5px solid #e5e7eb",
-          fontSize: 15, fontFamily: "inherit", fontWeight: 700, textAlign: "center", outline: "none",
-        }) + '" />' +
-      "</div>"
+      '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.5px", margin: "16px 0 8px" }) + '">Delivery Person *</div>' +
+      '<input type="text" data-model="person" value="' + U.esc(S.person || "") + '" placeholder="Enter delivery person\'s name (min. 3 chars)" style="' + U.sty({
+        width: "100%", padding: "11px 14px", borderRadius: 10, boxSizing: "border-box",
+        border: "1.5px solid " + (personOk ? "#e5e7eb" : "#fbbf24"),
+        fontSize: 14, fontFamily: "inherit", outline: "none",
+      }) + '" />'
     );
 
     const footer = confirming
@@ -323,16 +406,48 @@
         })
       : U.BtnXL({
           variant: "brand",
-          label: counted === null ? "Enter the cash you counted" : "Hand Over " + U.inr(counted) + " →",
-          disabled: counted === null, actName: "handover-confirm",
+          label: counted === null ? "Count cash to continue" : !personOk ? "Enter the delivery person" : "Hand Over " + U.inr(counted) + " →",
+          disabled: counted === null || !personOk, actName: "handover-confirm",
         });
 
     return U.MobileHeader({ title: "Cash Handover", subtitle: "Count your cash before handing over", backLabel: "Settlement", backAct: "back" }) +
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.4 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +
-        U.Spacer(12) + target + entry + U.Spacer(12) +
+        U.Spacer(12) + summary + entry + U.Spacer(12) +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
+  });
+
+  window.RD.action("cash-panel", function (which) {
+    const S = window.RD.state.scratch;
+    S.cashPanel = S.cashPanel === which ? null : which;
+    window.RD.render();
+  });
+  window.RD.action("model:denom#", function (value, d) {
+    const S = window.RD.state.scratch;
+    S.denoms[d] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+    const el = document.querySelector('[data-model="denom-' + d + '"]');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+  window.RD.action("model:person", function (v) {
+    const S = window.RD.state.scratch;
+    const was = (S.person || "").trim().length >= 3;
+    S.person = v;
+    if (was !== (v.trim().length >= 3)) {
+      window.RD.render();
+      const el = document.querySelector('[data-model="person"]');
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
+  });
+  window.RD.action("cash-save-breakdown", function () {
+    const S = window.RD.state.scratch;
+    const total = DENOMS.reduce(function (a, d) { return a + d * (Number(S.denoms[d]) || 0); }, 0);
+    // Saving the breakdown fills the counted figure from it, which is the point
+    // of counting by denomination in the first place.
+    S.counted = String(total);
+    window.RD.toast("Breakdown saved · " + U.inr(total) + " counted");
+    window.RD.render();
   });
 
   window.RD.action("model:expense", function (v) { window.RD.state.scratch.expense = v.replace(/\D/g, ""); window.RD.render(); });

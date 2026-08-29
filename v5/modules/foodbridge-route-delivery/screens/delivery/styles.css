@@ -24,6 +24,15 @@ html, body {
   background: #f0f2f5;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+
+  /* Matches the host app's global base exactly. This is not cosmetic: the real
+     app inherits 13.5px/1.5 from its own global CSS, and every text block in
+     every screen is sized off that line-height. Leaving it at the browser
+     default (16px / normal ~1.2) made every heading, row and card render about
+     85% of its true height, so the whole app read subtly cramped and no screen
+     lined up with the reference. Measured, not guessed. */
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
 /* The phone frame. Mirrors SCREEN in ui.jsx: a flex column that owns the full
@@ -52,7 +61,14 @@ html, body {
 .rd-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .rd-noscrollbar::-webkit-scrollbar { display: none; }
 
-button { font-family: inherit; }
+/* Form controls do not inherit font or line-height from body by default; the
+   host app gets this from Tailwind's preflight. Without it every button, chip
+   and input renders ~4px shorter than the real app, which is small per control
+   and adds up to visibly different rows and touch targets. */
+button, input, textarea, select {
+  font-family: inherit;
+  line-height: inherit;
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    From here down: route-delivery-app/components/ui.css, ported verbatim.

@@ -109,26 +109,56 @@
       : U.fmtDateLabel(S.dateFilter);
 
     return '<div style="' + U.sty({ display: "flex", gap: 8, padding: "12px 12px 10px", alignItems: "center" }) + '">' +
-      // Search
-      '<div style="' + U.sty({ flex: 1, position: "relative", display: "flex", alignItems: "center" }) + '">' +
-        '<span style="' + U.sty({ position: "absolute", left: 12, fontSize: 14, color: "#9ca3af", pointerEvents: "none" }) + '">🔍</span>' +
-        '<input data-model="search" value="' + U.esc(S.search) + '" placeholder="Search routes..." style="' + U.sty({
-          width: "100%", padding: "10px 12px 10px 34px", borderRadius: 12,
-          border: "1.5px solid #e5e7eb", background: "white", fontSize: 14,
-          fontFamily: "inherit", color: "#111",
+      // Search. The dashboard has its own field rather than the shared
+      // SearchInput: an SVG magnifier (not the emoji), tighter padding, and a
+      // grey circular clear button. Matched to the reference exactly.
+      '<div style="' + U.sty({ flex: 1, minWidth: 0, position: "relative" }) + '">' +
+        '<svg viewBox="0 0 20 20" fill="none" stroke="#9ca3af" stroke-width="2" style="' + U.sty({ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, pointerEvents: "none" }) + '">' +
+          '<circle cx="8.5" cy="8.5" r="5.5"></circle><path d="M15 15l-3-3" stroke-linecap="round"></path></svg>' +
+        '<input type="text" data-model="search" value="' + U.esc(S.search) + '" placeholder="Search routes…" style="' + U.sty({
+          width: "100%", boxSizing: "border-box", padding: "11px 32px 11px 33px",
+          borderRadius: 12, border: "1.5px solid #e5e7eb", background: "white",
+          fontSize: 14, color: "#111", fontFamily: "inherit", outline: "none",
         }) + '" />' +
+        (S.search
+          ? '<button type="button"' + U.act("clear-search") + ' style="' + U.sty({
+              position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)",
+              background: "#f3f4f6", border: "none", borderRadius: "50%",
+              width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#6b7280", fontSize: 11, cursor: "pointer", lineHeight: 1,
+            }) + '">✕</button>'
+          : "") +
       "</div>" +
-      // Date filter — a real <input type=date> so the OS picker opens on a phone
-      '<label class="rd-chip" style="' + U.sty({
-        display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 12,
-        border: "1.5px solid " + (active ? U.BRAND : "#e5e7eb"),
-        background: active ? "#eaf2f4" : "white",
-        color: active ? U.BRAND : "#6b7280", fontSize: 13, fontWeight: active ? 700 : 500,
-        cursor: "pointer", whiteSpace: "nowrap", position: "relative",
-      }) + '">📅 ' + U.esc(label) +
-        '<input type="date" data-model="date" value="' + U.esc(S.dateFilter || "") + '" style="' + U.sty({ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }) + '" />' +
-      "</label>" +
-      (active ? '<button type="button"' + U.act("clear-date") + ' style="' + U.sty({ background: "transparent", border: "none", color: "#9ca3af", fontSize: 16, cursor: "pointer", padding: 4 }) + '">✕</button>' : "") +
+      // Date filter. Matches the reference exactly: an inline SVG calendar (not
+      // the colour emoji), and the clear ✕ absolutely positioned INSIDE the
+      // button's box with a 28x28 touch target, which is why the button carries
+      // 34px of right padding while a date is set.
+      '<div style="' + U.sty({ position: "relative", flexShrink: 0 }) + '">' +
+        '<label class="rd-chip" style="' + U.sty({
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "11px " + (active ? 34 : 12) + "px 11px 10px",
+          borderRadius: 12,
+          border: "1.5px solid " + (active ? U.BRAND : "#e5e7eb"),
+          background: active ? "#eef6f7" : "white",
+          color: active ? U.BRAND : "#6b7280",
+          fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer",
+          whiteSpace: "nowrap", position: "relative",
+        }) + '">' +
+          '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;flex-shrink:0">' +
+            '<rect x="2" y="4" width="16" height="14" rx="2"></rect>' +
+            '<path d="M6 2v4M14 2v4M2 9h16" stroke-linecap="round"></path></svg>' +
+          U.esc(label) +
+          '<input type="date" data-model="date" value="' + U.esc(S.dateFilter || "") + '" style="' + U.sty({ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }) + '" />' +
+        "</label>" +
+        (active
+          ? '<button type="button" aria-label="Clear date filter"' + U.act("clear-date") + ' style="' + U.sty({
+              position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", padding: 0,
+              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+              color: U.BRAND, fontSize: 13, cursor: "pointer", lineHeight: 1, fontWeight: 700, zIndex: 2,
+            }) + '">✕</button>'
+          : "") +
+      "</div>" +
       "</div>";
   }
 
@@ -173,7 +203,13 @@
       U.DriverHeader(driver.name, "New Delivery") +
       '<div class="rd-body">' +
         tiles +
-        U.SectionHeader("Today's routes") +
+        // Header text is derived, not fixed — QA:
+        //   selectedDate ? (isToday ? "Today's Routes" : `Routes · <date>`) : "All Routes"
+        U.SectionHeader(
+          !S.dateFilter ? "All Routes"
+            : S.dateFilter === U.toLocalDateStr(new Date()) ? "Today's Routes"
+            : "Routes · " + U.fmtDateLabel(S.dateFilter)
+        ) +
         SearchRow() +
         StatusFilterRow() +
         list +
@@ -191,6 +227,11 @@
 
   window.RD.action("status-filter", function (value) {
     window.RD.state.statusFilter = value === "null" ? null : value;
+    window.RD.render();
+  });
+
+  window.RD.action("clear-search", function () {
+    window.RD.state.search = "";
     window.RD.render();
   });
 
