@@ -14,6 +14,63 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — Delivery Management is the real `/route-delivery`, running offline
+
+The replacement the suspension below was clearing the way for. Delivery Management is back on
+`#/distribution-logistics/delivery-management`, and what loads there is not a mockup of the
+route-delivery app — it **is** the route-delivery app, from `nishant-devekar/storefront-frontend`,
+built to run with no network at all.
+
+**Why it was built rather than drawn.** The real screen is 24 pages, 20 controllers, 8 models
+and 8 validation modules — about 24,500 lines. Redrawing that by hand gets an approximation of
+the parts someone thought to redraw. Building the actual app gets every page, every branch,
+every empty state and every validation message exactly right, because there is nothing to copy:
+the pixels are the app's own.
+
+**How it runs with no backend.** `storefront-frontend` already shipped an 808-line in-memory
+database (`services/mock/db.js`) and an SDK test double against it. Four things closed the gap
+between that and a working offline app, all on the `feat/route-delivery-mock-build` branch there
+and none of them touching app code:
+
+- **17 missing SDK methods.** The service layer had migrated to the real SDK and the double had
+  drifted to 26 of the 43 methods now called. The 17 absent ones were not edge cases —
+  `pauseForRestock`, `resumeFromRestock`, `createOnTheMoveRoute`, `getBookingStock`,
+  `recordAssetMovement`, `recordRoutePayment`, `updateStopItems`, `createRouteReturn`,
+  `getRouteMetrics`, `getReportsSummary` and the rest gate the restock, assets, returns, reports
+  and analytics branches entirely.
+- **Date rebasing.** The seed is written against a fixed 2026-05-24, so on any other day the
+  dashboard's "today's routes" query matched nothing and the app opened on an empty list. Every
+  date and timestamp is now shifted by the whole number of days to today, preserving the
+  relative spacing that makes RTE-004 "yesterday's closed route" and RTE-005 "tomorrow's".
+- **A session that never existed.** Privileges arrive from `setup.getPrivateConfig()`. Offline
+  that call failed, and `SidebarContext`'s catch calls `logoutUser()` → `localStorage.clear()`,
+  so every load wiped itself and every screen sat behind "Access Restricted". Answering that one
+  call fixes it at the source and lets the real success path run.
+- **Two remaining calls silenced** — `getPublicConfig` and the non-fatal tenant-list lookup — so
+  the module makes **zero** network requests. It loads four files: the bundle, v5's own vendored
+  Inter, and two woff2 faces.
+
+**What is verified.** All 23 routes render: dashboard, pre-start, load stock, opening cash,
+sign-off, queue, at-customer, payment, payment success, skip stop, new customer, stop summary,
+settlement overview, stock count, cash handover, closed, analytics, reports, manage assets,
+return acceptance, restock, restock load, restock success. Writes persist — collecting ₹680 from
+Meena Kirana moved the route total from ₹0 to ₹680 and marked the stop delivered — and the
+receipt, printer-type and WhatsApp-share branches all open.
+
+**Where it lives, and what it is honest about.** `modules/storefront-route-delivery/` — named for
+the repo it was built from, not for the distribution-logistics team, who did not write it. It is
+a compiled bundle (30 files, 3.6 MB), unlike every other module in v5, which is readable crawled
+source. Rebuild it with `npm run build:route-delivery-mock` in `storefront-frontend` and copy
+`dist-route-delivery-mock/` over it, renaming `mock-index.html` to `index.html` and repointing
+the font link at `../../../../vendor/`.
+
+**It refuses to render above 640px**, showing the app's own phone-only notice. That is the real
+app's behaviour, not something added here, and it suits a cut being designed at 375×812.
+
+The screen it replaces is still at `#/delivery-management-retired`.
+
+**Cache token** bumped `20260829b` → `20260829c`.
+
 ### 29 August 2026 — Delivery Management suspended, pending a new cut
 
 `#/distribution-logistics/delivery-management` is gone from the nav. Unlike the Stock Audit

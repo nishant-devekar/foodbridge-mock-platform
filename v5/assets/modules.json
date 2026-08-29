@@ -170,6 +170,14 @@
           "hideBurger": true
         },
         {
+          "id": "delivery-management",
+          "name": "Delivery Management",
+          "url": "modules/storefront-route-delivery/screens/delivery/index.html",
+          "clipLeft": 0,
+          "fullBleed": true,
+          "owner": "nishant-devekar/storefront-frontend"
+        },
+        {
           "id": "logistic-returns",
           "name": "Logistic Returns",
           "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html",
