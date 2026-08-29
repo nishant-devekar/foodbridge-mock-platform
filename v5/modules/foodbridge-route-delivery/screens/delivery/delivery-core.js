@@ -194,10 +194,15 @@
     const path = el.getAttribute("data-model");
     const exact = actions["model:" + path];
     if (exact) { exact(el.value, el); return; }
-    const cut = path.lastIndexOf("-");
-    if (cut > 0) {
-      const wild = actions["model:" + path.slice(0, cut) + "#"];
-      if (wild) wild(el.value, path.slice(cut + 1), el);
+    // Try each hyphen from the left and take the first prefix that has a
+    // wildcard handler. Splitting on the LAST hyphen breaks every key that
+    // contains one — "give-AST-CRATE-L" resolved to base "give-AST-CRATE",
+    // which nothing handles, so asset quantities silently went nowhere.
+    // Left-to-right also keeps "stock-qty-0" working, where the base is two
+    // segments long.
+    for (let i = path.indexOf("-"); i > 0; i = path.indexOf("-", i + 1)) {
+      const wild = actions["model:" + path.slice(0, i) + "#"];
+      if (wild) { wild(el.value, path.slice(i + 1), el); return; }
     }
   }
 

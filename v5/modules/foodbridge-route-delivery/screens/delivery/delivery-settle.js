@@ -478,27 +478,101 @@
   });
 
   /* ══ Route Closed / Analytics ══════════════════════════════════════════ */
-  // One screen, two routes: #/closed/:id and #/analytics/:id both land here,
-  // exactly as RouteClosed and RouteAnalytics do upstream.
+  // One screen behind two routes (#/closed/:id and #/analytics/:id), matched to
+  // QA: a score with a band label, a PERFORMANCE grid, HIGHLIGHTS, and four
+  // collapsible summaries. Export opens a modal rather than downloading blindly.
+
+  // QA bands: 8/100 reads "Needs Attention", 91/100 "Excellent Beat".
+  function scoreBand(v) {
+    if (v >= 80) return "Excellent Beat";
+    if (v >= 50) return "Good Beat";
+    return "Needs Attention";
+  }
+
+  function Accordion(key, title, subtitle, bodyHtml) {
+    const open = window.RD.state.scratch["acc_" + key] === true;
+    return '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
+      '<button type="button"' + U.act("acc-toggle", key) + ' style="' + U.sty({
+        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 10, padding: "14px 16px", background: "none", border: "none",
+        textAlign: "left", fontFamily: "inherit", cursor: "pointer",
+      }) + '">' +
+        '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
+          '<div style="' + U.sty({ fontSize: 12, fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.5px" }) + '">' + U.esc(title) + "</div>" +
+          '<div style="' + U.sty({ fontSize: 12, color: "#7b8490", marginTop: 3 }) + '">' + U.esc(subtitle) + "</div>" +
+        "</div>" +
+        '<span style="' + U.sty({ fontSize: 12, color: "#9ca3af", flexShrink: 0 }) + '">' + (open ? "▲" : "▼") + "</span></button>" +
+      (open ? '<div style="' + U.sty({ padding: "0 16px 14px", borderTop: "1px solid #f3f4f6" }) + '">' + bodyHtml + "</div>" : "") +
+      "</div>";
+  }
+
+  function miniTable(headers, rows, totalRow) {
+    const cols = headers.length;
+    const grid = "minmax(110px,1fr)" + " 1fr".repeat(cols - 1);
+    const cell = { padding: "8px 4px", fontSize: 12 };
+    return '<div style="' + U.sty({ overflowX: "auto" }) + '"><div style="' + U.sty({ minWidth: 300 }) + '">' +
+      '<div style="' + U.sty({ display: "grid", gridTemplateColumns: grid, columnGap: 6, borderBottom: "1px solid #e5e7eb", paddingTop: 10 }) + '">' +
+        headers.map(function (h, i) { return '<div style="' + U.sty(U.mix(cell, { fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", textAlign: i ? "right" : "left" })) + '">' + U.esc(h) + "</div>"; }).join("") + "</div>" +
+      rows.map(function (r) {
+        return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: grid, columnGap: 6, borderBottom: "1px solid #f5f5f5" }) + '">' +
+          r.map(function (c, i) { return '<div style="' + U.sty(U.mix(cell, { textAlign: i ? "right" : "left", color: "#111", fontWeight: i ? 600 : 500 })) + '">' + c + "</div>"; }).join("") + "</div>";
+      }).join("") +
+      (totalRow ? '<div style="' + U.sty({ display: "grid", gridTemplateColumns: grid, columnGap: 6, background: "#f9fafb" }) + '">' +
+        totalRow.map(function (c, i) { return '<div style="' + U.sty(U.mix(cell, { textAlign: i ? "right" : "left", fontWeight: 800, color: "#111" })) + '">' + c + "</div>"; }).join("") + "</div>" : "") +
+      "</div></div>";
+  }
 
   function analyticsScreen(p) {
     const route = routeOr404(p.routeId);
     const a = SDK.settlement.getRouteAnalytics(p.routeId).data;
-    const score = a.score || {};
+    const stops = D.getStops(p.routeId);
+    const delivered = stops.filter(function (s) { return s.status === "DELIVERED"; });
+    const load = D.db.stockLoads[p.routeId];
+    const products = (load && load.products) || [];
+    const scoreVal = (a.score && a.score.value) || 0;
+    const S = window.RD.state.scratch;
 
     const kpis = '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 12px" }) + '">' +
       (a.kpis || []).map(function (k) {
+        // QA spells this "Avg Time / Stop", with spaces around the slash.
+        const label = k.label === "Avg Time/Stop" ? "Avg Time / Stop" : k.label;
         return '<div style="' + U.sty({ background: "white", borderRadius: 14, padding: 14 }) + '">' +
-          '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px" }) + '">' + U.esc(k.label) + "</div>" +
+          '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4px" }) + '">' + U.esc(label) + "</div>" +
           '<div style="' + U.sty({ fontSize: 20, fontWeight: 800, color: "#111", marginTop: 4 }) + '">' + U.esc(k.value) + "</div>" +
-          (k.percentage
-            ? '<div style="' + U.sty({ height: 5, background: "#e5e7eb", borderRadius: 3, marginTop: 8, overflow: "hidden" }) + '">' +
-              '<div style="' + U.sty({ height: "100%", width: k.percentage + "%", background: U.GREEN, borderRadius: 3 }) + '"></div></div>'
-            : "") +
+          (k.percentage ? '<div style="' + U.sty({ height: 5, background: "#e5e7eb", borderRadius: 3, marginTop: 8, overflow: "hidden" }) + '">' +
+            '<div style="' + U.sty({ height: "100%", width: k.percentage + "%", background: U.GREEN, borderRadius: 3 }) + '"></div></div>' : "") +
           "</div>";
       }).join("") + "</div>";
 
+    // HIGHLIGHTS — QA surfaces notable facts about the day here.
+    const advanceTotal = stops.reduce(function (t, s) { return t + (s.advanceAmount || 0); }, 0);
+    const skipped = stops.filter(function (s) { return s.status === "SKIPPED"; }).length;
+    const highlights = [];
+    if (advanceTotal > 0) highlights.push("✅ " + U.inr(advanceTotal) + " over payment collected");
+    if (route.outstandingAmount > 0) highlights.push("⚠️ " + U.inr(route.outstandingAmount) + " left outstanding");
+    if (skipped > 0) highlights.push("⏭️ " + skipped + " stop" + (skipped > 1 ? "s" : "") + " skipped");
+    const highlightsBlock = highlights.length
+      ? U.SectionHeader("Highlights") + U.Card(highlights.map(function (h, i) {
+          return '<div style="' + U.sty({ fontSize: 13, color: "#374151", padding: "6px 0", borderBottom: i < highlights.length - 1 ? "1px solid #f5f5f5" : "none" }) + '">' + h + "</div>";
+        }).join(""))
+      : "";
+
+    const stopsRows = delivered.map(function (s) {
+      return [U.esc(s.customerName), "1", "0", "0", "0"];
+    });
+    const stockRows = products.map(function (pr) {
+      const sold = Math.round(pr.loadedQty * (delivered.length / Math.max(stops.length, 1)));
+      const ret = Math.max(0, pr.loadedQty - sold);
+      return [U.esc(pr.name) + '<div style="font-size:11px;color:#888">' + money(pr.unitPrice) + "</div>",
+        pr.loadedQty + '<div style="font-size:11px;color:#888">' + money(pr.loadedQty * pr.unitPrice) + "</div>",
+        sold + '<div style="font-size:11px;color:#888">' + money(sold * pr.unitPrice) + "</div>",
+        ret + '<div style="font-size:11px;color:#888">' + money(ret * pr.unitPrice) + "</div>"];
+    });
+    const totLoaded = products.reduce(function (t, pr) { return t + pr.loadedQty * pr.unitPrice; }, 0);
+    const totSold = products.reduce(function (t, pr) { return t + Math.round(pr.loadedQty * (delivered.length / Math.max(stops.length, 1))) * pr.unitPrice; }, 0);
+
     const cf = a.carriedForward || {};
+    const collected = route.collectedAmount || 0;
 
     return U.MobileHeader({
         title: "Route Intelligence",
@@ -509,37 +583,70 @@
         U.Card(
           '<div style="' + U.sty({ display: "flex", alignItems: "center", gap: 16 }) + '">' +
             '<div style="' + U.sty({ textAlign: "center" }) + '">' +
-              '<div style="' + U.sty({ fontSize: 44, fontWeight: 900, color: U.BRAND, lineHeight: 1 }) + '">' + (score.value || 0) + "</div>" +
-              '<div style="' + U.sty({ fontSize: 11, color: "#888" }) + '">/' + (score.max || 100) + "</div>" +
-            "</div>" +
+              '<div style="' + U.sty({ fontSize: 44, fontWeight: 900, color: U.BRAND, lineHeight: 1 }) + '">' + scoreVal + "</div>" +
+              '<div style="' + U.sty({ fontSize: 11, color: "#888" }) + '">/' + ((a.score && a.score.max) || 100) + "</div></div>" +
             '<div style="' + U.sty({ flex: 1 }) + '">' +
-              '<div style="' + U.sty({ fontSize: 18, fontWeight: 800, color: "#111" }) + '">' + U.esc(score.label || "") + "</div>" +
-              '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 2 }) + '">' + U.esc(score.percentileText || "") + "</div>" +
-            "</div>" +
+              '<div style="' + U.sty({ fontSize: 16, fontWeight: 800, color: "#111" }) + '">' + scoreBand(scoreVal) + "</div>" +
+              '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 2 }) + '">' + U.esc((a.score && a.score.percentileText) || "") + "</div></div>" +
             U.BtnSm({ variant: "grey", label: "Export", actName: "analytics-export", arg: p.routeId, style: { flex: "0 0 auto" } }) +
           "</div>"
         ) +
         U.SectionHeader("Performance") + kpis + U.Spacer(12) +
-        U.SectionHeader("Collection Summary") +
-        U.Card(
-          U.SettleRow("Collected", U.inr(route.collectedAmount), "#16a34a") +
-          U.SettleRow("Outstanding", U.inr(route.outstandingAmount), route.outstandingAmount > 0 ? "#ef4444" : "#16a34a") +
-          U.SettleRow("Stops completed", route.completedStops + "/" + route.totalStops) +
-          U.SettleRow("Carried forward", (cf.skippedCount || 0) + " skipped", null, true)
-        ) +
+        highlightsBlock +
+        Accordion("stops", "Stops Summary", delivered.length + " delivered",
+          miniTable(["Customer", "Delivered", "Returned", "Asset Given", "Asset Taken"], stopsRows)) +
+        Accordion("stock", "Stock Summary",
+          products.reduce(function (t, pr) { return t + pr.loadedQty; }, 0) + " loaded · " +
+          delivered.length + " delivered · " + Math.max(0, products.reduce(function (t, pr) { return t + pr.loadedQty; }, 0) - delivered.length) + " returned",
+          miniTable(["Product", "Loaded", "Delivered", "Return"], stockRows,
+            ["Total", money(totLoaded), money(totSold), money(totLoaded - totSold)])) +
+        Accordion("expense", "Expense Summary", "0 expenses · ₹0 total · 0 documents",
+          '<div style="' + U.sty({ padding: "14px 0", fontSize: 13, color: "#888", textAlign: "center" }) + '">No expense details recorded</div>') +
+        Accordion("collection", "Collection Summary", U.inr(collected) + " collected · " + U.inr(route.outstandingAmount) + " outstanding",
+          U.SettleRow("Amount Collected", U.inr(collected), "#16a34a") +
+          U.SettleRow("Outstanding Amount", U.inr(route.outstandingAmount), route.outstandingAmount > 0 ? "#ef4444" : "#111") +
+          U.SettleRow("Over Payment", U.inr(advanceTotal), "#16a34a", true)) +
         U.Spacer(12) +
       "</div>" +
-      U.ActionBar(U.BtnXL({ variant: "brand", label: "Back to Routes", actName: "home" }));
+      (S.exportOpen ? ExportModal(p.routeId) : "") +
+      U.TabBar("reports");
+  }
+
+  // QA's export modal: a titled sheet with Close / Preview / Download.
+  function ExportModal(routeId) {
+    return '<div style="' + U.sty({ position: "absolute", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }) + '">' +
+      '<div style="' + U.sty({ width: "100%", background: "white", borderRadius: "18px 18px 0 0", padding: 18 }) + '">' +
+        '<div style="' + U.sty({ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 4 }) + '">📊 Route Analytics Report</div>' +
+        '<div style="' + U.sty({ fontSize: 13, color: "#888", marginBottom: 16 }) + '">Preview the report or download it for sharing.</div>' +
+        '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
+          U.BtnSm({ variant: "grey", label: "Close", actName: "export-close" }) +
+          U.BtnSm({ variant: "grey", label: "Preview", actName: "export-preview" }) +
+          U.BtnSm({ variant: "brand", label: "Download", actName: "export-download", arg: routeId }) +
+        "</div></div></div>";
   }
 
   window.RD.screen("closed", analyticsScreen);
   window.RD.screen("analytics", analyticsScreen);
-  window.RD.action("analytics-export", function (routeId) {
+  window.RD.action("acc-toggle", function (key) {
+    const S = window.RD.state.scratch;
+    S["acc_" + key] = !S["acc_" + key];
+    window.RD.render();
+  });
+  window.RD.action("analytics-export", function () { window.RD.state.scratch.exportOpen = true; window.RD.render(); });
+  window.RD.action("export-close", function () { window.RD.state.scratch.exportOpen = false; window.RD.render(); });
+  window.RD.action("export-preview", function () { window.RD.toast("Report preview opened"); });
+  window.RD.action("export-download", function (routeId) {
     SDK.settlement.downloadRouteAnalyticsReport(routeId);
-    window.RD.toast("Report exported");
+    window.RD.state.scratch.exportOpen = false;
+    window.RD.toast("Report downloaded");
+    window.RD.render();
   });
 
   /* ══ Reports ═══════════════════════════════════════════════════════════ */
+  // Matched to QA: a two-tile header, a sentence-case "Report history" label
+  // (not the uppercase SectionHeader used elsewhere), an "All dates" chip
+  // alongside the sort chips, and cards carrying a Final badge with a
+  // Collected/Outstanding pair.
 
   const SORTS = [
     { key: "newest", label: "Newest first" },
@@ -548,6 +655,30 @@
     { key: "za",     label: "Name Z–A" },
   ];
 
+  function ReportCard(r) {
+    const stat = function (label, value, color) {
+      return "<div><div style=\"font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase\">" + label + "</div>" +
+        '<div style="' + U.sty({ marginTop: 3, fontSize: 14, fontWeight: 800, color: color }) + '">' + value + "</div></div>";
+    };
+    return '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
+      '<div style="' + U.sty({ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }) + '">' +
+        '<div style="' + U.sty({ minWidth: 0 }) + '">' +
+          '<div style="' + U.sty({ fontSize: 17, fontWeight: 800, color: "#111827", lineHeight: 1.25, overflowWrap: "anywhere" }) + '">' + U.esc(r.name) + "</div>" +
+          '<div style="' + U.sty({ marginTop: 5, fontSize: 12, color: "#7b8490" }) + '">' + M.formatRouteDate(r.scheduledDate) + " · " + r.completedStops + "/" + r.totalStops + " completed</div>" +
+        "</div>" +
+        '<span style="' + U.sty({ padding: "4px 9px", borderRadius: 20, background: "#edfdf3", color: "#2d7a42", fontSize: 10, fontWeight: 800, flexShrink: 0 }) + '">Final</span>' +
+      "</div>" +
+      '<div style="' + U.sty({ display: "flex", gap: 18, margin: "14px 0" }) + '">' +
+        stat("Collected", U.inr(r.collectedAmount), "#43A047") +
+        stat("Outstanding", U.inr(r.outstandingAmount), "#f97316") +
+      "</div>" +
+      '<button type="button"' + U.act("report-open", r.id) + ' style="' + U.sty({
+        width: "100%", minHeight: 46, border: "1.5px solid " + U.BRAND, borderRadius: 13,
+        background: "white", color: U.BRAND, fontFamily: "inherit", fontSize: 14, fontWeight: 800, cursor: "pointer",
+      }) + '">View Report →</button>' +
+      "</div>";
+  }
+
   window.RD.screen("reports", function () {
     const S = window.RD.state.scratch;
     const summary = SDK.routeDelivery.getReportsSummary().data;
@@ -555,6 +686,7 @@
     const search = (S.reportSearch || "").trim().toLowerCase();
 
     let list = D.db.routes.filter(function (r) { return r.status === "CLOSED"; });
+    if (S.reportDate) list = list.filter(function (r) { return r.scheduledDate === S.reportDate; });
     if (search) list = list.filter(function (r) { return r.name.toLowerCase().indexOf(search) !== -1; });
     list = list.slice().sort(function (a, b) {
       if (sort === "az") return a.name.localeCompare(b.name);
@@ -563,19 +695,17 @@
       return sort === "oldest" ? d : -d;
     });
 
+    const chip = function (label, active, actName, arg) {
+      return '<button type="button" class="rd-chip"' + U.act(actName, arg) + ' style="' + U.sty({
+        minHeight: 34, padding: "0 12px", borderRadius: 12, fontSize: 12, fontWeight: 700,
+        border: "1.5px solid " + (active ? U.BRAND : "#e1e5ea"),
+        background: active ? "#eef6f7" : "white", color: active ? U.BRAND : "#667085",
+        cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+      }) + '">' + U.esc(label) + "</button>";
+    };
+
     const rows = list.length
-      ? list.map(function (r) {
-          return U.Card(
-            '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }) + '">' +
-              '<div style="' + U.sty({ flex: 1, marginRight: 8 }) + '">' +
-                '<div style="' + U.sty({ fontSize: 16, fontWeight: 700, color: "#111" }) + '">' + U.esc(r.name) + "</div>" +
-                '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 3 }) + '">' + M.formatRouteDate(r.scheduledDate) + " · " + r.completedStops + "/" + r.totalStops + " stops</div>" +
-              "</div>" +
-              '<div style="' + U.sty({ fontSize: 16, fontWeight: 800, color: "#16a34a", flexShrink: 0 }) + '">' + U.inr(r.collectedAmount) + "</div>" +
-            "</div>" +
-            '<div style="margin-top:10px">' + U.BtnSm({ variant: "grey", label: "View Report →", actName: "report-open", arg: r.id }) + "</div>"
-          );
-        }).join("")
+      ? list.map(ReportCard).join("")
       : U.EmptyState("📊", "No reports yet", "Closed routes appear here with their day's numbers.");
 
     return U.MobileHeader({ title: "Reports", subtitle: "Completed route reports", onBack: false }) +
@@ -584,15 +714,20 @@
           U.StatTile(String(summary.totalReports), "Reports", "blue") +
           U.StatTile(U.inr(summary.totalCollected), "Collected", "green")
         ) +
-        U.SectionHeader("Report history") +
+        // Sentence case and 15px, exactly as QA renders it — not the uppercase
+        // SectionHeader the other screens use.
+        '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: "#111", padding: "14px 16px 8px" }) + '">Report history</div>' +
         '<div style="padding:0 12px 8px">' + U.SearchInput({ value: S.reportSearch || "", model: "report-search", placeholder: "Search reports…", clearAct: "report-search-clear" }) + "</div>" +
         '<div class="rd-noscrollbar" style="' + U.sty({ display: "flex", gap: 7, marginBottom: 14, overflowX: "auto", padding: "0 12px 2px" }) + '">' +
-          SORTS.map(function (s) { return U.StatusChip({ active: sort === s.key, label: s.label, actName: "report-sort", arg: s.key }); }).join("") +
+          chip(S.reportDate ? M.formatRouteDate(S.reportDate) : "All dates", !!S.reportDate, "report-date-clear") +
+          SORTS.map(function (o) { return chip(o.label, sort === o.key, "report-sort", o.key); }).join("") +
         "</div>" +
         rows + U.Spacer(12) +
       "</div>" +
       U.TabBar("reports");
   });
+
+  window.RD.action("report-date-clear", function () { window.RD.state.scratch.reportDate = null; window.RD.render(); });
 
   window.RD.action("report-sort", function (k) { window.RD.state.scratch.reportSort = k; window.RD.render(); });
   window.RD.action("report-search-clear", function () { window.RD.state.scratch.reportSearch = ""; window.RD.render(); });

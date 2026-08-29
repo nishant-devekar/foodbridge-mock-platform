@@ -56,7 +56,10 @@
               U.esc((stop.customerName || "?").slice(0, 2).toUpperCase()) + "</div>" +
             '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
               '<div style="' + U.sty({ fontSize: 14, fontWeight: 600, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">' + U.esc(stop.customerName) + "</div>" +
-              '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 1 }) + '">' + U.inr(stop.totalDue || 0) + " due</div>" +
+              // QA only prints a subtitle when the stop actually owes something.
+              ((stop.outstandingAmount || 0) > 0
+                ? '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 1 }) + '">' + U.inr(stop.outstandingAmount) + " outstanding</div>"
+                : "") +
             "</div></div>";
         }).join("")
       : "";
@@ -83,10 +86,8 @@
         ) +
         waiting + U.Spacer(12) +
       "</div>" +
-      U.ActionBar('<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
-        U.BtnSm({ variant: "grey", label: "Resume Without Stock", actName: "restock-resume", arg: p.routeId }) +
-        U.BtnSm({ variant: "brand", label: "Load Stock →", actName: "restock-load-go", arg: p.routeId }) +
-      "</div>");
+      // QA offers one action here, not two.
+      U.ActionBar(U.BtnXL({ variant: "brand", label: "📦 Load Additional Stock", actName: "restock-load-go", arg: p.routeId }));
   });
 
   window.RD.action("restock-load-go", function (routeId) {
@@ -111,42 +112,71 @@
     if (!S.restockQtys) S.restockQtys = products.map(function () { return 0; });
 
     const stops = D.getStops(p.routeId);
-    const delivered = stops.filter(function (s) { return s.status === "DELIVERED"; }).length;
+    const deliveredCount = stops.filter(function (s) { return s.status === "DELIVERED"; }).length;
+    const pendingCount = stops.filter(function (s) { return s.status === "PENDING" || s.status === "CURRENT"; }).length;
     const addUnits = S.restockQtys.reduce(function (a, q) { return a + (Number(q) || 0); }, 0);
     const addValue = products.reduce(function (a, pr, i) { return a + (Number(S.restockQtys[i]) || 0) * pr.unitPrice; }, 0);
+    const addedProducts = products.filter(function (pr, i) { return (Number(S.restockQtys[i]) || 0) > 0; });
     const search = (S.restockSearch || "").trim().toLowerCase();
     const rows = products.map(function (pr, i) { return { pr: pr, i: i }; })
       .filter(function (r) { return !search || r.pr.name.toLowerCase().indexOf(search) !== -1; });
 
-    const head = '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 62px 74px minmax(100px,1fr)", columnGap: 8, padding: "10px 12px", fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", background: "white", borderBottom: "2px solid #e5e7eb" }) + '">' +
-      '<div>Product</div><div style="text-align:right">Loaded</div><div style="text-align:right">Delivered</div><div style="text-align:center">Add now</div></div>';
+    // QA's five columns: PRODUCT | LOADED | DELIVERED | ON TRUCK | ADD NOW.
+    const GRID = "minmax(140px,1fr) 62px 74px 76px 96px";
+    const head = '<div style="' + U.sty({ display: "grid", gridTemplateColumns: GRID, columnGap: 8, minWidth: 460, padding: "10px 12px", fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", background: "white", borderBottom: "2px solid #e5e7eb", position: "sticky", top: 0, zIndex: 5 }) + '">' +
+      '<div>Product</div><div style="text-align:right">Loaded</div><div style="text-align:right">Delivered</div><div style="text-align:right">On truck</div><div style="text-align:center">Add now</div></div>';
 
     const body = rows.map(function (r) {
-      const sold = Math.round(r.pr.loadedQty * (delivered / Math.max(stops.length, 1)));
+      const sold = Math.round(r.pr.loadedQty * (deliveredCount / Math.max(stops.length, 1)));
       const onTruck = Math.max(0, r.pr.loadedQty - sold);
-      return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 62px 74px minmax(100px,1fr)", columnGap: 8, alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #f5f5f5" }) + '">' +
+      return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: GRID, columnGap: 8, alignItems: "center", minWidth: 460, padding: "10px 12px", borderBottom: "1px solid #f5f5f5" }) + '">' +
         '<div style="' + U.sty({ fontSize: 14, fontWeight: 600, color: "#111" }) + '">' + U.esc(r.pr.name) + "</div>" +
         '<div style="' + U.sty({ textAlign: "right", fontSize: 14, color: "#555" }) + '">' + r.pr.loadedQty + "</div>" +
         '<div style="' + U.sty({ textAlign: "right", fontSize: 14, color: "#555" }) + '">' + sold + "</div>" +
+        '<div style="' + U.sty({ textAlign: "right", fontSize: 14, fontWeight: 700, color: "#111" }) + '">' + onTruck + "</div>" +
         '<div style="' + U.sty({ display: "flex", justifyContent: "center" }) + '">' +
           U.StepperInput({ value: S.restockQtys[r.i] || 0, small: true, arg: r.i, decAct: "restock-dec", incAct: "restock-inc", model: "restock-" + r.i }) + "</div></div>";
     }).join("");
 
-    return U.MobileHeader({ title: "Load Additional Stock", subtitle: route.name, backLabel: "Restock", backAct: "back" }) +
-      '<div class="rd-body" style="background:' + U.BG + '">' +
+    const confirming = !!S.restockConfirming;
+    const footer = confirming
+      ? U.ConfirmPanel({
+          action: "Restock #" + ((load && load.restockCount ? load.restockCount : 0) + 1),
+          amount: addUnits + " units",
+          context: U.inr(addValue) + " estimated value · " + addedProducts.length + " product" + (addedProducts.length === 1 ? "" : "s"),
+          backLabel: "Edit Quantities", commitLabel: "Confirm Load",
+          commitAct: "restock-commit", arg: p.routeId,
+          extra: '<div style="' + U.sty({ background: "#f8fafc", borderRadius: 10, border: "1px solid #e9eef2", overflow: "hidden", maxHeight: 140, overflowY: "auto", marginBottom: 12 }) + '">' +
+            addedProducts.map(function (pr, i) {
+              const qty = S.restockQtys[products.indexOf(pr)] || 0;
+              return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 14px", borderBottom: i < addedProducts.length - 1 ? "1px solid #f1f5f9" : "none" }) + '">' +
+                '<span style="' + U.sty({ fontSize: 13, color: "#374151", flex: 1, minWidth: 0 }) + '">' + U.esc(pr.name) + "</span>" +
+                '<span style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#374151" }) + '">× ' + qty + "</span></div>";
+            }).join("") + "</div>" +
+            '<div style="' + U.sty({ display: "flex", gap: 16, fontSize: 12, color: "#6b7280", marginBottom: 12 }) + '">' +
+              "<span>" + pendingCount + " stops waiting</span><span>" +
+              (products.reduce(function (t, pr, i) {
+                const sold = Math.round(pr.loadedQty * (deliveredCount / Math.max(stops.length, 1)));
+                return t + Math.max(0, pr.loadedQty - sold) + (Number(S.restockQtys[i]) || 0);
+              }, 0)) + " units available after load</span></div>",
+        })
+      : U.BtnXL({ variant: "brand", label: "Confirm Restock", disabled: addUnits === 0, actName: "restock-confirm" });
+
+    return U.MobileHeader({ title: "Load Additional Stock", subtitle: "Restock #" + ((load && load.restockCount ? load.restockCount : 0) + 1), backLabel: "", backAct: "back" }) +
+      '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.4 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +
         '<div style="padding:10px 12px 8px">' + U.SearchInput({ value: S.restockSearch || "", model: "restock-search", placeholder: "Search products…", clearAct: "restock-search-clear" }) + "</div>" +
-        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' + head + body + "</div>" +
-        '<div style="' + U.sty({ display: "flex", gap: 10, padding: "0 12px 12px" }) + '">' +
-          '<div style="' + U.sty({ flex: 1, background: "white", borderRadius: 14, padding: 13, textAlign: "center" }) + '">' +
-            '<div style="' + U.sty({ fontSize: 22, fontWeight: 800, color: U.BRAND }) + '">+' + addUnits + "</div>" +
-            '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 600, marginTop: 2 }) + '">Units Added</div></div>' +
-          '<div style="' + U.sty({ flex: 1, background: "white", borderRadius: 14, padding: 13, textAlign: "center" }) + '">' +
-            '<div style="' + U.sty({ fontSize: 22, fontWeight: 800, color: "#16a34a" }) + '">' + U.inr(addValue) + "</div>" +
-            '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 600, marginTop: 2 }) + '">Added Value</div></div></div>' +
+        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
+          '<div style="' + U.sty({ overflowX: "auto", WebkitOverflowScrolling: "touch" }) + '">' +
+            '<div style="' + U.sty({ minWidth: 460 }) + '">' + head + body + "</div></div></div>" +
+        // QA's single summary line, not a pair of total cards.
+        '<div style="' + U.sty({ padding: "0 16px 12px", fontSize: 13, fontWeight: 700, color: "#111" }) + '">Total additional units: +' + addUnits + " units</div>" +
         U.Spacer(8) +
       "</div>" +
-      U.ActionBar(U.BtnXL({ variant: "brand", label: "Confirm Restock (+" + addUnits + " units) →", disabled: addUnits === 0, actName: "restock-commit", arg: p.routeId }));
+      (confirming ? U.FreezeBackdrop() : "") +
+      '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
   });
+
+  window.RD.action("restock-confirm", function () { window.RD.state.scratch.restockConfirming = true; window.RD.render(); });
 
   window.RD.action("restock-inc", function (i) { const S = window.RD.state.scratch; S.restockQtys[i] = (Number(S.restockQtys[i]) || 0) + 1; window.RD.render(); });
   window.RD.action("restock-dec", function (i) { const S = window.RD.state.scratch; S.restockQtys[i] = Math.max(0, (Number(S.restockQtys[i]) || 0) - 1); window.RD.render(); });
@@ -166,6 +196,7 @@
   });
   window.RD.action("restock-commit", function (routeId) {
     const S = window.RD.state.scratch;
+    S.restockConfirming = false;
     const load = D.db.stockLoads[routeId];
     const products = (load && load.products) || [];
     const items = products.map(function (pr, i) {
@@ -244,8 +275,15 @@
       return '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 52px 92px 92px", columnGap: 8, alignItems: "center", padding: "12px", borderBottom: "1px solid #f5f5f5" }) + '">' +
         '<div style="' + U.sty({ fontSize: 14, fontWeight: 600, color: "#111" }) + '">' + U.esc(a.name) + "</div>" +
         '<div style="' + U.sty({ textAlign: "center", fontSize: 15, fontWeight: 700, color: h > 0 ? "#c2410c" : "#9ca3af" }) + '">' + h + "</div>" +
-        '<div>' + U.StepperInput({ value: give, small: true, arg: a._id, decAct: "asset-give-dec", incAct: "asset-give-inc", model: "give-" + a._id }) + "</div>" +
-        '<div>' + U.StepperInput({ value: take, small: true, max: h + give, arg: a._id, decAct: "asset-take-dec", incAct: "asset-take-inc", model: "take-" + a._id }) + "</div>" +
+        // QA uses plain number fields here, not steppers.
+        '<div><input inputmode="numeric" data-model="give-' + a._id + '" value="' + (give || "") + '" placeholder="0" style="' + U.sty({
+          width: "100%", height: 38, textAlign: "center", fontSize: 14, fontWeight: 700,
+          border: "1.5px solid #e5e7eb", borderRadius: 8, outline: "none", boxSizing: "border-box",
+        }) + '" /></div>' +
+        '<div><input inputmode="numeric" data-model="take-' + a._id + '" value="' + (take || "") + '" placeholder="0" style="' + U.sty({
+          width: "100%", height: 38, textAlign: "center", fontSize: 14, fontWeight: 700,
+          border: "1.5px solid #e5e7eb", borderRadius: 8, outline: "none", boxSizing: "border-box",
+        }) + '" /></div>' +
         "</div>";
     }).join("");
 
@@ -273,7 +311,7 @@
         (anyMovement ? U.Card(U.CardTitle("After this visit") + preview) : "") +
         U.Spacer(12) +
       "</div>" +
-      U.ActionBar(U.BtnXL({ variant: "brand", label: "Record Movement →", disabled: !anyMovement, actName: "asset-commit", arg: orgId }));
+      U.ActionBar(U.BtnXL({ variant: "brand", label: "Save Asset Update →", disabled: !anyMovement, actName: "asset-commit", arg: orgId }));
   });
 
   window.RD.action("asset-give-inc", function (id) { const S = window.RD.state.scratch; S.giving[id] = (S.giving[id] || 0) + 1; window.RD.render(); });
@@ -311,6 +349,16 @@
 
   /* ══ Return Acceptance ═════════════════════════════════════════════════ */
 
+  // QA's return flow is two steps: pick the items, then pick a reason in a
+  // footer panel. The reasons and their icons are QA's, and the primary button
+  // narrates what is still needed at each stage.
+  const RETURN_REASONS = [
+    { key: "DAMAGED",       icon: "🔴", label: "Damaged" },
+    { key: "EXPIRED",       icon: "⏰", label: "Expired" },
+    { key: "UNSOLD",        icon: "📦", label: "Unsold" },
+    { key: "WRONG_PRODUCT", icon: "❌", label: "Wrong Product" },
+  ];
+
   window.RD.screen("returnAcceptance", function (p) {
     const S = window.RD.state.scratch;
     const load = D.db.stockLoads[p.routeId];
@@ -321,6 +369,7 @@
 
     const totalQty = Object.keys(S.returnQtys).reduce(function (a, k) { return a + (S.returnQtys[k] || 0); }, 0);
     const totalValue = products.reduce(function (a, pr) { return a + (S.returnQtys[pr.productId] || 0) * pr.unitPrice; }, 0);
+    const choosing = !!S.returnChoosing;
 
     const rows = shown.map(function (pr) {
       const qty = S.returnQtys[pr.productId] || 0;
@@ -334,20 +383,49 @@
         "</div>";
     }).join("");
 
-    const reasons = ["Damaged", "Expired", "Wrong item", "Excess stock"];
-    const chosen = S.returnReason || "Damaged";
+    const reasonPanel = '<div style="' + U.sty({ padding: "2px 0 0" }) + '">' +
+      '<div style="' + U.sty({ fontSize: 10, fontWeight: 800, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 4 }) + '">Return Reason</div>' +
+      '<div style="' + U.sty({ fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 500 }) + '">Why is the customer returning these items?</div>' +
+      '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }) + '">' +
+        RETURN_REASONS.map(function (r) {
+          const on = S.returnReason === r.key;
+          return '<button type="button" class="rd-chip"' + U.act("return-reason", r.key) + ' style="' + U.sty({
+            padding: "12px 10px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#eef6f7" : "white",
+            color: on ? U.BRAND : "#111", display: "flex", alignItems: "center", gap: 7,
+          }) + '"><span>' + r.icon + "</span>" + r.label + "</button>";
+        }).join("") + "</div>" +
+      '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
+        U.BtnSm({ variant: "grey", label: "← Cancel", actName: "return-cancel" }) +
+        U.BtnSm({ variant: S.returnReason ? "brand" : "grey", label: S.returnReason ? "Confirm Reason →" : "Select a reason above",
+                  disabled: !S.returnReason, actName: "return-commit", arg: p.routeId }) +
+      "</div></div>";
+
+    const footer = choosing
+      ? reasonPanel
+      : U.BtnXL({
+          variant: "brand",
+          label: totalQty === 0 ? "Select items being returned"
+               : "Select Return Reason · " + totalQty + " unit" + (totalQty === 1 ? "" : "s") + " · " + U.inr(totalValue) + " →",
+          disabled: totalQty === 0, actName: "return-choose",
+        });
 
     return U.MobileHeader({ title: "Product Return", subtitle: "Items returned by the customer re-enter your vehicle stock", backLabel: "Customer", backAct: "back" }) +
-      '<div class="rd-body" style="background:' + U.BG + '">' +
+      '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: choosing ? 0.4 : 1, pointerEvents: choosing ? "none" : "auto" }) + '">' +
         '<div style="padding:10px 12px 8px">' + U.SearchInput({ value: S.returnSearch || "", model: "return-search", placeholder: "Search products…", clearAct: "return-search-clear" }) + "</div>" +
-        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden" }) + '">' + (rows || '<div style="padding:24px;text-align:center;color:#888;font-size:14px">No products match your search.</div>') + "</div>" +
-        U.SectionHeader("Reason") +
-        '<div class="rd-noscrollbar" style="' + U.sty({ display: "flex", gap: 7, overflowX: "auto", padding: "0 12px 10px" }) + '">' +
-          reasons.map(function (r) { return U.StatusChip({ active: chosen === r, label: r, actName: "return-reason", arg: r }); }).join("") + "</div>" +
-        U.Card('<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontSize: 15 }) + '"><span style="font-weight:700">Return Value</span><span style="font-weight:800;color:#16a34a">' + U.inr(totalValue) + "</span></div>") +
+        '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden" }) + '">' +
+          (rows || '<div style="padding:24px;text-align:center;color:#888;font-size:14px">No products match your search.</div>') + "</div>" +
         U.Spacer(12) +
       "</div>" +
-      U.ActionBar(U.BtnXL({ variant: "brand", label: "Accept " + totalQty + " Item" + (totalQty === 1 ? "" : "s") + " →", disabled: totalQty === 0, actName: "return-commit", arg: p.routeId }));
+      (choosing ? U.FreezeBackdrop() : "") +
+      '<div style="' + U.sty({ position: "relative", zIndex: choosing ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
+  });
+
+  window.RD.action("return-choose", function () { window.RD.state.scratch.returnChoosing = true; window.RD.render(); });
+  window.RD.action("return-cancel", function () {
+    const S = window.RD.state.scratch;
+    S.returnChoosing = false; S.returnReason = null;
+    window.RD.render();
   });
 
   window.RD.action("return-inc", function (pid) { const S = window.RD.state.scratch; S.returnQtys[pid] = (S.returnQtys[pid] || 0) + 1; window.RD.render(); });
@@ -359,6 +437,7 @@
   });
 
   window.RD.action("return-reason", function (r) { window.RD.state.scratch.returnReason = r; window.RD.render(); });
+
   window.RD.action("return-search-clear", function () { window.RD.state.scratch.returnSearch = ""; window.RD.render(); });
   window.RD.action("model:return-search", function (v) {
     window.RD.state.scratch.returnSearch = v; window.RD.render();
@@ -379,7 +458,7 @@
       const pr = products.find(function (x) { return x.productId === it.productId; });
       if (pr) pr.loadedQty += it.qty;
     });
-    S.returnQtys = {};
+    S.returnQtys = {}; S.returnChoosing = false; S.returnReason = null;
     window.RD.toast("Return accepted · stock returned to van");
     window.RD.back();
   });

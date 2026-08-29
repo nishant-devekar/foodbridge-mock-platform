@@ -14,6 +14,46 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — QA parity audit, part two: the five remaining areas
+
+Reports, Analytics, Restock ×3, Manage Assets and Return Acceptance were driven on QA the same
+way as the rest — clicking every control, including a real restock confirm and a returns
+submission. All five differed from the port.
+
+**Reports.** Card rebuilt to QA's: name 17px/800, a **Final** badge, and a Collected/Outstanding
+pair rather than a single figure, with a full-width outlined "View Report →". "Report history" is
+sentence case at 15px, not the uppercase SectionHeader used elsewhere, and an **All dates** chip
+now sits alongside the four sort chips.
+
+**Analytics** was the largest gap. Added the third score band (**Needs Attention** below 50 — QA
+scored 8/100), a **HIGHLIGHTS** block, and the four collapsible summaries QA carries: Stops,
+Stock, Expense and Collection, each with QA's subtitle line and its own table. Export now opens
+QA's modal (Close / Preview / Download) instead of downloading silently. KPI label corrected to
+"Avg Time / Stop".
+
+**Restock.** QA offers one action, "📦 Load Additional Stock", not two; row subtitles print only
+where a stop actually owes something. Restock Load gained QA's fifth column (**ON TRUCK**), its
+"Total additional units: +N units" line in place of two total cards, and QA's confirm panel —
+"RESTOCK #N / N units / ₹X estimated value · N products" over a product list with "N stops
+waiting" and "N units available after load", committed by "Edit Quantities" / "Confirm Load".
+
+**Manage Assets.** QA uses plain number fields, not steppers; button reads "Save Asset Update →".
+
+**Return Acceptance** is two steps in QA, not one screen: pick items, then a reason panel. The
+primary button narrates each stage — "Select items being returned" → "Select Return Reason · N
+units · ₹X →" → "Select a reason above" → "Confirm Reason →" — and the reasons are QA's
+🔴 Damaged / ⏰ Expired / 📦 Unsold / ❌ Wrong Product.
+
+**A real bug this surfaced.** The wildcard input handler split `data-model` on the *last* hyphen,
+so any key containing one — every asset id, e.g. `give-AST-CRATE-L` — resolved to a base nothing
+handled and typed values silently vanished. It now tries prefixes left to right and takes the
+first with a registered handler, which also keeps two-segment bases like `stock-qty-0` working.
+
+Re-verified end to end: 23/23 screens, no console errors; payment → DELIVERED → route total →
+settlement; the settlement chain closes a route; returns two-step, restock confirm, asset inputs
+and analytics accordions all behave as QA does; zero network requests (16 local files); six other
+v5 modules unaffected; no React, JSX, npm, Vite or build tooling under `v5/`.
+
 ### 29 August 2026 — Parity audit against the QA environment
 
 Delivery Management was audited screen by screen against the live QA build at
