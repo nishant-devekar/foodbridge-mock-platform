@@ -14,6 +14,49 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — UX pass over the ported Delivery Management
+
+A review of all 23 screens at 375x812 as a distributor would use them, not as a parity check.
+Four things were wrong enough to fix, and two of them were bugs rather than taste.
+
+**The stop screens were reading fields that do not exist.** The stop model uses
+`outstandingAmount` / `totalDue` and its detail uses `orderItems`; the port read
+`previousOutstanding` / `items`. Every stop therefore showed an empty order and a Total Due of
+**₹0**, and Collect charged only the day's order while ignoring the outstanding — a stop owing
+₹720 + ₹535 collected ₹480. Now corrected, and At Customer and Payment derive the figure from
+the same itemised sum, so the amount on the button is the amount on the next screen and on the
+printed receipt.
+
+**Typed quantities went nowhere.** Every per-row input — stock counts, order quantities, restock,
+returns, assets — rendered its digits and never told the state, so Stock Count could not be
+completed by typing at all. `delivery-core`'s input delegation now supports a wildcard handler
+(`model:count#`) so one handler serves a whole column, and typing works everywhere the steppers do.
+
+**The queue opened on finished work.** Upstream renders one flat list in route order, so a driver
+halfway through a 30-stop route met nine completed customers and had to scroll to find who was
+next — on the screen whose entire job is "who is next". Now: **Next stop** pinned at the top,
+**Upcoming · N** below it, and completed stops collapsed behind a count, one tap away.
+
+**Stock Count hid its own input.** A four-column table with a 430px minimum width put the Actual
+field — the only thing anyone types on that screen — off the right edge of a 375px phone behind a
+horizontal scroll. It is now a row per product with the input permanently on screen and
+loaded/expected demoted to a subtitle, where they belong as context rather than columns to scan.
+
+**Cash Handover buried its own point.** "Expected in hand" was the last of five equal rows, below
+UPI collected — which cannot be handed over at all. It now leads at 38px with its arithmetic
+underneath, UPI is labelled "not handed over", and the two inputs share one card instead of two.
+
+Smaller, throughout: no button ever reads "₹0" or commits nothing — a disabled primary says what
+is still needed ("Enter your counts to continue", "Confirm 1 of 6 counted"); a stop with no order
+says so instead of showing an empty screen; discrepancies surface live on the row as
+"3 missing" rather than only at confirm time.
+
+Re-verified after the pass: 23/23 routes render with no console errors; payment collects the full
+outstanding + order and flows through to DELIVERED, route total and settlement; the settlement
+chain closes a route including the discrepancy-note gate; zero network requests (16 local files);
+the module copied elsewhere still runs; Dashboard, Sales Orders, Stock Audit, Route Planning and
+Live Tracking unaffected; no React, JSX, package.json, node_modules or build tooling under `v5/`.
+
 ### 29 August 2026 — Delivery Management, ported to static
 
 Delivery Management is now a hand-authored static module like every other one in v5 — plain

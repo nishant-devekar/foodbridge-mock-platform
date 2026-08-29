@@ -172,7 +172,7 @@
         {
           "id": "delivery-management",
           "name": "Delivery Management",
-          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html",
+          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=2026082905",
           "clipLeft": 0,
           "fullBleed": true,
           "owner": "nishant-devekar/foodbridge-mock-platform"

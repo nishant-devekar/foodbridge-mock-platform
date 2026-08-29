@@ -227,6 +227,16 @@
 
   window.RD.action("stock-inc", function (i) { const S = window.RD.state.scratch; S.stockQtys[i] = (Number(S.stockQtys[i]) || 0) + 1; window.RD.render(); });
   window.RD.action("stock-dec", function (i) { const S = window.RD.state.scratch; S.stockQtys[i] = Math.max(0, (Number(S.stockQtys[i]) || 0) - 1); window.RD.render(); });
+  // Typing a quantity beats tapping + twelve times. Wildcard handler, see the
+  // onInput note in delivery-core.
+  window.RD.action("model:stock-qty#", function (value, idx) {
+    const S = window.RD.state.scratch;
+    S.stockQtys[Number(idx)] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+    const el = document.querySelector('[data-model="stock-qty-' + idx + '"]');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+
   window.RD.action("stock-search-clear", function () { window.RD.state.scratch.stockSearch = ""; window.RD.render(); });
   window.RD.action("model:stock-search", function (v) {
     window.RD.state.scratch.stockSearch = v; window.RD.render();

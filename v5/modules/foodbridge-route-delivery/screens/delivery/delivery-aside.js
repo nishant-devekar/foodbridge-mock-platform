@@ -150,6 +150,14 @@
 
   window.RD.action("restock-inc", function (i) { const S = window.RD.state.scratch; S.restockQtys[i] = (Number(S.restockQtys[i]) || 0) + 1; window.RD.render(); });
   window.RD.action("restock-dec", function (i) { const S = window.RD.state.scratch; S.restockQtys[i] = Math.max(0, (Number(S.restockQtys[i]) || 0) - 1); window.RD.render(); });
+  window.RD.action("model:restock#", function (value, idx) {
+    const S = window.RD.state.scratch;
+    S.restockQtys[Number(idx)] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+    const el = document.querySelector('[data-model="restock-' + idx + '"]');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+
   window.RD.action("restock-search-clear", function () { window.RD.state.scratch.restockSearch = ""; window.RD.render(); });
   window.RD.action("model:restock-search", function (v) {
     window.RD.state.scratch.restockSearch = v; window.RD.render();
@@ -272,6 +280,17 @@
   window.RD.action("asset-give-dec", function (id) { const S = window.RD.state.scratch; S.giving[id] = Math.max(0, (S.giving[id] || 0) - 1); window.RD.render(); });
   window.RD.action("asset-take-inc", function (id) { const S = window.RD.state.scratch; S.taking[id] = (S.taking[id] || 0) + 1; window.RD.render(); });
   window.RD.action("asset-take-dec", function (id) { const S = window.RD.state.scratch; S.taking[id] = Math.max(0, (S.taking[id] || 0) - 1); window.RD.render(); });
+  window.RD.action("model:give#", function (value, id) {
+    const S = window.RD.state.scratch;
+    S.giving[id] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+  });
+  window.RD.action("model:take#", function (value, id) {
+    const S = window.RD.state.scratch;
+    S.taking[id] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+  });
+
   window.RD.action("asset-commit", function (orgId) {
     const S = window.RD.state.scratch;
     const movements = [];
@@ -333,6 +352,12 @@
 
   window.RD.action("return-inc", function (pid) { const S = window.RD.state.scratch; S.returnQtys[pid] = (S.returnQtys[pid] || 0) + 1; window.RD.render(); });
   window.RD.action("return-dec", function (pid) { const S = window.RD.state.scratch; S.returnQtys[pid] = Math.max(0, (S.returnQtys[pid] || 0) - 1); window.RD.render(); });
+  window.RD.action("model:return#", function (value, pid) {
+    const S = window.RD.state.scratch;
+    S.returnQtys[pid] = Number(String(value).replace(/\D/g, "")) || 0;
+    window.RD.render();
+  });
+
   window.RD.action("return-reason", function (r) { window.RD.state.scratch.returnReason = r; window.RD.render(); });
   window.RD.action("return-search-clear", function () { window.RD.state.scratch.returnSearch = ""; window.RD.render(); });
   window.RD.action("model:return-search", function (v) {

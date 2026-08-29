@@ -130,12 +130,19 @@
     const S = window.RD.state.scratch;
     const all = D.getStops(p.routeId);
     const search = (S.queueSearch || "").trim().toLowerCase();
-    const shown = search
-      ? all.filter(function (s) { return s.customerName.toLowerCase().indexOf(search) !== -1; })
-      : all;
 
-    const current = all.find(function (s) { return s.status === "CURRENT"; });
-    const done = all.filter(function (s) { return s.status === "DELIVERED" || s.status === "SKIPPED"; }).length;
+    const isDone = function (s) { return s.status === "DELIVERED" || s.status === "SKIPPED"; };
+    const doneStops = all.filter(isDone);
+    const liveStops = all.filter(function (s) { return !isDone(s); });
+
+    // UX DECISION — differs from the React app on purpose.
+    // Upstream renders one flat list in sequence order, so a driver halfway
+    // through a 30-stop route opens this screen onto nine finished customers
+    // and has to scroll to find the one they are actually driving to. The whole
+    // job of this screen is "who is next". So: the current stop is pinned at the
+    // top, upcoming stops follow, and completed work collapses behind a count —
+    // still one tap away for checking what was collected, but never in the way.
+    const collapsed = S.showDone !== true;
 
     const addRow = !search
       ? '<button type="button" class="rd-row"' + U.act("queue-add-customer", p.routeId) + ' style="' + U.sty({
@@ -150,27 +157,62 @@
         "</div></button>"
       : "";
 
-    const list = (shown.length === 0 && search)
-      ? '<div style="' + U.sty({ padding: "40px 24px", textAlign: "center" }) + '">' +
-          '<div style="' + U.sty({ fontSize: 32, marginBottom: 10 }) + '">🔍</div>' +
-          '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 4 }) + '">No stops found</div>' +
-          '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">No customer matches “' + U.esc(search) + '”</div></div>'
-      : shown.map(StopRow).join("") + addRow;
+    let body;
+    if (search) {
+      // Searching is a lookup, not a walk of the route: one flat list of every
+      // match, done or not, because the driver is answering "where is X".
+      const hits = all.filter(function (s) { return s.customerName.toLowerCase().indexOf(search) !== -1; });
+      body = hits.length
+        ? hits.map(StopRow).join("")
+        : '<div style="' + U.sty({ padding: "40px 24px", textAlign: "center" }) + '">' +
+            '<div style="' + U.sty({ fontSize: 32, marginBottom: 10 }) + '">🔍</div>' +
+            '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 4 }) + '">No stops found</div>' +
+            '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">No customer matches “' + U.esc(search) + '”</div></div>';
+    } else {
+      const current = liveStops.filter(function (s) { return s.status === "CURRENT"; });
+      const upcoming = liveStops.filter(function (s) { return s.status !== "CURRENT"; });
+
+      body =
+        (current.length ? U.SectionHeader("Next stop") + current.map(StopRow).join("") : "") +
+        (upcoming.length ? U.SectionHeader("Upcoming · " + upcoming.length) + upcoming.map(StopRow).join("") : "") +
+        (!liveStops.length
+          ? '<div style="' + U.sty({ padding: "32px 24px", textAlign: "center" }) + '">' +
+              '<div style="' + U.sty({ fontSize: 34, marginBottom: 10 }) + '">🎉</div>' +
+              '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 4 }) + '">Every stop is done</div>' +
+              '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">Settle the route to close the day.</div></div>'
+          : "") +
+        addRow +
+        (doneStops.length
+          ? '<button type="button" class="rd-row"' + U.act("queue-toggle-done") + ' style="' + U.sty({
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "13px 16px", marginTop: 8, background: "transparent", border: "none",
+              borderTop: "1px solid #e5e7eb", fontFamily: "inherit", cursor: "pointer", textAlign: "left",
+            }) + '">' +
+            '<span style="' + U.sty({ fontSize: 13, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }) + '">Completed · ' + doneStops.length + "</span>" +
+            '<span style="' + U.sty({ fontSize: 13, color: "#9ca3af", fontWeight: 600 }) + '">' + (collapsed ? "Show ▾" : "Hide ▴") + "</span></button>" +
+            (collapsed ? "" : doneStops.map(StopRow).join(""))
+          : "");
+    }
 
     return U.ProgressBar({
-        current: done, total: all.length,
+        current: doneStops.length, total: all.length,
         collected: collectedFor(p.routeId),
         backLabel: "Routes", backAct: "home",
       }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
         '<div style="margin:8px 12px 4px">' + U.SearchInput({ value: S.queueSearch || "", model: "queue-search", placeholder: "Search by name or phone…", clearAct: "queue-search-clear" }) + "</div>" +
-        list +
+        body +
         '<div style="height:16px"></div>' +
       "</div>" +
       U.ActionBar('<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
         U.BtnSm({ variant: "grey", label: "↻ Restock", actName: "queue-restock", arg: p.routeId }) +
         U.BtnSm({ variant: "brand", label: "₹ Return & Settle", actName: "queue-settle", arg: p.routeId }) +
       "</div>");
+  });
+
+  window.RD.action("queue-toggle-done", function () {
+    window.RD.state.scratch.showDone = !window.RD.state.scratch.showDone;
+    window.RD.render();
   });
 
   window.RD.action("queue-search-clear", function () { window.RD.state.scratch.queueSearch = ""; window.RD.render(); });
@@ -211,13 +253,20 @@
     const canCollect = stop.status !== "DELIVERED" && stop.status !== "SKIPPED";
 
     if (!S.items) {
-      S.items = (detail.items || []).map(function (it) {
-        return { productId: it.productId, productName: it.name || it.productName, qty: it.qty, unitPrice: it.unitPrice };
+      // orderItems / orderTotal / outstandingAmount are the stop model's real
+      // field names (see makeStopDetail). Reading `items`/`previousOutstanding`
+      // silently yields an empty order and a ₹0 total due on every stop.
+      S.items = (detail.orderItems || []).map(function (it) {
+        return { productId: it.productId, productName: it.productName || it.name, qty: it.qty, unitPrice: it.unitPrice };
       });
     }
     const stockMap = bookingStockMap(p.routeId);
+    // The order total is the sum of the lines the customer can see, because that
+    // is what their receipt prints and what they are being asked to pay. The
+    // stop's seeded todayOrderAmount can round a few rupees away from it; the
+    // payment screen uses this same sum so the two screens never disagree.
     const orderTotal = S.items.reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0);
-    const outstanding = stop.previousOutstanding || 0;
+    const outstanding = stop.outstandingAmount || 0;
     const totalDue = outstanding + orderTotal;
 
     const card =
@@ -281,6 +330,19 @@
         }).join("") + "</div>";
     }
 
+    // Nothing ordered and nothing owed is a real state at a stop the driver is
+    // just visiting. Saying so beats an empty screen with a "Collect ₹0" button.
+    const emptyOrder = !S.items.length && !editing
+      ? U.Card(
+          '<div style="' + U.sty({ textAlign: "center", padding: "8px 4px" }) + '">' +
+            '<div style="' + U.sty({ fontSize: 30, marginBottom: 8 }) + '">🧾</div>' +
+            '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 4 }) + '">No order today</div>' +
+            '<div style="' + U.sty({ fontSize: 13, color: "#888" }) + '">' +
+              (outstanding > 0 ? "Collect the outstanding, or add an order with Edit." : "Add an order with Edit, or skip this stop.") +
+            "</div></div>"
+        )
+      : "";
+
     const orderCard = S.items.length || editing
       ? '<div style="' + U.sty({ margin: "0 12px 10px", background: "white", borderRadius: 14, overflow: "hidden" }) + '">' +
           '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px 10px" }) + '">' +
@@ -297,7 +359,7 @@
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: "grey", label: "↩ Return", actName: "goto-returns", arg: p.routeId }) +
           U.BtnSm({ variant: "grey", label: "📦 Assets", actName: "goto-assets", arg: stop.customerId }) + "</div>"
-      : (editing ? "" : U.BtnXL({ variant: "green", label: "💰 Collect " + U.inr(totalDue), style: { marginBottom: 10 }, actName: "goto-payment", arg: p.stopId })) +
+      : (editing || totalDue <= 0 ? "" : U.BtnXL({ variant: "green", label: "💰 Collect " + U.inr(totalDue), style: { marginBottom: 10 }, actName: "goto-payment", arg: p.stopId })) +
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: editing ? "brand" : "green", label: editing ? "✓ Done Editing" : "✏️ Edit Order", actName: "toggle-edit" }) +
           (editing ? "" : U.BtnSm({ variant: "red", label: "Skip Stop →", actName: "goto-skip", arg: p.stopId })) +
@@ -307,7 +369,7 @@
       '<div class="rd-body" style="background:' + U.BG + '">' +
         card +
         (editing ? '<div style="margin:0 12px 8px">' + U.SearchInput({ value: S.editSearch || "", model: "edit-search", placeholder: "Search products…", clearAct: "edit-search-clear" }) + "</div>" : "") +
-        orderCard + U.Spacer(8) +
+        orderCard + emptyOrder + U.Spacer(8) +
       "</div>" +
       U.ActionBar(footer);
   });
@@ -349,6 +411,16 @@
     it.qty = Math.max(0, it.qty - 1);
     window.RD.render();
   });
+  window.RD.action("model:item#", function (value, pid) {
+    const S = window.RD.state.scratch;
+    const max = bookingStockMap(window.RD.state.routeId)[pid] || 0;
+    let qty = Number(String(value).replace(/\D/g, "")) || 0;
+    if (max > 0 && qty > max) qty = max;   // same van-stock ceiling as the stepper
+    const it = S.items.find(function (i) { return i.productId === pid; });
+    if (it) it.qty = qty;
+    window.RD.render();
+  });
+
   window.RD.action("edit-search-clear", function () { window.RD.state.scratch.editSearch = ""; window.RD.render(); });
   window.RD.action("model:edit-search", function (v) {
     window.RD.state.scratch.editSearch = v; window.RD.render();
@@ -370,7 +442,11 @@
     if (!stop) throw new Error("Stop " + p.stopId + " not found");
     const detail = stopOr404(p.routeId, p.stopId);
     const S = window.RD.state.scratch;
-    const totalDue = M.roundMoney((stop.previousOutstanding || 0) + (stop.todayOrderAmount || 0));
+    // Same figure the driver was just shown at the stop: outstanding plus the
+    // itemised order, not the seeded aggregate. Using todayOrderAmount here made
+    // "Collect ₹1,255" lead to a screen asking for ₹1,200.
+    const orderSum = (detail.orderItems || []).reduce(function (a, it) { return a + (it.lineTotal != null ? it.lineTotal : it.qty * (it.unitPrice || 0)); }, 0);
+    const totalDue = M.roundMoney((stop.outstandingAmount || 0) + orderSum);
 
     if (S.payAmount === undefined) { S.payAmount = String(totalDue); S.payPrefilled = true; S.payMethod = "CASH"; }
     const display = M.formatPaymentDisplay(S.payAmount);
@@ -437,7 +513,9 @@
   window.RD.action("pay-confirm", function () {
     const S = window.RD.state.scratch;
     const stop = D.getStops(window.RD.state.routeId).find(function (s) { return s.id === window.RD.state.stopId; });
-    const totalDue = M.roundMoney((stop.previousOutstanding || 0) + (stop.todayOrderAmount || 0));
+    const det = D.resolveStopDetail(window.RD.state.routeId, window.RD.state.stopId);
+    const orderSum = (det.orderItems || []).reduce(function (a, it) { return a + (it.lineTotal != null ? it.lineTotal : it.qty * (it.unitPrice || 0)); }, 0);
+    const totalDue = M.roundMoney((stop.outstandingAmount || 0) + orderSum);
     const check = V.validatePayment({ amount: Number(S.payAmount), totalDue: totalDue, method: S.payMethod || "CASH" });
     if (!check.valid) {
       window.RD.toast(check.errors.amount || check.errors.method || "Check the amount", "error");
@@ -493,9 +571,9 @@
     const S = window.RD.state.scratch;
     const size = S.paper || "58mm";
     const detail = stopOr404(p.routeId, p.stopId);
-    const lines = (detail.items || []).map(function (it) {
+    const lines = (detail.orderItems || []).map(function (it) {
       return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontSize: 11 }) + '">' +
-        "<span>" + U.esc(it.name || it.productName) + " ×" + it.qty + "</span><span>" + rawInr(it.qty * (it.unitPrice || 0)) + "</span></div>";
+        "<span>" + U.esc(it.productName || it.name) + " ×" + it.qty + "</span><span>" + rawInr(it.qty * (it.unitPrice || 0)) + "</span></div>";
     }).join("");
 
     return U.Card(
@@ -644,6 +722,15 @@
 
   window.RD.action("model:new-shop", function (v) { window.RD.state.scratch.newShop = v; });
   window.RD.action("model:new-phone", function (v) { window.RD.state.scratch.newPhone = v; });
+  window.RD.action("model:new#", function (value, pid) {
+    const S = window.RD.state.scratch;
+    const max = bookingStockMap(window.RD.state.routeId)[pid] || 0;
+    let qty = Number(String(value).replace(/\D/g, "")) || 0;
+    if (max > 0 && qty > max) qty = max;
+    if (qty > 0) S.newItems[pid] = qty; else delete S.newItems[pid];
+    window.RD.render();
+  });
+
   window.RD.action("new-search-clear", function () { window.RD.state.scratch.newSearch = ""; window.RD.render(); });
   window.RD.action("model:new-search", function (v) {
     window.RD.state.scratch.newSearch = v; window.RD.render();
@@ -697,9 +784,9 @@
       : '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: fully ? "#16a34a" : "#f97316", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }) + '">' +
         (fully ? "✓✓ FULLY COLLECTED" : "✓ PARTIAL") + (stop.completedAt ? " · " + U.esc(M.formatRouteTime(stop.completedAt, { hour12: false })) : "") + "</div>";
 
-    const items = (detail.items || []).map(function (it, i, arr) {
+    const items = (detail.orderItems || []).map(function (it, i, arr) {
       return '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 14, marginBottom: i < arr.length - 1 ? 8 : 0 }) + '">' +
-        '<div style="' + U.sty({ color: "#555", flex: 1, minWidth: 0 }) + '">' + U.esc(it.name || it.productName) + " × " + it.qty + "</div>" +
+        '<div style="' + U.sty({ color: "#555", flex: 1, minWidth: 0 }) + '">' + U.esc(it.productName || it.name) + " × " + it.qty + "</div>" +
         '<span style="font-weight:700">' + rawInr(it.qty * (it.unitPrice || 0)) + "</span></div>";
     }).join("");
 
@@ -720,7 +807,7 @@
         "</div>" +
         (items ? U.Card(U.CardTitle("Today's Order") + items) : "") +
         U.Card(
-          U.SettleRow("Previous outstanding", U.inr(stop.previousOutstanding || 0)) +
+          U.SettleRow("Outstanding before", U.inr((stop.outstandingAmount || 0) + (stop.collectedAmount || 0) - (stop.todayOrderAmount || 0) > 0 ? (stop.outstandingAmount || 0) + (stop.collectedAmount || 0) - (stop.todayOrderAmount || 0) : 0)) +
           U.SettleRow("Today's order", U.inr(stop.todayOrderAmount || 0)) +
           U.SettleRow("Collected", U.inr(stop.collectedAmount || 0), "#16a34a") +
           U.SettleRow("Still outstanding", U.inr(stop.outstandingAmount || 0), (stop.outstandingAmount || 0) > 0 ? "#ef4444" : "#16a34a", true)

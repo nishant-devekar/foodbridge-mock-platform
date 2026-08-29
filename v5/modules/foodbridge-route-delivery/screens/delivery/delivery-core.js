@@ -186,12 +186,22 @@
 
   // Inputs report through data-model so a screen can keep typed text across a
   // re-render without each one wiring its own listener.
+  // Inputs report through data-model. An exact handler wins; otherwise a
+  // trailing -<key> is peeled off and passed to a wildcard handler, so a screen
+  // with one input per row registers ONE handler ("model:count#") instead of a
+  // handler per index. Without this, typed values in per-row fields silently go
+  // nowhere — the field shows the digits and the state never hears about them.
   function onInput(e) {
     const el = e.target.closest("[data-model]");
     if (!el) return;
     const path = el.getAttribute("data-model");
-    const fn = actions["model:" + path];
-    if (fn) fn(el.value, el);
+    const exact = actions["model:" + path];
+    if (exact) { exact(el.value, el); return; }
+    const cut = path.lastIndexOf("-");
+    if (cut > 0) {
+      const wild = actions["model:" + path.slice(0, cut) + "#"];
+      if (wild) wild(el.value, path.slice(cut + 1), el);
+    }
   }
 
   /* ── Boot ──────────────────────────────────────────────────────────────── */
