@@ -38,6 +38,18 @@
       "port": 8003
     },
     {
+      "name": "foodbridge-v5",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8004",
+        "--directory",
+        "v5"
+      ],
+      "port": 8004
+    },
+    {
       "name": "mock-platform-live",
       "runtimeExecutable": "python3",
       "runtimeArgs": [

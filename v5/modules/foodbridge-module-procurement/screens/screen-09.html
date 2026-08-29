@@ -1,0 +1,659 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Procurement — "Screen 09: Supplier Management"
+  Standalone-openable: open this file directly to review the screen in isolation.
+  Also reachable from every screen's sidebar "Supplier Management" link (addendum-017).
+
+  Pixel-by-pixel replica of storefront-frontend/src/pages/Supplier.jsx (list page) plus its
+  Add/Edit Supplier drawer, built from two human-provided reference screenshots.
+
+  Outgoing transitions:
+    - "+ Add Supplier" / row edit (pencil) → opens the in-page Add/Edit Supplier drawer
+    - Row delete (trash) → in-page confirm modal → removes the row
+    - Sidebar links → other screens (same shell as every other screen)
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  Use ../seed-data/seed.json for data (reuses the shared `sellers` array). Disposable —
+  informs the SSOTs, not imported by development/.
+
+  Fidelity notes (see addendum-017 outcome for the full simplification list):
+    - "External Supplier" chip is purple here, matching this page's own reference screenshot —
+      intentionally different from the amber "External" chip on Screens 02/04, which come from
+      a separate reference. Not a bug; each page matches what was actually shown for it.
+    - Export produces a real client-side CSV download of the current table. Import opens a
+      file-picker modal but doesn't parse anything (decorative — no backend to import into).
+    - The Opening Balance amount field (appears after picking a direction) is inferred, not
+      confirmed — the reference screenshot is cropped right at that point.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Foodbridge Module Procurement — Screen 09: Supplier Management</title>
+<style>
+  :root {
+    color-scheme: light;
+    --emerald-50: #ecfdf5; --emerald-100: #d1fae5; --emerald-200: #a7f3d0; --emerald-300: #6ee7b7;
+    --emerald-500: #10b981; --emerald-600: #059669; --emerald-700: #047857;
+    --green-50: #f0fdf4; --green-100: #dcfce7; --green-200: #bbf7d0; --green-400: #4ade80;
+    --green-500: #22c55e; --green-600: #16a34a; --green-700: #15803d;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db; --gray-400: #9ca3af;
+    --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+    --blue-100: #dbeafe; --blue-700: #1d4ed8;
+    --purple-50: #faf5ff; --purple-100: #f3e8ff; --purple-700: #7e22ce;
+    --rose-600: #e11d48; --red-100: #fee2e2; --red-500: #ef4444; --red-600: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--gray-100); color: var(--gray-900); font-size: 14.5px; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* ============ App shell — sidebar + header ============ */
+  .app-shell { display: flex; min-height: 100vh; }
+  .app-sidebar { width: 256px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--gray-200);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04); position: fixed; top: 0; left: 0; bottom: 0; z-index: 5; overflow-y: auto; scrollbar-width: none; }
+  .app-sidebar::-webkit-scrollbar { display: none; }
+  .sidebar-inner { padding: 0 12px 16px; display: flex; flex-direction: column; height: 100%; }
+  .brand-row { height: 56px; display: flex; align-items: center; border-bottom: 1px solid var(--gray-200); margin-bottom: 12px; flex-shrink: 0; }
+  .brand-link { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px; text-decoration: none; color: inherit; width: 100%; }
+  .brand-bag { width: 28px; height: 28px; flex-shrink: 0; color: var(--emerald-500); }
+  .brand-name { font-size: 13.5px; font-weight: 700; color: var(--gray-800); }
+  .nav-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  .nav-scroll::-webkit-scrollbar { display: none; }
+  .nav-list { list-style: none; margin: 8px 0 0; padding: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+  .nav-leaf-link, .nav-group-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px;
+    border: none; background: none; font-size: 13.5px; color: var(--gray-600); cursor: pointer; text-align: left; text-decoration: none; }
+  .nav-leaf-link:hover, .nav-group-btn:hover { background: var(--gray-100); }
+  .nav-leaf-link.active, .nav-group-btn.active { background: var(--green-50); color: var(--green-700); }
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .nav-group-btn { justify-content: space-between; }
+  .nav-group-btn .ngb-left { display: flex; align-items: center; }
+  .nav-group-btn .ngb-label { margin-left: 16px; }
+  .nav-group-chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--gray-400); }
+  .nav-sub { list-style: none; margin: 4px 0 0 32px; padding: 0; display: none; flex-direction: column; gap: 4px; }
+  .nav-sub.open { display: flex; }
+  .nav-sub-link { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12.5px; color: var(--gray-600); text-decoration: none; }
+  .nav-sub-link:hover { background: var(--gray-100); }
+  .nav-sub-link.active { background: var(--green-100); color: var(--green-700); font-weight: 600; }
+  .nav-sub-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .nav-bottom { flex-shrink: 0; padding-top: 12px; border-top: 1px solid var(--gray-200); display: flex; flex-direction: column; gap: 8px; }
+  .nav-bottom .qr-icon { color: var(--green-600); }
+  .main-col { flex: 1; min-width: 0; margin-left: 256px; }
+  .app-header { position: sticky; top: 0; z-index: 6; height: 56px; background: #fff; border-bottom: 1px solid var(--gray-200); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .app-header-row { height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+  .header-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .hamburger-btn { border: none; background: none; padding: 8px; border-radius: 8px; cursor: pointer; color: var(--gray-600); display: flex; }
+  .hamburger-btn:hover { background: var(--gray-100); }
+  .page-title { font-size: 15px; font-weight: 600; color: var(--gray-700); letter-spacing: -0.01em; margin: 0; }
+  .header-right { position: relative; }
+  .profile-trigger { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+  .profile-trigger:hover { background: var(--gray-50); }
+  .avatar-wrap { position: relative; }
+  .avatar-circle { width: 40px; height: 40px; border-radius: 999px; background: linear-gradient(135deg, var(--green-500), var(--emerald-600));
+    color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); border: 2px solid var(--green-200); }
+  .status-dot { position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; border-radius: 999px; background: var(--green-400); border: 2px solid #fff; }
+  .profile-text { display: flex; flex-direction: column; }
+  .profile-text .pname { font-size: 13px; font-weight: 700; color: var(--gray-800); }
+  .profile-text .prole { font-size: 11px; font-weight: 600; color: var(--green-600); }
+  .profile-chevron { width: 15px; height: 15px; color: var(--gray-400); transition: transform .15s; }
+  .profile-trigger.open .profile-chevron { transform: rotate(180deg); }
+  .profile-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 224px; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.15); overflow: hidden; z-index: 7; }
+  .profile-dropdown.open { display: block; }
+  .pd-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--gray-700);
+    cursor: pointer; border: none; background: none; width: 100%; text-align: left; box-sizing: border-box; }
+  .pd-row:hover { background: var(--green-50); color: var(--green-700); }
+  .pd-row.danger { color: var(--red-600); }
+  .pd-row.danger:hover { background: var(--red-100); }
+  .pd-divider { border-top: 1px solid var(--gray-200); }
+  .preview-badge { font-size: 9.5px; font-weight: 700; background: var(--purple-100); color: var(--purple-700); padding: 1px 7px; border-radius: 999px; }
+
+  .page { padding: 24px 32px 40px; }
+
+  /* ============ toolbar rows ============ */
+  .sm-toolbar-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .sm-left-btns { display: flex; gap: 10px; }
+  .btn-outline { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 8px;
+    border: 1px solid var(--gray-300); background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--gray-700); }
+  .btn-outline:hover { background: var(--gray-50); }
+  .btn-create { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 18px; border-radius: 8px;
+    border: none; background: var(--green-600); color: #fff; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .btn-create:hover { background: var(--green-700); }
+
+  .import-wrap { position: relative; }
+  .import-dropdown { display: none; position: absolute; top: calc(100% + 6px); left: 0; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.12); padding: 14px; width: 270px; z-index: 30; }
+  .import-dropdown.open { display: block; }
+  .import-select-btn { width: 100%; display: flex; align-items: center; gap: 10px; border: 1.5px dashed var(--emerald-400); background: var(--emerald-50);
+    color: var(--emerald-700); font-weight: 600; font-size: 13px; padding: 12px 14px; border-radius: 8px; cursor: pointer; margin-bottom: 10px; text-align: left; }
+  .import-select-btn:hover { background: var(--emerald-100); }
+  .import-sample-link { width: 100%; display: flex; align-items: center; gap: 8px; border: none; background: none; color: var(--gray-700);
+    font-size: 12.5px; font-weight: 500; padding: 4px 2px; cursor: pointer; }
+  .import-sample-link:hover { color: var(--emerald-700); }
+
+  .sm-toolbar-row2 { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .search-box { position: relative; flex: 1; min-width: 260px; }
+  .search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .search-box input { width: 100%; height: 42px; padding: 0 12px 0 34px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14.5px; }
+  .select-type { height: 42px; border: 1px solid var(--gray-300); border-radius: 6px; padding: 0 10px; font-size: 14.5px; background: #fff; width: 190px; }
+
+  /* ============ table ============ */
+  .table-container { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.03); overflow: hidden; }
+  table.suppliers-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .suppliers-table thead tr { background: #fff; border-bottom: 1px solid var(--gray-200); }
+  .suppliers-table th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .04em; }
+  .suppliers-table td { padding: 15px 16px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+  .suppliers-table tbody tr:last-child td { border-bottom: none; }
+  .suppliers-table tbody tr:hover { background: var(--gray-50); }
+  .sup-name { font-weight: 600; color: var(--gray-900); }
+  .source-chip { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; padding: 4px 13px; border-radius: 999px; }
+  .source-chip.external { background: var(--purple-100); color: var(--purple-700); }
+  .source-chip.internal { background: var(--blue-100); color: var(--blue-700); }
+  .row-actions { display: flex; gap: 14px; }
+  .icon-btn { width: 20px; height: 20px; border: none; background: none; color: var(--gray-500); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0; }
+  .icon-btn:hover { color: var(--gray-800); }
+  .icon-btn.danger:hover { color: var(--red-600); }
+
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-top: 1px solid var(--gray-200); flex-wrap: wrap; gap: 10px; }
+  .pagination .showing { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--gray-500); letter-spacing: .03em; }
+  .pagination .pages { display: flex; gap: 4px; }
+  .pagination .pages button { padding: 5px 11px; border-radius: 6px; font-size: 13px; border: 1px solid var(--gray-200); background: #fff; cursor: pointer; }
+  .pagination .pages button.active { background: var(--green-500); color: #fff; border-color: var(--green-500); }
+
+  .not-found { text-align: center; padding: 48px 20px; color: var(--gray-500); font-size: 14.5px; }
+
+  /* ============ Add/Edit Supplier drawer ============ */
+  .backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 10; display: none; }
+  .backdrop.open { display: block; }
+  .sd-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 100%; background: #fff; z-index: 11; transform: translateX(100%);
+    transition: transform .2s ease; display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(0,0,0,.15); }
+  .sd-drawer.open { transform: translateX(0); }
+  @media (min-width: 640px) { .sd-drawer { width: 94%; max-width: 1400px; } }
+
+  .close-btn { position: absolute; top: 1rem; right: 1rem; z-index: 12; width: 40px; height: 40px; border-radius: 999px; background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15); border: none; color: var(--red-500); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .close-btn:hover { background: var(--red-100); }
+
+  .sd-header { flex-shrink: 0; padding: 22px 32px; border-bottom: 1px solid var(--gray-200); }
+  .sd-header h2 { margin: 0; font-size: 19px; font-weight: 700; }
+  .sd-header .sd-sub { font-size: 12.5px; color: var(--gray-500); margin-top: 4px; }
+
+  .sd-body { flex: 1; overflow-y: auto; padding: 6px 32px; }
+  .sd-row { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--gray-100); align-items: start; }
+  .sd-row label.sd-label { font-size: 13.5px; font-weight: 600; color: var(--gray-800); padding-top: 10px; }
+  .sd-row .req { color: var(--rose-600); }
+  .sd-row input[type="text"], .sd-row input[type="email"], .sd-row input[type="number"], .sd-row select {
+    width: 100%; height: 42px; border: 1px solid var(--gray-300); border-radius: 8px; padding: 0 12px; font-size: 13.5px; }
+  .sd-radio-cards { display: flex; flex-direction: column; gap: 12px; }
+  .sd-radio-card { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+  .sd-radio-card input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--emerald-600); flex-shrink: 0; }
+  .rc-title { font-weight: 700; font-size: 13.5px; color: var(--gray-900); }
+  .rc-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .sd-checks { display: flex; gap: 24px; padding-top: 10px; }
+  .sd-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--gray-700); cursor: pointer; }
+  .sd-check input { width: 18px; height: 18px; accent-color: var(--emerald-600); }
+  .sd-gst-row { display: flex; gap: 10px; }
+  .sd-gst-row input { flex: 1; }
+  .sd-fetch-btn { border: 1px solid var(--gray-300); background: var(--gray-50); color: var(--gray-400); font-weight: 700; font-size: 12.5px;
+    padding: 0 18px; border-radius: 8px; white-space: nowrap; cursor: not-allowed; flex-shrink: 0; }
+  .sd-fetch-btn:not(:disabled) { color: var(--emerald-700); background: var(--emerald-50); border-color: var(--emerald-300); cursor: pointer; }
+  .sd-hint { font-size: 12px; color: var(--gray-500); margin-bottom: 10px; padding-top: 8px; }
+  .sd-radio-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-700); padding: 6px 0; cursor: pointer; }
+  .sd-radio-line input { width: 16px; height: 16px; accent-color: var(--emerald-600); }
+  .sd-ob-amount { margin-top: 10px; max-width: 220px; display: none; }
+  .sd-ob-amount.show { display: block; }
+  .sd-ob-amount label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gray-500); margin-bottom: 5px; }
+
+  .sd-footer { flex-shrink: 0; border-top: 1px solid var(--gray-200); padding: 16px 32px; display: flex; gap: 12px; }
+  .sd-cancel { flex: 1; height: 44px; border: 1px solid var(--red-500); color: var(--red-600); background: #fff; border-radius: 8px;
+    font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .sd-cancel:hover { background: var(--red-100); }
+  .sd-submit { flex: 1; height: 44px; border: none; background: var(--green-600); color: #fff; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .sd-submit:hover { background: var(--green-700); }
+
+  /* ============ confirm / import modals ============ */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 50; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-backdrop.open { display: flex; }
+  .modal-card { background: #fff; border-radius: 14px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
+  .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { margin: 0; font-size: 15px; }
+  .modal-head button { border: none; background: none; cursor: pointer; color: var(--gray-400); }
+  .modal-body { padding: 18px 20px; font-size: 13.5px; color: var(--gray-700); line-height: 1.5; }
+  .modal-foot { padding: 14px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-foot button { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .modal-foot .cancel { border: 1px solid var(--gray-300); background: #fff; }
+  .modal-foot .primary { border: none; background: var(--emerald-600); color: #fff; }
+  .modal-foot .primary.danger { background: var(--red-600); }
+  .modal-body input[type="file"] { width: 100%; border: 1px dashed var(--gray-300); border-radius: 8px; padding: 20px 12px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-inner">
+      <div class="brand-row">
+        <a class="brand-link" href="#">
+          <svg class="brand-bag" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7V6a6 6 0 0 1 12 0v1h2a1 1 0 0 1 1 1l-1.2 12a2 2 0 0 1-2 1.8H6.2a2 2 0 0 1-2-1.8L3 8a1 1 0 0 1 1-1h2Zm2 0h8V6a4 4 0 0 0-8 0v1Z"/></svg>
+          <span class="brand-name">QA store</span>
+        </a>
+      </div>
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li>
+            <button type="button" class="nav-group-btn" data-group="production">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg><span class="ngb-label">Production</span></span>
+              <svg class="nav-group-chevron" data-chevron="production" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-production">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Batch Management</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Semifinished Products</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Configure Recipe</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="inventory">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg><span class="ngb-label">Inventory</span></span>
+              <svg class="nav-group-chevron" data-chevron="inventory" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-inventory">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Finished Goods Inventory</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Raw Material Inventory</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="audit">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span class="ngb-label">Stock Audit Settlement</span></span>
+              <svg class="nav-group-chevron" data-chevron="audit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-audit">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Stock Audits</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Settlement Approvals</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn active" data-group="procurement">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="ngb-label">Procurement</span></span>
+              <svg class="nav-group-chevron" data-chevron="procurement" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-procurement">
+              <li><a class="nav-sub-link active" href="screen-09.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Management</a></li>
+              <li><a class="nav-sub-link" href="screen-02.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Purchase Orders</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="finance">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg><span class="ngb-label">Finance</span></span>
+              <svg class="nav-group-chevron" data-chevron="finance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-finance">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Customer Receivables</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Payables</a></li>
+            </ul>
+          </li>
+          <li><a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Workforce Management</a></li>
+        </ul>
+      </div>
+      <div class="nav-bottom">
+        <a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8c0 4.5-6 9-6 9s-6-4.5-6-9a6 6 0 0 1 12 0"/><circle cx="12" cy="8" r="2"/></svg>Route Delivery</a>
+        <button type="button" class="nav-leaf-link" id="btnStoreQr"><svg class="nav-icon qr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M17 17h1v1h-1z"/><path d="M14 21h1v1h-1z"/><path d="M21 14v1"/><path d="M21 21h1"/></svg>Store QR Code</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="app-header">
+      <div class="app-header-row">
+        <div class="header-left">
+          <button type="button" class="hamburger-btn" id="hamburgerBtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+          <h1 class="page-title">Supplier Management</h1>
+        </div>
+        <div class="header-right">
+          <div class="profile-trigger" id="profileTrigger">
+            <div class="avatar-wrap">
+              <div class="avatar-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+              <span class="status-dot"></span>
+            </div>
+            <div class="profile-text"><span class="pname">Mahesh</span><span class="prole">Admin</span></div>
+            <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <button type="button" class="pd-row">My Network <span class="preview-badge">Preview</span></button>
+            <button type="button" class="pd-row">Edit Profile</button>
+            <div class="pd-divider"></div>
+            <button type="button" class="pd-row danger">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="sm-toolbar-row1">
+        <div class="sm-left-btns">
+          <button type="button" class="btn-outline" id="btnExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Export</button>
+          <div class="import-wrap">
+            <button type="button" class="btn-outline" id="btnImport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import</button>
+            <div class="import-dropdown" id="importDropdown">
+              <button type="button" class="import-select-btn" id="btnSelectFile">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+                Select Your Suppliers File
+              </button>
+              <input type="file" id="importFileInput" accept=".csv" style="display:none">
+              <button type="button" class="import-sample-link" id="btnDownloadSample">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Sample File
+              </button>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-create" id="btnAddSupplier">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Supplier
+        </button>
+      </div>
+
+      <div class="sm-toolbar-row2">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="supplierSearch" placeholder="Search by supplier name or mobile number">
+        </div>
+        <select class="select-type" id="typeFilter">
+          <option value="">All Types</option>
+          <option value="externalSupplier">External Supplier</option>
+          <option value="internalSupplier">Internal Source</option>
+        </select>
+      </div>
+
+      <div class="table-container">
+        <table class="suppliers-table">
+          <thead>
+            <tr><th>Supplier Name</th><th>Mobile Number</th><th>Email</th><th>Source Type</th><th>Warehouse Address</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="supplierTbody"></tbody>
+        </table>
+        <div id="notFoundState" class="not-found" style="display:none">We're sorry, no suppliers match your search.</div>
+        <div class="pagination">
+          <div class="showing" id="showingText">Showing 1–5 of 5</div>
+          <div class="pages"><button>‹</button><button class="active">1</button><button>›</button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ Add/Edit Supplier drawer ============ -->
+<div class="backdrop" id="sdBackdrop"></div>
+<div class="sd-drawer" id="supplierDrawer">
+  <button class="close-btn" id="sdClose"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <div class="sd-header">
+    <h2 id="sdTitle">Add Supplier</h2>
+    <div class="sd-sub" id="sdSub">Add a supplier with GSTIN, warehouse address and contact details.</div>
+  </div>
+  <div class="sd-body">
+    <div class="sd-row">
+      <label class="sd-label">Source Type <span class="req">*</span></label>
+      <div class="sd-radio-cards">
+        <label class="sd-radio-card">
+          <input type="radio" name="sourceType" value="externalSupplier" id="sdSourceExternal" checked>
+          <div><div class="rc-title">External Supplier</div><div class="rc-desc">Purchase goods from another business.</div></div>
+        </label>
+        <label class="sd-radio-card">
+          <input type="radio" name="sourceType" value="internalSupplier" id="sdSourceInternal">
+          <div><div class="rc-title">Internal Source</div><div class="rc-desc">Receive goods from your own warehouse, production unit, or branch.</div></div>
+        </label>
+      </div>
+    </div>
+    <div class="sd-row"><label class="sd-label">Supplier Name <span class="req">*</span></label><input type="text" id="sdName" placeholder="e.g. Shree Balaji Traders"></div>
+    <div class="sd-row"><label class="sd-label">Mobile Number <span class="req">*</span></label><input type="text" id="sdMobile" placeholder="e.g. 9876543210"></div>
+    <div class="sd-row"><label class="sd-label">Email</label><input type="email" id="sdEmail" placeholder="e.g. name@company.com"></div>
+    <div class="sd-row"><label class="sd-label">Supplier Code</label><input type="text" id="sdCode" placeholder="e.g. SUP-001"></div>
+    <div class="sd-row">
+      <label class="sd-label">GST Registration</label>
+      <div class="sd-checks">
+        <label class="sd-check"><input type="checkbox" id="sdGstRegistered" checked> Registered</label>
+        <label class="sd-check"><input type="checkbox" id="sdGstExempt"> Exempt / Composition</label>
+      </div>
+    </div>
+    <div class="sd-row">
+      <label class="sd-label">GSTIN</label>
+      <div class="sd-gst-row">
+        <input type="text" id="sdGstin" placeholder="e.g. 22AAAAA0000A1Z5">
+        <button type="button" class="sd-fetch-btn" id="sdFetchBtn" disabled>Fetch Details</button>
+      </div>
+    </div>
+    <div class="sd-row">
+      <label class="sd-label">Opening Balance</label>
+      <div>
+        <div class="sd-hint">Bring in any existing balance with this supplier from before they were added here.</div>
+        <label class="sd-radio-line"><input type="radio" name="obDirection" id="sdObOwe" value="owe"> I owe this supplier</label>
+        <label class="sd-radio-line"><input type="radio" name="obDirection" id="sdObAdvance" value="advance"> I've already paid this supplier in advance</label>
+        <div class="sd-ob-amount" id="sdObAmountWrap">
+          <label>Amount (₹)</label>
+          <input type="number" id="sdObAmount" placeholder="0">
+        </div>
+      </div>
+    </div>
+    <div class="sd-row"><label class="sd-label">Supplier Address</label><input type="text" id="sdAddress" placeholder="Supplier's warehouse or business address"></div>
+    <div class="sd-row">
+      <label class="sd-label">State</label>
+      <select id="sdState">
+        <option value="">Select State</option>
+        <option>Maharashtra</option><option>Karnataka</option><option>Delhi</option><option>Tamil Nadu</option><option>Gujarat</option>
+      </select>
+    </div>
+  </div>
+  <div class="sd-footer">
+    <button class="sd-cancel" id="sdCancel">Cancel</button>
+    <button class="sd-submit" id="sdSubmit">Add Supplier</button>
+  </div>
+</div>
+
+<!-- ============ Delete confirm modal ============ -->
+<div class="modal-backdrop" id="deleteConfirmModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Delete Supplier?</h3><button data-close="deleteConfirmModal"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-body">Are you sure you want to delete <strong id="deleteSupplierName"></strong>? This can't be undone.</div>
+    <div class="modal-foot"><button class="cancel" data-close="deleteConfirmModal">Cancel</button><button class="primary danger" id="btnConfirmDelete">Delete</button></div>
+  </div>
+</div>
+
+<script>
+document.getElementById('hamburgerBtn').addEventListener('click', () => {});
+document.getElementById('profileTrigger').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('profileTrigger').classList.toggle('open');
+  document.getElementById('profileDropdown').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('profileTrigger').classList.remove('open');
+  document.getElementById('profileDropdown').classList.remove('open');
+});
+document.querySelectorAll('.nav-group-btn').forEach(btn => btn.addEventListener('click', () => {
+  const sub = document.getElementById('sub-' + btn.dataset.group);
+  sub.classList.toggle('open');
+  document.querySelector(`[data-chevron="${btn.dataset.group}"]`).style.transform = sub.classList.contains('open') ? '' : 'rotate(180deg)';
+}));
+
+// Explicit JS-driven navigation for real sidebar links (defensive: guarantees navigation
+// even in preview contexts that intercept plain <a> clicks). Placeholder "#" links stay inert.
+document.querySelectorAll('.nav-sub-link, .nav-leaf-link').forEach(link => {
+  const href = link.getAttribute('href');
+  if (href && href !== '#') {
+    link.addEventListener('click', e => { e.preventDefault(); window.location.href = href; });
+  }
+});
+
+let SEED = null;
+let filters = { search: '', type: '' };
+let editingId = null;
+let deleteTargetId = null;
+
+fetch('../seed-data/seed.json').then(r => r.json()).then(seed => { SEED = seed; init(); });
+
+function init() {
+  renderTable();
+  wire();
+}
+
+function sourceLabel(s) { return s._sourceType === 'externalSupplier' ? 'External Supplier' : 'Internal Source'; }
+function sourceChipClass(s) { return s._sourceType === 'externalSupplier' ? 'external' : 'internal'; }
+
+function visibleSuppliers() {
+  return SEED.sellers.filter(s => {
+    if (filters.type && s._sourceType !== filters.type) return false;
+    if (filters.search) {
+      const blob = (s.name + ' ' + s.phone).toLowerCase();
+      if (!blob.includes(filters.search.toLowerCase())) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable() {
+  const rows = visibleSuppliers();
+  document.getElementById('supplierTbody').innerHTML = rows.map(s => `
+    <tr data-id="${s._id}">
+      <td class="sup-name">${s.name}</td>
+      <td>${s.phone.replace('+91 ', '').replace(/\s/g, '')}</td>
+      <td>${s.email || '–'}</td>
+      <td><span class="source-chip ${sourceChipClass(s)}">${sourceLabel(s)}</span></td>
+      <td>${s.address || '–'}</td>
+      <td>
+        <div class="row-actions">
+          <button type="button" class="icon-btn" data-edit="${s._id}" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg></button>
+          <button type="button" class="icon-btn danger" data-delete="${s._id}" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+        </div>
+      </td>
+    </tr>`).join('');
+  document.getElementById('notFoundState').style.display = rows.length ? 'none' : 'block';
+  document.querySelector('.suppliers-table').style.display = rows.length ? 'table' : 'none';
+  document.getElementById('showingText').textContent = `Showing ${rows.length ? 1 : 0}–${rows.length} of ${rows.length}`;
+
+  document.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openDrawer('edit', btn.dataset.edit)));
+  document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', () => {
+    deleteTargetId = btn.dataset.delete;
+    document.getElementById('deleteSupplierName').textContent = SEED.sellers.find(s => s._id === deleteTargetId).name;
+    document.getElementById('deleteConfirmModal').classList.add('open');
+  }));
+}
+
+function openDrawer(mode, id) {
+  editingId = mode === 'edit' ? id : null;
+  document.getElementById('sdTitle').textContent = mode === 'edit' ? 'Edit Supplier' : 'Add Supplier';
+  document.getElementById('sdSub').textContent = mode === 'edit'
+    ? 'Update this supplier\'s GSTIN, warehouse address and contact details.'
+    : 'Add a supplier with GSTIN, warehouse address and contact details.';
+  document.getElementById('sdSubmit').textContent = mode === 'edit' ? 'Save Changes' : 'Add Supplier';
+
+  const s = mode === 'edit' ? SEED.sellers.find(x => x._id === id) : null;
+  document.getElementById('sdSourceExternal').checked = !s || s._sourceType === 'externalSupplier';
+  document.getElementById('sdSourceInternal').checked = Boolean(s && s._sourceType === 'internalSupplier');
+  document.getElementById('sdName').value = s ? s.name : '';
+  document.getElementById('sdMobile').value = s ? s.phone.replace('+91 ', '').replace(/\s/g, '') : '';
+  document.getElementById('sdEmail').value = s ? (s.email || '') : '';
+  document.getElementById('sdCode').value = s ? (s.supplierCode || '') : '';
+  const registered = s ? Boolean(s.gstRegistered) : true;
+  document.getElementById('sdGstRegistered').checked = registered;
+  document.getElementById('sdGstExempt').checked = !registered;
+  document.getElementById('sdGstin').value = s ? (s.gstin || '') : '';
+  syncFetchBtn();
+  document.getElementById('sdObOwe').checked = false;
+  document.getElementById('sdObAdvance').checked = false;
+  document.getElementById('sdObAmountWrap').classList.remove('show');
+  document.getElementById('sdObAmount').value = '';
+  document.getElementById('sdAddress').value = s ? (s.address || '') : '';
+  document.getElementById('sdState').value = s ? (s.state || '') : '';
+
+  document.getElementById('sdBackdrop').classList.add('open');
+  document.getElementById('supplierDrawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('sdBackdrop').classList.remove('open');
+  document.getElementById('supplierDrawer').classList.remove('open');
+}
+
+function syncFetchBtn() {
+  document.getElementById('sdFetchBtn').disabled = document.getElementById('sdGstin').value.trim().length < 15;
+}
+
+function exportCsv() {
+  const rows = visibleSuppliers();
+  const header = ['Supplier Name', 'Mobile Number', 'Email', 'Source Type', 'Warehouse Address'];
+  const lines = [header.join(',')].concat(rows.map(s =>
+    [s.name, s.phone, s.email || '', sourceLabel(s), s.address || ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'suppliers.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function wire() {
+  document.getElementById('supplierSearch').addEventListener('input', e => { filters.search = e.target.value; renderTable(); });
+  document.getElementById('typeFilter').addEventListener('change', e => { filters.type = e.target.value; renderTable(); });
+
+  document.getElementById('btnAddSupplier').addEventListener('click', () => openDrawer('add'));
+  document.getElementById('sdClose').addEventListener('click', closeDrawer);
+  document.getElementById('sdBackdrop').addEventListener('click', closeDrawer);
+  document.getElementById('sdCancel').addEventListener('click', closeDrawer);
+
+  document.getElementById('sdGstRegistered').addEventListener('change', () => { if (document.getElementById('sdGstRegistered').checked) document.getElementById('sdGstExempt').checked = false; });
+  document.getElementById('sdGstExempt').addEventListener('change', () => { if (document.getElementById('sdGstExempt').checked) document.getElementById('sdGstRegistered').checked = false; });
+  document.getElementById('sdGstin').addEventListener('input', syncFetchBtn);
+  document.querySelectorAll('input[name="obDirection"]').forEach(r => r.addEventListener('change', () => document.getElementById('sdObAmountWrap').classList.add('show')));
+
+  document.getElementById('sdSubmit').addEventListener('click', () => {
+    const name = document.getElementById('sdName').value.trim();
+    const mobile = document.getElementById('sdMobile').value.trim();
+    if (!name || !mobile) { document.getElementById('sdName').focus(); return; }
+    const sourceType = document.getElementById('sdSourceInternal').checked ? 'internalSupplier' : 'externalSupplier';
+    const payload = {
+      name, phone: '+91 ' + mobile, _sourceType: sourceType, supplierType: sourceType === 'internalSupplier' ? 'INTERNAL' : 'EXTERNAL', active: true,
+      email: document.getElementById('sdEmail').value.trim(), supplierCode: document.getElementById('sdCode').value.trim(),
+      gstRegistered: document.getElementById('sdGstRegistered').checked, gstin: document.getElementById('sdGstin').value.trim(),
+      address: document.getElementById('sdAddress').value.trim(), state: document.getElementById('sdState').value
+    };
+    if (editingId) {
+      const idx = SEED.sellers.findIndex(s => s._id === editingId);
+      SEED.sellers[idx] = { ...SEED.sellers[idx], ...payload };
+    } else {
+      SEED.sellers.push({ _id: 'sup-new-' + Date.now(), ...payload });
+    }
+    closeDrawer();
+    renderTable();
+  });
+
+  document.getElementById('btnExport').addEventListener('click', exportCsv);
+  document.getElementById('btnImport').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('importDropdown').classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.import-wrap')) document.getElementById('importDropdown').classList.remove('open');
+  });
+  document.getElementById('btnSelectFile').addEventListener('click', () => document.getElementById('importFileInput').click());
+  document.getElementById('importFileInput').addEventListener('change', () => document.getElementById('importDropdown').classList.remove('open'));
+  document.getElementById('btnDownloadSample').addEventListener('click', () => {
+    const header = 'Supplier Name,Mobile Number,Email,Source Type,Warehouse Address\n';
+    const sample = 'Shree Balaji Traders,9876543210,name@company.com,External Supplier,"Plot 14, Industrial Area"\n';
+    const blob = new Blob([header + sample], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'suppliers-sample.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    document.getElementById('importDropdown').classList.remove('open');
+  });
+
+  document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => document.getElementById(btn.dataset.close).classList.remove('open')));
+  document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+    SEED.sellers = SEED.sellers.filter(s => s._id !== deleteTargetId);
+    document.getElementById('deleteConfirmModal').classList.remove('open');
+    renderTable();
+  });
+}
+</script>
+</body>
+</html>

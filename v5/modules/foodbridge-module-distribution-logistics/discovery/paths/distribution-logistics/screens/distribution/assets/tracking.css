@@ -1,0 +1,252 @@
+/*
+ * Live Delivery Tracking — screen styles.
+ * Uses the module's existing tokens (--emerald, --ink, --line, --radius) so the
+ * screen is native to Route Planning and Logistic Returns rather than a guest.
+ * Kept separate from styles.css because only one screen loads it.
+ */
+
+.tk-wrap { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 130px); min-height: 520px; }
+
+/* ── Exception strip — the hero tier ──────────────────────────────────────── */
+.tk-strip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 34px; }
+.tk-ex { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; border: 1px solid transparent; cursor: pointer; }
+.tk-ex svg { flex-shrink: 0; }
+.tk-ex.high { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.tk-ex.high:hover { background: #fee2e2; }
+.tk-ex.med { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+.tk-ex.med:hover { background: #fef3c7; }
+.tk-clear { font-size: 13px; color: var(--emerald-700); background: var(--emerald-50); border: 1px solid var(--emerald-100);
+  padding: 6px 12px; border-radius: 999px; font-weight: 600; }
+
+/* ── Two-pane body ────────────────────────────────────────────────────────── */
+.tk-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+
+.tk-rail { display: flex; flex-direction: column; min-height: 0; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.tk-rail-hd { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px;
+  border-bottom: 1px solid var(--line); font-size: 14px; }
+.tk-clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--emerald-700);
+  background: var(--emerald-50); padding: 2px 9px; border-radius: 6px; font-size: 13px; }
+.tk-rail-list { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.tk-clear-sel { border-top: 1px solid var(--line); padding: 10px; background: none; border-left: 0; border-right: 0;
+  border-bottom: 0; color: var(--emerald-700); font-weight: 600; font-size: 13px; }
+
+/* ── Route card ───────────────────────────────────────────────────────────── */
+.tk-card { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; padding: 11px 12px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.tk-card:hover { border-color: #cbd5e1; }
+.tk-card.active { border-color: var(--emerald-600); box-shadow: 0 0 0 3px var(--emerald-50); }
+.tk-card-top { display: flex; align-items: center; gap: 9px; }
+.tk-card-id { flex: 1; min-width: 0; }
+.tk-card-id b { display: block; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-card-id small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Avatar doubles as the health dot — colour is state, never identity. */
+.tk-av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700; color: #fff; background: var(--muted-2); position: relative; }
+.tk-av.ok { background: var(--emerald-600); }
+.tk-av.behind { background: var(--rose-500); }
+.tk-av.idle { background: var(--orange-500); }
+.tk-av.offline { background: #64748b; }
+
+.tk-stage { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+.tk-stage.green { background: var(--emerald-50); color: var(--emerald-700); }
+.tk-stage.blue { background: #eff6ff; color: #1d4ed8; }
+.tk-stage.amber { background: #fffbeb; color: #92400e; }
+.tk-stage.grey { background: #f1f5f9; color: var(--ink-soft); }
+
+/* ── Stop-sequence bar — the signature element ────────────────────────────── */
+.tk-seq { display: flex; gap: 2px; margin: 9px 0 8px; }
+.tk-seq i { flex: 1; height: 7px; border-radius: 2px; background: #e2e8f0; }
+.tk-seq i.done { background: var(--emerald-500); }
+.tk-seq i.skip { background: var(--orange-500); }
+.tk-seq i.pend { background: #e2e8f0; }
+/* The current stop pulses — the one segment that is happening right now. */
+.tk-seq i.now { background: var(--blue-600); animation: tk-pulse 1.6s ease-in-out infinite; }
+@keyframes tk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+.tk-card-foot { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+.tk-h { font-weight: 700; }
+.tk-h.ok { color: var(--emerald-700); }
+.tk-h.behind { color: var(--rose-600); }
+.tk-h.idle { color: #b45309; }
+.tk-h.offline { color: #475569; }
+.tk-eta { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* ── Map ──────────────────────────────────────────────────────────────────── */
+/* `isolation: isolate` is load-bearing, not decoration.
+   Leaflet assigns its own layers high z-indexes — panes 400, controls 800,
+   .leaflet-top/.leaflet-bottom 1000. Nothing between the map and <body> created
+   a stacking context, so those values resolved in the ROOT context and painted
+   over the route drawer (z-151), which sits well inside this module's own scale
+   (drawer 90/95 · modal 100 · sheet 130 · toast 200).
+   Giving the wrapper a stacking context confines every Leaflet z-index to it, so
+   the map can never again outrank anything outside itself. Fixing this by raising
+   the drawer instead would only work until a Leaflet plugin picked a bigger
+   number. */
+.tk-map-wrap { position: relative; z-index: 0; isolation: isolate;
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-height: 0; }
+.tk-map { position: absolute; inset: 0; }
+.tk-legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; display: flex; gap: 12px; flex-wrap: wrap;
+  background: rgba(255, 255, 255, .94); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px;
+  font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
+.tk-legend i.lg { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.tk-legend i.ok { background: var(--emerald-600); }
+.tk-legend i.behind { background: var(--rose-500); }
+.tk-legend i.idle { background: var(--orange-500); }
+.tk-legend i.offline { background: #64748b; }
+
+.tk-van { display: block; width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(16, 24, 40, .35); background: var(--muted-2); }
+.tk-van.ok { background: var(--emerald-600); }
+.tk-van.behind { background: var(--rose-500); }
+.tk-van.idle { background: var(--orange-500); }
+.tk-van.offline { background: #64748b; }
+/* A halo marks the van as live — absent when the signal is stale. */
+.tk-van.ok::after, .tk-van.behind::after { content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  border: 2px solid currentColor; opacity: .35; animation: tk-halo 2s ease-out infinite; }
+.tk-van.ok::after { color: var(--emerald-600); }
+.tk-van.behind::after { color: var(--rose-500); }
+@keyframes tk-halo { 0% { transform: scale(.7); opacity: .5; } 100% { transform: scale(1.25); opacity: 0; } }
+
+.tk-stop { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 10.5px;
+  font-weight: 700; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(16, 24, 40, .3); background: #94a3b8; }
+.tk-stop.delivered { background: var(--emerald-600); }
+.tk-stop.skipped { background: var(--orange-500); }
+.tk-stop.pending { background: #94a3b8; }
+.tk-depot { display: block; width: 14px; height: 14px; border-radius: 3px; background: #1f2937; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .4); }
+
+/* ── Drawer ───────────────────────────────────────────────────────────────── */
+.tk-drawer-scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .35); z-index: 150; }
+.tk-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 94vw; background: var(--card);
+  z-index: 151; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(16, 24, 40, .18);
+  animation: tk-slide .22s ease; }
+@keyframes tk-slide { from { transform: translateX(100%); } to { transform: none; } }
+.tk-dr-head { display: flex; align-items: center; gap: 11px; padding: 15px 16px; border-bottom: 1px solid var(--line); }
+.tk-dr-head b { display: block; font-size: 15px; }
+.tk-dr-head small { display: block; font-size: 12px; color: var(--muted); }
+.tk-close { margin-left: auto; border: 0; background: none; color: var(--muted); padding: 6px; border-radius: 8px; }
+.tk-close:hover { background: var(--line-soft); color: var(--ink); }
+.tk-dr-acts { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tk-dr-acts .btn { height: 34px; font-size: 13px; }
+.tk-dr-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+.tk-dr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tk-tile { background: var(--line-soft); border-radius: 8px; padding: 10px 8px; text-align: center; }
+.tk-tile b { display: block; font-size: 15px; color: var(--ink); }
+.tk-tile small { font-size: 10.5px; color: var(--muted); }
+.tk-tile.warn { background: #fffbeb; }
+.tk-tile.warn b { color: #b45309; }
+
+.tk-h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  margin: 20px 0 8px; font-weight: 700; }
+.tk-ladder { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tk-ladder > div { display: flex; justify-content: space-between; padding: 9px 12px; font-size: 13px; color: var(--ink-soft); }
+.tk-ladder > div + div { border-top: 1px solid var(--line); }
+.tk-ladder > div.strong { background: var(--line-soft); color: var(--ink); font-weight: 700; }
+
+.tk-tls { list-style: none; margin: 0; padding: 0; }
+.tk-tl { display: flex; gap: 11px; padding: 10px 0; position: relative; }
+.tk-tl + .tk-tl { border-top: 1px dashed var(--line); }
+.tk-tl.focus { background: var(--emerald-50); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 8px; }
+.tk-tl-dot { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; color: #fff; background: #94a3b8; }
+.tk-tl.delivered .tk-tl-dot { background: var(--emerald-600); }
+.tk-tl.skipped .tk-tl-dot { background: var(--orange-500); }
+.tk-tl-body { flex: 1; min-width: 0; }
+.tk-tl-hd { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.tk-tl-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.tk-tl-meta em { font-style: normal; font-weight: 700; }
+.tk-tl-meta em.late { color: var(--rose-600); }
+.tk-tl-meta em.early, .tk-tl-meta em.ontime { color: var(--emerald-700); }
+.tk-tl-note { font-size: 11.5px; color: #b45309; background: #fffbeb; border-radius: 6px; padding: 4px 8px; margin-top: 5px; }
+.tk-tl-acts { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.tk-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; padding: 4px 8px;
+  border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); }
+.tk-mini:hover { background: var(--line-soft); }
+
+.tk-msgs { list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--ink-soft); }
+.tk-msgs li { padding: 7px 0; border-bottom: 1px dashed var(--line); }
+.tk-msgs li b { font-variant-numeric: tabular-nums; color: var(--muted); margin-right: 6px; }
+.tk-empty { font-size: 13px; color: var(--muted); margin: 0; }
+
+/* ── Narrow / embedded ────────────────────────────────────────────────────── */
+/* Tablet: the rail sits above the map rather than beside it. */
+@media (max-width: 1023px) and (min-width: 769px) {
+  .tk-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .tk-rail { max-height: 240px; }
+  .tk-wrap { height: auto; min-height: 0; }
+  .tk-map-wrap { height: 60vh; min-height: 360px; }
+}
+
+/* ── Phone (matches the module's own 768px breakpoint) ─────────────────────
+   The rail leaves the page entirely: it becomes a bottom sheet opened from the
+   footer, so the map gets everything the chrome does not need. --tk-chrome is
+   measured in JS because the topbar grows when the page title wraps. */
+@media (max-width: 768px) {
+  .tk-wrap { height: calc(100dvh - var(--tk-chrome, 150px)); min-height: 320px; gap: 10px; }
+  .tk-rail, .tk-clear-sel { display: none; }
+  .tk-main { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .tk-map-wrap { height: auto; min-height: 0; }
+
+  /* Exception chips: two rows that scroll sideways, so a long alert list never
+     eats the map's height. */
+  .tk-strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: max-content;
+    gap: 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    padding-bottom: 1px;
+    margin: 0 -12px;          /* bleed to the screen edges */
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .tk-strip::-webkit-scrollbar { display: none; }
+  .tk-ex { white-space: nowrap; height: 28px; font-size: 12px; }
+  .tk-clear { grid-row: span 2; align-self: center; }
+
+  /* The legend would sit under the footer; lift and shrink it. */
+  .tk-legend { gap: 9px; font-size: 10.5px; padding: 5px 9px; left: 8px; bottom: 8px; }
+}
+
+/* Route sheet — the rail's contents, in the module's own bottom sheet. */
+.tk-sheet-list { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 18px; }
+.tk-sheet-list .tk-card { border-radius: 12px; padding: 12px 13px; }
+.tk-sheet-list .tk-card.active { border-color: var(--emerald-600); box-shadow: 0 0 0 3px var(--emerald-50); }
+
+@media (max-width: 640px) {
+  .tk-dr-grid { grid-template-columns: repeat(2, 1fr); }
+  /* max-width also has to be released, or the base rule's 94vw still wins. */
+  .tk-drawer { width: 100%; max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tk-seq i.now, .tk-van::after { animation: none; }
+  .tk-drawer { animation: none; }
+}
+
+/* ── Reassign picker + message composer ───────────────────────────────────
+   Both replace window.prompt, which is blocked in some embedded contexts —
+   and this screen is embedded in the mock platform. */
+.tk-mini.on { background: var(--emerald-50); border-color: var(--emerald-600); color: var(--emerald-700); }
+.tk-pick { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--line-soft);
+  display: flex; flex-direction: column; gap: 5px; }
+.tk-pick > b { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tk-pick-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left;
+  padding: 7px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); }
+.tk-pick-row:hover { border-color: var(--emerald-600); background: var(--emerald-50); }
+.tk-pick-row span { font-size: 13px; font-weight: 600; color: var(--ink); }
+.tk-pick-row small { font-size: 11px; color: var(--muted); }
+
+.tk-compose { display: flex; gap: 7px; margin-top: 10px; }
+.tk-compose input { flex: 1; min-width: 0; height: 36px; padding: 0 11px; border: 1px solid var(--line);
+  border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--ink); background: var(--card); }
+.tk-compose input:focus { outline: none; border-color: var(--emerald-600); box-shadow: 0 0 0 3px var(--emerald-50); }
+.tk-compose .btn { height: 36px; font-size: 13px; }

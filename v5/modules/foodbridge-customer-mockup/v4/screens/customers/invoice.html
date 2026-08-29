@@ -1,0 +1,724 @@
+<!doctype html>
+<!--
+  FOODBRIDGE INVOICE — a standalone view of an order that has already been raised.
+  -----------------------------------------------------------------------------
+  Opened in a NEW TAB from the order-done modal's "Open Invoice", on the branch
+  where the accounting system has nothing to open: either the sync failed, or
+  this tenant has no sales-order deep link configured. When the order IS in
+  Zoho, that button goes to Zoho's own flow instead and this page is not
+  reached. See renderOrderDoneModal() in stock-audit.js for the branch.
+
+  VIEWS, NEVER CREATES. The order is already written by the time this opens;
+  nothing here mutates it, and reloading changes nothing.
+
+  ── LAYOUT: the reference image is the specification ────────────────────────
+  A document-like invoice on two white surfaces, reproduced on mobile rather
+  than replaced by a phone-native design:
+
+    header      back chevron - "Invoice" - Print / PDF icon buttons
+    card 1      INVOICE pill + status chip
+                big reference           Invoice date  / Raised by  (right)
+                "Order: ..." under the reference
+                ────────────────────────────────────────
+                Bill To          │ From        (vertical rule, stays 2-up)
+    card 2      Items (N)
+                ┌ bordered box ──────────────────────┐
+                │ badge  name / qty x rate    amount │  rows, hairline rules
+                └────────────────────────────────────┘
+                ┌ bordered box ──────────────────────┐
+                │        Subtotal / Discount / Tax    │
+                │ ▓▓▓▓▓▓ Grand Total ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │  green band, full width
+                └────────────────────────────────────┘
+                ────────────────────────────────────────
+                shield  computer generated invoice
+
+  The two-column splits are NOT stacked on a phone — the reference keeps them
+  side by side at this width and so does this. Nothing scrolls sideways.
+
+  STANDALONE ON PURPOSE. It loads no seed, no shell, no icons, no catalogue, and
+  reads exactly ONE localStorage key: the orders. Everything it renders travels
+  on the order record — the billing address and phone included, stamped there by
+  confirmOrder. An earlier draft looked the customer up separately; that was
+  wrong twice over, since nothing in this cut writes the customers key and its
+  record shape is not the one that lookup assumed. Depending on one key keeps
+  the page working when the app's own scripts are mid-failure, which is exactly
+  the situation it opens in.
+
+  ── ABOUT THE MONEY, read before trusting a total ───────────────────────────
+  FoodBridge stores no prices and no tax. Two figures here are DERIVED:
+
+    * The unit price is the retail MRP printed in the tenant's own product
+      name, parsed out of it, multiplied up the pack ladder. It is RETAIL MRP,
+      not the trade price a distributor charges a shop — VERSION.md's "Pricing
+      is an open commercial question". The 23 catalogue products with no MRP
+      read "No price set" and add nothing to the subtotal.
+    * The tax rate is a PLACEHOLDER constant (GST_RATE). Nothing in FoodBridge
+      configures one.
+
+  NEITHER IS STATED ON THE PAGE ANY MORE. A Notes panel carried both, and it was
+  removed by request along with the seller's strapline. So the rendered document
+  now shows a grand total with nothing qualifying it, and anyone reading this
+  file is the only one who learns that the unit prices are retail MRP and the
+  tax rate is invented. The PDF still carries the equivalent fine print at its
+  foot; if that goes too, nothing anywhere on the artefact says it.
+
+  WHAT THE REFERENCE HAS THAT THIS CANNOT, having no data behind it: a payment
+  status, a due date, the seller's postal address, and a support phone number.
+  The status chip occupies the reference's "Paid" slot with identical styling
+  but reports the ACCOUNTS SYNC, which is a real fact about this order — it is
+  not a payment state and must never be read as one. Discount is shown at zero
+  because that is true: there is no discount, not a missing one.
+
+  Rules kept: HTML/CSS/vanilla JS only, no frameworks, no build step, no network.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Invoice — FoodBridge</title>
+<style>
+  /* ── Measured from the reference ──────────────────────────────────────────
+     Scale key: the iOS home indicator is 139pt and spans 297px in the
+     reference image, so 1 image px = 0.468 CSS px and the mockup is a ~393px
+     viewport. Every number below is that conversion, not an estimate:
+       page margin 34img→16   card padding 36img→17   card radius 34img→16
+       header button 101x108img→47x51   button gap 32img→15
+       title cap 35img→16 → 23px   invoice no. cap 40img→19 → 26px
+       item row 98img→46   number badge 44img→21
+     Held in px rather than vw so they are exact at the reference width; the
+     one media query below eases padding on phones narrower than the mockup. */
+  :root {
+    --ink:      #0f1420;
+    --ink-2:    #6b7280;
+    --ink-3:    #9ca3af;
+    --line:     #e7eaee;
+    --hair:     #eef0f3;
+    --ground:   #f6f7f9;
+    --paper:    #ffffff;
+
+    --g-700:    #15803d;
+    --g-600:    #16a34a;
+    --g-100:    #dcfce7;
+    --g-50:     #f0fdf4;
+
+    --amber:    #b45309;
+    --amber-bg: #fffbeb;
+    --amber-br: #fde68a;
+
+    --pad:      17px;
+    --shadow:   0 1px 2px rgba(16,24,40,.045);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -.006em;
+    overflow-x: hidden;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; padding: 0 16px 26px; }
+
+  /* ── header ───────────────────────────────────────────────────────────── */
+  .hdr {
+    display: flex; align-items: center; gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 10px) 0 8px;
+  }
+  .back {
+    width: 34px; height: 34px; margin-left: -9px; flex: 0 0 auto;
+    border: none; background: none; padding: 0; cursor: pointer; color: var(--ink);
+    display: grid; place-items: center; border-radius: 9px;
+  }
+  .back svg { width: 24px; height: 24px; }
+  .hdr h1 {
+    flex: 1; min-width: 0; margin: 0;
+    font-size: 23px; font-weight: 800; letter-spacing: -.028em;
+  }
+  .hdr-acts { display: flex; gap: 14px; flex: 0 0 auto; }
+  .act {
+    width: 47px; height: 51px; padding: 0;
+    border: 1px solid var(--line); background: var(--paper); border-radius: 11px;
+    cursor: pointer; display: grid; align-content: center; justify-items: center; gap: 4px;
+    font: inherit; font-size: 11px; font-weight: 600; color: var(--ink); line-height: 1;
+  }
+  .act svg { width: 20px; height: 20px; }
+  .act:active { background: var(--hair); }
+  .act:focus-visible, .back:focus-visible { outline: 3px solid var(--g-600); outline-offset: 2px; }
+  .act[disabled] { opacity: .5; cursor: default; }
+
+  /* ── surfaces ─────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow);
+    padding: var(--pad); margin-top: 10px;
+  }
+
+  /* ── card 1: summary ──────────────────────────────────────────────────── */
+  .chips { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pill {
+    border: 1.5px solid var(--g-600); color: var(--g-700); background: var(--paper);
+    border-radius: 8px; padding: 4px 11px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: .02em; line-height: 1.35;
+  }
+  .status {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 8px;
+    padding: 4px 11px; font-size: 13px; font-weight: 700; line-height: 1.35; white-space: nowrap;
+  }
+  .status svg { width: 15px; height: 15px; flex: 0 0 auto; }
+  .status.ok   { background: var(--g-100); color: var(--g-700); }
+  .status.warn { background: var(--amber-bg); color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber-br); }
+
+  /* Reference number left, the two facts right-aligned beside it. */
+  .idrow { display: flex; align-items: flex-start; gap: 12px; margin-top: 13px; }
+  .idcol { min-width: 0; flex: 1 1 auto; }
+  .ref {
+    /* 24px, not the 26 a cap-height reading suggested: deriving it from the
+       reference number's WIDTH instead (10 characters across ~128px) gives 24,
+       and 26 pushed this tenant's reference onto a second line. */
+    margin: 0; font-size: 24px; font-weight: 800;
+    letter-spacing: -.032em; line-height: 1.08; overflow-wrap: anywhere;
+  }
+  .ref-sub { margin-top: 6px; font-size: 15px; color: var(--ink-2); overflow-wrap: anywhere; }
+  .facts { flex: 0 0 auto; display: grid; gap: 9px; padding-top: 2px; }
+  /* Every pixel this pair gives up is one the reference number gets, and it
+     has to stay on one line. Measured: at 15px the pair was 191px wide and left
+     only 122 for a number needing 136. */
+  .fact { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; }
+  .fact .k { font-size: 13.5px; color: var(--ink-2); white-space: nowrap; }
+  .fact .v { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+  .rule { border: none; border-top: 1px solid var(--hair); margin: 22px 0 18px; }
+
+  /* Two columns with a vertical rule — held on mobile, as the reference has it. */
+  .parties { display: grid; grid-template-columns: 1fr 1fr; }
+  .party { min-width: 0; padding-right: 16px; }
+  .party + .party { border-left: 1px solid var(--hair); padding: 0 0 0 16px; }
+  .party .k { font-size: 15px; color: var(--ink-2); line-height: 1.3; }
+  .party .who {
+    margin-top: 6px; font-size: 19px; font-weight: 800;
+    letter-spacing: -.022em; line-height: 1.22; overflow-wrap: anywhere;
+  }
+  .party .det { margin-top: 9px; font-size: 15px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+  .party .det.tel { margin-top: 14px; }
+
+  /* ── card 2: items, notes/totals, disclaimer ──────────────────────────── */
+  .sec-h { font-size: 16px; font-weight: 800; letter-spacing: -.018em; margin: 0 0 12px; }
+  .box { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: grid; grid-template-columns: auto 1fr auto;
+    align-items: center; gap: 0 12px;
+    padding: 12px; border-top: 1px solid var(--hair);
+  }
+  .item:first-child { border-top: none; }
+  .item .n {
+    grid-row: 1 / span 2; align-self: center;
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--g-50); color: var(--g-700);
+    display: grid; place-items: center;
+    font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  /* Two lines then ellipsis: the reference's names are short enough for one,
+     this catalogue's run to 55 characters, and ragged row heights are the one
+     thing that would read as a different design. */
+  .item .nm {
+    grid-column: 2; grid-row: 1; font-size: 14.5px; font-weight: 600;
+    line-height: 1.3; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .item .qr {
+    grid-column: 2; grid-row: 2; margin-top: 3px;
+    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  }
+  .item .amt {
+    grid-column: 3; grid-row: 1 / span 2; align-self: center; text-align: right;
+    font-size: 15px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .item .amt.none { font-size: 12.5px; color: var(--amber); }
+
+  /* Totals only — the Notes panel that sat to their left was removed, so the
+     box is one column and the green band spans its full width. */
+  .foot-box { margin-top: 12px; }
+  .tots { display: flex; flex-direction: column; min-width: 0; }
+  .tots .r {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 4px 8px; flex-wrap: wrap; padding: 8px 12px; font-size: 13.5px;
+  }
+  .tots .r:first-child { padding-top: 12px; }
+  .tots .r .k { color: var(--ink-2); white-space: nowrap; }
+  .tots .r .v { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tots .r .v.zero { color: var(--g-600); }
+  .grand {
+    margin-top: auto; display: flex; justify-content: space-between; align-items: center;
+    gap: 6px; flex-wrap: wrap; padding: 13px 12px; background: var(--g-50);
+  }
+  .grand .k { font-size: 13.5px; font-weight: 700; color: var(--g-700); white-space: nowrap; }
+  .grand .v {
+    font-size: 17px; font-weight: 800; color: var(--g-700);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+
+  .disc {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 13px; line-height: 1.45; color: var(--ink-3);
+  }
+  .disc svg { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 1px; }
+
+  .sync {
+    display: flex; gap: 10px; margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+    background: var(--amber-bg); border: 1px solid var(--amber-br);
+    font-size: 12.5px; line-height: 1.5; color: var(--amber);
+  }
+  .sync svg { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 1px; }
+  .sync b { font-weight: 800; }
+
+  .empty { text-align: center; padding: 48px 8px; color: var(--ink-2); }
+  .empty h2 { margin: 0 0 8px; font-size: 17px; color: var(--ink); }
+
+  /* Phones narrower than the mockup: ease the paddings, keep the structure. */
+  @media (max-width: 370px) {
+    :root { --pad: 14px; }
+    .wrap { padding-left: 12px; padding-right: 12px; }
+    .hdr-acts { gap: 9px; }
+    .act { width: 44px; height: 48px; }
+    .hdr h1 { font-size: 21px; }
+    .ref { font-size: 23px; }
+    .ref-sub, .fact .k, .fact .v, .party .k, .party .det { font-size: 13.5px; }
+    .party .who { font-size: 17px; }
+    .party, .party + .party { padding-right: 11px; }
+    .party + .party { padding-left: 11px; }
+    .item, .tots .r, .grand { padding-left: 10px; padding-right: 10px; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .hdr { display: none; }
+    .wrap { max-width: none; padding: 0; }
+    .card { box-shadow: none; break-inside: avoid; }
+    .sync { background: #fff; color: var(--ink); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ORDERS_KEY = "fb-discovery-sales-orders-v1";
+  var TENANT = "Miha's";
+
+  // PLACEHOLDER. FoodBridge holds no tax rate for any product or customer, and
+  // nothing in the app configures one. 5% is a plausible GST band for these
+  // goods, which is exactly why it is labelled on the page rather than left to
+  // look computed. Change it here if the business sets a real rate.
+  var GST_RATE = 0.05;
+  var GST_LABEL = "Tax (5%)";
+
+  // The app's own ladder, copied rather than imported — this page loads no
+  // catalogue. Only a FALLBACK for orders raised before lines carried their
+  // own unitFactor; a line that has one always wins.
+  var PC_LADDER = { Pc: 1, Tray: 12, Carton: 144 };
+
+  var I = {
+    back:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8.5V3.5h11v5"/><path d="M6.5 17.5H4a1.5 1.5 0 0 1-1.5-1.5v-5A1.5 1.5 0 0 1 4 9.5h16a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-2.5"/><rect x="6.5" y="14" width="11" height="6.5" rx="1"/></svg>',
+    pdf:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><path d="M7.5 10.5l4.5 4.5 4.5-4.5"/><path d="M4 20.5h16"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.7 7.7-5.5 5.5a1 1 0 0 1-1.4 0L7.3 12.7a1 1 0 1 1 1.4-1.4l1.8 1.8 4.8-4.8a1 1 0 1 1 1.4 1.4z"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.8v5"/><path d="M12 16.2v.01"/></svg>',
+    shield:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.4 4.8 5.3v6.1c0 4.5 3.1 8.2 7.2 9.6 4.1-1.4 7.2-5.1 7.2-9.6V5.3z" opacity=".22"/><path d="M12 2.4 4.8 5.3v6.1c0 4.5 3.1 8.2 7.2 9.6 4.1-1.4 7.2-5.1 7.2-9.6V5.3z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9.4 12.1l1.8 1.8 3.5-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+  function money(n) {
+    return "₹" + Number(n).toLocaleString("en-IN", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function fmtDay(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "—";
+    return String(d.getDate()).padStart(2, "0") + " " + MON[d.getMonth()] + " " + d.getFullYear();
+  }
+
+  // The SAME parse the app's product sheet uses: the LAST MRP in the name wins,
+  // because these names carry "(OLD MRP 70) NEW MRP 65" and the new one is live.
+  function baseMrp(name) {
+    var all = String(name || "").match(/(?:NEW\s+MRP|MRP)\s*\.?\s*(\d+(?:\.\d+)?)/gi);
+    if (!all || !all.length) return null;
+    var last = all[all.length - 1].match(/(\d+(?:\.\d+)?)/);
+    return last ? Number(last[1]) : null;
+  }
+  function factorOf(line) {
+    if (Number(line.unitFactor) > 0) return Number(line.unitFactor);
+    return PC_LADDER[line.unit] || 1;
+  }
+  // The one thing this page reads. Everything it renders is on the order.
+  function orderById(wanted) {
+    var rows;
+    try { rows = JSON.parse(localStorage.getItem(ORDERS_KEY) || "[]"); } catch (e) { return null; }
+    if (!Array.isArray(rows)) return null;
+    for (var i = 0; i < rows.length; i++) if (rows[i] && rows[i].id === wanted) return rows[i];
+    return null;
+  }
+
+  var root = document.getElementById("root");
+  var id = new URLSearchParams(location.search).get("order");
+  var order = id ? orderById(id) : null;
+
+  var HEADER =
+    '<div class="hdr">' +
+      '<button class="back" id="close" type="button" aria-label="Close">' + I.back + "</button>" +
+      "<h1>Invoice</h1>" +
+      '<div class="hdr-acts">' +
+        '<button class="act" id="print" type="button">' + I.print + "<span>Print</span></button>" +
+        '<button class="act" id="pdf" type="button">' + I.pdf + "<span>PDF</span></button>" +
+      "</div>" +
+    "</div>";
+
+  if (!order) {
+    root.innerHTML = HEADER +
+      '<div class="card empty"><h2>No order to invoice</h2><p>' +
+      (id ? "Nothing here matches <b>" + esc(id) + "</b>." : "No order was named in the link.") +
+      "<br>An order can only be invoiced from the device and browser it was raised on.</p></div>";
+    document.title = "Invoice — not found";
+    document.getElementById("close").onclick = function () { window.close(); };
+    document.getElementById("print").onclick = function () { window.print(); };
+    document.getElementById("pdf").disabled = true;
+    return;
+  }
+
+  /* ── priced lines ──────────────────────────────────────────────────────── */
+  var lines = (Array.isArray(order.lines) ? order.lines : []).map(function (l) {
+    var mrp = baseMrp(l.productName);
+    var factor = factorOf(l);
+    var qty = Number(l.qty) || 0;
+    // A pack costs what its pieces cost — the same ladder the quantities use.
+    var rate = mrp == null ? null : mrp * factor;
+    return {
+      name: l.productName || l.productId,
+      unit: l.unit || "Pc",
+      qty: qty,
+      rate: rate,
+      amount: rate == null ? 0 : rate * qty,
+      priced: rate != null
+    };
+  });
+
+  var subtotal = lines.reduce(function (n, l) { return n + l.amount; }, 0);
+  var discount = 0;                       // real: FoodBridge applies none
+  var tax = (subtotal - discount) * GST_RATE;
+  var grand = subtotal - discount + tax;
+
+  var synced = order.zohoStatus === "created";
+  var reason = String(order.zohoError || "").replace(/\s*\.\s*$/, "");
+
+  // Everything the "Bill To" block needs travels ON the order — see the note in
+  // confirmOrder. An earlier draft of this page looked the customer up in
+  // localStorage instead; that was wrong twice over, since nothing in this cut
+  // writes that key and the record's shape is not the one it assumed.
+  // Orders raised before those fields existed simply show the name.
+  var billName = order.customerName || "—";
+  var billAddr = order.customerAddress ? String(order.customerAddress) : "";
+  var billPhone = order.customerPhone ? String(order.customerPhone) : "";
+
+  // The reference puts a SHORT document number in the display slot and the
+  // longer originating reference beneath it. Ours maps the same way when the
+  // order reached accounts; when it has not, there is no short number to show,
+  // so the FoodBridge reference takes the display slot and the line under it
+  // is dropped rather than left empty.
+  var bigRef = synced && order.zohoOrderNumber ? order.zohoOrderNumber : order.id;
+  var subRef = synced && order.zohoOrderNumber ? order.id : "";
+
+  document.title = "Invoice " + order.id;
+
+  root.innerHTML = HEADER +
+
+    '<section class="card">' +
+      '<div class="chips">' +
+        '<span class="pill">INVOICE</span>' +
+        // The reference's "Paid" slot. This reports the ACCOUNTS SYNC, not
+        // payment: FoodBridge knows nothing about whether this has been paid.
+        '<span class="status ' + (synced ? "ok" : "warn") + '">' +
+          (synced ? I.check : I.alert) + (synced ? "In accounts" : "Not synced") +
+        "</span>" +
+      "</div>" +
+
+      '<div class="idrow">' +
+        '<div class="idcol">' +
+          '<div class="ref">' + esc(bigRef) + "</div>" +
+          (subRef ? '<div class="ref-sub">Order: ' + esc(subRef) + "</div>" : "") +
+        "</div>" +
+        '<div class="facts">' +
+          '<div class="fact"><span class="k">Invoice Date</span><span class="v">' +
+            esc(fmtDay(order.createdAt)) + "</span></div>" +
+          '<div class="fact"><span class="k">Raised By</span><span class="v">' +
+            esc(order.createdBy || "—") + "</span></div>" +
+        "</div>" +
+      "</div>" +
+
+      '<hr class="rule">' +
+
+      '<div class="parties">' +
+        '<div class="party">' +
+          '<div class="k">Bill To</div>' +
+          '<div class="who">' + esc(billName) + "</div>" +
+          (billAddr ? '<div class="det">' + esc(billAddr) + "</div>" : "") +
+          (billPhone ? '<div class="det tel">' + esc(billPhone) + "</div>" : "") +
+        "</div>" +
+        '<div class="party">' +
+          '<div class="k">From</div>' +
+          '<div class="who">' + esc(TENANT) + "</div>" +
+        "</div>" +
+      "</div>" +
+    "</section>" +
+
+    '<section class="card">' +
+      '<h2 class="sec-h">Items (' + lines.length + ")</h2>" +
+
+      '<ol class="box items">' +
+        (lines.length
+          ? lines.map(function (l, i) {
+              return '<li class="item">' +
+                '<span class="n">' + (i + 1) + "</span>" +
+                '<span class="nm">' + esc(l.name) + "</span>" +
+                '<span class="qr">' + esc(l.qty + " " + l.unit) +
+                  (l.priced ? " × " + money(l.rate) : "") + "</span>" +
+                '<span class="amt' + (l.priced ? "" : " none") + '">' +
+                  (l.priced ? money(l.amount) : "No price set") + "</span>" +
+              "</li>";
+            }).join("")
+          : '<li class="item"><span class="nm">This order has no line items.</span></li>') +
+      "</ol>" +
+
+      '<div class="box foot-box">' +
+        '<div class="tots">' +
+          '<div class="r"><span class="k">Subtotal</span><span class="v">' + money(subtotal) + "</span></div>" +
+          '<div class="r"><span class="k">Discount</span><span class="v zero">− ' + money(discount) + "</span></div>" +
+          '<div class="r"><span class="k">' + esc(GST_LABEL) + '</span><span class="v">' + money(tax) + "</span></div>" +
+          '<div class="grand"><span class="k">Grand Total</span><span class="v">' + money(grand) + "</span></div>" +
+        "</div>" +
+      "</div>" +
+
+      '<hr class="rule">' +
+
+      '<div class="disc">' + I.shield +
+        "<div>This is a computer generated invoice<br>and does not require a signature.</div></div>" +
+    "</section>" +
+
+    (synced
+      ? ""
+      : '<div class="sync">' + I.alert + "<div><b>Not in the accounting system.</b> " +
+        "This order has not synced" + (reason ? " — " + esc(reason) : "") + ". It is a valid " +
+        "FoodBridge order; retry the sync from the app to raise it in accounts as well.</div></div>");
+
+  /* ── PDF ───────────────────────────────────────────────────────────────── */
+  /* Written by hand because this page may not fetch a library, and because
+     "PDF" should produce a file rather than re-open the print dialog that
+     Print already owns. Base-14 Helvetica needs no embedded font. */
+
+  var PAGE_W = 595.28, PAGE_H = 841.89;      // A4 in points
+  var M = 48;
+  var COL_AMT = PAGE_W - M;
+  var COL_RATE = COL_AMT - 96;
+  var COL_QTY = COL_RATE - 78;
+
+  // WinAnsi has no rupee sign and base-14 fonts carry no glyph for it, so the
+  // PDF says Rs. — a missing glyph prints blank and would silently turn
+  // "₹1,200" into "1,200".
+  function pdfMoney(n) {
+    return "Rs. " + Number(n).toLocaleString("en-IN", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+  function pdfText(s) {
+    return String(s == null ? "" : s)
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+      .replace(/[–—−]/g, "-").replace(/·/g, "-")
+      .replace(/[^\x20-\x7E]/g, "")
+      .replace(/([\\()])/g, "\\$1");
+  }
+  // Helvetica averages ~0.5em, the Bold cut ~0.56 — measured on a rendered
+  // page, not guessed: the regular estimate let a 54-character name run
+  // straight through the QTY column.
+  function widthOf(s, size, bold) {
+    return String(s).length * size * (bold ? 0.56 : 0.5);
+  }
+  function clip(s, size, max, bold) {
+    var t = String(s);
+    if (widthOf(t, size, bold) <= max) return t;
+    while (t.length > 1 && widthOf(t + "...", size, bold) > max) t = t.slice(0, -1);
+    return t.replace(/\s+$/, "") + "...";
+  }
+
+  function buildPdf() {
+    var pages = [], ops = [], y = 0;
+
+    function text(x, yy, s, size, bold, align) {
+      var f = bold ? "/F2" : "/F1";
+      var str = pdfText(s);
+      var xx = align === "r" ? x - widthOf(str, size, bold) : x;
+      ops.push("BT " + f + " " + size + " Tf " + xx.toFixed(2) + " " + yy.toFixed(2) + " Td (" + str + ") Tj ET");
+    }
+    function line(x1, y1, x2, y2, w) {
+      ops.push((w || 0.6).toFixed(2) + " w " + x1.toFixed(2) + " " + y1.toFixed(2) + " m " +
+               x2.toFixed(2) + " " + y2.toFixed(2) + " l S");
+    }
+    function newPage() { if (ops.length) pages.push(ops.join("\n")); ops = []; y = PAGE_H - M; }
+
+    function header(first) {
+      newPage();
+      text(M, y, TENANT, 15, true);
+      text(COL_AMT, y, "INVOICE", 15, true, "r");
+      y -= 13;
+      // The seller strapline was removed from the page; the PDF masthead drops
+      // it too so the two artefacts do not disagree about what this document
+      // says. The reference under it stays — a printed invoice needs one.
+      text(COL_AMT, y, bigRef, 9, false, "r");
+      y -= 10;
+      line(M, y, COL_AMT, y, 1.4);
+      y -= 24;
+
+      if (first) {
+        text(M, y, "BILL TO", 7.5, true);
+        text(M + 200, y, "INVOICE DATE", 7.5, true);
+        y -= 13;
+        text(M, y, billName, 11, true);
+        text(M + 200, y, fmtDay(order.createdAt), 10, false);
+        y -= 12;
+        if (billAddr) text(M, y, clip(billAddr, 8.5, 180), 8.5, false);
+        if (subRef) text(M + 200, y, "Order: " + subRef, 8.5, false);
+        y -= 12;
+        if (billPhone) text(M, y, billPhone, 8.5, false);
+        text(M + 200, y, "Raised by " + (order.createdBy || "-"), 8.5, false);
+        y -= 22;
+      }
+
+      text(M, y, "#", 7.5, true);
+      text(M + 18, y, "PRODUCT", 7.5, true);
+      text(COL_QTY, y, "QTY", 7.5, true, "r");
+      text(COL_RATE, y, "UNIT PRICE", 7.5, true, "r");
+      text(COL_AMT, y, "AMOUNT", 7.5, true, "r");
+      y -= 7;
+      line(M, y, COL_AMT, y, 0.8);
+      y -= 16;
+    }
+
+    header(true);
+
+    lines.forEach(function (l, i) {
+      if (y < M + 130) header(false);        // keep room for the totals block
+      text(M, y, String(i + 1), 9, false);
+      // The 52pt reserve is the QTY column's own width, not padding: "12 Carton"
+      // right-aligns AT COL_QTY, so a name clipped only to COL_QTY runs into it.
+      text(M + 18, y, clip(l.name, 9.5, COL_QTY - (M + 18) - 52, true), 9.5, true);
+      text(COL_QTY, y, l.qty + " " + l.unit, 9.5, false, "r");
+      text(COL_RATE, y, l.priced ? pdfMoney(l.rate) : "-", 9.5, false, "r");
+      text(COL_AMT, y, l.priced ? pdfMoney(l.amount) : "No price set", 9.5, true, "r");
+      y -= 9;
+      line(M, y, COL_AMT, y, 0.35);
+      y -= 14;
+    });
+
+    y -= 8;
+    text(COL_RATE, y, "Subtotal", 10, false, "r");
+    text(COL_AMT, y, pdfMoney(subtotal), 10, true, "r");
+    y -= 15;
+    text(COL_RATE, y, "Discount", 10, false, "r");
+    text(COL_AMT, y, "- " + pdfMoney(discount), 10, true, "r");
+    y -= 15;
+    text(COL_RATE, y, GST_LABEL, 10, false, "r");
+    text(COL_AMT, y, pdfMoney(tax), 10, true, "r");
+    y -= 8;
+    line(COL_RATE - 70, y, COL_AMT, y, 1.2);
+    y -= 16;
+    text(COL_RATE, y, "Grand Total", 12, true, "r");
+    text(COL_AMT, y, pdfMoney(grand), 12, true, "r");
+    y -= 30;
+
+    text(M, y, "Unit prices are the retail MRP printed in each product name, not trade", 8, false);
+    y -= 10;
+    text(M, y, "pricing, and " + GST_LABEL.toLowerCase() + " is a placeholder rate. The accounting system is", 8, false);
+    y -= 10;
+    text(M, y, "authoritative for what is billed.", 8, false);
+    if (!synced) {
+      y -= 14;
+      text(M, y, "Not in the accounting system: this order has not synced.", 8, true);
+    }
+    y -= 16;
+    text(M, y, "This is a computer generated invoice and does not require a signature.", 7.5, false);
+    pages.push(ops.join("\n"));
+
+    /* assemble — offsets must be byte-exact, so the file is built as one
+       string and each object's start position recorded as it is appended. */
+    var objs = [], nPages = pages.length;
+    var fontF1 = 3 + nPages * 2, fontF2 = fontF1 + 1;
+    var kids = [];
+    for (var p = 0; p < nPages; p++) kids.push((3 + p * 2) + " 0 R");
+
+    objs.push("<< /Type /Catalog /Pages 2 0 R >>");
+    objs.push("<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + nPages + " >>");
+    for (var q = 0; q < nPages; q++) {
+      objs.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H + "] " +
+                "/Resources << /Font << /F1 " + fontF1 + " 0 R /F2 " + fontF2 + " 0 R >> >> " +
+                "/Contents " + (4 + q * 2) + " 0 R >>");
+      objs.push("<< /Length " + pages[q].length + " >>\nstream\n" + pages[q] + "\nendstream");
+    }
+    objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+    objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+
+    var out = "%PDF-1.4\n", offsets = [];
+    objs.forEach(function (body, i) {
+      offsets.push(out.length);
+      out += (i + 1) + " 0 obj\n" + body + "\nendobj\n";
+    });
+    var xref = out.length;
+    out += "xref\n0 " + (objs.length + 1) + "\n0000000000 65535 f \n";
+    offsets.forEach(function (o) { out += String(o).padStart(10, "0") + " 00000 n \n"; });
+    out += "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
+    return out;
+  }
+
+  document.getElementById("print").onclick = function () { window.print(); };
+
+  document.getElementById("pdf").onclick = function () {
+    var btn = this;
+    try {
+      // latin1: every byte written above is already <= 0xFF, which keeps the
+      // xref offsets (counted in characters) equal to the byte offsets.
+      var s = buildPdf();
+      var bytes = new Uint8Array(s.length);
+      for (var i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 0xff;
+      var url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = order.id + ".pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 20000);
+    } catch (e) {
+      // Never leave the rep with a control that did nothing and said nothing.
+      btn.querySelector("span").textContent = "Failed";
+      btn.disabled = true;
+    }
+  };
+
+  document.getElementById("close").onclick = function () {
+    // Opened with target=_blank, so this tab is usually closable. When the
+    // browser refuses, leave the page alone rather than navigating somewhere
+    // unexpected.
+    window.close();
+  };
+})();
+</script>
+</body>
+</html>
