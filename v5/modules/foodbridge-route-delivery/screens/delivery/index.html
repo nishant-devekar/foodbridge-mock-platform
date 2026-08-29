@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  DELIVERY MANAGEMENT — the route-delivery app as a static prototype.
+
+  A port of storefront-frontend's src/route-delivery-app (React) into plain
+  HTML/CSS/JS, so the UX can be shown to customers and stakeholders and edited
+  against their feedback without a build step. Open a file, change it, reload.
+
+  Each script owns one thing and hangs itself off a single global, so load order
+  is the only dependency wiring there is:
+
+    seed.inline.js   RD_DB   the in-memory database (routes, stops, customers)
+    services.js      RD_SDK  the service layer that reads and writes it
+    shell.js         RD_UI   design tokens, chrome and shared controls
+    delivery-core.js RD      router, app state, mount()
+    delivery-*.js            the screens, each registering itself via RD.screen
+
+  Served over HTTP -- open it through the platform shell or a local server, not
+  as a file:// path.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- viewport-fit=cover so the safe-area insets the header/footer read are
+       non-zero on a notched phone. maximum-scale is deliberate: this is a
+       one-handed field app, and pinch-zoom on a numpad mis-taps. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="theme-color" content="#1B6272" />
+  <title>Delivery Management — FoodBridge</title>
+
+  <!-- Inter, self-hosted in this folder. Not Google Fonts and not v5/vendor:
+       the module has to keep rendering correctly offline and when the folder is
+       copied somewhere else on its own. -->
+  <link rel="stylesheet" href="fonts/inter.css" />
+  <link rel="stylesheet" href="styles.css?v=2026082901" />
+  <link rel="stylesheet" href="delivery.css?v=2026082901" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- ?v= busts the browser cache. Neither GitHub Pages nor python3's
+       http.server sends a useful Cache-Control for these, so without it an
+       edit can sit behind a stale copy through a real reload. Bump the tag on
+       any edit to the file it is attached to. -->
+  <script src="seed.inline.js?v=2026082901"></script>
+  <script src="services.js?v=2026082901"></script>
+  <script src="models.js?v=2026082901"></script>
+  <script src="validation.js?v=2026082901"></script>
+  <script src="shell.js?v=2026082901"></script>
+  <script src="delivery-core.js?v=2026082901"></script>
+
+  <!-- Screens. Each registers itself with RD.screen(), so this list is the only
+       place a new screen file needs mentioning. -->
+  <script src="delivery-home.js?v=2026082901"></script>
+  <script src="delivery-start.js?v=2026082901"></script>
+  <script src="delivery-stops.js?v=2026082901"></script>
+  <script src="delivery-settle.js?v=2026082901"></script>
+  <script src="delivery-aside.js?v=2026082901"></script>
+
+  <script>RD.mount(document.getElementById("app"));</script>
+</body>
+</html>

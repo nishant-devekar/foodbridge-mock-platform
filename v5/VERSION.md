@@ -14,6 +14,63 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — Delivery Management, ported to static
+
+Delivery Management is now a hand-authored static module like every other one in v5 — plain
+HTML, CSS and vanilla JS, IIFEs on `window` namespaces, `?v=` cache tags, **no build step**.
+Open a file, change it, reload. That is the whole point: this screen exists to be shown to
+customers and stakeholders, edited against their feedback, and frozen.
+
+It replaces the compiled React bundle that briefly lived here. `/route-delivery` **stays React**
+in `storefront-frontend` — that repo is untouched and remains the reference implementation.
+
+**What was ported, and how faithfully.** All 23 screens and their branches:
+
+| | |
+| --- | --- |
+| Start of day | pre-start · load stock · opening cash · staff sign-off |
+| Delivery loop | queue · at-customer · payment · payment success · skip stop · new customer · stop summary |
+| Settlement | overview · stock count · cash handover · route closed · analytics · reports |
+| Side flows | restock in progress / load / success · manage assets · return acceptance |
+
+**The logic layers are the original code, not a re-implementation.** `seed.inline.js` (the
+808-line database), `services.js` (all 43 SDK methods), `models.js` (84 exports — pricing,
+discounts, receipts, settlement maths) and `validation.js` were transformed mechanically from
+the React source: imports and exports stripped, wrapped in an IIFE. So the *numbers* cannot
+drift from the real product even though the *rendering* was rewritten.
+
+**Styles carry across as objects.** The React app styles inline — 1,314 `style={{…}}` objects —
+so `shell.js` renders style objects through a `sty()` helper rather than inventing CSS classes.
+Each screen reads as a transliteration of its JSX, which is what makes the two diffable.
+`ui.css` is copied verbatim into `styles.css`; it is the hover/press feel of every control.
+
+**Verified against the real app running side by side.** The React build was served on `:4300`
+and compared screen by screen. That caught four things a careful reading would have missed:
+routes sort by status priority (In Progress above Ready), the date filter defaults to today,
+`formatRouteDate` renders en-US (“August 30, 2026”), and the settlement checklist shows **two**
+steps — `CUSTOMER_CLOSURE` is filtered out by `settlementFlow.model.js` and has no driver-facing
+action. All four are now matched rather than approximated.
+
+Also fixed during QA: the discrepancy-note fields on Stock Count and Cash Handover gate their
+commit button, but did not re-render on input, so typing an explanation left the button dead.
+
+**Checks that passed:** all 23 routes render with no console errors; payment → DELIVERED →
+route total → settlement state mutation works end to end; the full settlement chain closes a
+route; **zero** network requests (16 local files, nothing external, no CDN, no `v5/vendor`);
+the folder copied to an unrelated directory still runs; other v5 modules unaffected; no React,
+JSX, `package.json`, `node_modules`, Vite or ES modules anywhere under `v5/`.
+
+**One deliberate non-fix.** Borivali North's dashboard card reads ₹14,320 collected while its
+queue header reads ₹7,920. This was checked against the React reference, which shows *exactly
+the same split*: the seeded route summary disagrees with the sum of its own stop rows, and
+`syncRouteAggregates` recomputes from the stops on the first write. It is an upstream seed
+quirk, faithfully reproduced. Correcting it here would make the prototype diverge from the app
+it is meant to specify.
+
+**Editing it.** Screens live in `delivery-{home,start,stops,settle,aside}.js`, each registering
+itself via `RD.screen(name, fn)`; shared chrome and controls are in `shell.js`. Bump the `?v=`
+tag on any file you edit, or a browser will serve the old copy through a reload.
+
 ### 29 August 2026 — Delivery Management is the real `/route-delivery`, running offline
 
 The replacement the suspension below was clearing the way for. Delivery Management is back on

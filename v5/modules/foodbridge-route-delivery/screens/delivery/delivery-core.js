@@ -1,0 +1,228 @@
+/* ==========================================================================
+   DELIVERY MANAGEMENT — router, app state, mount
+
+   The real app is a React Router SPA mounted at /route-delivery. This is the
+   same route table driven by the URL hash instead, so a screen is linkable and
+   the browser's Back button works — which matters, because the app's own back
+   arrows are the only way out of most screens.
+
+     region        app source
+     ------------  --------------------------------------------------------
+     route table   route-delivery-app/RouteApp.jsx
+     phase gating  route-delivery-app/components/PhaseGate.jsx
+     session/priv  route-delivery-app/context/RouteDeliveryContext.jsx
+
+   HASH, NOT PATH: the module is served from a static host with no rewrite
+   rules, so /route-delivery/queue/RTE-001 would 404 on reload. Hash routing
+   survives a reload from any screen. It also nests cleanly inside the platform
+   shell, which is itself hash-routed in the parent document.
+
+   SCREENS REGISTER THEMSELVES: each delivery-*.js file calls RD.screen(name, fn)
+   at load, so adding a screen never means editing this file.
+   ========================================================================== */
+
+(function () {
+  "use strict";
+
+  const U = window.RD_UI;
+
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  // Deliberately a plain object, not a store. Everything that persists lives in
+  // the seed db (RD_DB); this only holds what the *view* is doing right now —
+  // which screen, which filters, which sheet is open.
+  const state = {
+    route: null,          // { name, params }
+    routeId: null,
+    stopId: null,
+    // Home filters
+    search: "",
+    statusFilter: null,
+    // Defaults to today, as the real dashboard does (selectedDate = TODAY in
+    // HomeDashboard.jsx). The screen is "what am I doing today", so an unfiltered
+    // list that mixes in yesterday's closed routes is the wrong first impression.
+    // Clearing the chip sets this to null and shows every day.
+    dateFilter: (function () {
+      const d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    })(),
+    // Per-screen scratch space, cleared on navigation.
+    scratch: {},
+    toast: null,
+  };
+
+  const screens = {};
+  function screen(name, render) { screens[name] = render; }
+
+  /* ── Route table (RouteApp.jsx) ────────────────────────────────────────── */
+  // Longest-first: '/settlement/stock/:routeId' must win over '/settlement/:routeId'.
+  const ROUTES = [
+    ["",                                  "home"],
+    ["/pre-start/:routeId",               "preStart"],
+    ["/load-stock/:routeId",              "loadStock"],
+    ["/opening-cash/:routeId",            "openingCash"],
+    ["/sign-off/:routeId",                "signOff"],
+    ["/queue/:routeId",                   "queue"],
+    ["/delivery/:routeId/:stopId",        "atCustomer"],
+    ["/payment-success/:routeId/:stopId", "paymentSuccess"],
+    ["/payment/:routeId/:stopId",         "payment"],
+    ["/skip-stop/:routeId/:stopId",       "skipStop"],
+    ["/new-customer/:routeId",            "newCustomer"],
+    ["/stop-summary/:routeId/:stopId",    "stopSummary"],
+    ["/settlement/stock/:routeId",        "stockCount"],
+    ["/settlement/cash/:routeId",         "cashHandover"],
+    ["/settlement/:routeId",              "settlement"],
+    ["/return-acceptance/:routeId",       "returnAcceptance"],
+    ["/manage-assets/:routeId/:stopId",   "manageAssets"],
+    ["/manage-assets/:routeId",           "manageAssets"],
+    ["/restock-load/:routeId",            "restockLoad"],
+    ["/restock-success/:routeId",         "restockSuccess"],
+    ["/restock/:routeId",                 "restock"],
+    ["/reports",                          "reports"],
+    ["/closed/:routeId",                  "closed"],
+    ["/analytics/:routeId",               "analytics"],
+  ];
+
+  function matchRoute(path) {
+    for (const [pattern, name] of ROUTES) {
+      const pp = pattern.split("/").filter(Boolean);
+      const ap = path.split("/").filter(Boolean);
+      if (pp.length !== ap.length) continue;
+      const params = {};
+      let ok = true;
+      for (let i = 0; i < pp.length; i++) {
+        if (pp[i][0] === ":") params[pp[i].slice(1)] = decodeURIComponent(ap[i]);
+        else if (pp[i] !== ap[i]) { ok = false; break; }
+      }
+      if (ok) return { name, params };
+    }
+    return null;
+  }
+
+  function go(path) {
+    // Always through the hash so Back works and a screen stays linkable.
+    window.location.hash = path ? "#" + path : "#";
+  }
+
+  function back() {
+    if (window.history.length > 1) window.history.back();
+    else go("");
+  }
+
+  /* ── Toast ─────────────────────────────────────────────────────────────── */
+  // Upstream uses react-toastify. One transient message at a time is all the
+  // screens actually raise, so this is a div rather than a queue.
+  let toastTimer = null;
+  function toast(message, kind) {
+    state.toast = { message: message, kind: kind || "success" };
+    render();
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { state.toast = null; render(); }, 2600);
+  }
+
+  function renderToast() {
+    if (!state.toast) return "";
+    const bg = state.toast.kind === "error" ? "#dc2626" : "#111";
+    return '<div style="' + U.sty({
+      position: "absolute", left: 16, right: 16, bottom: 74, zIndex: 60,
+      background: bg, color: "white", padding: "12px 16px", borderRadius: 12,
+      fontSize: 14, fontWeight: 600, boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+      textAlign: "center",
+    }) + '">' + U.esc(state.toast.message) + "</div>";
+  }
+
+  /* ── Render ────────────────────────────────────────────────────────────── */
+  let rootEl = null;
+
+  function render() {
+    if (!rootEl) return;
+    const r = state.route;
+    const fn = r && screens[r.name];
+    let body;
+    if (!fn) {
+      body = U.EmptyState("🚧", "Screen not built yet",
+        "This part of the flow is still being ported. Use Back to return.") +
+        '<div style="padding:0 12px">' + U.BtnXL({ variant: "outline", label: "← Back", actName: "back" }) + "</div>";
+    } else {
+      try {
+        body = fn(r.params || {});
+      } catch (err) {
+        // A screen throwing must not blank the whole app — show it instead, so
+        // a half-ported screen is obvious rather than mysteriously empty.
+        body = U.ErrorState(err && err.message ? err.message : String(err));
+        if (window.console) console.error("[delivery] screen '" + r.name + "' failed:", err);
+      }
+    }
+    rootEl.innerHTML = '<div class="rd-screen">' + body + renderToast() + "</div>";
+  }
+
+  /* ── Events ────────────────────────────────────────────────────────────── */
+  // One delegated listener for the whole app. Screens declare intent with
+  // data-act/data-arg (see RD_UI.act) instead of binding their own handlers,
+  // so a re-render can never leave a stale listener behind.
+  const actions = {};
+  function action(name, fn) { actions[name] = fn; }
+
+  action("back", back);
+  action("home", function () { go(""); });
+  action("retry", function () { render(); });
+  action("tab", function (which) {
+    if (which === "home") go("");
+    else if (which === "reports") go("/reports");
+    else if (which === "back") back();
+    else toast(which === "routes" ? "Routes tab — not in this prototype" : "Follow-up tab — not in this prototype");
+  });
+
+  function onClick(e) {
+    const el = e.target.closest("[data-act]");
+    if (!el) return;
+    const name = el.getAttribute("data-act");
+    const fn = actions[name];
+    if (!fn) return;
+    let arg = el.getAttribute("data-arg");
+    if (arg && (arg[0] === "{" || arg[0] === "[")) { try { arg = JSON.parse(arg); } catch (_) {} }
+    e.preventDefault();
+    fn(arg, el, e);
+  }
+
+  // Inputs report through data-model so a screen can keep typed text across a
+  // re-render without each one wiring its own listener.
+  function onInput(e) {
+    const el = e.target.closest("[data-model]");
+    if (!el) return;
+    const path = el.getAttribute("data-model");
+    const fn = actions["model:" + path];
+    if (fn) fn(el.value, el);
+  }
+
+  /* ── Boot ──────────────────────────────────────────────────────────────── */
+  function onHashChange() {
+    const raw = (window.location.hash || "").replace(/^#/, "");
+    const matched = matchRoute(raw);
+    if (!matched) { go(""); return; }
+    // Navigating away clears per-screen scratch; screens must not rely on it
+    // surviving, and anything that should survive belongs in the seed db.
+    if (!state.route || state.route.name !== matched.name ||
+        JSON.stringify(state.route.params) !== JSON.stringify(matched.params)) {
+      state.scratch = {};
+    }
+    state.route = matched;
+    state.routeId = matched.params.routeId || null;
+    state.stopId = matched.params.stopId || null;
+    render();
+    const body = rootEl && rootEl.querySelector(".rd-body");
+    if (body) body.scrollTop = 0;
+  }
+
+  function mount(el) {
+    rootEl = el || document.getElementById("app");
+    rootEl.addEventListener("click", onClick);
+    rootEl.addEventListener("input", onInput);
+    window.addEventListener("hashchange", onHashChange);
+    onHashChange();
+  }
+
+  window.RD = {
+    state: state, screen: screen, action: action, actions: actions,
+    go: go, back: back, render: render, toast: toast, mount: mount,
+  };
+})();
