@@ -14,6 +14,33 @@ this cut is being designed against.
 
 ## Changes
 
+### 29 August 2026 — Delivery Management suspended, pending a new cut
+
+`#/distribution-logistics/delivery-management` is gone from the nav. Unlike the Stock Audit
+swap below, **nothing replaces it yet** — a new Delivery Management is being built for `v5`,
+and this clears the way for it. Until that lands, Distribution & Logistics carries three
+entries (Route Planning, Logistic Returns, Live Delivery Tracking), not four.
+
+The screen itself is untouched on disk and stays addressable at
+**`#/delivery-management-retired`** — a `standalone` route, so it resolves by hash but never
+appears in the sidebar and can never become the landing screen. It keeps its `clipLeft: 0` and
+`fullBleed`, so it still renders as the full-bleed phone app it is.
+
+**The old route now falls through.** `#/distribution-logistics/delivery-management` is not a
+route any more, so `routeFromHash` rewrites it to the first destination and lands on
+`#/dashboard`. Any bookmark or shared link on the old hash silently goes to the Dashboard
+rather than 404ing; the retired route is the address to hand out instead.
+
+**Inherited defect, carried in with the retired screen and worth not repeating.** The
+"🧾 Stock Audit" button on the stop detail — the hand-patched cross-module deep link `v3`'s
+notes describe — points at
+`modules/foodbridge-customer-mockup/v1/screens/customers/stock-audit.html`, which does not
+exist in this cut: the screen lives under `v3/` (retired) and `v4/` (live). The button opens a
+404 and has done since before `v5`. It is left as it is, inside a screen that is on its way
+out; the replacement should link to `v4/screens/customers/stock-audit.html`.
+
+**Cache token** bumped `20260829a` → `20260829b`, for the same reason as below.
+
 ### 29 August 2026 — Stock Audit & Health is now the `v4` cut
 
 The screen on `#/customer-management/stock-audit-health` was replaced. The route, the id and

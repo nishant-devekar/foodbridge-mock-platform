@@ -170,14 +170,6 @@
           "hideBurger": true
         },
         {
-          "id": "delivery-management",
-          "name": "Delivery Management",
-          "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html",
-          "clipLeft": 0,
-          "fullBleed": true,
-          "owner": "kdansari02/foodbridge-module-distribution-logistics"
-        },
-        {
           "id": "logistic-returns",
           "name": "Logistic Returns",
           "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html",
@@ -342,6 +334,15 @@
       "owner": "nidhimehta9399/foodbridge-customer-mockup",
       "hideBurger": true,
       "retired": "Superseded 29 August 2026 by the v4 cut now on #/customer-management/stock-audit-health. Kept addressable for comparison; deliberately absent from the nav."
+    },
+    {
+      "id": "delivery-management-retired",
+      "name": "Delivery Management (retired)",
+      "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "kdansari02/foodbridge-module-distribution-logistics",
+      "retired": "Suspended 29 August 2026 ahead of a new Delivery Management cut being built for v5. Files kept in place and addressable at #/delivery-management-retired; deliberately absent from the nav, so Distribution & Logistics carries no Delivery Management entry until the replacement lands."
     }
   ],
   "hidden": [
