@@ -61,14 +61,62 @@ html, body {
 .rd-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .rd-noscrollbar::-webkit-scrollbar { display: none; }
 
-/* Form controls do not inherit font or line-height from body by default; the
-   host app gets this from Tailwind's preflight. Without it every button, chip
-   and input renders ~4px shorter than the real app, which is small per control
-   and adds up to visibly different rows and touch targets. */
-button, input, textarea, select {
-  font-family: inherit;
-  line-height: inherit;
+/* ── Tailwind preflight, the parts this app renders differently without ──
+   QA serves Tailwind's base layer, so its elements start from a reset the
+   browser's own defaults do not match. Measured, not assumed: without these,
+   a bare <button> here carries the UA's 2px outset border and 1px 6px padding
+   where QA's carries none, and every control renders at 13.333px instead of
+   the body's 13.5px — small per control, visible once a screen stacks twenty
+   of them. Keep this block in step with QA rather than tuning it. */
+*, ::before, ::after {
+  border-width: 0;
+  border-style: solid;
+  border-color: #e5e7eb;
 }
+
+button, input, optgroup, select, textarea {
+  /* `font: inherit`, not just the family: a bare <button> otherwise renders at
+     the UA default 13.333px while QA inherits the body's 13.5px, which shifts
+     every list row by a fraction and compounds down a long list. */
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+button, select { text-transform: none; }
+
+a { color: inherit; text-decoration: inherit; }
+
+button, [type="button"], [type="reset"], [type="submit"] {
+  -webkit-appearance: button;
+  background-color: transparent;
+  background-image: none;
+}
+
+/* Preflight drops the UA's centred, bold table headings, so a th follows the
+   cell alignment its own style sets (the denomination table's first column
+   reads left, not centred). */
+table {
+  text-indent: 0;
+  border-color: inherit;
+  border-collapse: collapse;
+}
+th {
+  text-align: inherit;
+  font-weight: inherit;
+}
+
+/* Replaced elements are blocks in preflight, so an inline SVG in a text flow
+   sits on the box edge rather than the text baseline. */
+img, svg, video, canvas, audio, iframe, embed, object {
+  display: block;
+  vertical-align: middle;
+}
+
+h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; margin: 0; }
+p, figure, blockquote, dl, dd, hr, pre { margin: 0; }
+ol, ul, menu { list-style: none; margin: 0; padding: 0; }
 
 /* ─────────────────────────────────────────────────────────────────────────
    From here down: route-delivery-app/components/ui.css, ported verbatim.

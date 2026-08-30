@@ -153,13 +153,16 @@
       return ok(detail);
     },
 
-    collectPayment({ routeId, stopId, amount, method, sendInvoice, deviceTimestamp }) {
+    collectPayment({ routeId, stopId, amount, method, sendInvoice, writeoffAmount, deviceTimestamp }) {
       const stop = requireStop(routeId, stopId);
       if (stop.status === 'DELIVERED') {
         const e = new Error('Stop already delivered'); e.code = 'ALREADY_COMPLETED'; throw e;
       }
       const collectedAt          = deviceTimestamp || now();
-      const outstandingRemaining = Math.max(0, (stop.outstandingAmount || 0) - amount);
+      // A short payment the driver chose to write off as an offer leaves
+      // nothing outstanding; without the write-off the shortfall carries.
+      const written              = Math.max(0, Number(writeoffAmount) || 0);
+      const outstandingRemaining = Math.max(0, (stop.outstandingAmount || 0) - amount - written);
       stop.status           = 'DELIVERED';
       stop.collectedAmount  = amount;
       stop.paymentMethod    = method;
@@ -172,7 +175,7 @@
       syncRouteAggregates(routeId);
       return ok({
         stopId, status: 'DELIVERED',
-        amountCollected: amount, method, outstandingRemaining,
+        amountCollected: amount, method, outstandingRemaining, writeoffAmount: written,
         invoiceQueued: sendInvoice || false,
         nextStop: nextStop ? { id: nextStop.id, sequence: nextStop.sequence, customerName: nextStop.customerName, outstandingAmount: nextStop.outstandingAmount } : null,
         collectedAt,
@@ -406,14 +409,25 @@
       requireStop(routeId, stopId);
       const detail = resolveStopDetail(routeId, stopId);
       const at     = deviceTimestamp || now();
-      detail.items = (items || []).map(it => ({
-        productId: it.productId,
-        name:      it.name || it.productName || it.productId,
-        qty:       it.qty ?? it.quantity ?? 0,
-        unitPrice: it.unitPrice ?? it.price ?? 0,
-        amount:    (it.qty ?? it.quantity ?? 0) * (it.unitPrice ?? it.price ?? 0),
+      // The order the screens read is `orderItems` (productName/lineTotal); writing
+      // only the flat `items` list left every edit invisible.
+      detail.orderItems = (items || []).map(it => {
+        const qty   = it.qty ?? it.quantity ?? 0;
+        const price = it.unitPrice ?? it.price ?? 0;
+        return {
+          productId:    it.productId,
+          productName:  it.productName || it.name || it.productId,
+          qty,
+          orderingUnit: it.orderingUnit || 'Piece',
+          unitPrice:    price,
+          lineTotal:    qty * price,
+        };
+      });
+      detail.orderTotal = detail.orderItems.reduce((a, i) => a + i.lineTotal, 0);
+      detail.items = detail.orderItems.map(i => ({
+        productId: i.productId, name: i.productName, qty: i.qty, unitPrice: i.unitPrice, amount: i.lineTotal,
       }));
-      detail.todayOrderAmount = detail.items.reduce((a, i) => a + i.amount, 0);
+      detail.todayOrderAmount = detail.orderTotal;
       detail.updatedAt = at;
       const stop = requireStop(routeId, stopId);
       stop.todayOrderAmount = detail.todayOrderAmount;
@@ -499,8 +513,16 @@
     createRouteReturn({ routeId, orgId, items, reason }) {
       requireRoute(routeId);
       const id = uid('RET');
+      // Kept so the stop summary can list what came back per customer.
+      const log = D.db.returns[routeId] || (D.db.returns[routeId] = []);
       const totalQty   = (items || []).reduce((a, i) => a + (i.qty ?? 0), 0);
       const totalValue = (items || []).reduce((a, i) => a + (i.qty ?? 0) * (i.unitPrice ?? 0), 0);
+      // The stop that raised the return carries the quantity, so Route
+      // Intelligence's Stops Summary can report it.
+      getStops(routeId).filter(s => s.customerId === orgId).forEach(s => {
+        s.returnedQty = (s.returnedQty || 0) + totalQty;
+      });
+      log.push({ id, customerId: orgId, items: items || [], reason: reason || null, totalQty, totalValue, createdAt: now() });
       logActivity(routeId, 'RETURN_CREATED', { returnId: id, orgId, totalQty, reason: reason || null });
       return ok({ id, routeId, orgId, items: items || [], reason: reason || null, totalQty, totalValue, createdAt: now() });
     },
@@ -508,6 +530,19 @@
     recordAssetMovement({ routeId, customerOrgId, movements }) {
       requireRoute(routeId);
       const id = uid('ASM');
+      // Route Intelligence reports asset movement per asset and per stop, so
+      // the movement is kept, not just logged.
+      const log = D.db.assetMovements[routeId] || (D.db.assetMovements[routeId] = []);
+      (movements || []).forEach(m => log.push({
+        assetId: m.productId, assetName: m.productName || m.productId,
+        given: m.given || 0, taken: m.taken || 0, customerOrgId, recordedAt: now(),
+      }));
+      const totalGiven = (movements || []).reduce((a, m) => a + (m.given || 0), 0);
+      const totalTaken = (movements || []).reduce((a, m) => a + (m.taken || 0), 0);
+      getStops(routeId).filter(s => s.customerId === customerOrgId).forEach(s => {
+        s.assetGiven = (s.assetGiven || 0) + totalGiven;
+        s.assetTaken = (s.assetTaken || 0) + totalTaken;
+      });
       logActivity(routeId, 'ASSET_MOVEMENT', { customerOrgId, count: (movements || []).length });
       return ok({ id, routeId, customerOrgId, movements: movements || [], recordedAt: now() });
     },
@@ -590,6 +625,9 @@
       if (cashStep)    cashStep.status    = 'COMPLETED';
       if (closureStep) closureStep.unlocked = true;
       D.db.cashCounted[routeId] = countedAmount;
+      // Kept for Route Intelligence's Expense Summary, which lists each
+      // expense with the moment the handover settled it.
+      D.db.settlements[routeId] = { expenses: expenses || [], settledAt: confirmedAt, countedAmount, difference };
       return ok({ status: 'COMPLETED', actualCounted: countedAmount, expectedHandOver, difference, supervisorName, denominations, expenses, invoicesQueued: stops.filter(s => s.status === 'DELIVERED').length, confirmedAt });
     },
 
@@ -634,9 +672,10 @@
         routeId, routeName: route.name, date: route.scheduledDate,
         score: { value: pct, max: 100, label: pct >= 80 ? 'Excellent Beat' : 'Good Beat', percentileText: 'Above average' },
         kpis: [
+          // Order matches QA exactly: Coverage, Productivity, Collection, Avg Time.
           { key: 'COVERAGE',          label: 'Coverage',      value: `${delivered}/${stops.length}`, percentage: pct },
-          { key: 'COLLECTION',        label: 'Collection',    value: `₹${collected}`,                percentage: 0   },
           { key: 'PRODUCTIVITY',      label: 'Productivity',  value: `${delivered} stops`,           percentage: pct },
+          { key: 'COLLECTION',        label: 'Collection',    value: `₹${collected}`,                percentage: 0   },
           { key: 'AVG_TIME_PER_STOP', label: 'Avg Time/Stop', value: '4m',                          percentage: 0   },
         ],
         highlights: [],

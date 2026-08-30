@@ -437,7 +437,10 @@
       ['STP-0215', 15,'CST-1021','CURRENT',   720,   0, 480,1200, null,null,null],
       ['STP-0216', 16,'CST-1022','PENDING',     0,   0, 660, 660, null,null,null],
       ['STP-0217', 17,'CST-1023','PENDING',   320,   0, 280, 600, null,null,null],
-      ['STP-0218', 18,'CST-1024','PENDING',     0,   0, 880, 880, null,null,null],
+      // Nothing booked for this one: the driver has to book the order at the
+      // shop, which is the state QA shows for every unbooked stop (At Customer
+      // in Book Order mode). Without it that whole mode is unreachable here.
+      ['STP-0218', 18,'CST-1024','PENDING',     0,   0,   0,   0, null,null,null],
       ['STP-0219', 19,'CST-1025','PENDING',   480,   0, 560,1040, null,null,null],
       ['STP-0220', 20,'CST-1026','PENDING',     0,   0, 440, 440, null,null,null],
       ['STP-0221', 21,'CST-1027','PENDING',     0,   0, 640, 640, null,null,null],
@@ -706,6 +709,10 @@
       activityLog,
       settlementSteps: clone(S_SETTLEMENT_STEPS),
       cashCounted:     clone(S_CASH_COUNTED),
+      // Written during the route, read back by Route Intelligence.
+      assetMovements:  {},
+      settlements:     {},
+      returns:         {},
     };
   }
 

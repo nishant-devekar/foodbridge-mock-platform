@@ -108,7 +108,7 @@
       : S.dateFilter === YESTERDAY ? "Yesterday"
       : U.fmtDateLabel(S.dateFilter);
 
-    return '<div style="' + U.sty({ display: "flex", gap: 8, padding: "12px 12px 10px", alignItems: "center" }) + '">' +
+    return '<div style="' + U.sty({ display: "flex", gap: 8, marginBottom: 10, alignItems: "center", padding: "0 12px" }) + '">' +
       // Search. The dashboard has its own field rather than the shared
       // SearchInput: an SVG magnifier (not the emoji), tighter padding, and a
       // grey circular clear button. Matched to the reference exactly.
@@ -119,22 +119,24 @@
           width: "100%", boxSizing: "border-box", padding: "11px 32px 11px 33px",
           borderRadius: 12, border: "1.5px solid #e5e7eb", background: "white",
           fontSize: 14, color: "#111", fontFamily: "inherit", outline: "none",
+          WebkitAppearance: "none",
         }) + '" />' +
         (S.search
           ? '<button type="button"' + U.act("clear-search") + ' style="' + U.sty({
               position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)",
               background: "#f3f4f6", border: "none", borderRadius: "50%",
               width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#6b7280", fontSize: 11, cursor: "pointer", lineHeight: 1,
+              cursor: "pointer", color: "#6b7280", fontSize: 11, fontWeight: 700,
+              lineHeight: 1, padding: 0,
             }) + '">✕</button>'
           : "") +
       "</div>" +
-      // Date filter. Matches the reference exactly: an inline SVG calendar (not
-      // the colour emoji), and the clear ✕ absolutely positioned INSIDE the
-      // button's box with a 28x28 touch target, which is why the button carries
-      // 34px of right padding while a date is set.
+      // Date filter. QA's markup exactly: a plain <button> that opens a hidden
+      // native date input via showPicker(), the clear ✕ as a SIBLING of the
+      // button (not nested), and the input itself parked at 0x0 with
+      // pointer-events:none so it can never be tapped directly.
       '<div style="' + U.sty({ position: "relative", flexShrink: 0 }) + '">' +
-        '<label class="rd-chip" style="' + U.sty({
+        '<button type="button"' + U.act("open-date") + ' style="' + U.sty({
           display: "flex", alignItems: "center", gap: 5,
           padding: "11px " + (active ? 34 : 12) + "px 11px 10px",
           borderRadius: 12,
@@ -142,32 +144,125 @@
           background: active ? "#eef6f7" : "white",
           color: active ? U.BRAND : "#6b7280",
           fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer",
-          whiteSpace: "nowrap", position: "relative",
+          fontFamily: "inherit", whiteSpace: "nowrap",
+          transition: "border-color 0.15s, background 0.15s, color 0.15s",
+          WebkitTapHighlightColor: "transparent",
         }) + '">' +
           '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;flex-shrink:0">' +
             '<rect x="2" y="4" width="16" height="14" rx="2"></rect>' +
             '<path d="M6 2v4M14 2v4M2 9h16" stroke-linecap="round"></path></svg>' +
           U.esc(label) +
-          '<input type="date" data-model="date" value="' + U.esc(S.dateFilter || "") + '" style="' + U.sty({ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%" }) + '" />' +
-        "</label>" +
+        "</button>" +
         (active
           ? '<button type="button" aria-label="Clear date filter"' + U.act("clear-date") + ' style="' + U.sty({
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               background: "none", border: "none", padding: 0,
               width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-              color: U.BRAND, fontSize: 13, cursor: "pointer", lineHeight: 1, fontWeight: 700, zIndex: 2,
+              color: U.BRAND, fontSize: 13, cursor: "pointer", lineHeight: 1, fontWeight: 700,
+              WebkitTapHighlightColor: "transparent",
             }) + '">✕</button>'
           : "") +
+        '<input type="date" data-model="date" value="' + U.esc(S.dateFilter || "") + '" max="' + TODAY + '" tabindex="-1" style="' + U.sty({
+          position: "absolute", opacity: 0, pointerEvents: "none", width: 0, height: 0, top: 0, left: 0,
+        }) + '" />' +
       "</div>" +
       "</div>";
   }
 
   function StatusFilterRow() {
     const S = window.RD.state;
-    return '<div class="rd-noscrollbar" style="' + U.sty({ display: "flex", gap: 7, marginBottom: 14, overflowX: "auto", padding: "0 12px 2px" }) + '">' +
+    return '<div style="' + U.sty({ display: "flex", gap: 7, marginBottom: 14, overflowX: "auto", padding: "0 12px 2px", scrollbarWidth: "none" }) + '">' +
       STATUS_FILTER_OPTIONS.map(function (o) {
         return U.StatusChip({ active: S.statusFilter === o.value, label: o.label, actName: "status-filter", arg: String(o.value) });
       }).join("") + "</div>";
+  }
+
+  // NewDeliverySheet — the "+ New Delivery" affordance. QA lists the route
+  // templates the driver can start from, with a radio per row and a Start
+  // Delivery that stays disabled until one is picked. Templates here are the
+  // routes themselves, which is what the real templates are derived from.
+  function NewDeliverySheet() {
+    const S = window.RD.state;
+    const picked = S.newDeliveryPick || null;
+    const canSubmit = !!picked && String(S.newDeliveryName || "").trim() !== "";
+    const templates = D.db.routes.map(function (r) {
+      return { id: r.id, name: r.name, stops: r.totalStops };
+    });
+
+    const rows = templates.map(function (t, i) {
+      const on = picked === t.id;
+      return "<div>" +
+        '<button type="button"' + U.act("new-delivery-pick", t.id) + ' style="' + U.sty({
+          width: "100%", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12,
+          // QA borders every row, the last one included, and tints the chosen one.
+          background: on ? "#eef6f7" : "white", border: "none", borderBottom: "1px solid #f0f2f5",
+          textAlign: "left", fontFamily: "inherit", cursor: "pointer",
+        }) + '">' +
+          '<div style="' + U.sty({
+            width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+            border: "2.5px solid " + (on ? U.BRAND : "#d1d5db"),
+            background: on ? U.BRAND : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }) + '">' + (on ? '<div style="' + U.sty({ width: 7, height: 7, borderRadius: "50%", background: "white" }) + '"></div>' : "") + "</div>" +
+          '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
+            '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: on ? U.BRAND : "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">' + U.esc(t.name) + "</div>" +
+            '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 2 }) + '">' + t.stops + " customer" + (t.stops === 1 ? "" : "s") + " · 1 staff</div>" +
+          "</div>" +
+          (on ? '<div style="' + U.sty({ fontSize: 20, color: U.BRAND, flexShrink: 0, fontWeight: 700 }) + '">›</div>' : "") +
+        "</button>" +
+        // Choosing a template opens the name field QA autofills with
+        // "<template> DD/MM/YYYY HH:MM", and a duplicate name is refused.
+        (on
+          ? '<div style="' + U.sty({ padding: "10px 16px 14px", background: "#eef6f7", borderBottom: "1px solid #d1e8eb" }) + '">' +
+              '<label style="' + U.sty({ display: "block", fontSize: 11, fontWeight: 700, color: U.BRAND, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }) + '">Delivery Name</label>' +
+              '<input type="text" data-model="new-delivery-name" value="' + U.esc(S.newDeliveryName || "") + '" placeholder="e.g. Bandra Route 11/06/2026 14:30" style="' + U.sty({
+                width: "100%", boxSizing: "border-box", padding: "12px 14px",
+                border: "2px solid " + (S.newDeliveryNameError ? "#dc2626" : U.BRAND),
+                borderRadius: 12, fontSize: 15, fontWeight: 600, color: "#111",
+                background: "white", outline: "none", fontFamily: "inherit",
+              }) + '" />' +
+              (S.newDeliveryNameError
+                ? '<div style="' + U.sty({ marginTop: 6, fontSize: 12, color: "#dc2626", fontWeight: 500 }) + '">' + U.esc(S.newDeliveryNameError) + "</div>"
+                : "") +
+            "</div>"
+          : "") +
+        "</div>";
+    }).join("");
+
+    return '<div' + U.act("new-delivery-close") + ' style="' + U.sty({
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 100,
+    }) + '"></div>' +
+    '<div style="' + U.sty({
+      position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+      width: "calc(100% - 32px)", maxWidth: 448, maxHeight: "80dvh",
+      background: "white", borderRadius: 20, boxShadow: "0 8px 40px rgba(0,0,0,0.22)",
+      zIndex: 101, display: "flex", flexDirection: "column", overflow: "hidden",
+    }) + '">' +
+      '<div style="' + U.sty({ padding: "18px 16px 14px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0 }) + '">' +
+        "<div>" +
+          '<div style="' + U.sty({ fontSize: 18, fontWeight: 700, color: "#111" }) + '">New Delivery</div>' +
+          '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 2 }) + '">Select a route template to begin</div>' +
+        "</div>" +
+        '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
+          width: 32, height: 32, borderRadius: "50%", background: "#f3f4f6", color: "#6b7280",
+          border: "none", fontSize: 18, fontWeight: 700, cursor: "pointer", marginTop: -2, flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
+        }) + '">×</button>' +
+      "</div>" +
+      // The list takes the sheet's slack; header and footer hold their height.
+      '<div style="' + U.sty({ flex: 1, position: "relative", overflowY: "auto", WebkitOverflowScrolling: "touch" }) + '">' + rows + "</div>" +
+      '<div style="' + U.sty({ padding: "12px 16px", borderTop: "1px solid #f0f2f5", display: "flex", gap: 10, flexShrink: 0 }) + '">' +
+        '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
+          flex: 1, padding: "15px 0", borderRadius: 16, border: "2px solid " + U.BRAND,
+          background: "white", color: U.BRAND, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+        }) + '">Cancel</button>' +
+        U.BtnXL({
+          variant: canSubmit ? "brand" : "grey", label: "Start Delivery", disabled: !canSubmit,
+          style: { flex: 2, padding: 15, fontSize: 15, opacity: canSubmit ? 1 : 0.5 },
+          actName: "new-delivery-start", arg: picked || "",
+        }) +
+      "</div>" +
+    "</div>";
   }
 
   /* ── Screen ────────────────────────────────────────────────────────────── */
@@ -201,8 +296,9 @@
 
     return U.SyncBar(driver.syncedAt, false) +
       U.DriverHeader(driver.name, "New Delivery") +
-      '<div class="rd-body">' +
+      '<div class="rd-body" style="background:' + U.BG + '">' +
         tiles +
+        U.Spacer(16) +
         // Header text is derived, not fixed — QA:
         //   selectedDate ? (isToday ? "Today's Routes" : `Routes · <date>`) : "All Routes"
         U.SectionHeader(
@@ -213,9 +309,10 @@
         SearchRow() +
         StatusFilterRow() +
         list +
-        U.Spacer(12) +
+        U.Spacer(16) +
       "</div>" +
-      U.TabBar("home");
+      U.TabBar("home") +
+      (S.newDeliveryOpen ? NewDeliverySheet() : "");
   });
 
   /* ── Actions ───────────────────────────────────────────────────────────── */
@@ -235,13 +332,63 @@
     window.RD.render();
   });
 
+  window.RD.action("open-date", function () {
+    const el = document.querySelector('[data-model="date"]');
+    if (!el) return;
+    if (el.showPicker) el.showPicker(); else el.click();
+  });
+
   window.RD.action("clear-date", function () {
     window.RD.state.dateFilter = null;
     window.RD.render();
   });
 
   window.RD.action("new-route", function () {
-    window.RD.toast("On-the-move route creation — not in this prototype");
+    window.RD.state.newDeliveryOpen = true;
+    window.RD.state.newDeliveryPick = null;
+    window.RD.state.newDeliveryName = "";
+    window.RD.state.newDeliveryNameError = null;
+    window.RD.render();
+  });
+  window.RD.action("new-delivery-close", function () {
+    window.RD.state.newDeliveryOpen = false;
+    window.RD.render();
+  });
+  // "<template> DD/MM/YYYY HH:MM" — defaultDeliveryName upstream.
+  function defaultDeliveryName(name) {
+    const d = new Date();
+    const p2 = function (n) { return String(n).padStart(2, "0"); };
+    return (name || "Route") + " " + p2(d.getDate()) + "/" + p2(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+  }
+  window.RD.action("new-delivery-pick", function (id) {
+    const S = window.RD.state;
+    S.newDeliveryPick = id;
+    const t = (D.db.routes.find(function (r) { return r.id === id; }) || {});
+    S.newDeliveryName = defaultDeliveryName(t.name);
+    S.newDeliveryNameError = null;
+    window.RD.render();
+  });
+  window.RD.action("model:new-delivery-name", function (v) {
+    const S = window.RD.state;
+    S.newDeliveryName = v;
+    if (S.newDeliveryNameError) S.newDeliveryNameError = null;
+    window.RD.render();
+    const el = document.querySelector('[data-model="new-delivery-name"]');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+  window.RD.action("new-delivery-start", function (id) {
+    const S = window.RD.state;
+    if (!id || !String(S.newDeliveryName || "").trim()) return;
+    // QA refuses a name that is already in use rather than creating a twin.
+    const taken = D.db.routes.some(function (r) { return r.name === String(S.newDeliveryName).trim(); });
+    if (taken) {
+      S.newDeliveryNameError = "A delivery with this name already exists. Please use a different name.";
+      window.RD.render();
+      return;
+    }
+    S.newDeliveryOpen = false;
+    const route = D.db.routes.find(function (r) { return r.id === id; });
+    window.RD.go(route ? destinationFor(route) : "");
   });
 
   // Typed text must survive the re-render, so the caret is restored after it.

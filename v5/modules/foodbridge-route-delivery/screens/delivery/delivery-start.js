@@ -48,6 +48,12 @@
     const stockValue  = (cl.stockLoad && cl.stockLoad.estimatedValue) || 0;
     const cashAmount  = (cl.openingCash && cl.openingCash.amount) || 0;
     const inProgress  = route.status === "IN_PROGRESS";
+
+    // Nothing left to do here: usePreStartController redirects a route whose
+    // stock load and opening cash are both settled straight to Sign-Off, so
+    // Pre-Start is only ever seen with a step still outstanding.
+    if (!inProgress && stockLoaded && cashDone) { window.RD.go("/sign-off/" + p.routeId); return ""; }
+
     const hint = window.RD.state.scratch.lockHint;
 
     const startLabel = inProgress ? "▶ Continue Route →"
@@ -103,7 +109,6 @@
         U.Divider({ marginTop: 8 }) +
         U.SectionHeader("Route Summary") +
         summary +
-        U.Spacer(12) +
       "</div>" +
       U.ActionBar(U.BtnXL({
         variant: inProgress ? "green" : "brand", label: startLabel,
@@ -205,15 +210,30 @@
         '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 600, marginTop: 2 }) + '">Est. Value</div></div></div>';
 
     const confirming = !!S.stockConfirming;
+    const loadedItems = (S.stockProducts || []).map(function (prod, i) {
+      return { name: prod.name, qty: Number(S.stockQtys[i]) || 0, orderingUnit: prod.orderingUnit || "" };
+    }).filter(function (it) { return it.qty > 0; });
     const footer = readOnly
       ? '<div style="' + U.sty({ display: "flex", alignItems: "center", gap: 8, padding: "13px 16px", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 14 }) + '">' +
           '<span style="font-size:16px">⏳</span><span style="' + U.sty({ fontSize: 13, color: "#6b7280", fontWeight: 500 }) + '">Waiting for a stock-load staffer to approve this request</span></div>'
       : confirming
         ? U.ConfirmPanel({
-            action: "Stock Load", amount: totalUnits + " units",
-            context: U.inr(totalValue) + " estimated value onto the van",
-            backLabel: "Change Load", commitLabel: "Confirm Load",
+            action: "Loading Stock", amount: totalUnits + " units",
+            context: U.inr(totalValue) + " estimated value · " + loadedItems.length + " product" + (loadedItems.length !== 1 ? "s" : ""),
+            backLabel: "Edit Quantities", commitLabel: "Confirm Load",
             commitAct: "stock-commit", arg: p.routeId,
+            processing: !!S.committing, processingLabel: "Saving stock reconciliation…",
+            // QA lists what is about to be committed inside the panel, so the
+            // driver confirms the load itself and not just a units total.
+            extra: '<div style="' + U.sty({ background: "#f8fafc", borderRadius: 10, border: "1px solid #e9eef2", overflow: "hidden", maxHeight: 150, overflowY: "auto" }) + '">' +
+              loadedItems.map(function (it, i) {
+                return '<div style="' + U.sty({
+                  display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 14px",
+                  borderBottom: i < loadedItems.length - 1 ? "1px solid #f1f5f9" : "none",
+                }) + '">' +
+                  '<span style="' + U.sty({ fontSize: 13, color: "#374151", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }) + '">' + U.esc(it.name) + "</span>" +
+                  '<span style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#374151", flexShrink: 0 }) + '">× ' + it.qty + (it.orderingUnit ? " " + U.esc(it.orderingUnit) : "") + "</span></div>";
+              }).join("") + "</div>",
           })
         : U.BtnXL({
             variant: "brand",
@@ -221,11 +241,19 @@
             actName: "stock-confirm", disabled: totalUnits === 0,
           });
 
-    return U.MobileHeader({ title: "Load Stock", subtitle: route.name + " · " + (route.beatArea || ""), backLabel: route.name, backAct: "back" }) +
+    // The banner tracks whether the quantities came pre-filled from today's
+    // proxy orders (LoadStock.jsx bannerFor) — a green "adjust if needed" when
+    // they did, a blue "enter the quantity" when the driver starts from zero.
+    const prefilled = (S.stockProducts || []).some(function (prod, i) { return (Number(S.stockQtys[i]) || 0) > 0; });
+    const banner = prefilled
+      ? { type: "green", icon: "📦", text: "Quantities auto-filled from today's proxy orders. Adjust if needed." }
+      : { type: "blue",  icon: "✏️", text: "Enter the quantity for each product you are loading today." };
+
+    return U.MobileHeader({ title: "Load Stock", subtitle: routeSubtitle(route.name, route.beatArea), backLabel: routeBackLabel(route.name), backAct: "back" }) +
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.35 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +
-        U.Banner({ type: "blue", icon: "✏️", text: "Enter the quantity for each product you are loading today.", style: { marginTop: 10 } }) +
+        U.Banner({ type: banner.type, icon: banner.icon, text: banner.text, style: { marginTop: 10 } }) +
         '<div style="padding:0 12px 8px">' + U.SearchInput({ value: S.stockSearch || "", model: "stock-search", placeholder: "Search products…", clearAct: "stock-search-clear" }) + "</div>" +
-        list + totals + U.Spacer(4) +
+        list + totals +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
@@ -258,15 +286,32 @@
   });
 
   window.RD.action("stock-commit", function (routeId) {
-    const S = window.RD.state.scratch;
-    const items = S.stockProducts.map(function (prod, i) {
-      return { productId: prod.productId, name: prod.name, unitPrice: prod.price, loadedQty: Number(S.stockQtys[i]) || 0 };
-    }).filter(function (it) { return it.loadedQty > 0; });
-    SDK.routeDelivery.confirmStockLoad({ routeId: routeId, products: items });
-    S.stockConfirming = false;
-    window.RD.toast("Stock load confirmed");
-    window.RD.go("/opening-cash/" + routeId);
+    window.RD.commit(function () {
+      const S = window.RD.state.scratch;
+      const items = S.stockProducts.map(function (prod, i) {
+        return { productId: prod.productId, name: prod.name, unitPrice: prod.price, loadedQty: Number(S.stockQtys[i]) || 0 };
+      }).filter(function (it) { return it.loadedQty > 0; });
+      SDK.routeDelivery.confirmStockLoad({ routeId: routeId, products: items });
+      S.stockConfirming = false;
+      window.RD.go("/opening-cash/" + routeId);
+    });
   });
+
+  // LoadStock.jsx routeBackLabel/routeSubtitle. The back link drops any date
+  // baked into the route name, and the subtitle omits the beat area when the
+  // route name already contains it.
+  function routeBackLabel(name) {
+    const clean = String(name || "").replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, "").replace(/\s+/g, " ").trim();
+    return clean || "Route Summary";
+  }
+
+  function routeSubtitle(routeName, beatArea) {
+    const name = String(routeName || "").trim();
+    const area = String(beatArea || "").trim();
+    if (!name) return area || "Load stock for today";
+    if (!area || name.toLowerCase().indexOf(area.toLowerCase()) !== -1) return name;
+    return name + " · " + area;
+  }
 
   /* ══ Opening Cash ══════════════════════════════════════════════════════ */
 
@@ -296,6 +341,7 @@
           context: "for giving change on this route",
           backLabel: "Change Amount", commitLabel: "Confirm Float",
           commitAct: "cash-commit", arg: p.routeId,
+          processing: !!S.committing, processingLabel: "Saving opening cash float…",
         })
       : U.BtnXL({ variant: "brand", label: "Confirm ₹" + display + " →", actName: "cash-confirm" });
 
@@ -308,6 +354,9 @@
         U.SectionHeader("Quick Select") + quick +
         '<div style="' + U.sty({ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingBottom: 8 }) + '">' +
           U.NumPad("cash-key", { flex: 1, minHeight: 0 }) + "</div>" +
+        (S.cashError
+          ? '<div style="' + U.sty({ padding: "4px 16px", color: "#ef4444", fontSize: 13, textAlign: "center", flexShrink: 0 }) + '">' + U.esc(S.cashError) + "</div>"
+          : "") +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
@@ -317,25 +366,29 @@
     const S = window.RD.state.scratch;
     S.cashAmount = M.applyNumpadKey(S.cashAmount || "", k, S.cashPrefilled);
     S.cashPrefilled = false;
+    S.cashError = null;
     window.RD.render();
   });
   window.RD.action("cash-preset", function (q) {
     const S = window.RD.state.scratch;
-    S.cashAmount = String(q); S.cashPrefilled = false;
+    // A preset re-arms the prefill flag, so the next key typed replaces the
+    // preset rather than appending to it (useOpeningCashController.handlePreset).
+    S.cashAmount = String(q); S.cashPrefilled = true;
     window.RD.render();
   });
   window.RD.action("cash-confirm", function () {
     const S = window.RD.state.scratch;
     const check = V.validateOpeningCash({ amount: Number(S.cashAmount) });
-    if (!check.valid) { window.RD.toast(check.errors.amount || "Enter a valid amount", "error"); return; }
-    S.cashConfirming = true; window.RD.render();
+    if (!check.valid) { S.cashError = check.errors.amount || "Enter a valid amount"; window.RD.render(); return; }
+    S.cashError = null; S.cashConfirming = true; window.RD.render();
   });
   window.RD.action("cash-commit", function (routeId) {
-    const S = window.RD.state.scratch;
-    SDK.routeDelivery.recordOpeningCash({ routeId: routeId, amount: Number(S.cashAmount) });
-    S.cashConfirming = false;
-    window.RD.toast("Opening cash recorded");
-    window.RD.go("/sign-off/" + routeId);
+    window.RD.commit(function () {
+      const S = window.RD.state.scratch;
+      SDK.routeDelivery.recordOpeningCash({ routeId: routeId, amount: Number(S.cashAmount) });
+      S.cashConfirming = false;
+      window.RD.go("/sign-off/" + routeId);
+    });
   });
 
   /* ══ Staff Sign-Off ════════════════════════════════════════════════════ */
@@ -349,7 +402,10 @@
     const cl = route.checklist || {};
     const startTime = M.formatRouteTime();
 
-    return U.MobileHeader({ title: "Ready to Start", subtitle: route.name + " · " + fmtRouteDate(route.scheduledDate), backLabel: "Routes", backAct: "back" }) +
+    // Back goes to whichever step actually precedes this one
+    // (useStaffSignOffController: '← Opening Cash' when it was required).
+    const cashRequired = !(cl.openingCash && cl.openingCash.required === false);
+    return U.MobileHeader({ title: "Ready to Start", subtitle: route.name + " · " + fmtRouteDate(route.scheduledDate), backLabel: cashRequired ? "Opening Cash" : "Pre-Start", backAct: "back" }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
         U.Spacer() +
         U.Card(
@@ -371,7 +427,6 @@
 
   window.RD.action("signoff-start", function (routeId) {
     SDK.routeDelivery.startRoute({ routeId: routeId, confirmedByDriver: true });
-    window.RD.toast("Route started");
     window.RD.go("/queue/" + routeId);
   });
 })();

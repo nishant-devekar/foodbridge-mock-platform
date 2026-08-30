@@ -1535,6 +1535,6 @@
     routeProgressPct: routeProgressPct,
     sortByRemainingQtyDesc: sortByRemainingQtyDesc,
     stepRouteMap: stepRouteMap,
-    stopDisplaySubtitle: stopDisplaySubtitle,
+    stopDisplaySubtitle: stopDisplaySubtitle, buildStopSubtitle: buildStopSubtitle, skipLabelFor: skipLabelFor,
   };
 })();

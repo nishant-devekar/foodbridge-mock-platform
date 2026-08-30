@@ -1,18 +1,85 @@
 # FoodBridge mock platform — Version 5
 
-**Opened 29 August 2026, from `v3` as its baseline.** Byte-for-byte the 26 August `v3`
-freeze at the moment it was cut — 206 files, 8.0 MB, 12 module repos, 26 destinations —
-and unlike `v3` it is *not* frozen. This is the working cut; edits land here.
+**Frozen 30 August 2026.** A self-contained snapshot: the shell plus a local copy of every
+module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
+folder renders the same however those repos change afterwards.
 
-Why `v3` and not `v4`: `v4` is a narrow, single-destination cut (Customer Management →
-Stock Audit & Health, no sidebar). `v5` needs the whole platform back — every module, the
-sidebar, the routing — so it starts from the last full-platform snapshot.
+260 files, 9.5 MB, 12 module repos, 26 destinations.
 
-**Mobile is the target.** Work in this cut is done and reviewed at a phone viewport
+**Opened 29 August 2026, from `v3` as its baseline** — byte-for-byte the 26 August `v3`
+freeze at the moment it was cut. Why `v3` and not `v4`: `v4` is a narrow, single-destination
+cut (Customer Management → Stock Audit & Health, no sidebar). `v5` needed the whole platform
+back — every module, the sidebar, the routing — so it started from the last full-platform
+snapshot.
+
+**Mobile was the target.** Work in this cut was done and reviewed at a phone viewport
 (375×812) first; the desktop layout inherited from `v3` still renders, but it is not what
-this cut is being designed against.
+this cut was designed against.
+
+What it grew, over the two days it was open, is one thing: Delivery Management stopped being
+a crawled copy of the module team's screen and became a real, offline, static port of the
+route-delivery app, audited against the live QA build until the two render the same. The log
+below is that work, newest first. New work continues in `v6`, which opens from this freeze.
 
 ## Changes
+
+### 30 August 2026 — QA parity audit, parts three and four: measured, not read
+
+The two earlier passes compared QA and the port by reading the DOM and the text. This one
+replaced that with measurement. A signature differ walks every visible element and emits
+`depth | tag+classes | style tokens` — font, colour, background, border, radius, shadow,
+padding, margin, display, the flex and grid axes, position, overflow, opacity, text-align and
+-transform, white-space, flex-shrink and -grow — deliberately **excluding box geometry and
+text**, so that the two environments' different datasets cannot masquerade as style
+differences. The lines are hashed and the two lists aligned with a lookahead resync; every
+index that differs is then drilled into with `getComputedStyle` and `getBoundingClientRect`
+on both tabs at 375×812, and clicked.
+
+**Five real differences it found, which reading could not have.**
+
+*Sold-out products were filtered out of both catalogues.* Book Order and New Customer dropped
+any product with no stock left on the van. QA keeps them — which is the only reason QA has a
+`⚠️ Max 0 — no more in vehicle` row and an `Out of stock` row at all. The port had built both
+branches and then made them unreachable. Filters removed.
+
+*The calendar's next-month arrow.* QA sets `maxDate` to today, so react-datepicker **omits**
+the next arrow while the current month is displayed — there is no greyed-out state. The port
+drew both. Now it drops it on the current month and restores it a month back, which is what
+QA does.
+
+*Reports' sort values* were `az`/`za`; QA's deployed build uses `name-asc`/`name-desc`.
+
+*The date-range popper* sat at `z-index: 30`; QA's is `1`.
+
+*Manage Assets' header cell* set `text-align: left` where QA inherits `start`.
+
+**One change made and then reverted, which is the point of the exercise.** The React source in
+`storefront-frontend` renders the Reports date range as `August 10 – August 20` — an en dash,
+no year — and the port was changed to match it. The *deployed* QA build renders
+`10 Aug 2026 - 20 Aug 2026`, with a plain hyphen, the year, and a trailing `-` while only the
+start is picked. The source is not the oracle; the running environment is. Reverted.
+
+**The depleted-van queue, reached on live QA.** The one state the earlier passes had verified
+against source rather than a render. A QA route was found with two of three products already
+exhausted, the last two units were booked through the UI, and the stop completed — booking
+reserves stock, only completion consumes it — at which point the queue rendered the real
+thing: rows at `opacity: 0.4` with a grey avatar and `Stock depleted`, the Add-Customer row
+gone, and the amber footer banner. Row and banner signatures came back byte-identical, 5/5
+and 5/5, and the behaviour matched too: the rows are inert bare `div`s with no button wrapper,
+the menu still offers Restock and Return & Settle, and the settle panel reads *All stops
+complete / Route ready for settlement* rather than describing the remaining stops as ones that
+will be skipped. No port changes were needed; the implementation built from source proved
+correct against the render.
+
+Also measured equal this pass, each by hash and by coordinate: the home stat grid and its
+empty state, the New Delivery sheet in all three of its states, queue done and pending rows,
+both advance-balance hero lines, the return-only Stop Summary (30/30), Manage Assets' header
+and rows, the Reports filter block, and both Reports empty states.
+
+Closing state, build `v=2026083114`: 28 of 28 routes render, 0 console errors or warnings,
+0 network requests after boot, 0 external requests. The payment → DELIVERED → route total →
+settlement → stock count → cash handover chain re-run end to end. The full checklist, with
+the measured numbers, is `docs/route-delivery-qa-parity.md`.
 
 ### 29 August 2026 — QA parity audit, part two: the five remaining areas
 

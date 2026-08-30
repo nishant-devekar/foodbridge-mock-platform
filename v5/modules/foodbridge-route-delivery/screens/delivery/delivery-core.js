@@ -37,13 +37,19 @@
     // Home filters
     search: "",
     statusFilter: null,
-    // No default date filter. Verified against QA directly: the chip reads
-    // "Date" on load and the list shows every route, not just today's. (An
-    // earlier read of the React source suggested a today default; QA is newer
-    // and is the source of truth.)
-    dateFilter: null,
+    // The dashboard opens on today, not on everything: QA mounts its date
+    // filter at TODAY (HomeDashboard useState(TODAY)), so the chip reads
+    // "Today" with its clear ✕, the section header reads "Today's Routes", and
+    // the list is already filtered before the driver touches anything. Verified
+    // against QA on a hard reload, which is the only way to see the mount
+    // state — an SPA that has been navigated around keeps whatever the last
+    // screen left behind, and reading that is what got this wrong before.
+    dateFilter: window.RD_UI.toLocalDateStr(new Date()),
     // Per-screen scratch space, cleared on navigation.
     scratch: {},
+    // The home button's confirmation sheet (ui.jsx HomeMenuButton). Lives on
+    // state, not scratch: it must survive the re-render that opens it.
+    homeConfirm: false,
     toast: null,
   };
 
@@ -105,6 +111,21 @@
     else go("");
   }
 
+  /* ── Commit ────────────────────────────────────────────────────────────── */
+  // QA's ConfirmPanel does not act the instant the commit card is tapped: it
+  // swaps itself for a processing block while the write is in flight and only
+  // then moves on. Offline there is no write to wait for, so the delay is a
+  // stand-in for the round trip — without it the block would flash for a frame
+  // and the screen would read as if it had skipped a step.
+  const COMMIT_MS = 900;
+
+  function commit(work) {
+    if (state.scratch.committing) return;
+    state.scratch.committing = true;
+    render();
+    setTimeout(function () { state.scratch.committing = false; work(); }, COMMIT_MS);
+  }
+
   /* ── Toast ─────────────────────────────────────────────────────────────── */
   // Upstream uses react-toastify. One transient message at a time is all the
   // screens actually raise, so this is a div rather than a queue.
@@ -161,6 +182,11 @@
 
   action("back", back);
   action("home", function () { go(""); });
+
+  // Leaving mid-route asks first, exactly as QA does.
+  action("home-confirm-open",  function () { state.homeConfirm = true;  render(); });
+  action("home-confirm-close", function () { state.homeConfirm = false; render(); });
+  action("home-confirm-go",    function () { state.homeConfirm = false; go(""); });
   action("retry", function () { render(); });
   action("tab", function (which) {
     if (which === "home") go("");
@@ -217,6 +243,15 @@
         JSON.stringify(state.route.params) !== JSON.stringify(matched.params)) {
       state.scratch = {};
     }
+    // A sheet raised on the screen you are leaving does not follow you to the
+    // next one — QA unmounts it with the screen.
+    state.homeConfirm = false;
+    // The standalone-collection flag is a property of the payment screens QA
+    // pushes it into, so leaving them drops it (React drops the nav state).
+    if (matched.name !== "payment" && matched.name !== "paymentSuccess") {
+      state.payOutstanding = false;
+      state.outstandingPayment = null;
+    }
     state.route = matched;
     state.routeId = matched.params.routeId || null;
     state.stopId = matched.params.stopId || null;
@@ -225,16 +260,34 @@
     if (body) body.scrollTop = 0;
   }
 
+  // An anchored menu closes on a press outside it or on Escape, the way QA's
+  // does (CustomerQueue's QueueActionsMenu listens on document, not on itself).
+  function closeMenusOnOutside(e) {
+    if (!state.scratch.queueMenu) return;
+    const t = e.target;
+    if (t && t.closest && (t.closest('[role="menu"]') || t.closest('[data-act="queue-menu"]'))) return;
+    state.scratch.queueMenu = false;
+    render();
+  }
+
+  function closeMenusOnEscape(e) {
+    if (e.key !== "Escape" || !state.scratch.queueMenu) return;
+    state.scratch.queueMenu = false;
+    render();
+  }
+
   function mount(el) {
     rootEl = el || document.getElementById("app");
     rootEl.addEventListener("click", onClick);
     rootEl.addEventListener("input", onInput);
+    document.addEventListener("pointerdown", closeMenusOnOutside);
+    document.addEventListener("keydown", closeMenusOnEscape);
     window.addEventListener("hashchange", onHashChange);
     onHashChange();
   }
 
   window.RD = {
     state: state, screen: screen, action: action, actions: actions,
-    go: go, back: back, render: render, toast: toast, mount: mount,
+    go: go, back: back, render: render, toast: toast, mount: mount, commit: commit,
   };
 })();
