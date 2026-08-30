@@ -19,7 +19,38 @@ where its files came from — new entries for `v6` go above it.
 
 ## Changes
 
-*Nothing yet — `v6` is byte-for-byte the `v5` freeze.*
+### 30 August 2026 — Delivery Management renders inside the platform shell
+
+It was flagged `fullBleed` in `modules.json`, which is the flag for a module that is its own
+experience rather than an admin sub-screen — the customer storefront is the case it was
+written for. While a full-bleed module is active the shell hides its sidebar and its mobile
+header and the module fills the window, so opening Delivery Management dropped the platform's
+navigation entirely. It now renders inside the shell, the way Stock Audit & Health does:
+sidebar on desktop, the QA-store header on mobile, both intact.
+
+`clipLeft` stays 0 — that knob exists to hide a module's *own* copy of the QA sidebar by
+offsetting the iframe, and this one has no sidebar to hide, so it simply sits in the space
+beside the platform's.
+
+`mHeaderH: 0` is the part worth explaining. Below `lg` the platform draws a single 56px
+header positioned over the top of the iframe, and `mHeaderH` declares how tall the module's
+own header is so the two can be aligned into one — the default of 56 pulls the module up so
+its header is covered. That is right for an admin screen whose header is redundant chrome. It
+is wrong here: this module's 64px header carries the app's actual navigation — back to Routes,
+the running collected total, home, and the queue menu — and covering it would leave an 8px
+sliver and four unclickable controls. Declaring `mHeaderH: 0` instead tells the shell the
+module has no header to absorb, so the iframe is pushed down 56px and shortened by the same
+amount: the platform header sits above, the app's own header directly below it, and nothing
+overlaps or overflows.
+
+Verified at both widths. Desktop (1104×799): sidebar 256×799 with Delivery Management active
+in it, iframe at x=256. Mobile (375×812): platform header 375×56 at the top, iframe at y=56
+with height 756, the app header at page y=56, every top-level control clear of the platform
+header and hit-testing to the iframe, and the drawer opening the full nav tree. All 28 module
+routes render inside the shell with nothing clipped past the viewport, 0 console errors or
+warnings in either frame, and 0 external requests from either.
+
+The storefront keeps `fullBleed`, which is what the flag is for.
 
 ---
 
