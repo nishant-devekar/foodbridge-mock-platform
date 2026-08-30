@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Customer Receivables — Foodbridge V2</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-route="/invoices-payments">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand"><div class="brand-logo">▣</div><div><strong>QA store</strong><small>QA ENV · qaenv⌄</small></div></div>
+    <nav class="nav">
+      <div class="nav-title active"><span>▧</span>Finance</div>
+      <div class="nav-child active"><a href="invoices-payments.html">– Customer Receivables</a></div>
+      <div class="nav-child"><a href="supplier-invoices-payments.html">– Supplier Payables</a></div>
+    </nav>
+  </aside>
+  <div id="navBackdrop" class="nav-backdrop hide"></div>
+  <header class="topbar"><div class="title-wrap"><button id="menuBtn" class="menu-btn" aria-label="Toggle menu">☰</button><strong>Customer Receivables</strong></div><div class="admin"><div class="admin-avatar">👤</div><div><strong>Mahesh</strong><div class="pos" style="font-size:11px">Admin</div></div><span>⌄</span></div></header>
+  <main class="page">
+    <section id="summary" class="summary" aria-label="Financial summary"></section>
+    <div id="summaryTrack" class="summary-track" aria-hidden="true"><span id="summaryThumb" class="summary-thumb"></span></div>
+    <section class="toolbar" aria-label="Filters">
+      <label class="field search">⌕<input id="search" type="search" placeholder="Search dispatch, buyer..." aria-label="Search customer name or phone" /></label>
+      <div class="date-wrap"><button id="dateToggle" class="btn" aria-expanded="false" aria-controls="datePanel"><svg width="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span id="dateToggleLabel">Filter by date range</span><span id="dateBadge" class="date-badge hide">0</span></button><div id="datePanel" class="date-panel hide" role="dialog" aria-label="Choose invoice date range"><div class="calendar-head"><button id="calendarPrev" class="calendar-nav" aria-label="Previous month">‹</button><strong id="calendarTitle" class="calendar-title"></strong><button id="calendarNext" class="calendar-nav" aria-label="Next month">›</button></div><div class="calendar-week" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div><div id="calendarGrid" class="calendar-grid" role="grid"></div><div id="calendarStatus" class="calendar-status" aria-live="polite"></div><div class="date-actions"><button id="dateReset" class="btn">Reset</button><button id="dateApply" class="btn primary">Done</button></div></div></div>
+      <button id="remindersOpen" class="btn amber">🔔 Send Reminders <span id="outstandingCount" class="count">0</span></button>
+    </section>
+    <section id="ledger" class="ledger" aria-live="polite"></section>
+    <div id="pager" class="pager hide"></div>
+  </main>
+  <div id="overlay" class="overlay hide"></div>
+  <section id="reminderModal" class="modal hide" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
+    <header class="modal-head"><span class="icon" style="color:#d97706;background:#fff8e7">🔔</span><div><h2 id="reminderTitle">Send Payment Reminders</h2><p><span id="debtorCount">0</span> customer with outstanding balance — reminder sent via WhatsApp</p></div><button class="close" data-close aria-label="Close reminder dialog">×</button></header>
+    <div class="modal-search"><label class="field">⌕<input id="reminderSearch" type="search" placeholder="Search by name or phone..." aria-label="Search reminder customers" /></label></div>
+    <label class="select-all"><input id="selectAll" type="checkbox" /> Select All <span class="muted"><span id="selectedTop">0</span> selected</span></label>
+    <div id="reminderList" class="reminder-list"></div>
+    <footer class="modal-foot"><p id="reminderHelp">Select customers to send reminders</p><button class="btn" data-close>Cancel</button><button id="sendReminders" class="btn amber-solid" disabled>🔔 Send</button></footer>
+  </section>
+  <section id="paymentDrawer" class="drawer hide" role="dialog" aria-modal="true" aria-labelledby="paymentTitle"></section>
+  <div id="toast" class="toast hide" role="status"></div>
+  <script>window.LEDGER_CONFIG = { kind: 'customer', seed: '../seed-data/seed.json' };</script>
+  <script src="assets/ledger.js"></script>
+</body>
+</html>

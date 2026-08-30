@@ -1,0 +1,282 @@
+/* ==========================================================================
+   DELIVERY MANAGEMENT — base chrome
+
+   Everything that is not screen-specific: the reset, the phone frame the app
+   lives in, and the interaction states every control shares.
+
+     region        app source
+     ------------  --------------------------------------------------------
+     interactions  route-delivery-app/components/ui.css   (verbatim, below)
+     phone frame   route-delivery-app/components/ui.jsx   SCREEN / BODY
+     fonts         self-hosted Inter, ./fonts/inter.css
+
+   The app is phone-only by design: above 640px the real app refuses to render
+   and shows a "open this on your phone" notice, so this cut caps the frame at
+   480px and centres it rather than stretching a phone layout across a desktop.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #f0f2f5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+
+  /* Matches the host app's global base exactly. This is not cosmetic: the real
+     app inherits 13.5px/1.5 from its own global CSS, and every text block in
+     every screen is sized off that line-height. Leaving it at the browser
+     default (16px / normal ~1.2) made every heading, row and card render about
+     85% of its true height, so the whole app read subtly cramped and no screen
+     lined up with the reference. Measured, not guessed. */
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* The phone frame. Mirrors SCREEN in ui.jsx: a flex column that owns the full
+   viewport height, so the header and tab bar stay put while only the body
+   between them scrolls. 100dvh (not vh) because a mobile browser's collapsing
+   address bar otherwise leaves the tab bar under the fold. */
+.rd-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #f0f2f5;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Mirrors BODY in ui.jsx — the one scrolling region. */
+.rd-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Horizontal chip strips scroll without showing a bar (iOS/Android native feel). */
+.rd-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.rd-noscrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Tailwind preflight, the parts this app renders differently without ──
+   QA serves Tailwind's base layer, so its elements start from a reset the
+   browser's own defaults do not match. Measured, not assumed: without these,
+   a bare <button> here carries the UA's 2px outset border and 1px 6px padding
+   where QA's carries none, and every control renders at 13.333px instead of
+   the body's 13.5px — small per control, visible once a screen stacks twenty
+   of them. Keep this block in step with QA rather than tuning it. */
+*, ::before, ::after {
+  border-width: 0;
+  border-style: solid;
+  border-color: #e5e7eb;
+}
+
+button, input, optgroup, select, textarea {
+  /* `font: inherit`, not just the family: a bare <button> otherwise renders at
+     the UA default 13.333px while QA inherits the body's 13.5px, which shifts
+     every list row by a fraction and compounds down a long list. */
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+button, select { text-transform: none; }
+
+a { color: inherit; text-decoration: inherit; }
+
+button, [type="button"], [type="reset"], [type="submit"] {
+  -webkit-appearance: button;
+  background-color: transparent;
+  background-image: none;
+}
+
+/* Preflight drops the UA's centred, bold table headings, so a th follows the
+   cell alignment its own style sets (the denomination table's first column
+   reads left, not centred). */
+table {
+  text-indent: 0;
+  border-color: inherit;
+  border-collapse: collapse;
+}
+th {
+  text-align: inherit;
+  font-weight: inherit;
+}
+
+/* Replaced elements are blocks in preflight, so an inline SVG in a text flow
+   sits on the box edge rather than the text baseline. */
+img, svg, video, canvas, audio, iframe, embed, object {
+  display: block;
+  vertical-align: middle;
+}
+
+h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; margin: 0; }
+p, figure, blockquote, dl, dd, hr, pre { margin: 0; }
+ol, ul, menu { list-style: none; margin: 0; padding: 0; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   From here down: route-delivery-app/components/ui.css, ported verbatim.
+   These are the pressed/hover states that make the prototype feel like the
+   real app rather than a static page. Do not restyle -- edit upstream too.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Inputs & textareas: focus ring ── */
+input, textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus, textarea:focus {
+  border-color: #1B6272 !important;
+  box-shadow: 0 0 0 3px rgba(27, 98, 114, 0.12) !important;
+  outline: none;
+}
+
+.rd-expense-input,
+.rd-expense-input:focus,
+.rd-expense-input:focus-visible {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* ── Primary / large buttons ── */
+.rd-btn {
+  transition: filter 0.13s ease, box-shadow 0.13s ease, transform 0.09s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-btn:not([disabled]):hover {
+  filter: brightness(0.91);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+.rd-btn:not([disabled]):active {
+  filter: brightness(0.83);
+  box-shadow: none;
+  transform: scale(0.985);
+}
+
+/* ── Small / ghost buttons ── */
+.rd-btn-sm {
+  transition: filter 0.13s ease, transform 0.09s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-btn-sm:not([disabled]):hover { filter: brightness(0.92); }
+.rd-btn-sm:not([disabled]):active { filter: brightness(0.82); transform: scale(0.95); }
+
+/* ── NumPad keys ── */
+.rd-key {
+  transition: background 0.07s ease, transform 0.06s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-key:hover { background: #f4f4f4 !important; }
+.rd-key:active { background: #dcdcdc !important; transform: scale(0.89); }
+
+/* ── Stepper +/− buttons ── */
+.rd-stepper-btn {
+  transition: background 0.11s ease, transform 0.08s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-stepper-btn:not([disabled]):hover { background: #edf4f6 !important; }
+.rd-stepper-btn:not([disabled]):active { background: #d8eaed !important; transform: scale(0.86); }
+
+/* ── Tab bar items ── */
+.rd-tab {
+  transition: transform 0.09s ease, opacity 0.09s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-tab:active { transform: scale(0.83); opacity: 0.7; }
+
+/* ── Mobile header back button ── */
+.rd-back {
+  transition: background 0.12s ease, transform 0.09s ease;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-back:hover { background: rgba(255, 255, 255, 0.15) !important; }
+.rd-back:active { background: rgba(255, 255, 255, 0.28) !important; transform: scale(0.84); }
+
+/* ── Chip / selector pills ── */
+.rd-chip {
+  transition: border-color 0.13s ease, background 0.13s ease,
+              box-shadow 0.11s ease, transform 0.08s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.rd-chip:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+.rd-chip:active { transform: scale(0.95); box-shadow: none; }
+
+/* ── Generic pressable divs (FAB, card panels, icon buttons) ── */
+.rd-pressable {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: opacity 0.09s ease, transform 0.09s ease, box-shadow 0.12s ease;
+}
+.rd-pressable:hover { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14) !important; }
+.rd-pressable:active { opacity: 0.76; transform: scale(0.96); }
+
+/* ── Hoverable list rows ── */
+.rd-row {
+  transition: background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.rd-row:hover  { background: #f6f9fa !important; }
+.rd-row:active { background: #eaf2f4 !important; }
+
+/* ── Skeleton shimmer ── */
+@keyframes rd-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── InlineSpinner rotation ── */
+@keyframes rd-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Binary decision cards (ConfirmPanel binaryMode) ── */
+.rd-decision-card {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: filter 0.12s ease, transform 0.09s ease, box-shadow 0.12s ease;
+}
+.rd-decision-card:not([disabled]):hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
+}
+.rd-decision-card:not([disabled]):active {
+  filter: brightness(0.86);
+  transform: scale(0.965);
+  box-shadow: none;
+}
+.rd-decision-card--safe:not([disabled]):hover {
+  background: #eaf2f4 !important;
+}
+.rd-decision-card--commit:not([disabled]):hover {
+  filter: brightness(1.06);
+  box-shadow: 0 4px 16px rgba(67, 160, 71, 0.38);
+}
+
+/* ── Pulse dot (SyncBar loading indicator) ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
+/* ── EmbeddedProcessing stage message fade-in ── */
+@keyframes rd-stage-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── ConfirmPanel processing block slide-in ── */
+@keyframes rd-processing-in {
+  from { opacity: 0; transform: scaleX(0.95); }
+  to   { opacity: 1; transform: scaleX(1); }
+}

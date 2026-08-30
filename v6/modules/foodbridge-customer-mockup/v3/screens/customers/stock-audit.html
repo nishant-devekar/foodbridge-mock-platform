@@ -1,0 +1,104 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Customer — "Stock Audit & Health"
+  -----------------------------------------------------------------------
+  A distributor field-operations hub, mobile-first, listed under Customer
+  Management as a peer of B2B Customers and Retail Customers — not a drawer,
+  not a one-off tool. v1 is otherwise a frozen snapshot; this is the one
+  deliberate exception, called out rather than silently edited in.
+
+  UI/UX and theme are carried over from the platform's Distribution &
+  Logistics → Delivery Management module on purpose (teal chrome, colour
+  tiles, status-tag pills, card lists — never a dense table, this is a
+  field tool) — including, per the product owner's explicit ask, Delivery
+  Management's own persistent bottom nav bar. It stays on screen through
+  EVERY view in this feature (`.sah-nav` in stock-audit.css), not just on
+  mobile widths, so a rep always has Customers / Audits / + New Audit /
+  Attention / Back within thumb's reach.
+
+  Many views, run by a small stack-based router in stock-audit.js (go/back,
+  mirroring Delivery Management's own DM.go/DM.back) — see that file's
+  header for the full view list. The UX loop:
+
+    Who needs attention → Why → What should I do next → Start Audit
+    Create Visit → Understand Customer → Audit Stock → Capture Exceptions
+      → Complete Audit → Get Actions → Build Customer History
+
+  vNext added a second, lighter loop alongside the one above — Quick Audit,
+  the module's default entry now: search customer → search/select products
+  → count → done, no Customer Detail stop and no full-catalogue dump unless
+  the rep asks for one (the "Full Shelf Audit" secondary action, which is
+  the original loop above, kept exactly as it was).
+
+  A later inline pass took the last modals out of that loop: the count is a
+  stepper in the product row (as in Delivery Management's Load Stock, not a
+  per-product bottom sheet), finishing is an inline ✓ / ✗ confirmation in the
+  sticky footer (as on Production's recipe page, not a slide-up sheet), and
+  picking a customer always starts a fresh visit with nothing asked on the
+  way in. See stock-audit.js's "inline pass" removal notes.
+
+  Two query-param entry points, both read once at mount():
+    ?customer=<id>                deep link straight into Customer Detail —
+                                   unchanged, original behavior.
+    ?entry=quick[&customer=<id>]  vNext: with a customer id, straight into
+                                   that customer's Quick Audit (skips
+    [&hint=<phone>]               Customer Detail entirely); with a hint
+                                   instead, into the Quick Audit customer
+                                   picker, search box pre-filled; with
+                                   neither, the picker empty. See
+                                   WhatsAppLink (Entry Point A, mocked send)
+                                   and Delivery Management's stop-detail.js
+                                   (Entry Point B) for who builds these URLs.
+
+  Mounts through shell.js's mountShell (sidebar, topbar, drawer/toast
+  primitives) exactly like b2b-customers.html and retail-customers.html.
+  Normal in-shell access does not stand alone or open in a new tab; the two
+  entry points above are the deliberate exception — they only work opened
+  directly (see mount()'s own comment for why: the platform shell's hash
+  router never forwards query strings into this module's iframe).
+
+  Standalone-openable: open this file directly (optionally with
+  ?customer=c01/c05/c11 for the richer seed data, or ?entry=quick) to
+  review in isolation. Data comes from seed.inline.js, same seed as the
+  rest of the module; audits persist to localStorage for the session, same
+  convention as customers.js's Store.
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API
+  calls. Product and evidence thumbnails are the one exception: real,
+  freely-licensed photos hotlinked from Wikimedia Commons (via
+  Special:FilePath, see `thumbHTML`/`EVIDENCE_IMAGE` in stock-audit.js)
+  stand in for category-representative product art this discovery has no
+  rights to. This needs internet access to load — offline, the browser
+  shows a broken-image icon rather than falling back to the emoji.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
+       numbers on a notched iPhone; without it they are all 0 and the bottom
+       nav sits under the home indicator. Deliberately NO maximum-scale or
+       user-scalable=no: pinch-zoom stays available, and the input zoom this
+       screen used to suffer is fixed by giving controls 16px text instead
+       (see the mobile input block in stock-audit.css). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Stock Audit &amp; Health — Foodbridge Module Customer</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stock-audit.css?v=2026082609">
+</head>
+<body>
+  <div class="app sah" id="app"></div>
+  <script src="icons.js"></script>
+  <script src="seed.inline.js?v=20260823z"></script>
+  <script src="shell.js"></script>
+  <!-- ?v= busts the browser cache. Neither GitHub Pages nor python3's
+       http.server sends Cache-Control, so without it a browser keeps serving
+       a stale copy through a real reload. It covers seed.inline.js as well as
+       this feature's own two files: Stock Audit adds stockAudits and
+       orderingSignals to the shared seed, so it goes stale for exactly the
+       same reason. Bump the tag on any edit to stock-audit.css/.js or to the
+       seed. (The other screens load the seed unversioned; they don't change
+       it, so they don't need to.) -->
+  <script src="stock-audit.js?v=2026082609"></script>
+  <script>SAH.mount();</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "_comment": [
+    "Published repository name -> local checkout directory name, for tools/dev.py only.",
+    "",
+    "assets/modules.json stays canonical and describes the PUBLISHED platform: every",
+    "destination is an absolute GitHub Pages URL whose first path segment is the repo",
+    "name. dev.py rewrites those to local paths, and until now it assumed the checkout",
+    "on disk was named exactly like the repo. That is not always true — a module's",
+    "content can move to a differently named repository while the published URL, owned",
+    "by someone else, still points at the old one.",
+    "",
+    "This file records those cases, and only those cases. A repo absent from `map`",
+    "resolves to a directory of its own name, exactly as before — so adding this file",
+    "changed nothing for any module already working.",
+    "",
+    "Directory names only. Never absolute paths: --root supplies the location, so this",
+    "file stays portable across machines and must contain nothing user-specific."
+  ],
+  "map": {
+    "foodbridge-inventory-mockup": "foodbridge-module-inventory-management"
+  },
+  "_evidence": {
+    "foodbridge-inventory-mockup": "Both destinations published under this repo — screens/inventory/screen-01-current-stock.html and screens/raw-material-inventory/screen-01-live-stock.html — resolve inside foodbridge-module-inventory-management/discovery/. Verified by locating the files, not inferred from the names."
+  }
+}

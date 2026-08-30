@@ -39,15 +39,23 @@
     },
     {
       "name": "foodbridge-v5",
-      "runtimeExecutable": "python3",
+      "runtimeExecutable": "sh",
       "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8004",
-        "--directory",
-        "v5"
+        "-c",
+        "python3 -m http.server \"$PORT\" --directory v5"
       ],
-      "port": 8004
+      "port": 8004,
+      "autoPort": true
+    },
+    {
+      "name": "foodbridge-v6",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "python3 -m http.server \"$PORT\" --directory v6"
+      ],
+      "port": 8005,
+      "autoPort": true
     },
     {
       "name": "mock-platform-live",
