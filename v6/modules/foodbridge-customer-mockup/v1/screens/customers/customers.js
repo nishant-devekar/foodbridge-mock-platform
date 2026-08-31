@@ -170,13 +170,6 @@
 
   /* ------------------------------------------------------------- selectors */
 
-  /* Every area already in use — the datalist behind the Area field. */
-  function knownAreas() {
-    const set = new Set();
-    Store.list("b2b").concat(Store.list("retail")).forEach((c) => { if (c.area) set.add(c.area); });
-    return [...set].sort();
-  }
-
   function visibleRows() {
     const q = S.search.trim().toLowerCase();
     let rows = Store.list(S.cfg.kind);
@@ -293,6 +286,12 @@
       </div>`;
   }
 
+  /* The area tag. System-managed, so it is shown and never edited here.
+     Uses the .row-tags token the stylesheet already had for exactly this. */
+  function areaTagHTML(c) {
+    return c.area ? `<div class="row-tags"><span>${esc(c.area)}</span></div>` : "";
+  }
+
   function catalogueCellHTML(c) {
     const name = catalogueOf(c);
     return name
@@ -306,17 +305,20 @@
     if (!rows.length) return "";
     return `<div class="ccards">` + rows.map((c) => {
       const picked = S.checked.includes(c._id);
-      const where = c.area || (addressOf(c) === "-" ? "" : addressOf(c));
+      const addr = addressOf(c) === "-" ? "" : addressOf(c);
       return `
         <article class="ccard${picked ? " selected" : ""}" data-id="${c._id}">
           <div class="cc-top">
             ${canSelect ? `<input type="checkbox" class="cb row-cb" data-id="${c._id}" ${picked ? "checked" : ""}>` : ""}
             <div class="cc-id">
               <h4>${esc(titleCase(nameOf(c)))}</h4>
-              <p>${esc(c.phone)}${where ? ` · ${esc(where)}` : ""}</p>
+              <p>${esc(c.phone)}${addr ? ` · ${esc(addr)}` : ""}</p>
             </div>
           </div>
-          <div class="cc-foot">${catalogueCellHTML(c)}${rowActionsHTML(cfg, c)}</div>
+          <div class="cc-foot">
+            <div class="cc-meta">${catalogueCellHTML(c)}${areaTagHTML(c)}</div>
+            ${rowActionsHTML(cfg, c)}
+          </div>
         </article>`;
     }).join("") + `</div>`;
   }
@@ -333,7 +335,7 @@
           <td class="name">${esc(titleCase(nameOf(c)))}</td>
           <td>${c.email ? esc(c.email) : ""}</td>
           <td class="phone">${esc(c.phone)}</td>
-          <td class="address"><span class="${addr === "-" ? "muted" : ""}">${esc(addr)}</span></td>
+          <td class="address"><span class="${addr === "-" ? "muted" : ""}">${esc(addr)}</span>${areaTagHTML(c)}</td>
           <td>${catalogueCellHTML(c)}</td>
           <td>${rowActionsHTML(cfg, c)}</td>
         </tr>`;
@@ -818,17 +820,84 @@
     return 2 * R * Math.asin(Math.sqrt(x));
   }
 
-  /* REQ 3 — geographically similar customers get the same tag. The nearest
-     already-tagged customer within 2 km wins; beyond that the map's own
-     locality name is used. Suggestion only: the field stays editable. */
-  function suggestArea(lat, lng, fallback) {
+  /* The area tag. System-managed: derived from the pin, recomputed on every
+     save, never entered by hand.
+
+     Clustering comes FIRST and the map's own name second — that ordering is
+     what makes geographically similar customers share one tag instead of
+     accumulating "Andheri W", "Andheri West" and "Andheri (W)" side by side. */
+  function areaForPin(loc, existing) {
+    if (!loc || loc.lat == null) return "";
     let best = null, bestD = Infinity;
     Store.list("b2b").concat(Store.list("retail")).forEach((c) => {
       if (!c.area || c.lat == null) return;
-      const d = distanceKm(lat, lng, c.lat, c.lng);
+      if (existing && c._id === existing._id) return;   // never cluster onto itself
+      const d = distanceKm(loc.lat, loc.lng, c.lat, c.lng);
       if (d < bestD) { bestD = d; best = c.area; }
     });
-    return bestD <= 2 ? best : (fallback || null);
+    if (bestD <= 2 && best) return best;
+    return (loc.locality || (loc.place || "").split(",")[0] || "").trim();
+  }
+
+  /* ── The one rule that stops Location and Shipping Address disagreeing ────
+     The pin owns the geography of the address goods go to: its state and PIN
+     are written from the pin and locked while it exists. The street line stays
+     free text, because "Shop 14, ground floor" is the half a map cannot supply.
+
+     Which address that is follows the user's own declaration: the shipping
+     block normally, the billing fields when they have said the two are the
+     same. Remove the pin and the fields hand back. */
+  function syncAddressToPin(drawer) {
+    const loc = drawer._loc;
+    const same = drawer.querySelector('[name="sameAsBilling"]').checked;
+    const pinned = loc.lat != null && !!(loc.stateCode || loc.pin);
+    const [stateName, pinName] = same
+      ? ["state", "postnr"]
+      : ["shippingState", "shippingPostnumber"];
+
+    // Unlock every candidate first, so toggling "same as billing" never strands
+    // a locked field behind a hidden block.
+    ["state", "postnr", "shippingState", "shippingPostnumber"].forEach((n) => {
+      const el = drawer.querySelector(`[name="${n}"]`);
+      if (el) { el.classList.remove("derived"); el.readOnly = false; el.removeAttribute("tabindex"); }
+    });
+    if (!pinned) return;
+
+    const stateEl = drawer.querySelector(`[name="${stateName}"]`);
+    const pinEl = drawer.querySelector(`[name="${pinName}"]`);
+    if (stateEl && loc.stateCode) stateEl.value = loc.stateCode;
+    if (pinEl && loc.pin) pinEl.value = loc.pin;
+    // Locked, not disabled: a disabled control drops out of the form, and the
+    // save path reads these by name. `.derived` supplies the muted, inert look.
+    [stateEl, pinEl].forEach((el) => {
+      if (!el) return;
+      el.classList.add("derived");
+      el.setAttribute("tabindex", "-1");
+      if (el.tagName === "INPUT") el.readOnly = true;
+    });
+  }
+
+  /* Turn a point into the address parts the form needs. Same provider as the
+     tiles and the forward search. Failure is survivable: without a resolved
+     state or PIN nothing is locked, so the user simply types them as before. */
+  const STATE_BY_NAME = (() => {
+    const m = {};
+    SEED.states.forEach((st) => { m[st.name.toLowerCase()] = st.code; });
+    return m;
+  })();
+
+  async function resolvePin(loc) {
+    try {
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=" +
+          loc.lat + "&lon=" + loc.lng, { headers: { Accept: "application/json" } });
+      if (!res.ok) return false;
+      const a = (await res.json()).address || {};
+      loc.stateCode = STATE_BY_NAME[String(a.state || "").toLowerCase()] || loc.stateCode || "";
+      loc.pin = a.postcode || loc.pin || "";
+      loc.locality = a.suburb || a.neighbourhood || a.city_district || a.town || a.village || a.city || "";
+      return true;
+    } catch (e) { return false; }
   }
 
   function openLocationSheet(drawer) {
@@ -869,20 +938,30 @@
       if (place) loc.place = place;
       marker.setLatLng([loc.lat, loc.lng]);
     };
-    marker.on("dragend", () => { const p = marker.getLatLng(); put(p.lat, p.lng); });
-    map.on("click", (e) => put(e.latlng.lat, e.latlng.lng));
+    const moved = async (lat, lng) => {
+      put(lat, lng, "");
+      loc.stateCode = ""; loc.pin = ""; loc.locality = "";
+      await resolvePin(loc);
+      if (!loc.place && loc.locality) loc.place = loc.locality;
+    };
+    marker.on("dragend", () => { const p = marker.getLatLng(); moved(p.lat, p.lng); });
+    map.on("click", (e) => moved(e.latlng.lat, e.latlng.lng));
 
     const q = $("#locQ", wrap), hits = $("#locHits", wrap);
     const paintHits = (list) => {
       hits.hidden = !list.length;
       hits.innerHTML = list.slice(0, 6)
-        .map((r) => `<li><button type="button" data-lat="${r.lat}" data-lng="${r.lng}" data-name="${esc(r.name)}">${esc(r.name)}</button></li>`)
+        .map((r, i) => `<li><button type="button" data-i="${i}">${esc(r.name)}</button></li>`)
         .join("");
       hits.querySelectorAll("button").forEach((b) => {
         b.onclick = () => {
-          put(+b.dataset.lat, +b.dataset.lng, b.dataset.name);
-          map.setView([+b.dataset.lat, +b.dataset.lng], 16);
-          q.value = b.dataset.name;
+          const r = list[+b.dataset.i];
+          put(r.lat, r.lng, r.name);
+          // The chosen result already carries its own state/PIN/locality — no
+          // second round-trip to reverse-geocode a point we just looked up.
+          loc.stateCode = r.stateCode || ""; loc.pin = r.pin || ""; loc.locality = r.locality || "";
+          map.setView([r.lat, r.lng], 16);
+          q.value = r.name;
           hits.hidden = true;
         };
       });
@@ -901,29 +980,38 @@
         // already uses. If it is unreachable the local matches above stand, and
         // the map can always be tapped directly.
         const res = await fetch(
-          "https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=in&q=" +
+          "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=in&q=" +
             encodeURIComponent(term),
           { headers: { Accept: "application/json" } });
         if (!res.ok) return;
         const json = await res.json();
-        const remote = json.map((r) => ({ name: r.display_name.split(",").slice(0, 2).join(",").trim(), lat: +r.lat, lng: +r.lon }));
+        const remote = json.map((r) => {
+          const a = r.address || {};
+          return {
+            name: r.display_name.split(",").slice(0, 2).join(",").trim(),
+            lat: +r.lat, lng: +r.lon,
+            stateCode: STATE_BY_NAME[String(a.state || "").toLowerCase()] || "",
+            pin: a.postcode || "",
+            locality: a.suburb || a.neighbourhood || a.city_district || a.town || a.village || a.city || "",
+          };
+        });
         if (remote.length) paintHits(near.concat(remote));
       } catch (e) { /* offline — local matches and tap-to-pin still work */ }
     }, 350);
     q.oninput = search;
 
     const rm = $("[data-remove]", wrap);
-    if (rm) rm.onclick = () => { loc.lat = null; loc.lng = null; loc.place = ""; paintLocation(drawer); wrap._close(); };
-    $("[data-done]", wrap).onclick = () => {
-      // REQ 3 — a saved pin suggests the area, but only fills an empty field.
-      if (loc.lat != null) {
-        const areaEl = $('[name="area"]', drawer);
-        if (areaEl && !areaEl.value.trim()) {
-          const s = suggestArea(loc.lat, loc.lng, (loc.place || "").split(",")[0].trim());
-          if (s) { areaEl.value = s; areaEl.classList.add("suggested"); }
-        }
-      }
+    if (rm) rm.onclick = () => {
+      loc.lat = null; loc.lng = null; loc.place = "";
+      loc.stateCode = ""; loc.pin = ""; loc.locality = "";
+      paintLocation(drawer); syncAddressToPin(drawer); wrap._close();
+    };
+    $("[data-done]", wrap).onclick = async () => {
+      // A point that was tapped and not yet resolved gets one last try, so the
+      // address it is about to own is filled in rather than half-blank.
+      if (loc.lat != null && !loc.stateCode && !loc.pin) await resolvePin(loc);
       paintLocation(drawer);
+      syncAddressToPin(drawer);
       wrap._close();
     };
     $("[data-close]", wrap).onclick = () => wrap._close();
@@ -1031,23 +1119,13 @@
         ${field({ label: "Email", name: "email", value: c.email, type: "email" })}
         ${field({ label: "Phone", name: "phone", value: c.phone, required: true })}
         ${openingBalance}
+        ${isB2B ? pickerRow("terms", "Terms", termsSummary(c) === "Not set" ? "" : termsSummary(c), "Not set") : ""}
         ${field({ label: "Billing Address", name: "address", value: c.adress1 })}
         <div class="frow">
           <label class="lab" for="f-state">State (Billing)</label>
           <div><select class="input" id="f-state" name="state">${stateOptions(c.state?.code)}</select></div>
         </div>
         ${field({ label: "PIN Code (Billing)", name: "postnr", value: c.postnr })}
-        ${isB2B ? pickerRow("terms", "Terms", termsSummary(c) === "Not set" ? "" : termsSummary(c), "Not set") : ""}
-        ${isB2B ? pickerRow("location", "Location", c.lat != null ? (c.place || "Pinned") : "", "Not set") : ""}
-        ${isB2B ? `
-        <div class="frow" data-field="area">
-          <label class="lab" for="f-area">Area</label>
-          <div>
-            <input class="input" id="f-area" name="area" list="areaList"
-                   value="${esc(c.area || "")}" placeholder="Area" autocomplete="off" />
-            <datalist id="areaList">${knownAreas().map((a) => `<option value="${esc(a)}">`).join("")}</datalist>
-          </div>
-        </div>` : ""}
 
         <div class="frow">
           <label class="lab">Use billing address as shipping address</label>
@@ -1065,6 +1143,7 @@
           </div>
           ${field({ label: "PIN Code (Shipping)", name: "shippingPostnumber", value: c.shippingPostnumber })}
         </div>
+        ${isB2B ? pickerRow("location", "Location", c.lat != null ? (c.place || "Pinned") : "", "Not set") : ""}
         ${notify}
       </form></div>`;
 
@@ -1086,12 +1165,20 @@
     // Pending values for the two sheets. Nothing is written to the customer
     // until the drawer is saved, so cancelling really cancels.
     drawer._terms = { creditTerm: c.creditTerm || null, creditDays: c.creditDays ?? null, paymentTerm: c.paymentTerm || null };
-    drawer._loc = { lat: c.lat ?? null, lng: c.lng ?? null, place: c.place || "" };
+    drawer._loc = {
+      lat: c.lat ?? null, lng: c.lng ?? null, place: c.place || "",
+      // The address parts the pin owns. Re-derived whenever the pin moves.
+      stateCode: c.lat != null ? (c.shippingState?.code || c.state?.code || "") : "",
+      pin: c.lat != null ? (c.shippingPostnumber || c.postnr || "") : "",
+      locality: c.area || "",
+    };
     drawer.querySelectorAll("[data-open]").forEach((b) => {
       b.onclick = () => (b.dataset.open === "terms" ? openTermsSheet(drawer) : openLocationSheet(drawer));
     });
-    const areaInput = $('[name="area"]', drawer);
-    if (areaInput) areaInput.oninput = () => areaInput.classList.remove("suggested");
+    // Which address the pin owns follows this checkbox, so re-run on both.
+    const sameEl = drawer.querySelector('[name="sameAsBilling"]');
+    if (sameEl) sameEl.addEventListener("change", () => syncAddressToPin(drawer));
+    syncAddressToPin(drawer);
 
     drawer.querySelectorAll('input[name="gstType"]').forEach((r) => {
       r.onchange = () => {
@@ -1177,8 +1264,18 @@
     const gstNumber = gstType === "regular" ? get("gstNumber") : gstType === "exempt" ? get("udin") : "";
 
     const same = checked("sameAsBilling");
-    const billingState = findState(get("state"));
-    const shipState = same ? billingState : findState(get("shippingState"));
+    // The pin is authoritative in the DATA, not just in the form. Reading the
+    // inputs alone would let a stale value outrank the pin the moment the two
+    // ever drifted; deriving here means they cannot.
+    const loc = drawer._loc || {};
+    const pinned = loc.lat != null && !!(loc.stateCode || loc.pin);
+    const pinState = pinned && loc.stateCode ? findState(loc.stateCode) : null;
+    const pinPost = pinned && loc.pin ? loc.pin : null;
+
+    const billingState = same && pinState ? pinState : findState(get("state"));
+    const shipState = same ? billingState : (pinState || findState(get("shippingState")));
+    const billingPost = same && pinPost ? pinPost : get("postnr");
+    const shipPost = same ? billingPost : (pinPost || get("shippingPostnumber"));
 
     const payload = {
       orgNo: get("orgNo"),
@@ -1187,10 +1284,10 @@
       phone,
       adress1: get("address"),
       state: billingState,
-      postnr: get("postnr"),
+      postnr: billingPost,
       adress2: same ? get("address") : get("shipping_address"),
       shippingState: shipState,
-      shippingPostnumber: same ? get("postnr") : get("shippingPostnumber"),
+      shippingPostnumber: shipPost,
       gstType,
       gstNumber,
       supplyChainType: cfg.kind === "retail" ? "PRIVATE" : "PUBLIC",
@@ -1205,7 +1302,10 @@
       lat: drawer._loc.lat,
       lng: drawer._loc.lng,
       place: drawer._loc.place,
-      area: get("area"),
+      // Derived, every save, from the pin that exists at that moment. Nobody
+      // types it, so it cannot go stale and cannot drift into a near-duplicate
+      // of a neighbour's tag. No pin, no tag.
+      area: areaForPin(drawer._loc, existing),
     };
 
     const list = Store.list(cfg.kind);

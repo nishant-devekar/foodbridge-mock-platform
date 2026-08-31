@@ -1315,6 +1315,12 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cc-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
            padding: 0.4375rem 0.875rem; border-top: 1px solid #f3f4f6; background: #fafafa; }
+.cc-meta { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+/* The tag sits inline, not as its own stacked row. */
+.cc-meta .row-tags { margin-top: 0; line-height: 1; }
+/* An empty catalogue reads as "-" in the desktop column, where the header gives
+   it meaning. On a card it is a dash next to a real tag, so it is dropped. */
+.cc-meta .pill.none { display: none; }
 .cc-foot .row-actions { justify-content: flex-end; }
 
 /* One layout at a time. */
@@ -1329,7 +1335,11 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
 .picker-v { color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .picker-v.none { color: #9ca3af; }
 .picker-a { color: #10b981; font-weight: 600; font-size: 0.8125rem; flex-shrink: 0; }
-.input.suggested { border-color: #10b981; background: #f0fdf4; }
+/* A field the pin owns: readable, obviously not yours to type in. */
+.input.derived, select.input.derived {
+  background: #f6f8fa; color: #6b7280; border-color: #e5e7eb;
+  pointer-events: none; cursor: default;
+}
 
 /* ── Sheet: a small modal for both pickers ─────────────────────────────── */
 .sheet { display: flex; flex-direction: column; max-height: 86vh; }
