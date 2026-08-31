@@ -936,3 +936,86 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
      footer (the search stays). */
   .filters .btn-primary { display: none; }
 }
+
+/* ==========================================================================
+   Route Planning — Beats and Vehicles
+
+   A beat's location is never stored, so nothing here is a location control.
+   The tag beside a customer and the coverage under a beat name are read-only
+   text derived from the customer registry at render.
+   ========================================================================== */
+
+/* A quiet, in-form action. Used for Add customers / Recalculate / Add all. */
+.btn-mini { height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--emerald-700); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-mini:hover { background: var(--emerald-50); border-color: var(--emerald-500); }
+.btn-mini svg { width: 15px; height: 15px; }
+
+/* The one condition that silently degrades sequencing, wherever it applies. */
+.rp-warn { display: flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--orange-500); }
+.rp-warn svg { flex-shrink: 0; }
+
+/* Working days. */
+.rp-days { display: flex; gap: 6px; }
+.rp-day { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.rp-day.on { background: var(--emerald-600); border-color: var(--emerald-600); color: #fff; }
+
+/* Membership block. */
+.rp-sec { padding: 16px 0 4px; }
+.rp-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.rp-sec-head span { font-size: 14px; font-weight: 600; color: #374151; }
+.rp-sec-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
+.rp-none { border: 1px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted-2); font-size: 13.5px; }
+.rp-mems { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.rp-mem { display: grid; grid-template-columns: 26px minmax(0, 1fr) 132px 32px; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line-soft); }
+.rp-mem:first-child { border-top: none; }
+.rp-mem .n { width: 26px; height: 26px; border-radius: 50%; background: var(--line-soft); color: var(--ink-soft); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+.rp-mem.warn .n { background: #fff7ed; color: var(--orange-500); }
+.rp-mem .nm { min-width: 0; }
+.rp-mem .nm b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-mem .tg { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-mem .fix { display: inline-block; font-size: 12px; font-weight: 600; color: var(--emerald-700); cursor: pointer; }
+.rp-mem .fix:hover { text-decoration: underline; }
+.rp-mem select { width: 100%; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 0 8px; font-size: 13px; font-family: inherit; color: var(--ink); outline: none; }
+.rp-mem select:focus { border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(16,185,129,.14); }
+
+/* Inline validation on a required field. */
+.d-row.bad input { border-color: var(--rose-500); }
+
+/* Add customers — location tags first. */
+.rp-pick .search { margin-bottom: 12px; }
+.rp-pick .chips { margin-bottom: 12px; }
+.rp-pick .chips[hidden] { display: none; }
+.rp-pick .ms-list { max-height: 46vh; border: 1px solid var(--line); border-radius: 8px; }
+.rp-pick .ms-selected { margin-top: 12px; }
+.rp-addall { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.rp-flag { flex-shrink: 0; font-size: 11.5px; font-weight: 600; color: var(--orange-500); }
+
+/* The toggle is the switch, not a button around it — `button` keeps only its
+   font and cursor from the reset, so the chrome has to go here. */
+.toggle-wrap { border: none; background: transparent; padding: 0; }
+
+/* Vehicles — a marker only when it says something. */
+.rp-mark { display: inline-block; padding: 2px 8px; border-radius: 6px; background: #eff6ff; color: #2563eb; font-size: 11.5px; font-weight: 700; vertical-align: middle; }
+.rp-off { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--line-soft); color: var(--muted); font-size: 11.5px; font-weight: 700; vertical-align: middle; }
+
+@media (max-width: 768px) {
+  /* The scrim centres with `place-items`, so its column track is sized to the
+     content and a wide row drags the panel past the viewport. Clamp it. */
+  .modal-panel { max-width: calc(100vw - 40px); }
+  /* Location tags scroll sideways rather than eating four lines of the sheet.
+     `.chips` sets flex-wrap:wrap, which would otherwise win over .chip-scroll. */
+  .rp-pick .chip-scroll { flex-wrap: nowrap; }
+  .rp-pick .chip-scroll .chip-pill { flex-shrink: 0; }
+  .rp-pick .ms-list { max-height: 38vh; }
+  /* Member row goes two-line: number + name + remove, then frequency — which
+     takes the width it needs, not the width it is offered. */
+  .rp-mem { grid-template-columns: 26px minmax(0, 1fr) 32px; row-gap: 8px; }
+  .rp-mem .n { grid-row: 1; grid-column: 1; }
+  .rp-mem .nm { grid-row: 1; grid-column: 2; }
+  .rp-mem > .icon-btn { grid-row: 1; grid-column: 3; }
+  .rp-mem select, .rp-mem .freq-gap { grid-row: 2; grid-column: 2 / 4; }
+  .rp-mem select { max-width: 160px; }
+  /* Seven chips share the row rather than each claiming all of it. */
+  .rp-days { gap: 4px; }
+  .rp-day { flex: 1; width: auto; min-width: 0; height: 40px; border-radius: 10px; }
+}

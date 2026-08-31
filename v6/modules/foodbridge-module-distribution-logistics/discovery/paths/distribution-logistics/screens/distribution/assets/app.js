@@ -4,9 +4,10 @@
    Screens: FB.mount('route-planning' | 'logistic-returns' | 'delivery-management' | 'live-tracking').
    'live-tracking' is implemented in tracking.js, which only that page loads.
 
-     • Route Planning     — Delivery Templates table, add/edit drawer with
-                            multi-select Customers + Staff (assignment badges),
-                            delete confirm.
+     • Route Planning     — Beats (recurring territories: days, membership,
+                            per-customer frequency, GPS-suggested order) and the
+                            Vehicles master. Reads the real B2B customer
+                            registry; stores no geography of its own.
      • Logistic Returns   — Asset Movement / Asset Inventory / Assets tabs,
                             Record Asset Movement wizard (Return / Issue),
                             Add/Edit asset modal, asset detail view, ledger.
@@ -19,7 +20,7 @@
   // this iframe and would hide an open drawer's own header. Flag the document so the
   // drawer drops below it (see .fb-embedded rule in styles.css). Standalone untouched.
   try { if (window.self !== window.top) document.documentElement.classList.add("fb-embedded"); } catch (e) { document.documentElement.classList.add("fb-embedded"); }
-  const SEED = window.SEED || { routeTemplates: [], customers: [], staff: [], assets: [], orgs: [], deliveryRoute: {} };
+  const SEED = window.SEED || { beats: [], vehicles: [], customers: [], assets: [], orgs: [], deliveryRoute: {} };
 
   // ── Icons ─────────────────────────────────────────────────────────────────
   const I = {
@@ -56,6 +57,7 @@
     imgphL: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>',
     check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>',
     back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+    alert: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
     sync: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>',
     sort: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>',
     ret2: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9"/></svg>',
@@ -75,7 +77,6 @@
   const parseTime = (t) => { if (!t) return 0; const m = String(t).match(/(\d+):(\d+)\s*(AM|PM)?/i); if (!m) return 0; let h = +m[1] % 12; if (m[3] && /pm/i.test(m[3])) h += 12; return h * 60 + +m[2]; };
   const txTs = (t) => new Date(t.date).getTime() + parseTime(t.time) * 60000;
   const custById = (id) => SEED.customers.find((c) => c.id === id);
-  const staffById = (id) => SEED.staff.find((s) => s.id === id);
   const count = (arr) => (Array.isArray(arr) ? arr.length : 0);
 
   function toast(msg, tone) { const t = document.getElementById("toast"); if (!t) return; t.className = "toast show" + (tone ? " " + tone : ""); t.textContent = msg; clearTimeout(toast._t); toast._t = setTimeout(() => (t.className = "toast"), 2600); }
@@ -162,47 +163,6 @@
     });
   }
 
-  // ── Multi-select widget (customers / staff) ─────────────────────────────────
-  // Mutates `selectedSet`. `assignments` = { id: [templateName,...] } for badges.
-  function mountMultiSelect(container, { items, selectedSet, placeholder, searchPlaceholder, assignments }) {
-    let open = false, q = "";
-    const render = () => {
-      const chosen = items.filter((it) => selectedSet.has(it.id));
-      const filtered = items.filter((it) => it.name.toLowerCase().includes(q.toLowerCase()));
-      container.className = "ms" + (open ? " open" : "");
-      container.innerHTML = `
-        <div class="ms-trigger"><span class="${chosen.length ? "" : "ph"}">${chosen.length ? `${chosen.length} selected` : esc(placeholder)}</span><span class="chev">${I.chev}</span></div>
-        ${open ? `<div class="ms-panel"><div class="ms-search">${I.search}<input class="ms-q" placeholder="${attr(searchPlaceholder)}" value="${attr(q)}"></div>
-          <div class="ms-list">${filtered.length ? filtered.map((it) => {
-            const on = selectedSet.has(it.id), asg = (assignments && assignments[it.id]) || [];
-            return `<label class="ms-opt ${on ? "sel" : ""}" data-id="${it.id}"><input type="checkbox" ${on ? "checked" : ""}><span class="nm">${esc(it.name)}</span>${asg.length ? `<button type="button" class="assign-badge" data-badge="${it.id}">${asg.length} template${asg.length !== 1 ? "s" : ""} ${I.chev}</button>` : ""}</label>`;
-          }).join("") : `<div class="ms-empty">No results</div>`}</div></div>` : ""}
-        ${chosen.length ? `<div class="ms-selected"><div class="hd">Selected (${chosen.length})</div>${chosen.map((it) => {
-          const asg = (assignments && assignments[it.id]) || [];
-          return `<div class="row"><span class="nm">${esc(it.name)}</span>${asg.length ? `<button type="button" class="assign-badge" data-badge="${it.id}">${asg.length} template${asg.length !== 1 ? "s" : ""} ${I.chev}</button>` : ""}<button type="button" class="rm" data-rm="${it.id}">${I.x}</button></div>`;
-        }).join("")}</div>` : ""}`;
-      container.querySelector(".ms-trigger").addEventListener("click", () => { open = !open; render(); });
-      const qi = container.querySelector(".ms-q");
-      if (qi) { qi.focus(); qi.addEventListener("input", (e) => { q = e.target.value; const pos = e.target.selectionStart; render(); const ni = container.querySelector(".ms-q"); if (ni) ni.setSelectionRange(pos, pos); }); }
-      container.querySelectorAll(".ms-opt").forEach((o) => o.addEventListener("click", (e) => { if (e.target.closest(".assign-badge")) return; e.preventDefault(); const id = o.dataset.id; selectedSet.has(id) ? selectedSet.delete(id) : selectedSet.add(id); render(); }));
-      container.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); selectedSet.delete(b.dataset.rm); render(); }));
-      container.querySelectorAll("[data-badge]").forEach((b) => wireAssignBadge(b, assignments[b.dataset.badge] || []));
-    };
-    render();
-    const onDoc = (e) => { if (open && !container.contains(e.target)) { open = false; render(); } };
-    document.addEventListener("mousedown", onDoc);
-  }
-
-  // Which OTHER templates reference each customer/staff id → assignment badges.
-  function buildAssignments(field, exceptId) {
-    const map = {};
-    SEED.routeTemplates.forEach((r) => {
-      if (exceptId && r.id === exceptId) return;
-      (r[field] || []).forEach((id) => { (map[id] = map[id] || []).push(r.name); });
-    });
-    return map;
-  }
-
   // ── Sidebar / shell ─────────────────────────────────────────────────────────
   const SIDEBAR = [
     { label: "Dashboard", icon: I.dash },
@@ -255,70 +215,478 @@
   }
 
   /* =========================================================================
-     SCREEN 1 — ROUTE PLANNING  (Delivery Templates)
-     ========================================================================= */
-  function screenRoutePlanning() {
-    const state = { search: "" };
-    const content = document.getElementById("content");
-    content.innerHTML = `
-      <div class="subtabs"><button class="subtab active">Delivery Templates</button></div>
-      <div class="filters"><div class="search">${I.search}<input id="q" type="search" placeholder="Search delivery routes..."></div><div class="grow" style="flex:1"></div><button class="btn btn-primary" id="add">${I.plus} Add Delivery Template</button></div>
-      <div id="list"></div>`;
+     SCREEN 1 — ROUTE PLANNING  (Beats · Vehicles)
 
-    function filtered() {
-      const q = state.search.trim().toLowerCase();
-      return SEED.routeTemplates
-        .filter((r) => !q || r.name.toLowerCase().includes(q))
-        .slice()
-        .sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
+     Plans what RECURS: which customers form a territory, how often each is
+     visited, in what order, and what vehicles exist to plan with. Nothing here
+     names a date, a crew or money — those belong to Create Delivery and to
+     Delivery Management downstream.
+
+     The rule the whole screen is built around:
+
+       A beat's NAME is user-defined. Its LOCATION is derived from its members.
+
+     A beat stores four keys — id, name, days, members — and no geography.
+     Coverage, readiness and the suggested order are all computed at render from
+     the members' own pins, which B2B Customer Management owns.
+     ========================================================================= */
+
+  // ── The real B2B registry, read-only ──────────────────────────────────────
+  // One key, no writes, no second geography model. Re-read on every render, so
+  // a location fixed in Customer Management shows up on the way back.
+  const CUSTOMER_KEY = "fb-discovery-customers-v1";
+  function readCustomers() {
+    let rows = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem(CUSTOMER_KEY) || "null");
+      if (saved && Array.isArray(saved.b2b)) rows = saved.b2b;
+    } catch (e) { /* private mode — fall through to the seed */ }
+    if (!rows) rows = (window.FB_CUSTOMER_SEED && window.FB_CUSTOMER_SEED.b2b) || [];
+    const map = {};
+    rows.forEach((c) => {
+      map[c._id] = {
+        id: c._id,
+        name: (typeof c.name === "object" ? c.name && c.name.en : c.name) || "",
+        // `area` is Customer Management's system-generated location tag. Route
+        // Planning consumes it to recommend and to recognise — never to decide
+        // membership, and never by storing it.
+        tag: c.area || "",
+        lat: c.lat == null ? null : +c.lat,
+        lng: c.lng == null ? null : +c.lng,
+      };
+    });
+    return map;
+  }
+
+  // Where an unlocated customer is fixed: at the source, not here.
+  const CUSTOMER_URL = "../../../../../../foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html";
+  const CUSTOMER_ROUTE = "#/customer-management/b2b-customers";
+  // Embedded, the platform owns navigation: driving its hash keeps the sidebar,
+  // the frame's clip offsets and the back button correct. Standalone, the file
+  // is the destination.
+  function goToCustomer(id) {
+    const q = "customer=" + encodeURIComponent(id);
+    try {
+      if (window.top !== window.self) { window.top.location.hash = `${CUSTOMER_ROUTE}?${q}`; return; }
+    } catch (e) { /* cross-origin parent — navigate ourselves */ }
+    window.location.href = `${CUSTOMER_URL}?${q}`;
+  }
+
+  // Beats and vehicles survive the trip to Customer Management and back.
+  const PLAN_KEY = "fb-distribution-route-planning-v1";
+  const Plan = {
+    load() {
+      try {
+        const s = JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
+        if (s && Array.isArray(s.beats) && Array.isArray(s.vehicles)) { SEED.beats = s.beats; SEED.vehicles = s.vehicles; }
+      } catch (e) { /* ignore */ }
+    },
+    save() {
+      window.SEED.beats = SEED.beats; window.SEED.vehicles = SEED.vehicles;
+      try { localStorage.setItem(PLAN_KEY, JSON.stringify({ beats: SEED.beats, vehicles: SEED.vehicles })); } catch (e) { /* ignore */ }
+    },
+  };
+
+  // ── Derivations ───────────────────────────────────────────────────────────
+  const DAY_S = ["S", "M", "T", "W", "T", "F", "S"];
+  const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const FREQ = [["every", "Every"], ["alternate", "Alternate"], ["monthly", "Monthly"]];
+  const daysLabel = (d) => (d || []).slice().sort((a, b) => a - b).map((n) => DAY_ABBR[n]).join(", ");
+
+  // The distinct location tags of a beat's members, most common first. Computed
+  // here, at render, from the customers — nothing is written to the beat.
+  function coverageOf(beat, reg) {
+    const n = {};
+    (beat.members || []).forEach((m) => { const t = reg[m.customerId] && reg[m.customerId].tag; if (t) n[t] = (n[t] || 0) + 1; });
+    const tags = Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b));
+    if (!tags.length) return "";
+    return tags[0] + (tags.length > 1 ? ` +${tags.length - 1}` : "");
+  }
+
+  const isLocated = (reg, id) => !!(reg[id] && reg[id].lat != null);
+  const unlocatedIn = (beat, reg) => (beat.members || []).filter((m) => !isLocated(reg, m.customerId)).length;
+
+  // ── Suggested order ───────────────────────────────────────────────────────
+  // Nearest-neighbour, then a 2-opt pass. For ten to thirty stops in one
+  // locality that is instant and within a few percent of optimal — well inside
+  // the noise of real traffic, which is all the warehouse pick order and the
+  // office ETA can use. There is no depot in the data model, so the run starts
+  // at the stop nearest the cluster's centre: stable, and the same membership
+  // always yields the same order. Unlocated members keep their place at the end.
+  function distKm(a, b) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    const la = a.lat * rad, lb = b.lat * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(la) * Math.cos(lb) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function sequenceMembers(members, reg) {
+    const located = [], missing = [];
+    (members || []).forEach((m) => (isLocated(reg, m.customerId) ? located : missing).push(m));
+    if (located.length < 3) return located.concat(missing);
+
+    const pt = (m) => reg[m.customerId];
+    const cx = located.reduce((s, m) => s + pt(m).lat, 0) / located.length;
+    const cy = located.reduce((s, m) => s + pt(m).lng, 0) / located.length;
+    const centre = { lat: cx, lng: cy };
+
+    let startIdx = 0;
+    located.forEach((m, i) => { if (distKm(pt(m), centre) < distKm(pt(located[startIdx]), centre)) startIdx = i; });
+
+    const pool = located.slice(), order = [pool.splice(startIdx, 1)[0]];
+    while (pool.length) {
+      const last = pt(order[order.length - 1]);
+      let best = 0;
+      pool.forEach((m, i) => { if (distKm(pt(m), last) < distKm(pt(pool[best]), last)) best = i; });
+      order.push(pool.splice(best, 1)[0]);
     }
-    function routeForm(editing) {
-      const custSet = new Set((editing?.customers) || []);
-      const staffSet = new Set((editing?.staffs) || []);
+    const len = (arr) => arr.reduce((s, m, i) => (i ? s + distKm(pt(arr[i - 1]), pt(m)) : 0), 0);
+    for (let pass = 0; pass < 40; pass++) {
+      let gained = false;
+      for (let i = 0; i < order.length - 1 && !gained; i++) {
+        for (let k = i + 1; k < order.length; k++) {
+          const trial = order.slice(0, i).concat(order.slice(i, k + 1).reverse(), order.slice(k + 1));
+          if (len(trial) < len(order) - 1e-9) { order.splice(0, order.length, ...trial); gained = true; break; }
+        }
+      }
+      if (!gained) break;
+    }
+    return order.concat(missing);
+  }
+
+  // Which OTHER beats already carry each customer — "on 2 beats" in the picker.
+  function beatsByCustomer(exceptId) {
+    const map = {};
+    SEED.beats.forEach((b) => {
+      if (exceptId && b.id === exceptId) return;
+      (b.members || []).forEach((m) => { (map[m.customerId] = map[m.customerId] || []).push(b.name); });
+    });
+    return map;
+  }
+
+  function screenRoutePlanning() {
+    Plan.load();
+    const state = { tab: "beats", search: "" };
+    const content = document.getElementById("content");
+
+    /* ── Add customers ────────────────────────────────────────────────────
+       Location tags first, because "where is it" is how a planner finds the
+       next shop. A tag RECOMMENDS: "Add all 5" ticks five explicit rows the
+       planner can still untick. Nothing binds the beat to the tag. */
+    function customerPicker(beat, chosen, onDone) {
+      const reg = readCustomers();
+      const onBeats = beatsByCustomer(beat && beat.id);
+      const inBeat = new Set((beat.members || []).map((m) => m.customerId));
+      const pool = Object.keys(reg).map((k) => reg[k]).filter((c) => !inBeat.has(c.id));
+      const picked = new Set(chosen);
+      let q = "", tag = "";
+
+      const matching = () => pool.filter((c) =>
+        (!tag || c.tag === tag) && (!q || c.name.toLowerCase().includes(q.toLowerCase())));
+
+      const { panel, close } = modal({
+        title: "Add customers",
+        body: `<div class="rp-pick">
+            <div class="search">${I.search}<input id="pkQ" type="search" placeholder="Search"></div>
+            <div class="chips chip-scroll" id="pkTags"></div>
+            <div id="pkList"></div>
+            <div id="pkSel"></div>
+          </div>`,
+        footer: `<button class="btn cancel" data-close>Cancel</button><button class="btn btn-primary" id="pkAdd">Add</button>`,
+      });
+
+      const paint = () => {
+        const counts = {};
+        pool.forEach((c) => { if (c.tag) counts[c.tag] = (counts[c.tag] || 0) + 1; });
+        const tags = Object.keys(counts).sort();
+        panel.querySelector("#pkTags").innerHTML = tags.length
+          ? tags.map((t) => `<button type="button" class="chip-pill ${tag === t ? "active" : ""}" data-tag="${attr(t)}">${esc(t)} <span class="num">${counts[t]}</span></button>`).join("")
+          : "";
+        panel.querySelector("#pkTags").hidden = !tags.length;
+
+        const rows = matching();
+        const all = tag && rows.filter((c) => !picked.has(c.id)).length;
+        panel.querySelector("#pkList").innerHTML = `
+          ${all ? `<div class="rp-addall"><button type="button" class="btn-mini" id="pkAll">Add all ${all}</button></div>` : ""}
+          <div class="ms-list">${rows.length ? rows.map((c) => {
+            const on = picked.has(c.id), beats = onBeats[c.id] || [];
+            return `<label class="ms-opt ${on ? "sel" : ""}" data-id="${c.id}"><input type="checkbox" ${on ? "checked" : ""}><span class="nm">${esc(c.name)}</span>${
+              c.lat == null ? `<span class="rp-flag">no location</span>` : ""}${
+              beats.length ? `<button type="button" class="assign-badge" data-badge="${c.id}">${beats.length} beat${beats.length !== 1 ? "s" : ""} ${I.chev}</button>` : ""}</label>`;
+          }).join("") : `<div class="ms-empty">${pool.length ? "No match" : (Object.keys(reg).length ? "Everyone is on this beat" : `No customers — <a href="${CUSTOMER_URL}">add one</a>`)}</div>`}</div>`;
+
+        const sel = [...picked].map((id) => reg[id]).filter(Boolean);
+        panel.querySelector("#pkSel").innerHTML = sel.length
+          ? `<div class="ms-selected"><div class="hd">Selected (${sel.length})</div>${sel.map((c) =>
+              `<div class="row"><span class="nm">${esc(c.name)}</span><button type="button" class="rm" data-rm="${c.id}">${I.x}</button></div>`).join("")}</div>`
+          : "";
+        panel.querySelector("#pkAdd").textContent = sel.length ? `Add ${sel.length}` : "Add";
+        panel.querySelector("#pkAdd").disabled = !sel.length;
+        wire();
+      };
+
+      const wire = () => {
+        panel.querySelectorAll("[data-tag]").forEach((b) => b.addEventListener("click", () => { tag = tag === b.dataset.tag ? "" : b.dataset.tag; paint(); }));
+        const all = panel.querySelector("#pkAll");
+        if (all) all.addEventListener("click", () => { matching().forEach((c) => picked.add(c.id)); paint(); });
+        panel.querySelectorAll(".ms-opt").forEach((o) => o.addEventListener("click", (e) => {
+          if (e.target.closest(".assign-badge")) return;
+          e.preventDefault();
+          const id = o.dataset.id;
+          picked.has(id) ? picked.delete(id) : picked.add(id);
+          paint();
+        }));
+        panel.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); picked.delete(b.dataset.rm); paint(); }));
+        panel.querySelectorAll("[data-badge]").forEach((b) => wireAssignBadge(b, onBeats[b.dataset.badge] || []));
+      };
+
+      const qi = panel.querySelector("#pkQ");
+      qi.addEventListener("input", (e) => { q = e.target.value; paint(); });
+      panel.querySelector("#pkAdd").addEventListener("click", () => { onDone([...picked]); close(); });
+      paint();
+    }
+
+    /* ── Beat editor ──────────────────────────────────────────────────────
+       Three fields and no fourth: Name · Working days · Customers. Nothing on
+       this form is geographic — the tag beside a customer is that customer's
+       own, shown so the planner recognises the row. */
+    function beatForm(editing) {   // reassigned by commit() once a new beat exists
+      const draft = {
+        name: editing ? editing.name : "",
+        days: editing ? editing.days.slice() : [],
+        members: editing ? editing.members.map((m) => ({ ...m })) : [],
+      };
+
       const { panel } = drawer({
-        title: editing ? "Edit Route Template" : "New Delivery Template",
-        saveLabel: editing ? "Update" : "Create", wide: false,
+        title: editing ? "Edit Beat" : "New Beat",
+        saveLabel: "Save",
         body: `
-          <div class="d-row"><label>Route Name <span class="req">*</span></label><div class="ctrl"><input name="name" value="${attr(editing?.name || "")}" placeholder="e.g. Bandra Route"></div></div>
-          <div class="d-row"><label>Customers</label><div class="ctrl"><div id="msCust"></div></div></div>
-          <div class="d-row"><label>Staff Members</label><div class="ctrl"><div id="msStaff"></div></div></div>`,
-        onSave: (f) => {
-          const name = f.name.value.trim();
-          if (!name) { toast("Route name is required.", "err"); return false; }
-          const customers = [...custSet], staffs = [...staffSet];
-          if (editing) { Object.assign(editing, { name, customers, staffs }); toast("Route template updated successfully.", "ok"); }
-          else { SEED.routeTemplates.unshift({ id: "rt-" + Date.now(), name, customers, staffs, created: new Date().toISOString() }); toast("Route template created successfully.", "ok"); }
+          <div class="d-row"><label>Name <span class="req">*</span></label><div class="ctrl"><input name="name" value="${attr(draft.name)}" placeholder="e.g. Andheri West Beat"></div></div>
+          <div class="d-row"><label>Days</label><div class="ctrl"><div class="rp-days" id="days">${
+            DAY_S.map((d, i) => `<button type="button" class="rp-day" data-day="${i}" aria-label="${DAY_ABBR[i]}">${d}</button>`).join("")}</div></div></div>
+          <div class="rp-sec">
+            <div class="rp-sec-head"><span>Customers</span><button type="button" class="btn-mini" id="addCust">Add customers</button></div>
+            <div id="members"></div>
+          </div>`,
+        onSave: () => {
+          const existed = !!editing;
+          if (!commit()) return false;
           render();
+          toast(existed ? "Beat saved." : "Beat created.", "ok");
         },
       });
-      mountMultiSelect(panel.querySelector("#msCust"), { items: SEED.customers.map((c) => ({ id: c.id, name: c.name })), selectedSet: custSet, placeholder: "Select customers...", searchPlaceholder: "Search customers...", assignments: buildAssignments("customers", editing?.id) });
-      mountMultiSelect(panel.querySelector("#msStaff"), { items: SEED.staff.map((s) => ({ id: s.id, name: s.name })), selectedSet: staffSet, placeholder: "Select staff...", searchPlaceholder: "Search staff...", assignments: buildAssignments("staffs", editing?.id) });
-    }
-    function render() {
-      const rows = filtered();
-      const list = document.getElementById("list");
-      if (rows.length === 0) { list.innerHTML = emptyBlock("No delivery templates found.", "Try another search term, or add a new delivery template."); footer([{ icon: I.plus, label: "Add Template", cls: "primary", onClick: () => routeForm(null) }]); return; }
-      const tbody = rows.map((r) => `<tr>
-        <td><span class="prod-name">${esc(r.name)}</span></td>
-        <td><span class="cat-text">${count(r.customers)} customer${count(r.customers) !== 1 ? "s" : ""}</span></td>
-        <td><span class="cat-text">${count(r.staffs)} staff</span></td>
-        <td><div class="row-actions"><button class="icon-btn" title="Edit" data-act="edit" data-id="${r.id}">${I.edit}</button><button class="icon-btn danger" title="Delete" data-act="del" data-id="${r.id}">${I.trash}</button></div></td>
-      </tr>`).join("");
-      const cards = rows.map((r) => `<div class="pcard" data-id="${r.id}"><div class="pc-top" style="padding:14px">
-        <div class="pc-main"><div class="pc-name">${esc(r.name)}</div><div class="pc-art">${count(r.customers)} customer${count(r.customers) !== 1 ? "s" : ""} · ${count(r.staffs)} staff</div></div>
-        <div class="pc-acts" style="display:flex;gap:4px"><button class="icon-btn" data-act="edit" data-id="${r.id}">${I.edit}</button><button class="icon-btn danger" data-act="del" data-id="${r.id}">${I.trash}</button></div>
-      </div></div>`).join("");
-      list.innerHTML = `<div class="table-wrap desktop-only"><div class="table-scroll"><table class="grid"><thead><tr><th>Name</th><th>Customers</th><th>Staff</th><th style="text-align:right">Actions</th></tr></thead><tbody>${tbody}</tbody></table></div></div><div class="cards">${cards}</div>`;
-      list.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => {
-        const r = SEED.routeTemplates.find((x) => x.id === b.dataset.id);
-        if (b.dataset.act === "edit") routeForm(r);
-        else confirmDelete({ title: "Delete Route Template", message: `Are you sure you want to delete <b>${esc(r.name)}</b>? This cannot be undone.`, onConfirm: () => { SEED.routeTemplates = SEED.routeTemplates.filter((x) => x.id !== r.id); window.SEED.routeTemplates = SEED.routeTemplates; render(); toast("Route template deleted.", "ok"); } });
+
+      /* The beat the draft describes, written back. Four keys and no fifth —
+         a customer id and a frequency are all a membership is. Returns false
+         and marks the field when the one required value is missing. */
+      function commit() {
+        const field = panel.querySelector('[name="name"]');
+        const row = field.closest(".d-row");
+        const name = field.value.trim();
+        row.classList.toggle("bad", !name);
+        if (!name) { toast("Name is required.", "err"); return false; }
+        const beat = {
+          id: editing ? editing.id : "bt-" + Date.now(),
+          name,
+          days: draft.days.slice(),
+          members: draft.members.map((m) => ({ customerId: m.customerId, frequency: m.frequency })),
+        };
+        if (editing) SEED.beats.splice(SEED.beats.indexOf(editing), 1, beat);
+        else SEED.beats.unshift(beat);
+        editing = beat;   // a second commit updates this beat, it does not add another
+        Plan.save();
+        return true;
+      }
+
+      const dayEls = panel.querySelectorAll(".rp-day");
+      const paintDays = () => dayEls.forEach((b) => b.classList.toggle("on", draft.days.includes(+b.dataset.day)));
+      dayEls.forEach((b) => b.addEventListener("click", () => {
+        const d = +b.dataset.day;
+        draft.days.includes(d) ? draft.days.splice(draft.days.indexOf(d), 1) : draft.days.push(d);
+        paintDays();
       }));
-      footer([{ icon: I.plus, label: "Add Template", cls: "primary", onClick: () => routeForm(null) }]);
+      paintDays();
+
+      // Saved before the deep-link, so a half-built beat is still there on the
+      // way back. A beat with no name cannot be saved, so it cannot leave.
+      const leaveFor = (customerId) => { if (commit()) goToCustomer(customerId); };
+
+      const members = panel.querySelector("#members");
+      function paintMembers() {
+        const reg = readCustomers();
+        if (!draft.members.length) {
+          members.innerHTML = `<div class="rp-none">No customers yet</div>`;
+          return;
+        }
+        let seq = 0;
+        members.innerHTML = `<div class="rp-mems">${draft.members.map((m, i) => {
+          const c = reg[m.customerId];
+          const ok = c && c.lat != null;
+          if (ok) seq++;
+          return `<div class="rp-mem ${ok ? "" : "warn"}">
+            <span class="n">${ok ? seq : "!"}</span>
+            <span class="nm"><b>${esc(c ? c.name : "Customer no longer exists")}</b>${
+              c ? (ok ? `<span class="tg">${esc(c.tag || "")}</span>` : `<a class="fix" data-fix="${attr(m.customerId)}">Add location →</a>`) : ""}</span>
+            ${c ? `<select data-freq="${i}">${FREQ.map(([v, l]) => `<option value="${v}" ${m.frequency === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : `<span class="freq-gap"></span>`}
+            <button type="button" class="icon-btn danger" data-rm="${i}">${I.x}</button>
+          </div>`;
+        }).join("")}</div>${
+          draft.members.filter((m) => reg[m.customerId] && reg[m.customerId].lat != null).length > 1
+            ? `<div class="rp-sec-foot"><button type="button" class="btn-mini" id="recalc">${I.sync} Recalculate</button></div>` : ""}`;
+
+        members.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { draft.members.splice(+b.dataset.rm, 1); paintMembers(); }));
+        members.querySelectorAll("[data-freq]").forEach((s) => s.addEventListener("change", () => { draft.members[+s.dataset.freq].frequency = s.value; }));
+        members.querySelectorAll("[data-fix]").forEach((a) => a.addEventListener("click", () => leaveFor(a.dataset.fix)));
+        const rc = members.querySelector("#recalc");
+        if (rc) rc.addEventListener("click", () => { draft.members = sequenceMembers(draft.members, readCustomers()); paintMembers(); toast("Order recalculated.", "ok"); });
+      }
+      paintMembers();
+
+      panel.querySelector("#addCust").addEventListener("click", () =>
+        customerPicker({ id: editing && editing.id, members: draft.members }, [], (ids) => {
+          ids.forEach((id) => draft.members.push({ customerId: id, frequency: "every" }));
+          draft.members = sequenceMembers(draft.members, readCustomers());
+          paintMembers();
+        }));
     }
-    let deb;
-    document.getElementById("q").addEventListener("input", (e) => { clearTimeout(deb); deb = setTimeout(() => { state.search = e.target.value; render(); }, 200); });
-    document.getElementById("add").addEventListener("click", () => routeForm(null));
+
+    /* ── Vehicles ─────────────────────────────────────────────────────────
+       Six planning attributes. Capacity is inert until products carry a weight,
+       but it is master data Create Delivery needs, so it is captured now. */
+    const TYPES = ["Two-wheeler", "Three-wheeler", "Tempo", "Truck"];
+    function vehicleForm(editing) {
+      const draft = { cold: editing ? !!editing.cold : false, active: editing ? editing.active !== false : true };
+      const sw = (key, label) => `<div class="d-row"><label>${label}</label><div class="ctrl"><button type="button" class="toggle-wrap" data-sw="${key}"><span class="switch"></span></button></div></div>`;
+
+      const { panel } = drawer({
+        title: editing ? "Edit Vehicle" : "New Vehicle",
+        saveLabel: "Save",
+        body: `
+          <div class="d-row"><label>Registration <span class="req">*</span></label><div class="ctrl"><input name="reg" value="${attr(editing ? editing.reg : "")}" placeholder="e.g. MH 12 AB 4432"></div></div>
+          <div class="d-row"><label>Type</label><div class="ctrl"><select name="type">${TYPES.map((t) => `<option ${editing && editing.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></div></div>
+          <div class="d-row"><label>Capacity (kg)</label><div class="ctrl"><input name="capacity" type="number" min="0" value="${attr(editing && editing.capacity != null ? editing.capacity : "")}"></div></div>
+          <div class="d-row"><label>Cost (₹/km)</label><div class="ctrl"><input name="cost" type="number" min="0" value="${attr(editing && editing.cost != null ? editing.cost : "")}"></div></div>
+          ${sw("cold", "Cold chain")}${sw("active", "Active")}`,
+        onSave: (f) => {
+          const reg = f.reg.value.trim();
+          const row = panel.querySelector('[name="reg"]').closest(".d-row");
+          row.classList.remove("bad");
+          if (!reg) { row.classList.add("bad"); toast("Registration is required.", "err"); return false; }
+          const dup = SEED.vehicles.some((v) => v.reg.toLowerCase() === reg.toLowerCase() && v !== editing);
+          if (dup) { row.classList.add("bad"); toast("That registration already exists.", "err"); return false; }
+          // type=number keeps letters out; this keeps a NaN out of master data.
+          const num = (v) => { const n = +String(v).trim(); return String(v).trim() === "" || !Number.isFinite(n) ? null : Math.max(0, n); };
+          const next = { id: editing ? editing.id : "vh-" + Date.now(), reg, type: f.type.value, capacity: num(f.capacity.value), cost: num(f.cost.value), cold: draft.cold, active: draft.active };
+          if (editing) SEED.vehicles.splice(SEED.vehicles.indexOf(editing), 1, next);
+          else SEED.vehicles.unshift(next);
+          Plan.save();
+          render();
+          toast(editing ? "Vehicle saved." : "Vehicle added.", "ok");
+        },
+      });
+
+      panel.querySelectorAll("[data-sw]").forEach((b) => {
+        const paint = () => b.querySelector(".switch").classList.toggle("on", !!draft[b.dataset.sw]);
+        b.addEventListener("click", () => { draft[b.dataset.sw] = !draft[b.dataset.sw]; paint(); });
+        paint();
+      });
+    }
+
+    /* ── Lists ────────────────────────────────────────────────────────────── */
+    function beatsView() {
+      const reg = readCustomers();
+      const q = state.search.trim().toLowerCase();
+      const rows = SEED.beats.filter((b) => !q || b.name.toLowerCase().includes(q));
+      const body = document.getElementById("rpBody");
+      if (!rows.length) {
+        body.innerHTML = emptyBlock(SEED.beats.length ? "No match" : "No beats yet.", SEED.beats.length ? "Try another search term." : "Add a beat to plan a recurring territory.");
+        return;
+      }
+      const cell = (b) => {
+        const cov = coverageOf(b, reg), miss = unlocatedIn(b, reg);
+        return `<span class="prod-name">${esc(b.name)}</span>${cov ? `<div class="prod-art">${esc(cov)}</div>` : ""}${
+          miss ? `<div class="rp-warn">${I.alert} ${miss} need${miss === 1 ? "s" : ""} location</div>` : ""}`;
+      };
+      const acts = (b) => `<button class="icon-btn" title="Edit" data-act="edit" data-id="${b.id}">${I.edit}</button><button class="icon-btn danger" title="Delete" data-act="del" data-id="${b.id}">${I.trash}</button>`;
+
+      body.innerHTML = `
+        <div class="table-wrap desktop-only"><div class="table-scroll"><table class="grid">
+          <thead><tr><th>Beat</th><th>Days</th><th>Shops</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>${rows.map((b) => `<tr>
+            <td>${cell(b)}</td>
+            <td><span class="cat-text">${esc(daysLabel(b.days)) || "—"}</span></td>
+            <td><span class="cat-text">${b.members.length}</span></td>
+            <td><div class="row-actions">${acts(b)}</div></td></tr>`).join("")}</tbody>
+        </table></div></div>
+        <div class="cards">${rows.map((b) => {
+          const cov = coverageOf(b, reg), miss = unlocatedIn(b, reg);
+          const meta = [daysLabel(b.days), `${b.members.length} shop${b.members.length !== 1 ? "s" : ""}`, cov].filter(Boolean).join(" · ");
+          return `<div class="pcard"><div class="pc-top" style="padding:14px">
+            <div class="pc-main"><div class="pc-name">${esc(b.name)}</div><div class="pc-art">${esc(meta)}</div>${
+              miss ? `<div class="rp-warn">${I.alert} ${miss} need${miss === 1 ? "s" : ""} location</div>` : ""}</div>
+            <div class="pc-acts" style="display:flex;gap:4px">${acts(b)}</div></div></div>`;
+        }).join("")}</div>`;
+
+      body.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => {
+        const b = SEED.beats.find((x) => x.id === btn.dataset.id);
+        if (btn.dataset.act === "edit") beatForm(b);
+        else confirmDelete({ title: "Delete Beat", message: `Delete <b>${esc(b.name)}</b>? This cannot be undone.`, onConfirm: () => { SEED.beats = SEED.beats.filter((x) => x !== b); Plan.save(); render(); toast("Beat deleted.", "ok"); } });
+      }));
+    }
+
+    function vehiclesView() {
+      const q = state.search.trim().toLowerCase();
+      const rows = SEED.vehicles.filter((v) => !q || v.reg.toLowerCase().includes(q) || String(v.type).toLowerCase().includes(q));
+      const body = document.getElementById("rpBody");
+      if (!rows.length) {
+        body.innerHTML = emptyBlock(SEED.vehicles.length ? "No match" : "No vehicles yet.", SEED.vehicles.length ? "Try another search term." : "Add the vehicles a delivery can be planned on.");
+        return;
+      }
+      const kg = (v) => (v.capacity == null ? "—" : Number(v.capacity).toLocaleString("en-IN") + " kg");
+      const km = (v) => (v.cost == null ? "—" : "₹" + v.cost + "/km");
+      const marks = (v) => `${v.cold ? `<span class="rp-mark">Cold</span>` : ""}${v.active === false ? `<span class="rp-off">Inactive</span>` : ""}`;
+      const acts = (v) => `<button class="icon-btn" title="Edit" data-act="edit" data-id="${v.id}">${I.edit}</button><button class="icon-btn danger" title="Delete" data-act="del" data-id="${v.id}">${I.trash}</button>`;
+
+      body.innerHTML = `
+        <div class="table-wrap desktop-only"><div class="table-scroll"><table class="grid">
+          <thead><tr><th>Vehicle</th><th>Type</th><th>Capacity</th><th>Cost</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>${rows.map((v) => `<tr>
+            <td><span class="prod-name">${esc(v.reg)}</span> ${marks(v)}</td>
+            <td><span class="cat-text">${esc(v.type || "—")}</span></td>
+            <td><span class="cat-text">${kg(v)}</span></td>
+            <td><span class="cat-text">${km(v)}</span></td>
+            <td><div class="row-actions">${acts(v)}</div></td></tr>`).join("")}</tbody>
+        </table></div></div>
+        <div class="cards">${rows.map((v) => `<div class="pcard"><div class="pc-top" style="padding:14px">
+          <div class="pc-main"><div class="pc-name">${esc(v.reg)} ${marks(v)}</div><div class="pc-art">${[esc(v.type || ""), kg(v), km(v)].filter((x) => x && x !== "—").join(" · ")}</div></div>
+          <div class="pc-acts" style="display:flex;gap:4px">${acts(v)}</div></div></div>`).join("")}</div>`;
+
+      body.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => {
+        const v = SEED.vehicles.find((x) => x.id === btn.dataset.id);
+        if (btn.dataset.act === "edit") vehicleForm(v);
+        else confirmDelete({ title: "Delete Vehicle", message: `Delete <b>${esc(v.reg)}</b>? This cannot be undone.`, onConfirm: () => { SEED.vehicles = SEED.vehicles.filter((x) => x !== v); Plan.save(); render(); toast("Vehicle deleted.", "ok"); } });
+      }));
+    }
+
+    function render() {
+      const beats = state.tab === "beats";
+      const add = beats ? "Add Beat" : "Add Vehicle";
+      content.innerHTML = `
+        <div class="subtabs">
+          <button class="subtab ${beats ? "active" : ""}" data-tab="beats">Beats</button>
+          <button class="subtab ${beats ? "" : "active"}" data-tab="vehicles">Vehicles</button>
+        </div>
+        <div class="filters"><div class="search">${I.search}<input id="q" type="search" placeholder="Search" value="${attr(state.search)}"></div><div class="grow" style="flex:1"></div><button class="btn btn-primary" id="add">${I.plus} ${add}</button></div>
+        <div id="rpBody"></div>`;
+
+      content.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; state.search = ""; render(); }));
+      const open = () => (beats ? beatForm(null) : vehicleForm(null));
+      content.querySelector("#add").addEventListener("click", open);
+      let deb;
+      content.querySelector("#q").addEventListener("input", (e) => { clearTimeout(deb); deb = setTimeout(() => { state.search = e.target.value; beats ? beatsView() : vehiclesView(); }, 200); });
+      footer([{ icon: I.plus, label: add, cls: "primary", onClick: open }]);
+      beats ? beatsView() : vehiclesView();
+    }
     render();
   }
 

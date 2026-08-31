@@ -3,7 +3,7 @@
  * Loaded as a plain script (window.TRACK) so the screen opens over file://.
  *
  * Built ON TOP of the existing seeds rather than beside them:
- *   route names + staff  → data.js (SEED.routeTemplates, SEED.staff)
+ *   route names          → data.js (SEED.beats)
  *   stop statuses        → the delivery app's vocabulary: pending | delivered | skipped
  *   cash / stock fields  → route.openingCash, route.stockLoaded, stop.collected
  *

@@ -94,19 +94,37 @@
      First ten rows reproduce the As-is screenshot verbatim (names, phone
      numbers, catalogue chips, and the empty ADDRESS column that renders "-").
      Rows 11+ add the variety the screenshot doesn't cover: filled addresses,
-     GST-registered vs exempt, a customer code, and a second page of results. */
+     GST-registered vs exempt, a customer code, and a second page of results.
+
+     The first ten also carry a pin. They had no address at all, so nothing is
+     contradicted, and without them the registry held three located customers in
+     three different localities — enough to prove a tag exists, not enough for
+     anything downstream to group or order by one. They sit in the western
+     suburbs, which is where the location picker already opens (START, Mumbai)
+     and where Delivery Management's own beats run. The ADDRESS column still
+     renders "-": a pin fills `place`/`area`, not `adress1`. */
 
   const b2b = [
-    { id: "c01", name: "Raman", email: "raman@gmail.com", phone: "985673456", type: TYPE.default, tags: ["normal"], createdAt: "2026-01-14" },
-    { id: "c02", name: "A New Customer", phone: "9384594893", type: TYPE.default, createdAt: "2026-01-22" },
-    { id: "c03", name: "Aai Mata General Store", phone: "82736450195", type: TYPE.default, tags: ["regular"], createdAt: "2026-02-02" },
-    { id: "c04", name: "Ganraj Kirana Mart", phone: "41589627074", type: TYPE.cat2, createdAt: "2026-02-11" },
-    { id: "c05", name: "Shree Ram Super Market", phone: "56820973184", type: TYPE.cat2, tags: ["regular"], createdAt: "2026-02-19" },
-    { id: "c06", name: "New Bharat General Store", phone: "64082719536", type: TYPE.cat2, createdAt: "2026-03-04" },
-    { id: "c07", name: "Laxmi Provision Store", phone: "97315042861", type: TYPE.default, tags: ["normal"], createdAt: "2026-03-12" },
-    { id: "c08", name: "Raj Traders", phone: "53197286440", type: TYPE.cat1, createdAt: "2026-03-25" },
-    { id: "c09", name: "Shivam Grocery Store", phone: "28946175318", type: TYPE.default, createdAt: "2026-04-02" },
-    { id: "c10", name: "Shree Datta Super Store", phone: "70631984512", type: TYPE.default, createdAt: "2026-04-15" },
+    { id: "c01", name: "Raman", email: "raman@gmail.com", phone: "985673456", type: TYPE.default, tags: ["normal", "Andheri West"],
+      lat: 19.1364, lng: 72.8296, place: "Andheri West, Mumbai", area: "Andheri West", createdAt: "2026-01-14" },
+    { id: "c02", name: "A New Customer", phone: "9384594893", type: TYPE.default, tags: ["Juhu"],
+      lat: 19.0968, lng: 72.8265, place: "Juhu, Mumbai", area: "Juhu", createdAt: "2026-01-22" },
+    { id: "c03", name: "Aai Mata General Store", phone: "82736450195", type: TYPE.default, tags: ["regular", "Andheri West"],
+      lat: 19.1402, lng: 72.8331, place: "Andheri West, Mumbai", area: "Andheri West", createdAt: "2026-02-02" },
+    { id: "c04", name: "Ganraj Kirana Mart", phone: "41589627074", type: TYPE.cat2, tags: ["Juhu"],
+      lat: 19.1006, lng: 72.8302, place: "Juhu, Mumbai", area: "Juhu", createdAt: "2026-02-11" },
+    { id: "c05", name: "Shree Ram Super Market", phone: "56820973184", type: TYPE.cat2, tags: ["regular", "Andheri West"],
+      lat: 19.1338, lng: 72.8262, place: "Andheri West, Mumbai", area: "Andheri West", createdAt: "2026-02-19" },
+    { id: "c06", name: "New Bharat General Store", phone: "64082719536", type: TYPE.cat2, tags: ["Juhu"],
+      lat: 19.0931, lng: 72.8271, place: "Juhu, Mumbai", area: "Juhu", createdAt: "2026-03-04" },
+    { id: "c07", name: "Laxmi Provision Store", phone: "97315042861", type: TYPE.default, tags: ["normal", "Andheri West"],
+      lat: 19.1425, lng: 72.8288, place: "Andheri West, Mumbai", area: "Andheri West", createdAt: "2026-03-12" },
+    { id: "c08", name: "Raj Traders", phone: "53197286440", type: TYPE.cat1, tags: ["Versova"],
+      lat: 19.1350, lng: 72.8050, place: "Versova, Mumbai", area: "Versova", createdAt: "2026-03-25" },
+    { id: "c09", name: "Shivam Grocery Store", phone: "28946175318", type: TYPE.default, tags: ["Andheri West"],
+      lat: 19.1301, lng: 72.8324, place: "Andheri West, Mumbai", area: "Andheri West", createdAt: "2026-04-02" },
+    { id: "c10", name: "Shree Datta Super Store", phone: "70631984512", type: TYPE.default, tags: ["Versova"],
+      lat: 19.1310, lng: 72.8075, place: "Versova, Mumbai", area: "Versova", createdAt: "2026-04-15" },
 
     {
       id: "c11", name: "Sai Enterprises", orgNo: "CUST-0011",

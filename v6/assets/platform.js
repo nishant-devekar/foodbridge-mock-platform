@@ -109,9 +109,19 @@
 
   /* Falling back silently was not enough: asking for a hidden route left the
      bogus hash in the address bar while a different screen rendered, so the URL
-     lied about what you were looking at. Rewrite it to what actually loaded. */
+     lied about what you were looking at. Rewrite it to what actually loaded.
+
+     A destination may also carry a query: #/customer-management/b2b-customers?customer=c15.
+     One module deep-links into another that way — Route Planning sends an
+     unlocated customer to Customer Management — and going through the hash,
+     rather than letting the frame navigate itself, is what keeps the sidebar,
+     the clip offsets and the back button honest. The query rides on state and
+     is appended to the destination's own URL when it loads. */
   function routeFromHash() {
-    var h = (location.hash || "").replace(/^#\/?/, "");
+    var raw = (location.hash || "").replace(/^#\/?/, "");
+    var cut = raw.indexOf("?");
+    var h = cut === -1 ? raw : raw.slice(0, cut);
+    state.query = cut === -1 ? "" : raw.slice(cut + 1);
     if (state.routes[h]) return h;
     var fallback = state.order[0];
     if (h && fallback) location.replace("#/" + fallback);
@@ -451,8 +461,11 @@
       loading.hidden = true;
     };
 
+    // currentUrl stays the destination's own URL — the breakpoint check compares
+    // against it — while the frame gets the query the hash carried.
     state.currentUrl = pickUrl(dest.leaf);
-    frame.src = state.currentUrl;
+    state.loadedQuery = state.query || "";
+    frame.src = state.currentUrl + (state.loadedQuery ? (state.currentUrl.indexOf("?") === -1 ? "?" : "&") + state.loadedQuery : "");
     document.title = dest.leaf.name + " — FoodBridge";
   }
 
@@ -594,7 +607,8 @@
 
   function go(key, opts) {
     if (!state.routes[key]) return;
-    var changed = key !== state.current;
+    // A new query on the route already showing is still a navigation.
+    var changed = key !== state.current || (state.query || "") !== (state.loadedQuery || "");
     state.current = key;
     // Opening a route inside a collapsed group opens that group.
     var dest = state.routes[key];

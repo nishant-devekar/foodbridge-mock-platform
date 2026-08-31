@@ -4,8 +4,8 @@
  * shows the same rows, counts and detail fields as the real app.
  *
  * Shapes mirror what the React pages consume:
- *   routeTemplates → ManageRoutes.jsx (RouteTemplateService)
- *   customers/staff → SearchSelect assignment badges in RouteFormDrawer
+ *   beats/vehicles → Route Planning (recurring territories + the vehicle master)
+ *   customers      → SearchSelect assignment badges in the returns wizard
  *   assets          → ReturnableProducts.jsx / ReturnableProductDrawer
  *   orgs            → ReverseLogisticDashboard.jsx (deriveStats / flattenRows)
  *   deliveryRoute   → route-delivery-app (mobile Route Delivery)
@@ -43,35 +43,61 @@
     { id: "c-test", name: "Test", phone: "1521521521" },
   ];
 
-  // ── Staff members ────────────────────────────────────────────────────────
-  const staff = [
-    { id: "s-nishant", name: "Nishant Devekar" },
-    { id: "s-pawan", name: "Pawan Kaushish" },
-    { id: "s-vishvajit", name: "Vishvajit" },
-    { id: "s-kumar", name: "Kumar" },
-    { id: "s-ajay", name: "Ajay" },
-    { id: "s-mahesh", name: "Mahesh" },
+  // ── Beats (Route Planning ▸ Beats) ───────────────────────────────────────
+  // A beat is a recurring territory: a name the planner chose, the days it is
+  // worked, and who is on it. Four keys and no fifth — no area, no locality,
+  // no tag, no coordinates. Where a beat's location is shown it is computed
+  // from its members' own pins, which B2B Customer Management owns.
+  //   days     0 = Sunday
+  //   members  ordered; the index IS the suggested order
+  //            frequency "every" | "alternate" | "monthly"
+  // customerId values are real ids from fb-discovery-customers-v1.
+  const beats = [
+    {
+      id: "bt-1", name: "Andheri West Beat", days: [1, 4],
+      members: [
+        { customerId: "c05", frequency: "every" },
+        { customerId: "c01", frequency: "every" },
+        { customerId: "c03", frequency: "every" },
+        { customerId: "c07", frequency: "alternate" },
+        { customerId: "c09", frequency: "every" },
+        { customerId: "c02", frequency: "monthly" },
+        { customerId: "c13", frequency: "every" },
+      ],
+    },
+    {
+      id: "bt-2", name: "Juhu Morning", days: [2, 5],
+      members: [
+        { customerId: "c04", frequency: "every" },
+        { customerId: "c02", frequency: "every" },
+        { customerId: "c06", frequency: "alternate" },
+      ],
+    },
+    {
+      id: "bt-3", name: "Versova", days: [3, 6],
+      members: [
+        { customerId: "c08", frequency: "every" },
+        { customerId: "c10", frequency: "every" },
+        { customerId: "c15", frequency: "monthly" },
+      ],
+    },
+    {
+      id: "bt-4", name: "Pune Circuit", days: [6],
+      members: [
+        { customerId: "c11", frequency: "every" },
+        { customerId: "c22", frequency: "alternate" },
+      ],
+    },
   ];
 
-  // ── Route templates (Delivery Templates tab) ─────────────────────────────
-  // `created` drives newest-first sort (matches the live "- <date time>" names).
-  const routeTemplates = [
-    { id: "rt-1",  name: "route1 - 11 Aug 2026 12:57", customers: ["c-rana"], staffs: ["s-ajay"], created: "2026-08-11T12:57:00" },
-    { id: "rt-2",  name: "Viman Nagar Clubed Orders - 11 Aug 2026 12:47", customers: ["c-dinesh", "c-rana", "c-raman"], staffs: ["s-nishant"], created: "2026-08-11T12:47:00" },
-    { id: "rt-3",  name: "Evening Route - 11 Aug 2026 12:06", customers: ["c-ganraj"], staffs: ["s-pawan"], created: "2026-08-11T12:06:00" },
-    { id: "rt-4",  name: "rana delivery - 11 Aug 2026 12:03", customers: ["c-rana"], staffs: ["s-kumar"], created: "2026-08-11T12:03:00" },
-    { id: "rt-5",  name: "Viman Nagar Morning Route", customers: ["c-dinesh", "c-rana", "c-raman", "c-aaimata", "c-ganraj", "c-laxmi", "c-raj"], staffs: ["s-nishant", "s-vishvajit"], created: "2026-08-11T12:00:00" },
-    { id: "rt-6",  name: "Gherdi - 11 Aug 2026 11:54", customers: ["c-shivam"], staffs: ["s-nishant", "s-pawan", "s-kumar"], created: "2026-08-11T11:54:00" },
-    { id: "rt-7",  name: "Morning Route 76 - 11 Aug 2026 11:48", customers: ["c-balaji"], staffs: ["s-vishvajit"], created: "2026-08-11T11:48:00" },
-    { id: "rt-8",  name: "Something Rout e 45 - 11 Aug 2026 11:43", customers: ["c-omsai"], staffs: ["s-kumar"], created: "2026-08-11T11:43:00" },
-    { id: "rt-9",  name: "Morning Route 3 - 11 Aug 2026 11:42", customers: ["c-krishna"], staffs: ["s-pawan"], created: "2026-08-11T11:42:00" },
-    { id: "rt-10", name: "Somethig ROute - 11 Aug 2026 11:41", customers: ["c-gajanan"], staffs: ["s-nishant"], created: "2026-08-11T11:41:00" },
-    { id: "rt-11", name: "Morning Route - 11 Aug 2026 09:56", customers: ["c-manjit"], staffs: ["s-kumar"], created: "2026-08-11T09:56:00" },
-    { id: "rt-12", name: "11th Aug 2026 Morning Delivery - 11 Aug 2026 01:11", customers: ["c-dinesh", "c-ganraj", "c-shreedatta", "c-ganesh"], staffs: ["s-vishvajit"], created: "2026-08-11T01:11:00" },
-    { id: "rt-13", name: "Viman Nagar Route", customers: ["c-raman"], staffs: ["s-nishant"], created: "2026-08-10T18:20:00" },
-    { id: "rt-14", name: "PCMC Route", customers: ["c-shivam", "c-raj", "c-balaji", "c-omsai", "c-newbharat"], staffs: ["s-pawan"], created: "2026-08-10T17:00:00" },
-    { id: "rt-15", name: "Swarget Route", customers: ["c-krishna", "c-gajanan", "c-ganesh", "c-manjit", "c-mahalakshmi"], staffs: ["s-kumar"], created: "2026-08-10T16:30:00" },
-    { id: "rt-16", name: "Hadapsar Route", customers: ["c-aaimata", "c-laxmi", "c-shreedatta", "c-shreeram", "c-newcust", "c-raman"], staffs: ["s-nishant", "s-vishvajit", "s-kumar"], created: "2026-08-10T15:10:00" },
+  // ── Vehicles (Route Planning ▸ Vehicles) ─────────────────────────────────
+  // The reusable master Create Delivery picks from. Six planning attributes and
+  // nothing operational: no driver, no load, no fuel, no service history.
+  const vehicles = [
+    { id: "vh-1", reg: "MH 12 AB 4432", type: "Tempo",         capacity: 1200, cost: 18, cold: false, active: true },
+    { id: "vh-2", reg: "MH 12 CD 7781", type: "Three-wheeler", capacity: 500,  cost: 9,  cold: false, active: true },
+    { id: "vh-3", reg: "MH 12 EF 2043", type: "Truck",         capacity: 3500, cost: 32, cold: true,  active: true },
+    { id: "vh-4", reg: "MH 12 GH 5566", type: "Two-wheeler",   capacity: 80,   cost: 4,  cold: false, active: false },
   ];
 
   // ── Returnable assets ────────────────────────────────────────────────────
@@ -158,5 +184,5 @@
     ],
   };
 
-  window.SEED = { routeTemplates, customers, staff, assets, orgs, deliveryRoute };
+  window.SEED = { beats, vehicles, customers, assets, orgs, deliveryRoute };
 })();

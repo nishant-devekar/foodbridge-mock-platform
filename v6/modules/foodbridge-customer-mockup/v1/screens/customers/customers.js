@@ -1274,6 +1274,10 @@
 
     $("[data-cancel]", drawer).onclick = closeOverlays;
     $("[data-save]", drawer).onclick = () => saveCustomer(cfg, drawer, customer);
+
+    // Returned so a caller can raise one of the drawer's own sheets on top of
+    // it — the ?customer= deep-link opens straight onto Location.
+    return drawer;
   }
 
   function saveCustomer(cfg, drawer, existing) {
@@ -1966,6 +1970,19 @@
 
   /* ----------------------------------------------------------------- mount */
 
+  /* ?customer=<id> — open that customer straight on their location.
+
+     Route Planning sends an unlocated customer here rather than asking the
+     planner to place the stop itself: location is owned once, in this module,
+     and the fix has to land where it is owned. Same shape as the Stock Audit
+     link this module already emits. */
+  function openLocationFor(cfg, id) {
+    const c = Store.list(cfg.kind).find((x) => x._id === id);
+    if (!c) { toast("That customer no longer exists.", "error"); return; }
+    const drawer = openCustomerDrawer(cfg, c);
+    if (drawer) openLocationSheet(drawer);
+  }
+
   function mount(screen) {
     const cfg = SCREENS[screen];
     if (!cfg) throw new Error("Unknown screen: " + screen);
@@ -1975,6 +1992,9 @@
 
     mountShell($("#app"), { screen, crumb: cfg.crumb, tenant: SEED.tenant });
     render();
+
+    const id = new URLSearchParams(location.search).get("customer");
+    if (id) openLocationFor(cfg, id);
   }
 
   window.FB = {
