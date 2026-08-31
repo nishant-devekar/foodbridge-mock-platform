@@ -170,12 +170,21 @@
 
   /* ------------------------------------------------------------- selectors */
 
+  /* Every area already in use — the datalist behind the Area field. */
+  function knownAreas() {
+    const set = new Set();
+    Store.list("b2b").concat(Store.list("retail")).forEach((c) => { if (c.area) set.add(c.area); });
+    return [...set].sort();
+  }
+
   function visibleRows() {
     const q = S.search.trim().toLowerCase();
     let rows = Store.list(S.cfg.kind);
     if (q) {
       rows = rows.filter((c) =>
-        [nameOf(c), c.email, c.phone, c.orgNo].some((v) =>
+        // Area is searchable so the grouping is reachable from the control that
+        // already exists, instead of a second row of filter chips.
+        [nameOf(c), c.email, c.phone, c.orgNo, c.area].some((v) =>
           String(v || "").toLowerCase().includes(q),
         ),
       );
@@ -291,6 +300,27 @@
       : `<span class="pill none">-</span>`;
   }
 
+  /* Mobile list. Same data as a table row, ranked by what identifies a customer
+     on a phone: who they are, how to reach them, where they are. */
+  function cardsHTML(cfg, rows, canSelect) {
+    if (!rows.length) return "";
+    return `<div class="ccards">` + rows.map((c) => {
+      const picked = S.checked.includes(c._id);
+      const where = c.area || (addressOf(c) === "-" ? "" : addressOf(c));
+      return `
+        <article class="ccard${picked ? " selected" : ""}" data-id="${c._id}">
+          <div class="cc-top">
+            ${canSelect ? `<input type="checkbox" class="cb row-cb" data-id="${c._id}" ${picked ? "checked" : ""}>` : ""}
+            <div class="cc-id">
+              <h4>${esc(titleCase(nameOf(c)))}</h4>
+              <p>${esc(c.phone)}${where ? ` · ${esc(where)}` : ""}</p>
+            </div>
+          </div>
+          <div class="cc-foot">${catalogueCellHTML(c)}${rowActionsHTML(cfg, c)}</div>
+        </article>`;
+    }).join("") + `</div>`;
+  }
+
   function tableHTML(cfg, rows, allChecked, total, totalPages) {
     const canSelect = cfg.showDelete || cfg.showTags || cfg.showSendCampaign;
     const body = rows
@@ -310,11 +340,14 @@
       })
       .join("");
 
-    // NOTE — the live Customers/RetailCustomers pages do NOT switch to cards on
-    // mobile the way the Products module does: the same <TableContainer> renders
-    // at every width and scrolls horizontally, with only the sticky bottom bar
-    // added. Reproduced as-is; flagged as an open question in design-principles.
+    // The live pages render this same table at every width and let it scroll
+    // horizontally — which at 375px puts the row actions ~613px off-screen, so
+    // a customer cannot be edited on a phone at all. That was reproduced
+    // faithfully and flagged as an open question; it is now answered the way
+    // /finished-goods answers it, with a card list below 768px. The table is
+    // untouched and still the desktop layout.
     return `
+      ${cardsHTML(cfg, rows, canSelect)}
       <div class="table-wrap">
         <div class="table-scroll">
           <table class="grid">
@@ -579,6 +612,324 @@
       </div>`;
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════
+     COMMERCIAL TERMS · LOCATION · AREA
+
+     Three requirements, three single-line rows on the form. Everything that
+     would have made them bigger — a second screen, a permanent map, a
+     latitude/longitude pair, an area hierarchy — is deliberately absent.
+
+     Terms    one row, one sheet, two chip groups. Custom values are typed once
+              and become chips for every customer afterwards.
+     Location one row, one sheet: search, pick, save. Coordinates are stored and
+              never shown.
+     Area     one row, a plain input. GPS suggests it; the user overrides it.
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* A sheet raised from inside the customer drawer.
+     Deliberately NOT openModal(): that calls closeOverlays(), which removes the
+     drawer underneath — so picking a term would destroy the form it belongs to.
+     This stacks above the drawer (z-index 70) and closes only itself. */
+  function openSheet(html) {
+    const scrim = document.createElement("div");
+    scrim.className = "sheet-scrim";
+    const wrap = document.createElement("div");
+    wrap.className = "sheet-wrap";
+    wrap.innerHTML = html;
+    document.body.append(scrim, wrap);
+    requestAnimationFrame(() => { scrim.classList.add("show"); wrap.classList.add("show"); });
+    const close = () => { scrim.remove(); wrap.remove(); };
+    scrim.onclick = close;
+    wrap._close = close;
+    return wrap;
+  }
+
+  const CREDIT_PRESETS  = [{ label: "20 Days", days: 20 }, { label: "30 Days", days: 30 }];
+  const PAYMENT_PRESETS = ["Cash on Delivery", "50% at Booking"];
+  const CUSTOM_KEY = "fb-discovery-customer-terms-v1";
+
+  /* Custom terms the user has created. Kept beside the customers so a term
+     invented for one customer is a one-tap choice for the next. */
+  const Terms = {
+    load() {
+      try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || "null") || { credit: [], payment: [] }; }
+      catch (e) { return { credit: [], payment: [] }; }
+    },
+    save(v) { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(v)); } catch (e) {} },
+    addCredit(days) {
+      const v = this.load();
+      if (!v.credit.some((x) => x.days === days)) { v.credit.push({ label: days + " Days", days }); this.save(v); }
+    },
+    addPayment(label) {
+      const v = this.load();
+      if (!v.payment.includes(label)) { v.payment.push(label); this.save(v); }
+    },
+    credit()  { return CREDIT_PRESETS.concat(this.load().credit); },
+    payment() { return PAYMENT_PRESETS.concat(this.load().payment); },
+  };
+
+  const termsSummary = (t) =>
+    [t.creditTerm, t.paymentTerm].filter(Boolean).join(" · ") || "Not set";
+
+  /* One row. The value IS the control — tapping anywhere opens the sheet. */
+  function pickerRow(name, label, value, unset) {
+    return `
+      <div class="frow" data-field="${name}">
+        <label class="lab">${esc(label)}</label>
+        <div>
+          <button type="button" class="picker" data-open="${name}">
+            <span class="picker-v${value ? "" : " none"}">${esc(value || unset)}</span>
+            <span class="picker-a">${value ? "Change" : "Set"}</span>
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function paintTerms(drawer) {
+    const btn = $('[data-open="terms"]', drawer);
+    if (!btn) return;
+    const has = drawer._terms.creditTerm || drawer._terms.paymentTerm;
+    $(".picker-v", btn).textContent = termsSummary(drawer._terms);
+    $(".picker-v", btn).classList.toggle("none", !has);
+    $(".picker-a", btn).textContent = has ? "Change" : "Set";
+  }
+
+  function paintLocation(drawer) {
+    const btn = $('[data-open="location"]', drawer);
+    if (!btn) return;
+    const has = drawer._loc.lat != null;
+    $(".picker-v", btn).textContent = has ? drawer._loc.place || "Pinned" : "Not set";
+    $(".picker-v", btn).classList.toggle("none", !has);
+    $(".picker-a", btn).textContent = has ? "Change" : "Set";
+  }
+
+  /* ── Terms sheet ─────────────────────────────────────────────────────── */
+  function openTermsSheet(drawer) {
+    const t = drawer._terms;
+    const chip = (on, label, kind, val) =>
+      `<button type="button" class="chip-opt${on ? " on" : ""}" data-kind="${kind}" data-val="${esc(val)}">${esc(label)}</button>`;
+
+    const render = () => `
+      <div class="sheet-sec">
+        <h5>Credit</h5>
+        <div class="chip-row">
+          ${Terms.credit().map((o) => chip(t.creditTerm === o.label, o.label, "credit", o.label)).join("")}
+          <button type="button" class="chip-opt add" data-add="credit">+ Custom</button>
+        </div>
+        <div class="chip-add" data-addrow="credit" hidden>
+          <input type="number" min="1" max="365" placeholder="Days" data-input="credit">
+          <button type="button" class="btn-mini" data-save="credit">Add</button>
+        </div>
+      </div>
+      <div class="sheet-sec">
+        <h5>Payment</h5>
+        <div class="chip-row">
+          ${Terms.payment().map((o) => chip(t.paymentTerm === o, o, "payment", o)).join("")}
+          <button type="button" class="chip-opt add" data-add="payment">+ Custom</button>
+        </div>
+        <div class="chip-add" data-addrow="payment" hidden>
+          <input type="text" maxlength="28" placeholder="Term" data-input="payment">
+          <button type="button" class="btn-mini" data-save="payment">Add</button>
+        </div>
+      </div>`;
+
+    const wrap = openSheet(
+      `<div class="sheet">
+         <div class="sheet-head"><h4>Terms</h4><button class="sheet-x" data-close>${I.FiX}</button></div>
+         <div class="sheet-body" id="termsBody">${render()}</div>
+         <div class="sheet-foot">
+           <button class="btn ghost" data-clear>Clear</button>
+           <button class="btn primary" data-done>Done</button>
+         </div>
+       </div>`);
+
+    const body = $("#termsBody", wrap);
+    const repaint = () => { body.innerHTML = render(); wire(); };
+
+    function wire() {
+      body.querySelectorAll("[data-kind]").forEach((b) => {
+        b.onclick = () => {
+          const k = b.dataset.kind, v = b.dataset.val;
+          // Tapping the selected chip clears it — terms are optional, and this
+          // is the only way back to "none" without a separate control.
+          if (k === "credit") {
+            const on = t.creditTerm === v;
+            t.creditTerm = on ? null : v;
+            t.creditDays = on ? null : (Terms.credit().find((o) => o.label === v) || {}).days ?? null;
+          } else {
+            t.paymentTerm = t.paymentTerm === v ? null : v;
+          }
+          repaint();
+        };
+      });
+      body.querySelectorAll("[data-add]").forEach((b) => {
+        b.onclick = () => {
+          const row = body.querySelector(`[data-addrow="${b.dataset.add}"]`);
+          row.hidden = !row.hidden;
+          if (!row.hidden) $("input", row).focus();
+        };
+      });
+      body.querySelectorAll("[data-save]").forEach((b) => {
+        b.onclick = () => {
+          const k = b.dataset.save;
+          const input = body.querySelector(`[data-input="${k}"]`);
+          const raw = String(input.value || "").trim();
+          if (!raw) return;
+          if (k === "credit") {
+            const days = parseInt(raw, 10);
+            if (!days || days < 1 || days > 365) return;
+            Terms.addCredit(days);
+            t.creditTerm = days + " Days"; t.creditDays = days;
+          } else {
+            Terms.addPayment(raw);
+            t.paymentTerm = raw;
+          }
+          repaint();
+        };
+      });
+    }
+    wire();
+
+    $("[data-clear]", wrap).onclick = () => {
+      t.creditTerm = null; t.creditDays = null; t.paymentTerm = null; repaint();
+    };
+    const close = () => { paintTerms(drawer); wrap._close(); };
+    $("[data-done]", wrap).onclick = close;
+    $("[data-close]", wrap).onclick = close;
+  }
+
+  /* ── Location sheet ──────────────────────────────────────────────────── */
+
+  // Localities already in use, so search works with no network and the area
+  // suggestion has something to cluster against.
+  function knownPlaces() {
+    const seen = new Map();
+    Store.list("b2b").concat(Store.list("retail")).forEach((c) => {
+      if (c.lat == null || !c.area) return;
+      if (!seen.has(c.area)) seen.set(c.area, { name: c.area, lat: c.lat, lng: c.lng });
+    });
+    return [...seen.values()];
+  }
+
+  const toRad = (d) => (d * Math.PI) / 180;
+  function distanceKm(a, b, c, d) {
+    const R = 6371, dLat = toRad(c - a), dLng = toRad(d - b);
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a)) * Math.cos(toRad(c)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  /* REQ 3 — geographically similar customers get the same tag. The nearest
+     already-tagged customer within 2 km wins; beyond that the map's own
+     locality name is used. Suggestion only: the field stays editable. */
+  function suggestArea(lat, lng, fallback) {
+    let best = null, bestD = Infinity;
+    Store.list("b2b").concat(Store.list("retail")).forEach((c) => {
+      if (!c.area || c.lat == null) return;
+      const d = distanceKm(lat, lng, c.lat, c.lng);
+      if (d < bestD) { bestD = d; best = c.area; }
+    });
+    return bestD <= 2 ? best : (fallback || null);
+  }
+
+  function openLocationSheet(drawer) {
+    const loc = drawer._loc;
+    const wrap = openSheet(
+      `<div class="sheet loc">
+         <div class="sheet-head"><h4>Location</h4><button class="sheet-x" data-close>${I.FiX}</button></div>
+         <div class="loc-search">
+           <input type="search" id="locQ" placeholder="Search area or landmark" autocomplete="off">
+           <ul id="locHits" class="loc-hits" hidden></ul>
+         </div>
+         <div id="locMap" class="loc-map"></div>
+         <div class="sheet-foot">
+           ${loc.lat != null ? `<button class="btn ghost" data-remove>Remove</button>` : ""}
+           <button class="btn primary" data-done>Save</button>
+         </div>
+       </div>`);
+
+    const START = [19.076, 72.8777]; // Mumbai — where this tenant's customers are
+    const at = loc.lat != null ? [loc.lat, loc.lng] : START;
+    let map, marker;
+
+    // Leaflet is vendored by the platform and already used by Live Delivery
+    // Tracking; this reuses it rather than adding a second map stack.
+    map = L.map($("#locMap", wrap), { zoomControl: true, attributionControl: false })
+      .setView(at, loc.lat != null ? 15 : 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+    // A divIcon, as Live Tracking uses: Leaflet's default marker resolves its
+    // PNG relative to the stylesheet and renders broken from this depth.
+    marker = L.marker(at, {
+      draggable: true,
+      icon: L.divIcon({ className: "loc-pin-ic", html: '<span class="loc-pin"></span>', iconSize: [22, 22], iconAnchor: [11, 21] }),
+    }).addTo(map);
+    setTimeout(() => map.invalidateSize(), 60);
+
+    const put = (lat, lng, place) => {
+      loc.lat = +lat.toFixed(6); loc.lng = +lng.toFixed(6);
+      if (place) loc.place = place;
+      marker.setLatLng([loc.lat, loc.lng]);
+    };
+    marker.on("dragend", () => { const p = marker.getLatLng(); put(p.lat, p.lng); });
+    map.on("click", (e) => put(e.latlng.lat, e.latlng.lng));
+
+    const q = $("#locQ", wrap), hits = $("#locHits", wrap);
+    const paintHits = (list) => {
+      hits.hidden = !list.length;
+      hits.innerHTML = list.slice(0, 6)
+        .map((r) => `<li><button type="button" data-lat="${r.lat}" data-lng="${r.lng}" data-name="${esc(r.name)}">${esc(r.name)}</button></li>`)
+        .join("");
+      hits.querySelectorAll("button").forEach((b) => {
+        b.onclick = () => {
+          put(+b.dataset.lat, +b.dataset.lng, b.dataset.name);
+          map.setView([+b.dataset.lat, +b.dataset.lng], 16);
+          q.value = b.dataset.name;
+          hits.hidden = true;
+        };
+      });
+    };
+
+    const local = (term) =>
+      knownPlaces().filter((p) => p.name.toLowerCase().includes(term.toLowerCase()));
+
+    const search = debounce(async () => {
+      const term = q.value.trim();
+      if (term.length < 2) { hits.hidden = true; return; }
+      const near = local(term);
+      paintHits(near);
+      try {
+        // OpenStreetMap's geocoder, matching the tile provider the platform
+        // already uses. If it is unreachable the local matches above stand, and
+        // the map can always be tapped directly.
+        const res = await fetch(
+          "https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=in&q=" +
+            encodeURIComponent(term),
+          { headers: { Accept: "application/json" } });
+        if (!res.ok) return;
+        const json = await res.json();
+        const remote = json.map((r) => ({ name: r.display_name.split(",").slice(0, 2).join(",").trim(), lat: +r.lat, lng: +r.lon }));
+        if (remote.length) paintHits(near.concat(remote));
+      } catch (e) { /* offline — local matches and tap-to-pin still work */ }
+    }, 350);
+    q.oninput = search;
+
+    const rm = $("[data-remove]", wrap);
+    if (rm) rm.onclick = () => { loc.lat = null; loc.lng = null; loc.place = ""; paintLocation(drawer); wrap._close(); };
+    $("[data-done]", wrap).onclick = () => {
+      // REQ 3 — a saved pin suggests the area, but only fills an empty field.
+      if (loc.lat != null) {
+        const areaEl = $('[name="area"]', drawer);
+        if (areaEl && !areaEl.value.trim()) {
+          const s = suggestArea(loc.lat, loc.lng, (loc.place || "").split(",")[0].trim());
+          if (s) { areaEl.value = s; areaEl.classList.add("suggested"); }
+        }
+      }
+      paintLocation(drawer);
+      wrap._close();
+    };
+    $("[data-close]", wrap).onclick = () => wrap._close();
+    setTimeout(() => q.focus(), 80);
+  }
+
   function openCustomerDrawer(cfg, customer) {
     const isEdit = !!customer;
     const c = customer || {};
@@ -686,6 +1037,17 @@
           <div><select class="input" id="f-state" name="state">${stateOptions(c.state?.code)}</select></div>
         </div>
         ${field({ label: "PIN Code (Billing)", name: "postnr", value: c.postnr })}
+        ${isB2B ? pickerRow("terms", "Terms", termsSummary(c) === "Not set" ? "" : termsSummary(c), "Not set") : ""}
+        ${isB2B ? pickerRow("location", "Location", c.lat != null ? (c.place || "Pinned") : "", "Not set") : ""}
+        ${isB2B ? `
+        <div class="frow" data-field="area">
+          <label class="lab" for="f-area">Area</label>
+          <div>
+            <input class="input" id="f-area" name="area" list="areaList"
+                   value="${esc(c.area || "")}" placeholder="Area" autocomplete="off" />
+            <datalist id="areaList">${knownAreas().map((a) => `<option value="${esc(a)}">`).join("")}</datalist>
+          </div>
+        </div>` : ""}
 
         <div class="frow">
           <label class="lab">Use billing address as shipping address</label>
@@ -720,6 +1082,16 @@
         <button class="btn btn-submit" data-save>${isEdit ? "Update" : "Add"} ${esc(label)}</button>
         <button class="btn btn-cancel" data-cancel>Cancel</button>`,
     });
+
+    // Pending values for the two sheets. Nothing is written to the customer
+    // until the drawer is saved, so cancelling really cancels.
+    drawer._terms = { creditTerm: c.creditTerm || null, creditDays: c.creditDays ?? null, paymentTerm: c.paymentTerm || null };
+    drawer._loc = { lat: c.lat ?? null, lng: c.lng ?? null, place: c.place || "" };
+    drawer.querySelectorAll("[data-open]").forEach((b) => {
+      b.onclick = () => (b.dataset.open === "terms" ? openTermsSheet(drawer) : openLocationSheet(drawer));
+    });
+    const areaInput = $('[name="area"]', drawer);
+    if (areaInput) areaInput.oninput = () => areaInput.classList.remove("suggested");
 
     drawer.querySelectorAll('input[name="gstType"]').forEach((r) => {
       r.onchange = () => {
@@ -822,6 +1194,18 @@
       gstType,
       gstNumber,
       supplyChainType: cfg.kind === "retail" ? "PRIVATE" : "PUBLIC",
+      // Commercial terms. `creditDays` is the machine-readable half — the label
+      // is what the user picked, the number is what receivables ageing needs.
+      creditTerm: drawer._terms.creditTerm,
+      creditDays: drawer._terms.creditDays,
+      paymentTerm: drawer._terms.paymentTerm,
+      // Location. Stored silently and never rendered as a coordinate pair.
+      // These four fields are the whole downstream contract: Route Planning
+      // sorts and groups on them, Delivery Management navigates to them.
+      lat: drawer._loc.lat,
+      lng: drawer._loc.lng,
+      place: drawer._loc.place,
+      area: get("area"),
     };
 
     const list = Store.list(cfg.kind);

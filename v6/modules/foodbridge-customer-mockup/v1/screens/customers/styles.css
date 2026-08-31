@@ -1293,3 +1293,107 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
 .btn-dd-save { border: 0; background: var(--green-600); color: #fff; }
 .btn-dd-save:hover:not(:disabled) { background: var(--green-700); }
 .btn-dd-save:disabled { background: var(--gray-300); color: var(--gray-500); cursor: not-allowed; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE LIST + TERMS / LOCATION / AREA
+
+   The card list mirrors the Products module (/finished-goods): the table stays
+   as the desktop layout and hands over to cards below 768px, where it was
+   previously 1095px wide inside a 349px column.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ccards { display: flex; flex-direction: column; gap: 0.625rem; padding: 0 0 0.25rem; }
+.ccard { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden; }
+.ccard.selected { border-color: #10b981; box-shadow: 0 0 0 1px #10b981 inset; }
+.cc-top { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.875rem 0.625rem; }
+.cc-top > .cb { flex-shrink: 0; }
+.cc-id { flex: 1; min-width: 0; }
+.cc-id h4 { margin: 0; font-size: 0.9375rem; font-weight: 600; color: #111827;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Phone and area on one line: two facts, one row, no third line of card. */
+.cc-id p { margin: 0.125rem 0 0; font-size: 0.8125rem; color: #6b7280;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+           padding: 0.4375rem 0.875rem; border-top: 1px solid #f3f4f6; background: #fafafa; }
+.cc-foot .row-actions { justify-content: flex-end; }
+
+/* One layout at a time. */
+@media (max-width: 767px) { .table-wrap .table-scroll { display: none; } }
+@media (min-width: 768px) { .ccards { display: none; } }
+
+/* ── Picker row: the value is the control ──────────────────────────────── */
+.picker { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+          padding: 0.6875rem 0.8125rem; border: 1px solid #e5e7eb; border-radius: 0.375rem;
+          background: #fff; font-family: inherit; font-size: 0.875rem; cursor: pointer; text-align: left; }
+.picker:hover { border-color: #10b981; }
+.picker-v { color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-v.none { color: #9ca3af; }
+.picker-a { color: #10b981; font-weight: 600; font-size: 0.8125rem; flex-shrink: 0; }
+.input.suggested { border-color: #10b981; background: #f0fdf4; }
+
+/* ── Sheet: a small modal for both pickers ─────────────────────────────── */
+.sheet { display: flex; flex-direction: column; max-height: 86vh; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between;
+              padding: 1rem 1.125rem 0.75rem; }
+.sheet-head h4 { margin: 0; font-size: 1.0625rem; font-weight: 700; color: #111827; }
+.sheet-x { width: 2rem; height: 2rem; border: none; border-radius: 50%; background: #f3f4f6;
+           color: #6b7280; display: grid; place-items: center; cursor: pointer; }
+.sheet-body { padding: 0 1.125rem; overflow-y: auto; }
+.sheet-sec + .sheet-sec { margin-top: 1.125rem; }
+.sheet-sec h5 { margin: 0 0 0.5rem; font-size: 0.75rem; font-weight: 700; color: #6b7280;
+                text-transform: uppercase; letter-spacing: 0.03em; }
+.sheet-foot { display: flex; gap: 0.625rem; padding: 1rem 1.125rem 1.125rem; }
+.sheet-foot .btn { flex: 1; padding: 0.6875rem 1rem; border-radius: 0.5rem; font-size: 0.875rem;
+                   font-weight: 600; font-family: inherit; cursor: pointer; border: 1px solid transparent; }
+.sheet-foot .btn.primary { background: #10b981; color: #fff; }
+.sheet-foot .btn.ghost { background: #fff; border-color: #e5e7eb; color: #6b7280; flex: 0 0 auto; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip-opt { padding: 0.5rem 0.875rem; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff;
+            font-size: 0.8125rem; font-family: inherit; color: #374151; cursor: pointer; }
+.chip-opt.on { background: #ecfdf5; border-color: #10b981; color: #047857; font-weight: 600; }
+.chip-opt.add { color: #6b7280; border-style: dashed; }
+.chip-add { display: flex; gap: 0.5rem; margin-top: 0.625rem; }
+/* display:flex above beats the default [hidden] rule, so restate it. */
+.chip-add[hidden] { display: none; }
+.chip-add input { flex: 1; min-width: 0; border: 1px solid #e5e7eb; border-radius: 0.375rem;
+                  padding: 0.5rem 0.6875rem; font-size: 0.875rem; font-family: inherit; outline: none; }
+.chip-add input:focus { border-color: #10b981; }
+.btn-mini { padding: 0.5rem 0.875rem; border: none; border-radius: 0.375rem; background: #10b981;
+            color: #fff; font-size: 0.8125rem; font-weight: 600; font-family: inherit; cursor: pointer; }
+
+/* ── Location sheet ────────────────────────────────────────────────────── */
+.loc-search { position: relative; padding: 0 1.125rem 0.75rem; }
+.loc-search input { width: 100%; box-sizing: border-box; border: 1px solid #e5e7eb; border-radius: 0.5rem;
+                    padding: 0.6875rem 0.8125rem; font-size: 0.875rem; font-family: inherit; outline: none; }
+.loc-search input:focus { border-color: #10b981; }
+.loc-hits { position: absolute; left: 1.125rem; right: 1.125rem; top: calc(100% - 0.5rem); z-index: 5;
+            margin: 0; padding: 0.25rem; list-style: none; background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 0.5rem; box-shadow: 0 8px 24px rgba(15,23,42,.12); max-height: 13rem; overflow-y: auto; }
+.loc-hits button { width: 100%; text-align: left; border: none; background: none; cursor: pointer;
+                   padding: 0.5625rem 0.625rem; border-radius: 0.375rem; font-size: 0.8125rem;
+                   font-family: inherit; color: #374151; }
+.loc-hits button:hover { background: #f3f4f6; }
+.loc-pin-ic { background: none; border: none; }
+.loc-pin { display: block; width: 18px; height: 18px; border-radius: 50% 50% 50% 0;
+           transform: rotate(-45deg); background: #10b981; border: 2.5px solid #fff;
+           box-shadow: 0 2px 6px rgb(15 23 42 / .35); }
+.loc-map { height: 15rem; margin: 0 1.125rem; border-radius: 0.5rem; overflow: hidden;
+           background: #eef2f5; z-index: 0; }
+@media (min-width: 640px) { .loc-map { height: 17rem; } }
+
+/* Sheet layer — above the drawer (z-index 70), because these sheets are raised
+   from inside it and must not replace it. */
+.sheet-scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 100;
+               opacity: 0; transition: opacity .2s; }
+.sheet-scrim.show { opacity: 1; }
+.sheet-wrap { position: fixed; inset: 0; z-index: 101; display: flex; align-items: flex-end;
+              justify-content: center; pointer-events: none; }
+.sheet-wrap > .sheet { pointer-events: auto; width: 100%; background: #fff;
+                       border-radius: 1rem 1rem 0 0; transform: translateY(100%);
+                       transition: transform .26s cubic-bezier(.22,1,.36,1); }
+.sheet-wrap.show > .sheet { transform: translateY(0); }
+@media (min-width: 640px) {
+  .sheet-wrap { align-items: center; padding: 1rem; }
+  .sheet-wrap > .sheet { max-width: 27rem; border-radius: 0.75rem; }
+}
