@@ -1407,3 +1407,14 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
   .sheet-wrap { align-items: center; padding: 1rem; }
   .sheet-wrap > .sheet { max-width: 27rem; border-radius: 0.75rem; }
 }
+
+/* Location sheet: the address the pin resolved to, then the two things it
+   cannot know. */
+.loc-addr { margin: 0.625rem 1.125rem 0; font-size: 0.8125rem; color: #374151; line-height: 1.45; }
+.loc-addr.empty::before { content: "Search or tap the map"; color: #9ca3af; }
+.loc-detail { display: grid; gap: 0.5rem; padding: 0.625rem 1.125rem 0; }
+.loc-detail input { width: 100%; box-sizing: border-box; border: 1px solid #e5e7eb;
+                    border-radius: 0.5rem; padding: 0.625rem 0.8125rem; font-size: 0.875rem;
+                    font-family: inherit; outline: none; }
+.loc-detail input:focus { border-color: #10b981; }
+@media (min-width: 640px) { .loc-detail { grid-template-columns: 1fr 1fr; } }

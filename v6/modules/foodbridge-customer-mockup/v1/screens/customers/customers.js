@@ -286,10 +286,14 @@
       </div>`;
   }
 
-  /* The area tag. System-managed, so it is shown and never edited here.
-     Uses the .row-tags token the stylesheet already had for exactly this. */
-  function areaTagHTML(c) {
-    return c.area ? `<div class="row-tags"><span>${esc(c.area)}</span></div>` : "";
+  /* The customer's tags, location tag included — it is an ordinary tag, kept in
+     the same array, so it filters and counts through the chips above the list
+     with no separate mechanism. Uses the .row-tags token the stylesheet already
+     carried for exactly this. */
+  function tagsRowHTML(c) {
+    const tags = c.tags || [];
+    if (!tags.length) return "";
+    return `<div class="row-tags">${tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>`;
   }
 
   function catalogueCellHTML(c) {
@@ -316,7 +320,7 @@
             </div>
           </div>
           <div class="cc-foot">
-            <div class="cc-meta">${catalogueCellHTML(c)}${areaTagHTML(c)}</div>
+            <div class="cc-meta">${catalogueCellHTML(c)}${tagsRowHTML(c)}</div>
             ${rowActionsHTML(cfg, c)}
           </div>
         </article>`;
@@ -335,7 +339,7 @@
           <td class="name">${esc(titleCase(nameOf(c)))}</td>
           <td>${c.email ? esc(c.email) : ""}</td>
           <td class="phone">${esc(c.phone)}</td>
-          <td class="address"><span class="${addr === "-" ? "muted" : ""}">${esc(addr)}</span>${areaTagHTML(c)}</td>
+          <td class="address"><span class="${addr === "-" ? "muted" : ""}">${esc(addr)}</span>${tagsRowHTML(c)}</td>
           <td>${catalogueCellHTML(c)}</td>
           <td>${rowActionsHTML(cfg, c)}</td>
         </tr>`;
@@ -670,6 +674,13 @@
     payment() { return PAYMENT_PRESETS.concat(this.load().payment); },
   };
 
+  /* What the Shipping row shows: the precise part first, because that is what
+     identifies the door; the resolved address behind it for context. */
+  // `place` is the resolved address; `adress2` is already the two composed, so
+  // joining detail to THAT would print the shop number twice.
+  const shippingSummary = (c) =>
+    [c.shipDetail, c.place].filter(Boolean).join(", ");
+
   const termsSummary = (t) =>
     [t.creditTerm, t.paymentTerm].filter(Boolean).join(" · ") || "Not set";
 
@@ -699,8 +710,10 @@
   function paintLocation(drawer) {
     const btn = $('[data-open="location"]', drawer);
     if (!btn) return;
-    const has = drawer._loc.lat != null;
-    $(".picker-v", btn).textContent = has ? drawer._loc.place || "Pinned" : "Not set";
+    const L = drawer._loc;
+    const has = L.lat != null;
+    const text = [L.detail, L.place].filter(Boolean).join(", ");
+    $(".picker-v", btn).textContent = has ? (text || "Pinned") : "Not set";
     $(".picker-v", btn).classList.toggle("none", !has);
     $(".picker-a", btn).textContent = has ? "Change" : "Set";
   }
@@ -847,36 +860,9 @@
      Which address that is follows the user's own declaration: the shipping
      block normally, the billing fields when they have said the two are the
      same. Remove the pin and the fields hand back. */
-  function syncAddressToPin(drawer) {
-    const loc = drawer._loc;
-    const same = drawer.querySelector('[name="sameAsBilling"]').checked;
-    const pinned = loc.lat != null && !!(loc.stateCode || loc.pin);
-    const [stateName, pinName] = same
-      ? ["state", "postnr"]
-      : ["shippingState", "shippingPostnumber"];
-
-    // Unlock every candidate first, so toggling "same as billing" never strands
-    // a locked field behind a hidden block.
-    ["state", "postnr", "shippingState", "shippingPostnumber"].forEach((n) => {
-      const el = drawer.querySelector(`[name="${n}"]`);
-      if (el) { el.classList.remove("derived"); el.readOnly = false; el.removeAttribute("tabindex"); }
-    });
-    if (!pinned) return;
-
-    const stateEl = drawer.querySelector(`[name="${stateName}"]`);
-    const pinEl = drawer.querySelector(`[name="${pinName}"]`);
-    if (stateEl && loc.stateCode) stateEl.value = loc.stateCode;
-    if (pinEl && loc.pin) pinEl.value = loc.pin;
-    // Locked, not disabled: a disabled control drops out of the form, and the
-    // save path reads these by name. `.derived` supplies the muted, inert look.
-    [stateEl, pinEl].forEach((el) => {
-      if (!el) return;
-      el.classList.add("derived");
-      el.setAttribute("tabindex", "-1");
-      if (el.tagName === "INPUT") el.readOnly = true;
-    });
-  }
-
+  /* Billing is the only address with typed fields now, and it is only shown
+     when the user says it differs — so there is nothing left to lock. Shipping
+     cannot contradict the pin because shipping IS the pin plus a door number. */
   /* Turn a point into the address parts the form needs. Same provider as the
      tiles and the forward search. Failure is survivable: without a resolved
      state or PIN nothing is locked, so the user simply types them as before. */
@@ -896,6 +882,9 @@
       loc.stateCode = STATE_BY_NAME[String(a.state || "").toLowerCase()] || loc.stateCode || "";
       loc.pin = a.postcode || loc.pin || "";
       loc.locality = a.suburb || a.neighbourhood || a.city_district || a.town || a.village || a.city || "";
+      // One readable line, not the geocoder's full comma-chain.
+      loc.resolved = [a.road, loc.locality, a.city && a.city !== loc.locality ? a.city : null, a.postcode]
+        .filter(Boolean).join(", ");
       return true;
     } catch (e) { return false; }
   }
@@ -910,6 +899,11 @@
            <ul id="locHits" class="loc-hits" hidden></ul>
          </div>
          <div id="locMap" class="loc-map"></div>
+         <p id="locAddr" class="loc-addr">${esc(loc.place || "")}</p>
+         <div class="loc-detail">
+           <input type="text" id="locDetail" placeholder="Shop / Flat / Godown" value="${esc(loc.detail || "")}" autocomplete="off">
+           <input type="text" id="locLandmark" placeholder="Landmark" value="${esc(loc.landmark || "")}" autocomplete="off">
+         </div>
          <div class="sheet-foot">
            ${loc.lat != null ? `<button class="btn ghost" data-remove>Remove</button>` : ""}
            <button class="btn primary" data-done>Save</button>
@@ -933,16 +927,26 @@
     }).addTo(map);
     setTimeout(() => map.invalidateSize(), 60);
 
+    const addrEl = $("#locAddr", wrap);
+    const paintAddr = () => {
+      addrEl.textContent = loc.place || "";
+      addrEl.classList.toggle("empty", !loc.place);
+    };
     const put = (lat, lng, place) => {
       loc.lat = +lat.toFixed(6); loc.lng = +lng.toFixed(6);
       if (place) loc.place = place;
       marker.setLatLng([loc.lat, loc.lng]);
+      paintAddr();
     };
+    paintAddr();
     const moved = async (lat, lng) => {
       put(lat, lng, "");
       loc.stateCode = ""; loc.pin = ""; loc.locality = "";
       await resolvePin(loc);
-      if (!loc.place && loc.locality) loc.place = loc.locality;
+      // Moving the pin re-derives the address; the door number the user typed
+      // is theirs and survives.
+      loc.place = loc.resolved || loc.locality || loc.place;
+      paintAddr();
     };
     marker.on("dragend", () => { const p = marker.getLatLng(); moved(p.lat, p.lng); });
     map.on("click", (e) => moved(e.latlng.lat, e.latlng.lng));
@@ -1004,14 +1008,16 @@
     if (rm) rm.onclick = () => {
       loc.lat = null; loc.lng = null; loc.place = "";
       loc.stateCode = ""; loc.pin = ""; loc.locality = "";
-      paintLocation(drawer); syncAddressToPin(drawer); wrap._close();
+      loc.detail = ""; loc.landmark = "";
+      paintLocation(drawer); wrap._close();
     };
     $("[data-done]", wrap).onclick = async () => {
       // A point that was tapped and not yet resolved gets one last try, so the
       // address it is about to own is filled in rather than half-blank.
       if (loc.lat != null && !loc.stateCode && !loc.pin) await resolvePin(loc);
+      loc.detail = $("#locDetail", wrap).value.trim();
+      loc.landmark = $("#locLandmark", wrap).value.trim();
       paintLocation(drawer);
-      syncAddressToPin(drawer);
       wrap._close();
     };
     $("[data-close]", wrap).onclick = () => wrap._close();
@@ -1096,11 +1102,13 @@
       </div>`
         : "";
 
-    const sameAsBilling =
-      !c.adress2 ||
-      (c.adress2 === c.adress1 &&
-        (c.shippingPostnumber || "") === (c.postnr || "") &&
-        (c.shippingState?.code || "") === (c.state?.code || ""));
+    // "Billing same as shipping" — the question now follows shipping, because
+    // shipping is the one that gets picked on a map.
+    const billingSame =
+      !c.adress1 ||
+      (c.adress1 === c.adress2 &&
+        (c.postnr || "") === (c.shippingPostnumber || "") &&
+        (c.state?.code || "") === (c.shippingState?.code || ""));
 
     const notify =
       isB2B && !isEdit && SEED.appProp.notification.isEnabled
@@ -1120,6 +1128,29 @@
         ${field({ label: "Phone", name: "phone", value: c.phone, required: true })}
         ${openingBalance}
         ${isB2B ? pickerRow("terms", "Terms", termsSummary(c) === "Not set" ? "" : termsSummary(c), "Not set") : ""}
+
+        ${isB2B ? `
+        <!-- Shipping is location-first: one row that opens the map. The address
+             is auto-filled from the point, so the only thing left to type is the
+             part a map cannot know — which shop, and what to look for. -->
+        ${pickerRow("location", "Shipping", shippingSummary(c), "Not set")}
+
+        <div class="frow">
+          <label class="lab">Billing same</label>
+          <div><label class="choice">
+            <input type="checkbox" name="billingSame" ${billingSame ? "checked" : ""}>
+            <span class="box"></span>
+          </label></div>
+        </div>
+
+        <div data-billing class="${billingSame ? "hidden" : ""}">
+          ${field({ label: "Billing Address", name: "address", value: c.adress1 })}
+          <div class="frow">
+            <label class="lab" for="f-state">State</label>
+            <div><select class="input" id="f-state" name="state">${stateOptions(c.state?.code)}</select></div>
+          </div>
+          ${field({ label: "PIN Code", name: "postnr", value: c.postnr })}
+        </div>` : `
         ${field({ label: "Billing Address", name: "address", value: c.adress1 })}
         <div class="frow">
           <label class="lab" for="f-state">State (Billing)</label>
@@ -1130,20 +1161,19 @@
         <div class="frow">
           <label class="lab">Use billing address as shipping address</label>
           <div><label class="choice">
-            <input type="checkbox" name="sameAsBilling" ${sameAsBilling ? "checked" : ""}>
+            <input type="checkbox" name="sameAsBilling" ${billingSame ? "checked" : ""}>
             <span class="box"></span>
           </label></div>
         </div>
 
-        <div data-shipping class="${sameAsBilling ? "hidden" : ""}">
+        <div data-shipping class="${billingSame ? "hidden" : ""}">
           ${field({ label: "Shipping Address", name: "shipping_address", value: c.adress2 })}
           <div class="frow">
             <label class="lab" for="f-shippingState">State (Shipping)</label>
             <div><select class="input" id="f-shippingState" name="shippingState">${stateOptions(c.shippingState?.code)}</select></div>
           </div>
           ${field({ label: "PIN Code (Shipping)", name: "shippingPostnumber", value: c.shippingPostnumber })}
-        </div>
-        ${isB2B ? pickerRow("location", "Location", c.lat != null ? (c.place || "Pinned") : "", "Not set") : ""}
+        </div>`}
         ${notify}
       </form></div>`;
 
@@ -1171,14 +1201,19 @@
       stateCode: c.lat != null ? (c.shippingState?.code || c.state?.code || "") : "",
       pin: c.lat != null ? (c.shippingPostnumber || c.postnr || "") : "",
       locality: c.area || "",
+      // The half a map cannot supply.
+      detail: c.shipDetail || "",
+      landmark: c.landmark || "",
     };
     drawer.querySelectorAll("[data-open]").forEach((b) => {
       b.onclick = () => (b.dataset.open === "terms" ? openTermsSheet(drawer) : openLocationSheet(drawer));
     });
-    // Which address the pin owns follows this checkbox, so re-run on both.
-    const sameEl = drawer.querySelector('[name="sameAsBilling"]');
-    if (sameEl) sameEl.addEventListener("change", () => syncAddressToPin(drawer));
-    syncAddressToPin(drawer);
+    const billingEl = drawer.querySelector('[name="billingSame"], [name="sameAsBilling"]');
+    const billingBlock = drawer.querySelector("[data-billing], [data-shipping]");
+    if (billingEl && billingBlock) {
+      billingEl.addEventListener("change", () =>
+        billingBlock.classList.toggle("hidden", billingEl.checked));
+    }
 
     drawer.querySelectorAll('input[name="gstType"]').forEach((r) => {
       r.onchange = () => {
@@ -1263,50 +1298,66 @@
       : "";
     const gstNumber = gstType === "regular" ? get("gstNumber") : gstType === "exempt" ? get("udin") : "";
 
-    const same = checked("sameAsBilling");
-    // The pin is authoritative in the DATA, not just in the form. Reading the
-    // inputs alone would let a stale value outrank the pin the moment the two
-    // ever drifted; deriving here means they cannot.
+    // Shipping IS the pin: its address is derived, never typed. Billing is the
+    // only typed address, and only when the user says it differs.
     const loc = drawer._loc || {};
-    const pinned = loc.lat != null && !!(loc.stateCode || loc.pin);
-    const pinState = pinned && loc.stateCode ? findState(loc.stateCode) : null;
-    const pinPost = pinned && loc.pin ? loc.pin : null;
+    const pinned = loc.lat != null;
+    const same = checked("billingSame") || checked("sameAsBilling");
 
-    const billingState = same && pinState ? pinState : findState(get("state"));
-    const shipState = same ? billingState : (pinState || findState(get("shippingState")));
-    const billingPost = same && pinPost ? pinPost : get("postnr");
-    const shipPost = same ? billingPost : (pinPost || get("shippingPostnumber"));
+    const shipLine = pinned
+      ? [loc.detail, loc.place].filter(Boolean).join(", ")
+      : get("shipping_address");
+    const shipState = pinned && loc.stateCode ? findState(loc.stateCode) : findState(get("shippingState"));
+    const shipPost = pinned && loc.pin ? loc.pin : get("shippingPostnumber");
+
+    const billingState = same ? shipState : findState(get("state"));
+    const billingPost = same ? shipPost : get("postnr");
+    const billingLine = same ? shipLine : get("address");
 
     const payload = {
       orgNo: get("orgNo"),
       name: { en: get("name") },
       email,
       phone,
-      adress1: get("address"),
-      state: billingState,
-      postnr: billingPost,
-      adress2: same ? get("address") : get("shipping_address"),
-      shippingState: shipState,
-      shippingPostnumber: shipPost,
       gstType,
       gstNumber,
       supplyChainType: cfg.kind === "retail" ? "PRIVATE" : "PUBLIC",
+      // Shipping: derived from the pin, so it cannot describe a different place.
+      adress2: shipLine,
+      shippingState: shipState,
+      shippingPostnumber: shipPost,
+      // Billing: a copy of shipping, or the only typed address on the form.
+      adress1: billingLine,
+      state: billingState,
+      postnr: billingPost,
       // Commercial terms. `creditDays` is the machine-readable half — the label
       // is what the user picked, the number is what receivables ageing needs.
       creditTerm: drawer._terms.creditTerm,
       creditDays: drawer._terms.creditDays,
       paymentTerm: drawer._terms.paymentTerm,
-      // Location. Stored silently and never rendered as a coordinate pair.
-      // These four fields are the whole downstream contract: Route Planning
-      // sorts and groups on them, Delivery Management navigates to them.
-      lat: drawer._loc.lat,
-      lng: drawer._loc.lng,
-      place: drawer._loc.place,
-      // Derived, every save, from the pin that exists at that moment. Nobody
-      // types it, so it cannot go stale and cannot drift into a near-duplicate
-      // of a neighbour's tag. No pin, no tag.
-      area: areaForPin(drawer._loc, existing),
+      // Coordinates, stored silently and never rendered as a pair. With `area`
+      // these are the whole downstream contract: Route Planning sorts and groups
+      // on them, Delivery Management navigates to them.
+      lat: loc.lat,
+      lng: loc.lng,
+      place: loc.place,
+      // The precise half, kept on its own so a driver can be shown just it.
+      shipDetail: loc.detail || "",
+      landmark: loc.landmark || "",
+      // Derived every save from the pin that exists at that moment, so it can
+      // neither go stale nor drift into a near-duplicate of a neighbour's tag.
+      // No pin, no tag.
+      area: areaForPin(loc, existing),
     };
+
+    // The location tag rides the EXISTING tags array, so it filters, counts and
+    // renders through machinery that already exists. The previous one is dropped
+    // in the same breath — that is what stops a moved customer keeping two.
+    const prevArea = existing ? existing.area : "";
+    payload.tags = ((existing && existing.tags) || [])
+      .filter((t) => t !== prevArea)
+      .concat(payload.area ? [payload.area] : [])
+      .filter((t, i, a) => a.indexOf(t) === i);
 
     const list = Store.list(cfg.kind);
     if (existing) {

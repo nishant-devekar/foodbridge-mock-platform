@@ -85,6 +85,8 @@
       lng: o.lng ?? null,
       place: o.place || "",
       area: o.area || "",
+      shipDetail: o.shipDetail || "",
+      landmark: o.landmark || "",
     };
   }
 
@@ -111,6 +113,8 @@
       email: "accounts@saient.in", phone: "9822014455",
       address: "Shop 14, Market Yard", state: "MH", pin: "411037",
       lat: 18.4880, lng: 73.8890, place: "Market Yard, Pune", area: "Market Yard",
+      shipDetail: "Shop 14", landmark: "Opposite the grain market gate",
+      tags: ["regular", "Market Yard"],
       creditTerm: "30 Days", creditDays: 30, paymentTerm: "Cash on Delivery",
       gstType: "regular", gstNumber: "27AAECS1234F1Z5",
       type: TYPE.cat1, createdAt: "2026-04-28",
@@ -120,6 +124,8 @@
       email: "orders@annapurna.co.in", phone: "9930778812",
       address: "Plot 22, MIDC Phase II", state: "MH", pin: "400705",
       lat: 19.0330, lng: 73.0297, place: "MIDC Phase II, Navi Mumbai", area: "MIDC",
+      shipDetail: "Godown 4", landmark: "Kalamboli truck terminal",
+      tags: ["MIDC"],
       creditTerm: "20 Days", creditDays: 20,
       shipAddress: "Warehouse 4, Kalamboli Godown Cluster", shipState: "MH", shipPin: "410218",
       gstType: "regular", gstNumber: "27AABCA9876K1ZP",
@@ -190,6 +196,8 @@
       phone: "9765004411",
       address: "FC Road", state: "MH", pin: "411005",
       lat: 18.5220, lng: 73.8410, place: "FC Road, Pune", area: "FC Road",
+      shipDetail: "Shop 3", landmark: "Next to the college gate",
+      tags: ["FC Road"],
       paymentTerm: "50% at Booking",
       type: TYPE.default, createdAt: "2026-08-09",
     },
