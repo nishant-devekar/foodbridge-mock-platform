@@ -963,20 +963,44 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .rp-sec { padding: 16px 0 4px; }
 .rp-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .rp-sec-head span { font-size: 14px; font-weight: 600; color: #374151; }
-.rp-sec-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
 .rp-none { border: 1px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted-2); font-size: 13.5px; }
+
+/* A beat is twenty or thirty of these. One line each: the row is a list entry,
+   not a form row, so nothing in it is allowed to claim a second line. */
 .rp-mems { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.rp-mem { display: grid; grid-template-columns: 26px minmax(0, 1fr) 132px 32px; gap: 10px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line-soft); }
+.rp-mem { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 4px 10px 4px 8px; border-top: 1px solid var(--line-soft); }
 .rp-mem:first-child { border-top: none; }
-.rp-mem .n { width: 26px; height: 26px; border-radius: 50%; background: var(--line-soft); color: var(--ink-soft); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
-.rp-mem.warn .n { background: #fff7ed; color: var(--orange-500); }
-.rp-mem .nm { min-width: 0; }
-.rp-mem .nm b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rp-mem .tg { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rp-mem .fix { display: inline-block; font-size: 12px; font-weight: 600; color: var(--emerald-700); cursor: pointer; }
-.rp-mem .fix:hover { text-decoration: underline; }
-.rp-mem select { width: 100%; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 0 8px; font-size: 13px; font-family: inherit; color: var(--ink); outline: none; }
-.rp-mem select:focus { border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(16,185,129,.14); }
+.rp-mem:hover { background: #fbfcfd; }
+/* The order, as a numeral rather than a badge — it is a position, not a state. */
+.rp-mem .n { flex-shrink: 0; width: 20px; text-align: right; font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.rp-mem.warn .n { display: grid; place-items: center; color: var(--orange-500); }
+.rp-mem .nm { flex: 1; min-width: 0; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Shown only when this customer sits outside the beat's own locality. */
+.rp-mem .tg { flex-shrink: 0; max-width: 34%; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* An action, but a repeated one — nine of these in emerald would outrank the
+   customer names. The triangle already flags the row; the link only has to be
+   findable. */
+.rp-mem .fix { flex-shrink: 0; font-size: 11.5px; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.rp-mem .fix:hover { color: var(--emerald-700); }
+/* Quiet at its default, a chip the moment it is not. Across twenty-five rows
+   that turns frequency from a wall of selects into two or three visible facts. */
+.rp-mem .freq { flex-shrink: 0; height: 30px; border: none; border-radius: 6px; background: transparent; padding: 0 4px; font-size: 12px; font-family: inherit; color: var(--muted-2); outline: none; -webkit-appearance: none; appearance: none; text-align: right; }
+.rp-mem .freq.on { background: var(--emerald-50); color: var(--emerald-700); font-weight: 600; padding: 0 8px; }
+/* The quiet state carries no chevron — twenty-five of them would be the noise
+   this row exists to avoid — so hover supplies the hit target instead, and the
+   chips in the same column teach that the value is editable. */
+.rp-mem .freq:hover { background: var(--line-soft); color: var(--ink-soft); }
+.rp-mem .freq.on:hover { background: #d1fae5; color: var(--emerald-700); }
+.rp-mem .freq:focus-visible { box-shadow: 0 0 0 2px rgba(16,185,129,.35); }
+.rp-mem .rm { flex-shrink: 0; width: 24px; height: 24px; border: none; background: transparent; border-radius: 6px; color: var(--line); display: grid; place-items: center; }
+.rp-mem:hover .rm { color: var(--muted-2); }
+.rp-mem .rm:hover { background: #fef2f2; color: var(--rose-500); }
+
+/* The caption for the numerals, and the recovery action — not a call to
+   action: the order is re-derived on its own whenever membership changes. */
+.rp-seq { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 0 2px; font-size: 11.5px; color: var(--muted-2); }
+.rp-redo { border: none; background: transparent; padding: 0; font-size: 11.5px; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.rp-redo:hover { color: var(--emerald-700); }
 
 /* Inline validation on a required field. */
 .d-row.bad input { border-color: var(--rose-500); }
@@ -1007,14 +1031,12 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   .rp-pick .chip-scroll { flex-wrap: nowrap; }
   .rp-pick .chip-scroll .chip-pill { flex-shrink: 0; }
   .rp-pick .ms-list { max-height: 38vh; }
-  /* Member row goes two-line: number + name + remove, then frequency — which
-     takes the width it needs, not the width it is offered. */
-  .rp-mem { grid-template-columns: 26px minmax(0, 1fr) 32px; row-gap: 8px; }
-  .rp-mem .n { grid-row: 1; grid-column: 1; }
-  .rp-mem .nm { grid-row: 1; grid-column: 2; }
-  .rp-mem > .icon-btn { grid-row: 1; grid-column: 3; }
-  .rp-mem select, .rp-mem .freq-gap { grid-row: 2; grid-column: 2 / 4; }
-  .rp-mem select { max-width: 160px; }
+  /* The row stays one line at 375 too — it is what keeps a thirty-shop beat
+     scrollable. Only the outlier tag gives up width. */
+  .rp-mem { gap: 8px; }
+  .rp-mem .tg { max-width: 88px; }
+  /* No hover on a phone, so remove cannot hide until hovered. */
+  .rp-mem .rm { color: var(--muted-2); }
   /* Seven chips share the row rather than each claiming all of it. */
   .rp-days { gap: 4px; }
   .rp-day { flex: 1; width: auto; min-width: 0; height: 40px; border-radius: 10px; }

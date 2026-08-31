@@ -293,26 +293,31 @@
   const FREQ = [["every", "Every"], ["alternate", "Alternate"], ["monthly", "Monthly"]];
   const daysLabel = (d) => (d || []).slice().sort((a, b) => a - b).map((n) => DAY_ABBR[n]).join(", ");
 
-  // The distinct location tags of a beat's members, most common first. Computed
-  // here, at render, from the customers — nothing is written to the beat.
-  function coverageOf(beat, reg) {
+  /* The location tag most of a beat's members share, computed at render from
+     the customers — nothing is written to the beat.
+
+     It is never displayed. It exists so a member's own tag can be shown ONLY
+     when it differs: a beat called "Andheri West Beat" printing "Andheri West"
+     against twenty-five rows says nothing the name has not already said, while
+     the one shop in Juhu is a planning fact the name cannot carry. */
+  function mainTag(members, reg) {
     const n = {};
-    (beat.members || []).forEach((m) => { const t = reg[m.customerId] && reg[m.customerId].tag; if (t) n[t] = (n[t] || 0) + 1; });
+    (members || []).forEach((m) => { const t = reg[m.customerId] && reg[m.customerId].tag; if (t) n[t] = (n[t] || 0) + 1; });
     const tags = Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b));
-    if (!tags.length) return "";
-    return tags[0] + (tags.length > 1 ? ` +${tags.length - 1}` : "");
+    return tags[0] || "";
   }
 
   const isLocated = (reg, id) => !!(reg[id] && reg[id].lat != null);
   const unlocatedIn = (beat, reg) => (beat.members || []).filter((m) => !isLocated(reg, m.customerId)).length;
 
   // ── Suggested order ───────────────────────────────────────────────────────
-  // Nearest-neighbour, then a 2-opt pass. For ten to thirty stops in one
-  // locality that is instant and within a few percent of optimal — well inside
-  // the noise of real traffic, which is all the warehouse pick order and the
-  // office ETA can use. There is no depot in the data model, so the run starts
-  // at the stop nearest the cluster's centre: stable, and the same membership
-  // always yields the same order. Unlocated members keep their place at the end.
+  // A suggestion, and named one everywhere it is shown: it is roughly right and
+  // always present, which is what the warehouse pick order and the office ETA
+  // can use, and the driver reorders on the road regardless. Nearest-neighbour
+  // then a 2-opt pass over the members' coordinates — none of which the planner
+  // is ever shown. There is no depot in the data model, so the run starts at the
+  // stop nearest the cluster's centre: stable, and the same membership always
+  // yields the same order. Unlocated members keep their place at the end.
   function distKm(a, b) {
     const R = 6371, rad = Math.PI / 180;
     const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
@@ -512,41 +517,64 @@
       const leaveFor = (customerId) => { if (commit()) goToCustomer(customerId); };
 
       const members = panel.querySelector("#members");
+
+      /* The order is the system's, so the system keeps it: re-derived whenever
+         membership changes and whenever the editor opens, which is when a
+         location fixed next door lands. Recalculate is the recovery, not the
+         mechanism. */
+      const resequence = () => { draft.members = sequenceMembers(draft.members, readCustomers()); paintMembers(); };
+
+      /* One line per customer. A beat is twenty or thirty of these, so every
+         pixel of row height is paid for twenty-five times over:
+
+           order · name · tag ONLY when it differs · frequency · remove
+
+         Frequency is a control the planner touches on perhaps one row in ten.
+         "Every" is the default, so it is drawn as quiet text; the moment it is
+         not the default it becomes a chip, which is the only state worth
+         seeing across a long list. */
       function paintMembers() {
         const reg = readCustomers();
         if (!draft.members.length) {
           members.innerHTML = `<div class="rp-none">No customers yet</div>`;
           return;
         }
+        const main = mainTag(draft.members, reg);
+        const located = draft.members.filter((m) => isLocated(reg, m.customerId)).length;
         let seq = 0;
         members.innerHTML = `<div class="rp-mems">${draft.members.map((m, i) => {
           const c = reg[m.customerId];
           const ok = c && c.lat != null;
           if (ok) seq++;
-          return `<div class="rp-mem ${ok ? "" : "warn"}">
-            <span class="n">${ok ? seq : "!"}</span>
-            <span class="nm"><b>${esc(c ? c.name : "Customer no longer exists")}</b>${
-              c ? (ok ? `<span class="tg">${esc(c.tag || "")}</span>` : `<a class="fix" data-fix="${attr(m.customerId)}">Add location →</a>`) : ""}</span>
-            ${c ? `<select data-freq="${i}">${FREQ.map(([v, l]) => `<option value="${v}" ${m.frequency === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : `<span class="freq-gap"></span>`}
-            <button type="button" class="icon-btn danger" data-rm="${i}">${I.x}</button>
+          const aside = !c ? ""
+            : ok ? (c.tag && c.tag !== main ? `<span class="tg">${esc(c.tag)}</span>` : "")
+            : `<a class="fix" data-fix="${attr(m.customerId)}">Add location</a>`;
+          return `<div class="rp-mem${ok ? "" : " warn"}">
+            <span class="n">${ok ? seq : I.alert}</span>
+            <span class="nm">${esc(c ? c.name : "No longer exists")}</span>
+            ${aside}
+            ${c ? `<select class="freq${m.frequency === "every" ? "" : " on"}" data-freq="${i}">${
+              FREQ.map(([v, l]) => `<option value="${v}" ${m.frequency === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
+            <button type="button" class="rm" data-rm="${i}" aria-label="Remove">${I.x}</button>
           </div>`;
         }).join("")}</div>${
-          draft.members.filter((m) => reg[m.customerId] && reg[m.customerId].lat != null).length > 1
-            ? `<div class="rp-sec-foot"><button type="button" class="btn-mini" id="recalc">${I.sync} Recalculate</button></div>` : ""}`;
+          located > 1 ? `<div class="rp-seq"><span>Suggested order</span><button type="button" class="rp-redo" id="recalc">Recalculate</button></div>` : ""}`;
 
-        members.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { draft.members.splice(+b.dataset.rm, 1); paintMembers(); }));
-        members.querySelectorAll("[data-freq]").forEach((s) => s.addEventListener("change", () => { draft.members[+s.dataset.freq].frequency = s.value; }));
+        members.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { draft.members.splice(+b.dataset.rm, 1); resequence(); }));
+        members.querySelectorAll("[data-freq]").forEach((sel) => sel.addEventListener("change", () => {
+          draft.members[+sel.dataset.freq].frequency = sel.value;
+          sel.classList.toggle("on", sel.value !== "every");
+        }));
         members.querySelectorAll("[data-fix]").forEach((a) => a.addEventListener("click", () => leaveFor(a.dataset.fix)));
         const rc = members.querySelector("#recalc");
-        if (rc) rc.addEventListener("click", () => { draft.members = sequenceMembers(draft.members, readCustomers()); paintMembers(); toast("Order recalculated.", "ok"); });
+        if (rc) rc.addEventListener("click", resequence);
       }
-      paintMembers();
+      resequence();
 
       panel.querySelector("#addCust").addEventListener("click", () =>
         customerPicker({ id: editing && editing.id, members: draft.members }, [], (ids) => {
           ids.forEach((id) => draft.members.push({ customerId: id, frequency: "every" }));
-          draft.members = sequenceMembers(draft.members, readCustomers());
-          paintMembers();
+          resequence();
         }));
     }
 
@@ -602,9 +630,13 @@
         body.innerHTML = emptyBlock(SEED.beats.length ? "No match" : "No beats yet.", SEED.beats.length ? "Try another search term." : "Add a beat to plan a recurring territory.");
         return;
       }
+      /* Name, and the one thing the name cannot say. A beat's locality is in
+         its name; repeating a derived version of it under every row is the
+         same fact twice. What survives is the condition that silently
+         degrades the suggested order. */
       const cell = (b) => {
-        const cov = coverageOf(b, reg), miss = unlocatedIn(b, reg);
-        return `<span class="prod-name">${esc(b.name)}</span>${cov ? `<div class="prod-art">${esc(cov)}</div>` : ""}${
+        const miss = unlocatedIn(b, reg);
+        return `<span class="prod-name">${esc(b.name)}</span>${
           miss ? `<div class="rp-warn">${I.alert} ${miss} need${miss === 1 ? "s" : ""} location</div>` : ""}`;
       };
       const acts = (b) => `<button class="icon-btn" title="Edit" data-act="edit" data-id="${b.id}">${I.edit}</button><button class="icon-btn danger" title="Delete" data-act="del" data-id="${b.id}">${I.trash}</button>`;
@@ -619,8 +651,8 @@
             <td><div class="row-actions">${acts(b)}</div></td></tr>`).join("")}</tbody>
         </table></div></div>
         <div class="cards">${rows.map((b) => {
-          const cov = coverageOf(b, reg), miss = unlocatedIn(b, reg);
-          const meta = [daysLabel(b.days), `${b.members.length} shop${b.members.length !== 1 ? "s" : ""}`, cov].filter(Boolean).join(" · ");
+          const miss = unlocatedIn(b, reg);
+          const meta = [daysLabel(b.days), `${b.members.length} shop${b.members.length !== 1 ? "s" : ""}`].filter(Boolean).join(" · ");
           return `<div class="pcard"><div class="pc-top" style="padding:14px">
             <div class="pc-main"><div class="pc-name">${esc(b.name)}</div><div class="pc-art">${esc(meta)}</div>${
               miss ? `<div class="rp-warn">${I.alert} ${miss} need${miss === 1 ? "s" : ""} location</div>` : ""}</div>
