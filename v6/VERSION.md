@@ -19,6 +19,72 @@ where its files came from — new entries for `v6` go above it.
 
 ## Changes
 
+### 31 August 2026 — Route Planning becomes Beats and Vehicles
+
+Delivery Templates was a name and two id arrays over a private 24-name customer seed with no
+geography, plus a staff list on a territory. It is now the module the distribution plan
+needs before anything is dispatched: **Beats** — recurring territories — and **Vehicles**,
+the reusable master Create Delivery will pick from. Nothing here names a date, a crew or
+money; that boundary is the module's definition, not a preference.
+
+**The locked rule.** A beat's *name* is user-defined; its *location* is derived from its
+members. A beat stores four keys — `id`, `name`, `days`, `members[{customerId, frequency}]`
+— and no fifth. There is no area field, no area column, and nothing geographic is written to
+a beat at any point. Coverage, readiness and the suggested order are all computed at render
+from the members' own pins.
+
+**Geography is consumed, never copied.** Route Planning reads the real B2B registry from
+`fb-discovery-customers-v1`, falling back to the same `seed.inline.js` Customer Management
+itself loads. Read-only, one key, no writes. The location tag beside a customer is that
+customer's `area`, derived there from their pin; here it only recommends and recognises. In
+the picker a tag recommends — *Add all N* adds N explicit memberships the planner can still
+decline — and a customer tagged into that locality tomorrow does not join the beat.
+
+**The order is the system's.** Nearest-neighbour and a 2-opt pass over the members'
+coordinates, re-derived when membership changes and when the editor opens, which is when a
+location fixed next door lands. It is called *Suggested order* everywhere it appears, the
+algorithm is never surfaced, and there is deliberately no way to reorder by hand: a wrong
+order is a wrong location, and dragging would hide that defect inside one beat forever. An
+unlocated customer therefore stays in the beat, unsequenced at the end, behind
+**Add location** — which saves the beat and deep-links to that customer in Customer
+Management with the location sheet already open.
+
+**Three supporting changes.** Customer Management accepts `?customer=<id>`, opening that
+customer on their location — the same shape as the Stock Audit link it already emits. The
+platform router now carries a query on the hash
+(`#/customer-management/b2b-customers?customer=c15`), because letting the frame navigate
+itself left the sidebar pointing at Route Planning and the clip offsets wrong. And the ten
+address-less B2B customers got pins in the western suburbs, where the location picker already
+opens and where Delivery Management's own beats run; the registry had held three located
+customers in three localities, which is enough to prove a tag exists and not enough to group
+or order by one. The ADDRESS column still renders `-` — a pin fills `place`/`area`, not
+`adress1`.
+
+**The editor is a list, not a form.** Each customer is one 44px row (52px on a phone):
+order, name, a location tag *only where it differs from the rest of the beat*, frequency,
+remove. `Every` is the default, so it is drawn as quiet text with a faint caret; anything
+else becomes a chip, which across twenty-five rows turns a wall of selects into the two or
+three facts worth seeing. The beat rows carry no derived coverage — under a beat named
+"Andheri West Beat" it is the name twice — only the readiness warning, which is the one
+thing about a beat's geography a name can never say.
+
+Vehicles are six planning attributes: registration, type, capacity, cost, cold chain, status.
+No driver, no load, no fuel, no service history. Capacity is inert until products carry a
+weight (req 18); it is captured because it is master data Create Delivery needs.
+
+Beats and vehicles persist to `fb-distribution-route-planning-v1`, without which the trip to
+Customer Management and back would lose the beat being edited.
+
+Production pass: unsaved-changes guards on both editors, inline validation under the field
+(blank and duplicate names), first-run empty states that own the screen and their action,
+delete dialogs that say what they cost, `:focus-visible` on every control the screen invented,
+`aria-pressed` on day chips and switches, and touch targets at the module's own 40/44 scale
+— verified by hit-testing every control's centre point at 375×812 and on desktop, including a
+22-shop beat, with nothing intercepted by the drawer footer, the sticky bar or a card.
+
+Removed: staff on a territory, timestamped names, the private customer seed for this screen,
+the multi-select widget the picker replaced, and the derived coverage line.
+
 ### 30 August 2026 — Delivery Management renders inside the platform shell
 
 It was flagged `fullBleed` in `modules.json`, which is the flag for a module that is its own

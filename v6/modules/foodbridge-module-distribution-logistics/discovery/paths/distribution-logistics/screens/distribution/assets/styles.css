@@ -709,6 +709,8 @@ table.grid tbody tr:hover { background: #fafbfc; }
 /* Assignment badge ("N templates") + popover */
 .assign-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--line-soft); border: none; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
 .assign-badge:hover { background: #e5e7eb; }
+.assign-badge.as-text { cursor: default; }
+.assign-badge.as-text:hover { background: var(--line-soft); }
 .assign-badge svg { transition: transform .15s; }
 .assign-badge.open svg { transform: rotate(180deg); }
 .assign-pop { position: fixed; z-index: 9999; width: 210px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
@@ -983,12 +985,20 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 /* An action, but a repeated one — nine of these in emerald would outrank the
    customer names. The triangle already flags the row; the link only has to be
    findable. */
-.rp-mem .fix { flex-shrink: 0; font-size: 11.5px; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.rp-mem .fix { flex-shrink: 0; padding: 8px 2px; font-size: 11.5px; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; border-radius: 5px; }
 .rp-mem .fix:hover { color: var(--emerald-700); }
 /* Quiet at its default, a chip the moment it is not. Across twenty-five rows
-   that turns frequency from a wall of selects into two or three visible facts. */
-.rp-mem .freq { flex-shrink: 0; height: 32px; border: 4px solid transparent; border-radius: 9px; background: transparent; background-clip: padding-box; padding: 0 4px; font-size: 12px; font-family: inherit; color: var(--muted-2); outline: none; -webkit-appearance: none; appearance: none; text-align: right; }
-.rp-mem .freq.on { background: var(--emerald-50); background-clip: padding-box; color: var(--emerald-700); font-weight: 600; padding: 0 8px; }
+   that turns frequency from a wall of selects into two or three visible facts.
+
+   The caret is what keeps quiet from meaning invisible: the native arrow is
+   suppressed so the chip can be a chip, so a faint one is drawn back in. It is
+   the only thing marking these as controls on a touch screen, where the hover
+   background never fires. */
+.rp-mem .freq { flex-shrink: 0; height: 32px; border: 4px solid transparent; border-radius: 9px; background-color: transparent; background-clip: padding-box; padding: 0 17px 0 6px; font-size: 12px; font-family: inherit; color: var(--muted-2); outline: none; -webkit-appearance: none; appearance: none; text-align: right;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6' fill='none' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1.5 3.5 3L8 1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center; }
+.rp-mem .freq.on { background-color: var(--emerald-50); color: var(--emerald-700); font-weight: 600; padding-left: 9px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6' fill='none' stroke='%23047857' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1.5 3.5 3L8 1.5'/%3E%3C/svg%3E"); }
 /* The quiet state carries no chevron — twenty-five of them would be the noise
    this row exists to avoid — so hover supplies the hit target instead, and the
    chips in the same column teach that the value is editable. */
@@ -1044,8 +1054,10 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
 .rp-flag { flex-shrink: 0; font-size: 11.5px; font-weight: 600; color: var(--orange-500); }
 
 /* The toggle is the switch, not a button around it — `button` keeps only its
-   font and cursor from the reset, so the chrome has to go here. */
-.toggle-wrap { border: none; background: transparent; padding: 0; }
+   font and cursor from the reset, so the chrome has to go here. The padding is
+   the tap target (the switch itself is 22px tall); the matching negative margin
+   means the target costs the row no height. */
+.toggle-wrap { border: none; background: transparent; padding: 10px 6px; margin: -10px -6px; border-radius: 8px; }
 
 /* Vehicles — a marker only when it says something. */
 /* A capability the vehicle has, in the module's own affirmative green; the
@@ -1070,9 +1082,15 @@ table.grid td.num, table.grid th.num { text-align: right; font-variant-numeric: 
   .rp-mem .freq { height: 40px; }
   /* No hover on a phone, so remove cannot hide until hovered. */
   .rp-mem .rm { width: 40px; height: 40px; color: var(--muted-2); }
-  .rp-mem .fix { padding: 6px 0; }
+  /* Subtabs are the screen's primary navigation and were 31px of tappable
+     height. Padding grows the target upward; the underline stays put. */
+  .subtab { padding-top: 12px; }
+  /* The exception action and the recovery link get a thumb-sized box; the
+     caption row gives back the height the link's padding adds. */
+  .rp-mem .fix { padding: 12px 4px; }
   .btn-mini { height: 40px; padding: 0 14px; }
-  .rp-redo { padding: 8px 4px; }
+  .rp-seq { margin-bottom: 0; }
+  .rp-redo { padding: 13px 6px; }
   .icon-btn { width: 40px; height: 40px; }
   .rp-pick .chip-pill { height: 40px; }
   .ms-opt { min-height: 48px; }

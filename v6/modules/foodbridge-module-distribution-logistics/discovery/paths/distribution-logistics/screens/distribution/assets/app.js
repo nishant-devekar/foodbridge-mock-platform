@@ -435,7 +435,12 @@
             const on = picked.has(c.id), beats = onBeats[c.id] || [];
             return `<label class="ms-opt ${on ? "sel" : ""}" data-id="${c.id}"><input type="checkbox" ${on ? "checked" : ""}><span class="nm">${esc(c.name)}</span>${
               c.lat == null ? `<span class="rp-flag">no location</span>` : ""}${
-              beats.length ? `<button type="button" class="assign-badge" data-badge="${c.id}">${beats.length} beat${beats.length !== 1 ? "s" : ""} ${I.chev}</button>` : ""}</label>`;
+              beats.length ? (isMobile()
+                /* On a phone this is a 24px target for a nicety — which beats,
+                   not whether. The count is the planning fact; it stays, as
+                   text, and the popover remains a pointer affordance. */
+                ? `<span class="assign-badge as-text">${beats.length} beat${beats.length !== 1 ? "s" : ""}</span>`
+                : `<button type="button" class="assign-badge" data-badge="${c.id}">${beats.length} beat${beats.length !== 1 ? "s" : ""} ${I.chev}</button>`) : ""}</label>`;
           }).join("") : `<div class="ms-empty">${pool.length ? "No match" : (Object.keys(reg).length ? "Everyone is on this beat" : `No customers — <a href="${CUSTOMER_URL}">add one</a>`)}</div>`}</div>`;
 
         const sel = [...picked].map((id) => reg[id]).filter(Boolean);
