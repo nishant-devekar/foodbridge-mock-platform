@@ -57,6 +57,7 @@
     imgphL: '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-5-5L5 21"/></svg>',
     check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14.01l-3-3"/></svg>',
     back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+    alertBig: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
     alert: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
     sync: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>',
     sort: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>',
@@ -98,22 +99,34 @@
     return { scrim, panel: scrim.querySelector(".modal-panel"), close };
   }
 
-  // ── Delete confirm ────────────────────────────────────────────────────────
-  function confirmDelete({ name, title, message, onConfirm }) {
+  // ── Confirm ───────────────────────────────────────────────────────────────
+  // One dialog, two callers: deleting a record, and leaving an edited form.
+  // Both destroy work the user can't get back; nothing else asks.
+  function confirmDialog({ icon, title, message, confirmLabel, cancelLabel, onConfirm }) {
     const scrim = document.createElement("div"); scrim.className = "modal-scrim";
-    scrim.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><div class="modal-ic">${I.trashBig}</div>
-      <h2>${esc(title || "Delete")}</h2><p>${message || `Are you sure you want to delete <b>${esc(name)}</b>? This cannot be undone.`}</p>
-      <div class="modal-foot"><button class="btn" data-keep style="border-color:var(--line)">Cancel</button><button class="btn btn-danger" data-del>Delete</button></div></div>`;
+    scrim.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true"><div class="modal-ic">${icon || I.trashBig}</div>
+      <h2>${esc(title)}</h2><p>${message}</p>
+      <div class="modal-foot"><button class="btn" data-keep style="border-color:var(--line)">${esc(cancelLabel || "Cancel")}</button><button class="btn btn-danger" data-go>${esc(confirmLabel || "Delete")}</button></div></div>`;
     document.body.appendChild(scrim);
     requestAnimationFrame(() => scrim.classList.add("show"));
-    const close = () => { scrim.classList.remove("show"); setTimeout(() => scrim.remove(), 200); };
+    const close = () => { scrim.classList.remove("show"); setTimeout(() => scrim.remove(), 200); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    document.addEventListener("keydown", onKey);
     scrim.addEventListener("click", (e) => { if (e.target === scrim) close(); });
     scrim.querySelector("[data-keep]").addEventListener("click", close);
-    scrim.querySelector("[data-del]").addEventListener("click", () => { onConfirm(); close(); });
+    scrim.querySelector("[data-go]").addEventListener("click", () => { onConfirm(); close(); });
+    setTimeout(() => scrim.querySelector("[data-keep]").focus(), 60);
+  }
+  function confirmDelete({ name, title, message, onConfirm }) {
+    confirmDialog({ title: title || "Delete", onConfirm,
+      message: message || `Are you sure you want to delete <b>${esc(name)}</b>? This cannot be undone.` });
   }
 
   // ── Generic right drawer (Add / Edit forms) ─────────────────────────────────
-  function drawer({ title, subtitle, body, saveLabel, onSave, wide }) {
+  // `guard` (optional) runs before any dismissal — scrim, X, Cancel, Escape.
+  // Returning false blocks the close; the guard is then responsible for what
+  // happens next. Callers that pass nothing behave exactly as before.
+  function drawer({ title, subtitle, body, saveLabel, onSave, wide, guard }) {
     const scrim = document.createElement("div"); scrim.className = "drawer-scrim";
     const panel = document.createElement("div"); panel.className = "drawer" + (wide ? " wide" : "");
     panel.innerHTML = `
@@ -123,11 +136,14 @@
     document.body.appendChild(scrim); document.body.appendChild(panel);
     requestAnimationFrame(() => { scrim.classList.add("show"); panel.classList.add("open"); });
     const close = () => { scrim.classList.remove("show"); panel.classList.remove("open"); setTimeout(() => { scrim.remove(); panel.remove(); document.removeEventListener("keydown", onKey); }, 280); };
-    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const tryClose = () => { if (!guard || guard(close) !== false) close(); };
+    // Escape is scoped to the topmost layer: a sheet or dialog over this drawer
+    // stops the event, so Escape closes that first and this second.
+    const onKey = (e) => { if (e.key === "Escape") tryClose(); };
     document.addEventListener("keydown", onKey);
-    scrim.addEventListener("click", close);
-    panel.querySelector(".x").addEventListener("click", close);
-    panel.querySelector("[data-close]").addEventListener("click", close);
+    scrim.addEventListener("click", tryClose);
+    panel.querySelector(".x").addEventListener("click", tryClose);
+    panel.querySelector("[data-close]").addEventListener("click", tryClose);
     panel.querySelector("[data-save]").addEventListener("click", () => {
       const form = panel.querySelector("#drawerForm");
       const f = new Proxy(form, { get(t, p) { const el = t.elements ? t.elements[p] : undefined; return el !== undefined ? el : t[p]; } });
@@ -144,7 +160,9 @@
   }
   const dRow = (label, req, ctrl, hint) => `<div class="d-row"><label>${label}${req ? ' <span class="req">*</span>' : ""}</label><div class="ctrl">${ctrl}${hint ? `<div class="hint">${hint}</div>` : ""}</div></div>`;
   const imgGrid = `<div class="img-grid">${Array.from({ length: 4 }, () => `<div class="img-box">${I.plus}</div>`).join("")}</div>`;
-  const emptyBlock = (t, m) => `<div class="table-wrap"><div class="empty"><div class="ic">${I.empty}</div><h2>${esc(t)}</h2><p>${m}</p></div></div>`;
+  // A first-run empty state that names the fix but doesn't offer it sends the
+  // user hunting for the toolbar. `action` puts the button in the empty state.
+  const emptyBlock = (t, m, action, icon) => `<div class="table-wrap"><div class="empty"><div class="ic">${icon || I.empty}</div><h2>${esc(t)}</h2><p>${m}</p>${action ? `<div class="empty-act">${action}</div>` : ""}</div></div>`;
 
   // ── Assignment badge popover ("N templates") ────────────────────────────────
   let openAssignPop = null;
@@ -462,15 +480,38 @@
         members: editing ? editing.members.map((m) => ({ ...m })) : [],
       };
 
+      /* What the drawer settled on once open, so leaving can tell edited from
+         untouched. Taken AFTER the opening resequence, which re-derives the
+         order from current locations — that is the system's work, not the
+         planner's, and must not read as an unsaved change. */
+      const nameField = () => panel.querySelector('[name="name"]');
+      const snapshot = () => JSON.stringify({
+        name: nameField().value.trim(),
+        days: draft.days.slice().sort((a, b) => a - b),
+        members: draft.members,
+      });
+      let clean = null;
+      const dirty = () => clean !== null && snapshot() !== clean;
+
       const { panel } = drawer({
         title: editing ? "Edit Beat" : "New Beat",
         saveLabel: "Save",
+        guard: (close) => {
+          if (!dirty()) return true;
+          confirmDialog({
+            icon: I.alertBig, title: "Discard changes?",
+            message: "This beat has unsaved changes.",
+            confirmLabel: "Discard", cancelLabel: "Keep editing",
+            onConfirm: close,
+          });
+          return false;
+        },
         body: `
-          <div class="d-row"><label>Name <span class="req">*</span></label><div class="ctrl"><input name="name" value="${attr(draft.name)}" placeholder="e.g. Andheri West Beat"></div></div>
-          <div class="d-row"><label>Days</label><div class="ctrl"><div class="rp-days" id="days">${
-            DAY_S.map((d, i) => `<button type="button" class="rp-day" data-day="${i}" aria-label="${DAY_ABBR[i]}">${d}</button>`).join("")}</div></div></div>
+          <div class="d-row"><label for="beatName">Name <span class="req">*</span></label><div class="ctrl"><input id="beatName" name="name" value="${attr(draft.name)}" placeholder="e.g. Andheri West Beat" autocomplete="off"><div class="err" data-err></div></div></div>
+          <div class="d-row"><label>Days</label><div class="ctrl"><div class="rp-days" role="group" aria-label="Working days" id="days">${
+            DAY_S.map((d, i) => `<button type="button" class="rp-day" data-day="${i}" aria-pressed="false" aria-label="${DAY_ABBR[i]}">${d}</button>`).join("")}</div></div></div>
           <div class="rp-sec">
-            <div class="rp-sec-head"><span>Customers</span><button type="button" class="btn-mini" id="addCust">Add customers</button></div>
+            <div class="rp-sec-head"><span>Customers</span><button type="button" class="btn-mini" id="addCust">${I.plus} Add customers</button></div>
             <div id="members"></div>
           </div>`,
         onSave: () => {
@@ -481,15 +522,27 @@
         },
       });
 
+      const showErr = (msg) => {
+        const row = nameField().closest(".d-row");
+        row.classList.toggle("bad", !!msg);
+        row.querySelector("[data-err]").textContent = msg || "";
+        if (msg) { nameField().focus(); }
+      };
+      panel.querySelector('[name="name"]').addEventListener("input", () => showErr(""));
+
       /* The beat the draft describes, written back. Four keys and no fifth —
          a customer id and a frequency are all a membership is. Returns false
-         and marks the field when the one required value is missing. */
+         and marks the field when a required or unique value is missing. */
       function commit() {
-        const field = panel.querySelector('[name="name"]');
-        const row = field.closest(".d-row");
+        const field = nameField();
         const name = field.value.trim();
-        row.classList.toggle("bad", !name);
-        if (!name) { toast("Name is required.", "err"); return false; }
+        if (!name) { showErr("Name is required."); return false; }
+        // Two beats with one name is a real ambiguity downstream, where a beat
+        // is chosen by the name the planner gave it.
+        if (SEED.beats.some((b) => b !== editing && b.name.toLowerCase() === name.toLowerCase())) {
+          showErr("A beat with this name already exists."); return false;
+        }
+        showErr("");
         const beat = {
           id: editing ? editing.id : "bt-" + Date.now(),
           name,
@@ -504,7 +557,10 @@
       }
 
       const dayEls = panel.querySelectorAll(".rp-day");
-      const paintDays = () => dayEls.forEach((b) => b.classList.toggle("on", draft.days.includes(+b.dataset.day)));
+      const paintDays = () => dayEls.forEach((b) => {
+        const on = draft.days.includes(+b.dataset.day);
+        b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
       dayEls.forEach((b) => b.addEventListener("click", () => {
         const d = +b.dataset.day;
         draft.days.includes(d) ? draft.days.splice(draft.days.indexOf(d), 1) : draft.days.push(d);
@@ -536,13 +592,19 @@
       function paintMembers() {
         const reg = readCustomers();
         if (!draft.members.length) {
-          members.innerHTML = `<div class="rp-none">No customers yet</div>`;
+          members.innerHTML = `<div class="rp-none"><p>No customers yet</p><button type="button" class="btn-mini" data-add>${I.plus} Add customers</button></div>`;
+          members.querySelector("[data-add]").addEventListener("click", openPicker);
           return;
         }
         const main = mainTag(draft.members, reg);
         const located = draft.members.filter((m) => isLocated(reg, m.customerId)).length;
         let seq = 0;
-        members.innerHTML = `<div class="rp-mems">${draft.members.map((m, i) => {
+        /* The caption sits above the numerals, not under them: read first, it
+           says the column is the system's output, which is the whole point of
+           the block. Recalculate rides with it as the recovery. */
+        members.innerHTML = `${located > 1
+            ? `<div class="rp-seq"><span>Suggested order</span><button type="button" class="rp-redo" id="recalc">Recalculate</button></div>` : ""
+          }<div class="rp-mems">${draft.members.map((m, i) => {
           const c = reg[m.customerId];
           const ok = c && c.lat != null;
           if (ok) seq++;
@@ -557,8 +619,7 @@
               FREQ.map(([v, l]) => `<option value="${v}" ${m.frequency === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}
             <button type="button" class="rm" data-rm="${i}" aria-label="Remove">${I.x}</button>
           </div>`;
-        }).join("")}</div>${
-          located > 1 ? `<div class="rp-seq"><span>Suggested order</span><button type="button" class="rp-redo" id="recalc">Recalculate</button></div>` : ""}`;
+        }).join("")}</div>`;
 
         members.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { draft.members.splice(+b.dataset.rm, 1); resequence(); }));
         members.querySelectorAll("[data-freq]").forEach((sel) => sel.addEventListener("change", () => {
@@ -570,12 +631,15 @@
         if (rc) rc.addEventListener("click", resequence);
       }
       resequence();
+      clean = snapshot();
 
-      panel.querySelector("#addCust").addEventListener("click", () =>
+      function openPicker() {
         customerPicker({ id: editing && editing.id, members: draft.members }, [], (ids) => {
           ids.forEach((id) => draft.members.push({ customerId: id, frequency: "every" }));
           resequence();
-        }));
+        });
+      }
+      panel.querySelector("#addCust").addEventListener("click", openPicker);
     }
 
     /* ── Vehicles ─────────────────────────────────────────────────────────
@@ -584,13 +648,27 @@
     const TYPES = ["Two-wheeler", "Three-wheeler", "Tempo", "Truck"];
     function vehicleForm(editing) {
       const draft = { cold: editing ? !!editing.cold : false, active: editing ? editing.active !== false : true };
-      const sw = (key, label) => `<div class="d-row"><label>${label}</label><div class="ctrl"><button type="button" class="toggle-wrap" data-sw="${key}"><span class="switch"></span></button></div></div>`;
+      const sw = (key, label) => `<div class="d-row"><label>${label}</label><div class="ctrl"><button type="button" class="toggle-wrap" data-sw="${key}" role="switch" aria-label="${label}"><span class="switch"></span></button></div></div>`;
+
+      const clean = () => JSON.stringify([panel.querySelector('[name="reg"]').value.trim(), panel.querySelector('[name="type"]').value,
+        panel.querySelector('[name="capacity"]').value, panel.querySelector('[name="cost"]').value, draft.cold, draft.active]);
+      let opened = null;
 
       const { panel } = drawer({
         title: editing ? "Edit Vehicle" : "New Vehicle",
         saveLabel: "Save",
+        guard: (close) => {
+          if (clean() === opened) return true;
+          confirmDialog({
+            icon: I.alertBig, title: "Discard changes?",
+            message: "This vehicle has unsaved changes.",
+            confirmLabel: "Discard", cancelLabel: "Keep editing",
+            onConfirm: close,
+          });
+          return false;
+        },
         body: `
-          <div class="d-row"><label>Registration <span class="req">*</span></label><div class="ctrl"><input name="reg" value="${attr(editing ? editing.reg : "")}" placeholder="e.g. MH 12 AB 4432"></div></div>
+          <div class="d-row"><label for="vehReg">Registration <span class="req">*</span></label><div class="ctrl"><input id="vehReg" name="reg" value="${attr(editing ? editing.reg : "")}" placeholder="e.g. MH 12 AB 4432" autocomplete="off"><div class="err" data-err></div></div></div>
           <div class="d-row"><label>Type</label><div class="ctrl"><select name="type">${TYPES.map((t) => `<option ${editing && editing.type === t ? "selected" : ""}>${t}</option>`).join("")}</select></div></div>
           <div class="d-row"><label>Capacity (kg)</label><div class="ctrl"><input name="capacity" type="number" min="0" value="${attr(editing && editing.capacity != null ? editing.capacity : "")}"></div></div>
           <div class="d-row"><label>Cost (₹/km)</label><div class="ctrl"><input name="cost" type="number" min="0" value="${attr(editing && editing.cost != null ? editing.cost : "")}"></div></div>
@@ -598,10 +676,12 @@
         onSave: (f) => {
           const reg = f.reg.value.trim();
           const row = panel.querySelector('[name="reg"]').closest(".d-row");
-          row.classList.remove("bad");
-          if (!reg) { row.classList.add("bad"); toast("Registration is required.", "err"); return false; }
-          const dup = SEED.vehicles.some((v) => v.reg.toLowerCase() === reg.toLowerCase() && v !== editing);
-          if (dup) { row.classList.add("bad"); toast("That registration already exists.", "err"); return false; }
+          const err = (msg) => { row.classList.toggle("bad", !!msg); row.querySelector("[data-err]").textContent = msg || ""; if (msg) panel.querySelector('[name="reg"]').focus(); };
+          if (!reg) { err("Registration is required."); return false; }
+          if (SEED.vehicles.some((v) => v.reg.toLowerCase() === reg.toLowerCase() && v !== editing)) {
+            err("This registration already exists."); return false;
+          }
+          err("");
           // type=number keeps letters out; this keeps a NaN out of master data.
           const num = (v) => { const n = +String(v).trim(); return String(v).trim() === "" || !Number.isFinite(n) ? null : Math.max(0, n); };
           const next = { id: editing ? editing.id : "vh-" + Date.now(), reg, type: f.type.value, capacity: num(f.capacity.value), cost: num(f.cost.value), cold: draft.cold, active: draft.active };
@@ -614,10 +694,19 @@
       });
 
       panel.querySelectorAll("[data-sw]").forEach((b) => {
-        const paint = () => b.querySelector(".switch").classList.toggle("on", !!draft[b.dataset.sw]);
+        const paint = () => {
+          const on = !!draft[b.dataset.sw];
+          b.querySelector(".switch").classList.toggle("on", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        };
         b.addEventListener("click", () => { draft[b.dataset.sw] = !draft[b.dataset.sw]; paint(); });
         paint();
       });
+      panel.querySelector('[name="reg"]').addEventListener("input", () => {
+        const row = panel.querySelector('[name="reg"]').closest(".d-row");
+        row.classList.remove("bad"); row.querySelector("[data-err]").textContent = "";
+      });
+      opened = clean();
     }
 
     /* ── Lists ────────────────────────────────────────────────────────────── */
@@ -627,7 +716,12 @@
       const rows = SEED.beats.filter((b) => !q || b.name.toLowerCase().includes(q));
       const body = document.getElementById("rpBody");
       if (!rows.length) {
-        body.innerHTML = emptyBlock(SEED.beats.length ? "No match" : "No beats yet.", SEED.beats.length ? "Try another search term." : "Add a beat to plan a recurring territory.");
+        body.innerHTML = SEED.beats.length
+          ? emptyBlock("No match", `No beat matches “${esc(state.search.trim())}”.`)
+          : emptyBlock("No beats yet", "A beat is a set of customers served on the same days.",
+              `<button class="btn btn-primary" data-empty-add>${I.plus} Add Beat</button>`, I.route);
+        const ea = body.querySelector("[data-empty-add]");
+        if (ea) { ea.addEventListener("click", () => beatForm(null)); footer(null); }
         return;
       }
       /* Name, and the one thing the name cannot say. A beat's locality is in
@@ -662,7 +756,9 @@
       body.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => {
         const b = SEED.beats.find((x) => x.id === btn.dataset.id);
         if (btn.dataset.act === "edit") beatForm(b);
-        else confirmDelete({ title: "Delete Beat", message: `Delete <b>${esc(b.name)}</b>? This cannot be undone.`, onConfirm: () => { SEED.beats = SEED.beats.filter((x) => x !== b); Plan.save(); render(); toast("Beat deleted.", "ok"); } });
+        else confirmDelete({ title: "Delete beat?",
+          message: `<b>${esc(b.name)}</b> and its ${b.members.length} customer${b.members.length !== 1 ? "s" : ""} will be removed. The customers themselves are not affected.`,
+          onConfirm: () => { SEED.beats = SEED.beats.filter((x) => x !== b); Plan.save(); render(); toast("Beat deleted.", "ok"); } });
       }));
     }
 
@@ -671,7 +767,12 @@
       const rows = SEED.vehicles.filter((v) => !q || v.reg.toLowerCase().includes(q) || String(v.type).toLowerCase().includes(q));
       const body = document.getElementById("rpBody");
       if (!rows.length) {
-        body.innerHTML = emptyBlock(SEED.vehicles.length ? "No match" : "No vehicles yet.", SEED.vehicles.length ? "Try another search term." : "Add the vehicles a delivery can be planned on.");
+        body.innerHTML = SEED.vehicles.length
+          ? emptyBlock("No match", `No vehicle matches “${esc(state.search.trim())}”.`)
+          : emptyBlock("No vehicles yet", "Vehicles a delivery can be planned on.",
+              `<button class="btn btn-primary" data-empty-add>${I.plus} Add Vehicle</button>`, I.truck);
+        const ea = body.querySelector("[data-empty-add]");
+        if (ea) { ea.addEventListener("click", () => vehicleForm(null)); footer(null); }
         return;
       }
       const kg = (v) => (v.capacity == null ? "—" : Number(v.capacity).toLocaleString("en-IN") + " kg");
@@ -682,40 +783,47 @@
       body.innerHTML = `
         <div class="table-wrap desktop-only"><div class="table-scroll"><table class="grid">
           <thead><tr><th>Vehicle</th><th>Type</th><th>Capacity</th><th>Cost</th><th style="text-align:right">Actions</th></tr></thead>
-          <tbody>${rows.map((v) => `<tr>
+          <tbody>${rows.map((v) => `<tr class="${v.active === false ? "rp-idle" : ""}">
             <td><span class="prod-name">${esc(v.reg)}</span> ${marks(v)}</td>
             <td><span class="cat-text">${esc(v.type || "—")}</span></td>
             <td><span class="cat-text">${kg(v)}</span></td>
             <td><span class="cat-text">${km(v)}</span></td>
             <td><div class="row-actions">${acts(v)}</div></td></tr>`).join("")}</tbody>
         </table></div></div>
-        <div class="cards">${rows.map((v) => `<div class="pcard"><div class="pc-top" style="padding:14px">
+        <div class="cards">${rows.map((v) => `<div class="pcard ${v.active === false ? "rp-idle" : ""}"><div class="pc-top" style="padding:14px">
           <div class="pc-main"><div class="pc-name">${esc(v.reg)} ${marks(v)}</div><div class="pc-art">${[esc(v.type || ""), kg(v), km(v)].filter((x) => x && x !== "—").join(" · ")}</div></div>
           <div class="pc-acts" style="display:flex;gap:4px">${acts(v)}</div></div></div>`).join("")}</div>`;
 
       body.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => {
         const v = SEED.vehicles.find((x) => x.id === btn.dataset.id);
         if (btn.dataset.act === "edit") vehicleForm(v);
-        else confirmDelete({ title: "Delete Vehicle", message: `Delete <b>${esc(v.reg)}</b>? This cannot be undone.`, onConfirm: () => { SEED.vehicles = SEED.vehicles.filter((x) => x !== v); Plan.save(); render(); toast("Vehicle deleted.", "ok"); } });
+        else confirmDelete({ title: "Delete vehicle?",
+          message: `<b>${esc(v.reg)}</b> will be removed from the vehicles a delivery can be planned on.`,
+          onConfirm: () => { SEED.vehicles = SEED.vehicles.filter((x) => x !== v); Plan.save(); render(); toast("Vehicle deleted.", "ok"); } });
       }));
     }
 
     function render() {
       const beats = state.tab === "beats";
       const add = beats ? "Add Beat" : "Add Vehicle";
+      // Nothing to search through and nothing to filter: on first run the empty
+      // state is the whole screen, and it carries its own action.
+      const firstRun = (beats ? SEED.beats : SEED.vehicles).length === 0;
       content.innerHTML = `
         <div class="subtabs">
           <button class="subtab ${beats ? "active" : ""}" data-tab="beats">Beats</button>
           <button class="subtab ${beats ? "" : "active"}" data-tab="vehicles">Vehicles</button>
         </div>
-        <div class="filters"><div class="search">${I.search}<input id="q" type="search" placeholder="Search" value="${attr(state.search)}"></div><div class="grow" style="flex:1"></div><button class="btn btn-primary" id="add">${I.plus} ${add}</button></div>
+        ${firstRun ? "" : `<div class="filters"><div class="search">${I.search}<input id="q" type="search" placeholder="Search" aria-label="Search ${beats ? "beats" : "vehicles"}" value="${attr(state.search)}"></div><div class="grow" style="flex:1"></div><button class="btn btn-primary" id="add">${I.plus} ${add}</button></div>`}
         <div id="rpBody"></div>`;
 
       content.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; state.search = ""; render(); }));
       const open = () => (beats ? beatForm(null) : vehicleForm(null));
-      content.querySelector("#add").addEventListener("click", open);
+      const addBtn = content.querySelector("#add");
+      if (addBtn) addBtn.addEventListener("click", open);
       let deb;
-      content.querySelector("#q").addEventListener("input", (e) => { clearTimeout(deb); deb = setTimeout(() => { state.search = e.target.value; beats ? beatsView() : vehiclesView(); }, 200); });
+      const q = content.querySelector("#q");
+      if (q) q.addEventListener("input", (e) => { clearTimeout(deb); deb = setTimeout(() => { state.search = e.target.value; beats ? beatsView() : vehiclesView(); }, 200); });
       footer([{ icon: I.plus, label: add, cls: "primary", onClick: open }]);
       beats ? beatsView() : vehiclesView();
     }
