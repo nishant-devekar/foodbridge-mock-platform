@@ -286,6 +286,18 @@
       </div>`;
   }
 
+  /* Every area name currently in use. A tag matching one of these is
+     system-generated: it came from a pin, and it is kept in step with that pin,
+     so the Assign Tags UI must not hand it out or take it away. Derived from
+     the customers themselves — there is no second tag system to keep in sync. */
+  function locationTagSet() {
+    const set = new Set();
+    Store.list("b2b").concat(Store.list("retail")).forEach((c) => { if (c.area) set.add(c.area); });
+    return set;
+  }
+
+  const isLocationTag = (t) => locationTagSet().has(String(t || "").trim());
+
   /* The customer's tags, location tag included — it is an ordinary tag, kept in
      the same array, so it filters and counts through the chips above the list
      with no separate mechanism. Uses the .row-tags token the stylesheet already
@@ -1353,9 +1365,13 @@
     // The location tag rides the EXISTING tags array, so it filters, counts and
     // renders through machinery that already exists. The previous one is dropped
     // in the same breath — that is what stops a moved customer keeping two.
+    // Reconciled, not merely appended: the previous location tag goes, any
+    // location tag belonging to somewhere else goes, and the current one is
+    // added. That is what makes the tag follow the pin and nothing else.
+    const owned = locationTagSet();
     const prevArea = existing ? existing.area : "";
     payload.tags = ((existing && existing.tags) || [])
-      .filter((t) => t !== prevArea)
+      .filter((t) => t !== prevArea && !owned.has(t))
       .concat(payload.area ? [payload.area] : [])
       .filter((t, i, a) => a.indexOf(t) === i);
 
@@ -1447,8 +1463,19 @@
     const syncFooter = () => {
       $("[data-selected]", drawer).textContent = `${picked.length} selected`;
       $("[data-save]", drawer).disabled = picked.length === 0 || tags.length === 0;
-      $("[data-count]", drawer).textContent = String(tags.length);
-      addBtn.disabled = !input.value.trim() || tags.length >= 10;
+      // The count lives inside the hint below, which is rebuilt every call — a
+      // separate write here throws the moment the blocked variant has replaced
+      // that span, and takes the rest of this function with it.
+      const typed = input.value.trim();
+      const taken = typed && isLocationTag(typed);
+      addBtn.disabled = !typed || tags.length >= 10 || !!taken;
+      // The hint line is already there; it just says something else while the
+      // typed name is one a pin owns.
+      const hint = $(".mti-hint", drawer);
+      hint.classList.toggle("blocked", !!taken);
+      hint.innerHTML = taken
+        ? `${esc(typed)} is a location tag`
+        : `<span data-count>${tags.length}</span>/10 tags · Enter or comma to add`;
     };
 
     const paintChips = () => {
@@ -1506,6 +1533,8 @@
     const addTag = (name) => {
       const t = String(name || "").trim();
       if (!t || tags.length >= 10) return;
+      // A location tag belongs to a pin, not to whoever types its name.
+      if (isLocationTag(t)) { syncFooter(); return; }
       if (!tags.some((x) => x.toLowerCase() === t.toLowerCase())) tags.push(t);
       input.value = "";
       paintChips();
@@ -1532,7 +1561,13 @@
     $("[data-cancel]", drawer).onclick = closeOverlays;
     $("[data-save]", drawer).onclick = () => {
       const targets = all.filter((c) => picked.includes(c._id));
-      for (const c of targets) c.tags = Array.from(new Set((c.tags || []).concat(tags)));
+      const owned = locationTagSet();
+      for (const c of targets) {
+        c.tags = Array.from(new Set((c.tags || []).concat(tags)))
+          // Keep only this customer's OWN location tag; drop any other
+          // customer's, however it got here.
+          .filter((t) => !owned.has(t) || t === c.area);
+      }
       Store.save();
       S.checked = [];
       closeOverlays();

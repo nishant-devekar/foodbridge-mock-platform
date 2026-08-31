@@ -1431,3 +1431,6 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
                     font-family: inherit; outline: none; }
 .loc-detail input:focus { border-color: #10b981; }
 @media (min-width: 640px) { .loc-detail { grid-template-columns: 1fr 1fr; } }
+
+/* The tag hint doubles as the reason a name was refused. */
+.mti-hint.blocked { color: var(--rose-500, #f43f5e); }
