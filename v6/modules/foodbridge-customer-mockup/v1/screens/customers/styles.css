@@ -423,7 +423,17 @@ textarea.input { min-height: 5rem; height: auto; padding: 0.75rem; background: v
    Tag chips — EntityTagChips.jsx
    ========================================================================== */
 
-.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+/* One scrollable row, never a wrapping block. Same technique as the Products
+   module's category chips; applied at every width here because this row grows
+   with the customer base — every new area adds a tag — where a category list
+   does not. */
+.chips {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.75rem; overflow-x: auto;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chips > .chip { flex: 0 0 auto; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1324,7 +1334,10 @@ table.offers td.c { display: flex; justify-content: center; align-items: center;
 .cc-foot .row-actions { justify-content: flex-end; }
 
 /* One layout at a time. */
-@media (max-width: 767px) { .table-wrap .table-scroll { display: none; } }
+@media (max-width: 767px) {
+  .table-wrap .table-scroll { display: none; }
+  .chips { margin-left: -1rem; margin-right: -1rem; padding-left: 1rem; padding-right: 1rem; }
+}
 @media (min-width: 768px) { .ccards { display: none; } }
 
 /* ── Picker row: the value is the control ──────────────────────────────── */
