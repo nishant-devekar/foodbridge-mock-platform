@@ -5,9 +5,11 @@
    components/reference/AppShell.reference.tsx). Design tokens: design-tokens.css. */
 
 @import "./design-tokens.css";
-/* Screen B (A/B layout variant) — see src/styles-b.css. Every rule in it is gated under
-   [data-screen-variant="B"], so importing it here has zero effect on Screen A. */
-@import "./styles-b.css";
+/* The Screen B (A/B layout variant) import lived here, pointing at the source repo's
+   src/styles-b.css. That file was never vendored with this snapshot, so every Batch
+   Management page 404'd on load; nothing sets [data-screen-variant="B"] here either,
+   which is what every rule in it was gated under. Dropped rather than reconstructed:
+   there is no Screen B in this copy for it to style. */
 
 .fbp-root { font-family:var(--font); color:var(--fb-text-primary); background:transparent;
   font-size:13px; line-height:1.4; word-break:break-word; padding:22px;
