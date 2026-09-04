@@ -73,9 +73,10 @@ sidebar entry in `shell.js`, the in-screen crumb in `stock-audit.js`, and the pa
 `shell.js` also gained the `?v=` cache tag it had never carried, since the label lives in it.
 
 The row carries one chip read as a rate — `₹28/Pc` — and tapping it opens a
-bottom sheet owning both: a Selling price field and a Unit picker, with a single
-Apply. Choosing a unit rescales the price in front of the rep; nothing is written
-until Apply.
+bottom sheet owning both: a Selling price field and a Unit picker, with an
+Apply that asks first — `Apply change?` over `₹30/Pc → ₹28/Pc`, then ✓ or ✗.
+Choosing a unit rescales the price in front of the rep; nothing is written until
+that ✓.
 Also fixed: the invoice was re-pricing a line whose price the rep had
 deliberately cleared.
 

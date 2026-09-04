@@ -3030,7 +3030,7 @@
           priceFor, edit)}`,
       // Returning false keeps the sheet open; the footer becomes the question.
       actions: edit
-        ? [{ label: "Apply", cls: "primary", onClick: () => apply() }]
+        ? [{ label: "Apply", cls: "primary", onClick: () => { askApply(); return false; } }]
         : [{ label: "Save", cls: "primary", onClick: () => { ask(); return false; } }],
     });
 
@@ -3060,8 +3060,8 @@
 
     function restore() {
       acts.classList.remove("asking");
-      acts.innerHTML = `<button type="button" class="sheet-btn primary" id="usSave">Save</button>`;
-      el.querySelector("#usSave").onclick = ask;
+      acts.innerHTML = `<button type="button" class="sheet-btn primary" id="usSave">${edit ? "Apply" : "Save"}</button>`;
+      el.querySelector("#usSave").onclick = edit ? askApply : ask;
     }
 
     const field = () => el.querySelector("#usPriceInput");
@@ -3073,16 +3073,49 @@
     // open: the keyboard would cover the unit picker for a rep who came here
     // to change the pack.
     const pf = field();
-    if (pf) pf.onfocus = () => { try { pf.select(); } catch (e) { /* older webviews */ } };
+    if (pf) {
+      pf.onfocus = () => { try { pf.select(); } catch (e) { /* older webviews */ } };
+      // A question already raised names a specific rate. Typing a different one
+      // must put Apply back rather than silently re-pointing a ✓ the rep has
+      // read — the same rule the unit picker follows below.
+      pf.oninput = () => { if (acts.classList.contains("asking")) restore(); };
+    }
 
-    // Apply is the commit. A price that is not a price keeps the sheet open
-    // with the field as the rep left it — closing on a rejected value would
-    // throw away what they typed and hide why.
-    function apply() {
+    // How a rate reads in the question: the figure and the pack it belongs to,
+    // the same pairing the row's chip shows, so the rep is confirming what they
+    // will see afterwards.
+    const rateLabel = (v, unit) => (v == null ? "No price" : "₹" + priceInputValue(v)) + "/" + unit;
+
+    // Apply is a two-tap commit made in place — the same contract Save, Finish
+    // Audit and Confirm Order use. The detail line states the actual change,
+    // because "Apply?" on its own is a question about nothing, and a rate is
+    // the one thing on this screen a rep cannot check afterwards without
+    // reopening the sheet.
+    //
+    // Validation happens BEFORE the question, not after the ✓: asking someone
+    // to confirm a price that is going to be rejected wastes the tap and puts
+    // the error a step further from what caused it.
+    function askApply() {
       const v = parsePrice(field() ? field().value : "");
-      if (v === undefined) { toast("Enter a price of 0 or more.", "info"); return false; }
-      onSave(picked, v);
-      return true;
+      if (v === undefined) { toast("Enter a price of 0 or more.", "info"); return; }
+      const startPrice = edit.value;
+      const changed = picked !== currentUnit || v !== startPrice;
+      const detail = changed
+        ? `${rateLabel(startPrice, currentUnit)} → ${rateLabel(v, picked)}`
+        : rateLabel(v, picked);
+      acts.classList.add("asking");
+      acts.innerHTML = `<span class="confirm-inline">
+          <span class="ci-copy">
+            <span class="ci-prompt">${changed ? "Apply change?" : "Apply rate?"}</span>
+            <span class="ci-detail">${esc(detail)}</span>
+          </span>
+          <button type="button" class="ci-btn yes" id="usYes" aria-label="Apply">✓</button>
+          <button type="button" class="ci-btn no" id="usNo" aria-label="Keep editing">✗</button>
+        </span>`;
+      // `v` and `picked` are what the question NAMED. Editing either retracts
+      // it (see below), so a stale pair can never reach onSave.
+      el.querySelector("#usYes").onclick = () => { onSave(picked, v); s2.close(); };
+      el.querySelector("#usNo").onclick = restore;
     }
 
     wireUnitPrice(el, p, (unit) => {
@@ -3102,8 +3135,8 @@
           f.value = priceInputValue(Math.round((cur / from) * unitFactor(p, unit) * 100) / 100);
         }
       }
-      // A pending question is about the OLD choice — putting Save back is
-      // safer than silently re-pointing a ✓ the rep already read.
+      // A pending question is about the OLD choice — putting the button back
+      // is safer than silently re-pointing a ✓ the rep already read.
       if (acts.classList.contains("asking")) restore();
     }, priceFor, edit);
   }
@@ -4252,7 +4285,7 @@
   // stable per order, so a browser that opened an invoice once would keep
   // serving that copy of the PAGE after the page itself changed.
   const invoiceUrlFor = (orderId) =>
-    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026090424";
+    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026090425";
 
   function openOrderDoneModal(orderId) {
     ORDER_DONE = { orderId };

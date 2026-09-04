@@ -19,7 +19,7 @@ it silently. Mirrored files — `stock-audit.html`, `stock-audit.js`, `stock-aud
 
 Create Order carries a selling price on every line, shown as a rate on one chip
 (`₹28/Pc`) that opens a bottom sheet owning both the unit and the price, applied
-together. The product card keeps its shape. It is order-specific: the catalogue
+together behind an inline `Apply change?` confirmation. The product card keeps its shape. It is order-specific: the catalogue
 seeds it and never overwrites it afterwards, and the confirmed figure is what the invoice prints
 and what the accounts sync sends as the Zoho rate. `invoice.html` joins the mirrored files.
 

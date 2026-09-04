@@ -37,10 +37,20 @@ re-reading the catalogue is what stops a default overwriting a price just
 typed. Tapping the price selects it, so the first digit replaces the old rate
 instead of costing a long-press and a "Select All" off the iOS edit menu.
 
-**Nothing is written until Apply.** Dismissing the sheet leaves the row exactly
-as it was, and does not retract a raised confirm question — nothing changed.
-Apply commits unit and price together, patches the row in place, flashes
-*Updated* and retracts the question, because something did.
+**Apply asks first, in the footer.** The same two-tap commit Save, Finish Audit
+and Confirm Order use: `Apply change?` over `₹30/Pc → ₹28/Pc`, then ✓ or ✗. The
+detail line states the actual change, because "Apply?" on its own is a question
+about nothing — and a rate is the one thing on this screen a rep cannot check
+afterwards without reopening the sheet. Validation runs BEFORE the question, not
+after the ✓: asking someone to confirm a price that is going to be rejected
+wastes the tap and puts the error a step further from what caused it. Editing
+either half retracts it, so the pair the question named can never go stale.
+
+**Nothing is written until that ✓.** Dismissing the sheet — with or without a
+question up — leaves the row exactly as it was, and does not retract a raised
+order confirmation, because nothing changed. Applying commits unit and price
+together, patches the row in place, flashes *Updated* and retracts the order
+question, because something did.
 
 **`priceEdited` is now DERIVED, not remembered:** the line carries the rep's own
 price exactly when it is not the catalogue's for the pack they chose. Changing
