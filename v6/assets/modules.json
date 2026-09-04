@@ -138,7 +138,7 @@
         },
         {
           "id": "stock-audit-health",
-          "name": "Stock Audit & Health",
+          "name": "Stock Audit",
           "url": "modules/foodbridge-customer-mockup/v4/screens/customers/stock-audit.html",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",

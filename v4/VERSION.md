@@ -54,6 +54,35 @@ Everything else, and on purpose. Same shell, same routing, same clip offsets, sa
 the module draws its own sidebar and this shell clips it away exactly as the full platform
 does, which is why removing the *platform's* sidebar does not make the module's appear.
 
+## Priced 4 September 2026 — a selling price on every order line
+
+Every Create Order line now shows a selling price and lets the rep edit it on the row: `₹` and a
+field under the stepper, mirroring the unit chip above it. The price is the **order's**, not the
+catalogue's — the catalogue only seeds a new line, and once the rep touches it nothing re-derives
+it, including a unit change (which rescales it along the pack ladder instead).
+
+The confirmed price is written onto the order as `unitPrice`, with `cataloguePrice` and
+`priceEdited` beside it, and is what both the invoice and the accounts payload read. Quantity and
+unit changes now retract a raised confirm question, as price edits do. Authored in `v6` and
+mirrored here; `invoice.html` joins the mirror set.
+
+## Renamed 4 September 2026 — Stock Audit & Health becomes Stock Audit
+
+The screen is **Stock Audit** now: the nav label in `assets/modules.json`, the module's own
+sidebar entry in `shell.js`, the in-screen crumb in `stock-audit.js`, and the page `<title>`.
+`shell.js` also gained the `?v=` cache tag it had never carried, since the label lives in it.
+
+The price figure is itself the tap target and becomes the field in place
+(Done/Enter/blur commit, Escape reverts). It rides on the unit's existing line
+above the stepper, so the product card keeps both its shape and its height.
+Also fixed: the invoice was re-pricing a line whose price the rep had
+deliberately cleared.
+
+This change was authored in `v6` and mirrored here, which is now the rule for this screen — it
+lives in `v4`, `v5` and `v6` at once, and a change landing in only one cut forks it silently.
+The nine screen files under `modules/foodbridge-customer-mockup/v3/screens/customers/` are
+byte-identical to `v6`'s copy as of this date.
+
 ## Refined 26 August 2026
 
 The tenant rebrand (`QA store`/`Mahesh` → `Miha's`/`Anupam`) and the 40-account real

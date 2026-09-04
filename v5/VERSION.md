@@ -1,8 +1,34 @@
 # FoodBridge mock platform — Version 5
 
-**Frozen 30 August 2026.** A self-contained snapshot: the shell plus a local copy of every
-module screen it shows. Nothing here loads from a module team's GitHub Pages site, so this
-folder renders the same however those repos change afterwards.
+**Frozen 30 August 2026, with one standing exception.** A self-contained snapshot: the shell
+plus a local copy of every module screen it shows. Nothing here loads from a module team's
+GitHub Pages site, so this folder renders the same however those repos change afterwards.
+
+**The exception is Stock Audit.** Customer Management → Stock Audit is authored in `v6` and
+mirrored back into this cut at each freeze, so its files here are deliberately *not* the
+30 August bytes. Every other file is. The decision was taken on 4 September 2026: the screen
+is worked on across `v4`, `v5` and `v6` at once, and letting this copy drift would have forked
+it silently. Mirrored files — `stock-audit.html`, `stock-audit.js`, `stock-audit.css`,
+`shell.js`, `seed.inline.js`, `order-history.js`, `predictive-order.js`,
+`integration-config.js`, `zoho-adapter.js`, under
+`modules/foodbridge-customer-mockup/v4/screens/customers/` — plus that destination's `name` in
+`assets/modules.json` and the `?v=` token in `index.html` it forces. The retired v3-cut copy at
+`#/stock-audit-health-v3` is **not** mirrored and stays as frozen.
+
+### Mirrored 4 September 2026 — selling price per order line
+
+Create Order carries an editable selling price on every line: the price figure is
+itself the tap target and becomes the field in place, riding on the unit's
+existing line above the stepper so the product card keeps its shape. It is order-specific: the catalogue
+seeds it and never overwrites it afterwards, and the confirmed figure is what the invoice prints
+and what the accounts sync sends as the Zoho rate. `invoice.html` joins the mirrored files.
+
+### Mirrored 4 September 2026
+
+The nav label, the module's own sidebar entry, the in-screen crumb and the page `<title>` all
+read **Stock Audit** rather than *Stock Audit & Health*. `shell.js` gained a `?v=` tag, which it
+had never carried, because the module's nav labels live in it and an untagged copy would have
+kept serving the old label through a reload.
 
 260 files, 9.5 MB, 12 module repos, 26 destinations.
 

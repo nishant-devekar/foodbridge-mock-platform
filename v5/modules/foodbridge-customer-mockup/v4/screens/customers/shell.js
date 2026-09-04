@@ -192,7 +192,7 @@
         { label: "B2B Customers", screen: "b2b", href: "b2b-customers.html" },
         { label: "Retail Customers", screen: "retail", href: "retail-customers.html" },
         { label: "Catalog", screen: "catalog", href: "../catalog/catalog.html" },
-        { label: "Stock Audit & Health", screen: "stock-audit", href: "stock-audit.html" },
+        { label: "Stock Audit", screen: "stock-audit", href: "stock-audit.html" },
       ],
     },
     { label: "Sales Orders", icon: I.ShoppingCart },

@@ -319,6 +319,27 @@ export function buildSalesOrderPayload(order) {
     const factor = Number(mapped.factor) > 0 ? Number(mapped.factor) : 1;
     const quantity = qty * factor;
 
+    // THE PRICE THE SALESPERSON CONFIRMED, and nothing else. It arrives on the
+    // order and is used exactly as it arrived: there is no catalogue in this
+    // function to re-derive it from, and there must never be one. A rep who
+    // agreed a price with a shop has agreed it with Zoho too.
+    //
+    // `unitPrice` is per FOODBRIDGE unit, and Zoho is being sent `quantity` in
+    // ZOHO units -- so the rate is divided by the same factor the quantity was
+    // multiplied by, which is what keeps qty x price equal on both sides.
+    // Four decimals because a factor > 1 cannot always divide evenly; with the
+    // factor 1 mappings this org actually uses, the rate is the exact figure.
+    let rate = null;
+    if (line.unitPrice != null) {
+      rate = Number(line.unitPrice);
+      if (!Number.isFinite(rate) || rate < 0) {
+        throw new ZohoError("bad_request",
+          `${line.productName || line.productId} has an invalid price.`,
+          `unitPrice was ${JSON.stringify(line.unitPrice)} on ${order.id}.`);
+      }
+      rate = Number((rate / factor).toFixed(4));
+    }
+
     lineMap.push({
       productId: line.productId,
       zohoItemId: String(mapped.itemId),
@@ -326,11 +347,20 @@ export function buildSalesOrderPayload(order) {
       foodbridgeUnit: line.unit || null,
       zohoQty: quantity,
       factor,
+      // What was confirmed, and what that became per Zoho unit. Both, so a
+      // support question can be answered without recomputing either.
+      confirmedUnitPrice: line.unitPrice == null ? null : Number(line.unitPrice),
+      zohoRate: rate,
     });
 
     const item = { item_id: String(mapped.itemId), quantity };
     // Only sent when the mapping states it; an empty string is a value to Zoho.
     if (mapped.unit) item.unit = mapped.unit;
+    // Absent -- not zero -- when the line carries no price: Zoho then applies
+    // the item's own rate, which is the behaviour every order raised before
+    // per-line pricing existed already relies on. A confirmed price of 0 is a
+    // real decision and IS sent.
+    if (rate != null) item.rate = rate;
     return item;
   });
 
@@ -370,6 +400,17 @@ export function verify(order, salesorder, lineMap, zohoCustomerId) {
     add(`item:${m.productId}`, !!match, m.zohoItemId, match ? String(match.item_id) : null);
     if (match) {
       add(`qty:${m.productId}`, Number(match.quantity) === Number(m.zohoQty), m.zohoQty, Number(match.quantity));
+      // A rate was sent, so a rate must have landed. Without this check Zoho
+      // could fall back to the item's own price and the sync would still
+      // report success -- an order billed at a price the rep never agreed to,
+      // which is the pricing equivalent of a green tick over a failed sync.
+      // Only checked when we sent one; an unpriced line is Zoho's to price.
+      if (m.zohoRate != null) {
+        const got = Number(match.rate);
+        add(`rate:${m.productId}`,
+          Number.isFinite(got) && Math.abs(got - m.zohoRate) < 0.005,
+          m.zohoRate, Number.isFinite(got) ? got : null);
+      }
     }
   }
   return { ok: checks.every((c) => c.ok), checks };

@@ -50,9 +50,11 @@ screen it shows. Nothing in one loads from a module team's Pages site, so it ren
 however those repos change afterwards. That is the point: the live platform at `/` follows the
 teams, and a version folder does not.
 
-`v1`–`v3` and `v5` are **frozen**: cut on a date and never touched again, so `v1` stays exactly
-what it was even after `v2` exists. `v4` and `v6` are **working cuts** — self-contained the same
-way, but still edited.
+`v1`–`v3` are **frozen**: cut on a date and never touched again, so `v1` stays exactly what it
+was even after `v2` exists. `v4` and `v6` are **working cuts** — self-contained the same way, but
+still edited. `v5` is frozen **except for Stock Audit**: that one screen is authored in `v6` and
+mirrored back into `v5` and `v4` at each freeze, so the three cuts do not fork it. Everything else
+in `v5` is still the 30 August bytes. See [`v5/VERSION.md`](v5/VERSION.md).
 
 **▶ Current: [`v6`](https://nishant-devekar.github.io/foodbridge-mock-platform/v6/)** — the full platform, opened from the `v5` freeze.
 [`v4`](https://nishant-devekar.github.io/foodbridge-mock-platform/v4/) is a one-screen cut standing *beside* it, not behind it.
@@ -61,8 +63,8 @@ way, but still edited.
 | --- | --- | --- | --- |
 | Live (`/`) | follows each team's Pages site at view time | moves with every push | 26, whatever `assets/modules.json` says today |
 | [`v6`](https://nishant-devekar.github.io/foodbridge-mock-platform/v6/) | the full platform, from the `v5` freeze | working — opened 30 August 2026 | 26, plus 1 retired |
-| [`v5`](https://nishant-devekar.github.io/foodbridge-mock-platform/v5/) | the full platform, with Delivery Management ported to a real offline app | frozen 30 August 2026 | 26, plus 1 retired |
-| [`v4`](https://nishant-devekar.github.io/foodbridge-mock-platform/v4/) | Stock Audit & Health alone, no sidebar | working — cut 25 August 2026 | 1 |
+| [`v5`](https://nishant-devekar.github.io/foodbridge-mock-platform/v5/) | the full platform, with Delivery Management ported to a real offline app | frozen 30 August 2026, except Stock Audit | 26, plus 1 retired |
+| [`v4`](https://nishant-devekar.github.io/foodbridge-mock-platform/v4/) | Stock Audit alone, no sidebar | working — cut 25 August 2026 | 1 |
 | [`v3`](https://nishant-devekar.github.io/foodbridge-mock-platform/v3/) | the full platform | frozen 26 August 2026 | 26 |
 | [`v2`](https://nishant-devekar.github.io/foodbridge-mock-platform/v2/) | the full platform | frozen 22 August 2026 | 26 |
 | [`v1`](https://nishant-devekar.github.io/foodbridge-mock-platform/v1/) | the full platform | frozen 14 August 2026 | 24 |

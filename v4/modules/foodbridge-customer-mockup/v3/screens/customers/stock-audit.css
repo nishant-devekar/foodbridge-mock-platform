@@ -861,6 +861,80 @@
    is an outline, offset off the glyphs rather than painted on top of them. */
 .qc-line .unit-pick:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 4px; }
 
+/* The line's own selling price, mirroring the unit chip on the other side of
+   the stepper: same size, same weight, same muted-until-it-matters colour. It
+   is an input that does not look like one until it is touched, because a
+   boxed field here would read as a form in the middle of a list of rows. */
+/* ---------------------------------------------------------------------------
+   THE ORDER ROW — three things, read left to right in one glance:
+   what it is, how many, and what it sells for.
+
+   Denser than the count row on purpose. Counting is one product at a time;
+   ordering is a list to work down, and eleven recommended lines that show four
+   at a time is a scroll the rep pays for on every visit. The saving is one
+   whole line: the unit and the price are two small facts ABOUT the number
+   above them, so they share the line under the stepper instead of taking one
+   each. The name gets the room back as a second line, which is what tells
+   "AMLA PICKLE (475 gm)" from "AMLA PICKLE (1000 gm)".
+   --------------------------------------------------------------------------- */
+/* The order row IS the product card — same shape as the count row, because it
+   is the same object with one more fact on it. What is different is only that
+   fact: the price rides on the unit's existing line, above the stepper, so the
+   card gains a figure rather than a row. Nothing moves that a rep already
+   knows where to find. */
+.ord-row .line-econ { display: inline-flex; align-items: center; gap: 10px; line-height: 1; }
+/* THE PRICE IS THE EDIT TARGET: the figure the rep reads is the control they
+   tap, and it becomes the field in place. Quiet until touched — bare text at
+   the unit chip's weight over a hairline dashed rule, which is what says
+   "editable" without spending a border and its padding on saying it. */
+.ord-row .ord-price { display: inline-flex; align-items: center; line-height: 1; }
+.ord-row .ord-price .pv {
+  display: inline-flex; align-items: baseline; gap: 0;
+  /* Padding for the thumb, negative margin to give the row its height back:
+     the target is deliberately larger than the paint. It takes the empty room
+     ABOVE, where the row's own padding is, and stops at the gap below — below
+     is the stepper, and a mis-tap meant for the price must never land on −/+
+     and change a quantity. On the left it stops halfway to the unit chip, so
+     the two controls sharing this line divide the space rather than overlap. */
+  padding: 6px 7px 4px 5px; margin: -6px -4px -4px -5px;
+  border: 0; background: none; border-radius: 8px; font: inherit; line-height: 1;
+}
+.ord-row .ord-price .pv .cur { font-size: 11px; font-weight: 700; color: var(--muted-2); }
+/* Darker than the unit beside it. Both are quiet, but the price is a figure
+   the rep acts on and the unit is a label on the number above — reading them
+   at the same weight made the row's third fact disappear into its second. */
+.ord-row .ord-price .pv .amt {
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+  border-bottom: 1px dashed var(--muted-2); padding-bottom: 2px;
+}
+.ord-row .ord-price .pv .amt.none { color: var(--muted-2); font-weight: 500; }
+.ord-row .ord-price .pv:hover .amt { color: var(--teal); border-bottom-color: var(--teal-l2); }
+.ord-row .ord-price .pv:active { background: var(--slate-100); }
+.ord-row .ord-price .pv:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+/* Priced and counted reads as one settled row, the same way the unit does. */
+.ord-row.done .ord-price .pv .cur, .ord-row.done .ord-price .pv .amt { color: var(--teal-d); }
+
+/* Editing. The dashed rule becomes a solid teal one — the same promotion the
+   stepper's border gets when it is focused, so the row has one idea of "live". */
+.ord-row .ord-price .pe { display: none; align-items: baseline; gap: 0; }
+.ord-row .ord-price.editing .pv { display: none; }
+.ord-row .ord-price.editing .pe { display: inline-flex; }
+.ord-row .ord-price .pe .cur { font-size: 11px; font-weight: 700; color: var(--teal-d); }
+.ord-row .ord-price .pe input {
+  width: 54px; padding: 1px 0 1px 1px; font-size: 12.5px; border: 0; border-bottom: 1.5px solid var(--teal);
+  background: transparent; font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--teal-d); text-align: left; border-radius: 0; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.ord-row .ord-price .pe input::placeholder { color: var(--muted-2); font-weight: 500; }
+/* The symbol belongs against the number, not at the edge of a fixed field —
+   "₹      65" reads as two things. Where the browser can size an input to its
+   content, it does; the width above is the fallback for where it cannot. */
+@supports (field-sizing: content) {
+  .ord-row .ord-price .pe input { field-sizing: content; width: auto; min-width: 2ch; max-width: 72px; }
+}
+
+
 /* Saved, said on the row for a moment and then gone — see flashUnitSaved. The
    row grows by this and shrinks back; a badge that reserved permanent space
    would be a label, and a label that reads "Updated" forever means nothing. */
@@ -1231,6 +1305,10 @@
      row's own padding above the control is 11px, so the box already sits 1px
      over the row's edge, into the empty bottom padding of the row above. */
   .qc-line .unit-pick::after { content: ""; position: absolute; inset: -12px -12px -4px; }
+  /* On the order row the unit is no longer alone on its line — the price sits
+     10px to its right. The overlay keeps its generous top and left and gives
+     the right back to half that gap, so the two never fight for a thumb. */
+  .ord-row .unit-pick::after { inset: -12px -5px -4px -12px; }
   .nav-btn { min-height: 48px; }
   .picker-row, .qc-line { min-height: 56px; }
 

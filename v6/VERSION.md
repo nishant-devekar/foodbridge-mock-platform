@@ -19,6 +19,99 @@ where its files came from — new entries for `v6` go above it.
 
 ## Changes
 
+### 4 September 2026, later — the price becomes the edit target
+
+The price control shipped that morning was a field that looked like text, and it
+read as neither. Two changes, both inside the row that was already there.
+
+**The price is the edit target.** The figure the rep reads IS the control they
+tap, and it becomes the field in place: pre-selected, decimal keypad, committed
+on Done/Enter or blur, reverted on Escape. Quiet until touched — bare text over
+a hairline dashed rule, which says "editable" without spending a border on
+saying it. No modal, no pencil, no second control, no tap between seeing a price
+and changing it.
+
+**It rides on the unit's existing line, above the stepper.** The card keeps the
+shape it has always had — name on the left, the unit and the stepper stacked on
+the right, delete beyond them — and gains a figure rather than a row, so its
+height does not move either. An intermediate version of this pass moved the name
+to its own full-width line and put the unit and price beneath it; that read as a
+different component, and it was reverted. The count row was never touched.
+
+The two controls now sharing that line divide the thumb between them: the unit's
+tap overlay gives back its right side to half the gap, and the price's own
+padding stops at the gap above the stepper — a mis-tap meant for either must
+never land on −/+ and change a confirmed quantity.
+
+**Done no longer routes through blur().** `blur()` is a no-op on an element that
+never took focus, so a keyboard's Done key depended on something not guaranteed.
+Enter commits directly; blur calls the same function, and a double call is
+harmless because the second sees no change.
+
+**One real defect fixed behind it.** The invoice read `unitPrice: null` — a price
+the rep had deliberately cleared — as "no price yet" and fell back to parsing the
+MRP out of the product name, quietly putting money back onto a total the rep had
+removed it from. It now tests for the *presence* of the key: a line that carries
+a price answers with it, null included; only a line raised before per-line
+pricing existed reaches the parse.
+
+### 4 September 2026 — a selling price on every order line
+
+Create Order now carries a **price per line**, editable on the row, and that price is what
+reaches the invoice and the accounts system. Until now FoodBridge held no price at all: the
+invoice derived one from the MRP printed in each product's name, and Zoho was sent quantities
+only and applied its own item rate. A rep who agreed a different price with a shop had nowhere
+to put it.
+
+**The control is the row, not a section.** Under the stepper, mirroring the unit chip above it —
+same size, same weight, a `₹` and a field that does not look like a field until it is touched.
+No label, no pricing panel, no extra sheet. A line with no price reads `₹ —` and stays orderable.
+
+**The price is the order's, never the catalogue's.** The catalogue only ever *seeds* a new line.
+Once the rep touches it the line is flagged, and from then on nothing re-derives it — not a unit
+change, not a re-render, not the sync, not the invoice. Changing the unit **rescales** an edited
+price along the same ladder the quantities use (a Carton costs what its pieces cost) rather than
+recomputing it, because recomputing is precisely a stale default overwriting a commercial
+decision. An untouched price is simply re-read, since it has nothing to preserve.
+
+**Anything that changes the order retracts the confirm question.** Quantity and unit changes used
+to leave a raised `Confirm order?` standing — its numbers updated, but the question the rep had
+already read now pointed at a different order. Both now retract it, as price edits do; the full
+re-render paths (add, remove) already did.
+
+**What is on screen is what commits.** A price is committed on blur, and blur is not guaranteed —
+a rep who types a price and goes straight for Confirm relies on the button stealing focus first,
+which mobile browsers do not do uniformly. Both the confirm question and the commit now read
+every price field back off the screen first, so the committed order can never carry a price the
+rep could not see.
+
+**Through to accounts, unchanged in every other respect.** The order record gains `unitPrice` per
+line, with `cataloguePrice` and `priceEdited` beside it — the same "what the system proposed
+versus what was sent" pair `recommendedQty`/`qty` already keeps. The bridge sends it as the Zoho
+`rate`, divided by the same factor the quantity is multiplied by so the money matches on both
+sides, and **verification now checks the rate came back**: a price Zoho declined to store is a
+failure, not a silent success. A line with no price sends no rate and Zoho prices it as before.
+FoodBridge-first sequencing, the timeout-is-not-a-failure rule and reference-based idempotency
+are all untouched — a retry re-sends the committed record, so it cannot re-price anything.
+
+### 4 September 2026 — Stock Audit & Health becomes Stock Audit
+
+The screen is named **Stock Audit** now, in all four places that named it. The platform's nav
+label and the module's own sidebar entry, its in-screen crumb, and the page `<title>`. *Health*
+was never a thing the screen reported on — the tabs are Stock Audit, Create Order and Audit
+History — so the word was describing an ambition the screen does not have.
+
+One mechanical consequence worth naming: `shell.js` gained a `?v=` tag it had never carried.
+The module's nav labels live in that file, and it was the one script `stock-audit.html` loaded
+unversioned, so without the tag a returning browser would have kept rendering the old label
+through a full reload. The comment in `stock-audit.html` that explains the tag now says so.
+
+**Mirrored into `v4` and `v5`.** This is the first change under the mirror rule: Stock Audit is
+authored here and copied back into both other cuts at freeze, so the three do not fork. That
+makes `v5` no longer frozen in the strict sense — see the exception now recorded at the top of
+[`v5/VERSION.md`](../v5/VERSION.md). The retired v3-cut screen at `#/stock-audit-health-v3` was
+left alone; it is there to compare against, and renaming it would defeat that.
+
 ### 31 August 2026 — Route Planning becomes Beats and Vehicles
 
 Delivery Templates was a name and two id arrays over a private 24-name customer seed with no

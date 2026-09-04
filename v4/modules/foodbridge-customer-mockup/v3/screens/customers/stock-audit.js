@@ -1751,12 +1751,17 @@
     return base;
   }
 
-  const unitMoney = (p, label) => {
-    const v = unitPrice(p, label);
+  // `priceFor` is how a caller says "this is not the catalogue's price". An
+  // order line that the rep has priced themselves passes its OWN resolver, so
+  // the sheet where a pack is chosen shows the money that pack will actually
+  // be sold at. Everywhere else it is absent and the catalogue answers, which
+  // is what the audit's count row and the plain product sheet want.
+  const unitMoney = (p, label, priceFor) => {
+    const v = priceFor ? priceFor(label) : unitPrice(p, label);
     return v == null ? null : fmtINR(v);
   };
-  const priceBlockHTML = (p, label) => {
-    const v = unitMoney(p, label);
+  const priceBlockHTML = (p, label, priceFor) => {
+    const v = unitMoney(p, label, priceFor);
     return v == null
       ? `<span class="us-price none">No price set</span>`
       : `<span class="us-price">${esc(v)}</span>`;
@@ -1767,13 +1772,13 @@
   // them, and the unit sheet, which changes them — so the pair cannot drift
   // apart. Every option carries its own price, so the packs are compared
   // inside the list rather than one at a time.
-  function unitPriceHTML(p, picked, labels) {
+  function unitPriceHTML(p, picked, labels, priceFor) {
     const base = baseUnit(p);
     return `
       <div class="us-now">
         <span class="us-now-copy">
           <span class="us-label">${esc(labels.price)}</span>
-          <span id="usPrice">${priceBlockHTML(p, picked)}</span>
+          <span id="usPrice">${priceBlockHTML(p, picked, priceFor)}</span>
         </span>
         <span class="us-pick">
           <label class="us-label" for="usUnit">${esc(labels.unit)}</label>
@@ -1794,13 +1799,26 @@
   // now the ONLY place a number appears — the options carry no price of their
   // own — so this is what makes the pack comparison work: change the unit, read
   // the figure beside it.
-  function wireUnitPrice(el, p, onPick) {
+  function wireUnitPrice(el, p, onPick, priceFor) {
     const sel = el.querySelector("#usUnit");
     if (!sel) return;
     const priceHost = el.querySelector("#usPrice");
     sel.onchange = () => {
-      if (priceHost) priceHost.innerHTML = priceBlockHTML(p, sel.value);
+      if (priceHost) priceHost.innerHTML = priceBlockHTML(p, sel.value, priceFor);
       if (onPick) onPick(sel.value);
+    };
+  }
+
+  // The resolver an order line hands the sheets: its own price, rescaled to
+  // whichever pack is being looked at, so choosing a unit is choosing against
+  // the number that will be invoiced. Falls back to the catalogue for a line
+  // the rep has not priced, which is what that line will use anyway.
+  function orderLinePriceFor(p, line) {
+    if (!line || !line.priceEdited) return null;
+    const from = unitFactor(p, line.unit);
+    return (unit) => {
+      if (line.unitPrice == null || !(from > 0)) return null;
+      return Math.round((line.unitPrice / from) * unitFactor(p, unit) * 100) / 100;
     };
   }
 
@@ -1814,14 +1832,19 @@
     // A product id with nothing behind it means the catalogue moved under a
     // saved draft. Silence beats a sheet full of blanks.
     if (!p) return;
+    // Opened from an order row, this sheet must quote the ORDER's price, not
+    // the catalogue's — the rep is looking at the line they are about to sell.
+    const priceFor = kind === "order" && ORDER
+      ? orderLinePriceFor(p, (ORDER.lines || []).find((l) => l.productId === id))
+      : null;
     const s2 = sheet({
       body: `
         <h2 class="us-name">${esc(p.name)}</h2>
         ${p.artNo ? `<p class="us-sku">${esc(skuText(p))}</p>` : ""}
-        ${unitPriceHTML(p, unitInUse(p, kind), { price: "Unit price", unit: "Unit" })}`,
+        ${unitPriceHTML(p, unitInUse(p, kind), { price: "Unit price", unit: "Unit" }, priceFor)}`,
       actions: [{ label: "Close", cls: "primary" }],
     });
-    wireUnitPrice(s2.el, p);
+    wireUnitPrice(s2.el, p, null, priceFor);
   }
 
   // The empty state of a product search, with the way out of it: a product the
@@ -2927,6 +2950,30 @@
   const fmtINR = (n) =>
     "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  // The catalogue's price for one `unit`. Read ONLY to seed an order line, and
+  // never to replace a price the rep has set — an order line owns its own
+  // selling price from the moment it is created, and this is where that price
+  // starts, not what it falls back to. Aliased because an order line's own
+  // field is also called `unitPrice`, and the two must not be confused.
+  const cataloguePrice = (p, unit) => unitPrice(p, unit);
+
+  // A price as it is typed and stored: at most two decimals, never negative.
+  // Returns null for "no price", and undefined for something that is not a
+  // price at all, which is what the caller rejects.
+  function parsePrice(raw) {
+    const t = String(raw == null ? "" : raw).replace(/[₹,\s]/g, "").trim();
+    if (t === "") return null;
+    if (!/^\d*(\.\d*)?$/.test(t)) return undefined;
+    const n = Number(t);
+    if (!isFinite(n) || n < 0) return undefined;
+    return Math.round(n * 100) / 100;
+  }
+  // What sits in the input: no separators, no symbol, and no trailing zeros —
+  // a grouped "1,36,800.00" would have to be un-grouped before it could be
+  // edited, and ".00" on every row of a catalogue priced in whole rupees is
+  // noise on the common case. The invoice formats properly; this is a field.
+  const priceInputValue = (v) => (v == null ? "" : String(Math.round(Number(v) * 100) / 100));
+
   // The unit picker, built in one place so the count row and the order row
   // cannot drift apart on it. `attr` is the hook the screen's own wiring looks
   // for — data-unit when counting, data-order-unit when ordering. It is a
@@ -2950,14 +2997,14 @@
   // that shows the consequence — the price for the pack being chosen — rather
   // than in a bare list of words. Nothing is written until Save; dismissing
   // the sheet leaves the row exactly as it was.
-  function unitSheet(p, currentUnit, onSave) {
+  function unitSheet(p, currentUnit, onSave, priceFor) {
     let picked = currentUnit;
 
     const s2 = sheet({
       body: `
         <h2 class="us-name">${esc(p.name)}</h2>
         ${p.artNo ? `<p class="us-sku">${esc(skuText(p))}</p>` : ""}
-        ${unitPriceHTML(p, picked, { price: "Current unit price", unit: "Select unit" })}`,
+        ${unitPriceHTML(p, picked, { price: "Current unit price", unit: "Select unit" }, priceFor)}`,
       // Returning false keeps the sheet open; the footer becomes the question.
       actions: [{ label: "Save", cls: "primary", onClick: () => { ask(); return false; } }],
     });
@@ -2970,7 +3017,7 @@
     // stacking on this one. The detail line states the actual change, because
     // "Save?" on its own is a question about nothing.
     function ask() {
-      const to = unitMoney(p, picked);
+      const to = unitMoney(p, picked, priceFor);
       const changed = picked !== currentUnit;
       const detail = (changed ? `${currentUnit} → ${picked}` : picked) + (to ? ` · ${to}` : "");
       acts.classList.add("asking");
@@ -2997,7 +3044,7 @@
       // A pending question is about the OLD choice — putting Save back is
       // safer than silently re-pointing a ✓ the rep already read.
       if (acts.classList.contains("asking")) restore();
-    });
+    }, priceFor);
   }
 
   // "Updated", on the row itself, for a moment. Saving a unit closes the sheet
@@ -3037,6 +3084,53 @@
         <button type="button" data-delta="1">+</button>
       </span>
     </span>`;
+  }
+
+  // THE PRICE IS THE EDIT TARGET. The figure the rep is reading is the control
+  // they tap, and it becomes the field in place — no pencil, no second button,
+  // no sheet, and no extra tap between seeing a price and changing it.
+  //
+  // Quiet until touched: bare text at the unit chip's weight with a hairline
+  // dashed rule under it, which is what says "editable" without spending a
+  // box on it. The button carries real padding for the thumb and takes it
+  // back with a negative margin, so the target is bigger than the paint.
+  const priceAria = (l) =>
+    `Selling price per ${l.unit} for ${l.productName}: ` +
+    `${l.unitPrice == null ? "not set" : "₹" + priceInputValue(l.unitPrice)}. Tap to change.`;
+
+  function orderPriceHTML(l) {
+    const has = l.unitPrice != null;
+    return `<span class="ord-price">
+      <button type="button" class="pv" data-order-price-edit="${esc(l.productId)}" aria-label="${esc(priceAria(l))}">
+        <span class="cur" aria-hidden="true">₹</span><span class="amt${has ? "" : " none"}">${esc(has ? priceInputValue(l.unitPrice) : "—")}</span>
+      </button>
+      <span class="pe">
+        <span class="cur" aria-hidden="true">₹</span>
+        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
+          enterkeyhint="done" size="6" data-order-price="${esc(l.productId)}"
+          value="${esc(priceInputValue(l.unitPrice))}" placeholder="0" aria-label="${esc(priceAria(l))}">
+      </span>
+    </span>`;
+  }
+
+  // Patched in place, like setRowUnitLabels — a unit change moves the price
+  // with it and must not cost the rep their scroll position or a re-render.
+  // Both halves are written: the figure the rep reads, and the field behind it
+  // that the commit path reads back off the screen.
+  function setRowPrice(row, line) {
+    const host = row && row.querySelector(".ord-price");
+    if (!host) return;
+    const inp = host.querySelector("[data-order-price]");
+    const amt = host.querySelector(".pv .amt");
+    const btn = host.querySelector(".pv");
+    const has = line.unitPrice != null;
+    if (inp) inp.value = priceInputValue(line.unitPrice);
+    if (amt) {
+      amt.textContent = has ? priceInputValue(line.unitPrice) : "—";
+      amt.classList.toggle("none", !has);
+    }
+    if (btn) btn.setAttribute("aria-label", priceAria(line));
+    if (inp) inp.setAttribute("aria-label", priceAria(line));
   }
 
   // A stepper reading `0` is showing its default, not a number the rep chose,
@@ -3370,6 +3464,12 @@
       productName: p.name || l.productId,
       artNo: p.artNo || "",
       unit: baseUnit(p),
+      // The selling price for ONE `unit`, seeded from the catalogue and the
+      // rep's from here on. `priceEdited` is what stops a later unit change
+      // putting the catalogue's number back over one they set — the same
+      // reason `recommendedQty` is copied into `qty` rather than referenced.
+      unitPrice: cataloguePrice(p, baseUnit(p)),
+      priceEdited: false,
       currentStock: l.currentStock,
       hasStock: l.hasStock,
       expectedDemand: l.expectedDemand,
@@ -3388,6 +3488,8 @@
       productName: p.name,
       artNo: p.artNo || "",
       unit: baseUnit(p),
+      unitPrice: cataloguePrice(p, baseUnit(p)),
+      priceEdited: false,
       currentStock: currentStock == null ? 0 : currentStock,
       hasStock: currentStock != null,
       expectedDemand: null,
@@ -3582,10 +3684,11 @@
     return `
       <div class="qc-line qc-row ord-row ${Number(l.qty) > 0 ? "done" : ""}" data-order-row="${esc(l.productId)}">
         <div class="info">
-          <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" title="${esc(l.productName)}" aria-label="Details for ${esc(l.productName)}">${esc(shortName(l.productName))}</div>
+          <div class="nm" data-product-info="${esc(l.productId)}" data-product-ctx="order" role="button" tabindex="0" title="${esc(l.productName)}" aria-label="Details for ${esc(l.productName)}">${esc(l.productName)}</div>
           <div class="meta ask">Remove?</div>
         </div>
-        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty, unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit"))}
+        ${stepperHTML(l.productId, l.qty == null ? "" : l.qty,
+          `<span class="line-econ">${unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit")}${orderPriceHTML(l)}</span>`)}
         <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-order-remove-yes="${esc(l.productId)}" aria-label="Confirm removing ${esc(l.productName)}">✓</button>
         <button type="button" class="ci-btn sm no" data-order-remove-no="${esc(l.productId)}" aria-label="Keep ${esc(l.productName)}">✗</button>
@@ -3757,10 +3860,28 @@
       if (!line || !p) return;
       const row = btn.closest(".qc-row");
       unitSheet(p, rowUnit(row, baseUnit(p)), (unit) => {
+        // The price follows the pack, exactly as the catalogue's does: a
+        // Carton costs what its pieces cost, so the price and the count can
+        // never disagree about what a Carton is.
+        //
+        // An edited price is RESCALED along that ladder rather than recomputed
+        // from the catalogue. Recomputing would be a stale default silently
+        // overwriting the number the rep agreed with the shop — which is the
+        // one thing an order-specific price exists to prevent. An untouched
+        // price has nothing to preserve, so it is simply re-read.
+        const from = unitFactor(p, line.unit);
+        const to = unitFactor(p, unit);
         line.unit = unit;
+        if (!line.priceEdited) {
+          line.unitPrice = cataloguePrice(p, unit);
+        } else if (line.unitPrice != null && from > 0) {
+          line.unitPrice = Math.round((line.unitPrice / from) * to * 100) / 100;
+        }
         setRowUnitLabels(row, unit);
+        setRowPrice(row, line);
         flashUnitSaved(row);
-      });
+        touchOrder(customer);
+      }, orderLinePriceFor(p, line));
     }));
 
     // Removal asks in the row, exactly as the audit's counting row does.
@@ -3789,10 +3910,56 @@
         input.value = qty;
         line.qty = qty;
         row.classList.toggle("done", qty > 0);
-        refreshOrderChrome();
+        touchOrder(customer);
       };
       st.querySelectorAll("[data-delta]").forEach((b) => (b.onclick = () => set((Number(input.value) || 0) + Number(b.dataset.delta))));
       input.oninput = () => set(input.value);
+    });
+
+    // Price, in place. Tapping the figure swaps it for the field, pre-selected
+    // so the first keystroke replaces the old price rather than appending to
+    // it. Committed on blur or Enter rather than per keystroke: a re-render
+    // mid-type costs the caret, and a price is read as a whole number, not
+    // digit by digit ("6" on the way to "65" is not a price the rep meant).
+    // Escape and an unparseable entry both restore the last good value.
+    PAGE.querySelectorAll(".ord-row .ord-price").forEach((host) => {
+      const inp = host.querySelector("[data-order-price]");
+      const btn = host.querySelector(".pv");
+      if (!inp || !btn) return;
+      const line = ORDER.lines.find((l) => l.productId === inp.dataset.orderPrice);
+      if (!line) return;
+      const row = host.closest(".ord-row");
+      const close = () => { host.classList.remove("editing"); setRowPrice(row, line); };
+      // ONE commit, called by everything that ends an edit. Done/Enter does
+      // not route through blur(): blur() is a no-op on an element that never
+      // took focus, and a keyboard's Done must not depend on that. Calling it
+      // twice is harmless — the second call sees no change and stops.
+      const commit = () => {
+        const v = parsePrice(inp.value);
+        if (v === undefined) { toast("Enter a price of 0 or more.", "info"); close(); return; }
+        // Unchanged is not an edit: re-confirming a price the rep did not
+        // touch must not retract a question they have already read.
+        if (v === line.unitPrice) { close(); return; }
+        // Clearing it is a decision too — an emptied price is "no price on
+        // this line", and the catalogue must not put its own back.
+        line.unitPrice = v;
+        line.priceEdited = true;
+        close();
+        touchOrder(customer);
+      };
+      btn.onclick = () => {
+        host.classList.add("editing");
+        inp.value = priceInputValue(line.unitPrice);
+        inp.focus();
+        // Pre-selected, so the first digit replaces the old price instead of
+        // landing wherever the tap put the caret.
+        try { inp.select(); } catch (e) { /* older webviews */ }
+      };
+      inp.onkeydown = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); try { inp.blur(); } catch (e2) {} }
+        else if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); close(); try { inp.blur(); } catch (e2) {} }
+      };
+      inp.onblur = commit;
     });
 
     const basis = $("#obBasis", PAGE);
@@ -3818,6 +3985,7 @@
     };
     const confirm = $("#obConfirm", PAGE);
     if (confirm) confirm.onclick = () => {
+      syncPricesFromDOM();
       if (!orderTotals(ORDER.lines).products) { toast("Set a quantity on at least one product.", "info"); return; }
       OB_CONFIRM = true;
       refreshOrderChrome();
@@ -3829,6 +3997,47 @@
       OB_CONFIRM = false;
       confirmOrder(customer);
     };
+  }
+
+  // Read every price field back off the SCREEN before the order is read.
+  //
+  // A price is committed on blur, and blur is not guaranteed: a rep who types
+  // a price and goes straight for Confirm Order relies on the button stealing
+  // focus first, which not every mobile browser does the same way. Without
+  // this, the screen would show a price the committed order does not carry —
+  // and "what the rep confirmed" is, precisely, what the rep could see.
+  //
+  // Quantity needs no equivalent: its stepper commits on every input event.
+  function syncPricesFromDOM() {
+    if (!ORDER) return;
+    PAGE.querySelectorAll("[data-order-price]").forEach((inp) => {
+      const line = (ORDER.lines || []).find((l) => l.productId === inp.dataset.orderPrice);
+      if (!line) return;
+      const v = parsePrice(inp.value);
+      // Unparseable stays rejected, exactly as the blur handler would have it.
+      if (v !== undefined && v !== line.unitPrice) {
+        line.unitPrice = v;
+        line.priceEdited = true;
+      }
+      // Settle the editor too, so a row the rep was still typing in shows the
+      // figure that was just taken from it rather than a field left open over
+      // a stale one — the ✗ on the confirm question comes back to this row.
+      const host = inp.closest(".ord-price");
+      const row = inp.closest(".ord-row");
+      if (host) host.classList.remove("editing");
+      if (row) setRowPrice(row, line);
+    });
+  }
+
+  // ANY change to what would be committed retracts the confirm question. A
+  // pending ✓ the rep has already read must never re-point at a different
+  // order — a different quantity, a different unit, a different price. The
+  // full re-render path (add, remove) resets OB_CONFIRM at the top of
+  // renderOrderBuild; this is the same rule for the in-place edits, which
+  // deliberately do not re-render.
+  function touchOrder(customer) {
+    OB_CONFIRM = false;
+    refreshOrderChrome(customer);
   }
 
   // Header + footer only, so typing in a stepper survives. Mirrors
@@ -3875,6 +4084,7 @@
   // optimistically.
   function confirmOrder(customer) {
     if (!ORDER || ORDER.committing) return;
+    syncPricesFromDOM();
     const t = orderTotals(ORDER.lines);
     if (!t.products) { toast("Set a quantity on at least one product.", "info"); return; }
 
@@ -3949,6 +4159,20 @@
           // reader that has to guess the factor can silently misprice a pack.
           unitFactor: unitFactor(productById(l.productId), l.unit),
           qty: l.qty,
+          // THE price this order was confirmed at, per `unit`. It is written
+          // down here and read from here afterwards -- by the invoice, and by
+          // the accounts payload -- so nothing downstream ever re-derives a
+          // price from the catalogue and quietly disagrees with what the rep
+          // agreed with the shop. null means the line genuinely has no price.
+          unitPrice: l.unitPrice == null ? null : Number(l.unitPrice),
+          // What the catalogue said at that moment, and whether the rep
+          // overrode it -- the same "what the system proposed versus what was
+          // actually sent" pair that recommendedQty/qty already keeps.
+          cataloguePrice: (function () {
+            const c = cataloguePrice(productById(l.productId), l.unit);
+            return c == null ? null : Number(c);
+          })(),
+          priceEdited: !!l.priceEdited,
           currentStock: l.currentStock,
           expectedDemand: l.expectedDemand,
           recommendedQty: l.recommendedQty,
@@ -4068,7 +4292,7 @@
   // stable per order, so a browser that opened an invoice once would keep
   // serving that copy of the PAGE after the page itself changed.
   const invoiceUrlFor = (orderId) =>
-    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026082904";
+    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026090418";
 
   function openOrderDoneModal(orderId) {
     ORDER_DONE = { orderId };
@@ -4242,7 +4466,7 @@
   // top-level navigation to stock-audit.html, not through
   // #/customer-management/stock-audit-health.
   function mount() {
-    PAGE = mountShell($("#app"), { screen: "stock-audit", crumb: "Stock Audit & Health", tenant: SEED.tenant });
+    PAGE = mountShell($("#app"), { screen: "stock-audit", crumb: "Stock Audit", tenant: SEED.tenant });
     // Built up front so shell.js's toast() finds this screen's `.toasts` host
     // already in place (inside the phone) rather than making its own on <body>.
     overlayHost();

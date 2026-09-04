@@ -105,6 +105,168 @@ test("units: a factor mapping converts, and is applied to the confirmed qty", as
   } finally { await zoho.close(); }
 });
 
+/* ---- pricing: the confirmed price, and only the confirmed price --------- */
+
+test("price: the CONFIRMED unit price is sent as the rate, not the catalogue's", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    const res = await syncOrder(cfgFor(zoho), order({
+      // 65.50 is what the rep agreed with the shop. The catalogue said 70.
+      lines: [{ productId: "p01", productName: "AMLA PICKLE", unit: "Box",
+                qty: 17, unitPrice: 65.5, cataloguePrice: 70, priceEdited: true }],
+    }));
+    const item = zoho.state.lastPayload.line_items[0];
+    assert.equal(item.rate, 65.5, "the rep's price, not the catalogue's 70");
+    assert.equal(item.quantity, 17);
+    assert.equal(res.verification.ok, true, "and Zoho is confirmed to have stored it");
+  } finally { await zoho.close(); }
+});
+
+test("price: different products carry different prices, independently", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    await syncOrder(cfgFor(zoho), order({
+      lines: [
+        { productId: "p01", productName: "A", unit: "Box", qty: 2, unitPrice: 65.5 },
+        { productId: "p05", productName: "B", unit: "Box", qty: 3, unitPrice: 120 },
+      ],
+    }));
+    const items = zoho.state.lastPayload.line_items;
+    assert.equal(items[0].rate, 65.5);
+    // p05 maps factor 12: 3 Box -> 36 Pc, so the per-Pc rate is 120/12.
+    assert.equal(items[1].rate, 10);
+    assert.equal(items[1].quantity, 36);
+    // The line total is the same money on both sides. That is the whole point
+    // of dividing the rate by the factor the quantity was multiplied by.
+    assert.equal(items[1].rate * items[1].quantity, 120 * 3);
+  } finally { await zoho.close(); }
+});
+
+test("price: a confirmed ZERO is a decision and is sent; null is absent", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    await syncOrder(cfgFor(zoho), order({
+      lines: [
+        { productId: "p01", productName: "A", unit: "Box", qty: 1, unitPrice: 0 },
+        { productId: "p05", productName: "B", unit: "Box", qty: 1, unitPrice: null },
+      ],
+    }));
+    const items = zoho.state.lastPayload.line_items;
+    assert.equal(items[0].rate, 0, "a free line is priced at zero, not unpriced");
+    assert.equal("rate" in items[1], false, "no price on the line -> Zoho applies the item's own");
+  } finally { await zoho.close(); }
+});
+
+test("price: a line from before per-line pricing sends no rate at all", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    // No `unitPrice` key whatsoever -- an order raised before the field
+    // existed. It must behave exactly as it always did: Zoho prices it.
+    await syncOrder(cfgFor(zoho), order({
+      lines: [{ productId: "p01", productName: "A", artNo: "x", unit: "Box", qty: 5, recommendedQty: 5 }],
+    }));
+    assert.equal("rate" in zoho.state.lastPayload.line_items[0], false);
+  } finally { await zoho.close(); }
+});
+
+test("price: decimals survive the round trip at the factor-1 mappings in use", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    const res = await syncOrder(cfgFor(zoho), order({
+      lines: [{ productId: "p01", productName: "A", unit: "Box", qty: 7, unitPrice: 1234.57 }],
+    }));
+    assert.equal(zoho.state.lastPayload.line_items[0].rate, 1234.57);
+    assert.equal(res.verification.ok, true);
+  } finally { await zoho.close(); }
+});
+
+test("price: a negative or unusable price is REFUSED and nothing is written", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    for (const bad of [-1, Number.NaN, "abc", Infinity]) {
+      await assert.rejects(
+        () => syncOrder(cfgFor(zoho), order({
+          lines: [{ productId: "p01", productName: "A", unit: "Box", qty: 1, unitPrice: bad }],
+        })),
+        (e) => e.category === "bad_request",
+        `price ${String(bad)} must be refused`);
+    }
+    assert.equal(zoho.state.posts, 0, "nothing reached Zoho");
+  } finally { await zoho.close(); }
+});
+
+test("price: Zoho storing a DIFFERENT rate fails verification, never silent success", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    zoho.state.mangleRate = true;      // Zoho keeps its own price instead of ours
+    await assert.rejects(
+      () => syncOrder(cfgFor(zoho), order({
+        lines: [{ productId: "p01", productName: "A", unit: "Box", qty: 1, unitPrice: 65.5 }],
+      })),
+      (e) => e.category === "verification_failed" && /rate:p01/.test(e.detail),
+      "a price Zoho did not store must be reported as a failure, naming the line");
+  } finally { await zoho.close(); }
+});
+
+test("price: retry reuses the committed order and re-posts nothing", async () => {
+  const zoho = await startFakeZoho();
+  clearMappings(); withMappings();
+  try {
+    const priced = order({
+      lines: [{ productId: "p01", productName: "A", unit: "Box", qty: 4, unitPrice: 65.5 }],
+    });
+    const first = await syncOrder(cfgFor(zoho), priced);
+    assert.equal(zoho.state.posts, 1);
+    assert.equal(zoho.state.lastPayload.line_items[0].rate, 65.5);
+
+    // Exactly what the screen does on Retry Sync: the SAME stored record,
+    // now carrying the id the first sync wrote back onto it.
+    priced.zohoOrderId = first.zohoSalesOrderId;
+    const again = await syncOrder(cfgFor(zoho), priced);
+
+    assert.equal(again.created, false, "attached to the existing order");
+    assert.equal(again.zohoSalesOrderId, first.zohoSalesOrderId);
+    assert.equal(zoho.state.posts, 1, "no second sales order, and no second price");
+  } finally { await zoho.close(); }
+});
+
+test("price: a timed-out sync retries at the same price, and never twice", async () => {
+  const zoho = await startFakeZoho({ hangOnCreate: true });
+  clearMappings(); withMappings();
+  try {
+    const priced = order({
+      id: "FB-SO-26-08-777",
+      lines: [{ productId: "p01", productName: "A", unit: "Box", qty: 4, unitPrice: 65.5 }],
+    });
+
+    // The POST hangs. Held as `timeout` -- PENDING to the screen, not failed --
+    // and Zoho created nothing.
+    await assert.rejects(() => syncOrder(cfgFor(zoho), priced), (e) => e.category === "timeout");
+    assert.equal(zoho.state.posts, 0);
+
+    // Retry Sync, with the SAME committed record. It goes through at the same
+    // price -- the price is on the record, so there is nothing to re-derive.
+    zoho.state.hangOnCreate = false;
+    const first = await syncOrder(cfgFor(zoho), priced);
+    assert.equal(zoho.state.posts, 1);
+    assert.equal(zoho.state.lastPayload.line_items[0].rate, 65.5);
+
+    // A further retry attaches to what is already there and prices nothing.
+    zoho.state.hangOnCreate = true;
+    const again = await syncOrder(cfgFor(zoho), priced);
+    assert.equal(again.created, false, "found by reference before the hanging POST");
+    assert.equal(again.zohoSalesOrderId, first.zohoSalesOrderId);
+    assert.equal(zoho.state.posts, 1, "still exactly one sales order");
+  } finally { await zoho.close(); }
+});
+
 test("E - unmapped customer fails clearly and writes nothing", async () => {
   const zoho = await startFakeZoho();
   clearMappings();

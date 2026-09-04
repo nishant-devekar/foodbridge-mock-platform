@@ -65,6 +65,12 @@ export function startFakeZoho(opts = {}) {
           item_id: l.item_id,
           quantity: state.mangleQty ? Number(l.quantity) + 1 : Number(l.quantity),
           unit: l.unit || "",
+          // Real Zoho echoes the rate it stored -- either the one it was sent
+          // or, if none was, the item's own. `mangleRate` stands in for the
+          // second case happening when we DID send one.
+          ...(l.rate == null
+            ? {}
+            : { rate: state.mangleRate ? Number(l.rate) + 5 : Number(l.rate) }),
         })),
       };
       state.orders.set(id, record);

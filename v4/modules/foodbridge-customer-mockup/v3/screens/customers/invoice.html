@@ -47,7 +47,11 @@
   ── ABOUT THE MONEY, read before trusting a total ───────────────────────────
   FoodBridge stores no prices and no tax. Two figures here are DERIVED:
 
-    * The unit price is the retail MRP printed in the tenant's own product
+    * The unit price is the SELLING PRICE CONFIRMED ON THE ORDER -- the rep can
+      set it per line in Create Order, and that number is stored on the line and
+      read straight back here. Only a line with no price of its own (an order
+      raised before this existed) falls back to the parse below.
+    * That fallback is the retail MRP printed in the tenant's own product
       name, parsed out of it, multiplied up the pack ladder. It is RETAIL MRP,
       not the trade price a distributor charges a shop — VERSION.md's "Pricing
       is an open commercial question". The 23 catalogue products with no MRP
@@ -397,12 +401,37 @@
   }
 
   /* ── priced lines ──────────────────────────────────────────────────────── */
+  //
+  // THE CONFIRMED PRICE WINS, ALWAYS. `unitPrice` is the per-unit selling price
+  // the salesperson confirmed, written onto the line at commit time. This page
+  // must never recompute it: the rep may have overridden the catalogue, and a
+  // document that quietly re-derives the number is a document that disagrees
+  // with the order the shop agreed to and with what accounts was sent.
+  //
+  // The MRP parse below is the FALLBACK, and only for orders raised before the
+  // line carried a price of its own — exactly the same "a line that has one
+  // always wins" rule `unitFactor` already follows.
+  function rateOf(line, factor) {
+    // Presence, not value. A line that CARRIES a unitPrice answers with it --
+    // including a null one, which is the salesperson having cleared the price
+    // on purpose and means "no price on this line", exactly as it does for the
+    // 23 catalogue products that never had an MRP to parse. Reading null as
+    // "fall back to the name" put a price back on a line the rep had removed
+    // it from, and silently added it to the total.
+    //
+    // Only a line from BEFORE per-line pricing existed -- no such key at all --
+    // reaches the parse below.
+    if (Object.prototype.hasOwnProperty.call(line, "unitPrice")) {
+      var v = Number(line.unitPrice);
+      return line.unitPrice == null || !isFinite(v) ? null : v;
+    }
+    var mrp = baseMrp(line.productName);
+    return mrp == null ? null : mrp * factor;
+  }
   var lines = (Array.isArray(order.lines) ? order.lines : []).map(function (l) {
-    var mrp = baseMrp(l.productName);
     var factor = factorOf(l);
     var qty = Number(l.qty) || 0;
-    // A pack costs what its pieces cost — the same ladder the quantities use.
-    var rate = mrp == null ? null : mrp * factor;
+    var rate = rateOf(l, factor);
     return {
       name: l.productName || l.productId,
       unit: l.unit || "Pc",
