@@ -1772,13 +1772,22 @@
   // them, and the unit sheet, which changes them — so the pair cannot drift
   // apart. Every option carries its own price, so the packs are compared
   // inside the list rather than one at a time.
-  function unitPriceHTML(p, picked, labels, priceFor) {
+  // `edit` — `{ value }` — turns the price half into a field. Without it this
+  // is what it has always been, a figure the sheet reports, which is what the
+  // audit's counting unit and the plain product sheet want.
+  function unitPriceHTML(p, picked, labels, priceFor, edit) {
     const base = baseUnit(p);
+    const priceHTML = edit
+      ? `<span class="us-money"><span class="cur" aria-hidden="true">₹</span><input type="text"
+           inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
+           enterkeyhint="done" id="usPriceInput" value="${esc(priceInputValue(edit.value))}"
+           placeholder="0" aria-label="${esc(labels.price)}"></span>`
+      : priceBlockHTML(p, picked, priceFor);
     return `
       <div class="us-now">
         <span class="us-now-copy">
           <span class="us-label">${esc(labels.price)}</span>
-          <span id="usPrice">${priceBlockHTML(p, picked, priceFor)}</span>
+          <span id="usPrice">${priceHTML}</span>
         </span>
         <span class="us-pick">
           <label class="us-label" for="usUnit">${esc(labels.unit)}</label>
@@ -1799,12 +1808,15 @@
   // now the ONLY place a number appears — the options carry no price of their
   // own — so this is what makes the pack comparison work: change the unit, read
   // the figure beside it.
-  function wireUnitPrice(el, p, onPick, priceFor) {
+  function wireUnitPrice(el, p, onPick, priceFor, edit) {
     const sel = el.querySelector("#usUnit");
     if (!sel) return;
     const priceHost = el.querySelector("#usPrice");
     sel.onchange = () => {
-      if (priceHost) priceHost.innerHTML = priceBlockHTML(p, sel.value, priceFor);
+      // When the price is a FIELD this host holds the rep's own input, and
+      // rewriting it would destroy what they typed — and the element the
+      // caller is about to rescale. Only the read-only figure is re-rendered.
+      if (priceHost && !edit) priceHost.innerHTML = priceBlockHTML(p, sel.value, priceFor);
       if (onPick) onPick(sel.value);
     };
   }
@@ -1814,7 +1826,10 @@
   // the number that will be invoiced. Falls back to the catalogue for a line
   // the rep has not priced, which is what that line will use anyway.
   function orderLinePriceFor(p, line) {
-    if (!line || !line.priceEdited) return null;
+    // No `priceEdited` guard: the line's price is the line's price, whether or
+    // not it happens to equal the catalogue's. The product sheet opened from
+    // an order row quotes what that line will actually be invoiced at.
+    if (!line) return null;
     const from = unitFactor(p, line.unit);
     return (unit) => {
       if (line.unitPrice == null || !(from > 0)) return null;
@@ -2997,16 +3012,26 @@
   // that shows the consequence — the price for the pack being chosen — rather
   // than in a bare list of words. Nothing is written until Save; dismissing
   // the sheet leaves the row exactly as it was.
-  function unitSheet(p, currentUnit, onSave, priceFor) {
+  // With `edit` the price becomes a field and the footer a single Apply: the
+  // ORDER's unit and price are chosen together here, because they are one
+  // decision ("what am I selling this at?") and splitting them across two
+  // controls on the row made the rep answer it twice. Without `edit` this is
+  // unchanged — the audit's counting unit keeps Save and its two-tap question,
+  // since there is no price to agree there.
+  function unitSheet(p, currentUnit, onSave, priceFor, edit) {
     let picked = currentUnit;
 
     const s2 = sheet({
       body: `
         <h2 class="us-name">${esc(p.name)}</h2>
         ${p.artNo ? `<p class="us-sku">${esc(skuText(p))}</p>` : ""}
-        ${unitPriceHTML(p, picked, { price: "Current unit price", unit: "Select unit" }, priceFor)}`,
+        ${unitPriceHTML(p, picked,
+          { price: edit ? "Selling price" : "Current unit price", unit: edit ? "Unit" : "Select unit" },
+          priceFor, edit)}`,
       // Returning false keeps the sheet open; the footer becomes the question.
-      actions: [{ label: "Save", cls: "primary", onClick: () => { ask(); return false; } }],
+      actions: edit
+        ? [{ label: "Apply", cls: "primary", onClick: () => apply() }]
+        : [{ label: "Save", cls: "primary", onClick: () => { ask(); return false; } }],
     });
 
     const el = s2.el;
@@ -3039,12 +3064,48 @@
       el.querySelector("#usSave").onclick = ask;
     }
 
+    const field = () => el.querySelector("#usPriceInput");
+
+    // Tapping the price selects it, so the first digit REPLACES the old rate
+    // instead of landing wherever the caret fell. Without this, changing 30 to
+    // 28 costs a long-press and a "Select All" off the iOS edit menu — two
+    // taps and a menu for the commonest edit on the sheet. Not auto-focused on
+    // open: the keyboard would cover the unit picker for a rep who came here
+    // to change the pack.
+    const pf = field();
+    if (pf) pf.onfocus = () => { try { pf.select(); } catch (e) { /* older webviews */ } };
+
+    // Apply is the commit. A price that is not a price keeps the sheet open
+    // with the field as the rep left it — closing on a rejected value would
+    // throw away what they typed and hide why.
+    function apply() {
+      const v = parsePrice(field() ? field().value : "");
+      if (v === undefined) { toast("Enter a price of 0 or more.", "info"); return false; }
+      onSave(picked, v);
+      return true;
+    }
+
     wireUnitPrice(el, p, (unit) => {
+      const before = picked;
       picked = unit;
+      // The price follows the pack IN FRONT OF THE REP, before they Apply:
+      // whatever is in the field is the price of one `before`, so one `unit`
+      // costs it times the ratio of the two — the same ladder the quantities
+      // use, so price and count can never disagree about what a Carton is.
+      // Rescaling what is THERE rather than re-reading the catalogue is what
+      // stops a default overwriting a price they have just typed.
+      const f = field();
+      if (f) {
+        const from = unitFactor(p, before);
+        const cur = parsePrice(f.value);
+        if (cur !== undefined && cur !== null && from > 0) {
+          f.value = priceInputValue(Math.round((cur / from) * unitFactor(p, unit) * 100) / 100);
+        }
+      }
       // A pending question is about the OLD choice — putting Save back is
       // safer than silently re-pointing a ✓ the rep already read.
       if (acts.classList.contains("asking")) restore();
-    }, priceFor);
+    }, priceFor, edit);
   }
 
   // "Updated", on the row itself, for a moment. Saving a unit closes the sheet
@@ -3086,51 +3147,32 @@
     </span>`;
   }
 
-  // THE PRICE IS THE EDIT TARGET. The figure the rep is reading is the control
-  // they tap, and it becomes the field in place — no pencil, no second button,
-  // no sheet, and no extra tap between seeing a price and changing it.
-  //
-  // Quiet until touched: bare text at the unit chip's weight with a hairline
-  // dashed rule under it, which is what says "editable" without spending a
-  // box on it. The button carries real padding for the thumb and takes it
-  // back with a negative margin, so the target is bigger than the paint.
-  const priceAria = (l) =>
-    `Selling price per ${l.unit} for ${l.productName}: ` +
-    `${l.unitPrice == null ? "not set" : "₹" + priceInputValue(l.unitPrice)}. Tap to change.`;
+  // ONE CHIP, READ AS A RATE. "₹30/Pc" is how a price is actually spoken — the
+  // number means nothing without the pack it belongs to, and showing them as
+  // two controls made the rep answer one question ("what am I selling this
+  // at?") in two places. Tapping it opens the sheet that owns both.
+  const rateAria = (l) =>
+    `${l.unitPrice == null ? "No price set" : "₹" + priceInputValue(l.unitPrice)} per ${l.unit} ` +
+    `for ${l.productName}. Tap to change the unit or the price.`;
 
-  function orderPriceHTML(l) {
-    const has = l.unitPrice != null;
-    return `<span class="ord-price">
-      <button type="button" class="pv" data-order-price-edit="${esc(l.productId)}" aria-label="${esc(priceAria(l))}">
-        <span class="cur" aria-hidden="true">₹</span><span class="amt${has ? "" : " none"}">${esc(has ? priceInputValue(l.unitPrice) : "—")}</span>
-      </button>
-      <span class="pe">
-        <span class="cur" aria-hidden="true">₹</span>
-        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false"
-          enterkeyhint="done" size="6" data-order-price="${esc(l.productId)}"
-          value="${esc(priceInputValue(l.unitPrice))}" placeholder="0" aria-label="${esc(priceAria(l))}">
-      </span>
-    </span>`;
+  const rateText = (l) =>
+    `<span class="cur" aria-hidden="true">₹</span><span class="amt">${esc(l.unitPrice == null ? "—" : priceInputValue(l.unitPrice))}</span>` +
+    `<span class="per">/${esc(l.unit)}</span><span class="chev" aria-hidden="true">⌄</span>`;
+
+  function orderRateHTML(l) {
+    return `<button type="button" class="ord-rate${l.unitPrice == null ? " none" : ""}"
+        data-order-rate="${esc(l.productId)}" aria-label="${esc(rateAria(l))}">${rateText(l)}</button>`;
   }
 
-  // Patched in place, like setRowUnitLabels — a unit change moves the price
-  // with it and must not cost the rep their scroll position or a re-render.
-  // Both halves are written: the figure the rep reads, and the field behind it
-  // that the commit path reads back off the screen.
-  function setRowPrice(row, line) {
-    const host = row && row.querySelector(".ord-price");
-    if (!host) return;
-    const inp = host.querySelector("[data-order-price]");
-    const amt = host.querySelector(".pv .amt");
-    const btn = host.querySelector(".pv");
-    const has = line.unitPrice != null;
-    if (inp) inp.value = priceInputValue(line.unitPrice);
-    if (amt) {
-      amt.textContent = has ? priceInputValue(line.unitPrice) : "—";
-      amt.classList.toggle("none", !has);
-    }
-    if (btn) btn.setAttribute("aria-label", priceAria(line));
-    if (inp) inp.setAttribute("aria-label", priceAria(line));
+  // Patched in place after Apply, the way setRowUnitLabels always has been —
+  // the sheet has just closed over this row, and a re-render would cost the
+  // rep their scroll position.
+  function setRowRate(row, line) {
+    const btn = row && row.querySelector("[data-order-rate]");
+    if (!btn) return;
+    btn.innerHTML = rateText(line);
+    btn.classList.toggle("none", line.unitPrice == null);
+    btn.setAttribute("aria-label", rateAria(line));
   }
 
   // A stepper reading `0` is showing its default, not a number the rep chose,
@@ -3688,7 +3730,7 @@
           <div class="meta ask">Remove?</div>
         </div>
         ${stepperHTML(l.productId, l.qty == null ? "" : l.qty,
-          `<span class="line-econ">${unitPickHTML("data-order-unit", l.productId, l.productName, unit, units, baseUnit(p), "Ordering unit")}${orderPriceHTML(l)}</span>`)}
+          `<span class="line-econ">${orderRateHTML(l)}</span>`)}
         <button type="button" class="qc-remove" data-order-remove="${esc(l.productId)}" aria-label="Remove ${esc(l.productName)}">${TRASH_SVG}</button>
         <button type="button" class="ci-btn sm yes" data-order-remove-yes="${esc(l.productId)}" aria-label="Confirm removing ${esc(l.productName)}">✓</button>
         <button type="button" class="ci-btn sm no" data-order-remove-no="${esc(l.productId)}" aria-label="Keep ${esc(l.productName)}">✗</button>
@@ -3854,34 +3896,30 @@
     // `qty` is the number the rep typed and stays theirs, so "3" under a
     // switch from Pc to Carton means three cartons, which is exactly what the
     // order record and the accounts payload then carry.
-    PAGE.querySelectorAll("[data-order-unit]").forEach((btn) => (btn.onclick = () => {
-      const line = ORDER.lines.find((x) => x.productId === btn.dataset.orderUnit);
-      const p = productById(btn.dataset.orderUnit);
+    // THE RATE CHIP OPENS THE SHEET THAT OWNS BOTH. Unit and price are one
+    // decision — what am I selling this at — so they are chosen together and
+    // committed together by Apply. Nothing is written until then: dismissing
+    // the sheet leaves the row exactly as it was.
+    PAGE.querySelectorAll("[data-order-rate]").forEach((btn) => (btn.onclick = () => {
+      const id = btn.dataset.orderRate;
+      const line = ORDER.lines.find((x) => x.productId === id);
+      const p = productById(id);
       if (!line || !p) return;
       const row = btn.closest(".qc-row");
-      unitSheet(p, rowUnit(row, baseUnit(p)), (unit) => {
-        // The price follows the pack, exactly as the catalogue's does: a
-        // Carton costs what its pieces cost, so the price and the count can
-        // never disagree about what a Carton is.
-        //
-        // An edited price is RESCALED along that ladder rather than recomputed
-        // from the catalogue. Recomputing would be a stale default silently
-        // overwriting the number the rep agreed with the shop — which is the
-        // one thing an order-specific price exists to prevent. An untouched
-        // price has nothing to preserve, so it is simply re-read.
-        const from = unitFactor(p, line.unit);
-        const to = unitFactor(p, unit);
+      unitSheet(p, line.unit, (unit, price) => {
         line.unit = unit;
-        if (!line.priceEdited) {
-          line.unitPrice = cataloguePrice(p, unit);
-        } else if (line.unitPrice != null && from > 0) {
-          line.unitPrice = Math.round((line.unitPrice / from) * to * 100) / 100;
-        }
-        setRowUnitLabels(row, unit);
-        setRowPrice(row, line);
+        line.unitPrice = price;
+        // `priceEdited` is DERIVED, not remembered: the line carries the rep's
+        // own price exactly when it is not the catalogue's for the pack they
+        // chose. Changing only the unit therefore does not mark it as theirs,
+        // and typing the catalogue's own figure does not either — both are
+        // true, and the record says so without a flag to keep in step.
+        const cat = cataloguePrice(p, unit);
+        line.priceEdited = !(price === cat || (price == null && cat == null));
+        setRowRate(row, line);
         flashUnitSaved(row);
         touchOrder(customer);
-      }, orderLinePriceFor(p, line));
+      }, null, { value: line.unitPrice });
     }));
 
     // Removal asks in the row, exactly as the audit's counting row does.
@@ -3916,52 +3954,6 @@
       input.oninput = () => set(input.value);
     });
 
-    // Price, in place. Tapping the figure swaps it for the field, pre-selected
-    // so the first keystroke replaces the old price rather than appending to
-    // it. Committed on blur or Enter rather than per keystroke: a re-render
-    // mid-type costs the caret, and a price is read as a whole number, not
-    // digit by digit ("6" on the way to "65" is not a price the rep meant).
-    // Escape and an unparseable entry both restore the last good value.
-    PAGE.querySelectorAll(".ord-row .ord-price").forEach((host) => {
-      const inp = host.querySelector("[data-order-price]");
-      const btn = host.querySelector(".pv");
-      if (!inp || !btn) return;
-      const line = ORDER.lines.find((l) => l.productId === inp.dataset.orderPrice);
-      if (!line) return;
-      const row = host.closest(".ord-row");
-      const close = () => { host.classList.remove("editing"); setRowPrice(row, line); };
-      // ONE commit, called by everything that ends an edit. Done/Enter does
-      // not route through blur(): blur() is a no-op on an element that never
-      // took focus, and a keyboard's Done must not depend on that. Calling it
-      // twice is harmless — the second call sees no change and stops.
-      const commit = () => {
-        const v = parsePrice(inp.value);
-        if (v === undefined) { toast("Enter a price of 0 or more.", "info"); close(); return; }
-        // Unchanged is not an edit: re-confirming a price the rep did not
-        // touch must not retract a question they have already read.
-        if (v === line.unitPrice) { close(); return; }
-        // Clearing it is a decision too — an emptied price is "no price on
-        // this line", and the catalogue must not put its own back.
-        line.unitPrice = v;
-        line.priceEdited = true;
-        close();
-        touchOrder(customer);
-      };
-      btn.onclick = () => {
-        host.classList.add("editing");
-        inp.value = priceInputValue(line.unitPrice);
-        inp.focus();
-        // Pre-selected, so the first digit replaces the old price instead of
-        // landing wherever the tap put the caret.
-        try { inp.select(); } catch (e) { /* older webviews */ }
-      };
-      inp.onkeydown = (e) => {
-        if (e.key === "Enter") { e.preventDefault(); commit(); try { inp.blur(); } catch (e2) {} }
-        else if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); close(); try { inp.blur(); } catch (e2) {} }
-      };
-      inp.onblur = commit;
-    });
-
     const basis = $("#obBasis", PAGE);
     if (basis) basis.onclick = () => basisSheet(ORDER.prediction.context);
 
@@ -3985,7 +3977,6 @@
     };
     const confirm = $("#obConfirm", PAGE);
     if (confirm) confirm.onclick = () => {
-      syncPricesFromDOM();
       if (!orderTotals(ORDER.lines).products) { toast("Set a quantity on at least one product.", "info"); return; }
       OB_CONFIRM = true;
       refreshOrderChrome();
@@ -3997,36 +3988,6 @@
       OB_CONFIRM = false;
       confirmOrder(customer);
     };
-  }
-
-  // Read every price field back off the SCREEN before the order is read.
-  //
-  // A price is committed on blur, and blur is not guaranteed: a rep who types
-  // a price and goes straight for Confirm Order relies on the button stealing
-  // focus first, which not every mobile browser does the same way. Without
-  // this, the screen would show a price the committed order does not carry —
-  // and "what the rep confirmed" is, precisely, what the rep could see.
-  //
-  // Quantity needs no equivalent: its stepper commits on every input event.
-  function syncPricesFromDOM() {
-    if (!ORDER) return;
-    PAGE.querySelectorAll("[data-order-price]").forEach((inp) => {
-      const line = (ORDER.lines || []).find((l) => l.productId === inp.dataset.orderPrice);
-      if (!line) return;
-      const v = parsePrice(inp.value);
-      // Unparseable stays rejected, exactly as the blur handler would have it.
-      if (v !== undefined && v !== line.unitPrice) {
-        line.unitPrice = v;
-        line.priceEdited = true;
-      }
-      // Settle the editor too, so a row the rep was still typing in shows the
-      // figure that was just taken from it rather than a field left open over
-      // a stale one — the ✗ on the confirm question comes back to this row.
-      const host = inp.closest(".ord-price");
-      const row = inp.closest(".ord-row");
-      if (host) host.classList.remove("editing");
-      if (row) setRowPrice(row, line);
-    });
   }
 
   // ANY change to what would be committed retracts the confirm question. A
@@ -4084,7 +4045,6 @@
   // optimistically.
   function confirmOrder(customer) {
     if (!ORDER || ORDER.committing) return;
-    syncPricesFromDOM();
     const t = orderTotals(ORDER.lines);
     if (!t.products) { toast("Set a quantity on at least one product.", "info"); return; }
 
@@ -4292,7 +4252,7 @@
   // stable per order, so a browser that opened an invoice once would keep
   // serving that copy of the PAGE after the page itself changed.
   const invoiceUrlFor = (orderId) =>
-    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026090418";
+    "invoice.html?order=" + encodeURIComponent(orderId) + "&v=2026090424";
 
   function openOrderDoneModal(orderId) {
     ORDER_DONE = { orderId };

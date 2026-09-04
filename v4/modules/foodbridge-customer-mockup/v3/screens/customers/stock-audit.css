@@ -883,56 +883,34 @@
    card gains a figure rather than a row. Nothing moves that a rep already
    knows where to find. */
 .ord-row .line-econ { display: inline-flex; align-items: center; gap: 10px; line-height: 1; }
-/* THE PRICE IS THE EDIT TARGET: the figure the rep reads is the control they
-   tap, and it becomes the field in place. Quiet until touched — bare text at
-   the unit chip's weight over a hairline dashed rule, which is what says
-   "editable" without spending a border and its padding on saying it. */
-.ord-row .ord-price { display: inline-flex; align-items: center; line-height: 1; }
-.ord-row .ord-price .pv {
+/* THE RATE CHIP. One control, reading the way a price is actually spoken:
+   "₹30/Pc". The number means nothing without the pack it belongs to, so the
+   two are one chip, and tapping it opens the sheet that owns both. The chevron
+   says "this opens" — the same thing the unit chip's said, which is what this
+   replaces. */
+.ord-row .line-econ { display: inline-flex; align-items: center; line-height: 1; }
+.ord-row .ord-rate {
   display: inline-flex; align-items: baseline; gap: 0;
   /* Padding for the thumb, negative margin to give the row its height back:
-     the target is deliberately larger than the paint. It takes the empty room
-     ABOVE, where the row's own padding is, and stops at the gap below — below
-     is the stepper, and a mis-tap meant for the price must never land on −/+
-     and change a quantity. On the left it stops halfway to the unit chip, so
-     the two controls sharing this line divide the space rather than overlap. */
-  padding: 6px 7px 4px 5px; margin: -6px -4px -4px -5px;
+     the target is larger than the paint. It takes the empty room ABOVE, where
+     the row's own padding is, and stops at the gap below — below is the
+     stepper, and a mis-tap meant for the rate must never land on −/+ and
+     change a confirmed quantity. */
+  padding: 6px 7px 4px; margin: -6px -5px -4px;
   border: 0; background: none; border-radius: 8px; font: inherit; line-height: 1;
 }
-.ord-row .ord-price .pv .cur { font-size: 11px; font-weight: 700; color: var(--muted-2); }
-/* Darker than the unit beside it. Both are quiet, but the price is a figure
-   the rep acts on and the unit is a label on the number above — reading them
-   at the same weight made the row's third fact disappear into its second. */
-.ord-row .ord-price .pv .amt {
-  font-size: 12.5px; font-weight: 700; color: var(--ink);
-  border-bottom: 1px dashed var(--muted-2); padding-bottom: 2px;
-}
-.ord-row .ord-price .pv .amt.none { color: var(--muted-2); font-weight: 500; }
-.ord-row .ord-price .pv:hover .amt { color: var(--teal); border-bottom-color: var(--teal-l2); }
-.ord-row .ord-price .pv:active { background: var(--slate-100); }
-.ord-row .ord-price .pv:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
-/* Priced and counted reads as one settled row, the same way the unit does. */
-.ord-row.done .ord-price .pv .cur, .ord-row.done .ord-price .pv .amt { color: var(--teal-d); }
+.ord-row .ord-rate .cur { font-size: 11px; font-weight: 700; color: var(--muted-2); }
+.ord-row .ord-rate .amt { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.ord-row .ord-rate .per { font-size: 11px; font-weight: 700; color: var(--muted); }
+.ord-row .ord-rate .chev { font-size: 11px; color: var(--muted-2); margin-left: 3px; line-height: 1; }
+.ord-row .ord-rate.none .amt { color: var(--muted-2); font-weight: 500; }
+.ord-row .ord-rate:hover .amt, .ord-row .ord-rate:hover .per { color: var(--teal); }
+.ord-row .ord-rate:active { background: var(--slate-100); }
+.ord-row .ord-rate:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+/* Priced and counted reads as one settled row, the way the unit always did. */
+.ord-row.done .ord-rate .cur, .ord-row.done .ord-rate .amt,
+.ord-row.done .ord-rate .per, .ord-row.done .ord-rate .chev { color: var(--teal-d); }
 
-/* Editing. The dashed rule becomes a solid teal one — the same promotion the
-   stepper's border gets when it is focused, so the row has one idea of "live". */
-.ord-row .ord-price .pe { display: none; align-items: baseline; gap: 0; }
-.ord-row .ord-price.editing .pv { display: none; }
-.ord-row .ord-price.editing .pe { display: inline-flex; }
-.ord-row .ord-price .pe .cur { font-size: 11px; font-weight: 700; color: var(--teal-d); }
-.ord-row .ord-price .pe input {
-  width: 54px; padding: 1px 0 1px 1px; font-size: 12.5px; border: 0; border-bottom: 1.5px solid var(--teal);
-  background: transparent; font: inherit; font-size: 12px; font-weight: 700;
-  color: var(--teal-d); text-align: left; border-radius: 0; outline: none;
-  -moz-appearance: textfield; appearance: textfield;
-}
-.ord-row .ord-price .pe input::placeholder { color: var(--muted-2); font-weight: 500; }
-/* The symbol belongs against the number, not at the edge of a fixed field —
-   "₹      65" reads as two things. Where the browser can size an input to its
-   content, it does; the width above is the fallback for where it cannot. */
-@supports (field-sizing: content) {
-  .ord-row .ord-price .pe input { field-sizing: content; width: auto; min-width: 2ch; max-width: 72px; }
-}
 
 
 /* Saved, said on the row for a moment and then gone — see flashUnitSaved. The
@@ -985,6 +963,21 @@
 /* No MRP in the product name means no price configured in Zoho either — said
    plainly rather than shown as a confident zero. */
 .us-price.none { font-size: 15px; font-weight: 700; color: var(--muted-2); }
+
+/* The sheet's price when it is the ORDER's to set: the same slot the figure
+   occupies when it is only being reported, so the sheet does not change shape
+   between its two uses — a field the width of the column it sits in, with the
+   ₹ outside it where a symbol cannot be typed over. */
+.us-money { display: flex; align-items: baseline; gap: 4px; width: 100%; }
+.us-money .cur { font-size: 17px; font-weight: 800; color: var(--muted); flex: 0 0 auto; }
+.us-money input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  font: inherit; font-size: 21px; font-weight: 800; color: var(--ink);
+  padding: 9px 10px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: #fff; -moz-appearance: textfield; appearance: textfield;
+}
+.us-money input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(18,97,94,.18); }
+.us-money input::placeholder { color: var(--muted-2); font-weight: 600; }
 
 /* Shrinks before the price does: the figure must never wrap mid-number, and an
    option that ellipses still reads ("Carton (144 P…"), a half-price does not. */
@@ -1305,10 +1298,6 @@
      row's own padding above the control is 11px, so the box already sits 1px
      over the row's edge, into the empty bottom padding of the row above. */
   .qc-line .unit-pick::after { content: ""; position: absolute; inset: -12px -12px -4px; }
-  /* On the order row the unit is no longer alone on its line — the price sits
-     10px to its right. The overlay keeps its generous top and left and gives
-     the right back to half that gap, so the two never fight for a thumb. */
-  .ord-row .unit-pick::after { inset: -12px -5px -4px -12px; }
   .nav-btn { min-height: 48px; }
   .picker-row, .qc-line { min-height: 56px; }
 

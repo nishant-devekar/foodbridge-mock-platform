@@ -72,9 +72,10 @@ The screen is **Stock Audit** now: the nav label in `assets/modules.json`, the m
 sidebar entry in `shell.js`, the in-screen crumb in `stock-audit.js`, and the page `<title>`.
 `shell.js` also gained the `?v=` cache tag it had never carried, since the label lives in it.
 
-The price figure is itself the tap target and becomes the field in place
-(Done/Enter/blur commit, Escape reverts). It rides on the unit's existing line
-above the stepper, so the product card keeps both its shape and its height.
+The row carries one chip read as a rate — `₹28/Pc` — and tapping it opens a
+bottom sheet owning both: a Selling price field and a Unit picker, with a single
+Apply. Choosing a unit rescales the price in front of the rep; nothing is written
+until Apply.
 Also fixed: the invoice was re-pricing a line whose price the rep had
 deliberately cleared.
 

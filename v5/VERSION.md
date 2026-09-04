@@ -17,9 +17,9 @@ it silently. Mirrored files — `stock-audit.html`, `stock-audit.js`, `stock-aud
 
 ### Mirrored 4 September 2026 — selling price per order line
 
-Create Order carries an editable selling price on every line: the price figure is
-itself the tap target and becomes the field in place, riding on the unit's
-existing line above the stepper so the product card keeps its shape. It is order-specific: the catalogue
+Create Order carries a selling price on every line, shown as a rate on one chip
+(`₹28/Pc`) that opens a bottom sheet owning both the unit and the price, applied
+together. The product card keeps its shape. It is order-specific: the catalogue
 seeds it and never overwrites it afterwards, and the confirmed figure is what the invoice prints
 and what the accounts sync sends as the Zoho rate. `invoice.html` joins the mirrored files.
 

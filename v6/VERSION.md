@@ -19,6 +19,41 @@ where its files came from — new entries for `v6` go above it.
 
 ## Changes
 
+### 4 September 2026, later still — one chip, one sheet: ₹28/Pc
+
+The row showed a unit chip and a price chip side by side, and tapping each did
+something different — one opened a sheet, one became a field. That is one
+question ("what am I selling this at?") asked in two places.
+
+**The row now carries ONE chip, read as a rate: `₹28/Pc`.** That is how a price
+is actually spoken; the number means nothing without the pack it belongs to.
+
+**Tapping it opens the sheet that owns both.** Product, SKU, a **Selling price**
+field and a **Unit** picker side by side, and a single **Apply**. Choosing a
+unit rescales the price in the field *while the rep watches* — whatever is
+there is the price of one of the old pack, so one of the new costs it times the
+ratio, the same ladder the quantities use. Rescaling what is THERE rather than
+re-reading the catalogue is what stops a default overwriting a price just
+typed. Tapping the price selects it, so the first digit replaces the old rate
+instead of costing a long-press and a "Select All" off the iOS edit menu.
+
+**Nothing is written until Apply.** Dismissing the sheet leaves the row exactly
+as it was, and does not retract a raised confirm question — nothing changed.
+Apply commits unit and price together, patches the row in place, flashes
+*Updated* and retracts the question, because something did.
+
+**`priceEdited` is now DERIVED, not remembered:** the line carries the rep's own
+price exactly when it is not the catalogue's for the pack they chose. Changing
+only the unit no longer marks it as theirs, and typing the catalogue's own
+figure does not either — both are true, and the record says so without a flag
+to keep in step.
+
+**Deleted, not added:** the inline price editor and `syncPricesFromDOM` — the
+read-back that only existed because an inline field might never have blurred.
+An explicit Apply has nothing to read back. The audit's counting sheet is
+untouched: it keeps Save and its two-tap question, and its price stays a figure
+it reports, because counting has no price to agree.
+
 ### 4 September 2026, later — the price becomes the edit target
 
 The price control shipped that morning was a field that looked like text, and it
