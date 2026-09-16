@@ -698,7 +698,11 @@
     const url = apiBase() + "/api/gstin?gstin=" + encodeURIComponent(g);
 
     fetch(url, { headers: cfg.apiKey ? { "X-FB-Key": cfg.apiKey } : {} })
-      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (r) {
+        return r.json()
+          .catch(function () { return {}; })        // a 404 page is not JSON
+          .then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
+      })
       .then(function (out) {
         if (seq !== state.gstSeq || gstValue() !== g) return;   // value moved on
         const b = out.body || {};
@@ -715,19 +719,51 @@
         } else {
           /* Every other reply — auth rejected, provider down, timeout, and the
              bridge's own not_configured — is a failure to CHECK. It is never
-             reported as a verdict about the number. */
+             reported as a verdict about the number.
+
+             The user sees one honest sentence, because to them the three are
+             the same thing. A developer needs to tell them apart, so the real
+             reason goes to the console rather than onto the screen. */
           forgetVerdictFor(g);
           state.gstPhase = "failed";
+          whyUnchecked(b.error || ("http_" + (out.status || "?")), b.message, url);
         }
         save();
         drawS01();
       })
-      .catch(function () {
+      .catch(function (err) {
         if (seq !== state.gstSeq || gstValue() !== g) return;
         forgetVerdictFor(g);
         state.gstPhase = "failed";
+        /* Unreachable — almost always that the bridge is not running, which is
+           invisible from the screen and expensive to work out from a trace. */
+        whyUnchecked("unreachable", err && err.message, url);
+        save();
         drawS01();
       });
+  }
+
+  /* Why the check did not happen — for whoever is building this, not for the
+     person filling the form. Named causes, and the one-line fix for the two
+     that are almost always it. */
+  function whyUnchecked(reason, detail, url) {
+    const fix = {
+      unreachable:
+        "The bridge is not answering. Start it:  cd zoho-function && npm run dev\n" +
+        "  Or point this page at another one with  ?fbapi=<base-url>",
+      not_configured:
+        "The bridge is running but holds no GST credential.\n" +
+        "  Set GST_API_KEY and GST_API_SECRET in zoho-function/.env",
+      upstream_auth:
+        "The GST provider rejected the credential. Check GST_API_KEY / GST_API_SECRET.",
+      http_404:
+        "The bridge answered but has no /api/gstin — probably an older deploy.",
+    }[reason];
+    console.error(
+      "[FoodBridge] GSTIN not checked — " + reason +
+      (detail ? ": " + detail : "") + "\n  asked: " + url +
+      (fix ? "\n  " + fix : "")
+    );
   }
 
   /* The block under the card. One at a time, and only ever the fields the
