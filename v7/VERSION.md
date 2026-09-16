@@ -399,3 +399,71 @@ so Safari remained free to inflate text on its own and silently undercut the
 meta is unchanged and deliberately still carries **no `maximum-scale` and no
 `user-scalable=no`** — the user's own pinch zoom is not taken away to solve a
 layout problem.
+
+### 17 September 2026 — S01 asks about the business, and really checks the GSTIN
+
+S01 was two things at once: a contact form nobody read, and a GSTIN field whose
+"Verified" badge came from a regular expression. It is now one thing — tell
+FoodBridge about your business — and the check is a real external lookup.
+
+**A real integration, server-side.** `zoho-function/api/gstin.js` is the only
+route to the GST register. The browser never holds the credential and never
+calls the provider: it asks the bridge, which authenticates against
+Sandbox.co.in and returns a small provider-neutral answer. `gst.js` holds the
+adapter; swapping providers touches `readTaxpayer()` and the base URL and
+nothing else. The access token is reused across lookups, and dropped on a 401
+so the next call re-authenticates.
+
+**The local grammar test earns its place, and only that place.** It rejects a
+malformed GSTIN before a paid lookup is spent on it, which is also what lets
+"your number is wrong" stay a different sentence from "we couldn't check".
+Passing it is never reported as verification. `Business found` is written only
+on a `found:true` reply.
+
+**Only what the register returned is drawn.** Legal name, trade name and status
+each render if — and only if — the provider sent them. A cancelled GSTIN is
+shown as found, in amber, with its real status and a line saying it is not
+currently active. There is no "checked at" line and no re-verification policy.
+
+**The user's business name is theirs.** The registry legal name is shown beside
+it, never written into the field over it.
+
+**The verdict belongs to a value, not a moment.** `gstVerifiedFor` holds the
+exact string the provider was asked about. Edit the field and the badge goes;
+edit it back and the answer returns from memory — proven against the provider's
+own call log, which did not move across a full edit / restore / clear / retype
+cycle. A failure while checking a *different* number no longer evicts a good
+answer already held for this one.
+
+**Nothing about GSTIN can block Continue** — verified, inactive, not found,
+malformed, unreachable, timed out or never attempted.
+
+**Removed from S01:** the three contact fields, and the provenance chip, which
+could previously reappear on back-navigation once a source had been chosen.
+`chrome()` now suppresses it on S01 unconditionally.
+
+**Also fixed while here:** an unfinished S01 survived nothing. `restore()`
+returned early when no source had been chosen, so a reload lost the business
+name and the verification. The typed profile is now restored whatever stage the
+flow reached, while the screen logic still turns on `mode` — so an unfinished
+S01 comes back filled in, on S01.
+
+Verified on an iPhone SE 3rd gen and at 390x844: scale 1 throughout, keyboard
+stays open across the idle-to-verifying redraw, the Verify box does not change
+size when it becomes a spinner, and the CTA clears the keyboard. 37/37 bridge
+tests pass, 15 of them new and covering every reply the endpoint can produce.
+
+**Closed the same day, against the live register.** With a real Sandbox.co.in
+key the first live call failed, and usefully: the search is a **POST carrying a
+JSON body**, not a GET with a query string, and a GET returns 404 — which reads
+exactly like "no such GSTIN" and would have shipped as a silent wrong answer.
+Their "no records found" also arrives as HTTP 200 with `error_cd: "FO8000"`,
+directly on `data` rather than nested under `data.error` as their sample shows.
+Both shapes are now accepted, and the corrected contract is covered by tests.
+
+Proven end to end on an iPhone SE against the real GST register: business name
+`Reliance Retail`, GSTIN `27AAACR5055K1Z7`, and the register answering
+**RELIANCE INDUSTRIES LIMITED · Active**. That pairing is the rule about names
+earning its keep — a real trading name and a real registered entity, shown as
+two values, neither overwriting the other. Live not-found confirmed separately.
+41 bridge tests pass.

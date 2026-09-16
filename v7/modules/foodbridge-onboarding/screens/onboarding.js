@@ -146,7 +146,15 @@
     screen: "S01",
     view: "flow",          // "flow" | "drafts"  — the drafts destination
     profile: { business: "", gstin: "" },
-    gstCheckedFor: "",     // the exact GSTIN string a check was run against
+    /* GSTIN verification is bound to a VALUE, never to a moment. `gstVerifiedFor`
+       is the exact string the provider was asked about and `gstResult` is what it
+       answered. Edit the field and the badge goes, because that string has not
+       been verified; edit it back and the answer returns from here without a
+       second lookup. `gstPhase` is only ever transient UI. */
+    gstVerifiedFor: "",
+    gstResult: null,       // { found, legalName?, tradeName?, status? }
+    gstPhase: "idle",      // idle | verifying | invalid | notfound | failed
+    gstSeq: 0,             // guards against a slow reply for an edited value
     mode: null,            // null | "demo" | "sample"      (C6)
     source: null,          // the chosen source; set ONLY on a completed read
     ingested: null,        // what a read actually produced; null until one runs
@@ -185,7 +193,8 @@
         mode: state.mode,
         source: state.source ? { id: state.source.id, label: state.source.label } : null,
         profile: state.profile,
-        gstCheckedFor: state.gstCheckedFor,
+        gstVerifiedFor: state.gstVerifiedFor,
+        gstResult: state.gstResult,
         parked: state.parked,
         drafts: state.drafts,
       }));
@@ -207,12 +216,20 @@
     if (!raw) return false;
     let v;
     try { v = JSON.parse(raw); } catch (e) { return false; }
-    if (!v || !v.mode) return false;
+    if (!v) return false;
+
+    /* What the user TYPED survives a reload whether or not they got as far as
+       choosing a source. Restoring it is not the same as resuming the flow:
+       the screen logic below still turns on `mode`, so an unfinished S01 comes
+       back filled in, on S01, rather than jumping somewhere it never reached. */
+    state.profile = v.profile || state.profile;
+    state.gstVerifiedFor = v.gstVerifiedFor || "";
+    state.gstResult = v.gstResult || null;
+
+    if (!v.mode) return false;                  // nothing was ingested yet
 
     state.mode = v.mode;
     state.source = v.source || null;
-    state.profile = v.profile || state.profile;
-    state.gstCheckedFor = v.gstCheckedFor || "";
     state.parked = !!v.parked;
     state.ingested = true;
     state.model = buildModel();
@@ -370,6 +387,12 @@
   function chrome(screen, opts) {
     const o = opts || {};
     const i = STEPS[screen];
+    /* S01 asks the user to describe their own business. Which source the flow
+       later read, or that it is demonstration data, is not true yet and is not
+       this screen's subject — so the chip is suppressed here unconditionally,
+       not merely absent on a first pass. Navigating BACK to S01 used to bring
+       it with you. */
+    const chip = screen === "S01" ? "" : provenanceChip();
     let steps = "";
     if (i !== undefined) {
       let bars = "";
@@ -384,10 +407,10 @@
     }
     return '<header class="ob-brand">' +
              '<span class="ob-word">Food<em>Bridge</em></span>' + steps +
-           (o.back || provenanceChip()
+           (o.back || chip
              ? '<div class="ob-navrow">' +
                (o.back ? '<button class="ob-back" id="b-back" aria-label="Back">' + ICON.back + "</button>" : "<span></span>") +
-               provenanceChip() + "</div>"
+               chip + "</div>"
              : "");
   }
 
@@ -605,6 +628,7 @@
       '<input id="' + id + '" value="' + esc(value) + '" placeholder="' + esc(e.ph || "") + '"' +
         (e.type ? ' inputmode="' + e.type + '"' : "") +
         (e.locked ? " disabled" : "") +
+        (e.max ? ' maxlength="' + e.max + '"' : "") +
         /* Never autocorrect what the user is telling us their business is
            called. iOS turned "Miha Foods" into "Mina Foods" on the way in,
            and nothing downstream could know it had been changed. */
@@ -615,51 +639,169 @@
     "</div>";
   }
 
-  /* GST lifecycle (NN8). `gstCheckedFor` holds the exact string a check ran
-     against, so the badge is tied to a VALUE and not to a moment. Edit it,
-     clear it, paste a different one — the badge goes and Verify comes back,
-     because none of those strings has been checked.
+  /* ── S01 · GSTIN verification ─────────────────────────────────────────────
+     The Verify action is a REAL external lookup through this repo's own bridge.
+     The browser never holds the provider credential and never calls the
+     provider: it asks `/api/gstin`, which authenticates server-side and returns
+     only what the register actually said.
 
-     What the check actually does is validate the FORMAT, and that is what it
-     claims. It does not contact the GST department, so it does not say
-     "Verified", and it does not fill in a business name it has no way to
-     know. */
+     The local grammar test below exists for ONE reason — so a malformed number
+     can be reported as malformed without spending a paid lookup on it, and so
+     "your number is wrong" stays a different sentence from "we could not
+     check". Passing it is never reported as verification. */
   const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
-  function gstOk() {
-    const g = state.profile.gstin.trim().toUpperCase();
-    return !!g && g === state.gstCheckedFor && GSTIN_RE.test(g);
+  function gstValue() { return state.profile.gstin.trim().toUpperCase(); }
+
+  /* Verified ⟺ the CURRENT value is the one the provider was asked about and
+     the answer was yes. Nothing else can produce this. */
+  function gstVerified() {
+    const g = gstValue();
+    return !!g && g === state.gstVerifiedFor && !!state.gstResult && state.gstResult.found === true;
+  }
+  function gstActive() {
+    return !!state.gstResult && String(state.gstResult.status || "").toLowerCase() === "active";
   }
 
-  function drawS01() {
+  /* A verdict belongs to ONE value. A failure while looking up a different
+     number must not evict a good answer already held for this one, or the user
+     pays for a second lookup just because they typo'd in between. */
+  function forgetVerdictFor(g) {
+    if (state.gstVerifiedFor === g) {
+      state.gstVerifiedFor = "";
+      state.gstResult = null;
+    }
+  }
+
+  function apiBase() {
+    const cfg = window.FB_INTEGRATION || {};
+    return String(cfg.apiBaseUrl || "").replace(/\/+$/, "");
+  }
+
+  /* SYSTEM · the lookup. Cancellable only in the sense that a reply for a value
+     the user has since edited is discarded — `gstSeq` is the guard. */
+  function verifyGstin() {
+    const g = gstValue();
+    if (state.gstPhase === "verifying") return;          // one in flight, no queue
+
+    if (!GSTIN_RE.test(g)) {                              // local gate, no network
+      state.gstPhase = "invalid";
+      forgetVerdictFor(g);
+      return drawS01();
+    }
+
+    const seq = ++state.gstSeq;
+    state.gstPhase = "verifying";
+    drawS01({ keepFocus: "f-gstin" });
+
+    const cfg = window.FB_INTEGRATION || {};
+    const url = apiBase() + "/api/gstin?gstin=" + encodeURIComponent(g);
+
+    fetch(url, { headers: cfg.apiKey ? { "X-FB-Key": cfg.apiKey } : {} })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (out) {
+        if (seq !== state.gstSeq || gstValue() !== g) return;   // value moved on
+        const b = out.body || {};
+        if (out.ok && b.found === true) {
+          state.gstResult = b;
+          state.gstVerifiedFor = g;
+          state.gstPhase = "idle";
+        } else if (out.ok && b.found === false) {
+          forgetVerdictFor(g);
+          state.gstPhase = "notfound";
+        } else if (b.error === "invalid_gstin") {
+          forgetVerdictFor(g);
+          state.gstPhase = "invalid";
+        } else {
+          /* Every other reply — auth rejected, provider down, timeout, and the
+             bridge's own not_configured — is a failure to CHECK. It is never
+             reported as a verdict about the number. */
+          forgetVerdictFor(g);
+          state.gstPhase = "failed";
+        }
+        save();
+        drawS01();
+      })
+      .catch(function () {
+        if (seq !== state.gstSeq || gstValue() !== g) return;
+        forgetVerdictFor(g);
+        state.gstPhase = "failed";
+        drawS01();
+      });
+  }
+
+  /* The block under the card. One at a time, and only ever the fields the
+     provider actually returned. */
+  function gstResultBlock() {
+    if (gstVerified()) {
+      const r = state.gstResult;
+      return '<div class="ob-gst ' + (gstActive() ? "is-ok" : "is-warn") + '" role="status" aria-live="polite">' +
+        '<p class="ob-gst-h">' + ICON.check + "Business found</p>" +
+        (r.legalName ? '<p class="ob-gst-legal">' + esc(r.legalName) + "</p>" : "") +
+        (r.tradeName ? '<p class="ob-gst-r">Trade name: ' + esc(r.tradeName) + "</p>" : "") +
+        (r.status ? '<p class="ob-gst-r">Status: ' + esc(r.status) + "</p>" : "") +
+        (r.status && !gstActive()
+          ? '<p class="ob-gst-note">This GSTIN is not currently active.</p>' : "") +
+      "</div>";
+    }
+    if (state.gstPhase === "notfound") {
+      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
+        '<p class="ob-gst-h">' + ICON.alert + "No business registered under this GSTIN</p>" +
+        '<p class="ob-gst-r">Check the number, or continue without it.</p>' +
+        '<button class="ob-gst-retry" id="b-gst-retry">Try again</button></div>';
+    }
+    if (state.gstPhase === "invalid") {
+      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
+        '<p class="ob-gst-h">' + ICON.alert + "That is not a valid GSTIN format</p>" +
+        '<p class="ob-gst-r">A GSTIN is 15 characters: 2 digits, 5 letters, ' +
+          "4 digits, then 4 more.</p></div>";
+    }
+    if (state.gstPhase === "failed") {
+      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
+        '<p class="ob-gst-h">' + ICON.alert + "Couldn't reach the GST service</p>" +
+        '<p class="ob-gst-r">Nothing is wrong with your GSTIN — we just couldn\'t ' +
+          "check it. You can continue without it.</p>" +
+        '<button class="ob-gst-retry" id="b-gst-retry">Try again</button></div>';
+    }
+    return "";
+  }
+
+  function drawS01(opts) {
+    const o = opts || {};
     const p = state.profile;
-    const ok = gstOk();
+    const ok = gstVerified();
     const g = p.gstin.trim();
+    const busy = state.gstPhase === "verifying";
+
     const trail = ok
-      ? '<span class="ob-fr-ok">' + ICON.check + "Format checked</span>"
-      : '<button class="ob-verify" id="b-verify"' + (g.length === 15 ? "" : " disabled") + ">Check</button>";
+      ? '<span class="ob-fr-ok">' + ICON.check + "</span>"
+      : busy
+        ? '<span class="ob-verify is-busy" aria-live="polite">' +
+            '<span class="ob-spin"></span>Verifying…</span>'
+        : '<button class="ob-verify" id="b-verify"' + (g.length === 15 ? "" : " disabled") +
+            ">Verify</button>";
 
     render(
       chrome("S01") +
       '<main class="ob-main">' +
-        '<h1 class="ob-h1">Let\'s set up your business</h1>' +
+        '<h1 class="ob-h1">Tell FoodBridge about your business</h1>' +
 
-        /* MUST-HAVE ONLY (D-018). The name and GSTIN identify the business and
-           are both USED — the name titles the drafts destination, the GSTIN is
-           format-checked here. The three contact fields that stood under "HOW
-           WE REACH YOU" were read by nothing, kept by nothing and reached
-           nobody, so they are gone rather than validated into looking real. */
+        /* MUST-HAVE ONLY. Two fields, because the business is what this screen
+           is about. No provenance, no sample state, no contact rows, and no
+           sentence explaining what any of it is for. */
         '<section class="ob-section">' +
           '<div class="ob-fs">' +
             row("f-business", "Business name", ICON.building, p.business, { enter: "next" }) +
             row("f-gstin", "GSTIN (optional)", ICON.badge, p.gstin,
-                { caps: true, ok: ok, ph: "15-character GSTIN", trail: trail, enter: "done" }) +
+                { caps: true, ok: ok, ph: "15-character GSTIN", trail: trail,
+                  enter: "done", max: 15 }) +
           "</div>" +
-          (state.gstCheckedFor && g.toUpperCase() === state.gstCheckedFor && !GSTIN_RE.test(state.gstCheckedFor)
-            ? '<p class="ob-fielderr">' + ICON.alert + "That is not a valid GSTIN format.</p>"
-            : "") +
+          gstResultBlock() +
         "</section>" +
       "</main>" +
+      /* Continue is gated on the business name and nothing else. No GSTIN
+         outcome — verified, not found, malformed, unreachable or untried —
+         can block it. */
       '<footer class="ob-foot"><button class="ob-cta" id="b-continue"' +
         (p.business.trim() ? "" : " disabled") + ">" +
         (p.business.trim() ? "Continue" : "Enter your business name") + "</button></footer>"
@@ -672,16 +814,19 @@
         const before = state.profile[k];
         state.profile[k] = el.value;
         if (k === "gstin") {
-          /* Any change to the value invalidates a check made against the old
-             one. Clearing the field clears the check with it. */
-          const cur = el.value.trim().toUpperCase();
-          if (cur !== state.gstCheckedFor) state.gstCheckedFor = "";
+          /* Any change abandons the previous verdict for display purposes.
+             `gstVerifiedFor`/`gstResult` are NOT cleared, so editing back to
+             the verified value restores it without another lookup. */
+          state.gstPhase = "idle";
+          state.gstSeq += 1;
+          save();
           const caret = el.selectionStart;
           drawS01();
           const again = $("#f-gstin");
           if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
           return;
         }
+        save();
         if (!before.trim() !== !el.value.trim()) {     // the CTA changes state
           const caret = el.selectionStart;
           drawS01();
@@ -689,14 +834,24 @@
           if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
         }
       });
+      if (k === "gstin") {
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && el.value.trim().length === 15) { e.preventDefault(); verifyGstin(); }
+        });
+      }
     });
 
     const vb = $("#b-verify");
-    if (vb) vb.addEventListener("click", function () {
-      state.gstCheckedFor = state.profile.gstin.trim().toUpperCase();
-      save();
-      drawS01();
-    });
+    if (vb) vb.addEventListener("click", verifyGstin);
+    const rb = $("#b-gst-retry");
+    if (rb) rb.addEventListener("click", verifyGstin);
+
+    /* The keyboard must not close because the screen re-rendered underneath
+       it — the field keeps focus across the idle → verifying redraw. */
+    if (o.keepFocus) {
+      const f = $("#" + o.keepFocus);
+      if (f) { const n = f.value.length; f.focus(); try { f.setSelectionRange(n, n); } catch (e) {} }
+    }
 
     const c = $("#b-continue");
     if (c) c.addEventListener("click", function () {
@@ -2094,7 +2249,8 @@
     mount, buildModel, buildOpportunity, supportingSignals, openOpportunity,
     runOp, cancelOp, openSheet, closeSheet, goBack, draw, save, restore, forget, state,
     drawDraftsHome, openDraftsListSheet, openDraftEditor, confirmDiscardAll,
-    gstOk, useSample, parkOpportunity, draftEdits, draftsTotalLines, draftsTotalEdits,
+    gstVerified, gstActive, verifyGstin, useSample, parkOpportunity,
+    draftEdits, draftsTotalLines, draftsTotalEdits,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = window.FB_ONBOARDING;
 })();

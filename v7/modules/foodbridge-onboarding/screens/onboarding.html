@@ -25,6 +25,9 @@
                         SEED.orderingSignals.
     seed.inline.js      window.SEED — 86 products, 40 B2B shops
     predictive-order.js window.FB_PREDICT — the back-tested reorder engine
+    integration-config.js window.FB_INTEGRATION — which bridge to call and
+                        with what key. Same resolver the Stock Audit screen
+                        uses, so ?fbapi= points both at one place.
     evidence.js         window.FB_EVIDENCE — what we have, what is
                         computable, what is blocked, what would unlock
     onboarding.js       the five screens, the sheets, the drafts destination
@@ -57,17 +60,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Welcome to FoodBridge</title>
-<link rel="stylesheet" href="onboarding.css?v=20260916231512">
+<link rel="stylesheet" href="onboarding.css?v=20260917002146">
 </head>
 <body>
   <div class="ob-app"><div id="ob-root"></div></div>
 
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260916231512"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260916231512"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260916231512"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260916231512"></script>
-  <script src="evidence.js?v=20260916231512"></script>
-  <script src="onboarding.js?v=20260916231512"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260917002146"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260917002146"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260917002146"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260917002146"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260917002146"></script>
+  <script src="evidence.js?v=20260917002146"></script>
+  <script src="onboarding.js?v=20260917002146"></script>
   <script>window.FB_ONBOARDING.mount();</script>
 </body>
 </html>

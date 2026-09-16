@@ -837,3 +837,57 @@ button.ob-brief-r:active { opacity: .6; }
   .ob-orow-main { flex: 1 1 100%; min-width: 0; }
   .ob-addlink { margin-left: 34px; padding-left: 0; }
 }
+
+/* ── S01 · GSTIN verification result ─────────────────────────────────────
+   One block under the field set. It reports what the GST register actually
+   returned, and nothing it did not: a row with no value upstream is not
+   drawn, rather than drawn empty. */
+.ob-gst {
+  margin-top: 12px; padding: 13px 15px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--card);
+}
+.ob-gst.is-ok { border-color: var(--brand-100); background: var(--brand-50); }
+.ob-gst.is-warn { border-color: var(--amber-line); background: var(--amber-bg); }
+
+.ob-gst-h {
+  display: flex; align-items: center; gap: 7px; margin: 0 0 6px;
+  font-size: 13px; font-weight: 700; letter-spacing: .01em;
+}
+.ob-gst.is-ok .ob-gst-h { color: var(--brand-d); }
+.ob-gst.is-warn .ob-gst-h { color: var(--amber-tx); }
+.ob-gst-h > svg { flex: 0 0 auto; width: 16px; height: 16px; }
+
+/* The registry's legal name. Shown BESIDE the name the user typed, never
+   written into the field over it. */
+.ob-gst-legal {
+  margin: 0 0 3px; font-size: 15px; font-weight: 650; line-height: 1.35;
+  color: var(--ink); overflow-wrap: anywhere;
+}
+.ob-gst-r { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.ob-gst-note { margin: 7px 0 0; font-size: 13px; font-weight: 650; color: var(--amber-tx); }
+
+.ob-gst-retry {
+  min-height: 44px; margin-top: 6px; padding: 0 2px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 650;
+  color: var(--amber-tx); background: none; border: 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* Verifying occupies the Verify button's exact box, so nothing under the
+   thumb moves when the state changes. */
+.ob-verify.is-busy {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 44px; padding: 0 14px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 650;
+  color: var(--muted); background: var(--line-2);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.ob-verify.is-busy .ob-spin { width: 14px; height: 14px; }
+
+/* A GSTIN is an uppercase identifier. autocapitalize handles typing, but paste
+   and autofill do not go through it — so what is displayed is normalised to
+   what was actually sent to the register. Visual only; the caret is unaffected
+   and the stored value is uppercased by gstValue(). */
+#f-gstin { text-transform: uppercase; }
+#f-gstin::placeholder { text-transform: none; }
