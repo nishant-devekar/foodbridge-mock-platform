@@ -124,6 +124,11 @@ independent:
 - The records the flow cites — one opportunity, two learnings, eight decisions —
   were copied into `context/` so the reasoning does not depend on the other
   repository being at hand.
+- The module's `owner` in `assets/modules.json` read
+  `exagon-ai/foodbridge-pmf (v5)`. The shell renders that string as *"Owned
+  by…"*, so it told anyone looking that changes belonged in the other
+  repository. It now names this one. Where the bytes originally came from is
+  recorded here instead, which is the right place for it.
 
 Verified running from this repository at 375×812: a bare `/v7/` opens onboarding,
 the engines compute 532 / 86 / 40 and the 23 overdue shops, the sample-business
