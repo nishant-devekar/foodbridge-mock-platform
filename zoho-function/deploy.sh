@@ -7,9 +7,17 @@
 # Zoho credentials live there, never in the repo or the browser) and deploys.
 set -euo pipefail
 cd "$(dirname "$0")"
-V=./node_modules/.bin/vercel
+# The CLI is not a dependency of the bridge; use the local copy when one is
+# installed, otherwise fetch it once with npx.
+if [ -x ./node_modules/.bin/vercel ]; then V=./node_modules/.bin/vercel; else V="npx -y vercel@latest"; fi
 
-$V whoami >/dev/null 2>&1 || { echo "Not logged in. Run: ./node_modules/.bin/vercel login"; exit 1; }
+$V whoami >/dev/null 2>&1 || { echo "Not logged in. Run: $V login"; exit 1; }
+
+# Where Zoho sends the user back after the onboarding sign-in (api/zoho/start).
+# It has to be THIS deployment's callback, and the same URL must be listed
+# under the client's Authorized Redirect URIs in the Zoho API console
+# (api-console.zoho.in) — Zoho refuses any URI it has not been told about.
+PROD_CALLBACK="${PROD_CALLBACK:-https://zoho-function-nu.vercel.app/api/callback}"
 
 echo "==> Linking project (creates it on first run)"
 $V link --yes >/dev/null
@@ -34,10 +42,16 @@ while IFS= read -r line; do
   case "$name" in
     PORT) continue;;                       # Vercel assigns the port
     ALLOWED_ORIGINS) value="$PROD_ORIGINS";;
-    ZOHO_REDIRECT_URI) continue;;          # OAuth was a one-time local step
+    ZOHO_REDIRECT_URI) value="$PROD_CALLBACK";;   # the per-user sign-in returns here
   esac
   push "$name" "$value"
 done < .env
+# .env may predate the onboarding sign-in and carry no ZOHO_REDIRECT_URI at all.
+grep -q '^ZOHO_REDIRECT_URI=' .env || push ZOHO_REDIRECT_URI "$PROD_CALLBACK"
 
 echo "==> Deploying to production"
 $V deploy --prod
+
+echo
+echo "Check:  curl -s https://zoho-function-nu.vercel.app/api/zoho/ready   → {\"ready\":true}"
+echo "Zoho:   $PROD_CALLBACK must be an Authorized Redirect URI of the client in api-console.zoho.in"

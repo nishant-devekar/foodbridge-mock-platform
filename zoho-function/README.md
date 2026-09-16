@@ -130,13 +130,21 @@ ALLOWED_ORIGINS=https://nishant-devekar.github.io
 ### 5. Deploy (when you want it off localhost)
 
 ```bash
-./node_modules/.bin/vercel login
+npx -y vercel@latest login
 ./deploy.sh
 ```
 
 `deploy.sh` links the project, pushes every value from `.env` into the Vercel
-environment, and deploys. `api/*.js` become the endpoints. Nothing else moves —
-FoodBridge stays on GitHub Pages.
+environment (with `ALLOWED_ORIGINS` set to the Pages origin and
+`ZOHO_REDIRECT_URI` to this deployment's `/api/callback`), and deploys.
+`api/*.js` become the endpoints. Nothing else moves — FoodBridge stays on
+GitHub Pages.
+
+**The onboarding sign-in needs one thing Vercel cannot set:** the deployment's
+callback, `https://zoho-function-nu.vercel.app/api/callback`, must be listed
+under *Authorized Redirect URIs* for the client in the Zoho API console
+(api-console.zoho.in). Zoho refuses a redirect it has not been told about, and
+the page then reports *Zoho couldn't finish signing you in*.
 
 **Devices no longer need provisioning.** `FB_API_KEY` must match `DEFAULT_KEY`
 in `v4/modules/foodbridge-customer-mockup/v3/screens/customers/integration-config.js`,
