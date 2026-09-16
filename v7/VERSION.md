@@ -1,32 +1,34 @@
 # FoodBridge mock platform — Version 7
 
-**Opened 16 September 2026, carried over from `exagon-ai/foodbridge-pmf` — its `v5`,
-release `5.2`, at commit `ae311d3`.** 245 files, 8.7 MB, self-contained.
+**Opened 16 September 2026.** New-user onboarding: five primary screens and nine
+contextual sheets. **A working cut — this is where onboarding work lands now.**
 
-## v7 is not the next full-platform cut, and does not supersede v6
+Its starting bytes came from `exagon-ai/foodbridge-pmf`, `versions/v5`, release
+`5.2`, commit `ae311d3`. That is where it *came from*, not where it lives.
 
-Read that first, because the number says otherwise.
+## v7 does not supersede v6, despite the number
 
-`v6` is still the working cut. It is the whole platform — sidebar, routing, 26
-destinations — and it is where current platform work lands. Nothing here changes
-that.
+`v6` is still the working cut for the **whole platform** — sidebar, routing, 26
+destinations. Platform work lands there.
 
-`v7` is a **narrow product experiment**, carried across from the PMF repository so
-its reasoning is readable beside the platform it was designed against. It tests
-one job, in one flow:
+`v7` is a working cut for **one flow**. The two are beside each other, not behind
+each other, the same way `v4` stands beside `v6` as a one-screen cut. A number
+here means "the next folder somebody opened", never "the newest truth".
 
-> A new distributor who already has their business in Tally, Zoho, Vyapar or a
-> folder of invoices can reach a meaningful first action in FoodBridge in one
-> session, without re-entering by hand what they already have.
+## It is self-contained, and owes nothing to the PMF repository
 
-It is here to be **referred to**, not continued. Work that would change it belongs
-in `foodbridge-pmf`, where it carries its lifecycle, its release manifests and its
-customer URL. Changing it here would fork an experiment away from the evidence it
-was built on.
+Every one of its 466 internal references resolves inside `v7/`. Nothing here
+reads a file, a manifest or a commit from `foodbridge-pmf`, and nothing there is
+affected by editing this folder. The onboarding flow loads nothing from the
+network.
+
+The PMF repository holds the same flow as its own `v5`, published at its own URL
+and frozen at releases `5.1` and `5.2`. **The two are now separate products and
+will diverge.** Neither is authoritative over the other; if the two ever need to
+agree again, that is a decision somebody has to make and write down, not
+something either repository can work out on its own.
 
 ## What it is
-
-Five primary screens and nine contextual sheets.
 
 | | |
 | --- | --- |
@@ -42,12 +44,10 @@ action confirmation, and the drafts themselves. None of them is a screen: each
 opens from a decision already in progress and returns where it came from.
 
 **A bare `/v7/` opens onboarding, not the dashboard.** The shell reads a `landing`
-key from `assets/modules.json`. Onboarding claims the landing *without* joining
-the sidebar — it is not a place the user comes back to. That was the last change
-made before this was carried over, and the reason for it is `D-019` in
-[`context/`](context/DECISIONS-D-012-to-D-019.md): a new distributor was landing
-on a populated business they had never entered, which contradicts the premise of
-the experiment on its opening screen.
+key from `assets/modules.json`; onboarding claims it *without* joining the
+sidebar, because it is not a place the user comes back to.
+
+**Mobile is the target.** 375×812 is what it was designed and reviewed against.
 
 ## What is real, and what is not
 
@@ -61,52 +61,70 @@ words rather than in a footnote:
 | GST verification | `SIMULATED` — nothing is looked up |
 | Draft preparation | `SIMULATED` — drafts are held in the browser, sent to nobody, written to no accounting system |
 | The order history behind the insight | **real** — 532 orders, 3,931 lines, 39 of 40 shops, Aug 2024 → Aug 2026, from the tenant's own Zoho export |
-| The reorder engine | **real** — the back-tested predictor, 66.5% precision / 69.6% recall on 171 unseen 2026 orders |
+| The reorder engine | **real** — back-tested at 66.5% precision / 69.6% recall on 171 unseen 2026 orders |
 
-The confirm sheet names what does *not* happen — nothing sent to a shop, nothing
-written to an accounting system — and the prepared screen repeats it as an
-outcome: held 16, sent 0, written 0.
+The confirm sheet names what does *not* happen, and the prepared screen repeats it
+as an outcome: held 16, sent 0, written 0.
 
 **There is no rupee figure anywhere in the flow.** This tenant has no invoices, no
 payments and no cost price, so receivables, collections, capital-tied and margin
 are not computable. They are absent rather than shown as ₹0, because a zero would
-be a lie about what we hold. `context/STATUS.md` has the capability matrix.
+be a lie about what we hold. The capability matrix is in
+[`context/STATUS.md`](context/STATUS.md).
 
 ## Nobody has used it
 
-The hypothesis is unvalidated. No distributor has been recruited and no session
-has been run. Published, in this context, means it has a URL — not that it has
-been tested.
+The hypothesis — that a new distributor reaches a meaningful first action in one
+session without manual entry — is **unvalidated**. No distributor has been
+recruited and no session has been run.
 
-## What came with it
+## How to iterate it
 
-```
-index.html  assets/  modules/  vendor/  flows/     the runnable cut
-ux/FLOW-MAP.md                                     the one canonical UX artifact
-ux/screens/*.svg                                   five low-fidelity sketches, 390x844
-context/                                           why it is like this
-```
+This folder is edited directly. There is no release machinery here and no
+validator; the discipline is this document.
 
-`context/` holds the records the build cites, copied from the PMF repository as
-reading copies — the ledgers there remain the source:
+**Record every change below, dated, saying what changed and why.** That is the
+repository's convention — `v6/VERSION.md` is the worked example — and with the
+PMF lifecycle gone it is the only place the reasoning survives.
 
-| | |
-| --- | --- |
-| `OPPORTUNITY-O-001.md` | the job somebody decided to design for |
-| `LEARNING-L-012-L-013.md` | the learning it exists because of, with every dated occurrence |
-| `DECISIONS-D-012-to-D-019.md` | eight decisions, each keeping **what was rejected** — the half that does not survive in code |
-| `TIMELINE.md` | the version's product history, append-only |
-| `STATUS.md` | what is real, what is simulated, what is known broken on purpose |
-| `PROVENANCE.md`, `CHANGELOG.md`, `MASTER.md` | where its files came from |
-| `VERSION-pmf.md` | the PMF-side version document, kept verbatim |
-| `version.json`, `releases/` | **inert here.** They are PMF lifecycle state and release manifests; the commit shas in them refer to `exagon-ai/foodbridge-pmf` and cannot be rebuilt from this repository. Kept as evidence of what was published, not as machinery |
+Four rules worth keeping, because the flow was designed under them and they are
+what make it defensible rather than merely finished:
+
+1. **Must-have only on primary screens.** Every visible element explains the
+   current state, supports the current decision, or enables the current action —
+   or it moves into a sheet. Ambiguity is solved by cutting, never by adding a
+   sentence of explanation.
+2. **Nothing consequential starts on its own.** A source opens consent; the user
+   starts the operation; it can be cancelled.
+3. **A signal without its evidence is absent, not zero.** Never render a blocked
+   figure as ₹0, greyed, or estimated.
+4. **A recommendation is never a pre-made choice.** Lists arrive with nothing
+   selected.
+
+The reasoning behind all four, with the alternatives that were rejected, is in
+[`context/`](context/README.md).
 
 ## Changes
 
-### 16 September 2026 — carried over
+### 16 September 2026 — opened
 
-Copied whole from `foodbridge-pmf` `versions/v5/` at release `5.2`. Nothing in the
-runnable cut was modified: the bytes are the bytes a customer would be served at
-`/v5/` there. The PMF-side records were moved into `context/` so nothing in this
-repository mistakes a lifecycle file for live machinery, and `README.md` and this
-document were written for this repository's conventions.
+Carried over from `foodbridge-pmf` `versions/v5` at release `5.2`, then made
+independent:
+
+- The PMF lifecycle files — `version.json`, `releases/` — were moved into
+  `context/`. They name commits in the other repository and cannot be rebuilt
+  from here; they are kept as a record of what that repository published, not as
+  machinery to maintain.
+- `modules/foodbridge-inventory-intelligence/v1/index.html` loaded its stylesheet
+  from `/foodbridge-inventory-intelligence/assets/css/style.css` — a root-absolute
+  path that only resolved when that module was published at its own Pages root,
+  and a 404 everywhere else. Pointed at the copy already sitting in this folder.
+  The same was done to a commented-out favicon so no root-absolute path is left
+  to be uncommented later.
+- The records the flow cites — one opportunity, two learnings, eight decisions —
+  were copied into `context/` so the reasoning does not depend on the other
+  repository being at hand.
+
+Verified running from this repository at 375×812: a bare `/v7/` opens onboarding,
+the engines compute 532 / 86 / 40 and the 23 overdue shops, the sample-business
+marker stays amber on every screen, and there are no console errors.
