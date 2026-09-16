@@ -52,7 +52,16 @@ export default async function handler(req, res) {
   };
 
   if (!code) {
-    const e = url.searchParams.get("error") || "no authorization code";
+    const e = url.searchParams.get("error");
+    // Opened by hand (say, to check the address after registering it with
+    // Zoho): nothing to do here, and /api/connect is the operator's one-time
+    // setup, not a way in for a user. Point back at the app instead.
+    if (!e) {
+      return page("FoodBridge — Zoho sign-in", `<h1>This is where Zoho sends you back</h1>
+        <p>After you sign in to Zoho from FoodBridge, Zoho returns you here and you are taken
+        straight back into FoodBridge. There is nothing to do on this page.</p>
+        <p><a href="${esc(cfg.appUrl)}">Go to FoodBridge</a></p>`);
+    }
     return page("Zoho — not connected", `<h1>Not connected</h1><p>Zoho said: <code>${esc(e)}</code></p>
       <p>Start again at <a href="/api/connect">/api/connect</a>.</p>`);
   }

@@ -43,6 +43,8 @@ export function config(env = process.env) {
     // Simulator-facing port never needs the list above hand-edited to match.
     // Never set in a deployment — there the exact list is the whole defence.
     allowLoopbackOrigins: env.ALLOW_LOOPBACK_ORIGINS === "1",
+    // Where a person is sent if they open the callback by hand. Not a secret.
+    appUrl: env.FB_APP_URL || "https://nishant-devekar.github.io/foodbridge-mock-platform/v7/",
     timeoutMs: Number(env.ZOHO_TIMEOUT_MS || 20000),
   };
 }
