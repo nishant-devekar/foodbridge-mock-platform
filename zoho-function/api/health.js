@@ -3,6 +3,7 @@
 
 import { config, missingConfig, SCOPES } from "../zoho.js";
 import { ZOHO_CUSTOMER_MAP, ZOHO_ITEM_MAP } from "../mappings.js";
+import { gstConfig, missingGstConfig } from "../gst.js";
 import { cors, json } from "./_http.js";
 
 export default function handler(req, res) {
@@ -20,5 +21,12 @@ export default function handler(req, res) {
     scopes: SCOPES,
     mappedCustomers: Object.keys(ZOHO_CUSTOMER_MAP).length,
     mappedProducts: Object.keys(ZOHO_ITEM_MAP).length,
+    /* GST verification is a separate integration on the same bridge. S01 is
+       blocked on it, so its readiness is reported here too. */
+    gst: {
+      configured: missingGstConfig(gstConfig()).length === 0,
+      missing: missingGstConfig(gstConfig()),
+      baseUrl: gstConfig().baseUrl,
+    },
   });
 }

@@ -227,6 +227,58 @@ verification mismatch, auth failure, secret redaction, deep-link absence.
 The stand-in replaces only the far end of the socket. It is not a fallback the
 app can reach — it exists only inside `node --test`.
 
+## GSTIN verification
+
+`GET /api/gstin?gstin=<15 chars>` backs onboarding **S01**. It is the only route
+the browser has to the GST register: the credential stays here, and the reply is
+small and provider-neutral.
+
+    200 { found:true,  gstin, legalName?, tradeName?, status? }
+    200 { found:false, gstin }
+    400 { error:"invalid_gstin" }
+    5xx { error:"upstream_auth" | "upstream_unavailable" | "upstream_unreadable"
+                | "timeout" | "not_configured" }
+
+Identity fields appear only when the provider returned them, so the screen can
+draw what is there and nothing else. A malformed GSTIN is rejected here, before
+a paid lookup is spent on it — and that is also what lets S01 keep "your number
+is wrong" and "we couldn't check" as different sentences. Passing that grammar
+test is never reported to the user as verification.
+
+Provider is **Sandbox.co.in**, confirmed against the live service:
+
+    POST /authenticate                        x-api-key, x-api-secret, x-api-version
+    POST /gst/compliance/public/gstin/search   authorization, x-api-key,
+                                               x-api-version, content-type
+                                               body { "gstin": "27AAACR5055K1Z7" }
+
+Two things here are easy to get wrong and were, until a live call said
+otherwise. The search is a **POST carrying a JSON body**, not a GET with a query
+string — a GET returns 404 and reads exactly like "no such GSTIN". And **"no
+records found" arrives as HTTP 200** with `error_cd: "FO8000"`, not as a 404.
+The live service puts that code directly on `data`; their published sample nests
+it under `data.error`. Both are accepted.
+
+The taxpayer record sits at `data.data` and uses GSTN's field names — `lgnm`,
+`tradeNam`, `sts`. The token is reused across lookups and dropped on a 401.
+Swapping providers means `readTaxpayer()`, `normalise()` and `GST_API_BASE_URL`.
+
+`node check-gst.js <GSTIN>` does one live lookup and prints the provider's raw
+payload beside what the bridge made of it, so a field-name drift is visible
+rather than silently unmapped.
+
+Set in `.env` (gitignored) or in the deployment's environment:
+
+    GST_API_KEY=            # from the Sandbox.co.in dashboard
+    GST_API_SECRET=
+    # GST_API_BASE_URL=https://api.sandbox.co.in
+    # GST_API_VERSION=1.0
+    # GST_TIMEOUT_MS=8000
+
+`GET /api/health` reports whether these are set — names only, never values. Until
+they are, the endpoint answers `not_configured` and S01 reports that it could not
+check, which is the honest state: it never falls back to a format test.
+
 ## Secrets
 
 `.env`, `.env.*` and `.vercel` are gitignored. No credential is committed, sent

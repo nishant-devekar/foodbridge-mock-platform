@@ -24,6 +24,7 @@ if (existsSync(".env")) {
 const ROUTES = {
   "/api/sales-order": () => import("./api/sales-order.js"),
   "/api/health": () => import("./api/health.js"),
+  "/api/gstin": () => import("./api/gstin.js"),
   "/api/connect": () => import("./api/connect.js"),
   "/api/callback": () => import("./api/callback.js"),
 };
@@ -49,11 +50,18 @@ createServer(async (req, res) => {
   }
 }).listen(port, async () => {
   const { config, missingConfig } = await import("./zoho.js");
+  const { gstConfig, missingGstConfig } = await import("./gst.js");
   const missing = missingConfig(config());
+  const gstMissing = missingGstConfig(gstConfig());
   process.stdout.write(
     `\n  FoodBridge → Zoho Books bridge on http://localhost:${port}\n` +
     `  health   http://localhost:${port}/api/health\n` +
     `  connect  http://localhost:${port}/api/connect   (one-time OAuth setup)\n` +
+    `  gstin    http://localhost:${port}/api/gstin?gstin=<15 chars>\n` +
+    (gstMissing.length
+      ? `\n  GST VERIFICATION NOT CONFIGURED — missing: ${gstMissing.join(", ")}\n` +
+        `  S01 will report that it could not check. Set them in .env.\n`
+      : `  GST verification configured (${gstConfig().baseUrl})\n`) +
     (missing.length
       ? `\n  NOT CONFIGURED — missing: ${missing.join(", ")}\n` +
         `  Orders will return \`not_configured\` until these are set. See .env.example.\n\n`
