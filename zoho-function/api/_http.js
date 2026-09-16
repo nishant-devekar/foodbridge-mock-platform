@@ -1,14 +1,15 @@
 /* Shared request plumbing. Vercel-style (req, res) handlers, which is also
    what the local dev-server speaks, so the same files run in both places. */
 
-import { config } from "../zoho.js";
+import { config, originAllowed } from "../zoho.js";
 
 export function cors(req, res) {
   const origin = req.headers.origin || "";
   const cfg = config();
   // Exact allowlist, never "*": this endpoint drives a credentialed
   // integration, so any page must not be able to fire it from a browser.
-  if (origin && cfg.allowedOrigins.includes(origin)) {
+  // (The local dev-server alone widens it to any loopback port — zoho.js.)
+  if (originAllowed(cfg, origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-FB-Key");

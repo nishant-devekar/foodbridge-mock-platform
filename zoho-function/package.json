@@ -11,5 +11,8 @@
     "dev": "node dev-server.js",
     "setup": "node setup.js",
     "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.126.0"
   }
 }

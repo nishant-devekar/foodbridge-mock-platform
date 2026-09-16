@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  DEVELOPMENT ONLY — a stand-in for Zoho's sign-in and consent page, used by
+  readers-mock.js so the whole round trip (leave FoodBridge, decide, come back,
+  or press Back) can be walked without a Zoho account. Refuses to do anything
+  unless it is served from localhost. It returns exactly what the bridge's
+  /api/callback would: #…?zoho=connected|denied|failed&n=<nonce>[&c=<handle>].
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zoho stand-in (dev)</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; font: 15px/1.5 -apple-system, system-ui, sans-serif; background: #f4f4f5; color: #18181b; }
+  main { max-width: 380px; margin: 0 auto; padding: 48px 20px; }
+  .dev { display: inline-block; font: 600 11px ui-monospace, monospace; color: #fff; background: #7c3aed; padding: 4px 7px; border-radius: 5px; }
+  h1 { font-size: 22px; margin: 18px 0 6px; }
+  p { color: #52525b; margin: 0 0 18px; }
+  button { display: block; width: 100%; font: 600 16px system-ui; padding: 14px; border-radius: 10px; border: 0; margin-top: 10px; }
+  #allow { background: #e42527; color: #fff; }
+  #deny { background: #e4e4e7; color: #18181b; }
+</style>
+</head>
+<body>
+<main id="m" hidden>
+  <span class="dev">DEV · NOT ZOHO</span>
+  <h1>Stand-in for Zoho sign-in</h1>
+  <p>A real user would sign in to Zoho here and approve FoodBridge reading their Zoho Books.
+     Scenario: <b id="s"></b>. Use the browser's Back button to test leaving without deciding.</p>
+  <button id="allow">Accept</button>
+  <button id="deny">Reject</button>
+</main>
+<script>
+(function () {
+  if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
+  var q = new URLSearchParams(location.search);
+  var back = q.get("return"), n = q.get("n") || "", s = q.get("s") || "ok";
+  try { if (new URL(back).origin !== location.origin) return; } catch (e) { return; }
+  document.getElementById("m").hidden = false;
+  document.getElementById("s").textContent = s;
+  function go(params) {
+    var u = new URL(back);
+    var base = (u.hash || "").split("?")[0];
+    u.hash = (base && base !== "#" ? base : "") + "?" + new URLSearchParams(params).toString();
+    location.href = u.toString();
+  }
+  document.getElementById("allow").onclick = function () {
+    if (s === "denied") return go({ zoho: "denied", n: n });
+    if (s === "authfail") return go({ zoho: "failed", n: n });
+    go({ zoho: "connected", n: n, c: "mock" });
+  };
+  document.getElementById("deny").onclick = function () { go({ zoho: "denied", n: n }); };
+})();
+</script>
+</body>
+</html>

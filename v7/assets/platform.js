@@ -117,8 +117,12 @@
      populated business to somebody who is supposed to have just created an
      empty account. A standalone destination can therefore claim the bare URL
      without joining the sidebar, which is the whole reason it is standalone. */
+  /* A destination may carry a one-time result after its route, e.g. onboarding's
+     return from Zoho: #/onboarding?zoho=connected&… . The route is the part
+     before "?", and the result is left in place for the module to read and
+     clear — rewriting the hash here would destroy it before the iframe loads. */
   function routeFromHash() {
-    var h = (location.hash || "").replace(/^#\/?/, "");
+    var h = (location.hash || "").replace(/^#\/?/, "").split("?")[0];
     if (state.routes[h]) return h;
     var fallback = (state.landing && state.routes[state.landing]) ? state.landing : state.order[0];
     if (h && fallback) location.replace("#/" + fallback);

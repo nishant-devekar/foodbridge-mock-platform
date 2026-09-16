@@ -10,8 +10,9 @@
 
    apiBaseUrl
      The deployed Zoho bridge. Points at the Vercel function by default so the
-     GitHub Pages app works with nothing to configure. Override it per device
-     (below) to develop against a bridge on localhost:8787 instead.
+     GitHub Pages app works with nothing to configure. A page that is itself
+     served from localhost defaults to the bridge on localhost:8787 instead —
+     see LOCAL_BASE. Override either per device (below).
 
    apiKey
      Compiled in, so that confirming an order works on every browser that
@@ -28,6 +29,22 @@
   "use strict";
 
   var DEFAULT_BASE = "https://zoho-function-nu.vercel.app";
+
+  // A page served from this machine talks to the bridge on this machine.
+  //
+  // The deployed bridge allows the published origin ONLY, so from any
+  // localhost page it is a guaranteed failure — and a quiet one: the CORS
+  // rejection reaches the page as a plain network error, which onboarding
+  // reports as "We couldn't reach Zoho". Every fresh browser or Simulator
+  // used to hit exactly that until someone remembered to open the page once
+  // with ?fbapi=http://localhost:8787. Now the local default is the local
+  // bridge, on the same rule readers.js uses to admit dev stand-ins: a
+  // loopback host is a development page. A stored fb-api-base still wins.
+  var LOCAL_BASE = "http://localhost:8787";
+  function servedFromLoopback() {
+    var h = window.location.hostname;
+    return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+  }
 
   // The bridge's shared key, SHIPPED WITH THE APP on purpose.
   //
@@ -127,8 +144,10 @@
   // past. Dropped once, on load.
   forget("fb-api-key");
 
+  var fallback = servedFromLoopback() ? LOCAL_BASE : DEFAULT_BASE;
+
   window.FB_INTEGRATION = {
-    apiBaseUrl: (override != null && override !== "" ? override : DEFAULT_BASE).replace(/\/+$/, ""),
+    apiBaseUrl: (override != null && override !== "" ? override : fallback).replace(/\/+$/, ""),
     // Must equal FB_API_KEY on the function. Every browser gets the same one,
     // so ordering does not depend on how this page was opened.
     apiKey: DEFAULT_KEY,

@@ -15,11 +15,11 @@
    checked headlessly under node without a browser or a test framework.
 
    ── WHAT IT READS, AND NOTHING ELSE ──────────────────────────────────────
-     window.SEED               products (86) and b2b customers (40) — Miha's
-                               real catalogue and shops
-     window.FB_ORDER_HISTORY   the tenant's REAL Zoho export: 39 of 40
-                               customers, 532 orders, 3,931 lines,
-                               2024-08-28 → 2026-08-24
+     opts.seed, opts.history   the engines' view of S02's Dataset, made by
+                               dataset.js toEngine() -- the ONLY input. There is
+                               deliberately no fallback to a global: a model
+                               built from a demonstration tenant because a
+                               caller forgot to pass data is what this refuses.
      window.FB_PREDICT         the existing, back-tested reorder engine
 
    It invents nothing. There are no invoices, no payments and no cost price
@@ -93,7 +93,11 @@
      proves what happened in it. They are two axes and never one list — the
      distinction D-015 turns on, because a missing context row reduces
      richness while a missing evidence row removes whole signals. */
-  function takeInventory(seed, history) {
+  function takeInventory(seed, history, presence) {
+    /* `presence` is what S02's Dataset says was actually provided. Invoices and
+       stock quantities are facts about the SOURCE, not about the demonstration
+       tenant this file was first written for, so they are no longer assumed. */
+    const pr = presence || {};
     const products  = (seed && seed.products) || [];
     const customers = (seed && seed.b2b) || [];
     const withOrders = Object.keys(history || {}).filter(function (id) {
@@ -114,13 +118,16 @@
       evidence: {
         sales:    { present: withOrders.length > 0, customers: withOrders.length,
                     orders: withOrders.reduce(function (n, id) { return n + history[id].orders.length; }, 0) },
-        invoices: { present: false, note: "no invoice dataset exists for any tenant" },
-        payments: { present: false, note: "the only payments data belongs to another tenant" },
+        invoices: { present: !!pr.invoices },
+        payments: { present: !!pr.payments },
       },
       // Quantities we have; cost we do not. That single absence is what
       // makes every rupee figure in the Control Tower reference impossible
       // here, and it is recorded rather than worked around.
-      stock: { quantities: true, cost: false },
+      stock: { quantities: pr.stockQuantities === undefined
+                 ? products.some(function (p) { return typeof p.systemStock === "number"; })
+                 : !!pr.stockQuantities,
+               cost: !!pr.cost },
     };
   }
 
@@ -187,7 +194,10 @@
                  say: "See who owes you, and what to collect.",
                  short: "receivables and collections" });
     }
-    if (blocked.capital_tied || blocked.margin) {
+    /* Shown while COST is the missing piece. Capital tied also needs stock
+       quantities, which a source may never supply -- keying the row on it
+       would leave an item the user can never clear by adding cost prices. */
+    if (blocked.margin) {
       out.push({ evidence: "cost_price", label: "Cost price",
                  unlocks: ["capital_tied", "slow_stock_value", "margin"],
                  say: "See what your stock is worth, and where margin goes.",
@@ -222,9 +232,14 @@
     }
 
     if (can.stock_position) {
-      const products = seed.products || [];
-      const out_of = products.filter(function (p) { return Number(p.systemStock) === 0; });
-      out.stock_position = { outOfStock: out_of.length, catalogue: products.length };
+      /* Only products whose stock the source SUPPLIED are in the denominator.
+         An untracked product is not "in stock" and not "out of stock" -- it is
+         unknown, and counting it would say "25 of 251" when the truth is
+         "25 of the 100 we know about". */
+      const products = (seed.products || []).filter(function (p) { return typeof p.systemStock === "number"; });
+      const out_of = products.filter(function (p) { return p.systemStock === 0; });
+      out.stock_position = { outOfStock: out_of.length, catalogue: products.length,
+                             untracked: (seed.products || []).length - products.length };
     }
 
     return out;
@@ -265,12 +280,12 @@
       field tool agree, and so a headless check can pin a date. */
   function build(opts) {
     const o = opts || {};
-    const seed    = o.seed    || (typeof window !== "undefined" ? window.SEED : null) || {};
-    const history = o.history || (typeof window !== "undefined" ? window.FB_ORDER_HISTORY : null) || {};
+    const seed    = o.seed    || {};
+    const history = o.history || {};
     const predict = o.predict || (typeof window !== "undefined" ? window.FB_PREDICT : null);
     const nowTime = o.now ? new Date(o.now).getTime() : Date.now();
 
-    const inventory = takeInventory(seed, history);
+    const inventory = takeInventory(seed, history, o.presence);
     const floor     = floorStatus(inventory);
     const caps      = capabilities(inventory);
     const sig       = signals(seed, history, caps, nowTime);
@@ -318,8 +333,8 @@
      failure L-005 records, wearing the costume of helpfulness. */
   function missedOrders(opts) {
     const o = opts || {};
-    const seed = o.seed || (typeof window !== "undefined" ? window.SEED : null) || {};
-    const history = o.history || (typeof window !== "undefined" ? window.FB_ORDER_HISTORY : null) || {};
+    const seed = o.seed || {};
+    const history = o.history || {};
     const predict = o.predict || (typeof window !== "undefined" ? window.FB_PREDICT : null);
     const nowTime = o.now ? new Date(o.now).getTime() : Date.now();
 
@@ -419,8 +434,8 @@
      number the records cannot support. */
   function sampleRecords(opts) {
     const o = opts || {};
-    const seed = o.seed || (typeof window !== "undefined" ? window.SEED : null) || {};
-    const history = o.history || (typeof window !== "undefined" ? window.FB_ORDER_HISTORY : null) || {};
+    const seed = o.seed || {};
+    const history = o.history || {};
     const limit = o.limit || 5;
 
     if (o.kind === "products") {
@@ -459,8 +474,8 @@
      from a claim about the source. */
   function provenance(opts) {
     const o = opts || {};
-    const seed = o.seed || (typeof window !== "undefined" ? window.SEED : null) || {};
-    const history = o.history || (typeof window !== "undefined" ? window.FB_ORDER_HISTORY : null) || {};
+    const seed = o.seed || {};
+    const history = o.history || {};
     let lo = null, hi = null;
     Object.keys(history).forEach(function (id) {
       (history[id].orders || []).forEach(function (ord) {

@@ -38,8 +38,22 @@ export function config(env = process.env) {
     salesOrderUrl: env.ZOHO_SALES_ORDER_URL || "",
     allowedOrigins: (env.ALLOWED_ORIGINS ||
       "http://localhost:8003,http://127.0.0.1:8003").split(",").map((s) => s.trim()).filter(Boolean),
+    // Set by dev-server.js and nothing else: a bridge on this machine serves
+    // whatever loopback port the page happens to be on, so a new cut or a
+    // Simulator-facing port never needs the list above hand-edited to match.
+    // Never set in a deployment — there the exact list is the whole defence.
+    allowLoopbackOrigins: env.ALLOW_LOOPBACK_ORIGINS === "1",
     timeoutMs: Number(env.ZOHO_TIMEOUT_MS || 20000),
   };
+}
+
+/* Is a browser origin one this bridge serves? Exact allowlist, never "*", plus
+   any http://localhost or 127.0.0.1 port when the local dev-server opted in. */
+const LOOPBACK = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+export function originAllowed(cfg, origin) {
+  if (!origin) return false;
+  if (cfg.allowedOrigins.includes(origin)) return true;
+  return Boolean(cfg.allowLoopbackOrigins) && LOOPBACK.test(origin);
 }
 
 // What the BRIDGE needs at runtime: raise a sales order and read it back.

@@ -27,9 +27,22 @@ const ROUTES = {
   "/api/gstin": () => import("./api/gstin.js"),
   "/api/connect": () => import("./api/connect.js"),
   "/api/callback": () => import("./api/callback.js"),
+  "/api/zoho/ready": () => import("./api/zoho/ready.js"),
+  "/api/zoho/start": () => import("./api/zoho/start.js"),
+  "/api/zoho/orgs": () => import("./api/zoho/orgs.js"),
+  "/api/zoho/read": () => import("./api/zoho/read.js"),
+  "/api/extract": () => import("./api/extract.js"),
 };
 
 const port = Number(process.env.PORT || 8787);
+
+// This runner exists for the machine it runs on. A page served from any
+// loopback port — the preview pane, a cut's serve.sh, a port opened for the
+// iOS Simulator — may call it and be returned to after Zoho, without
+// ALLOWED_ORIGINS having to be re-typed for each. Vercel never runs this file,
+// so a deployment keeps the exact allowlist. Set ALLOW_LOOPBACK_ORIGINS=0 to
+// test the strict behaviour locally.
+if (process.env.ALLOW_LOOPBACK_ORIGINS === undefined) process.env.ALLOW_LOOPBACK_ORIGINS = "1";
 
 createServer(async (req, res) => {
   const path = req.url.split("?")[0];
@@ -58,6 +71,10 @@ createServer(async (req, res) => {
     `  health   http://localhost:${port}/api/health\n` +
     `  connect  http://localhost:${port}/api/connect   (one-time OAuth setup)\n` +
     `  gstin    http://localhost:${port}/api/gstin?gstin=<15 chars>\n` +
+    `  zoho     http://localhost:${port}/api/zoho/*        (onboarding: sign in + read)\n` +
+    (process.env.ALLOW_LOOPBACK_ORIGINS === "1"
+      ? `  origins  any http://localhost:* or 127.0.0.1:* page, plus ALLOWED_ORIGINS\n`
+      : `  origins  ALLOWED_ORIGINS only (loopback not widened)\n`) +
     (gstMissing.length
       ? `\n  GST VERIFICATION NOT CONFIGURED — missing: ${gstMissing.join(", ")}\n` +
         `  S01 will report that it could not check. Set them in .env.\n`

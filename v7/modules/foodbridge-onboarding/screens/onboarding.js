@@ -6,12 +6,11 @@
    flow was built under are in ../../../VERSION.md, argued in ../../../context/.
 
      F01 Business profile          S01
-     F02 Where your business is    S02   the row opens CONSENT; it reads nothing
-     F03 which source?                   a decision, on the screen they are on
-     F04 connect this account?           CONSENT SHEET — the read starts here
-     F05 which files?                    FILE SHEET
-     F06 use a sample business?          SAMPLE CONSENT SHEET
-     F07 FoodBridge reads                SYSTEM — cancellable, never a screen
+     S02-A How do you want to bring…   S02   Connect an app · Upload files
+     S02-C Connect an app                      Zoho Books → CONSENT SHEET → Zoho
+     S02-S Reading your Zoho Books             SYSTEM — real progress, Stop
+     S02-F Add your business files             each file says what it holds; a result per file
+           DataReady                           the one hand-off to S03 (dataset.js)
      F08 What we received          S03   CONDITIONAL, two shapes
      F09 try again?                      FAILURE — a cause and a way out
      F10 enough to say anything?         the floor, re-evaluated after each read
@@ -34,9 +33,9 @@
      C3  cancellation    runOp({onCancel}) — every operation, no exceptions
      C4  failure         fail() — a cause and two ways out, never a dead end
      C5  retry           fail()'s "Try again" re-runs the SAME op from scratch
-     C6  provenance      provenanceChip() on every screen after S02; amber for
-                         sample, and leaving the sample discards what it made
-     C7  persistence     save()/restore() — mode and CONFIRMED drafts only
+     C6  provenance      provenanceChip() on every screen after S02, naming the
+                         user's own source; a new source replaces, after asking
+     C7  persistence     save()/restore() — DataReady, read files, CONFIRMED drafts
      C8  navigation      goBack() closes a sheet before it leaves a screen,
                          and asks before discarding unconfirmed work
      C9  completion      drawS05Prepared() reports held / sent / written
@@ -44,32 +43,23 @@
                          explanation in this file is inside a sheet.
 
    ── WHAT IS REAL ─────────────────────────────────────────────────────────
-     window.SEED              86 products, 40 B2B shops (Miha's)
-     window.FB_ORDER_HISTORY  532 orders across 39 of those 40, two years
-     window.FB_PREDICT        the back-tested reorder engine
-     window.FB_EVIDENCE       the evidence layer
-     window.FB_ICONS          the product's lucide icon set
+     Zoho Books           a real sign-in and a read-only read, through the
+                          bridge (zoho-function/onboarding.js)
+     Excel and CSV files  read in this browser by dataset.js; not uploaded
+     window.FB_PREDICT    the back-tested reorder engine
+     window.FB_EVIDENCE   the evidence layer
+     window.FB_ICONS      the product's lucide icon set
 
-   ── WHAT IS NOT BUILT, AND HOW THIS FLOW SAYS SO ─────────────────────────
-   There is no connector. Tally, Zoho and Vyapar are never contacted, so every
-   record this flow shows belongs to a DEMONSTRATION business whichever source
-   was chosen — and the consent sheet says that BEFORE the user commits, an
-   amber chip names it on every screen from S03 on, and that chip opens a sheet
-   explaining it. Nothing here claims a connection, an export, a lookup or a
-   send that did not happen.
-
-   Document reading is not built either: it reports that it read nothing,
-   inside the sheet the user opened, and says plainly that it will not succeed
-   for any file. The GSTIN check validates FORMAT and claims only that.
+   S03 onward sees ONLY the Dataset S02 handed over, through engine(). There is
+   no demonstration business in this flow and no global it can fall back to.
+   Development stand-ins for both readers exist (readers-mock.js) and are
+   reachable only on localhost with ?fbmock=…; see readers.js.
 
    Drafts are real in the browser: prepared, held, editable, and reachable
    afterwards at #/sales-orders/order-drafts. Sent to nobody, written nowhere.
-   Declared in ../../../VERSION.md and ../../../context/STATUS.md.
 
-   Nothing here invents a result to cover for a boundary: when documents are
-   offered, the flow reports that nothing could be read rather than producing
-   a figure. Receivables, collections, overdue value, capital tied and margin
-   have no evidence for this tenant and are ABSENT — not zeroed, not greyed.
+   Receivables, collections, overdue value, capital tied and margin need
+   evidence this flow does not read, and are ABSENT — not zeroed, not greyed.
    ========================================================================== */
 
 (function () {
@@ -113,6 +103,8 @@
     files: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/>'),
     upload: lu('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>', 16),
     camera: lu('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/>', 16),
+    uploadBig: lu('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>', 22),
+    chevDown: lu('<path d="m6 9 6 6 6-6"/>', 16),
     plusCircle: lu('<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>', 18),
     alert: lu('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>', 18),
     clock: lu('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 18),
@@ -124,24 +116,11 @@
   const iconOrders = I.ShoppingCart || ICON.files;
   const iconChart = I.LineChart || ICON.badge;
 
-  /* SESSION FLAG, not a product path. `?evidence=none` withholds this
-     tenant's real order history so the BELOW-FLOOR shape of S03 can be walked
-     in a customer session. It REMOVES real data and never adds fake data, and
-     it is not how sample mode is reached — D-018 rejected a hidden flag for
-     that, because the person who most needs to know they are in a sample is
-     the one who cannot see a URL. */
-  const WITHHOLD = new URLSearchParams(location.search).get("evidence") === "none";
-
   /* Onboarding is Steps 1-3. S04 and S05 are activation and carry no counter
      (D-018) — a progress bar that never completes is a promise we break. */
   const STEPS = { S01: 0, S02: 1, S03: 2 };
   const STORE_KEY = "fb.v7.onboarding";
 
-  /* This build is a PREVIEW. No connector is implemented, so every record the
-     flow shows is demonstration data whichever source was chosen. `mode`
-     records how the user got here so the chip can name it, and BOTH values are
-     labelled as demonstration — there is no mode in which this page may claim
-     it read a customer's own books. */
   const state = {
     screen: "S01",
     view: "flow",          // "flow" | "drafts"  — the drafts destination
@@ -155,9 +134,13 @@
     gstResult: null,       // { found, legalName?, tradeName?, status? }
     gstPhase: "idle",      // idle | verifying | invalid | notfound | failed
     gstSeq: 0,             // guards against a slow reply for an edited value
-    mode: null,            // null | "demo" | "sample"      (C6)
-    source: null,          // the chosen source; set ONLY on a completed read
-    ingested: null,        // what a read actually produced; null until one runs
+    dataReady: null,       // S02's ONE hand-off: {provenance, readAt, dataset, notes}
+    engine: null,          // the engines' view of dataReady, derived, never stored
+    s02: "A",              // "A" how · "C" connect an app · "F" upload files
+    zoho: idleZoho(),      // the Zoho sign-in and read in progress, never persisted
+    files: [],             // [{id, name, type, status, reason, file, result}]
+    filesRun: null,        // the file read in progress
+    later: { files: [], run: null },  // S03 "Add later": files and photos chosen, and the read in progress
     model: null,
     opp: null,
     parked: false,         // "Not now" — the opportunity is kept, not dropped
@@ -172,14 +155,15 @@
     op: null,              // the running operation, or null
   };
 
-  /* Every source in this preview yields the same demonstration records. The
-     chip, the consent sheet and the provenance block all say so. */
-  function originLabel() {
-    if (state.mode === "sample") return "Sample business";
-    if (state.mode === "demo") {
-      return ((state.source && state.source.label) || "Preview") + " \u00b7 demo data";
-    }
-    return "";
+  /* The source, in the user's words. Only ever a real source: this flow has
+     no demonstration mode for a label to describe. */
+  function provenanceLabel() {
+    const dr = state.dataReady;
+    if (!dr) return "";
+    const extra = (dr.provenance.additions || []).length;
+    const more = extra ? " + " + extra + (extra === 1 ? " file" : " files") : "";
+    if (dr.provenance.kind === "zoho") return "Your Zoho Books \u00b7 " + dr.provenance.org.name + more;
+    return "Your uploaded files" + more;
   }
 
   /* ------------------------------------------------------- C7 persistence */
@@ -187,18 +171,43 @@
   /* Mode and CONFIRMED drafts only. An unconfirmed selection is deliberately
      not persisted: resurrecting a choice somebody abandoned is the reload
      behaving as if they had agreed to it. */
+  /* The whole Zoho records can be larger than the browser will keep for a tab.
+     When they are, the tab keeps the normalised Dataset without them rather
+     than keeping nothing -- the page itself still holds everything it read. */
+  function withoutRaw(dr) {
+    if (!dr) return dr;
+    return JSON.parse(JSON.stringify(dr, function (k, v) { return k === "raw" ? undefined : v; }));
+  }
+
   function save() {
-    try {
+    try { writeStore(state.dataReady); }
+    catch (e) {
+      try { writeStore(withoutRaw(state.dataReady)); } catch (e2) { /* storage blocked: the flow still works */ }
+    }
+  }
+
+  function writeStore(dataReady) {
+    {
       sessionStorage.setItem(STORE_KEY, JSON.stringify({
-        mode: state.mode,
-        source: state.source ? { id: state.source.id, label: state.source.label } : null,
+        screen: state.screen,
+        s02: state.s02,
+        dataReady: dataReady,
+        /* Files the user READ, or tried to, survive a reload with their result.
+           Files only chosen do not: the browser cannot hand the file back, and
+           resurrecting an unconfirmed choice is the reload deciding for them. */
+        files: state.files.filter(function (f) { return f.status !== "new"; }).map(function (f) {
+          const busy = f.status === "waiting" || f.status === "reading";
+          return { id: f.id, name: f.name, tags: f.tags || null, choices: f.choices || null,
+                   status: busy ? "failed" : f.status, reason: busy ? "interrupted" : f.reason,
+                   result: f.status === "read" ? f.result : null };
+        }),
         profile: state.profile,
         gstVerifiedFor: state.gstVerifiedFor,
         gstResult: state.gstResult,
         parked: state.parked,
         drafts: state.drafts,
       }));
-    } catch (e) { /* private mode, blocked storage: the flow still works */ }
+    }
   }
 
   /* The drafts destination and the flow are two views of ONE record. Anything
@@ -211,34 +220,38 @@
   }
 
   function restore() {
-    let raw = null;
-    try { raw = sessionStorage.getItem(STORE_KEY); } catch (e) { return false; }
-    if (!raw) return false;
-    let v;
-    try { v = JSON.parse(raw); } catch (e) { return false; }
+    const v = readStore();
     if (!v) return false;
 
-    /* What the user TYPED survives a reload whether or not they got as far as
-       choosing a source. Restoring it is not the same as resuming the flow:
-       the screen logic below still turns on `mode`, so an unfinished S01 comes
-       back filled in, on S01, rather than jumping somewhere it never reached. */
+    /* What the user TYPED survives a reload whether or not they got further. */
     state.profile = v.profile || state.profile;
     state.gstVerifiedFor = v.gstVerifiedFor || "";
     state.gstResult = v.gstResult || null;
-
-    if (!v.mode) return false;                  // nothing was ingested yet
-
-    state.mode = v.mode;
-    state.source = v.source || null;
+    state.s02 = v.s02 || "A";
+    state.files = (v.files || []).map(function (f) {
+      // a tab from before files said what they hold kept { records } under one type
+      if (f.type && !f.tags) { f.tags = [f.type]; delete f.type; }
+      if (f.result && f.result.records && !f.result.found) f.result = { found: [{ type: f.tags[0], records: f.result.records, skipped: f.result.skipped || [] }] };
+      // a read file that lost its records cannot be used; say so, keep it replaceable
+      if (f.status === "read" && !(f.result && f.result.found && f.result.found.length)) return Object.assign(f, { status: "failed", reason: "missing" });
+      return Object.assign(f, { file: null });
+    });
+    state.dataReady = v.dataReady || null;
     state.parked = !!v.parked;
-    state.ingested = true;
-    state.model = buildModel();
+
+    if (!state.dataReady) {
+      if (v.screen === "S02") { state.screen = "S02"; return true; }
+      return false;
+    }
     if (v.drafts && v.drafts.list && v.drafts.list.length) {
       state.drafts = v.drafts;
       state.opp = buildOpportunity();
       state.stage = "prepared";
       state.screen = "S05";
+    } else if (v.screen === "S02" || v.screen === "S03" || v.screen === "S04") {
+      state.screen = v.screen;
     } else {
+      state.model = buildModel();
       state.screen = state.model.floor.met ? "S04" : "S03";
     }
     return true;
@@ -250,36 +263,23 @@
 
   /* ---------------------------------------------------------------- data */
 
-  /* The model is built from what has actually been INGESTED, never from what
-     happens to be loaded in the page. Before any read has run there is no
-     model at all, which is what stops S03 and S04 from being reachable by a
-     stray call. */
-  function historyNow() {
-    if (!state.ingested) return {};
-    /* WITHHOLD models a business whose OWN source yields nothing, which is what
-       the below-floor shape is for. It must not also empty the sample: the
-       sample is the forward path offered from below the floor, and a forward
-       path that lands back on the same screen is the loop NN11 exists to
-       remove. Choosing the sample is an explicit request for the
-       demonstration records, in every session. */
-    if (WITHHOLD && state.mode !== "sample") return {};
-    return window.FB_ORDER_HISTORY || {};
+  /* The engines see the Dataset S02 handed over, and nothing else. Before a
+     hand-off there is nothing at all, which is what stops S03 and S04 from
+     showing anything a stray call could produce. */
+  const EMPTY_ENGINE = { seed: { products: [], b2b: [] }, history: {}, presence: { invoices: false, stockQuantities: false } };
+  function engine() {
+    if (!state.dataReady) return EMPTY_ENGINE;
+    return state.engine || (state.engine = window.FB_DATASET.toEngine(state.dataReady.dataset));
   }
 
   function buildModel() {
-    return window.FB_EVIDENCE.build({
-      seed: window.SEED || {},
-      history: historyNow(),
-      predict: window.FB_PREDICT,
-    });
+    const e = engine();
+    return window.FB_EVIDENCE.build({ seed: e.seed, history: e.history, presence: e.presence, predict: window.FB_PREDICT });
   }
 
   function buildOpportunity() {
-    return window.FB_EVIDENCE.missedOrders({
-      seed: window.SEED,
-      history: historyNow(),
-      predict: window.FB_PREDICT,
-    });
+    const e = engine();
+    return window.FB_EVIDENCE.missedOrders({ seed: e.seed, history: e.history, predict: window.FB_PREDICT });
   }
 
   /* S04's supporting rows are decided by the evidence, never fixed in the
@@ -298,7 +298,11 @@
     const out = [];
     if (s.stock_position && s.stock_position.outOfStock > 0) {
       out.push({ id: "stock_position", icon: iconProducts,
-        label: s.stock_position.outOfStock + " of " + s.stock_position.catalogue + " products are out of stock",
+        /* The denominator is only the products whose stock the source supplied;
+           when some were not, the label says so rather than implying the
+           whole catalogue was counted. */
+        label: s.stock_position.outOfStock + " of " + s.stock_position.catalogue +
+               (s.stock_position.untracked ? " tracked" : "") + " products are out of stock",
         n: s.stock_position.outOfStock, of: s.stock_position.catalogue });
     }
     return out;
@@ -329,56 +333,64 @@
     applyScrollLock();
   }
 
-  function go(screen) { state.screen = screen; draw(); }
+  /* Every move between screens is remembered, so a reload on S04 comes back to
+     S04 -- not to S02, which is where the data was last handed over. */
+  function go(screen) { state.screen = screen; if (state.dataReady) save(); draw(); }
 
-  /* C6 — provenance, on every screen after S02, and never ambiguous. Amber
-     for a sample, neutral for the user's own connected data. */
-  /* C6 — provenance, on every screen after S02, and never ambiguous. There is
-     no "connected" state in this preview because nothing connects: both modes
-     are demonstration data and the chip says which one. It is always a button,
-     because the one question it raises — "whose data am I looking at?" — has an
-     answer, and that answer belongs in a sheet. */
+  /* C6 — provenance, on every screen after S02, and never ambiguous. It names
+     the user's own source and is a button, because "whose data am I looking
+     at?" has an answer, and that answer belongs in a sheet. */
   function provenanceChip() {
-    const label = originLabel();
+    const label = provenanceLabel();
     if (!label) return "";
-    return '<button class="ob-prov is-demo" id="b-prov">' + ICON.flask +
+    const kind = state.dataReady.provenance.kind;
+    return '<button class="ob-prov" id="b-prov">' + (kind === "zoho" ? ICON.cloud : ICON.files) +
            "<span>" + esc(label) + "</span></button>";
   }
 
-  /* SHEET — what the chip means. Opened from the chip on every screen. */
+  function readAtText(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + ", " +
+           d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  }
+
+  /* SHEET — what the chip means. */
   function openProvenanceSheet() {
-    const src = state.source && state.source.label;
+    const dr = state.dataReady;
+    if (!dr) return;
+    const TL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
     openSheet({
       title: "Where this data comes from",
-      body:
-        '<div class="ob-provdemo">' + ICON.flask + "<span>DEMONSTRATION DATA</span></div>" +
-        '<p class="ob-sheet-p">' +
-          (state.mode === "sample"
-            ? "You chose to explore with a sample business. Every record here belongs to that demonstration business."
-            : "FoodBridge cannot read " + esc(src || "that source") + " yet. You are looking at a " +
-              "demonstration business so you can see what FoodBridge would do — not records from " +
-              esc(src || "your account") + ".") +
-        "</p>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT THIS MEANS</p>" +
-        '<ul class="ob-sheet-ul">' +
-          "<li>Nothing was read from your account</li>" +
-          "<li>Nothing is written anywhere</li>" +
-          "<li>This marker stays on every screen</li>" +
-        "</ul>",
+      body: (dr.provenance.kind === "zoho"
+        ? '<p class="ob-sheet-p">Read from your Zoho Books \u00b7 ' + esc(dr.provenance.org.name) +
+            " on " + esc(readAtText(dr.readAt)) + ".</p>" +
+          '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT DIDN'T CHANGE</p>" +
+          '<ul class="ob-sheet-ul"><li>FoodBridge only read.</li><li>Nothing in Zoho Books was changed.</li></ul>'
+        : '<p class="ob-sheet-p">Read from the files you added on ' + esc(readAtText(dr.readAt)) + ".</p>" +
+          '<div class="ob-reclist">' + dr.provenance.files.map(function (f) {
+            const kinds = (f.types || (f.type ? [f.type] : [])).map(function (t) { return TL[t] || t; }).join(" \u00b7 ");
+            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(f.name) + "</span>" +
+                   '<span class="ob-rec-b">' + esc(kinds) + "</span></div>";
+          }).join("") + "</div>") +
+        /* Added on S03 after the original read: each named, with how it came in. */
+        ((dr.provenance.additions || []).length
+          ? '<p class="ob-sheet-eyebrow">' + ICON.plusCircle + "ADDED AFTERWARDS</p>" +
+            '<div class="ob-reclist">' + dr.provenance.additions.map(function (f) {
+              return '<div class="ob-rec"><span class="ob-rec-a">' + esc(f.name) + "</span>" +
+                     '<span class="ob-rec-b">' + esc((LATER_TYPE_LABEL[f.type] || f.type) + (f.via === "photo" ? " \u00b7 photo" : "")) + "</span></div>";
+            }).join("") + "</div>"
+          : ""),
       actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>' +
-               '<button class="ob-skip" id="s-leave">Start over with a different source</button>',
+               '<button class="ob-skip" id="s-leave">Use different data</button>',
       bind: function () {
         $("#s-close").addEventListener("click", closeSheet);
         $("#s-leave").addEventListener("click", function () {
           state.sheet = null;
           /* From the drafts destination this has to go back to the flow, not
-             re-render the destination it was opened from — draw() dispatches on
-             `view` before it looks at `screen`. */
-          if (state.view === "drafts") {
-            leaveData(function () { handoff("onboarding"); });
-            return;
-          }
-          leaveData(function () { state.screen = "S02"; draw(); });
+             re-render the destination it was opened from. */
+          if (state.view === "drafts") { state.s02 = "A"; state.screen = "S02"; save(); handoff("onboarding"); return; }
+          goS02("A");
         });
       },
     });
@@ -392,7 +404,7 @@
        this screen's subject — so the chip is suppressed here unconditionally,
        not merely absent on a first pass. Navigating BACK to S01 used to bring
        it with you. */
-    const chip = screen === "S01" ? "" : provenanceChip();
+    const chip = screen === "S01" || screen === "S02" ? "" : provenanceChip();
     let steps = "";
     if (i !== undefined) {
       let bars = "";
@@ -485,46 +497,20 @@
   function goBack() {
     if (state.sheet) { closeSheet(); return; }
     if (state.view === "drafts") return;
-    if (state.screen === "S02") { go("S01"); return; }
-    if (state.screen === "S03") { leaveData(function () { state.screen = "S02"; draw(); }); return; }
-    if (state.screen === "S04") { leaveData(function () { state.screen = "S03"; draw(); }); return; }
+    if (state.screen === "S02") {
+      if (state.zoho.phase === "reading") { stopZohoRead(); return; }
+      if (state.s02 === "C") { state.zoho = idleZoho(); goS02("A"); return; }
+      if (state.s02 === "F") { leaveFiles(); return; }
+      go("S01");
+      return;
+    }
+    if (state.screen === "S03") { if (state.later.run) { stopLaterRead(); return; } goS02("A"); return; }
+    if (state.screen === "S04") { go("S03"); return; }
     if (state.screen === "S05") {
       if (state.stage === "choose") { confirmLeaveSelection(function () { state.stage = "brief"; draw(); }); return; }
       if (state.stage === "prepared") { state.screen = "S04"; draw(); return; }
       go("S04");
     }
-  }
-
-  /* C6 — leaving a sample discards what was derived from it, and says so
-     BEFORE it happens. A silent switch either way is the failure this
-     clause exists to prevent. */
-  function leaveData(then) {
-    if (state.mode !== "sample") { then(); return; }
-    openSheet({
-      title: "Leave the sample business?",
-      body: '<p class="ob-sheet-p">Everything you are looking at came from the sample. ' +
-            "Leaving discards it.</p>" +
-            '<ul class="ob-sheet-ul"><li>The sample records are cleared</li>' +
-            "<li>Nothing of your own has been touched" +
-            (state.drafts ? "</li><li>" + state.drafts.list.length + " prepared drafts are discarded" : "") +
-            "</li></ul>",
-      actions: '<button class="ob-cta is-warn" id="s-leave">Leave the sample</button>' +
-               '<button class="ob-skip" id="s-stay">Stay</button>',
-      bind: function () {
-        $("#s-leave").addEventListener("click", function () {
-          state.mode = null; state.source = null; state.ingested = null;
-          state.model = null; state.opp = null; state.drafts = null;
-          state.picked = {}; state.repeats = {}; state.stage = "brief";
-          state.parked = false; state.undo = null; state.draftEdit = null;
-          state.showAll = false; state.showAllStale = false;
-          forget();
-          state.sheet = null;
-          state.screen = "S02";
-          draw();
-        });
-        $("#s-stay").addEventListener("click", closeSheet);
-      },
-    });
   }
 
   function confirmLeaveSelection(then) {
@@ -899,271 +885,849 @@
 
   /* ------------------------------------------------------------- S02 */
 
-  const SOURCES = [
-    { id: "tally", label: "Tally", kind: "connect", icon: ICON.db, tint: "t-indigo" },
-    { id: "zoho", label: "Zoho", kind: "connect", icon: ICON.cloud, tint: "t-rose" },
-    { id: "vyapar", label: "Vyapar", kind: "connect", icon: ICON.store, tint: "t-blue" },
-    { id: "files", label: "Files or documents", kind: "files", icon: ICON.doc, tint: "t-green" },
-  ];
+  /* S02 answers ONE question — how do you want to bring your business data in —
+     and ends in ONE hand-off, DataReady (see dataset.js). Two real paths, one
+     decision per surface:
+
+       S02-A  choose how            Connect an app · Upload files
+       S02-C  Connect an app        Zoho Books · My app isn't listed
+       S02-S  Reading your Zoho Books   (Customers · Products · Orders, Stop)
+       S02-F  Add your business files   (each file says what it holds; a
+                                        result per file, in business words)
+
+     Every read starts from a named gesture. Nothing says "connected" before a
+     genuine return from Zoho. A failed file never costs the files that read.
+     A new source replaces the old data as a whole, after asking. */
+
+  const RD = function () { return window.FB_READERS; };
+  const OAUTH_KEY = "fb.v7.zoho.pending";
+
+  const TYPE_LABEL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
+  const TYPE_HELP = {
+    orders: "Sales orders or order history",
+    customers: "The shops and buyers you sell to",
+    products: "Your items or price list",
+    invoices: "Bills you've sent to customers",
+  };
+  const TYPE_NEEDS = {
+    orders: "An orders file needs a date, a customer, a product and a quantity on each line.",
+    customers: "A customers file needs a name for each customer.",
+    products: "A products file needs a name for each product.",
+    invoices: "An invoices file needs a date, a customer and an amount for each invoice.",
+  };
+  const FILE_PROBLEM = {
+    unsupported: "FoodBridge can't read this kind of file. Use Excel or CSV.",
+    damaged: "This file is empty or damaged.",
+    protected: "This file is password-protected. Remove the password and add it again.",
+    too_large: "This file is too large. The limit is 20 MB.",
+    interrupted: "Reading this file didn't finish.",
+    missing: "Add this file again to read it.",
+  };
+  const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  const NOT_CONNECTED = {
+    denied: "You didn't allow access in Zoho, so nothing was read.",
+    failed: "Zoho couldn't finish signing you in. Nothing was read.",
+    unreachable: "We couldn't reach Zoho just now. Nothing was read.",
+  };
+  const READ_FAILED = {
+    unavailable: "Zoho stopped responding. Nothing was kept.",
+    timeout: "Zoho stopped responding. Nothing was kept.",
+    busy: "Zoho is busy right now. Nothing was kept. Try again in a few minutes.",
+    daily_limit: "Zoho has reached today's limit for reading this account. Nothing was kept. Try again tomorrow.",
+    expired: "Your Zoho sign-in expired before we finished. Nothing was kept.",
+    forbidden: "This Zoho login can't see your orders. Try again with the account owner's login.",
+    noorg: "This Zoho account doesn't have a Zoho Books business.",
+  };
+
+  const plural = function (n, one, many) { return n + " " + (n === 1 ? one : many); };
 
   function drawS02() {
-    /* If a read has already produced something, this screen must say so and
-       offer the way back to it. Without that, a user who reached S02 from a
-       failure or from Back could only return to their own data by running a
-       read again — the one thing they had already done. */
-    const loaded = !!state.ingested;
-    const here = state.mode === "sample" ? "sample" : (state.source && state.source.id);
+    if (state.zoho.phase === "reading") return drawZohoReading();
+    if (state.s02 === "C") return drawS02C();
+    if (state.s02 === "F") return drawS02F();
+    return drawS02A();
+  }
 
+  function goS02(sub) { state.s02 = sub; state.screen = "S02"; save(); draw(); }
+
+  /* ── S02-A · how ─────────────────────────────────────────────────────── */
+
+  /* The two ways in wear real marks, as the apps on S02-C do: Connect an app
+     shows the apps themselves; Upload files a spreadsheet document. */
+  const MARK_CONNECT = '<span class="ob-mark ob-mark-logo ob-mark-cluster" aria-hidden="true">' +
+    ["zoho.svg", "vyapar.png", "quickbooks.svg", "xero.svg"].map(function (f) {
+      return '<img src="logos/' + f + '" alt="" width="18" height="18">';
+    }).join("") + "</span>";
+  const MARK_UPLOAD = '<span class="ob-mark ob-mark-logo" aria-hidden="true"><img class="ob-logo is-big" src="logos/spreadsheet.svg" alt="" width="40" height="40"></span>';
+
+  function pathRow(id, mark, title, sub, on) {
+    return '<button class="ob-source ob-path' + (on ? " is-on" : "") + '" data-path="' + id + '">' +
+      mark +
+      '<span class="ob-path-main"><span class="ob-source-t">' + esc(title) + "</span>" +
+        '<span class="ob-path-s">' + sub + "</span></span>" +
+      '<span class="ob-chev">' + ICON.chev + "</span></button>";
+  }
+
+  function drawS02A() {
+    const dr = state.dataReady;
+    const kind = dr && dr.provenance.kind;
+    const doneSub = function (text) { return '<span class="ob-path-ok">' + ICON.check + esc(text) + "</span>"; };
     render(
       chrome("S02", { back: true }) +
       '<main class="ob-main">' +
-        '<h1 class="ob-h1">Where is your business data today?</h1>' +
+        '<h1 class="ob-h1">How do you want to bring your business data into FoodBridge?</h1>' +
         '<div class="ob-sources">' +
-          SOURCES.map(function (s) {
-            const on = here === s.id;
-            return '<button class="ob-source' + (on ? " is-on" : "") + '" data-src="' + s.id + '">' +
-              '<span class="ob-mark ' + s.tint + '">' + s.icon + "</span>" +
-              '<span class="ob-source-t">' + esc(s.label) + "</span>" +
-              (on ? '<span class="ob-source-on">' + ICON.check + "in use</span>" : "") +
-              '<span class="ob-chev">' + ICON.chev + "</span></button>";
-          }).join("") +
+          pathRow("connect", MARK_CONNECT, "Connect an app",
+            kind === "zoho" ? doneSub("Your Zoho Books · " + dr.provenance.org.name)
+                            : esc("Link the system you already use to manage your business"), kind === "zoho") +
+          pathRow("upload", MARK_UPLOAD, "Upload files",
+            kind === "files" ? doneSub(plural(dr.provenance.files.length, "file", "files") + " read")
+                             : esc("Add orders, customers, products or invoices"), kind === "files") +
         "</div>" +
-        /* A first-class answer to the same question, quieter so it never
-           competes with the four real sources (D-018). */
-        '<button class="ob-samplerow' + (here === "sample" ? " is-on" : "") + '" id="b-sample">' +
-          "<span>Show me with a sample business</span>" +
-          (here === "sample" ? '<span class="ob-source-on">' + ICON.check + "in use</span>" : "") +
-          '<span class="ob-chev">' + ICON.chev + "</span></button>" +
       "</main>" +
-      (loaded
-        ? '<footer class="ob-foot"><button class="ob-cta" id="b-seen">See what we received</button></footer>'
-        : "")
+      (dr ? '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>' : "")
     );
-    const seen = $("#b-seen");
-    if (seen) seen.addEventListener("click", function () { go("S03"); });
-    $$("[data-src]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        const src = SOURCES.filter(function (s) { return s.id === btn.dataset.src; })[0];
-        /* NN2 — opening a sheet chooses NOTHING. `state.source` is written in
-           the operation's onDone and nowhere else, so a cancelled or failed
-           attempt cannot leave the chip claiming a source. */
-        if (src.kind === "files") return openFileSheet(src);
-        openConsentSheet(src);
-      });
+    $$("[data-path]").forEach(function (b) {
+      b.addEventListener("click", function () { goS02(b.dataset.path === "connect" ? "C" : "F"); });
     });
-    $("#b-sample").addEventListener("click", openSampleSheet);
+    const c = $("#b-continue");
+    if (c) c.addEventListener("click", function () { go("S03"); });
   }
 
-  /* SHEET 1 — F04, consent. C1: the tap opened this; nothing has been read.
-     The user starts the read, here, by name.
-
-     NN1 — the boundary is stated BEFORE the user commits, in the product's own
-     words, not in a footnote. This preview cannot read Tally, Zoho or Vyapar,
-     so the sheet does not describe a read of their books; it says what will
-     actually happen, which is that a demonstration business is loaded. */
-  function openConsentSheet(src) {
+  /* Starting a read that would REPLACE data the user already has asks first.
+     The old data stays in use until the new read has actually produced
+     something, so a failed or stopped replacement costs nothing. */
+  function confirmReplaceThen(nextKind, then) {
+    const dr = state.dataReady;
+    const drafts = state.drafts && state.drafts.list ? state.drafts.list.length : 0;
+    if (!dr || (nextKind === "files" && dr.provenance.kind === "files" && !drafts)) return then();
     openSheet({
-      title: "Connect " + src.label,
+      title: "Replace your current data?",
       body:
-        '<div class="ob-provdemo">' + ICON.flask + "<span>NOT AVAILABLE YET</span></div>" +
-        '<p class="ob-sheet-p">FoodBridge cannot read ' + esc(src.label) + " in this preview. " +
-          "Continue and you will see a demonstration business instead of your own records, " +
-          "so you can judge what FoodBridge would do with yours.</p>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ FROM " + esc(src.label.toUpperCase()) + "</p>" +
-        '<ul class="ob-sheet-ul"><li>Nothing &#8212; there is no connection to read from</li></ul>' +
-        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
-        '<ul class="ob-sheet-ul"><li>Nothing is written back to ' + esc(src.label) + "</li>" +
-          "<li>Your " + esc(src.label) + " account is never contacted</li></ul>",
-      actions: '<button class="ob-cta" id="s-connect">Show me with demo data</button>' +
+        '<p class="ob-sheet-p">FoodBridge will use ' +
+          (nextKind === "zoho" ? "your Zoho Books" : "your uploaded files") + " instead. " +
+          (dr.provenance.kind === "zoho" ? "The Zoho Books account isn't changed." : "Your files aren't changed.") +
+        "</p>" +
+        (drafts ? '<p class="ob-sheet-p">The ' + plural(drafts, "draft", "drafts") + " you prepared will be discarded.</p>" : ""),
+      actions: '<button class="ob-cta" id="s-replace">Replace</button>' +
                '<button class="ob-skip" id="s-cancel">Cancel</button>',
       bind: function () {
-        $("#s-connect").addEventListener("click", function () { startConnect(src); });
+        $("#s-replace").addEventListener("click", function () { state.sheet = null; then(); });
         $("#s-cancel").addEventListener("click", closeSheet);
       },
     });
   }
 
-  /* SHEET 2 — F05, which files. A real picker, and the camera, because
-     `image/*` already opens it on a phone.
-
-     It carries the SAME consent shape as the three connectors — what we will
-     read, and what will not change. A source that asks for the user's
-     documents and declares less than a source that asks for nothing is the
-     wrong way round, and it was the only path into this flow that took an
-     input without saying what happened to it. The preview boundary is stated
-     here too, before any file is chosen. */
-  function openFileSheet(src) {
-    let chosen = [];
-
-    function listHtml() {
-      if (!chosen.length) return '<p class="ob-sheet-p">Nothing chosen yet.</p>';
-      return chosen.map(function (f, i) {
-        return '<div class="ob-chosen-r">' + ICON.files +
-          "<span>" + esc(f.name) + "</span>" +
-          '<button class="ob-chosen-x" data-rmfile="' + i + '" aria-label="Remove ' + esc(f.name) + '">' +
-            ICON.close + "</button>" +
-        "</div>";
-      }).join("");
-    }
-
-    openSheet({
-      title: "Choose your files",
-      body:
-        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
-        '<ul class="ob-sheet-ul"><li>Only the files you pick here</li>' +
-          "<li>We look for your customers, products and order history in them</li></ul>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
-        '<ul class="ob-sheet-ul"><li>Your files are not uploaded anywhere</li>' +
-          "<li>They are read in this browser and kept nowhere</li></ul>" +
-        '<div class="ob-provdemo">' + ICON.flask + "<span>NOT AVAILABLE YET</span></div>" +
-        '<p class="ob-sheet-p">Reading documents is not implemented in this preview, ' +
-          "so this will not succeed for any file yet.</p>" +
-        '<div class="ob-filepick">' +
-          '<label class="ob-chip key">' + ICON.upload + "Choose files" +
-            '<input type="file" id="s-files" multiple hidden></label>' +
-          '<label class="ob-chip">' + ICON.camera + "Take photo" +
-            '<input type="file" id="s-photo" accept="image/*" capture="environment" hidden></label>' +
-        "</div>" +
-        '<div class="ob-chosen" id="s-chosen">' + listHtml() + "</div>",
-      actions: '<button class="ob-cta" id="s-read" disabled>Read them</button>' +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        function repaint() {
-          $("#s-chosen").innerHTML = listHtml();
-          $("#s-read").disabled = !chosen.length;
-          /* Re-bound on every repaint: the rows are rewritten, so the handlers
-             that were on the old ones are gone with them. */
-          $$("[data-rmfile]").forEach(function (b) {
-            b.addEventListener("click", function () {
-              chosen.splice(Number(b.dataset.rmfile), 1);
-              repaint();
-            });
-          });
-        }
-        function picked(list) {
-          chosen = chosen.concat(Array.prototype.slice.call(list));
-          repaint();
-        }
-        $("#s-files").addEventListener("change", function () { picked(this.files); this.value = ""; });
-        $("#s-photo").addEventListener("change", function () { picked(this.files); this.value = ""; });
-        $("#s-read").addEventListener("click", function () { startFileRead(src, chosen); });
-        $("#s-cancel").addEventListener("click", closeSheet);
-        repaint();
-      },
-    });
-  }
-
-  /* SHEET 3 — F06, the sample. Its own confirmation, and the provenance is
-     shown here before it is accepted, not discovered afterwards. */
-  function openSampleSheet() {
-    openSheet({
-      title: "Use a sample business",
-      body:
-        '<p class="ob-sheet-p">You\'ll see a demonstration business, not your own.</p>' +
-        '<div class="ob-provdemo">' + ICON.flask + "<span>SAMPLE BUSINESS</span></div>" +
-        '<ul class="ob-sheet-ul"><li>This marker stays on every screen</li>' +
-          "<li>Nothing connects to your account</li>" +
-          "<li>Leaving the sample discards everything it showed you</li></ul>",
-      actions: '<button class="ob-cta" id="s-use">Use the sample</button>' +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        $("#s-use").addEventListener("click", function () { state.sheet = null; useSample(); });
-        $("#s-cancel").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  /* Reached from the sample sheet, and from every dead end that needs a way
-     forward. Always succeeds, which is the point of offering it. */
-  function useSample() {
-    state.mode = "sample";
-    state.source = null;
-    state.ingested = true;
-    state.model = buildModel();
+  /* The ONE place DataReady is emitted. Everything derived from the previous
+     data goes with it: S03 onward must never mix two sources. */
+  function emitDataReady(ready) {
+    state.dataReady = ready;
+    state.engine = null;
+    state.model = null; state.opp = null; state.drafts = null;
+    state.picked = {}; state.repeats = {}; state.stage = "brief";
+    state.parked = false; state.undo = null; state.draftEdit = null;
+    state.showAll = false; state.showAllStale = false;
+    state.sheet = null;
+    if (ready.provenance.kind === "zoho") state.files = [];
+    state.s02 = "A";
     save();
     go("S03");
   }
 
-  /* F07 — the read. Cancellable, and its steps report real counts.
+  /* ── S02-C · Connect an app ──────────────────────────────────────────── */
 
-     NN1/NN2 — the steps describe what is ACTUALLY happening. Nothing says
-     "Connecting to Tally" or "Reading order history", because neither occurs.
-     `state.source` and `state.mode` are written in onDone and nowhere else. */
-  function startConnect(src) {
-    const seed = window.SEED || {};
-    const hist = WITHHOLD ? {} : (window.FB_ORDER_HISTORY || {});   // a connector read, never the sample
-    let orders = 0;
-    Object.keys(hist).forEach(function (k) { orders += (hist[k].orders || []).length; });
+  /* Each app's own mark (see logos/SOURCES.md). Decorative: the name beside it
+     is what a screen reader announces. */
+  const logo = function (file, wide) { return '<img class="ob-logo' + (wide ? " is-wide" : "") + '" src="logos/' + file + '" alt="" width="32" height="32">'; };
+  const SOON_APPS = [
+    { label: "Tally", icon: logo("tally.png", true) },
+    { label: "Vyapar", icon: logo("vyapar.png") },
+    { label: "QuickBooks Online", icon: logo("quickbooks.svg") },
+    { label: "Xero", icon: logo("xero.svg") },
+  ];
 
-    runOp({
-      title: "Loading demo data",
-      steps: [
-        { label: "Checking for a " + src.label + " connection", found: "none available" },
-        { label: "Loading a demonstration business",
-          found: (seed.products || []).length + " products \u00b7 " + (seed.b2b || []).length + " customers" },
-        { label: "Loading its order history",
-          found: orders ? orders.toLocaleString() + " orders" : "nothing" },
-        { label: "Working out its buying patterns", found: "done" },
-      ],
-      onCancel: function () { go("S02"); },
-      onDone: function () {
-        state.mode = "demo";
-        state.source = { id: src.id, label: src.label };
-        state.ingested = true;
-        state.model = buildModel();
-        save();
-        go("S03");
-      },
-    });
+  function drawS02C() {
+    const connected = state.zoho.phase === "connected";
+    render(
+      chrome("S02", { back: true }) +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1">Connect an app</h1>' +
+        '<div class="ob-sources">' +
+          '<button class="ob-source ob-path" id="b-zoho"' + (connected ? " disabled" : "") + ">" +
+            '<span class="ob-mark ob-mark-logo">' + logo("zoho.svg", true) + "</span>" +
+            '<span class="ob-path-main"><span class="ob-source-t">Zoho Books</span>' +
+              '<span class="ob-path-s">' +
+                /* Only a genuine return from Zoho gets here. */
+                (connected ? '<span class="ob-path-ok">' + ICON.check + "Zoho Books connected</span>"
+                           : "Connect your Zoho Books account") +
+              "</span></span>" +
+            '<span class="ob-chev">' + (connected ? '<span class="ob-spin"></span>' : ICON.chev) + "</span></button>" +
+          /* Added 17 Sep 2026 at the product owner's request. They are not
+             buttons: nothing happens on a tap, and each says plainly that it
+             is not available yet, so an unbuilt source never looks usable. */
+          SOON_APPS.map(function (a) {
+            return '<div class="ob-source ob-path is-soon" aria-disabled="true">' +
+              '<span class="ob-mark ob-mark-logo">' + a.icon + "</span>" +
+              '<span class="ob-path-main"><span class="ob-source-t">' + esc(a.label) + "</span></span>" +
+              '<span class="ob-soon">Coming soon</span></div>';
+          }).join("") +
+        "</div>" +
+        '<button class="ob-textlink" id="b-notlisted">My app isn\'t listed</button>' +
+      "</main>"
+    );
+    $("#b-zoho").addEventListener("click", function () { if (!connected) openZohoConsent(false); });
+    $("#b-notlisted").addEventListener("click", openNotListed);
   }
 
-  /* Documents are where this preview's boundary is, and it reports the
-     boundary rather than inventing a figure to cover it.
-
-     NN10 — the failure no longer replaces the screen. It is a RESULT STATE
-     inside the sheet the user opened, so whatever they already had is still
-     behind it, and the primary way out keeps that rather than discarding it. */
-  function startFileRead(src, files) {
-    runOp({
-      title: "Reading your documents",
-      steps: [
-        { label: "Opening " + files.length + (files.length === 1 ? " file" : " files"),
-          found: files.length + " opened" },
-        { label: "Extracting the details", found: "nothing" },
-      ],
-      onCancel: function () { go("S02"); },
-      onDone: function () {
-        documentsFailed(files.length, function () { startFileRead(src, files); });
-      },
-    });
-  }
-
-  /* The one place a document read reports that it produced nothing. It offers
-     a forward path in every case: keep what is already here if there is
-     anything, and otherwise the sample, which always works. */
-  function documentsFailed(count, retry) {
-    const haveData = !!state.ingested;
+  function openNotListed() {
     openSheet({
-      title: "We couldn't read those documents",
-      body:
-        '<p class="ob-sheet-p">Nothing could be extracted from ' +
-          (count === 1 ? "that file" : "those " + count + " files") + ". " +
-          (haveData ? "Nothing changed, and what you already have is untouched."
-                    : "Nothing was added and nothing was changed.") + "</p>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.flask + "WHY THIS HAPPENS</p>" +
-        '<p class="ob-sheet-p">Reading documents is not implemented in this preview. ' +
-          "It will not succeed for any file yet.</p>",
-      actions:
-        (haveData
-          ? '<button class="ob-cta" id="s-keep">Keep what we have</button>'
-          : '<button class="ob-cta" id="s-sample">Explore with a sample business</button>') +
-        '<button class="ob-skip" id="s-retry">Try other files</button>',
+      title: "Can't find your app?",
+      body: '<p class="ob-sheet-p">FoodBridge connects to Zoho Books today. You can still bring your data in ' +
+            "by uploading files exported from your app.</p>",
+      actions: '<button class="ob-cta" id="s-upload">Upload files instead</button>' +
+               '<button class="ob-skip" id="s-close">Close</button>',
       bind: function () {
-        const keep = $("#s-keep");
-        if (keep) keep.addEventListener("click", closeSheet);
-        const smp = $("#s-sample");
-        if (smp) smp.addEventListener("click", function () { state.sheet = null; useSample(); });
-        $("#s-retry").addEventListener("click", function () { state.sheet = null; retry(); });
+        $("#s-upload").addEventListener("click", function () { state.sheet = null; goS02("F"); });
+        $("#s-close").addEventListener("click", closeSheet);
+      },
+    });
+  }
+
+  /* C1 — the tap opened this; nothing has been read or started. */
+  function openZohoConsent(busy) {
+    openSheet({
+      title: "Connect Zoho Books",
+      busy: busy,
+      body:
+        '<p class="ob-sheet-p">You\'ll sign in to Zoho and allow FoodBridge to read your business records.</p>' +
+        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
+        /* Updated 17 Sep 2026 by the product owner's decision to read every
+           module Zoho Books will show: the sheet names all of it. */
+        '<p class="ob-sheet-p">Customers &#183; Products &#183; Orders &#183; Invoices &#183; Payments &#183; ' +
+          "Credit notes &#183; Estimates &#183; Vendors &#183; Purchase orders &#183; Bills &#183; Expenses</p>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
+        '<ul class="ob-sheet-ul"><li>FoodBridge only reads.</li><li>Nothing in Zoho Books is changed.</li></ul>',
+      actions: busy
+        ? '<button class="ob-cta ob-cta-busy" disabled><span class="ob-spin"></span>Opening Zoho…</button>'
+        : '<button class="ob-cta" id="s-zoho">Continue to Zoho</button>' +
+          '<button class="ob-skip" id="s-cancel">Cancel</button>',
+      bind: function () {
+        if (busy) return;
+        $("#s-zoho").addEventListener("click", function () { confirmReplaceThen("zoho", startZohoSignIn); });
+        $("#s-cancel").addEventListener("click", closeSheet);
+      },
+    });
+  }
+
+  function clearPending() { try { sessionStorage.removeItem(OAUTH_KEY); } catch (e) { /* storage blocked */ } }
+
+  /* Leaves FoodBridge for Zoho, in the same tab. The nonce is how the return
+     proves it belongs to a sign-in THIS tab started. */
+  function startZohoSignIn() {
+    const nonce = RD().newNonce();
+    try { sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ n: nonce, at: Date.now() })); } catch (e) { /* see below */ }
+    state.zoho = idleZoho();
+    state.screen = "S02"; state.s02 = "C";
+    save();
+    openZohoConsent(true);
+    RD().zohoAuth.begin(nonce, RD().returnUrl()).catch(function () {
+      clearPending();
+      openNotConnected("unreachable");
+    });
+  }
+
+  function idleZoho() { return { phase: "idle", handle: null, org: null, run: null, progress: null }; }
+
+  /* Runs once, on load. Three ways to arrive here after leaving for Zoho:
+     a result in the URL, nothing at all (the user pressed Back), or a result
+     this tab never asked for. Only the first, with a matching nonce and a
+     handle, is ever called connected. */
+  function handleZohoReturn() {
+    const ret = RD().zohoAuth.takeReturn();
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(OAUTH_KEY) || "null"); } catch (e) { pending = null; }
+    if (!ret && !pending) return;
+    clearPending();
+    state.screen = "S02"; state.s02 = "C";
+    state.zoho = idleZoho();
+    if (!ret) return;                                     // Back from Zoho: quietly here
+    if (!pending || ret.n !== pending.n) { state.sheet = notConnectedSheet("failed"); return; }
+    if (ret.zoho === "denied") { state.sheet = notConnectedSheet("denied"); return; }
+    if (ret.zoho !== "connected" || !ret.c) { state.sheet = notConnectedSheet("failed"); return; }
+    state.zoho.handle = ret.c;
+    state.zoho.phase = "connected";
+    discoverOrganisations();
+  }
+
+  function notConnectedSheet(why) {
+    return {
+      title: "Zoho Books wasn't connected",
+      body: '<p class="ob-sheet-p">' + esc(NOT_CONNECTED[why] || NOT_CONNECTED.failed) + "</p>",
+      actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
+               '<button class="ob-skip" id="s-upload">Upload files instead</button>',
+      bind: function () {
+        $("#s-retry").addEventListener("click", function () { state.sheet = null; startZohoSignIn(); });
+        $("#s-upload").addEventListener("click", function () { state.sheet = null; goS02("F"); });
+      },
+    };
+  }
+  function openNotConnected(why) { state.zoho = idleZoho(); state.s02 = "C"; openSheet(notConnectedSheet(why)); }
+
+  function discoverOrganisations() {
+    const handle = state.zoho.handle;
+    RD().zohoReader.organisations(handle).then(function (orgs) {
+      if (state.zoho.handle !== handle || state.zoho.phase !== "connected") return;
+      if (!orgs.length) { state.zoho = idleZoho(); return openReadFailed("noorg", null); }
+      if (orgs.length === 1) return startZohoRead(orgs[0]);
+      openChooseOrg(orgs);
+    }, function (err) {
+      if (state.zoho.handle !== handle) return;
+      state.zoho.phase = "idle";
+      openReadFailed((err && err.reason) || "unavailable", null);
+    });
+  }
+
+  /* A decision, so NOTHING is selected until the user selects it. */
+  function openChooseOrg(orgs) {
+    let picked = -1;
+    openSheet({
+      title: "Which business should FoodBridge read?",
+      body: '<div class="ob-choices" role="radiogroup">' +
+        orgs.map(function (o, i) {
+          return '<button class="ob-choice" role="radio" aria-checked="false" data-org="' + i + '">' +
+            '<span class="ob-radio"></span><span class="ob-choice-t">' + esc(o.name) + "</span></button>";
+        }).join("") + "</div>",
+      actions: '<button class="ob-cta" id="s-read" disabled>Read this business</button>' +
+               '<button class="ob-skip" id="s-cancel">Cancel</button>',
+      onClose: function () { state.zoho = idleZoho(); },
+      bind: function () {
+        $$("[data-org]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            picked = Number(b.dataset.org);
+            $$("[data-org]").forEach(function (x) {
+              const on = Number(x.dataset.org) === picked;
+              x.classList.toggle("is-on", on);
+              x.setAttribute("aria-checked", on ? "true" : "false");
+            });
+            $("#s-read").disabled = false;
+          });
+        });
+        $("#s-read").addEventListener("click", function () {
+          if (picked < 0) return;
+          state.sheet = null;
+          startZohoRead(orgs[picked]);
+        });
+        $("#s-cancel").addEventListener("click", closeSheet);
+      },
+    });
+  }
+
+  function startZohoRead(org) {
+    const run = { stopped: false };
+    state.zoho.phase = "reading";
+    state.zoho.org = org;
+    state.zoho.run = run;
+    state.zoho.progress = { customers: "reading", products: "waiting", orders: "waiting", others: "waiting", done: 0, total: null };
+    state.sheet = null;
+    state.screen = "S02";
+    draw();
+    RD().zohoReader.read(state.zoho.handle, org, {
+      shouldStop: function () { return run.stopped; },
+      onProgress: function (p) {
+        if (run.stopped || state.zoho.run !== run) return;
+        state.zoho.progress = p;
+        if (state.screen === "S02" && !state.sheet) drawZohoReading();
+      },
+    }).then(function (raw) {
+      if (run.stopped || state.zoho.run !== run || !raw) return;
+      state.zoho = idleZoho();                // the handle is not kept past the read
+      emitDataReady(window.FB_DATASET.fromZoho(raw));
+    }, function (err) {
+      if (run.stopped || state.zoho.run !== run) return;
+      state.zoho.phase = "idle";
+      state.zoho.run = null;
+      state.zoho.progress = null;
+      openReadFailed((err && err.reason) || "unavailable", org);
+    });
+  }
+
+  /* Stop keeps NOTHING. A half-read account labelled "Your Zoho Books" would
+     misrepresent the user's own books. */
+  function stopZohoRead() {
+    if (state.zoho.run) state.zoho.run.stopped = true;
+    state.zoho = idleZoho();
+    state.s02 = "C";
+    draw();
+  }
+
+  function drawZohoReading() {
+    const p = state.zoho.progress || {};
+    /* The fourth step exists because the read now takes in more than the three
+       the screen was designed with; progress must not sit on a ticked "Orders"
+       while invoices and purchases are still being read. */
+    const steps = [["customers", "Customers"], ["products", "Products"], ["orders", "Orders"],
+                   ["others", "Invoices, payments and purchases"]];
+    render(
+      chrome("S02", { back: true }) +
+      '<main class="ob-main ob-main-op">' +
+        '<h1 class="ob-h1">Reading your Zoho Books</h1>' +
+        '<p class="ob-sub">' + esc(state.zoho.org ? state.zoho.org.name : "") + "</p>" +
+        '<div class="ob-proc">' +
+          steps.map(function (s) {
+            const st = p[s[0]];
+            const done = st === "done", active = st === "reading";
+            const count = s[0] === "orders" && active && p.total != null
+              ? '<span class="ob-pv">' + p.done.toLocaleString() + " of " + p.total.toLocaleString() + "</span>" : "";
+            return '<div class="ob-pstep ' + (done ? "is-done" : active ? "is-active" : "") + '">' +
+              '<span class="ob-pdot">' + (done ? ICON.check : active ? '<span class="ob-spin"></span>' : "") + "</span>" +
+              '<span class="ob-pt">' + s[1] + "</span>" + count + "</div>";
+          }).join("") +
+        "</div>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-skip" id="b-stop">Stop</button></footer>'
+    );
+    $("#b-stop").addEventListener("click", stopZohoRead);
+  }
+
+  function openReadFailed(reason, org) {
+    state.screen = "S02"; state.s02 = "C";
+    const signInAgain = !org || reason === "expired" || reason === "forbidden" || reason === "noorg" || !state.zoho.handle;
+    openSheet({
+      title: "We couldn't finish reading your Zoho Books",
+      body: '<p class="ob-sheet-p">' + esc(READ_FAILED[reason] || READ_FAILED.unavailable) + "</p>",
+      actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
+               '<button class="ob-skip" id="s-upload">Upload files instead</button>',
+      onClose: function () { state.zoho = idleZoho(); },
+      bind: function () {
+        $("#s-retry").addEventListener("click", function () {
+          state.sheet = null;
+          // C5 — the SAME read, from the start. A sign-in that can no longer
+          // read goes back through Zoho instead.
+          if (signInAgain) startZohoSignIn(); else startZohoRead(org);
+        });
+        $("#s-upload").addEventListener("click", function () { state.sheet = null; state.zoho = idleZoho(); goS02("F"); });
+      },
+    });
+  }
+
+  /* ── S02-F · Upload files ───────────────────────────────────────────── */
+
+  /* The same shape as Connect an app: choose → Read → FoodBridge reads what it
+     can → S03. The user picks files and taps Read; that tap is the consent, and
+     nothing is opened before it. What each file holds is read from its own
+     columns (dataset.js classify) — never from its name — so there is no
+     labelling step, and a workbook with a customers sheet, an items sheet and
+     an orders sheet gives all three. FoodBridge asks only when a file cannot
+     say what it is (a bare "Name" column: products or customers), narrowed to
+     those answers, after the read. The row of a file that read is the harvest:
+     what came out of it, in the user's words — and it is where the user TAGS
+     the file. A file carries any number of tags (an invoice export is
+     invoices, and orders, and every customer and product on its lines); a tag
+     is read from the file, and a tag that gives nothing is said, not dropped. */
+
+  let fileSeq = 0;
+  function newFileId() { fileSeq += 1; return "f" + Date.now().toString(36) + fileSeq; }
+
+  function addFiles(list) {
+    Array.prototype.forEach.call(list || [], function (file) {
+      state.files.push({ id: newFileId(), name: file.name, tags: null, status: "new", reason: null, choices: null, file: file, result: null });
+    });
+    draw();
+  }
+
+  function fileInput(id, multiple) {
+    return '<input type="file" id="' + id + '" accept="' + ACCEPT + '"' + (multiple ? " multiple" : "") + " hidden>";
+  }
+
+  /* "Orders · 517 · Products · 86 · Customers · 40": everything a file gives,
+     with its count — the count S03 will show, not the number of rows. An orders
+     sheet is one row per line, one customer's lines on one day are ONE order,
+     and the lines NAME customers and products; so the file is put through the
+     same fromFiles() and engine view S03's numbers come from, and a kind the
+     lines name is listed beside the kinds that were read. A tag that gave
+     nothing is listed as "none". */
+  function foundCounts(f) {
+    const found = (f.result && f.result.found) || [];
+    if (!found.length) return [];
+    if (!f.result.counts) {
+      const parts = found.map(function (p) { return { id: f.id, name: f.name, type: p.type, records: p.records, skipped: p.skipped }; });
+      const ds = window.FB_DATASET.fromFiles(parts).dataset;
+      const hist = window.FB_DATASET.toEngine(ds).history;   // the last 24 months, as S03 counts
+      const orders = Object.keys(hist).reduce(function (n, id) { return n + hist[id].orders.length; }, 0);
+      const read = {};
+      found.forEach(function (p) { read[p.type] = true; });
+      const counts = [];
+      window.FB_DATASET.FILE_TYPES.forEach(function (t) {
+        const n = t === "orders" ? orders : ds[t] && ds[t].present ? ds[t].records.length : 0;
+        if (read[t]) counts.push({ type: t, n: n });
+        else if (n) counts.push({ type: t, n: n, named: true });   // on the lines of what was read
+      });
+      (f.result.none || []).forEach(function (t) { counts.push({ type: t, none: true }); });
+      f.result.counts = counts;
+    }
+    return f.result.counts;
+  }
+  function foundHtml(f, tail) {
+    const items = foundCounts(f).map(function (c) {
+      if (c.none) return '<span class="ob-found-none">' + esc(TYPE_LABEL[c.type]) + " \u00b7 none</span>";
+      return esc(TYPE_LABEL[c.type] + " \u00b7 " + c.n.toLocaleString());
+    });
+    // The caret stays with the last tag when the line wraps.
+    if (tail && items.length) items.push('<span class="ob-nowrap">' + items.pop() + tail + "</span>");
+    return items.join("  \u00b7  ");
+  }
+  const tagsText = function (tags) { return (tags || []).map(function (t) { return TYPE_LABEL[t]; }).join(" \u00b7 "); };
+
+  function fileRow(f, reading) {
+    let bot = "";
+    if (f.status === "waiting") bot = '<span class="ob-fstat">Waiting</span>';
+    else if (f.status === "reading") bot = '<span class="ob-fstat is-busy"><span class="ob-spin"></span>Reading</span>';
+    else if (f.status === "read") {
+      // The harvest is also where the file is tagged: tap it to add a kind.
+      bot = reading
+        ? '<span class="ob-found">' + ICON.check + foundHtml(f) + "</span>"
+        : '<button class="ob-found is-btn" data-tags="' + f.id + '" aria-label="Tags for ' + esc(f.name) + '">' + ICON.check +
+            foundHtml(f, '<span class="ob-caret">' + ICON.chevDown + "</span>") + "</button>";
+    } else if (f.status === "failed" && f.reason === "ambiguous") {
+      bot = '<span class="ob-fstat is-ask"><button class="ob-flink" data-why="' + f.id + '">Products or customers?</button></span>';
+    } else if (f.status === "failed") {
+      bot = '<span class="ob-fstat is-bad"><button class="ob-flink" data-why="' + f.id + '">Couldn\'t read</button>' +
+        (reading ? "" : ' &#183; <label class="ob-flink">Replace' + fileInput("r-" + f.id, false) + "</label>") + "</span>";
+    } else if (f.tags && f.tags.length) {
+      // Tagged by the user, not read yet: read as these.
+      bot = '<button class="ob-typechip" data-tags="' + f.id + '">' + esc(tagsText(f.tags)) + '<span class="ob-caret">' + ICON.chevDown + "</span></button>";
+    }
+    return '<div class="ob-file' + (f.status === "failed" && f.reason !== "ambiguous" ? " is-failed" : "") + '">' +
+      '<div class="ob-file-top"><span class="ob-file-n">' + esc(f.name) + "</span>" +
+        (reading ? "" : '<button class="ob-file-x" data-rm="' + f.id + '" aria-label="Remove ' + esc(f.name) + '">' + ICON.close + "</button>") +
+      "</div>" +
+      (bot ? '<div class="ob-file-bot">' + bot + "</div>" : "") +
+    "</div>";
+  }
+
+  function drawS02F() {
+    const files = state.files;
+    const reading = !!state.filesRun;
+    const fresh = files.filter(function (f) { return f.status === "new"; });
+    const read = files.filter(function (f) { return f.status === "read"; });
+    const asking = files.filter(function (f) { return f.status === "failed" && f.reason === "ambiguous"; });
+    let h1, sub = "", foot = "";
+
+    if (reading) {
+      h1 = "Reading your files";
+      foot = '<button class="ob-skip" id="b-stopfiles">Stop</button>';
+    } else if (!files.length) {
+      // Nothing yet: the screen is the four things a file can be, each a way
+      // in (see drawS02FEmpty). No footer, so nothing sits below a void.
+      return drawS02FEmpty();
+    } else if (fresh.length) {
+      h1 = "Add your business files";
+      foot = '<button class="ob-cta" id="b-readfiles">Read ' + plural(fresh.length, "file", "files") + "</button>";
+    } else if (read.length) {
+      h1 = read.length === files.length ? "We read your files" : "We read " + read.length + " of " + files.length + " files";
+      foot = '<button class="ob-cta" id="b-usefiles">Continue with ' + plural(read.length, "file", "files") + "</button>";
+    } else if (asking.length === files.length) {
+      h1 = "What's in these files?";
+    } else {
+      h1 = "We couldn't read these files";
+      foot = '<button class="ob-skip" id="b-connect">Connect an app instead</button>';
+    }
+
+    render(
+      chrome("S02", { back: true }) +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1">' + esc(h1) + "</h1>" +
+        (sub ? '<p class="ob-sub">' + esc(sub) + "</p>" : "") +
+        (files.length
+          ? '<div class="ob-files">' + files.map(function (f) { return fileRow(f, reading); }).join("") + "</div>" +
+            (reading ? "" : '<label class="ob-addmore">' + ICON.plusCircle + "Add more files" + fileInput("i-more", true) + "</label>")
+          : "") +
+      "</main>" +
+      (foot ? '<footer class="ob-foot">' + foot + "</footer>" : "")
+    );
+
+    ["i-add", "i-more"].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("change", function () { const l = this.files; addFiles(l); this.value = ""; });
+    });
+    $$("[data-rm]").forEach(function (b) {
+      b.addEventListener("click", function () { removeFile(b.dataset.rm); });
+    });
+    $$("[data-why]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const f = fileById(b.dataset.why);
+        // The row already asked the question; the tap lands on the answers.
+        if (f && f.reason === "ambiguous") openTypeSheet(f, f.choices); else openFileProblem(f);
+      });
+    });
+    $$("[data-tags]").forEach(function (b) {
+      b.addEventListener("click", function () { openTagSheet(fileById(b.dataset.tags)); });
+    });
+    files.forEach(function (f) {
+      const r = document.getElementById("r-" + f.id);
+      if (r) r.addEventListener("change", function () { if (this.files[0]) replaceFile(f, this.files[0]); this.value = ""; });
+    });
+    const rf = $("#b-readfiles");
+    if (rf) rf.addEventListener("click", function () { confirmReplaceThen("files", runFileRead); });
+    const uf = $("#b-usefiles");
+    if (uf) uf.addEventListener("click", continueWithFiles);
+    const sf = $("#b-stopfiles");
+    if (sf) sf.addEventListener("click", stopFileRead);
+    const cf = $("#b-connect");
+    if (cf) cf.addEventListener("click", function () { goS02("C"); });
+  }
+
+  /* S02-F with nothing added. The same shape as Connect an app: the question,
+     then rows to tap — one per kind a file can hold, each opening the picker.
+     The rows are the answer to "which file do I go and get?"; they are not
+     labels, and a file chosen through any of them still says for itself what
+     it holds. One quiet line names the formats and where they come from. */
+  const FILE_KINDS = [
+    { type: "orders",    icon: iconOrders,    tint: "t-indigo" },
+    { type: "customers", icon: iconCustomers, tint: "t-blue" },
+    { type: "products",  icon: iconProducts,  tint: "t-green" },
+    { type: "invoices",  icon: ICON.doc,      tint: "t-rose" },
+  ];
+  function drawS02FEmpty() {
+    render(
+      chrome("S02", { back: true }) +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1">Add your business files</h1>' +
+        '<div class="ob-sources">' +
+          FILE_KINDS.map(function (k) {
+            return '<label class="ob-source ob-path ob-pick">' +
+              '<span class="ob-mark ' + k.tint + '">' + k.icon + "</span>" +
+              '<span class="ob-path-main"><span class="ob-source-t">' + TYPE_LABEL[k.type] + "</span>" +
+                '<span class="ob-path-s">' + esc(TYPE_HELP[k.type]) + "</span></span>" +
+              '<span class="ob-chev">' + ICON.upload + "</span>" +
+              fileInput("i-add-" + k.type, true) + "</label>";
+          }).join("") +
+        "</div>" +
+        '<p class="ob-quiet-s">Excel or CSV, exported from Tally, Zoho, Vyapar or any spreadsheet. One file can hold more than one of these.</p>' +
+      "</main>"
+    );
+    FILE_KINDS.forEach(function (k) {
+      const el = document.getElementById("i-add-" + k.type);
+      el.addEventListener("change", function () { const l = this.files; addFiles(l); this.value = ""; });
+    });
+  }
+
+  function fileById(id) { return state.files.filter(function (f) { return f.id === id; })[0]; }
+
+  function removeFile(id) {
+    state.files = state.files.filter(function (f) { return f.id !== id; });
+    save();
+    draw();
+  }
+
+  /* The user's tags, if any, are kept: the replacement is read as those. A
+     file that had said for itself starts over and says again. */
+  function replaceFile(f, file) {
+    f.file = file; f.name = file.name; f.status = "new"; f.reason = null; f.choices = null; f.result = null;
+    state.sheet = null;
+    save();
+    draw();
+  }
+
+  /* Only where FoodBridge could not tell. Customer words, and nothing chosen
+     for them; `choices` narrows the list to what the file could be. Saying
+     what a file is makes it unread — it has to be read as what it now is. */
+  function openTypeSheet(f, choices) {
+    if (!f) return;
+    const list = choices && choices.length ? choices : ["orders", "customers", "products", "invoices"];
+    openSheet({
+      title: "What's in " + f.name + "?",
+      body: '<div class="ob-choices">' +
+        list.map(function (t) {
+          return '<button class="ob-choice ob-choice-2' + (f.tags && f.tags.indexOf(t) !== -1 ? " is-on" : "") + '" data-pick="' + t + '">' +
+            '<span class="ob-choice-main"><span class="ob-choice-t">' + TYPE_LABEL[t] + "</span>" +
+            '<span class="ob-choice-s">' + esc(TYPE_HELP[t]) + "</span></span></button>";
+        }).join("") + "</div>",
+      bind: function () {
+        $$("[data-pick]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            retag(f, [b.dataset.pick]);
+            state.sheet = null;
+            save();
+            draw();
+          });
+        });
+      },
+    });
+  }
+
+  /* Tags changed: the file has to be read again, as what it now is. */
+  function retag(f, tags) {
+    f.tags = tags && tags.length ? tags : null;
+    f.result = null; f.reason = null; f.choices = null;
+    f.status = f.file ? "new" : "failed";
+    if (!f.file) f.reason = "missing";
+  }
+
+  /* The tags on one file. Ticked is what will be read from it: after a read,
+     the kinds that were; a kind the lines merely name is said so and left
+     unticked, because ticking it reads it as its own list. Nothing ticked
+     hands the file back to its own columns. */
+  function openTagSheet(f) {
+    if (!f) return;
+    const counts = f.status === "read" ? foundCounts(f) : [];
+    const read = {}, named = {};
+    counts.forEach(function (c) { if (c.none) return; if (c.named) named[c.type] = c.n; else read[c.type] = true; });
+    const on = {};
+    (f.tags || (f.status === "read" ? Object.keys(read) : [])).forEach(function (t) { on[t] = true; });
+    const KINDS = window.FB_DATASET.FILE_TYPES;
+    const draw2 = function () {
+      $$("[data-tag]").forEach(function (b) {
+        const t = b.dataset.tag;
+        b.classList.toggle("is-on", !!on[t]);
+        b.setAttribute("aria-checked", !!on[t]);
+      });
+    };
+    openSheet({
+      title: "What's in " + f.name + "?",
+      body: '<div class="ob-choices" role="group">' +
+        KINDS.map(function (t) {
+          const sub = named[t] ? "Named on the lines \u00b7 " + named[t].toLocaleString() + " \u00b7 tick to read as a list" : TYPE_HELP[t];
+          return '<button class="ob-choice ob-choice-tag' + (on[t] ? " is-on" : "") + '" role="checkbox" aria-checked="' + !!on[t] + '" data-tag="' + t + '">' +
+            '<span class="ob-tick">' + ICON.check + "</span>" +
+            '<span class="ob-choice-main"><span class="ob-choice-t">' + TYPE_LABEL[t] + "</span>" +
+            '<span class="ob-choice-s">' + esc(sub) + "</span></span></button>";
+        }).join("") + "</div>",
+      actions: '<button class="ob-cta" id="s-tagdone">Done</button>',
+      bind: function () {
+        $$("[data-tag]").forEach(function (b) {
+          b.addEventListener("click", function () { on[b.dataset.tag] = !on[b.dataset.tag]; draw2(); });
+        });
+        $("#s-tagdone").addEventListener("click", function () {
+          const tags = KINDS.filter(function (t) { return on[t]; });
+          const before = f.tags || (f.status === "read" ? Object.keys(read) : []);
+          const same = tags.length === before.length && tags.every(function (t) { return before.indexOf(t) !== -1; });
+          if (!same) retag(f, tags);
+          state.sheet = null;
+          save();
+          draw();
+        });
+      },
+    });
+  }
+
+  function openFileProblem(f) {
+    if (!f) return;
+    const tagged = f.tags && f.tags.length ? f.tags : null;
+    const label = tagged ? tagged.map(function (t) { return TYPE_LABEL[t].toLowerCase(); }).join(" or ") : "records";
+    let why, actions;
+    if (f.reason === "no_records" && !tagged) {
+      why = '<p class="ob-sheet-p">We couldn\'t find orders, customers, products or invoices in this file.</p>' +
+            '<p class="ob-sheet-p">Its first rows need column names, such as Order Date, Customer Name, Item Name and Quantity.</p>';
+      actions = '<label class="ob-cta ob-cta-label">Replace file' + fileInput("s-replace", false) + "</label>" +
+                '<button class="ob-skip" id="s-type">Say what it contains</button>' +
+                '<button class="ob-skip is-warn" id="s-remove">Remove</button>';
+    } else {
+      why = f.reason === "no_records"
+        ? '<p class="ob-sheet-p">We couldn\'t find any ' + esc(label) + " in this file.</p>" +
+          tagged.map(function (t) { return '<p class="ob-sheet-p">' + esc(TYPE_NEEDS[t] || "") + "</p>"; }).join("")
+        : '<p class="ob-sheet-p">' + esc(FILE_PROBLEM[f.reason] || FILE_PROBLEM.damaged) + "</p>";
+      actions = '<label class="ob-cta ob-cta-label">Replace file' + fileInput("s-replace", false) + "</label>" +
+                (tagged ? '<button class="ob-skip" id="s-type">Change tags</button>' : "") +
+                '<button class="ob-skip is-warn" id="s-remove">Remove</button>';
+    }
+    openSheet({
+      title: f.name,
+      body: why,
+      actions: actions,
+      bind: function () {
+        const rep = $("#s-replace");
+        if (rep) rep.addEventListener("change", function () { if (this.files[0]) replaceFile(f, this.files[0]); });
+        const ty = $("#s-type");
+        if (ty) ty.addEventListener("click", function () { openTagSheet(f); });
+        $("#s-remove").addEventListener("click", function () { state.sheet = null; removeFile(f.id); });
+      },
+    });
+  }
+
+  /* F — the read. One file at a time, each with its own result. A file that
+     fails is marked and kept for replacing; the ones that read are untouched
+     by it. A file the user has tagged is read as those kinds; every other
+     file says for itself what it holds. */
+  async function runFileRead() {
+    const run = { stopped: false };
+    state.filesRun = run;
+    const queue = state.files.filter(function (f) { return f.status === "new"; });
+    queue.forEach(function (f) { f.status = "waiting"; });
+    draw();
+    for (let i = 0; i < queue.length; i++) {
+      const f = queue[i];
+      if (state.filesRun !== run) return;
+      if (state.files.indexOf(f) === -1) continue;
+      f.status = "reading";
+      draw();
+      let out;
+      try {
+        out = f.file ? await RD().files.read(f.file, f.tags && f.tags.length ? f.tags : null, { shouldStop: function () { return run.stopped; } })
+                     : { ok: false, reason: "missing" };
+      } catch (e) { out = { ok: false, reason: "damaged" }; }
+      if (state.filesRun !== run) return;             // stopped while this one was reading
+      if (out && out.ok) {
+        f.status = "read"; f.reason = null; f.choices = null;
+        f.result = { found: out.found, none: out.none || [] };
+        foundCounts(f);
+      } else {
+        f.status = "failed"; f.reason = (out && out.reason) || "damaged"; f.choices = (out && out.choices) || null;
+      }
+      save();
+      draw();
+    }
+    state.filesRun = null;
+    const anyFailed = state.files.some(function (f) { return f.status === "failed"; });
+    const anyNew = state.files.some(function (f) { return f.status === "new"; });
+    const anyRead = state.files.some(function (f) { return f.status === "read"; });
+    // A tag the user put on that gave nothing is worth a look before going on.
+    const anyNone = state.files.some(function (f) { return f.status === "read" && f.result && f.result.none && f.result.none.length; });
+    if (anyRead && !anyFailed && !anyNew && !anyNone) return continueWithFiles();
+    save();
+    draw();
+  }
+
+  /* Stop keeps every file that already read; the rest go back to unread. */
+  function stopFileRead() {
+    const run = state.filesRun;
+    if (run) run.stopped = true;
+    state.filesRun = null;
+    state.files.forEach(function (f) { if (f.status === "waiting" || f.status === "reading") f.status = "new"; });
+    save();
+    draw();
+  }
+
+  function continueWithFiles() {
+    const parts = [];
+    state.files.forEach(function (f) {
+      if (f.status !== "read" || !f.result) return;
+      (f.result.found || []).forEach(function (p) {
+        parts.push({ id: f.id, name: f.name, type: p.type, records: p.records, skipped: p.skipped });
+      });
+    });
+    if (!parts.length) return draw();
+    emitDataReady(window.FB_DATASET.fromFiles(parts));
+  }
+
+  /* C8 — files chosen but not yet read are unconfirmed work. */
+  function leaveFiles() {
+    if (state.filesRun) return stopFileRead();
+    const unread = state.files.filter(function (f) { return f.status === "new"; });
+    if (!unread.length) return goS02("A");
+    openSheet({
+      title: "Discard these files?",
+      body: '<p class="ob-sheet-p">Nothing has been read from them yet.</p>',
+      actions: '<button class="ob-cta is-warn" id="s-discard">Discard</button>' +
+               '<button class="ob-skip" id="s-keep">Keep adding</button>',
+      bind: function () {
+        $("#s-discard").addEventListener("click", function () {
+          state.sheet = null;
+          state.files = state.files.filter(function (f) { return f.status !== "new"; });
+          goS02("A");
+        });
+        $("#s-keep").addEventListener("click", closeSheet);
       },
     });
   }
@@ -1204,41 +1768,44 @@
         (m.unlocks.length
           ? '<section class="ob-section">' +
               '<p class="ob-eyebrow">ADD LATER TO SEE MORE</p>' +
-              '<div class="ob-optional">' +
-                m.unlocks.map(function (u, i) {
-                  /* NN10 — this was an "Add" button over a file picker that
-                     could never succeed for any file. It is now a plain
-                     explanation of what the signal needs, because offering an
-                     input that always fails is worse than offering none. */
-                  return '<div class="ob-orow">' + ICON.plusCircle +
-                    '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(u.label) + "</span>" +
-                    '<span class="ob-orow-s">Would unlock ' + esc(u.short) + "</span></span>" +
-                    '<button class="ob-addlink" data-gap="' + i + '">What this needs</button></div>';
-                }).join("") +
-              "</div>" +
+              '<div class="ob-optional">' + m.unlocks.map(function (u, i) { return laterRow(u, i, m); }).join("") + "</div>" +
             "</section>"
           : "") +
       "</main>" +
-      /* The transition is semantic: it names what happens next, not the act
-         of moving. */
-      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">See what this means</button></footer>'
+      laterFooter()
     );
 
     $$("[data-insp]").forEach(function (b) {
       b.addEventListener("click", function () { openInspectSheet(b.dataset.insp); });
     });
-    $$("[data-gap]").forEach(function (b) {
-      b.addEventListener("click", function () { openGapSheet(m.unlocks[Number(b.dataset.gap)]); });
+    bindLaterRows(m.unlocks);
+    bindLaterFooter();
+  }
+
+  /* An item the user can clear right here: tap it, add files (or photos,
+     where the bridge reads them), then read them all at once from the footer.
+     One renderer for both shapes of S03, so the missing and the optional are
+     cleared by the same gesture. */
+  function laterRow(u, i, m) {
+    const st = laterStatus(u, m);
+    return '<button class="ob-orow ob-orow-btn" data-later="' + i + '">' + ICON.plusCircle +
+      '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(u.label) + "</span>" +
+      '<span class="ob-orow-s' + (st.bad ? " is-bad" : st.ready ? " is-ready" : "") + '">' + esc(st.text) + "</span></span>" +
+      '<span class="ob-addlink">' + (st.staged ? "Change" : "Add") + "</span></button>";
+  }
+  function bindLaterRows(items) {
+    $$("[data-later]").forEach(function (b) {
+      b.addEventListener("click", function () { openLaterSheet(items[Number(b.dataset.later)]); });
     });
-    $("#b-continue").addEventListener("click", function () { go("S04"); });
   }
 
   /* SHEET 4 — inspect. Enough real rows to recognise your own business, the
      total, and where it came from. A sheet, not a browser. */
   function openInspectSheet(kind) {
     const EV = window.FB_EVIDENCE;
-    const r = EV.sampleRecords({ seed: window.SEED, history: historyNow(), kind: kind, limit: 5 });
-    const pv = EV.provenance({ seed: window.SEED, history: historyNow() });
+    const e = engine();
+    const r = EV.sampleRecords({ seed: e.seed, history: e.history, kind: kind, limit: 5 });
+    const pv = EV.provenance({ seed: e.seed, history: e.history });
     const title = kind.charAt(0).toUpperCase() + kind.slice(1);
 
     openSheet({
@@ -1254,19 +1821,14 @@
         "</div>" +
         '<p class="ob-sheet-eyebrow">WHERE THIS CAME FROM</p>' +
         '<div class="ob-prov-lines">' +
-          /* NN1 — this NEVER reads "<source> export". Nothing was exported from
-             anywhere. It names the demonstration business, and the source only
-             as the button the user happened to press. */
-          "<p>Demonstration business" +
-            (state.mode === "demo" && state.source
-              ? " &#8212; loaded because " + esc(state.source.label) + " is not connectable yet"
-              : "") + "</p>" +
+          /* The source S02 actually read, in the chip's words. */
+          "<p>" + esc(provenanceLabel()) + "</p>" +
           (kind === "orders" && pv.from ? "<p>" + esc(pv.from) + " &#8211; " + esc(pv.to) + "</p>" : "") +
           /* Scope belongs to the ORDERS, not to a product catalogue. Printing
              it under all three is how a date range ended up describing 86
              pickles. */
           (kind === "orders"
-            ? "<p>" + pv.shopsWithHistory + " of its " + pv.totalCustomers + " shops</p>"
+            ? "<p>" + pv.shopsWithHistory + " of your " + pv.totalCustomers + " shops</p>"
             : "<p>" + r.total.toLocaleString() + " " + esc(r.unit) + " in total</p>") +
         "</div>",
       actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
@@ -1274,47 +1836,291 @@
     });
   }
 
-  /* SHEET 5 — F11, what a blocked signal needs. NN10: this used to offer a
-     file picker and a camera for evidence this preview cannot ingest for any
-     file, so every attempt failed and the customer blamed their own documents.
-     It now states the requirement and gets out of the way. The only action is
-     to keep what is already here, which is what the user was doing anyway. */
-  function openGapSheet(gap) {
-    const needs = (gap && gap.needs) || [];
-    openSheet({
-      title: (gap && gap.label) || "More evidence",
-      body:
-        '<p class="ob-sheet-p">FoodBridge would show you ' +
-          esc((gap && gap.short) || "more of your business") + " once it holds this.</p>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.plusCircle + "WHAT IT NEEDS</p>" +
-        '<ul class="ob-sheet-ul">' +
-          (needs.length
-            ? needs.map(function (n) { return "<li>" + esc(String(n).replace(/_/g, " ")) + "</li>"; }).join("")
-            : "<li>" + esc((gap && gap.label) || "this evidence") + " for your business</li>") +
-        "</ul>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.flask + "IN THIS PREVIEW</p>" +
-        '<p class="ob-sheet-p">There is no way to add it yet. Reading documents is ' +
-          "not implemented, so nothing here can unlock it today. Until then " +
-          "FoodBridge leaves these figures out rather than estimating them.</p>",
-      actions: '<button class="ob-cta ob-ghost" id="s-keep">Keep what we have</button>',
-      bind: function () { $("#s-keep").addEventListener("click", closeSheet); },
+  /* ── S03 · "Add later" and "What is missing", cleared right here ───────
+     Product owner's request, 17 Sep 2026: each item opens a sheet where the
+     user adds files or photos for it; they can do the next item the same way;
+     then ONE "Read" reads all of them and adds what it finds to the data S02
+     handed over (combined, never replacing -- every record names its file).
+     The same day: what the floor is MISSING (S03-B) is cleared by the same
+     rows, sheet and Read, so crossing the floor never means leaving S03.
+
+     Nothing is read when a file is chosen. A file that cannot be read stays
+     on its item with the reason, to be replaced; the ones that read are added. */
+
+  const LATER_ITEMS = {
+    /* Below the floor (S03-B): what the floor is missing, cleared the same way.
+       Spreadsheets only — the bridge reads photographs of invoices, payments
+       and price lists, not of order books. */
+    orders: {
+      ask: "Add your sales orders or order history.",
+      types: ["orders"], photo: false,
+      has: function (m) { return { orders: m.evidence.sales.present }; },
+    },
+    products: {
+      ask: "Add your items or price list.",
+      types: ["products"], photo: false,
+      has: function (m) { return { products: m.context.products.present }; },
+    },
+    invoices_and_payments: {
+      ask: "Add the bills you've sent to customers and the payments you've received.",
+      types: ["invoices", "payments"],
+      has: function (m) { return { invoices: m.evidence.invoices.present, payments: m.evidence.payments.present }; },
+    },
+    cost_price: {
+      ask: "Add a price list or purchase bills that show what you pay for each product.",
+      types: ["costs"],
+      has: function (m) { return { costs: m.stock.cost }; },
+    },
+  };
+  const LATER_TYPE_LABEL = { orders: "Orders", products: "Products", invoices: "Invoices", payments: "Payments", costs: "Cost prices" };
+  const LATER_NEEDS = {
+    orders: TYPE_NEEDS.orders,
+    products: TYPE_NEEDS.products,
+    invoices: "An invoices file needs a date, a customer and an amount for each invoice.",
+    payments: "A payments file needs a date, a customer and an amount for each payment.",
+    costs: "A cost price file needs a product name and what you pay for it.",
+  };
+  const LATER_PROBLEM = {
+    photo_not_set_up: "Reading photos isn't set up yet.",
+    photo_no_rows: "We couldn't read any rows in this photo. Try a clearer, straighter photo.",
+    photo_unavailable: "Reading this photo didn't finish.",
+  };
+  const LATER_ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*";
+
+  function laterFiles(key) { return state.later.files.filter(function (f) { return f.item === key; }); }
+
+  function laterStatus(u, m) {
+    const files = laterFiles(u.evidence);
+    const bad = files.filter(function (f) { return f.status === "failed"; }).length;
+    const ready = files.filter(function (f) { return f.status === "new"; }).length;
+    if (bad) return { staged: true, bad: true, text: plural(bad, "file", "files") + " couldn't be read" + (ready ? " · " + ready + " ready" : "") };
+    if (ready) return { staged: true, ready: true, text: plural(ready, "file", "files") + " ready to read" };
+    const item = LATER_ITEMS[u.evidence];
+    if (item && item.types.length > 1) {
+      const has = item.has(m);
+      const got = item.types.filter(function (t) { return has[t]; });
+      if (got.length) {
+        const missing = item.types.filter(function (t) { return !has[t]; });
+        return { text: got.map(function (t) { return LATER_TYPE_LABEL[t]; }).join(", ") + " added · add " +
+                       missing.map(function (t) { return LATER_TYPE_LABEL[t].toLowerCase(); }).join(" and ") + " to finish" };
+      }
+    }
+    return { text: "Would unlock " + u.short };
+  }
+
+  function laterFooter() {
+    const fresh = state.later.files.filter(function (f) { return f.status === "new"; });
+    if (!fresh.length) return '<footer class="ob-foot"><button class="ob-cta" id="b-continue">See what this means</button></footer>';
+    const untyped = fresh.some(function (f) { return !f.type; });
+    return '<footer class="ob-foot">' +
+      (untyped
+        ? '<button class="ob-cta" disabled>Choose what each file contains</button>'
+        : '<button class="ob-cta" id="b-readlater">Read ' + plural(fresh.length, "file", "files") + "</button>") +
+      '<button class="ob-skip" id="b-continue">Continue without them</button></footer>';
+  }
+
+  function bindLaterFooter() {
+    const c = $("#b-continue");
+    if (c) c.addEventListener("click", function () { go("S04"); });
+    const r = $("#b-readlater");
+    if (r) r.addEventListener("click", runLaterRead);
+  }
+
+  function addLaterFiles(key, list, photo) {
+    const item = LATER_ITEMS[key];
+    Array.prototype.forEach.call(list || [], function (file) {
+      state.later.files.push({
+        id: newFileId(), item: key, name: file.name || (photo ? "Photo" : "File"), file: file,
+        type: item.types.length === 1 ? item.types[0] : null,   // the item names it; nothing is guessed
+        status: "new", reason: null, via: photo || RD().files.isPhoto(file) ? "photo" : "file",
+      });
     });
+  }
+
+  function laterProblem(f) {
+    if (f.reason === "no_records") return "We couldn't find any " + LATER_TYPE_LABEL[f.type].toLowerCase() + " in this file. " + (LATER_NEEDS[f.type] || "");
+    return LATER_PROBLEM[f.reason] || FILE_PROBLEM[f.reason] || FILE_PROBLEM.damaged;
+  }
+
+  /* The sheet for one item. It is re-opened (redrawn) after every change. */
+  function openLaterSheet(u) {
+    const key = u.evidence;
+    const item = LATER_ITEMS[key];
+    if (!item) return;
+    const m = state.model || (state.model = buildModel());
+    const has = item.has(m);
+    const files = laterFiles(key);
+    const multi = item.types.length > 1;
+
+    const fileRowHtml = function (f) {
+      const chips = multi
+        ? '<span class="ob-seg" role="radiogroup" aria-label="What\'s in ' + esc(f.name) + '">' +
+            item.types.map(function (t) {
+              return '<button class="ob-seg-b' + (f.type === t ? " is-on" : "") + '" role="radio" aria-checked="' + (f.type === t) +
+                '" data-ltype="' + f.id + ":" + t + '">' + LATER_TYPE_LABEL[t] + "</button>";
+            }).join("") + "</span>"
+        : '<span class="ob-typechip is-static">' + LATER_TYPE_LABEL[f.type] + "</span>";
+      return '<div class="ob-file' + (f.status === "failed" ? " is-failed" : "") + '">' +
+        '<div class="ob-file-top">' + (f.via === "photo" ? ICON.camera : ICON.files) +
+          '<span class="ob-file-n">' + esc(f.name) + "</span>" +
+          '<button class="ob-file-x" data-lrm="' + f.id + '" aria-label="Remove ' + esc(f.name) + '">' + ICON.close + "</button></div>" +
+        '<div class="ob-file-bot">' + chips + "</div>" +
+        (f.status === "failed"
+          ? '<p class="ob-file-why">' + esc(laterProblem(f)) + ' <label class="ob-flink">Replace' +
+              '<input type="file" data-lrep="' + f.id + '" accept="' + LATER_ACCEPT + '" hidden></label></p>'
+          : "") +
+      "</div>";
+    };
+
+    openSheet({
+      title: u.label,
+      body:
+        '<p class="ob-sheet-p">' + esc(item.ask) + "</p>" +
+        (multi
+          ? '<div class="ob-have">' + item.types.map(function (t) {
+              return '<span class="ob-have-i' + (has[t] ? " is-on" : "") + '">' + (has[t] ? ICON.check : "") +
+                LATER_TYPE_LABEL[t] + (has[t] ? " added" : "") + "</span>";
+            }).join("") + "</div>"
+          : "") +
+        '<div class="ob-addbtns">' +
+          '<label class="ob-chip key">' + ICON.upload + "Choose files" +
+            '<input type="file" id="l-files" accept="' + (item.photo === false ? ACCEPT : LATER_ACCEPT) + '" multiple hidden></label>' +
+          (item.photo === false ? "" :
+            '<label class="ob-chip">' + ICON.camera + "Take photo" +
+              '<input type="file" id="l-photo" accept="image/*" capture="environment" hidden></label>') +
+        "</div>" +
+        (files.length ? '<div class="ob-files ob-files-sheet">' + files.map(fileRowHtml).join("") + "</div>" : "") +
+        (item.photo === false
+          ? '<p class="ob-quiet-s">Excel or CSV, read on this phone. Nothing is read until you tap Read.</p>'
+          : '<p class="ob-quiet-s">Excel, CSV or a clear photo. Spreadsheets are read on this phone; photos are sent to FoodBridge to be read. ' +
+            "Nothing is read until you tap Read.</p>"),
+      actions: '<button class="ob-cta" id="l-done">Done</button>',
+      bind: function () {
+        const again = function () { openLaterSheet(u); };
+        $("#l-files").addEventListener("change", function () { addLaterFiles(key, this.files, false); this.value = ""; again(); });
+        const ph = $("#l-photo");
+        if (ph) ph.addEventListener("change", function () { addLaterFiles(key, this.files, true); this.value = ""; again(); });
+        $$("[data-ltype]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            const parts = b.dataset.ltype.split(":");
+            const f = state.later.files.filter(function (x) { return x.id === parts[0]; })[0];
+            if (f) { f.type = parts[1]; if (f.status === "failed") { f.status = "new"; f.reason = null; } }
+            again();
+          });
+        });
+        $$("[data-lrm]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            state.later.files = state.later.files.filter(function (x) { return x.id !== b.dataset.lrm; });
+            again();
+          });
+        });
+        $$("[data-lrep]").forEach(function (inp) {
+          inp.addEventListener("change", function () {
+            const f = state.later.files.filter(function (x) { return x.id === inp.dataset.lrep; })[0];
+            if (f && this.files[0]) {
+              f.file = this.files[0]; f.name = this.files[0].name || f.name; f.status = "new"; f.reason = null;
+              f.via = RD().files.isPhoto(this.files[0]) ? "photo" : "file";
+            }
+            again();
+          });
+        });
+        $("#l-done").addEventListener("click", closeSheet);
+      },
+    });
+  }
+
+  async function runLaterRead() {
+    const run = { stopped: false, parts: [] };
+    state.later.run = run;
+    state.sheet = null;
+    const queue = state.later.files.filter(function (f) { return f.status === "new" && f.type; });
+    queue.forEach(function (f) { f.status = "waiting"; });
+    draw();
+    for (let i = 0; i < queue.length; i++) {
+      const f = queue[i];
+      if (state.later.run !== run) return;
+      f.status = "reading";
+      draw();
+      let out;
+      try { out = await RD().files.read(f.file, f.type); } catch (e) { out = { ok: false, reason: "damaged" }; }
+      if (state.later.run !== run) return;
+      if (out && out.ok) {
+        f.status = "read";
+        run.parts.push({ id: f.id, name: f.name, type: f.type, via: f.via, records: out.records, skipped: out.skipped || [] });
+      } else {
+        f.status = "failed";
+        f.reason = (out && out.reason) || "damaged";
+      }
+      draw();
+    }
+    finishLaterRead(run);
+  }
+
+  /* What read is added; what did not stays on its item with the reason. */
+  function finishLaterRead(run) {
+    state.later.run = null;
+    state.later.files = state.later.files.filter(function (f) { return f.status !== "read"; });
+    state.later.files.forEach(function (f) { if (f.status === "waiting" || f.status === "reading") f.status = "new"; });
+    if (run.parts.length) {
+      state.dataReady = window.FB_DATASET.addEvidence(state.dataReady, run.parts);
+      state.engine = null;
+      state.model = null;
+      save();
+    }
+    state.screen = "S03";
+    draw();
+  }
+
+  function stopLaterRead() {
+    const run = state.later.run;
+    if (!run) return;
+    run.stopped = true;
+    finishLaterRead(run);          // keeps every file that already read
+  }
+
+  function drawLaterReading() {
+    const files = state.later.files.filter(function (f) { return f.status !== "new" && f.status !== "failed" || state.later.run; });
+    render(
+      chrome("S03", { back: true }) +
+      '<main class="ob-main ob-main-op">' +
+        '<h1 class="ob-h1">Reading your files</h1>' +
+        '<div class="ob-files">' +
+          files.filter(function (f) { return ["waiting", "reading", "read", "failed"].indexOf(f.status) !== -1; }).map(function (f) {
+            const status = f.status === "waiting" ? '<span class="ob-fstat">Waiting</span>'
+              : f.status === "reading" ? '<span class="ob-fstat is-busy"><span class="ob-spin"></span>Reading</span>'
+              : f.status === "read" ? '<span class="ob-fstat is-ok" aria-label="Read">' + ICON.check + "</span>"
+              : '<span class="ob-fstat is-bad">Couldn\'t read</span>';
+            return '<div class="ob-file"><div class="ob-file-top">' + (f.via === "photo" ? ICON.camera : ICON.files) +
+              '<span class="ob-file-n">' + esc(f.name) + "</span></div>" +
+              '<div class="ob-file-bot"><span class="ob-typechip is-static">' + esc(LATER_TYPE_LABEL[f.type] || "") + "</span>" + status + "</div></div>";
+          }).join("") +
+        "</div>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-skip" id="b-stoplater">Stop</button></footer>'
+    );
+    $("#b-stoplater").addEventListener("click", stopLaterRead);
   }
 
   /* S03-B — below the floor. NN11: this was a closed loop — "Connect" returned
      to S02, which returned here, and both Upload paths failed for every file.
      It now names what is missing and what that would unlock, and it always
-     carries a way FORWARD that works: the sample business. */
+     carries a way forward: back to S02 to bring in more. */
+  /* S03-B — below the floor. NN11: this was a closed loop — "Connect" returned
+     to S02, which returned here, and both Upload paths failed for every file.
+     It names what is missing and what that would unlock, and each item is
+     cleared RIGHT HERE, by the same rows, sheet and Read as S03-A's "Add
+     later": add the file, read it, and the floor is checked again in place.
+     There is no Continue below the floor. */
   function drawS03Below(m) {
+    const fromFiles = !!(state.dataReady && state.dataReady.provenance.kind === "files");
     const missing = [
-      { name: "Sales or orders", icon: iconOrders, tint: "t-indigo",
-        unlock: "which shops have stopped ordering, and what to reorder for them" },
-      { name: "Your products", icon: iconProducts, tint: "t-green",
-        unlock: "what is on the shelf and what is out of stock" },
-    ].filter(function (x, i) {
-      return i === 0 ? !(m && m.evidence && m.evidence.sales.present)
-                     : !(m && m.context && m.context.products.present);
+      { evidence: "orders", label: "Sales or orders", short: "which shops have stopped ordering, and what to reorder for them" },
+      { evidence: "products", label: "Your products", short: "what is on the shelf and what is out of stock" },
+    ].filter(function (u) {
+      return u.evidence === "orders" ? !(m && m.evidence && m.evidence.sales.present)
+                                     : !(m && m.context && m.context.products.present);
     });
+    const fresh = state.later.files.filter(function (f) { return f.status === "new"; });
 
     render(
       chrome("S03", { back: true }) +
@@ -1322,27 +2128,20 @@
         '<h1 class="ob-h1">We need a little more</h1>' +
         '<section class="ob-section">' +
           '<p class="ob-eyebrow">WHAT IS MISSING</p>' +
-          '<div class="ob-optional">' +
-            (missing.length ? missing : [{ name: "Your business records", icon: iconOrders, tint: "t-indigo",
-                                           unlock: "what FoodBridge can tell you" }])
-              .map(function (n) {
-                return '<div class="ob-orow">' +
-                  '<span class="ob-mark ' + n.tint + '">' + n.icon + "</span>" +
-                  '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(n.name) + "</span>" +
-                  '<span class="ob-orow-s">Would unlock ' + esc(n.unlock) + "</span></span></div>";
-              }).join("") +
-          "</div>" +
+          '<div class="ob-optional">' + missing.map(function (u, i) { return laterRow(u, i, m); }).join("") + "</div>" +
         "</section>" +
       "</main>" +
       '<footer class="ob-foot">' +
-        '<button class="ob-cta" id="b-sample">Explore with a sample business</button>' +
-        '<button class="ob-skip" id="b-other">Choose a different source</button>' +
+        (fresh.length ? '<button class="ob-cta" id="b-readlater">Read ' + plural(fresh.length, "file", "files") + "</button>" : "") +
+        (fromFiles
+          ? '<button class="ob-skip" id="b-other">Connect an app instead</button>'
+          : '<button class="ob-skip" id="b-other">Choose a different source</button>') +
       "</footer>"
     );
-    $("#b-sample").addEventListener("click", openSampleSheet);
-    $("#b-other").addEventListener("click", function () {
-      leaveData(function () { state.screen = "S02"; draw(); });
-    });
+    bindLaterRows(missing);
+    const r = $("#b-readlater");
+    if (r) r.addEventListener("click", runLaterRead);
+    $("#b-other").addEventListener("click", function () { goS02(fromFiles ? "C" : "A"); });
   }
 
   /* ------------------------------------------------------------- S04 */
@@ -1396,15 +2195,15 @@
      actually be filled. */
   function openStockSheet(m) {
     const sp = (m.signals && m.signals.stock_position) || { outOfStock: 0, catalogue: 0 };
-    const products = ((window.SEED || {}).products || []).filter(function (p) {
-      return Number(p.systemStock) === 0;
+    const products = (engine().seed.products || []).filter(function (p) {
+      return p.systemStock === 0;
     });
     openSheet({
       title: "Out of stock",
       count: sp.outOfStock,
       body:
         '<p class="ob-sheet-p">' + sp.outOfStock + " of your " + sp.catalogue +
-          " products show no stock. A reorder can still be prepared for them \u2014 " +
+          (sp.untracked ? " tracked" : "") + " products show no stock. A reorder can still be prepared for them \u2014 " +
           "this is what to expect to be short of when you come to fill it.</p>" +
         '<p class="ob-sheet-eyebrow">A FEW OF THEM</p>' +
         '<div class="ob-reclist">' +
@@ -1434,9 +2233,7 @@
           "<li>Nothing is sent, prepared or written</li>" +
           "<li>You can pick it up from Order Drafts whenever you want</li>" +
         "</ul>" +
-        (state.mode === "sample"
-          ? '<p class="ob-sheet-p">You stay in the sample business. Nothing of your own is touched.</p>'
-          : ""),
+        "",
       actions: '<button class="ob-cta" id="s-park">Leave it for now</button>' +
                '<button class="ob-skip" id="s-stay">Keep going</button>',
       bind: function () {
@@ -1967,7 +2764,7 @@
     const ed = state.draftEdit;
     const have = {};
     ed.lines.forEach(function (l) { have[l.name] = true; });
-    const all = ((window.SEED || {}).products || []).filter(function (p) { return !have[p.name]; });
+    const all = (engine().seed.products || []).filter(function (p) { return !have[p.name]; });
     const q = ed.filter.trim().toLowerCase();
     const hits = (q ? all.filter(function (p) { return p.name.toLowerCase().indexOf(q) >= 0; }) : all).slice(0, 40);
 
@@ -2207,7 +3004,7 @@
     if (state.op) return drawOp();
     if (state.screen === "S01") return drawS01();
     if (state.screen === "S02") return drawS02();
-    if (state.screen === "S03") return drawS03();
+    if (state.screen === "S03") return state.later.run ? drawLaterReading() : drawS03();
     if (state.screen === "S05") return drawS05();
     return drawS04();
   }
@@ -2268,12 +3065,29 @@
     trackKeyboard();
     document.addEventListener("focusin", keepFocusVisible);
     restore();                                   // C7 — a reload lands where it left
+    handleZohoReturn();                          // back from Zoho, however it went
+    /* Back from Zoho can restore this page from the browser's cache instead of
+       reloading it. iOS Safari brings the platform shell back with its iframe
+       unresponsive to touch (verified on the Simulator: the screen draws, no tap
+       lands), so a cached restore is turned into a real load. mount() then finds
+       the unfinished sign-in with no result and lands quietly on Connect an app. */
+    [window, RD().topWin()].forEach(function (w) {
+      try {
+        w.addEventListener("pageshow", function (e) {
+          if (!e.persisted) return;
+          let pending = null;
+          try { pending = sessionStorage.getItem(OAUTH_KEY); } catch (x) { pending = null; }
+          if (!pending && !(state.sheet && state.sheet.busy)) return;
+          RD().topWin().location.reload();
+        });
+      } catch (x) { /* a window we may not listen to */ }
+    });
     /* The drafts destination is the SAME module under a different view, so the
        drafts it shows are the drafts the flow wrote — not a second copy that
        could drift from the first. */
     if (new URLSearchParams(location.search).get("view") === "drafts") {
       state.view = "drafts";
-      if (state.mode && !state.opp) { try { state.opp = buildOpportunity(); } catch (e) {} }
+      if (state.dataReady && !state.opp) { try { state.opp = buildOpportunity(); } catch (e) {} }
     }
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && state.sheet) closeSheet();
@@ -2285,7 +3099,7 @@
     mount, buildModel, buildOpportunity, supportingSignals, openOpportunity,
     runOp, cancelOp, openSheet, closeSheet, goBack, draw, save, restore, forget, state,
     drawDraftsHome, openDraftsListSheet, openDraftEditor, confirmDiscardAll,
-    gstVerified, gstActive, verifyGstin, useSample, parkOpportunity,
+    gstVerified, gstActive, verifyGstin, parkOpportunity, emitDataReady, engine,
     draftEdits, draftsTotalLines, draftsTotalEdits,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = window.FB_ONBOARDING;

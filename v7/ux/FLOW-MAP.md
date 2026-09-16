@@ -3,7 +3,7 @@ status: LOCKED
 opportunity: O-001
 learning: [L-012, L-013]
 screens: 5
-updated: 2026-09-16
+updated: 2026-09-17
 ---
 
 # Flow map — A new distributor's business is mostly in FoodBridge before they have to enter it manually
@@ -437,6 +437,16 @@ complete the task, make the decision, or understand the state — remove it.
   always appears.
 - **Upload, photo and scan are one control.** Rejected: separate screens. The
   procurement module already proves one input handles files, PDFs and the camera.
+- **A file says what it holds; the user is asked only when it cannot** (17
+  September 2026). Rejected: a "what's in this file?" label on every file
+  before anything is read — the columns already answer, and Stage 1 refuses
+  to ask for what could have been fetched. Rejected too: reading the name,
+  which is cheap and often wrong; and reading on add, before *Read*, which
+  would make choosing a file a consequential act. The one genuine ambiguity —
+  a bare *Name* column, products or customers — is asked after the read, in
+  the row, narrowed to those two. Each file's row then carries what came out
+  of it, in S03's own numbers, so F05 → F07 → F08 has the same shape as
+  F04 → F07 → F08.
 - **Coverage is stated in words, not as a percentage.** Rejected: the reference's
   `82%`. A score invites optimisation and reads as unfinished setup.
 - **Extraction, mapping, validation and computation are system states.**

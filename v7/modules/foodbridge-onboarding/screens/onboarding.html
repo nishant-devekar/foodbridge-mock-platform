@@ -10,68 +10,60 @@
   Reached at #/onboarding — STANDALONE and FULL-BLEED. The user is ALREADY
   AUTHENTICATED when they arrive: no signup, no password, no terms.
 
-  THIS BUILD IS A PREVIEW, AND SAYS SO WHERE IT MATTERS.
-  There is no connector. Tally, Zoho and Vyapar cannot be read, so choosing
-  one loads a DEMONSTRATION BUSINESS and the consent sheet says that before
-  the user commits. An amber provenance chip naming the demonstration sits on
-  every screen from S03 onward and opens a sheet explaining it. Nothing in the
-  customer-facing UI claims a connection, an export, a lookup or a send that
-  did not happen.
+  S02 BRINGS IN THE USER'S OWN DATA, and nothing else.
+  Two real paths end in one hand-off (DataReady, see dataset.js):
+    Connect an app   Zoho Books: a real sign-in and a read-only read, through
+                     the bridge. "Connected" only after a genuine return.
+    Upload files     Excel and CSV, read in this browser. Each file says what
+                     it holds from its own columns (a workbook can hold several
+                     kinds); FoodBridge asks only when a file cannot. A result
+                     per file, in business words.
+  S03 onward sees only that hand-off. There is no demonstration business in
+  the flow, and no global data for it to fall back to.
 
   LOAD ORDER MATTERS and is not incidental:
-    order-history.js    window.FB_ORDER_HISTORY — the tenant's real Zoho
-                        export, used here as the demonstration business. Must
-                        precede the seed, which adopts it as
-                        SEED.orderingSignals.
-    seed.inline.js      window.SEED — 86 products, 40 B2B shops
+    icons.js            window.FB_ICONS
+    integration-config.js window.FB_INTEGRATION — which bridge to call. Same
+                        resolver the Stock Audit screen uses, so ?fbapi= points
+                        both at one place.
     predictive-order.js window.FB_PREDICT — the back-tested reorder engine
-    integration-config.js window.FB_INTEGRATION — which bridge to call and
-                        with what key. Same resolver the Stock Audit screen
-                        uses, so ?fbapi= points both at one place.
-    evidence.js         window.FB_EVIDENCE — what we have, what is
-                        computable, what is blocked, what would unlock
-    onboarding.js       the five screens, the sheets, the drafts destination
-
-  The first three are REUSED by reference from the Stock Audit module rather
-  than copied: they are this version's data and engines, and a second copy is
-  how two views of one business start disagreeing. The stylesheet is NOT
-  shared, deliberately — see onboarding.css.
-
-  Real vs simulated, at a glance:
-    The order history, and the
-      cadence/stock/reorder maths   REAL      — computed, not invented
-    Whose records they are          DEMO      — a demonstration business, in
-                                                every mode, always labelled
-    Tally / Zoho / Vyapar           NOT BUILT — never contacted; the sheet
-                                                says so before you commit
-    Document upload, extraction     NOT BUILT — reports that it read nothing
-    GSTIN check                     FORMAT ONLY — no lookup, and it claims
-                                                none: it says "Format checked"
-    Draft preparation               REAL in the browser — held, never sent,
-                                                never written. Reviewable and
-                                                editable at Order Drafts.
-    Receivables, collections,
-      capital tied, margin          ABSENT    — no evidence exists for this
-                                                tenant, so nothing is drawn
-  See context/STATUS.md.
+    dataset.js          window.FB_DATASET — files and Zoho records → Dataset
+    evidence.js         window.FB_EVIDENCE — what the Dataset can support
+    readers.js          window.FB_READERS — the real Zoho and file readers,
+                        and the guard that decides whether dev stand-ins may
+                        load at all
+    [dev only]          order-history.js + seed.inline.js + readers-mock.js,
+                        written in ONLY when readers.js allows it: localhost
+                        and ?fbmock=… . Never on a published host.
+    onboarding.js       the screens, the sheets, the drafts destination
+  See ../../../VERSION.md.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Welcome to FoodBridge</title>
-<link rel="stylesheet" href="onboarding.css?v=20260917004940">
+<link rel="stylesheet" href="onboarding.css?v=20260917F07">
 </head>
 <body>
   <div class="ob-app"><div id="ob-root"></div></div>
 
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260917004940"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260917004940"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260917004940"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260917004940"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260917004940"></script>
-  <script src="evidence.js?v=20260917004940"></script>
-  <script src="onboarding.js?v=20260917004940"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260917F07"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260917F07"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260917F07"></script>
+  <script src="dataset.js?v=20260917F07"></script>
+  <script src="evidence.js?v=20260917F07"></script>
+  <script src="readers.js?v=20260917F07"></script>
+  <script>
+    /* Development stand-ins, and the demonstration records they serve. Written
+       in only when readers.js's guard is satisfied; see readers.js. */
+    if (window.FB_READERS && window.FB_READERS.mock.active) {
+      document.write('<script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260917F07"><\/script>' +
+                     '<script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260917F07"><\/script>' +
+                     '<script src="readers-mock.js?v=20260917F07"><\/script>');
+    }
+  </script>
+  <script src="onboarding.js?v=20260917F07"></script>
   <script>window.FB_ONBOARDING.mount();</script>
 </body>
 </html>

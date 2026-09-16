@@ -57,18 +57,18 @@ after a reload and from a cold entry into the sidebar.
 
 ## What is real, and what is not
 
-Everything behind the flow is **simulated**, and the product says so in its own
-words rather than in a footnote:
+Since 17 September 2026 S02 brings in the **user's own data** and nothing else.
+There is no demonstration business in the customer-facing flow.
 
 | | |
 | --- | --- |
-| Connecting to Tally / Zoho / Vyapar | `NOT BUILT` — never contacted. The consent sheet says so **before** the user commits, and choosing one loads a demonstration business |
-| Whose records the flow shows | `DEMONSTRATION` — in every mode, marked by an amber chip on every screen from S03 on, which opens a sheet explaining it |
-| Extraction, mapping, validation | `NOT BUILT` — reports that it read nothing, inside the sheet the user opened |
-| GSTIN check | `FORMAT ONLY` — no lookup, and it claims none: it reads "Format checked" |
+| Connect an app · Zoho Books | **real, proven 17 Sep 2026 with a real login** — the user signs in to their own Zoho and grants 10 READ scopes; the bridge reads customers, products, 24 months of sales orders (drafts included) with their lines, and invoices, payments, credit notes, estimates, purchase orders, bills, expenses and vendors, whole; it keeps nothing afterwards |
+| Upload files · Excel and CSV | **real** — read in the browser, a type per file chosen by the user, a result per file. PDF is not accepted and not offered |
+| Whose records the flow shows | **the user's** — the chip reads *Your Zoho Books · {organisation}* or *Your uploaded files* on every screen from S03 on |
+| GSTIN check | **real** — a live GST register lookup through the bridge (S01) |
 | Draft preparation | **real in the browser** — held at Order Drafts, reviewable and editable, sent to nobody, written to no accounting system |
-| The order history behind the insight | **real** — 532 orders, 3,931 lines, 39 of 40 shops, Aug 2024 → Aug 2026, from the tenant's own Zoho export, used here as the demonstration business |
 | The reorder engine | **real** — back-tested at 66.5% precision / 69.6% recall on 171 unseen 2026 orders |
+| Development stand-ins | **dev only** — `?fbmock=` on localhost swaps in stand-in readers that serve the demonstration tenant's export. They cannot load on any other host; a DEV badge shows while they are on |
 
 The confirm sheet names what does *not* happen, and the prepared screen repeats it
 as an outcome: held 16, sent 0, written 0.
@@ -467,3 +467,434 @@ Proven end to end on an iPhone SE against the real GST register: business name
 earning its keep — a real trading name and a real registered entity, shown as
 two values, neither overwriting the other. Live not-found confirmed separately.
 41 bridge tests pass.
+
+### 17 September 2026 — S02: the user's own data, two real ways in
+
+S02 was rebuilt from the approved UX. It asks one question — *How do you want
+to bring your business data into FoodBridge?* — and offers the two real
+answers: **Connect an app** and **Upload files**. It ends in ONE hand-off,
+`DataReady`, that S03 consumes (`dataset.js`).
+
+**Removed, not hidden:** Tally, Vyapar, the Zoho row that loaded demo data, the
+"Files or documents" path that could never succeed, "Show me with a sample
+business", the amber demo chip, the timed fake progress, the camera option and
+`?evidence=none`. S02 no longer knows the demonstration tenant exists; nor do
+S03–S05, which now read only the Dataset through `engine()`. `evidence.js` lost
+its fallback to `window.SEED` / `FB_ORDER_HISTORY`, so forgetting to pass data
+produces nothing rather than a demonstration business.
+
+**Connect an app → Zoho Books.** A real per-user sign-in, which the bridge
+did not have: its existing OAuth was a one-time operator setup. New, in
+`zoho-function/onboarding.js` and `api/zoho/{ready,start,orgs,read}`:
+- the return comes through the ALREADY-registered `/api/callback`, told apart
+  by a signed `ob.` state, so no Zoho console change was needed
+- read scopes only (contacts, settings, salesorders), `access_type=online` — no
+  refresh token exists to keep or leak
+- the access token is sealed (AES-256-GCM) and handed to the page in the URL
+  fragment, which never reaches a server log; the bridge stores nothing
+- the page drives the read in chunks (one page, or ten order-line lookups, per
+  call), so progress is real, Stop is immediate, and each call fits a
+  serverless limit
+- a return this tab did not start (wrong or missing nonce) is "wasn't
+  connected", never "connected"
+- "Zoho Books connected" appears only after a genuine return
+- Stop, a failure and a retry keep nothing; zero orders is a successful read
+
+**Upload files.** Excel (.xlsx) and CSV, parsed in the browser with no library
+(the xlsx zip is inflated with the platform's `DecompressionStream`). The user
+says what each file contains; nothing is guessed from a name. Required columns
+are found by header name (Zoho's export names first); a file without them fails
+alone with the sentence saying what that type needs. The import tool's rules are
+reproduced for orders: drafts/voids out, cancellations subtracted, weight-sold
+lines dropped, one customer's orders on one day merged, median cycle.
+
+**Shell.** `platform.js` now treats `#/onboarding?zoho=…` as the onboarding
+route, so the result survives until the module reads and clears it.
+
+**Found on the iPhone, fixed:** pressing Safari's Back on Zoho's sign-in page
+restored the shell from the back-forward cache with its iframe no longer
+accepting touches — the screen drew, no tap landed. A cached restore with a
+sign-in pending is now turned into a real reload.
+
+**Verified.** 58/58 bridge tests (17 new), 11/11 dataset tests against real CSV
+and xlsx bytes. Against the **live** PMF Foodbridge org, server-side, through
+the new read code: 1 organisation, 40 customers, 86 items (stock untracked, so
+absent), order lines with item, quantity and unit — and 0 orders in the window,
+because all 49 of its sales orders are drafts. On the iPhone 16 Pro Simulator:
+S02-A, Connect an app, the consent sheet, the redirect to accounts.zoho.in,
+Safari Back from Zoho, the iOS file picker with a real xlsx and two CSVs,
+per-file failure and its sheet, and S03 labelled *Your uploaded files*. With the
+stand-ins: one and several organisations, denied, failed sign-in, unreachable,
+read failure and retry, expired sign-in, no Books organisation, Stop, zero
+orders, partial and total file failure, Stop while reading files, replacing a
+file, replacing Zoho data with files and files with Zoho, refresh, and S04 → S05
+→ drafts on the handed-over data.
+
+**Not verified:** a real sign-in all the way through Zoho's consent, because it
+needs the account owner's credentials. Everything after the return has been run
+against the live org server-side and against the stand-ins in the browser.
+
+### 17 September 2026 — Zoho Books, proven end to end with a real login
+
+**The real journey ran on the iPhone 16 Pro Simulator against a real Zoho
+account.** S01 → Connect an app → Zoho Books → Zoho's own sign-in → Zoho's
+consent screen listing ten READ permissions, accepted by the account owner →
+callback → code exchanged (`accounts.zoho.in`, `api_domain www.zohoapis.in`,
+all ten scopes granted) → one organisation, *PMF Foodbridge*, used
+automatically → customers, products, sales orders and their lines, and eight
+more modules read → DataReady → S03 **28 orders · 86 products · 40 customers**,
+labelled *Your Zoho Books · PMF Foodbridge* → S04 **6 shops are past their usual
+order date** → S05 the same 6. An independent server-side recompute from the
+same organisation, through the same `readChunk` and `dataset.js`, gave the same
+numbers: 49 sales orders (all draft, 26 Aug–9 Sep 2026) → 28 after 21 same-day
+merges, 12 customers with orders, 6 overdue, no stock supplied (stock absent,
+so S04 has no stock row).
+
+**Product decisions taken in this pass (by the product owner, 17 Sep 2026):**
+- **Drafts count as orders**, and so do orders pending or approved. Void and
+  rejected never do. Every order keeps its Zoho `status` (and merged orders a
+  `statuses` list), so this can be reversed downstream. This departs from
+  `tools/import-order-history.py`, which dropped drafts.
+- **Read everything Zoho Books will show a login**, keeping every field Zoho
+  returns (`raw` on each record). This reverses the earlier data-minimisation
+  rule: emails, phones, prices and addresses now reach the browser. Scopes:
+  contacts, settings, salesorders, invoices, customerpayments, creditnotes,
+  estimates, purchaseorders, bills, expenses — all `.READ`; no banking or ledger.
+  A module the login may not see is ABSENT with its reason; the read goes on.
+- **The consent sheet names all of it** — the one line of frozen S02 copy that
+  changed, so it stays true. The reading screen gained a fourth step,
+  *Invoices, payments and purchases*, so progress never sits on a ticked
+  "Orders" while more is being read.
+- The order window is **24 months** (the import tool's), not 240 days.
+
+**Verified against the live API before relying on it:** `status` and
+`order_status` carry the same value; `date_start` filters sales orders as a
+range to today; untracked items carry `track_inventory:false` and no
+`stock_on_hand` key; this plan reports a **1,000-requests-a-day** cap
+(`x-rate-limit-limit`). A per-minute 429 is waited out twice (3 s, 8 s); a daily
+cap (`x-rate-limit-remaining: 0`) is reported at once with its own sentence.
+
+**Also changed:** same-day merging now happens in normalisation, so S03's count
+is the Dataset's count; out-of-stock is counted only against products whose
+stock was supplied ("25 of 100 tracked products", not "25 of 251"); moving
+between S03/S04/S05 is saved, so a reload returns to the same screen; the
+browser keeps the Dataset without `raw` if the whole thing will not fit in tab
+storage; the bridge logs one line per outcome (never a code, token, state or
+record).
+
+**End-to-end harness (test path only):** `zoho-function/test/e2e/` — a stand-in
+for Zoho's accounts server and Books API, and a second copy of the real bridge
+pointed at it. The real page and real bridge ran unmodified through: one and
+two organisations and none; zero orders; three pages of customers and two of
+invoices; tracked-zero, tracked and untracked stock; missing and nameless line
+items; a module refused (403); timeout; per-minute and daily limits; a 500; a
+malformed 200; expiry mid-read and retry through Zoho; denial; a refused code;
+a forged and an expired state (400, no redirect); a valid state carrying
+another tab's nonce (refused); reload mid-read (quietly back, nothing kept).
+Counts matched the harness's own expectation exactly (e.g. 450 customers · 251
+products · 303 orders · 230 invoices).
+
+**Automated:** bridge 62/62, dataset 14/14.
+
+**Known, not fixed:** the first real attempt that afternoon ended on a failure
+sheet before the bridge logged outcomes, so its cause is unknown; the next two
+attempts succeeded. The 1,000-a-day cap is per organisation and each order costs
+one request, so a large account cannot be read in one day. Zoho gives an
+`online` token only; every visit signs in again.
+
+
+### 17 September 2026 — "Coming soon" apps on Connect an app
+
+At the product owner's request, Connect an app now lists **Tally, Vyapar,
+QuickBooks Online and Xero** below Zoho Books, each greyed out with a *Coming
+soon* label. This reverses the earlier "no coming-soon cards" rule, deliberately.
+They are not buttons, so a tap does nothing (verified on the iPhone 16 Pro
+Simulator), and nothing about them suggests they can be used. Zoho Books and
+"My app isn't listed" are unchanged.
+
+Same day: the five apps show **their own brand marks** instead of generic icons,
+downloaded with the product owner's approval and recorded in
+`modules/foodbridge-onboarding/screens/logos/SOURCES.md` (Simple Icons SVGs for
+Zoho, QuickBooks and Xero; the published site icons for Tally and Vyapar). The
+coming-soon marks are faded so the row still reads as unavailable. Tally's
+source is only 48px, so it is slightly soft.
+
+### 17 September 2026 — S03 visual pass
+
+Four layout faults found on the iPhone 16 Pro Simulator, fixed in CSS only (no
+copy or structure changed):
+- the heading sat directly on the three figure cards; it now has room
+- a phone-width rule wrapped each "Add later" row so its icon stood alone on a
+  line above the title; rows are now a two-column grid, icon beside text
+- "What this needs" floated at a 34px indent aligned to nothing; it now lines up
+  with the row's text
+- the card chevrons were drawn in the border colour and all but invisible; they
+  now use the muted text colour. The "ADD LATER" label also sat 35px above its
+  panel and now sits 10px above it.
+The "We need a little more" shape uses the same row and was checked at 375px.
+
+### 17 September 2026 — Connect Zoho Books from any local page, without a ritual
+
+**What was seen.** On the iPhone 16 Pro Simulator, served fresh on
+`localhost:8011`: S02 → Zoho Books → Continue to Zoho → *"Zoho Books wasn't
+connected — We couldn't reach Zoho just now."* Nothing had been read; the sheet
+told the truth, but the cause was ours, not Zoho's.
+
+**Root cause — two independent breaks, both from a page origin nobody had
+typed into a list.**
+1. `integration-config.js` defaulted `apiBaseUrl` to the deployed Vercel bridge
+   whenever no `fb-api-base` had been stored on that browser. The deployed
+   bridge has no `/api/zoho/*` (those routes are local and undeployed) and
+   allows the published origin only, so `GET /api/zoho/ready` failed and
+   `RealZohoOAuth.begin` reported `unreachable`. Every fresh browser or
+   Simulator hit this until someone remembered to open the page once with
+   `?fbapi=http://localhost:8787`.
+2. Even with the override, the local bridge matched origins against a
+   hand-typed `ALLOWED_ORIGINS` (8007 and 8017 that day). From 8011, `cors()`
+   would send no `Access-Control-Allow-Origin` — the same `unreachable` — and
+   `allowedReturn()` would refuse the return address, so `/api/zoho/start`
+   would answer 400 *"This sign-in link is not valid."*
+
+**Fix.**
+- `integration-config.js`: a page whose own host is loopback (`localhost`,
+  `127.0.0.1`, `[::1]`) now defaults to `http://localhost:8787` — the same rule
+  `readers.js` uses to admit dev stand-ins. A published page still defaults to
+  Vercel; a stored `fb-api-base` or `?fbapi=` still wins. Cache tokens bumped
+  on `onboarding.html` and `stock-audit.html`, which both load it.
+- `zoho-function`: `originAllowed(cfg, origin)` in `zoho.js` — the exact list,
+  plus any `http://localhost:*` / `http://127.0.0.1:*` origin when
+  `ALLOW_LOOPBACK_ORIGINS=1`. `dev-server.js` sets that itself (it is the only
+  thing that runs on a developer's machine; Vercel never executes it), and its
+  banner says which rule is in force. `cors()` and `allowedReturn()` both use
+  it. Tests added: strict config refuses 8011, dev config accepts it, and
+  `https://localhost`, `localhost.evil.example` and `evil.example:8011` are all
+  refused. 69/69 pass.
+
+**Verified on the Simulator after the change:** reload → S02 → Zoho Books →
+consent sheet → Continue to Zoho → Zoho's own consent page for *FoodBridge
+PMF*, listing the ten READ scopes, with the bridge answering
+`Access-Control-Allow-Origin: http://localhost:8011` and `/api/zoho/start`
+redirecting to `accounts.zoho.in`. A return to `https://evil.example` still
+gets 400.
+
+**Why this way and not a broader one.** The deployed bridge keeps its exact
+allowlist — that list is the whole defence against another page driving a
+credentialed integration — so the widening is confined to the local runner and
+to loopback over plain http. And the page-side default is a *default*, not a
+sniff: it changes nothing for a published page and nothing for a device that
+already chose a bridge.
+
+### 17 September 2026 — Upload files: the file says what it holds
+
+**Relooked at against the ideal, on the iPhone 16 Pro Simulator with the real
+picker.** Both ways in already ended at S03; the Upload path got there by a
+worse road. Walking it with one real `orders.xlsx`:
+
+1. **It asked what it could have read.** Every file carried a *Choose what this
+   contains* chip, its own sheet, and a disabled *Choose what each file
+   contains* button until all were labelled — two taps per file before a
+   single byte was read. The file's columns (`Order Date · Customer Name · Item
+   Name · QuantityOrdered`) said what it was, and the extractor already knew
+   those columns. Stage 1 of the flow map: *at no point does it ask for
+   something it could have fetched*. Connect an app never asks which modules
+   the account holds.
+2. **No harvest moment.** Zoho shows *Reading your Zoho Books → Customers ✓
+   Products ✓ Orders ✓*; files showed a spinner and a tick beside a filename.
+   What came out of each file was not said until S03.
+3. **One file, one kind.** A real workbook export (Tally, Zoho's *export all*)
+   carries a customers sheet, an items sheet and an orders sheet; it was read
+   as the one kind the user named and the rest was dropped without a word.
+4. **Dead ends.** Every file failing left no footer at all. Below the floor,
+   S03 sent a files user back to S02-A — *Choose a different source* — instead
+   of letting them add the missing file where they were. The flow map's
+   F05 → F07 → F05 loop was described and not built.
+
+**The rule of 17 Sep was "nothing is guessed from a name", and it stands:**
+the name is still never consulted. Reading the columns is not a guess; it is
+the read.
+
+**Redesigned to the same shape as Connect an app** — choose → Read →
+FoodBridge reads what it can → S03:
+- **S02-F.** Add files → *Read N files*. That tap is the consent; nothing is
+  opened before it (rule 2). No labelling step, no disabled button.
+- **Each file says what it holds** (`dataset.js classify`): orders, then
+  invoices, are tried first because each also carries a name column that
+  would pass as a plain list; then products; then customers. **Every sheet of
+  a workbook** is classified, and each kind found is kept — one file can now
+  give *Customers · 3 · Products · 3 · Orders · 2*. A sheet that is none of
+  them is passed over.
+- **FoodBridge asks only when a file genuinely cannot say** — a bare `Name`
+  column is products or customers — after the read, in the row itself
+  (*Products or customers?*), and the tap lands on those two answers, not a
+  four-way list behind an explanation sheet. A file the user has named is read
+  as that; a replacement keeps the answer.
+- **The row of a file that read is the harvest**, in the user's words and in
+  S03's numbers: an orders sheet is one row per line and one customer's lines
+  on one day are one order, so the count comes through the same `fromFiles()`
+  and engine view S03 uses. *Orders · 517* on the row is *517 Orders* on S03,
+  not 3,931 rows first and 517 later.
+- **Endings.** All read → S03, as Zoho. Some failed → *We read 2 of 3 files*,
+  Continue with 2; the failed row names why and offers Replace. None →
+  *Connect an app instead*, mirroring the Zoho failure sheet's *Upload files
+  instead*. Below the floor, a files user gets **Add more files** in place and
+  *Connect an app instead* under it; a Zoho user keeps *Choose a different
+  source*.
+- Provenance lists each file once with everything read from it. A tab from
+  before this change restores its files under their old shape.
+
+**Rejected:** reading on add, before *Read* — it would make the file picker a
+consequential act, against rule 2, for the sake of seeing the harvest one tap
+sooner. Detecting from the filename — cheap, wrong often, and exactly what 17
+Sep refused. A "looks like Orders — change?" chip on every row — a
+pre-made choice dressed as a fact, and noise on the nine files in ten that
+FoodBridge reads without doubt.
+
+**Not touched:** S03's *Add later* sheet keeps its own type choice; its kinds
+(payments, cost price, photographs) are outside what `classify` reads.
+
+**Verified.** 19/19 dataset tests (3 new: the columns decide and the name
+never does; a four-sheet workbook gives three kinds and provenance lists it
+once; the bare-Name file asks, narrowed to two, and told which it is it reads
+as before). In the browser, real parser, real fixture bytes: one `orders.xlsx`
+→ Read → S03 with no question asked; workbook + ambiguous file → *We read 2 of
+3* → the ask → Customers → Read 1 file → S03 (3 · 3 · 4); two unreadable files
+→ *We couldn't read these files* → *Connect an app instead*, and the untyped
+then typed failure sheets; a customers-only file → *We need a little more* →
+*Add more files* → back to the files with their harvest intact after a reload;
+the stand-ins' *Reading your files* with the harvest appearing file by file;
+Replace holding the user's answer. On the Simulator through the real iOS
+picker: `workbook.xlsx` + `customers.csv` → Read 2 files → *Customers · 3 ·
+Products · 3 · Orders · 2* and *Products or customers?* → Customers → S03,
+labelled *Your uploaded files*, provenance sheet naming both files and every
+kind. Bridge suite 69/69 unaffected.
+
+### 17 September 2026 — "We need a little more" is cleared the way "Add later" is
+
+**Product owner's request:** the items on S03-B should have exactly the flow
+S03-A's *Add later* items have. They were static rows with a footer that sent
+the user away — *Add more files* back to S02-F, or *Choose a different
+source* — while ten centimetres up the page an optional item could be cleared
+in place. The thing the user *must* add was harder to add than the thing they
+might.
+
+**Now one machinery serves both shapes of S03.** `laterRow()` draws a row for
+an unlock or for a missing kind; `openLaterSheet()` is the sheet for either;
+`runLaterRead()` reads everything staged from the footer and
+`dataset.addEvidence()` folds it into the data S02 handed over. Two new items,
+`orders` and `products`, carry the floor's missing kinds. Read, the floor is
+checked again in place: a customers-only upload → *Sales or orders · Add* →
+choose `orders.csv` → *Read 1 file* → *Here's what we received · 3 · 2 · 3*,
+chip *Your uploaded files + 1 file*, provenance naming the addition. From a
+Zoho account with no orders the same rows appear and an orders file lands
+against Zoho's own 86 products and 40 customers by name.
+
+**`addEvidence` learned orders, products and customers** under `fromFiles`'s
+rules — masters first, so a product named in a products file is the one an
+order line attaches to; a shop only an order names is derived and marked so;
+one customer's lines on one day are one order across everything, with an
+already-merged order carrying its sources along. Below the floor there is
+still **no Continue**: the footer holds *Read N files* when something is
+staged and the other way in under it — *Connect an app instead* for a files
+user, *Choose a different source* for a Zoho user.
+
+**Not offered for these two items: the camera.** The bridge reads photographs
+of invoices, payments and price lists, not of order books, so the sheet for
+orders and products takes spreadsheets only and says so in one line.
+
+**Verified.** 20/20 dataset tests (1 new: later-added orders and products are
+absorbed by S02's rules, the merge is stable and sources accumulate). In the
+browser: customers-only file → S03-B rows → sheet (no camera) → *1 file ready
+to read · Change* → *Read 1 file* → *Reading your files* → S03-A with the
+addition in the chip and the provenance sheet; the *Your products* item
+disappears once the orders name products. Stand-in Zoho with zero orders →
+the same row → S03-A at 517 · 86 · 40.
+
+### 17 September 2026 — A file carries tags, as many as it earns
+
+**Product owner's request:** one file can be several things — an invoice
+export is invoices, and it is also the sales orders on its lines, and every
+customer and product those lines name. The user should be able to put more
+than one tag on a file.
+
+**What the row says now.** After a read, the row lists everything the file
+gives, in S03's numbers: the kinds that were read, and the kinds its lines
+name — *Orders · 3 · Customers · 2 · Products · 2* for one orders file. That
+line is a button: **tap it to tag the file**. The sheet lists the four kinds
+with a tick each, any number on; a kind the lines merely name says so
+(*Named on the lines · 2 · tick to read as a list*) and is left unticked,
+because ticking it reads the file as that list in its own right — a product
+named on an order line is derived; a product in a tagged product list is a
+product. Done with different ticks marks the file unread; *Read N files* reads
+it as its tags, each from the sheet that holds most of it. Nothing ticked
+hands the file back to its own columns.
+
+**A tag that gives nothing is said, not dropped.** Tag a totals-only invoice
+export *Orders* and the row reads *Customers · 1 · Invoices · 1 · Orders ·
+none*; the screen holds with *Continue* rather than going straight to S03, so
+the user sees the tag they put on gave nothing. A file none of whose tags gave
+anything fails alone, with the needs of each tag it carried.
+
+`dataset.readFile(file, tags)` takes a list of kinds and answers `found` and
+`none`; the stand-in reader does the same. Tags persist across a reload
+(`tags`, replacing `type`); a tab from before carries its one type over as one
+tag. Replace keeps the tags. The single-answer sheet for the products-or-
+customers question sets one tag.
+
+**Verified.** 21/21 dataset tests (1 new: an orders export tagged with all
+four kinds gives orders, customers and products and names invoices as giving
+nothing; the customers so read are not derived; an empty tag list reads
+nothing). In the browser: orders.csv + products file → rows with what each
+gives → tag sheet ticked as read, the named kinds said so → tick Customers,
+Products, Invoices → *Read 1 file* → S03 (4 products: the tagged list keeps
+the item the order rules drop as sold by weight). invoices.csv → *Customers ·
+1 · Invoices · 1* → tag Orders too → *Orders · none* in red, screen held. Tags
+survive a reload. On the Simulator: orders.csv → Read → S03 → back → the row
+and its sheet → tick Customers and Products → *Orders · Customers ·
+Products* staged → Read → S03 at 3 · 3 · 2.
+
+### 17 September 2026 — Upload files, with nothing added yet: rows, not a void
+
+**Product owner, on the empty state:** the user feels lost. Looking at it
+that way it was plain why — a heading, one grey line, 600px of nothing, and
+the only action at the very bottom. Nothing on the screen said which file to
+go and get, or where from. Connect an app never feels like this because that
+screen *is* a list of things to tap.
+
+**Now S02-F with nothing added has the same shape as S02-C.** The question,
+then four rows — Orders, Customers, Products, Invoices — each with the one
+line that already existed for it (*Sales orders or order history* …) and an
+upload mark; each row is the file picker. One quiet line under them names the
+formats and where they come from: *Excel or CSV, exported from Tally, Zoho,
+Vyapar or any spreadsheet. One file can hold more than one of these.* No
+footer, so nothing sits below a void. The rows are the answer to "which file
+do I go and get?"; they are **not labels** — a file chosen through the
+Invoices row still says for itself what it holds (an orders export chosen
+there reads as orders), because the file's columns are the truth and the row
+was only the way in. Once a file is added the screen becomes the list it was.
+
+Also found on the phone: the tap that opens this screen leaves the row under
+it drawn as hovered (sticky `:hover` on touch). The source-row hover style
+now applies only where a pointer can hover.
+
+**Verified.** Browser and Simulator: the four rows at 375px, each opening the
+real iOS picker; a file added through a row → *Read 1 file* → S03. Dataset
+tests unaffected.
+
+### 17 September 2026 — S02-A wears real marks, as S02-C does
+
+**Product owner:** the two rows on *How do you want to bring your business
+data in* carried stroke icons (a plug, an arrow) while the apps a tap away
+carried their real logos; use images, like the logos, so it looks
+production-grade.
+
+- **Connect an app** now shows the apps themselves — Zoho, Vyapar,
+  QuickBooks, Xero, the marks already in `logos/`, as a 2×2 cluster in the
+  same white bordered tile S02-C uses. The category, at a glance.
+- **Upload files** shows a spreadsheet document: a page with a folded corner
+  and a green table, drawn as `logos/spreadsheet.svg` (ours, not a brand —
+  listed in `logos/SOURCES.md`). Not Excel's mark: the row is about the file,
+  not the app that wrote it.
+
+`pathRow()` takes a ready mark instead of an icon and a tint. Checked at 3× on
+the iPhone 16 Pro Simulator: the four app marks stay legible at 17px, and the
+sheet fills its tile with a defined edge.

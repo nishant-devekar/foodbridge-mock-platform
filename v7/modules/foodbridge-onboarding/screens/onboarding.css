@@ -159,7 +159,11 @@ html, body {
   border-radius: 16px; box-shadow: var(--shadow-card);
   transition: border-color .15s ease, box-shadow .15s ease, transform .07s ease;
 }
-.ob-source:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
+/* Only where a pointer can hover: on a phone the tap that opened the screen
+   leaves the row under it drawn as hovered. */
+@media (hover: hover) {
+  .ob-source:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
+}
 .ob-source:active { transform: scale(.99); }
 .ob-mark { flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
 .ob-mark.t-indigo { background: #eef2ff; color: #4338ca; }
@@ -340,14 +344,15 @@ html, body {
   font-family: var(--font); font-size: 11.5px; font-weight: 650; letter-spacing: .01em;
 }
 .ob-prov > svg { width: 15px; height: 15px; }
-/* ONE provenance treatment. There is no "connected" chip any more, because
-   nothing in this preview connects — both a chosen connector and the sample
-   yield demonstration data, and the chip says so in the same amber either
-   way. It is always a button: "whose data is this?" has an answer. */
-.ob-prov.is-demo {
-  color: var(--amber-tx); background: var(--amber-bg);
-  border: 1px solid var(--amber-line); cursor: pointer;
+/* ONE provenance treatment: the user's own source, named quietly. It is a
+   button because "whose data is this?" has an answer, in a sheet. */
+.ob-prov {
+  color: var(--ink-2); background: var(--line-2);
+  border: 1px solid var(--line); cursor: pointer;
+  max-width: 100%; overflow: hidden;
 }
+.ob-prov > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-prov > svg { flex: 0 0 auto; color: var(--muted); }
 
 .ob-provdemo {
   display: flex; align-items: center; gap: 9px;
@@ -356,18 +361,6 @@ html, body {
   border: 1px dashed var(--amber-line);
   font-size: 11.5px; font-weight: 700; letter-spacing: .07em;
 }
-
-/* The sample is a real answer to the question above it, and a quieter one —
-   it must never compete with the four sources. */
-.ob-samplerow {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  margin-top: 22px; padding: 15px 4px 0;
-  text-align: left; cursor: pointer; font-family: var(--font);
-  background: none; border: 0; border-top: 1px solid var(--line);
-  font-size: 14px; color: var(--muted);
-}
-.ob-samplerow span:first-child { flex: 1 1 auto; }
-.ob-samplerow:hover { color: var(--ink-2); }
 
 /* ── C10 · the sheet. One component, nine uses ─────────────────────────
    It rises from the bottom and leaves the screen visible behind it, because
@@ -702,7 +695,7 @@ button.ob-brief-r:active { opacity: .6; }
 }
 
 /* S02 — the source already in use, and the way back to what it produced. */
-.ob-source.is-on, .ob-samplerow.is-on { border-color: var(--brand); background: var(--brand-50); }
+.ob-source.is-on { border-color: var(--brand); background: var(--brand-50); }
 .ob-source-on {
   display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   font-size: 11px; font-weight: 700; color: var(--brand);
@@ -832,11 +825,8 @@ button.ob-brief-r:active { opacity: .6; }
 /* S03 gap rows at phone width: the label, its consequence and the action were
    fighting for one line, so every row wrapped three deep. The action drops
    under the text instead — same elements, same words, room to read them. */
-@media (max-width: 430px) {
-  .ob-orow { flex-wrap: wrap; row-gap: 4px; }
-  .ob-orow-main { flex: 1 1 100%; min-width: 0; }
-  .ob-addlink { margin-left: 34px; padding-left: 0; }
-}
+/* (Replaced 17 Sep 2026: wrapping pushed the icon onto a line of its own and
+   left the action indented to nothing. The grid below fixes both.) */
 
 /* ── S01 · GSTIN verification result ─────────────────────────────────────
    One block under the field set. It reports what the GST register actually
@@ -891,3 +881,202 @@ button.ob-brief-r:active { opacity: .6; }
    and the stored value is uppercased by gstValue(). */
 #f-gstin { text-transform: uppercase; }
 #f-gstin::placeholder { text-transform: none; }
+
+/* ══ S02 · how the data comes in ═══════════════════════════════════════════
+   Two paths on S02-A, one app on S02-C, a list of files on S02-F. Everything
+   explanatory lives in sheets; these are the rows the decisions are made on.
+   ══════════════════════════════════════════════════════════════════════════ */
+.ob-sub { margin: 8px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+
+.ob-path { align-items: center; }
+/* A source row that is a file picker: the label is the button */
+.ob-pick { -webkit-tap-highlight-color: transparent; }
+.ob-pick .ob-chev > svg { width: 20px; height: 20px; }
+.ob-pick .ob-chev { color: var(--brand-d); }
+.ob-path-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ob-path-s { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+.ob-path-ok { display: inline-flex; align-items: flex-start; gap: 5px; color: var(--brand-d); font-weight: 600; }
+.ob-path-ok > svg { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 1px; }
+.ob-source[disabled] { cursor: default; transform: none; }
+.ob-source .ob-chev .ob-spin { display: block; color: var(--brand); }
+
+.ob-textlink {
+  display: block; margin: 18px auto 0; padding: 8px 10px;
+  font-family: var(--font); font-size: 14px; font-weight: 550; color: var(--muted);
+  background: none; border: 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line);
+}
+
+/* A <label> that looks like the primary button: the only way to open a file
+   picker that iOS Safari honours on every version is a real tap on a label. */
+.ob-cta-label { display: flex; align-items: center; justify-content: center; text-align: center; }
+.ob-cta-busy { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.ob-cta-busy .ob-spin { color: var(--muted-2); }
+
+.ob-files { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.ob-file {
+  padding: 12px 12px 12px 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-card);
+}
+.ob-file.is-failed { border-color: #fecaca; }
+.ob-file-top { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.ob-file-n {
+  flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ob-file-x {
+  flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -4px -4px 0;
+  padding: 0; border: 0; border-radius: 9px; background: none; color: var(--muted-2); cursor: pointer;
+}
+.ob-file-x > svg { width: 17px; height: 17px; }
+.ob-file-bot { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 34px; }
+
+.ob-typechip {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; max-width: 100%;
+  padding: 6px 10px 6px 12px; border-radius: 10px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+  background: var(--line-2); border: 1px solid var(--line); cursor: pointer;
+}
+.ob-typechip.is-empty { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
+.ob-typechip.is-static { cursor: default; background: none; border-color: transparent; padding-left: 0; color: var(--muted); }
+.ob-caret { display: inline-grid; color: var(--muted-2); }
+.ob-typechip.is-empty .ob-caret { color: var(--brand-d); }
+
+.ob-fstat {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-size: 13px; font-weight: 550; color: var(--muted-2);
+}
+.ob-fstat.is-busy { color: var(--ink-2); }
+.ob-fstat.is-busy .ob-spin { width: 12px; height: 12px; color: var(--brand); }
+.ob-fstat.is-ok { color: #fff; background: var(--brand); width: 26px; height: 26px; border-radius: 50%; justify-content: center; }
+.ob-fstat.is-ok > svg { width: 15px; height: 15px; }
+.ob-fstat.is-bad { color: #b91c1c; }
+.ob-fstat.is-ask { margin-left: 0; color: var(--brand-d); }
+.ob-fstat.is-ask .ob-flink { text-decoration-color: var(--brand-100); }
+/* What a file gave: the harvest, one kind and count at a time. */
+.ob-found {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+  font-size: 13.5px; font-weight: 600; color: var(--brand-d);
+}
+.ob-found > svg { flex: 0 0 auto; width: 15px; height: 15px; }
+.ob-found.is-btn {
+  display: block; line-height: 1.5; padding: 4px 0; margin: -4px 0; border: 0; background: none; text-align: left;
+  font-family: var(--font); cursor: pointer;
+}
+.ob-found.is-btn > svg, .ob-found.is-btn .ob-caret { display: inline-block; vertical-align: -3px; }
+.ob-found.is-btn > svg { margin-right: 6px; }
+.ob-found.is-btn .ob-caret { margin-left: 3px; white-space: nowrap; }
+.ob-found.is-btn .ob-caret > svg { width: 14px; height: 14px; }
+.ob-found-none { color: #b91c1c; }
+.ob-nowrap { white-space: nowrap; }
+/* Tags: a tick per kind, any number on */
+.ob-tick {
+  flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px;
+  border: 2px solid var(--muted-2); background: var(--card); color: transparent;
+}
+.ob-tick > svg { width: 14px; height: 14px; }
+.ob-choice.is-on .ob-tick { border-color: var(--brand); background: var(--brand); color: #fff; }
+.ob-flink {
+  font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #fecaca;
+}
+
+.ob-addmore {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 2px;
+  font-size: 14px; font-weight: 600; color: var(--brand-d); cursor: pointer;
+}
+.ob-addmore > svg { width: 18px; height: 18px; }
+
+/* Sheet choices: an organisation, or what a file contains. */
+.ob-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ob-choice {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px;
+  padding: 12px 14px; text-align: left; cursor: pointer; font-family: var(--font);
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+}
+.ob-choice.is-on { border-color: var(--brand); background: var(--brand-50); }
+.ob-radio {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--muted-2); background: var(--card);
+}
+.ob-choice.is-on .ob-radio { border-color: var(--brand); box-shadow: inset 0 0 0 4px var(--card); background: var(--brand); }
+.ob-choice-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ob-choice-t { font-size: 15px; font-weight: 600; color: var(--ink); }
+.ob-choice-s { font-size: 13px; color: var(--muted); }
+
+/* Connect an app — sources that are not built yet. Present, plainly not usable. */
+.ob-source.is-soon { cursor: default; box-shadow: none; background: var(--line-2); }
+.ob-source.is-soon:hover { border-color: var(--line); box-shadow: none; }
+.ob-source.is-soon:active { transform: none; }
+.ob-source.is-soon .ob-source-t { color: var(--muted); }
+.ob-mark.t-muted { background: var(--card); color: var(--muted-2); }
+.ob-soon {
+  flex: 0 0 auto; padding: 4px 9px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 650; color: var(--muted); background: var(--card);
+  border: 1px solid var(--line); white-space: nowrap;
+}
+
+/* Brand marks: a white tile so every logo sits on the same ground. */
+.ob-mark.ob-mark-logo { background: #fff; border: 1px solid var(--line); }
+.ob-logo { display: block; width: 32px; height: 32px; object-fit: contain; }
+/* Wordmarks are wide and short; give them the tile's width rather than its height. */
+.ob-logo.is-wide { width: 38px; height: 32px; }
+.ob-logo.is-big { width: 40px; height: 40px; }
+/* Four app marks in one tile: the category, at a glance */
+.ob-mark-cluster {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; place-items: center;
+}
+.ob-mark-cluster > img { display: block; width: 17px; height: 17px; object-fit: contain; border-radius: 3px; }
+.ob-source.is-soon .ob-logo { opacity: .55; filter: grayscale(.35); }
+
+/* ══ S03 · visual pass, 17 Sep 2026 ═══════════════════════════════════════
+   The heading sat on top of the figures, the gap rows stacked their icon above
+   the text, the action floated at an arbitrary indent, and the card chevrons
+   were drawn in the border colour. One grid per row: icon in its own column,
+   text and action aligned to one edge. */
+.ob-h1 + .ob-ev { margin-top: 18px; }
+.ob-ev-chev { color: var(--muted-2); top: 14px; right: 10px; }
+.ob-ev-chev svg { width: 16px; height: 16px; }
+.ob-ev-l { color: var(--muted); }
+
+.ob-section { margin-top: 30px; }
+.ob-section > .ob-eyebrow { margin-bottom: 10px; }
+.ob-section > .ob-optional { margin-top: 0; }
+.ob-optional { padding: 2px 16px; }
+
+.ob-orow {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px; row-gap: 2px; align-items: start; padding: 14px 0;
+}
+.ob-orow > svg, .ob-orow > .ob-mark { grid-column: 1; grid-row: 1 / span 2; }
+.ob-orow > svg { width: 20px; height: 20px; margin-top: 1px; }
+.ob-orow-main { grid-column: 2; }
+.ob-orow-t { font-size: 14.5px; color: var(--ink); }
+.ob-orow-s { font-size: 13px; line-height: 1.4; margin-top: 2px; }
+.ob-orow > .ob-addlink {
+  grid-column: 2; justify-self: start; min-height: 36px;
+  margin: 2px 0 -6px; padding: 6px 0; font-size: 13.5px;
+}
+.ob-orow > .ob-addlink:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
+.ob-orow > .ob-mark + .ob-orow-main { align-self: center; }
+
+/* ══ S03 · "Add later" items, cleared in place ══════════════════════════ */
+.ob-orow-btn { width: 100%; text-align: left; font-family: var(--font); background: none; border: 0; cursor: pointer; }
+.ob-orow + .ob-orow-btn, .ob-orow-btn + .ob-orow-btn { border-top: 1px solid var(--line); }
+.ob-orow-btn > .ob-addlink { grid-column: 2; justify-self: start; margin: 4px 0 -4px; padding: 4px 0; min-height: 0; }
+.ob-orow-s.is-ready { color: var(--brand-d); font-weight: 600; }
+.ob-orow-s.is-bad { color: #b91c1c; font-weight: 600; }
+.ob-addbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+.ob-addbtns .ob-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; font-size: 14px; }
+.ob-have { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.ob-have-i { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 99px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--line-2); border: 1px solid var(--line); }
+.ob-have-i.is-on { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
+.ob-have-i > svg { width: 13px; height: 13px; }
+.ob-files-sheet { margin-top: 12px; }
+.ob-file-top > svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--muted-2); }
+.ob-file-why { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: #b91c1c; }
+.ob-seg { display: inline-flex; padding: 2px; border-radius: 10px; background: var(--line-2); border: 1px solid var(--line); }
+.ob-seg-b { min-height: 32px; padding: 5px 12px; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--muted); }
+.ob-seg-b.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
