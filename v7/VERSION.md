@@ -898,3 +898,32 @@ production-grade.
 `pathRow()` takes a ready mark instead of an icon and a tint. Checked at 3× on
 the iPhone 16 Pro Simulator: the four app marks stay legible at 17px, and the
 sheet fills its tile with a defined edge.
+
+### 17 September 2026 — Published, and the bridge deployed behind it
+
+`main` is on GitHub Pages at `/v7/`. The Zoho bridge was deployed to Vercel
+(`zoho-function-nu.vercel.app`) with the onboarding routes and the GST lookup,
+by the product owner running `deploy.sh` (the script now sets the production
+callback and fetches the CLI itself).
+
+**Tested on the published page, in the iPhone 16 Pro Simulator:**
+- **Upload files, end to end:** kind rows → the real picker → workbook +
+  ambiguous file → *We read 1 of 2* → the ask → Read → S03 (2 · 3 · 3) →
+  *Add later* invoices → *Invoices added · add payments to finish* → S04 *2
+  shops are past their usual order date* → S05 → *Select all 2* → confirm →
+  *2 drafts prepared* (held 2 · sent 0 · written 0) → *Your drafts*.
+- **GST verify, live:** a real register answer — *No business registered
+  under this GSTIN* for the test number, Continue open.
+- **Zoho, live:** consent sheet → `/api/zoho/start` → Zoho's own page answers
+  **Invalid Redirect Uri**. The deployment's callback,
+  `https://zoho-function-nu.vercel.app/api/callback`, is not yet listed under
+  the client's Authorized Redirect URIs in the Zoho API console; only the
+  account owner can add it. Everything up to that page is the deployed code
+  working; the sign-in and consent after it were proven earlier today
+  against the local bridge.
+
+**A trap, for whoever tests next:** `?fbapi=` is remembered per origin. A
+published page once opened with `?fbapi=http://localhost:8787` keeps calling
+localhost — which WebKit then blocks as mixed content — and reports *Couldn't
+reach*. Open it once with `?fbapi=https://zoho-function-nu.vercel.app` to put
+it back.
