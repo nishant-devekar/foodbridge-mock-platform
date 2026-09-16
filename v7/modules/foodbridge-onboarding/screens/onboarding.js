@@ -1,9 +1,9 @@
 /* ==========================================================================
    ONBOARDING — five locked screens, nine contextual sheets, one small router.
 
-   v5 draws O-001's locked UX (lock b556ecf1e4cdbe35, approved at GATE B on
-   16 September 2026) under the Production UX Contract v2 recorded as D-018.
-   versions/v5/ux/FLOW-MAP.md is canonical; nothing here adds to it.
+   Draws O-001's locked UX under the Production UX Contract recorded as D-018.
+   ux/FLOW-MAP.md is canonical; nothing here adds to it. The four rules the
+   flow was built under are in ../../../VERSION.md, argued in ../../../context/.
 
      F01 Business profile          S01
      F02 Where your business is    S02   the row opens CONSENT; it reads nothing
@@ -50,11 +50,21 @@
      window.FB_EVIDENCE       the evidence layer
      window.FB_ICONS          the product's lucide icon set
 
-   ── WHAT IS SIMULATED ────────────────────────────────────────────────────
-   The Tally / Zoho / Vyapar connection, document upload and photograph,
-   extraction, mapping, validation, GST verification, and the preparation of
-   drafts. Nothing is contacted, nothing is looked up, and no draft leaves the
-   browser. Declared in versions/v5/version.json and STATUS.md.
+   ── WHAT IS NOT BUILT, AND HOW THIS FLOW SAYS SO ─────────────────────────
+   There is no connector. Tally, Zoho and Vyapar are never contacted, so every
+   record this flow shows belongs to a DEMONSTRATION business whichever source
+   was chosen — and the consent sheet says that BEFORE the user commits, an
+   amber chip names it on every screen from S03 on, and that chip opens a sheet
+   explaining it. Nothing here claims a connection, an export, a lookup or a
+   send that did not happen.
+
+   Document reading is not built either: it reports that it read nothing,
+   inside the sheet the user opened, and says plainly that it will not succeed
+   for any file. The GSTIN check validates FORMAT and claims only that.
+
+   Drafts are real in the browser: prepared, held, editable, and reachable
+   afterwards at #/sales-orders/order-drafts. Sent to nobody, written nowhere.
+   Declared in ../../../VERSION.md and ../../../context/STATUS.md.
 
    Nothing here invents a result to cover for a boundary: when documents are
    offered, the flow reports that nothing could be read rather than producing
@@ -125,26 +135,44 @@
   /* Onboarding is Steps 1-3. S04 and S05 are activation and carry no counter
      (D-018) — a progress bar that never completes is a promise we break. */
   const STEPS = { S01: 0, S02: 1, S03: 2 };
-  const STORE_KEY = "fb.v5.onboarding";
+  const STORE_KEY = "fb.v7.onboarding";
 
+  /* This build is a PREVIEW. No connector is implemented, so every record the
+     flow shows is demonstration data whichever source was chosen. `mode`
+     records how the user got here so the chip can name it, and BOTH values are
+     labelled as demonstration — there is no mode in which this page may claim
+     it read a customer's own books. */
   const state = {
     screen: "S01",
-    profile: { business: "", name: "", mobile: "", email: "", gstin: "" },
-    gstVerified: false,
-    mode: null,            // null | "connected" | "sample"   (C6)
-    source: null,          // the source behind "connected"
+    view: "flow",          // "flow" | "drafts"  — the drafts destination
+    profile: { business: "", gstin: "" },
+    gstCheckedFor: "",     // the exact GSTIN string a check was run against
+    mode: null,            // null | "demo" | "sample"      (C6)
+    source: null,          // the chosen source; set ONLY on a completed read
     ingested: null,        // what a read actually produced; null until one runs
     model: null,
     opp: null,
+    parked: false,         // "Not now" — the opportunity is kept, not dropped
     stage: "brief",        // S05: brief | choose | prepared
     picked: {},            // shop id -> selected. NOTHING is pre-selected
     repeats: {},           // stale shop id -> repeat their last order
     drafts: null,          // CONFIRMED drafts. Persisted (C7)
+    undo: null,            // {drafts, label} — one step back from a discard
     showAll: false,
+    showAllStale: false,
     sheet: null,           // the open sheet, or null
     op: null,              // the running operation, or null
-    failure: null,         // {title, cause, retry}
   };
+
+  /* Every source in this preview yields the same demonstration records. The
+     chip, the consent sheet and the provenance block all say so. */
+  function originLabel() {
+    if (state.mode === "sample") return "Sample business";
+    if (state.mode === "demo") {
+      return ((state.source && state.source.label) || "Preview") + " \u00b7 demo data";
+    }
+    return "";
+  }
 
   /* ------------------------------------------------------- C7 persistence */
 
@@ -156,9 +184,21 @@
       sessionStorage.setItem(STORE_KEY, JSON.stringify({
         mode: state.mode,
         source: state.source ? { id: state.source.id, label: state.source.label } : null,
+        profile: state.profile,
+        gstCheckedFor: state.gstCheckedFor,
+        parked: state.parked,
         drafts: state.drafts,
       }));
     } catch (e) { /* private mode, blocked storage: the flow still works */ }
+  }
+
+  /* The drafts destination and the flow are two views of ONE record. Anything
+     that changes drafts writes through here so the other view is never stale. */
+  function readStore() {
+    try {
+      const raw = sessionStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
   }
 
   function restore() {
@@ -171,6 +211,9 @@
 
     state.mode = v.mode;
     state.source = v.source || null;
+    state.profile = v.profile || state.profile;
+    state.gstCheckedFor = v.gstCheckedFor || "";
+    state.parked = !!v.parked;
     state.ingested = true;
     state.model = buildModel();
     if (v.drafts && v.drafts.list && v.drafts.list.length) {
@@ -196,7 +239,13 @@
      stray call. */
   function historyNow() {
     if (!state.ingested) return {};
-    if (WITHHOLD) return {};
+    /* WITHHOLD models a business whose OWN source yields nothing, which is what
+       the below-floor shape is for. It must not also empty the sample: the
+       sample is the forward path offered from below the floor, and a forward
+       path that lands back on the same screen is the loop NN11 exists to
+       remove. Choosing the sample is an explicit request for the
+       demonstration records, in every session. */
+    if (WITHHOLD && state.mode !== "sample") return {};
     return window.FB_ORDER_HISTORY || {};
   }
 
@@ -219,41 +268,103 @@
   /* S04's supporting rows are decided by the evidence, never fixed in the
      markup. A signal with a count of zero is not drawn: there is nothing to
      act on, and a "0" reads as a broken row rather than as good news. */
+  /* S04's supporting rows are decided by the evidence, never fixed in the
+     markup.
+
+     NN13 — "N shops ready for a reorder" is GONE. It was a second shop count
+     (32) beside the headline's (23), worded almost identically, derived
+     differently, and it supported no decision the screen was asking for. What
+     remains is a different dimension, not a rival count: stock, which bears
+     directly on whether a reorder can actually be filled. */
   function supportingSignals(m) {
     const s = m.signals || {};
     const out = [];
     if (s.stock_position && s.stock_position.outOfStock > 0) {
       out.push({ id: "stock_position", icon: iconProducts,
-        label: s.stock_position.outOfStock + " of " + s.stock_position.catalogue + " products out of stock",
-        route: "customer-management/stock-audit-health" });
-    }
-    if (s.reorder_prediction && s.reorder_prediction.ready > 0) {
-      out.push({ id: "reorder_prediction", icon: iconChart,
-        label: s.reorder_prediction.ready + " shops ready for a reorder",
-        route: "customer-management/stock-audit-health" });
+        label: s.stock_position.outOfStock + " of " + s.stock_position.catalogue + " products are out of stock",
+        n: s.stock_position.outOfStock, of: s.stock_position.catalogue });
     }
     return out;
   }
 
   /* ------------------------------------------------------------ plumbing */
 
-  function render(html) { $("#ob-root").innerHTML = html + sheetHtml(); window.scrollTo(0, 0); bindSheet(); }
+  /* A re-render is not a navigation. Opening a sheet, ticking a shop and
+     editing a quantity all go through render(), and scrolling the page to the
+     top on each of those threw the user back to the first of sixteen shops
+     every time they tapped one to look at it. The page only returns to the top
+     when the SCREEN actually changes. */
+  let lastPlace = null;
+  function render(html) {
+    const place = state.view + "/" + state.screen + "/" + (state.screen === "S05" ? state.stage : "");
+    const moved = place !== lastPlace;
+    const keep = window.scrollY;
+    $("#ob-root").innerHTML = html + sheetHtml();
+    if (moved) { lastPlace = place; window.scrollTo(0, 0); }
+    else if (window.scrollY !== keep) { window.scrollTo(0, keep); }
+    bindSheet();
+    /* Chrome controls are bound in ONE place. Binding them per screen is how
+       the provenance chip ended up inert on every screen that forgot to. */
+    const back = $("#b-back");
+    if (back) back.addEventListener("click", goBack);
+    const prov = $("#b-prov");
+    if (prov) prov.addEventListener("click", openProvenanceSheet);
+    applyScrollLock();
+  }
 
-  function go(screen) { state.screen = screen; state.failure = null; draw(); }
+  function go(screen) { state.screen = screen; draw(); }
 
   /* C6 — provenance, on every screen after S02, and never ambiguous. Amber
      for a sample, neutral for the user's own connected data. */
+  /* C6 — provenance, on every screen after S02, and never ambiguous. There is
+     no "connected" state in this preview because nothing connects: both modes
+     are demonstration data and the chip says which one. It is always a button,
+     because the one question it raises — "whose data am I looking at?" — has an
+     answer, and that answer belongs in a sheet. */
   function provenanceChip() {
-    if (state.mode === "sample") {
-      return '<button class="ob-prov is-sample" id="b-prov">' + ICON.flask +
-             "<span>Sample business</span></button>";
-    }
-    if (state.mode === "connected") {
-      const nm = (state.source && state.source.label) || "Your data";
-      return '<span class="ob-prov is-real">' + ICON.check +
-             "<span>" + esc(nm) + " &#183; connected</span></span>";
-    }
-    return "";
+    const label = originLabel();
+    if (!label) return "";
+    return '<button class="ob-prov is-demo" id="b-prov">' + ICON.flask +
+           "<span>" + esc(label) + "</span></button>";
+  }
+
+  /* SHEET — what the chip means. Opened from the chip on every screen. */
+  function openProvenanceSheet() {
+    const src = state.source && state.source.label;
+    openSheet({
+      title: "Where this data comes from",
+      body:
+        '<div class="ob-provdemo">' + ICON.flask + "<span>DEMONSTRATION DATA</span></div>" +
+        '<p class="ob-sheet-p">' +
+          (state.mode === "sample"
+            ? "You chose to explore with a sample business. Every record here belongs to that demonstration business."
+            : "FoodBridge cannot read " + esc(src || "that source") + " yet. You are looking at a " +
+              "demonstration business so you can see what FoodBridge would do — not records from " +
+              esc(src || "your account") + ".") +
+        "</p>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT THIS MEANS</p>" +
+        '<ul class="ob-sheet-ul">' +
+          "<li>Nothing was read from your account</li>" +
+          "<li>Nothing is written anywhere</li>" +
+          "<li>This marker stays on every screen</li>" +
+        "</ul>",
+      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>' +
+               '<button class="ob-skip" id="s-leave">Start over with a different source</button>',
+      bind: function () {
+        $("#s-close").addEventListener("click", closeSheet);
+        $("#s-leave").addEventListener("click", function () {
+          state.sheet = null;
+          /* From the drafts destination this has to go back to the flow, not
+             re-render the destination it was opened from — draw() dispatches on
+             `view` before it looks at `screen`. */
+          if (state.view === "drafts") {
+            leaveData(function () { handoff("onboarding"); });
+            return;
+          }
+          leaveData(function () { state.screen = "S02"; draw(); });
+        });
+      },
+    });
   }
 
   function chrome(screen, opts) {
@@ -263,7 +374,10 @@
     if (i !== undefined) {
       let bars = "";
       for (let k = 0; k < 3; k++) bars += '<i class="' + (k <= i ? "on" : "") + '"></i>';
-      steps = '<span class="ob-brand-sep"></span><span class="ob-brand-step">Step ' + (i + 1) + " of 3</span>";
+      /* The counter is scoped to SETUP. S04 and S05 are activation and carry
+         none: a bar that says "3 of 3" and is followed by two more screens is
+         a promise the flow breaks. Naming the phase keeps it honest. */
+      steps = '<span class="ob-brand-sep"></span><span class="ob-brand-step">Setup &#183; ' + (i + 1) + " of 3</span>";
       steps += '</header><div class="ob-prog">' + bars + "</div>";
     } else {
       steps = "</header>";
@@ -300,6 +414,26 @@
     draw();
   }
 
+  /* A sheet covers the screen, so the screen must stop scrolling under it.
+     Without this, dragging anywhere on the scrim scrolls the page behind —
+     the sheet stays put and the thing it was opened from slides away. The
+     scroll offset is held on the body so nothing jumps when it is released. */
+  let lockedAt = 0;
+  function applyScrollLock() {
+    const want = !!state.sheet;
+    const on = document.body.classList.contains("ob-locked");
+    if (want === on) return;
+    if (want) {
+      lockedAt = window.scrollY;
+      document.body.style.top = -lockedAt + "px";
+      document.body.classList.add("ob-locked");
+    } else {
+      document.body.classList.remove("ob-locked");
+      document.body.style.top = "";
+      window.scrollTo(0, lockedAt);
+    }
+  }
+
   function sheetHtml() {
     const s = state.sheet;
     if (!s) return "";
@@ -327,6 +461,7 @@
   /* C8 — back closes a sheet before it leaves a screen. */
   function goBack() {
     if (state.sheet) { closeSheet(); return; }
+    if (state.view === "drafts") return;
     if (state.screen === "S02") { go("S01"); return; }
     if (state.screen === "S03") { leaveData(function () { state.screen = "S02"; draw(); }); return; }
     if (state.screen === "S04") { leaveData(function () { state.screen = "S03"; draw(); }); return; }
@@ -357,6 +492,8 @@
           state.mode = null; state.source = null; state.ingested = null;
           state.model = null; state.opp = null; state.drafts = null;
           state.picked = {}; state.repeats = {}; state.stage = "brief";
+          state.parked = false; state.undo = null; state.draftEdit = null;
+          state.showAll = false; state.showAllStale = false;
           forget();
           state.sheet = null;
           state.screen = "S02";
@@ -450,29 +587,11 @@
     $("#b-cancel").addEventListener("click", cancelOp);
   }
 
-  /* C4 — a failure is a state with a cause and a way out. The user picks the
-     way out; nothing is decided for them, and nothing falls through into a
-     success screen. C5 — retry re-runs the same operation from the start. */
-  function fail(spec) {
-    state.failure = spec;
-    render(
-      chrome(state.screen) +
-      '<main class="ob-main">' +
-        '<div class="ob-fail">' + ICON.alert +
-          '<h1 class="ob-h1">' + esc(spec.title) + "</h1>" +
-          '<p class="ob-fail-c">' + esc(spec.cause) + "</p>" +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        '<button class="ob-cta" id="b-retry">Try again</button>' +
-        '<button class="ob-skip" id="b-other">Try another way</button>' +
-      "</footer>"
-    );
-    $("#b-retry").addEventListener("click", function () { state.failure = null; spec.retry(); });
-    $("#b-other").addEventListener("click", function () {
-      state.failure = null; state.source = null; go("S02");
-    });
-  }
+  /* C4 — a failure is a state with a cause and a way out. Both of this flow's
+     failures (documents, and add-evidence) now report INSIDE the sheet the
+     user opened, so the screen they were on is never destroyed by one. There
+     is no longer a full-screen failure state, and nothing falls through into
+     a success screen. See documentsFailed() and openGapSheet().               */
 
   /* ------------------------------------------------------------- S01 */
 
@@ -486,67 +605,105 @@
       '<input id="' + id + '" value="' + esc(value) + '" placeholder="' + esc(e.ph || "") + '"' +
         (e.type ? ' inputmode="' + e.type + '"' : "") +
         (e.locked ? " disabled" : "") +
-        (e.caps ? ' autocapitalize="characters"' : "") + "></span>" +
+        /* Never autocorrect what the user is telling us their business is
+           called. iOS turned "Miha Foods" into "Mina Foods" on the way in,
+           and nothing downstream could know it had been changed. */
+        ' autocorrect="off" spellcheck="false"' +
+        ' autocapitalize="' + (e.caps ? "characters" : "words") + '"' +
+        (e.enter ? ' enterkeyhint="' + e.enter + '"' : "") + "></span>" +
       (e.trail || "") +
     "</div>";
   }
 
+  /* GST lifecycle (NN8). `gstCheckedFor` holds the exact string a check ran
+     against, so the badge is tied to a VALUE and not to a moment. Edit it,
+     clear it, paste a different one — the badge goes and Verify comes back,
+     because none of those strings has been checked.
+
+     What the check actually does is validate the FORMAT, and that is what it
+     claims. It does not contact the GST department, so it does not say
+     "Verified", and it does not fill in a business name it has no way to
+     know. */
+  const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+  function gstOk() {
+    const g = state.profile.gstin.trim().toUpperCase();
+    return !!g && g === state.gstCheckedFor && GSTIN_RE.test(g);
+  }
+
   function drawS01() {
     const p = state.profile;
-    const v = state.gstVerified;
-    const verifyBtn = v
-      ? '<span class="ob-fr-ok">' + ICON.check + "Verified</span>"
-      : '<button class="ob-verify" id="b-verify" disabled>Verify</button>';
+    const ok = gstOk();
+    const g = p.gstin.trim();
+    const trail = ok
+      ? '<span class="ob-fr-ok">' + ICON.check + "Format checked</span>"
+      : '<button class="ob-verify" id="b-verify"' + (g.length === 15 ? "" : " disabled") + ">Check</button>";
 
     render(
       chrome("S01") +
       '<main class="ob-main">' +
         '<h1 class="ob-h1">Let\'s set up your business</h1>' +
 
+        /* MUST-HAVE ONLY (D-018). The name and GSTIN identify the business and
+           are both USED — the name titles the drafts destination, the GSTIN is
+           format-checked here. The three contact fields that stood under "HOW
+           WE REACH YOU" were read by nothing, kept by nothing and reached
+           nobody, so they are gone rather than validated into looking real. */
         '<section class="ob-section">' +
-          '<p class="ob-eyebrow">YOUR BUSINESS</p>' +
           '<div class="ob-fs">' +
-            row("f-business", "Business name", ICON.building, p.business) +
-            row("f-gstin", "GSTIN", ICON.badge, p.gstin,
-                { caps: true, locked: v, ok: v, ph: "15-character GSTIN", trail: verifyBtn }) +
+            row("f-business", "Business name", ICON.building, p.business, { enter: "next" }) +
+            row("f-gstin", "GSTIN (optional)", ICON.badge, p.gstin,
+                { caps: true, ok: ok, ph: "15-character GSTIN", trail: trail, enter: "done" }) +
           "</div>" +
-        "</section>" +
-
-        '<section class="ob-section">' +
-          '<p class="ob-eyebrow">HOW WE REACH YOU</p>' +
-          '<div class="ob-fs">' +
-            row("f-name", "Your name", ICON.user, p.name) +
-            row("f-mobile", "Mobile number", ICON.phone, p.mobile, { type: "tel" }) +
-            row("f-email", "Email address", ICON.mail, p.email, { type: "email" }) +
-          "</div>" +
+          (state.gstCheckedFor && g.toUpperCase() === state.gstCheckedFor && !GSTIN_RE.test(state.gstCheckedFor)
+            ? '<p class="ob-fielderr">' + ICON.alert + "That is not a valid GSTIN format.</p>"
+            : "") +
         "</section>" +
       "</main>" +
-      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
+      '<footer class="ob-foot"><button class="ob-cta" id="b-continue"' +
+        (p.business.trim() ? "" : " disabled") + ">" +
+        (p.business.trim() ? "Continue" : "Enter your business name") + "</button></footer>"
     );
 
-    ["business", "name", "mobile", "email", "gstin"].forEach(function (k) {
+    ["business", "gstin"].forEach(function (k) {
       const el = $("#f-" + k);
       if (!el) return;
       el.addEventListener("input", function () {
+        const before = state.profile[k];
         state.profile[k] = el.value;
-        const vb = $("#b-verify");
-        if (vb) vb.disabled = state.profile.gstin.trim().length < 15;
+        if (k === "gstin") {
+          /* Any change to the value invalidates a check made against the old
+             one. Clearing the field clears the check with it. */
+          const cur = el.value.trim().toUpperCase();
+          if (cur !== state.gstCheckedFor) state.gstCheckedFor = "";
+          const caret = el.selectionStart;
+          drawS01();
+          const again = $("#f-gstin");
+          if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
+          return;
+        }
+        if (!before.trim() !== !el.value.trim()) {     // the CTA changes state
+          const caret = el.selectionStart;
+          drawS01();
+          const again = $("#f-business");
+          if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
+        }
       });
     });
+
     const vb = $("#b-verify");
-    if (vb) {
-      vb.disabled = p.gstin.trim().length < 15;
-      vb.addEventListener("click", function () {
-        /* SIMULATED. A real lookup returns the registered name; here it is
-           filled from this tenant's own seed rather than invented. The field
-           visibly changes, and that IS the evidence — no sentence says so. */
-        state.gstVerified = true;
-        const t = (window.SEED && window.SEED.tenant) || {};
-        if (!state.profile.business && t.name) state.profile.business = t.name;
-        drawS01();
-      });
-    }
-    $("#b-continue").addEventListener("click", function () { go("S02"); });
+    if (vb) vb.addEventListener("click", function () {
+      state.gstCheckedFor = state.profile.gstin.trim().toUpperCase();
+      save();
+      drawS01();
+    });
+
+    const c = $("#b-continue");
+    if (c) c.addEventListener("click", function () {
+      if (!state.profile.business.trim()) return;
+      save();
+      go("S02");
+    });
   }
 
   /* ------------------------------------------------------------- S02 */
@@ -559,31 +716,46 @@
   ];
 
   function drawS02() {
+    /* If a read has already produced something, this screen must say so and
+       offer the way back to it. Without that, a user who reached S02 from a
+       failure or from Back could only return to their own data by running a
+       read again — the one thing they had already done. */
+    const loaded = !!state.ingested;
+    const here = state.mode === "sample" ? "sample" : (state.source && state.source.id);
+
     render(
       chrome("S02", { back: true }) +
       '<main class="ob-main">' +
         '<h1 class="ob-h1">Where is your business data today?</h1>' +
         '<div class="ob-sources">' +
           SOURCES.map(function (s) {
-            return '<button class="ob-source" data-src="' + s.id + '">' +
+            const on = here === s.id;
+            return '<button class="ob-source' + (on ? " is-on" : "") + '" data-src="' + s.id + '">' +
               '<span class="ob-mark ' + s.tint + '">' + s.icon + "</span>" +
               '<span class="ob-source-t">' + esc(s.label) + "</span>" +
+              (on ? '<span class="ob-source-on">' + ICON.check + "in use</span>" : "") +
               '<span class="ob-chev">' + ICON.chev + "</span></button>";
           }).join("") +
         "</div>" +
         /* A first-class answer to the same question, quieter so it never
            competes with the four real sources (D-018). */
-        '<button class="ob-samplerow" id="b-sample">' +
+        '<button class="ob-samplerow' + (here === "sample" ? " is-on" : "") + '" id="b-sample">' +
           "<span>Show me with a sample business</span>" +
+          (here === "sample" ? '<span class="ob-source-on">' + ICON.check + "in use</span>" : "") +
           '<span class="ob-chev">' + ICON.chev + "</span></button>" +
-      "</main>"
+      "</main>" +
+      (loaded
+        ? '<footer class="ob-foot"><button class="ob-cta" id="b-seen">See what we received</button></footer>'
+        : "")
     );
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
+    const seen = $("#b-seen");
+    if (seen) seen.addEventListener("click", function () { go("S03"); });
     $$("[data-src]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         const src = SOURCES.filter(function (s) { return s.id === btn.dataset.src; })[0];
-        state.source = src;
+        /* NN2 — opening a sheet chooses NOTHING. `state.source` is written in
+           the operation's onDone and nowhere else, so a cancelled or failed
+           attempt cannot leave the chip claiming a source. */
         if (src.kind === "files") return openFileSheet(src);
         openConsentSheet(src);
       });
@@ -592,17 +764,26 @@
   }
 
   /* SHEET 1 — F04, consent. C1: the tap opened this; nothing has been read.
-     The user starts the read, here, by name. */
+     The user starts the read, here, by name.
+
+     NN1 — the boundary is stated BEFORE the user commits, in the product's own
+     words, not in a footnote. This preview cannot read Tally, Zoho or Vyapar,
+     so the sheet does not describe a read of their books; it says what will
+     actually happen, which is that a demonstration business is loaded. */
   function openConsentSheet(src) {
     openSheet({
       title: "Connect " + src.label,
       body:
-        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
-        '<ul class="ob-sheet-ul"><li>Your customers</li><li>Your products</li>' +
-          "<li>Your order history</li></ul>" +
+        '<div class="ob-provdemo">' + ICON.flask + "<span>NOT AVAILABLE YET</span></div>" +
+        '<p class="ob-sheet-p">FoodBridge cannot read ' + esc(src.label) + " in this preview. " +
+          "Continue and you will see a demonstration business instead of your own records, " +
+          "so you can judge what FoodBridge would do with yours.</p>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ FROM " + esc(src.label.toUpperCase()) + "</p>" +
+        '<ul class="ob-sheet-ul"><li>Nothing &#8212; there is no connection to read from</li></ul>' +
         '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
-        '<ul class="ob-sheet-ul"><li>Nothing is written back to ' + esc(src.label) + "</li></ul>",
-      actions: '<button class="ob-cta" id="s-connect">Connect</button>' +
+        '<ul class="ob-sheet-ul"><li>Nothing is written back to ' + esc(src.label) + "</li>" +
+          "<li>Your " + esc(src.label) + " account is never contacted</li></ul>",
+      actions: '<button class="ob-cta" id="s-connect">Show me with demo data</button>' +
                '<button class="ob-skip" id="s-cancel">Cancel</button>',
       bind: function () {
         $("#s-connect").addEventListener("click", function () { startConnect(src); });
@@ -612,35 +793,71 @@
   }
 
   /* SHEET 2 — F05, which files. A real picker, and the camera, because
-     `image/*` already opens it on a phone. */
+     `image/*` already opens it on a phone.
+
+     It carries the SAME consent shape as the three connectors — what we will
+     read, and what will not change. A source that asks for the user's
+     documents and declares less than a source that asks for nothing is the
+     wrong way round, and it was the only path into this flow that took an
+     input without saying what happened to it. The preview boundary is stated
+     here too, before any file is chosen. */
   function openFileSheet(src) {
     let chosen = [];
+
+    function listHtml() {
+      if (!chosen.length) return '<p class="ob-sheet-p">Nothing chosen yet.</p>';
+      return chosen.map(function (f, i) {
+        return '<div class="ob-chosen-r">' + ICON.files +
+          "<span>" + esc(f.name) + "</span>" +
+          '<button class="ob-chosen-x" data-rmfile="' + i + '" aria-label="Remove ' + esc(f.name) + '">' +
+            ICON.close + "</button>" +
+        "</div>";
+      }).join("");
+    }
+
     openSheet({
       title: "Choose your files",
       body:
+        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
+        '<ul class="ob-sheet-ul"><li>Only the files you pick here</li>' +
+          "<li>We look for your customers, products and order history in them</li></ul>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
+        '<ul class="ob-sheet-ul"><li>Your files are not uploaded anywhere</li>' +
+          "<li>They are read in this browser and kept nowhere</li></ul>" +
+        '<div class="ob-provdemo">' + ICON.flask + "<span>NOT AVAILABLE YET</span></div>" +
+        '<p class="ob-sheet-p">Reading documents is not implemented in this preview, ' +
+          "so this will not succeed for any file yet.</p>" +
         '<div class="ob-filepick">' +
           '<label class="ob-chip key">' + ICON.upload + "Choose files" +
             '<input type="file" id="s-files" multiple hidden></label>' +
           '<label class="ob-chip">' + ICON.camera + "Take photo" +
             '<input type="file" id="s-photo" accept="image/*" capture="environment" hidden></label>' +
         "</div>" +
-        '<div class="ob-chosen" id="s-chosen"><p class="ob-sheet-p">Nothing chosen yet.</p></div>',
+        '<div class="ob-chosen" id="s-chosen">' + listHtml() + "</div>",
       actions: '<button class="ob-cta" id="s-read" disabled>Read them</button>' +
                '<button class="ob-skip" id="s-cancel">Cancel</button>',
       bind: function () {
+        function repaint() {
+          $("#s-chosen").innerHTML = listHtml();
+          $("#s-read").disabled = !chosen.length;
+          /* Re-bound on every repaint: the rows are rewritten, so the handlers
+             that were on the old ones are gone with them. */
+          $$("[data-rmfile]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              chosen.splice(Number(b.dataset.rmfile), 1);
+              repaint();
+            });
+          });
+        }
         function picked(list) {
           chosen = chosen.concat(Array.prototype.slice.call(list));
-          $("#s-chosen").innerHTML = chosen.length
-            ? chosen.map(function (f) {
-                return '<div class="ob-chosen-r">' + ICON.files + "<span>" + esc(f.name) + "</span></div>";
-              }).join("")
-            : '<p class="ob-sheet-p">Nothing chosen yet.</p>';
-          $("#s-read").disabled = !chosen.length;
+          repaint();
         }
-        $("#s-files").addEventListener("change", function () { picked(this.files); });
-        $("#s-photo").addEventListener("change", function () { picked(this.files); });
+        $("#s-files").addEventListener("change", function () { picked(this.files); this.value = ""; });
+        $("#s-photo").addEventListener("change", function () { picked(this.files); this.value = ""; });
         $("#s-read").addEventListener("click", function () { startFileRead(src, chosen); });
         $("#s-cancel").addEventListener("click", closeSheet);
+        repaint();
       },
     });
   }
@@ -659,40 +876,48 @@
       actions: '<button class="ob-cta" id="s-use">Use the sample</button>' +
                '<button class="ob-skip" id="s-cancel">Cancel</button>',
       bind: function () {
-        $("#s-use").addEventListener("click", function () {
-          state.sheet = null;
-          state.mode = "sample";
-          state.source = null;
-          state.ingested = true;
-          state.model = buildModel();
-          save();
-          go(state.model.floor.met ? "S03" : "S03");
-        });
+        $("#s-use").addEventListener("click", function () { state.sheet = null; useSample(); });
         $("#s-cancel").addEventListener("click", closeSheet);
       },
     });
   }
 
-  /* F07 — the read. Cancellable, and its steps report real counts. */
+  /* Reached from the sample sheet, and from every dead end that needs a way
+     forward. Always succeeds, which is the point of offering it. */
+  function useSample() {
+    state.mode = "sample";
+    state.source = null;
+    state.ingested = true;
+    state.model = buildModel();
+    save();
+    go("S03");
+  }
+
+  /* F07 — the read. Cancellable, and its steps report real counts.
+
+     NN1/NN2 — the steps describe what is ACTUALLY happening. Nothing says
+     "Connecting to Tally" or "Reading order history", because neither occurs.
+     `state.source` and `state.mode` are written in onDone and nowhere else. */
   function startConnect(src) {
     const seed = window.SEED || {};
-    const hist = WITHHOLD ? {} : (window.FB_ORDER_HISTORY || {});
+    const hist = WITHHOLD ? {} : (window.FB_ORDER_HISTORY || {});   // a connector read, never the sample
     let orders = 0;
     Object.keys(hist).forEach(function (k) { orders += (hist[k].orders || []).length; });
 
     runOp({
-      title: "Reading from " + src.label,
+      title: "Loading demo data",
       steps: [
-        { label: "Connecting to " + src.label, found: "connected" },
-        { label: "Reading products and customers",
-          found: (seed.products || []).length + " products · " + (seed.b2b || []).length + " customers" },
-        { label: "Reading order history",
+        { label: "Checking for a " + src.label + " connection", found: "none available" },
+        { label: "Loading a demonstration business",
+          found: (seed.products || []).length + " products \u00b7 " + (seed.b2b || []).length + " customers" },
+        { label: "Loading its order history",
           found: orders ? orders.toLocaleString() + " orders" : "nothing" },
-        { label: "Organising your business", found: "done" },
+        { label: "Working out its buying patterns", found: "done" },
       ],
-      onCancel: function () { state.source = null; go("S02"); },
+      onCancel: function () { go("S02"); },
       onDone: function () {
-        state.mode = "connected";
+        state.mode = "demo";
+        state.source = { id: src.id, label: src.label };
         state.ingested = true;
         state.model = buildModel();
         save();
@@ -701,9 +926,12 @@
     });
   }
 
-  /* Documents are where this prototype's boundary is, and it reports the
-     boundary rather than inventing a figure to cover it. This is the real
-     C4/C5 path: a cause, and two ways out. */
+  /* Documents are where this preview's boundary is, and it reports the
+     boundary rather than inventing a figure to cover it.
+
+     NN10 — the failure no longer replaces the screen. It is a RESULT STATE
+     inside the sheet the user opened, so whatever they already had is still
+     behind it, and the primary way out keeps that rather than discarding it. */
   function startFileRead(src, files) {
     runOp({
       title: "Reading your documents",
@@ -712,15 +940,39 @@
           found: files.length + " opened" },
         { label: "Extracting the details", found: "nothing" },
       ],
-      onCancel: function () { state.source = null; go("S02"); },
+      onCancel: function () { go("S02"); },
       onDone: function () {
-        fail({
-          title: "We couldn't read those documents",
-          cause: "Nothing could be extracted from " +
-                 (files.length === 1 ? "that file" : "those " + files.length + " files") +
-                 ". Your data is untouched and nothing was added.",
-          retry: function () { startFileRead(src, files); },
-        });
+        documentsFailed(files.length, function () { startFileRead(src, files); });
+      },
+    });
+  }
+
+  /* The one place a document read reports that it produced nothing. It offers
+     a forward path in every case: keep what is already here if there is
+     anything, and otherwise the sample, which always works. */
+  function documentsFailed(count, retry) {
+    const haveData = !!state.ingested;
+    openSheet({
+      title: "We couldn't read those documents",
+      body:
+        '<p class="ob-sheet-p">Nothing could be extracted from ' +
+          (count === 1 ? "that file" : "those " + count + " files") + ". " +
+          (haveData ? "Nothing changed, and what you already have is untouched."
+                    : "Nothing was added and nothing was changed.") + "</p>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.flask + "WHY THIS HAPPENS</p>" +
+        '<p class="ob-sheet-p">Reading documents is not implemented in this preview. ' +
+          "It will not succeed for any file yet.</p>",
+      actions:
+        (haveData
+          ? '<button class="ob-cta" id="s-keep">Keep what we have</button>'
+          : '<button class="ob-cta" id="s-sample">Explore with a sample business</button>') +
+        '<button class="ob-skip" id="s-retry">Try other files</button>',
+      bind: function () {
+        const keep = $("#s-keep");
+        if (keep) keep.addEventListener("click", closeSheet);
+        const smp = $("#s-sample");
+        if (smp) smp.addEventListener("click", function () { state.sheet = null; useSample(); });
+        $("#s-retry").addEventListener("click", function () { state.sheet = null; retry(); });
       },
     });
   }
@@ -763,10 +1015,14 @@
               '<p class="ob-eyebrow">ADD LATER TO SEE MORE</p>' +
               '<div class="ob-optional">' +
                 m.unlocks.map(function (u, i) {
+                  /* NN10 — this was an "Add" button over a file picker that
+                     could never succeed for any file. It is now a plain
+                     explanation of what the signal needs, because offering an
+                     input that always fails is worse than offering none. */
                   return '<div class="ob-orow">' + ICON.plusCircle +
                     '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(u.label) + "</span>" +
-                    '<span class="ob-orow-s">Unlocks ' + esc(u.short) + "</span></span>" +
-                    '<button class="ob-addlink" data-gap="' + i + '">Add</button></div>';
+                    '<span class="ob-orow-s">Would unlock ' + esc(u.short) + "</span></span>" +
+                    '<button class="ob-addlink" data-gap="' + i + '">What this needs</button></div>';
                 }).join("") +
               "</div>" +
             "</section>"
@@ -777,13 +1033,11 @@
       '<footer class="ob-foot"><button class="ob-cta" id="b-continue">See what this means</button></footer>'
     );
 
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
     $$("[data-insp]").forEach(function (b) {
       b.addEventListener("click", function () { openInspectSheet(b.dataset.insp); });
     });
     $$("[data-gap]").forEach(function (b) {
-      b.addEventListener("click", function () { openAddEvidenceSheet(m.unlocks[Number(b.dataset.gap)]); });
+      b.addEventListener("click", function () { openGapSheet(m.unlocks[Number(b.dataset.gap)]); });
     });
     $("#b-continue").addEventListener("click", function () { go("S04"); });
   }
@@ -809,105 +1063,94 @@
         "</div>" +
         '<p class="ob-sheet-eyebrow">WHERE THIS CAME FROM</p>' +
         '<div class="ob-prov-lines">' +
-          "<p>" + (state.mode === "sample" ? "The sample business"
-                 : esc((state.source && state.source.label) || "Your data") + " export") + "</p>" +
-          (pv.from ? "<p>" + esc(pv.from) + " &#8211; " + esc(pv.to) + "</p>" : "") +
-          "<p>" + pv.shopsWithHistory + " of your " + pv.totalCustomers + " shops</p>" +
+          /* NN1 — this NEVER reads "<source> export". Nothing was exported from
+             anywhere. It names the demonstration business, and the source only
+             as the button the user happened to press. */
+          "<p>Demonstration business" +
+            (state.mode === "demo" && state.source
+              ? " &#8212; loaded because " + esc(state.source.label) + " is not connectable yet"
+              : "") + "</p>" +
+          (kind === "orders" && pv.from ? "<p>" + esc(pv.from) + " &#8211; " + esc(pv.to) + "</p>" : "") +
+          /* Scope belongs to the ORDERS, not to a product catalogue. Printing
+             it under all three is how a date range ended up describing 86
+             pickles. */
+          (kind === "orders"
+            ? "<p>" + pv.shopsWithHistory + " of its " + pv.totalCustomers + " shops</p>"
+            : "<p>" + r.total.toLocaleString() + " " + esc(r.unit) + " in total</p>") +
         "</div>",
       actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
       bind: function () { $("#s-close").addEventListener("click", closeSheet); },
     });
   }
 
-  /* SHEET 5 — F11, add evidence. Choosing and reading is still an operation
-     the user starts by name, and it still recomputes in place. */
-  function openAddEvidenceSheet(gap) {
-    let chosen = [];
+  /* SHEET 5 — F11, what a blocked signal needs. NN10: this used to offer a
+     file picker and a camera for evidence this preview cannot ingest for any
+     file, so every attempt failed and the customer blamed their own documents.
+     It now states the requirement and gets out of the way. The only action is
+     to keep what is already here, which is what the user was doing anyway. */
+  function openGapSheet(gap) {
+    const needs = (gap && gap.needs) || [];
     openSheet({
-      title: "Add " + (gap && gap.label ? gap.label.toLowerCase() : "evidence"),
+      title: (gap && gap.label) || "More evidence",
       body:
-        '<p class="ob-sheet-p">Unlocks ' + esc((gap && gap.short) || "more of your business") + ".</p>" +
-        '<div class="ob-filepick">' +
-          '<label class="ob-chip key">' + ICON.upload + "Choose files" +
-            '<input type="file" id="s-files" multiple hidden></label>' +
-          '<label class="ob-chip">' + ICON.camera + "Take photo" +
-            '<input type="file" id="s-photo" accept="image/*" capture="environment" hidden></label>' +
-        "</div>" +
-        '<div class="ob-chosen" id="s-chosen"><p class="ob-sheet-p">Nothing chosen yet.</p></div>',
-      actions: '<button class="ob-cta" id="s-read" disabled>Read them</button>' +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        function picked(list) {
-          chosen = chosen.concat(Array.prototype.slice.call(list));
-          $("#s-chosen").innerHTML = chosen.map(function (f) {
-            return '<div class="ob-chosen-r">' + ICON.files + "<span>" + esc(f.name) + "</span></div>";
-          }).join("");
-          $("#s-read").disabled = !chosen.length;
-        }
-        $("#s-files").addEventListener("change", function () { picked(this.files); });
-        $("#s-photo").addEventListener("change", function () { picked(this.files); });
-        $("#s-cancel").addEventListener("click", closeSheet);
-        $("#s-read").addEventListener("click", function () {
-          runOp({
-            title: "Adding " + (gap && gap.label ? gap.label.toLowerCase() : "evidence"),
-            steps: [
-              { label: "Reading " + chosen.length + (chosen.length === 1 ? " file" : " files"),
-                found: chosen.length + " opened" },
-              { label: "Matching to your business", found: "nothing" },
-            ],
-            onCancel: function () { go(state.screen); },
-            onDone: function () {
-              fail({
-                title: "We couldn't read that",
-                cause: "Nothing could be matched to your business. Nothing changed, " +
-                       "and your data is untouched.",
-                retry: function () { openAddEvidenceSheet(gap); },
-              });
-            },
-          });
-        });
-      },
+        '<p class="ob-sheet-p">FoodBridge would show you ' +
+          esc((gap && gap.short) || "more of your business") + " once it holds this.</p>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.plusCircle + "WHAT IT NEEDS</p>" +
+        '<ul class="ob-sheet-ul">' +
+          (needs.length
+            ? needs.map(function (n) { return "<li>" + esc(String(n).replace(/_/g, " ")) + "</li>"; }).join("")
+            : "<li>" + esc((gap && gap.label) || "this evidence") + " for your business</li>") +
+        "</ul>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.flask + "IN THIS PREVIEW</p>" +
+        '<p class="ob-sheet-p">There is no way to add it yet. Reading documents is ' +
+          "not implemented, so nothing here can unlock it today. Until then " +
+          "FoodBridge leaves these figures out rather than estimating them.</p>",
+      actions: '<button class="ob-cta ob-ghost" id="s-keep">Keep what we have</button>',
+      bind: function () { $("#s-keep").addEventListener("click", closeSheet); },
     });
   }
 
-  /* S03-B — below the floor. There is NO transition: offering one would
-     promise a view FoodBridge cannot produce. Each evidence type carries the
-     input that actually suits it. */
-  function drawS03Below() {
-    const needs = [
-      { id: "sales", name: "Sales or orders", icon: iconOrders, tint: "t-indigo",
-        acts: [{ id: "connect", label: "Connect", icon: ICON.plug, key: true },
-               { id: "upload", label: "Upload", icon: ICON.upload }] },
-      { id: "invoices", name: "Invoices", icon: ICON.doc, tint: "t-green",
-        acts: [{ id: "upload", label: "Upload", icon: ICON.upload },
-               { id: "photo", label: "Take photo", icon: ICON.camera }] },
-    ];
+  /* S03-B — below the floor. NN11: this was a closed loop — "Connect" returned
+     to S02, which returned here, and both Upload paths failed for every file.
+     It now names what is missing and what that would unlock, and it always
+     carries a way FORWARD that works: the sample business. */
+  function drawS03Below(m) {
+    const missing = [
+      { name: "Sales or orders", icon: iconOrders, tint: "t-indigo",
+        unlock: "which shops have stopped ordering, and what to reorder for them" },
+      { name: "Your products", icon: iconProducts, tint: "t-green",
+        unlock: "what is on the shelf and what is out of stock" },
+    ].filter(function (x, i) {
+      return i === 0 ? !(m && m.evidence && m.evidence.sales.present)
+                     : !(m && m.context && m.context.products.present);
+    });
+
     render(
       chrome("S03", { back: true }) +
       '<main class="ob-main">' +
         '<h1 class="ob-h1">We need a little more</h1>' +
         '<section class="ob-section">' +
-          needs.map(function (n) {
-            return '<div class="ob-need">' +
-              '<div class="ob-need-h"><span class="ob-mark ' + n.tint + '">' + n.icon + "</span><b>" + esc(n.name) + "</b></div>" +
-              '<div class="ob-acts">' +
-                n.acts.map(function (a) {
-                  return '<button class="ob-chip' + (a.key ? " key" : "") + '" data-need="' + n.id + '" data-act="' + a.id + '">' +
-                         a.icon + esc(a.label) + "</button>";
-                }).join("") +
-              "</div></div>";
-          }).join("") +
+          '<p class="ob-eyebrow">WHAT IS MISSING</p>' +
+          '<div class="ob-optional">' +
+            (missing.length ? missing : [{ name: "Your business records", icon: iconOrders, tint: "t-indigo",
+                                           unlock: "what FoodBridge can tell you" }])
+              .map(function (n) {
+                return '<div class="ob-orow">' +
+                  '<span class="ob-mark ' + n.tint + '">' + n.icon + "</span>" +
+                  '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(n.name) + "</span>" +
+                  '<span class="ob-orow-s">Would unlock ' + esc(n.unlock) + "</span></span></div>";
+              }).join("") +
+          "</div>" +
         "</section>" +
-      "</main>"
+      "</main>" +
+      '<footer class="ob-foot">' +
+        '<button class="ob-cta" id="b-sample">Explore with a sample business</button>' +
+        '<button class="ob-skip" id="b-other">Choose a different source</button>' +
+      "</footer>"
     );
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
-    $$("[data-need]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        if (b.dataset.act === "connect") { go("S02"); return; }
-        openAddEvidenceSheet({ label: b.dataset.need === "sales" ? "Sales or orders" : "Invoices",
-                               short: "more of your business" });
-      });
+    $("#b-sample").addEventListener("click", openSampleSheet);
+    $("#b-other").addEventListener("click", function () {
+      leaveData(function () { state.screen = "S02"; draw(); });
     });
   }
 
@@ -928,7 +1171,7 @@
           : '<p class="ob-quiet">Nothing needs your attention today.</p>') +
         (rest.length
           ? '<div class="ob-support">' + rest.map(function (x) {
-              return '<button class="ob-srow" data-route="' + esc(x.route) + '">' +
+              return '<button class="ob-srow" data-sig="' + esc(x.id) + '">' +
                 '<span class="ob-srow-ic">' + x.icon + "</span>" +
                 '<span class="ob-srow-t">' + esc(x.label) + "</span>" +
                 '<span class="ob-chev">' + ICON.chev + "</span></button>";
@@ -936,21 +1179,86 @@
           : "") +
       "</main>" +
       '<footer class="ob-foot">' +
-        (cad.overdue > 0 ? '<button class="ob-cta" id="b-start">Start here</button>' : "") +
+        /* NN14 — "Start here" named nothing. This names the thing it opens. */
+        (cad.overdue > 0
+          ? '<button class="ob-cta" id="b-start">Show me the ' + cad.overdue + " shops</button>"
+          : "") +
         '<button class="ob-skip" id="b-skip">Not now</button>' +
       "</footer>"
     );
 
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
     const why = $("#b-why");
     if (why) why.addEventListener("click", function () { openWhySheet(m, cad); });
-    $$("[data-route]").forEach(function (b) {
-      b.addEventListener("click", function () { handoff(b.dataset.route); });
+    /* NN3 — a supporting insight opens a SHEET. It used to call handoff(),
+       which navigated the whole window into another module, abandoned
+       onboarding, dropped the demonstration marker and left no way back. */
+    $$("[data-sig]").forEach(function (b) {
+      b.addEventListener("click", function () { openStockSheet(m); });
     });
     const st = $("#b-start");
     if (st) st.addEventListener("click", openOpportunity);
-    $("#b-skip").addEventListener("click", function () { handoff("dashboard"); });
+    $("#b-skip").addEventListener("click", parkOpportunity);
+  }
+
+  /* SHEET — the supporting insight, in place. It says what it is FOR, which is
+     the reason it survived NN13: stock is what decides whether a reorder can
+     actually be filled. */
+  function openStockSheet(m) {
+    const sp = (m.signals && m.signals.stock_position) || { outOfStock: 0, catalogue: 0 };
+    const products = ((window.SEED || {}).products || []).filter(function (p) {
+      return Number(p.systemStock) === 0;
+    });
+    openSheet({
+      title: "Out of stock",
+      count: sp.outOfStock,
+      body:
+        '<p class="ob-sheet-p">' + sp.outOfStock + " of your " + sp.catalogue +
+          " products show no stock. A reorder can still be prepared for them \u2014 " +
+          "this is what to expect to be short of when you come to fill it.</p>" +
+        '<p class="ob-sheet-eyebrow">A FEW OF THEM</p>' +
+        '<div class="ob-reclist">' +
+          products.slice(0, 8).map(function (p) {
+            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(p.name) + "</span>" +
+                   '<span class="ob-rec-b">0 in stock</span></div>';
+          }).join("") +
+        "</div>",
+      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
+      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
+    });
+  }
+
+  /* NN4 — "Not now" is REVERSIBLE. It used to call handoff("dashboard"), which
+     left onboarding for a screen with no way back and no trace of any of this.
+     The opportunity is parked on a record that survives a reload and is
+     reachable from the drafts destination, and the user is told where it went
+     before they go anywhere. */
+  function parkOpportunity() {
+    const o = state.opp || (state.opp = buildOpportunity());
+    openSheet({
+      title: "Leave this for now?",
+      body:
+        '<p class="ob-sheet-eyebrow">WHAT HAPPENS</p>' +
+        '<ul class="ob-sheet-ul">' +
+          "<li>" + o.total + " shops stopped ordering \u2014 we keep the list</li>" +
+          "<li>Nothing is sent, prepared or written</li>" +
+          "<li>You can pick it up from Order Drafts whenever you want</li>" +
+        "</ul>" +
+        (state.mode === "sample"
+          ? '<p class="ob-sheet-p">You stay in the sample business. Nothing of your own is touched.</p>'
+          : ""),
+      actions: '<button class="ob-cta" id="s-park">Leave it for now</button>' +
+               '<button class="ob-skip" id="s-stay">Keep going</button>',
+      bind: function () {
+        $("#s-park").addEventListener("click", function () {
+          state.sheet = null;
+          state.parked = true;
+          save();
+          state.view = "drafts";
+          drawDraftsHome();
+        });
+        $("#s-stay").addEventListener("click", closeSheet);
+      },
+    });
   }
 
   /* SHEET 6 — why this matters. Everything S04 refuses to carry: what we
@@ -1026,9 +1334,16 @@
       '<main class="ob-main">' +
         '<p class="ob-eyebrow">THE OPPORTUNITY</p>' +
         '<h1 class="ob-lead-h">' + o.total + " shops stopped ordering</h1>" +
+        /* NN12 — both rows are real buttons. They named two groups and opened
+           neither; the seven that "need your eye" were the ones a user was
+           most likely to reach for. */
         '<div class="ob-brief">' +
-          '<div class="ob-brief-r"><b>' + rec + "</b><span>we can prepare a reorder for</span></div>" +
-          '<div class="ob-brief-r"><b>' + st + "</b><span>need your eye — quiet too long to predict</span></div>" +
+          '<button class="ob-brief-r" id="b-rec"><b>' + rec + "</b>" +
+            "<span>we can prepare a reorder for</span>" +
+            '<span class="ob-chev">' + ICON.chev + "</span></button>" +
+          '<button class="ob-brief-r" id="b-stale"><b>' + st + "</b>" +
+            "<span>need your eye \u2014 quiet too long to predict</span>" +
+            '<span class="ob-chev">' + ICON.chev + "</span></button>" +
         "</div>" +
       "</main>" +
       '<footer class="ob-foot">' +
@@ -1036,10 +1351,16 @@
         '<button class="ob-skip" id="b-skip">Not now</button>' +
       "</footer>"
     );
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
-    $("#b-choose").addEventListener("click", function () { state.stage = "choose"; draw(); });
-    $("#b-skip").addEventListener("click", function () { handoff("dashboard"); });
+    function open(showStale) {
+      state.stage = "choose";
+      state.showAllStale = showStale;
+      state.focus = showStale ? "stale" : null;
+      draw();
+    }
+    $("#b-rec").addEventListener("click", function () { open(false); });
+    $("#b-stale").addEventListener("click", function () { open(true); });
+    $("#b-choose").addEventListener("click", function () { open(false); });
+    $("#b-skip").addEventListener("click", parkOpportunity);
   }
 
   /* F16/F17 — choosing. NOTHING arrives selected: a recommendation that
@@ -1048,6 +1369,8 @@
     const rec = recommended(), st = stale();
     const shown = state.showAll ? rec : rec.slice(0, 5);
     const hidden = rec.length - shown.length;
+    const staleShown = state.showAllStale ? st : st.slice(0, 3);
+    const staleHidden = st.length - staleShown.length;
     const n = pickedCount(), r = repeatCount();
     const total = n + r;
     const allOn = n === rec.length;
@@ -1055,9 +1378,11 @@
     render(
       chrome("S05", { back: true }) +
       '<main class="ob-main">' +
+        undoBar() +
         '<div class="ob-selbar">' +
           '<span class="ob-selbar-n">' + total + " selected</span>" +
-          '<button class="ob-selbar-a" id="b-all">' + (allOn ? "Clear all" : "Select all " + rec.length) + "</button>" +
+          '<button class="ob-selbar-a" id="b-all">' +
+            (total ? "Clear all" : "Select all " + rec.length) + "</button>" +
         "</div>" +
 
         '<p class="ob-eyebrow">WE CAN PREPARE A REORDER</p>' +
@@ -1080,9 +1405,9 @@
         (hidden > 0 ? '<button class="ob-morebtn" id="b-more">Show ' + hidden + " more</button>" : "") +
 
         (st.length
-          ? '<p class="ob-eyebrow">NEED YOUR EYE</p>' +
+          ? '<p class="ob-eyebrow" id="ob-stale-h">NEED YOUR EYE</p>' +
             '<div class="ob-shops">' +
-              st.slice(0, 3).map(function (sh) {
+              staleShown.map(function (sh) {
                 return '<div class="ob-shop is-stale' + (state.repeats[sh.id] ? " is-on" : "") + '">' +
                   '<button class="ob-shop-pick" data-repeat="' + esc(sh.id) + '" aria-pressed="' +
                     (state.repeats[sh.id] ? "true" : "false") + '">' +
@@ -1098,7 +1423,9 @@
                 "</div>";
               }).join("") +
             "</div>" +
-            (st.length > 3 ? '<p class="ob-quiet-s">' + (st.length - 3) + " more need your eye</p>" : "")
+            (staleHidden > 0
+              ? '<button class="ob-morebtn" id="b-morestale">Show ' + staleHidden + " more</button>"
+              : "")
           : "") +
       "</main>" +
       '<footer class="ob-foot">' +
@@ -1108,8 +1435,7 @@
       "</footer>"
     );
 
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
+    bindUndo();
     $$("[data-shop]").forEach(function (b) {
       b.addEventListener("click", function () {
         state.picked[b.dataset.shop] = !state.picked[b.dataset.shop];
@@ -1127,16 +1453,30 @@
     });
     const more = $("#b-more");
     if (more) more.addEventListener("click", function () { state.showAll = true; draw(); });
+    if (state.focus === "stale") {
+      state.focus = null;
+      const h = $("#ob-stale-h");
+      if (h) h.scrollIntoView({ block: "start" });
+    }
     /* Select all / Clear all acts on the RECOMMENDED list only, which is what
        its own label says. The stale shops are a different decision — repeating
        a past order is a fact, not a prediction — and sweeping them in here
        would make that choice on the user's behalf. */
     const all = $("#b-all");
     if (all) all.addEventListener("click", function () {
-      const on = !allOn;
-      rec.forEach(function (sh) { state.picked[sh.id] = on; });
+      if (total) {
+        /* "Clear all" clears ALL of it. It used to clear only the recommended
+           group, so a shop picked from "need your eye" survived a clear and
+           the footer went on offering to prepare a draft for it. */
+        state.picked = {};
+        state.repeats = {};
+      } else {
+        rec.forEach(function (sh) { state.picked[sh.id] = true; });
+      }
       draw();
     });
+    const ms = $("#b-morestale");
+    if (ms) ms.addEventListener("click", function () { state.showAllStale = true; draw(); });
     const p = $("#b-prep");
     if (p) p.addEventListener("click", openConfirmSheet);
   }
@@ -1167,7 +1507,10 @@
             "order, exactly as they were.</p>") +
         '<div class="ob-reclist">' +
           lines.slice(0, 8).map(function (l) {
-            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(shortName(l.name)) + "</span>" +
+            /* The FULL name, pack size and all. Two lines of this catalogue
+               collapse to the same words once the bracket is stripped, and a
+               100 gm pouch is not a pet jar. */
+            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(l.name) + "</span>" +
                    '<span class="ob-rec-b">' +
                    (sh.suggestion ? l.suggestedQty + " suggested" : l.qty + " ordered") +
                    "</span></div>";
@@ -1247,6 +1590,8 @@
             }) });
         });
         state.drafts = { list: list, sent: 0, written: 0 };
+        state.undo = null;
+        state.draftEdit = null;
         state.stage = "prepared";
         save();                                   // C7 — confirmed, so persisted
         draw();
@@ -1254,11 +1599,27 @@
     });
   }
 
+  /* ------------------------------------------------- draft helpers (NN7) */
+
+  function draftEdits(dr) {
+    return dr.lines.filter(function (l) {
+      return l.suggestedQty != null && l.qty !== l.suggestedQty;
+    }).length + (dr.added || 0) + (dr.removed || 0);
+  }
+  function draftLineCount(dr) { return dr.lines.length; }
+  function draftsTotalLines(d) {
+    return d.list.reduce(function (n, dr) { return n + dr.lines.length; }, 0);
+  }
+  function draftsTotalEdits(d) {
+    return d.list.reduce(function (n, dr) { return n + draftEdits(dr); }, 0);
+  }
+
   /* F20 — C9. It reports what actually happened, and the two zeroes are the
-     whole point: this prototype prepared drafts and did nothing else. */
+     whole point: this preview prepared drafts and did nothing else. */
   function drawS05Prepared() {
     const d = state.drafts;
     const n = d.list.length;
+    const edits = draftsTotalEdits(d);
     render(
       chrome("S05", { back: true }) +
       '<main class="ob-main">' +
@@ -1267,6 +1628,7 @@
           '<h1 class="ob-done-h">' + n + (n === 1 ? " draft prepared" : " drafts prepared") + "</h1>" +
           '<div class="ob-done-list">' +
             '<div class="ob-done-row"><span>Held for your review</span><b>' + n + "</b></div>" +
+            (edits ? '<div class="ob-done-row"><span>Edited by you</span><b>' + edits + "</b></div>" : "") +
             '<div class="ob-done-row"><span>Sent to shops</span><b>' + d.sent + "</b></div>" +
             '<div class="ob-done-row"><span>Written to your accounts</span><b>' + d.written + "</b></div>" +
           "</div>" +
@@ -1274,75 +1636,383 @@
       "</main>" +
       '<footer class="ob-foot">' +
         '<button class="ob-cta" id="b-review">Review ' + n + (n === 1 ? " draft" : " drafts") + "</button>" +
-        '<button class="ob-skip" id="b-go">Go to FoodBridge</button>' +
+        /* NN14 — "Go to FoodBridge" went to a customer search that had no
+           relationship to any of this. This names the destination and that
+           destination actually holds the drafts. */
+        '<button class="ob-skip" id="b-go">Open Order Drafts</button>' +
       "</footer>"
     );
-    const back = $("#b-back");
-    if (back) back.addEventListener("click", goBack);
-    /* Wrapped, not passed by reference: openDraftsSheet's first argument
-       selects a single draft, and a bare handler would hand it the click
-       event instead — which is not an index, and is not null either. */
-    $("#b-review").addEventListener("click", function () { openDraftsSheet(); });
-    $("#b-go").addEventListener("click", function () { handoff("customer-management/stock-audit-health"); });
+    $("#b-review").addEventListener("click", function () { openDraftsListSheet(); });
+    $("#b-go").addEventListener("click", function () { handoff("sales-orders/order-drafts"); });
   }
 
-  /* SHEET 9 — F21, the drafts. Quantities are editable; the suggested figure
-     sits beside each one and never moves. Discarding is explicit. */
-  function openDraftsSheet(only) {
+  /* SHEET 9 — F21, the drafts LIST. One row per draft, not 146 number boxes in
+     a single scroll. Opening one is a separate, focused sheet. */
+  function openDraftsListSheet() {
     const d = state.drafts;
-    const list = only != null ? [d.list[only]] : d.list;
-
+    if (!d || !d.list.length) return;
     openSheet({
-      title: only != null ? list[0].name : "Your drafts",
-      count: only != null ? null : d.list.length,
-      body: list.map(function (dr, idx) {
-        const i = only != null ? only : idx;
-        return '<div class="ob-draft">' +
-          (only != null ? "" : '<div class="ob-draft-h"><b>' + esc(dr.name) + "</b>" +
-            '<span class="ob-draft-b">' + (dr.basis === "recommended" ? "Suggested" : "Repeat") + "</span></div>") +
-          '<div class="ob-draft-lines">' +
-            dr.lines.map(function (l, li) {
-              return '<div class="ob-dl">' +
-                '<span class="ob-dl-n">' + esc(shortName(l.name)) + "</span>" +
-                (l.suggestedQty != null
-                  ? '<span class="ob-dl-s">' + l.suggestedQty + " suggested</span>"
-                  : '<span class="ob-dl-s">last ordered</span>') +
-                '<input class="ob-dl-q" type="number" min="0" value="' + l.qty +
-                  '" data-d="' + i + '" data-l="' + li + '" aria-label="Quantity">' +
-              "</div>";
-            }).join("") +
-          "</div>" +
-        "</div>";
-      }).join(""),
+      title: "Your drafts",
+      count: d.list.length,
+      body:
+        '<div class="ob-dlist">' +
+          d.list.map(function (dr, i) {
+            const e = draftEdits(dr);
+            return '<button class="ob-drow" data-draft="' + i + '">' +
+              '<span class="ob-drow-main">' +
+                '<span class="ob-drow-n">' + esc(dr.name) + "</span>" +
+                '<span class="ob-drow-s">' + draftLineCount(dr) + " lines &#183; " +
+                  (dr.basis === "recommended" ? "suggested" : "repeat of last order") + "</span>" +
+              "</span>" +
+              (e ? '<span class="ob-drow-e">Edited</span>' : "") +
+              '<span class="ob-chev">' + ICON.chev + "</span></button>";
+          }).join("") +
+        "</div>",
       actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>' +
                '<button class="ob-skip is-warn" id="s-discard">Discard all drafts</button>',
       bind: function () {
-        $$(".ob-dl-q").forEach(function (inp) {
-          inp.addEventListener("change", function () {
-            const dr = state.drafts.list[Number(inp.dataset.d)];
-            const q = Math.max(0, parseInt(inp.value, 10) || 0);
-            inp.value = q;
-            /* Only `qty` moves. `suggestedQty` is what FoodBridge proposed and
-               is the one thing an edit must never overwrite. */
-            dr.lines[Number(inp.dataset.l)].qty = q;
-            save();
-          });
+        $$("[data-draft]").forEach(function (b) {
+          b.addEventListener("click", function () { openDraftEditor(Number(b.dataset.draft)); });
         });
         $("#s-close").addEventListener("click", closeSheet);
-        $("#s-discard").addEventListener("click", function () {
-          state.sheet = null;
-          state.drafts = null;
-          state.stage = "choose";
-          save();
-          draw();
+        $("#s-discard").addEventListener("click", confirmDiscardAll);
+      },
+    });
+  }
+
+  /* SHEET — ONE draft. NN7: full product identity including pack size, the
+     suggested figure beside the edited one, per-line removal, a way to add a
+     product that was missed, and an explicit Save. Edits are held on a working
+     copy so Cancel means cancel. */
+  function openDraftEditor(i) {
+    const src = state.drafts.list[i];
+    if (!state.draftEdit || state.draftEdit.i !== i) {
+      state.draftEdit = {
+        i: i,
+        lines: src.lines.map(function (l) { return { name: l.name, suggestedQty: l.suggestedQty,
+                                                     qty: l.qty, added: !!l.added }; }),
+        adding: false, filter: "", dirty: false, removed: 0,
+      };
+    }
+    const ed = state.draftEdit;
+
+    if (ed.adding) return openDraftAddPicker(src);
+
+    openSheet({
+      title: src.name,
+      count: ed.lines.length,
+      body:
+        '<p class="ob-sheet-p ob-draft-basis">' +
+          (src.basis === "recommended"
+            ? "Built from what this shop usually buys. The suggested figure stays beside every line you change."
+            : "A repeat of this shop's last order, exactly as it was.") + "</p>" +
+        (ed.lines.length
+          ? '<div class="ob-draft-lines">' +
+              ed.lines.map(function (l, li) {
+                const changed = l.suggestedQty != null && l.qty !== l.suggestedQty;
+                return '<div class="ob-dl' + (changed || l.added ? " is-edited" : "") + '">' +
+                  '<span class="ob-dl-n">' + esc(l.name) + "</span>" +
+                  '<span class="ob-dl-s">' +
+                    (l.added ? "added by you"
+                             : l.suggestedQty != null ? l.suggestedQty + " suggested" : "last ordered") +
+                    (changed ? ' <em class="ob-dl-chg">changed</em>' : "") +
+                  "</span>" +
+                  '<input class="ob-dl-q" type="number" inputmode="numeric" pattern="[0-9]*" ' +
+                    'min="0" max="9999" value="' + l.qty +
+                    '" data-l="' + li + '" aria-label="Quantity for ' + esc(l.name) + '">' +
+                  '<button class="ob-dl-x" data-rm="' + li + '" aria-label="Remove ' + esc(l.name) + '">' +
+                    ICON.close + "</button>" +
+                "</div>";
+              }).join("") +
+            "</div>"
+          : '<p class="ob-sheet-p">Every line has been removed. Saving now leaves this draft empty, ' +
+            "so it will be discarded instead.</p>") +
+        '<button class="ob-addline" id="s-add">' + ICON.plusCircle + "Add a product</button>",
+      actions: '<button class="ob-cta" id="s-save">' +
+                 (ed.dirty ? "Save changes" : "Done") + "</button>" +
+               '<button class="ob-skip" id="s-cancel">' + (ed.dirty ? "Cancel" : "Back to drafts") + "</button>",
+      bind: function () {
+        $$(".ob-dl-q").forEach(function (inp) {
+          /* Tapping a quantity means replacing it, not appending to it. Without
+             this, tapping "8" and typing 42 leaves 428 — the caret lands where
+             the thumb did. Selecting on focus makes the first keystroke the
+             new value, which is what a number field on a phone should do. */
+          inp.addEventListener("focus", function () {
+            setTimeout(function () { try { inp.select(); } catch (e) {} }, 0);
+          });
+          inp.addEventListener("change", function () {
+            const q = Math.min(9999, Math.max(0, parseInt(inp.value, 10) || 0));
+            inp.value = q;
+            ed.lines[Number(inp.dataset.l)].qty = q;
+            ed.dirty = true;
+            openDraftEditor(i);
+          });
+        });
+        $$("[data-rm]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            ed.lines.splice(Number(b.dataset.rm), 1);
+            /* Counted as it happens. Deriving it from the line total afterwards
+               reports 0 when a line is also added, which is how one removal and
+               one addition cancelled each other out. */
+            ed.removed += 1;
+            ed.dirty = true;
+            openDraftEditor(i);
+          });
+        });
+        $("#s-add").addEventListener("click", function () { ed.adding = true; openDraftEditor(i); });
+        $("#s-save").addEventListener("click", function () { saveDraftEdit(); });
+        $("#s-cancel").addEventListener("click", function () {
+          if (!ed.dirty) { state.draftEdit = null; return openDraftsListSheet(); }
+          confirmDropEdit();
+        });
+      },
+      onClose: function () { /* the X is handled by confirmDropEdit via goBack */ },
+    });
+  }
+
+  /* The product picker, inside the same sheet rather than stacked on top of
+     it — one sheet at a time is the whole reason a sheet is legible. */
+  function openDraftAddPicker(src) {
+    const ed = state.draftEdit;
+    const have = {};
+    ed.lines.forEach(function (l) { have[l.name] = true; });
+    const all = ((window.SEED || {}).products || []).filter(function (p) { return !have[p.name]; });
+    const q = ed.filter.trim().toLowerCase();
+    const hits = (q ? all.filter(function (p) { return p.name.toLowerCase().indexOf(q) >= 0; }) : all).slice(0, 40);
+
+    openSheet({
+      title: "Add a product",
+      body:
+        '<input class="ob-search" id="s-q" type="search" enterkeyhint="search" ' +
+          'autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search ' +
+          all.length + ' products" value="' + esc(ed.filter) + '" aria-label="Search products">' +
+        (hits.length
+          ? '<div class="ob-reclist">' +
+              hits.map(function (p, k) {
+                return '<button class="ob-rec ob-rec-btn" data-add="' + k + '">' +
+                  '<span class="ob-rec-a">' + esc(p.name) + "</span>" +
+                  '<span class="ob-rec-b">' + ICON.plusCircle + "</span></button>";
+              }).join("") +
+            "</div>"
+          : '<p class="ob-sheet-p">No product matches that.</p>'),
+      actions: '<button class="ob-cta ob-ghost" id="s-back">Back to the draft</button>',
+      bind: function () {
+        const qi = $("#s-q");
+        qi.addEventListener("input", function () {
+          ed.filter = qi.value;
+          const pos = qi.selectionStart;
+          openDraftAddPicker(src);
+          const again = $("#s-q");
+          if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {} }
+        });
+        $$("[data-add]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            const pr = hits[Number(b.dataset.add)];
+            ed.lines.push({ name: pr.name, suggestedQty: null, qty: 1, added: true });
+            ed.dirty = true;
+            ed.adding = false;
+            ed.filter = "";
+            openDraftEditor(ed.i);
+          });
+        });
+        $("#s-back").addEventListener("click", function () {
+          ed.adding = false; ed.filter = ""; openDraftEditor(ed.i);
         });
       },
     });
   }
 
+  /* An explicit Save, and the record of what FoodBridge proposed survives it:
+     `suggestedQty` is copied through untouched so "changed" stays computable
+     for the life of the draft. */
+  function saveDraftEdit() {
+    const ed = state.draftEdit;
+    if (!ed) return;
+    const dr = state.drafts.list[ed.i];
+    dr.lines = ed.lines.map(function (l) {
+      return { name: l.name, suggestedQty: l.suggestedQty, qty: l.qty, added: l.added };
+    });
+    dr.removed = (dr.removed || 0) + ed.removed;
+    dr.added = dr.lines.filter(function (l) { return l.added; }).length;
+
+    if (!dr.lines.length) {
+      /* An empty draft is not a draft. Removing it is a deletion, so it is
+         confirmed like one. */
+      const name = dr.name;
+      openSheet({
+        title: "Remove this draft?",
+        body: '<p class="ob-sheet-p">Every line has been removed from ' + esc(name) +
+              ", so there is nothing left to send. The draft will be deleted.</p>",
+        actions: '<button class="ob-cta is-warn" id="s-del">Delete this draft</button>' +
+                 '<button class="ob-skip" id="s-keep">Keep editing</button>',
+        bind: function () {
+          $("#s-del").addEventListener("click", function () {
+            state.undo = { drafts: JSON.parse(JSON.stringify(state.drafts)),
+                           label: "1 draft deleted" };
+            state.drafts.list.splice(ed.i, 1);
+            state.draftEdit = null;
+            if (!state.drafts.list.length) { state.drafts = null; state.stage = "choose"; }
+            save();
+            state.sheet = null;
+            draw();
+          });
+          $("#s-keep").addEventListener("click", function () { openDraftEditor(ed.i); });
+        },
+      });
+      return;
+    }
+    state.draftEdit = null;
+    save();
+    openDraftsListSheet();
+  }
+
+  function confirmDropEdit() {
+    const ed = state.draftEdit;
+    openSheet({
+      title: "Discard your changes?",
+      body: '<p class="ob-sheet-p">The quantities and lines you changed on this draft will ' +
+            "go back to what they were. The draft itself is kept.</p>",
+      actions: '<button class="ob-cta is-warn" id="s-drop">Discard changes</button>' +
+               '<button class="ob-skip" id="s-keep">Keep editing</button>',
+      bind: function () {
+        $("#s-drop").addEventListener("click", function () {
+          state.draftEdit = null; openDraftsListSheet();
+        });
+        $("#s-keep").addEventListener("click", function () { openDraftEditor(ed.i); });
+      },
+    });
+  }
+
+  /* NN6 — deleting every draft was one unconfirmed tap on a button sitting
+     directly under Close. It now states the exact consequence and is undoable. */
+  function confirmDiscardAll() {
+    const d = state.drafts;
+    const n = d.list.length, lines = draftsTotalLines(d), edits = draftsTotalEdits(d);
+    openSheet({
+      title: "Discard all " + n + " drafts?",
+      body:
+        '<p class="ob-sheet-eyebrow">' + ICON.alert + "WHAT YOU LOSE</p>" +
+        '<ul class="ob-sheet-ul">' +
+          "<li>" + n + " draft" + (n === 1 ? "" : "s") + " covering " + lines + " lines</li>" +
+          (edits ? "<li>" + edits + " quantit" + (edits === 1 ? "y" : "ies") + " you changed yourself</li>" : "") +
+        "</ul>" +
+        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT STAYS</p>" +
+        '<ul class="ob-sheet-ul"><li>The ' + (state.opp ? state.opp.total : 0) +
+          " shops that stopped ordering &#8212; you can prepare drafts again</li>" +
+          "<li>Nothing was sent, so nothing is recalled</li></ul>",
+      actions: '<button class="ob-cta is-warn" id="s-drop">Discard ' + n + " drafts</button>" +
+               '<button class="ob-skip" id="s-keep">Keep them</button>',
+      bind: function () {
+        $("#s-drop").addEventListener("click", function () {
+          state.undo = { drafts: JSON.parse(JSON.stringify(state.drafts)),
+                         label: n + (n === 1 ? " draft" : " drafts") + " discarded" };
+          state.drafts = null;
+          state.draftEdit = null;
+          state.stage = "choose";
+          save();
+          state.sheet = null;
+          draw();
+        });
+        $("#s-keep").addEventListener("click", closeSheet);
+      },
+    });
+  }
+
+  function undoBar() {
+    if (!state.undo) return "";
+    return '<div class="ob-undo"><span>' + esc(state.undo.label) + "</span>" +
+           '<button id="b-undo">Undo</button></div>';
+  }
+  function bindUndo() {
+    const b = $("#b-undo");
+    if (b) b.addEventListener("click", function () {
+      state.drafts = state.undo.drafts;
+      state.undo = null;
+      state.stage = "prepared";
+      save();
+      draw();
+    });
+  }
+
+  /* ------------------------------------------ the drafts destination (NN5) */
+
+  /* A real place the drafts live, reachable from the sidebar as Sales Orders →
+     Order Drafts and at #/sales-orders/order-drafts. It reads the same record
+     the flow writes, so a draft prepared in onboarding is here on the next
+     load, after a refresh, and in a fresh tab of the same session.
+
+     It is the same module and the same draft sheets — not a second
+     implementation that could disagree with the first. */
+  function drawDraftsHome() {
+    const d = state.drafts;
+    const biz = (state.profile.business || "").trim();
+    const parked = state.parked && !d;
+
+    render(
+      '<header class="ob-brand"><span class="ob-word">Food<em>Bridge</em></span></header>' +
+      (provenanceChip() ? '<div class="ob-navrow"><span></span>' + provenanceChip() + "</div>" : "") +
+      '<main class="ob-main">' +
+        '<p class="ob-eyebrow">ORDER DRAFTS' + (biz ? " &#183; " + esc(biz.toUpperCase()) : "") + "</p>" +
+        undoBar() +
+        (d && d.list.length
+          ? '<h1 class="ob-h1">' + d.list.length +
+              (d.list.length === 1 ? " draft held for review" : " drafts held for review") + "</h1>" +
+            '<div class="ob-done-list ob-ledger">' +
+              '<div class="ob-done-row"><span>Lines in total</span><b>' + draftsTotalLines(d) + "</b></div>" +
+              '<div class="ob-done-row"><span>Edited by you</span><b>' + draftsTotalEdits(d) + "</b></div>" +
+              '<div class="ob-done-row"><span>Sent to shops</span><b>' + d.sent + "</b></div>" +
+              '<div class="ob-done-row"><span>Written to your accounts</span><b>' + d.written + "</b></div>" +
+            "</div>" +
+            '<div class="ob-dlist">' +
+              d.list.map(function (dr, i) {
+                const e = draftEdits(dr);
+                return '<button class="ob-drow" data-draft="' + i + '">' +
+                  '<span class="ob-drow-main">' +
+                    '<span class="ob-drow-n">' + esc(dr.name) + "</span>" +
+                    '<span class="ob-drow-s">' + draftLineCount(dr) + " lines &#183; " +
+                      (dr.basis === "recommended" ? "suggested" : "repeat of last order") + "</span>" +
+                  "</span>" +
+                  (e ? '<span class="ob-drow-e">Edited</span>' : "") +
+                  '<span class="ob-chev">' + ICON.chev + "</span></button>";
+              }).join("") +
+            "</div>"
+          : parked
+            ? '<h1 class="ob-h1">You left this for later</h1>' +
+              '<div class="ob-park">' + ICON.clock +
+                "<p>" + (state.opp ? state.opp.total : 0) + " shops stopped ordering. " +
+                "Nothing has been prepared or sent.</p></div>"
+            : '<h1 class="ob-h1">No drafts yet</h1>' +
+              '<p class="ob-quiet">Drafts you prepare are held here for review. ' +
+              "Nothing is sent to a shop and nothing is written to your accounts.</p>") +
+      "</main>" +
+      '<footer class="ob-foot">' +
+        (d && d.list.length
+          ? '<button class="ob-cta" id="b-review">Review ' + d.list.length +
+              (d.list.length === 1 ? " draft" : " drafts") + "</button>" +
+            '<button class="ob-skip is-warn" id="b-discard">Discard all drafts</button>'
+          : '<button class="ob-cta" id="b-resume">' +
+              (parked ? "Pick it up" : "Start onboarding") + "</button>") +
+      "</footer>"
+    );
+
+    const prov = $("#b-prov");
+    if (prov) prov.addEventListener("click", openProvenanceSheet);
+    bindUndo();
+    $$("[data-draft]").forEach(function (b) {
+      b.addEventListener("click", function () { openDraftEditor(Number(b.dataset.draft)); });
+    });
+    const rv = $("#b-review");
+    if (rv) rv.addEventListener("click", function () { openDraftsListSheet(); });
+    const dc = $("#b-discard");
+    if (dc) dc.addEventListener("click", confirmDiscardAll);
+    const rs = $("#b-resume");
+    if (rs) rs.addEventListener("click", function () { handoff("onboarding"); });
+  }
+
   /* ---------------------------------------------------------------- run */
 
   function draw() {
+    if (state.view === "drafts") return drawDraftsHome();
     if (state.op) return drawOp();
     if (state.screen === "S01") return drawS01();
     if (state.screen === "S02") return drawS02();
@@ -1351,9 +2021,69 @@
     return drawS04();
   }
 
+  /* ── the keyboard ────────────────────────────────────────────────────────
+     iOS does not shrink the layout viewport when the keyboard opens, so a
+     footer stuck to `bottom: 0` sits underneath it and the primary action
+     disappears exactly when the user has finished typing. The visual viewport
+     does know, so the keyboard's height is published as a custom property and
+     the footer and the open sheet lift by it.
+
+     Nothing here changes what is on screen — only where the bottom of the
+     screen currently is. */
+  function trackKeyboard() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let raf = 0;
+    /* Safari puts a form accessory bar (the ^ v Done strip) between the page
+       and the keyboard, and reports it as neither. Measured at 44pt on every
+       iPhone size here. Only iOS Safari draws one, so only iOS pays for it. */
+    const ACCESSORY = CSS.supports("-webkit-touch-callout", "none") ? 44 : 0;
+    const apply = function () {
+      raf = 0;
+      /* How much of the LAYOUT viewport sits below the bottom edge of the
+         VISUAL viewport — which is where the keyboard starts. iOS shrinks the
+         layout viewport too, so measuring against innerHeight alone
+         under-reports it by whatever the layout already gave up. */
+      const hidden = window.innerHeight - (vv.offsetTop + vv.height);
+      const open = hidden > 1;
+      const covered = open ? Math.max(0, hidden) + ACCESSORY : 0;
+      document.documentElement.style.setProperty("--ob-kb", Math.round(covered) + "px");
+      document.documentElement.classList.toggle("ob-kb-open", open);
+    };
+    const schedule = function () { if (!raf) raf = requestAnimationFrame(apply); };
+    vv.addEventListener("resize", schedule);
+    vv.addEventListener("scroll", schedule);
+    apply();
+  }
+
+  /* Bring the focused field into the space the keyboard leaves. Safari does
+     this for its own idea of the viewport and gets it wrong inside a sheet
+     that scrolls on its own, which is where every quantity field lives. */
+  function keepFocusVisible(e) {
+    const el = e.target;
+    if (!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
+    setTimeout(function () {
+      const r = el.getBoundingClientRect();
+      const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ob-kb")) || 0;
+      const floor = window.innerHeight - kb - 16;
+      if (r.bottom > floor || r.top < 8) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }, 320);                                   // after the keyboard animation
+  }
+
   function mount() {
     if (!window.FB_EVIDENCE) throw new Error("evidence.js must load before onboarding.js");
+    trackKeyboard();
+    document.addEventListener("focusin", keepFocusVisible);
     restore();                                   // C7 — a reload lands where it left
+    /* The drafts destination is the SAME module under a different view, so the
+       drafts it shows are the drafts the flow wrote — not a second copy that
+       could drift from the first. */
+    if (new URLSearchParams(location.search).get("view") === "drafts") {
+      state.view = "drafts";
+      if (state.mode && !state.opp) { try { state.opp = buildOpportunity(); } catch (e) {} }
+    }
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && state.sheet) closeSheet();
     });
@@ -1363,6 +2093,8 @@
   window.FB_ONBOARDING = {
     mount, buildModel, buildOpportunity, supportingSignals, openOpportunity,
     runOp, cancelOp, openSheet, closeSheet, goBack, draw, save, restore, forget, state,
+    drawDraftsHome, openDraftsListSheet, openDraftEditor, confirmDiscardAll,
+    gstOk, useSample, parkOpportunity, draftEdits, draftsTotalLines, draftsTotalEdits,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = window.FB_ONBOARDING;
 })();

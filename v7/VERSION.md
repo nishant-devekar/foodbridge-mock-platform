@@ -47,6 +47,12 @@ opens from a decision already in progress and returns where it came from.
 key from `assets/modules.json`; onboarding claims it *without* joining the
 sidebar, because it is not a place the user comes back to.
 
+**The drafts it prepares have a destination: Sales Orders → Order Drafts**, at
+`#/sales-orders/order-drafts`. It is the same module under `?view=drafts`, so it
+reads the record the flow wrote rather than a second copy that could disagree
+with it. Everything the flow creates is reachable there afterwards, including
+after a reload and from a cold entry into the sidebar.
+
 **Mobile is the target.** 375×812 is what it was designed and reviewed against.
 
 ## What is real, and what is not
@@ -56,11 +62,12 @@ words rather than in a footnote:
 
 | | |
 | --- | --- |
-| Connecting to Tally / Zoho / Vyapar | `SIMULATED` — the interaction is real, the ingestion is not |
-| Extraction, mapping, validation | `SIMULATED` |
-| GST verification | `SIMULATED` — nothing is looked up |
-| Draft preparation | `SIMULATED` — drafts are held in the browser, sent to nobody, written to no accounting system |
-| The order history behind the insight | **real** — 532 orders, 3,931 lines, 39 of 40 shops, Aug 2024 → Aug 2026, from the tenant's own Zoho export |
+| Connecting to Tally / Zoho / Vyapar | `NOT BUILT` — never contacted. The consent sheet says so **before** the user commits, and choosing one loads a demonstration business |
+| Whose records the flow shows | `DEMONSTRATION` — in every mode, marked by an amber chip on every screen from S03 on, which opens a sheet explaining it |
+| Extraction, mapping, validation | `NOT BUILT` — reports that it read nothing, inside the sheet the user opened |
+| GSTIN check | `FORMAT ONLY` — no lookup, and it claims none: it reads "Format checked" |
+| Draft preparation | **real in the browser** — held at Order Drafts, reviewable and editable, sent to nobody, written to no accounting system |
+| The order history behind the insight | **real** — 532 orders, 3,931 lines, 39 of 40 shops, Aug 2024 → Aug 2026, from the tenant's own Zoho export, used here as the demonstration business |
 | The reorder engine | **real** — back-tested at 66.5% precision / 69.6% recall on 171 unseen 2026 orders |
 
 The confirm sheet names what does *not* happen, and the prepared screen repeats it
@@ -133,3 +140,262 @@ independent:
 Verified running from this repository at 375×812: a bare `/v7/` opens onboarding,
 the engines compute 532 / 86 / 40 and the 23 overdue shops, the sample-business
 marker stays amber on every screen, and there are no console errors.
+
+### 16 September 2026 — the closed-loop correction pass
+
+A production review drove every path in this flow and found it **not shippable**:
+six P0 failures across provenance, exits, destructive actions and the draft
+workflow. This is the single pass that answers them. The five-screen
+architecture is unchanged, no screen gained content, and every new explanation
+is in a sheet.
+
+**Provenance — the flow no longer claims anything it did not do.**
+
+- Choosing Tally, Zoho or Vyapar used to run "Connecting to Tally → Reading
+  order history" and land on *"Here's what we received — 532 orders"*, badged
+  *"Tally · connected"*, with the inspect sheet citing a *"Tally export"*. The
+  same 532/86/40 came back from the sample business, because the connectors
+  always returned the demonstration dataset. A distributor would have believed
+  FoodBridge had read their books. The consent sheet now states the boundary
+  before the user commits, the operation's steps describe what actually
+  happens, the chip reads **"Tally · demo data"** in the same amber the sample
+  uses, and it opens a sheet explaining whose records these are. The words
+  "connected" and "export" are gone from the customer-facing UI.
+- The badge used to appear on *opening* a consent sheet and survive **Cancel**,
+  so the flow claimed a Zoho connection the user had declined. `state.source`
+  is now written in the operation's `onDone` and nowhere else. It also never
+  degrades to "Your data": the source that produced the data keeps its name
+  through any later failure.
+- The inspect sheets printed the orders' date range and shop count under
+  Products and Customers too. Each record type now carries its own provenance.
+
+**Exits — nothing leaves the flow by accident, and nothing leaves it for good.**
+
+- S04's supporting rows navigated the whole window into the Stock Audit module:
+  onboarding abandoned, demonstration marker dropped, no way back, and the
+  screen it landed on did not even show the thing that was tapped. They open a
+  **sheet** now.
+- "Not now" went to a dashboard full of invented rupee figures — breaking this
+  flow's own third rule two taps after honouring it — with no confirmation and
+  no route back, because onboarding has no sidebar entry. It now confirms, parks
+  the opportunity on the persisted record, and lands on Order Drafts, which
+  offers **Pick it up**.
+- The second supporting count on S04 (*"32 shops ready for a reorder"*, beside a
+  headline of 23) is **removed**. It was a rival count, worded almost
+  identically, derived differently, and supported no decision the screen asked
+  for. What remains — stock — is a different dimension and opens a sheet saying
+  what it is for.
+- S02 now marks the source already in use and offers **See what we received**.
+  A user who reached it from a failure could previously only return to their own
+  data by running a read again.
+
+**Failures stay in context, and nothing offers an input that cannot succeed.**
+
+- A failed document read replaced the whole screen, removed the Back control and
+  offered "Try another way", which dumped the user at source selection. It is
+  now a result state **inside the sheet they opened**: S03 is untouched behind
+  it, the primary action is *Keep what we have*, and it says plainly that
+  reading documents is not implemented and will not succeed for any file.
+- The S03 gap rows offered "Add", a file picker and a camera for evidence this
+  tenant has none of and this preview cannot ingest — a guaranteed failure that
+  invited the customer to blame their own documents. They are now **What this
+  needs**: the requirement, what it would unlock, and no input at all.
+- Below the floor the flow was a closed loop — "Connect" returned to S02, which
+  returned below the floor, and both uploads failed. It now names what is
+  missing and what it would unlock, and carries a forward path that works.
+  `?evidence=none` no longer empties the sample, because the sample is that
+  forward path.
+
+**S05 is a real draft-review workflow.**
+
+- 16 drafts in one sheet of 146 number boxes became a **list, one row per
+  draft**, each opening its own editor.
+- Product names were shortened to the point of collision: `KING CHILLI PICKLE
+  (100 gm)` and `KING CHILLI PICKLE (pet Jar)` both rendered as "king chilli
+  pickle" in the same order. Drafts and shop sheets now show the **full name**.
+- Lines can be **removed**, products can be **added** from the catalogue, there
+  is an **explicit Save**, and an edit is **visible** — the line is marked
+  *changed*, `suggestedQty` stays beside it, and the draft is badged *Edited*.
+  Cancelling a dirty edit confirms first.
+- **Discard is protected.** It deleted 16 drafts and every edit on one
+  unconfirmed tap, from a button under "Close". It now states the exact loss
+  (drafts, lines, edits), and it is **undoable**.
+- "Clear all" cleared only the recommended group while the counter still
+  reported the leftover selection. It clears all of it.
+- Both brief rows are buttons, and all seven "need your eye" shops are
+  reachable — four of them were named in inert text and could not be opened.
+
+**S01 is must-have only, and the GSTIN badge is tied to a value.**
+
+- "✓ Verified" survived editing the GSTIN to a different value and survived
+  clearing the field, and the Verify button never came back. The check is now
+  bound to `gstCheckedFor`, the exact string it ran against; any change or a
+  clear invalidates it and Check returns. It also validates **format**, says so
+  ("Format checked"), and no longer fills in a business name it cannot know.
+- "HOW WE REACH YOU" — name, mobile, email — accepted `not-a-phone-!!!` and was
+  read by nothing, kept by nothing and reached nobody. The three fields are
+  **removed** rather than validated into looking real. Business name stays
+  because it is now used: it titles Order Drafts. Continue is blocked without it
+  and says why.
+
+**The file path now declares itself, and a chosen file can be un-chosen.**
+
+- "Choose your files" carried no consent block while all three connectors did —
+  the one path that actually takes the customer's documents said less about
+  what happens to them than the paths that take nothing. It now carries the
+  same two headings: what we'll read (only the files you pick, looking for
+  customers, products and order history) and what won't change (nothing is
+  uploaded; they are read in this browser and kept nowhere), plus the preview
+  boundary before a file is chosen.
+- Chosen files were plain text with no way to remove one, so picking the wrong
+  document meant cancelling the sheet and starting over. Each row now carries a
+  remove control, the Read button re-disables when the last one goes, and the
+  input is reset after each pick so the same filename can be chosen again.
+
+**Other**
+
+- `assets/platform.js` loads a module with `location.replace()` rather than by
+  assigning `src`, so a frame load no longer pushes its own history entry. The
+  deeper problem is noted in that file and **not fixed**: see below.
+- Storage key `fb.v5.onboarding` → `fb.v7.onboarding`; the profile and the
+  parked flag persist alongside the drafts.
+- The Sales Orders nav item becomes a group of two — the module's own list, and
+  Order Drafts. That is a deliberate departure from the copied QA sidebar, taken
+  because a destination nothing links to is not a destination.
+
+**Known and not fixed.** A browser Back that lands on an entry whose hash has
+not changed can have the browser restore an earlier frame document, so the
+sidebar and address bar name one destination while the frame shows another. It
+fires neither `hashchange` nor `popstate` on the shell's window, so the shell
+cannot see it to correct it. It **predates this pass and affects every
+destination** — Dashboard → Workforce Management → Back reproduces it. Fixing it
+means the shell owning its history entries instead of letting frame loads create
+them, which is a change to the shell's routing, not to this flow.
+
+Verified at 375×812 and at 1280×860, in the shell and standalone: every P0 above
+re-tested against the review's own steps, no console errors, and the engines
+still compute 532 / 86 / 40, 23 overdue, 16 preparable, 7 needing an eye.
+
+**One draft object, everywhere.** A sixteen-step acceptance test drove the whole
+loop: prepare 16, edit a quantity in the first draft, save, close, reach Order
+Drafts by clicking the sidebar, confirm the same 16 and that both the edited and
+the suggested quantity survived, refresh, return to onboarding, delete exactly
+one draft, and confirm it is gone from both views. The flow and the destination
+are two views of one record: a single `sessionStorage` key, `fb.v7.onboarding`,
+byte-identical when read from the shell and from the module, with no
+`localStorage`, no IndexedDB and no cookie holding a second copy.
+
+### 16 September 2026 — the mobile pass
+
+Driven on real devices in the iOS Simulator, not an emulated viewport: an
+**iPhone SE (3rd gen)** at 375x667 with a home button, and an **iPhone 16 Pro**
+at 402x874 with a Dynamic Island and a home indicator. Nothing below changes
+the flow, the data model or the locked UX; no screen gained a word.
+
+**The keyboard.** Every editable field sat below 16px, so iOS Safari zoomed the
+page on focus and never zoomed back — the layout stayed panned sideways for the
+rest of the session. `.ob-fr input`, `.ob-dl-q` and `.ob-search` are now 16px
+(and the placeholder with them, so text does not resize the moment typing
+starts). Separately, iOS does not shrink the layout viewport by the keyboard's
+full height, so the sticky footer sat underneath it and the primary action
+disappeared exactly when the user finished typing. `trackKeyboard()` publishes
+what the keyboard actually covers as `--ob-kb`, measured against the VISUAL
+viewport, and adds the 44pt Safari form accessory bar that is reported by
+neither; the footer pins itself above it and the open sheet shrinks to match.
+`sticky` could not do this — on a short screen it never reaches its threshold.
+
+**Autocorrect was editing the customer's business name.** Typing "Miha Foods"
+stored "Mina Foods", and nothing downstream could know. Every field now carries
+`autocorrect="off" spellcheck="false"`, with `autocapitalize` set per field, and
+`enterkeyhint` set so the return key says what it does.
+
+**Scroll position survived nothing.** `render()` scrolled to the top on every
+call, and opening a sheet is a render — so tapping the twelfth shop to look at
+it returned the list to the first. The page now only returns to the top when the
+SCREEN changes.
+
+**The page scrolled behind open sheets.** Dragging the scrim slid the screen
+underneath away while the sheet stayed put. `applyScrollLock()` fixes the body
+at its current offset while a sheet is open and restores it on close.
+
+**Hit targets.** Fourteen controls measured under 44px, including the S05
+checkbox at 27px (tapped more than anything else in the flow), "Why this
+matters" at 18px tall, and every secondary action — Cancel, Not now, Discard
+all drafts — at 28px. The quiet ones keep their drawn size and gain an
+invisible `::after` expander, because a 44px checkbox would shout louder than
+the shop name beside it; the rest grew properly.
+
+**Quantity editing.** Tapping a quantity put a caret where the thumb landed, so
+tapping "8" and typing 42 gave 428. The field selects on focus, and carries
+`inputmode="numeric"`.
+
+**Density.** The S03 gap rows wrapped three deep at phone width because the
+label, its consequence and its action shared one line. The action drops below
+the text at <=430px — same elements, same words.
+
+**Safe areas.** `env(safe-area-inset-top)` on the brand header and left/right
+insets on the app column, alongside the bottom inset the footer and sheet
+already had.
+
+Verified on both devices after the fixes: no zoom on focus, the CTA clears the
+keyboard and the accessory bar, "Miha Foods" is stored as typed, the quantity
+field replaces rather than appends, the edited line reads "8 suggested changed",
+Save lands and the draft is badged Edited, and a reload returns to the prepared
+drafts. Emulated sweeps at 320, 360, 375, 390, 402 and 430 report no horizontal
+scroll on any screen and no control under 44px. 320 could not be covered on a
+real device: the narrowest iPhone this runtime offers is 375.
+
+One caution for anyone re-testing: **Safari remembers page zoom per origin.** A
+device that visited this build before the 16px fix keeps the old zoom and looks
+broken until its website data is cleared. Testing from a second origin
+(127.0.0.1 rather than localhost) confirms it in seconds.
+
+### 16 September 2026 — input-focus zoom, measured rather than assumed
+
+The previous entry claimed the 16px rule fixed focus zoom on the evidence of
+screenshots. That was not proof. This entry records measured before/after
+viewport state from both devices, taken with a temporary probe that captured
+`visualViewport.scale`, `devicePixelRatio`, `innerWidth/Height`,
+`visualViewport.width/height/offsetLeft/offsetTop`, `scrollX/Y` and the
+document, body and clientWidth, at three moments: immediately before the field
+was touched, after focus settled, and after the keyboard closed.
+
+**The first round of testing was invalid.** The Simulator had a hardware
+keyboard attached, so the software keyboard never appeared and nothing that
+depends on it was being exercised. `ConnectHardwareKeyboard` is now off.
+
+**Measured, iPhone 16 Pro, business name, fresh origin:**
+
+| | scale | inner | visual | offset | scrollX | doc / client |
+| --- | --- | --- | --- | --- | --- | --- |
+| before | 1 | 402x714 | 402x714 | 0,0 | 0 | 402 / 402 |
+| focused | **1** | 402x714 | 402x404 | **0**,0 | **0** | 402 / 402 |
+| closed | **1** | 402x714 | 402x714 | **0**,0 | **0** | 402 / 402 |
+
+**Measured, iPhone 16 Pro, draft quantity (`type=number`, inside a sheet):**
+before `scale 1`, focused `scale 1` with `offsetLeft 0`, `scrollX 0`,
+`doc 402 = clientWidth`, closed `scale 1` and offsets back to `0,0`. The keypad
+that appears is numeric.
+
+**Measured, iPhone SE 3rd gen, business name:** `scale 1` before and after,
+`scrollX 0`, `doc 375 = clientWidth`, `offsetLeft 0`.
+
+**Measured, product search (`type=search`, inside a scrollable sheet):**
+`scale 1 -> 1`, `scrollX 0`, `offsetLeft 0`, `doc 402 = clientWidth`.
+
+The invariant holds on every editable control in the flow, on both devices, at
+1x, with no horizontal pan and no document wider than the viewport.
+
+**What the residual report was.** Safari persists page zoom **per origin**,
+indefinitely. A device that loaded this build before the 16px fix keeps that
+zoom, and the app looks panned and zoomed on every later visit until the site's
+data is cleared — the page cannot reset it, and should not be able to. It
+reproduces on `localhost` and disappears on `127.0.0.1` on the same device in
+the same minute, which is how to tell it apart from a live defect in seconds.
+
+**One real gap closed by this round.** `-webkit-text-size-adjust` was never set,
+so Safari remained free to inflate text on its own and silently undercut the
+16px floor the inputs depend on. `html, body` now pins it to 100%. The viewport
+meta is unchanged and deliberately still carries **no `maximum-scale` and no
+`user-scalable=no`** — the user's own pinch zoom is not taken away to solve a
+layout problem.

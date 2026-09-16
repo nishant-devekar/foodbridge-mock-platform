@@ -459,7 +459,29 @@
     };
 
     state.currentUrl = pickUrl(dest.leaf);
-    frame.src = state.currentUrl;
+    /* REPLACE, don't push. Assigning `frame.src` adds an entry to the tab's
+       joint session history, so one Back press rewinds the IFRAME while the
+       shell's own hash stays where it was — the address bar and the sidebar
+       then name one destination while the frame shows another. Using
+       location.replace() keeps the shell's hash the single source of truth for
+       what is on screen, which is what Back and Forward actually navigate.
+       KNOWN, PRE-EXISTING, AND NOT FIXED BY THIS: a Back that lands on an
+       entry whose hash is unchanged can still have the browser restore an
+       earlier frame document, so the sidebar and the address bar name one
+       destination while the frame shows another. It fires no hashchange and
+       no popstate on this window — a frame-only traversal notifies neither —
+       so the shell cannot see it to correct it. It reproduces between any two
+       destinations (Dashboard to Workforce Management does it) and predates
+       the drafts route. Fixing it means the shell owning its own history
+       entries rather than letting frame loads create them. */
+    try {
+      /* Always replace, including the first load: the frame starts on the
+         initial about:blank, and replacing into that adds nothing to history
+         either. Assigning `.src` at any point is what pushes the entry. */
+      frame.contentWindow.location.replace(state.currentUrl);
+    } catch (e) {
+      frame.src = state.currentUrl;                       // cross-origin: fall back
+    }
     document.title = dest.leaf.name + " — FoodBridge";
   }
 
@@ -656,6 +678,7 @@
     window.addEventListener("hashchange", function () {
       go(routeFromHash());
     });
+
 
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {

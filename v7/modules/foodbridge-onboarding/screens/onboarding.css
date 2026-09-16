@@ -51,20 +51,43 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* Held by applyScrollLock() while a sheet is open. `position: fixed` is the
+   only thing iOS Safari reliably honours; the offset is restored on release
+   so the page does not jump back to the top. */
+body.ob-locked {
+  position: fixed; left: 0; right: 0; width: 100%;
+  overflow: hidden; overscroll-behavior: none;
+}
+
 html, body {
   margin: 0; padding: 0;
   background: var(--card);
   color: var(--ink);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  /* Stops Safari inflating text on its own, which would silently break the
+     16px floor the inputs rely on and is a second, quieter route to a zoomed
+     page. It does NOT block the user's own pinch zoom: the viewport meta sets
+     no maximum-scale and no user-scalable=no, so accessibility zoom stays. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.ob-app { max-width: 460px; margin: 0 auto; background: var(--card); }
+.ob-app {
+  max-width: 460px; margin: 0 auto; background: var(--card);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
 /* The FLEX COLUMN lives on #ob-root, which is what the router replaces. */
 #ob-root { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 
 /* ── chrome ──────────────────────────────────────────────────────────── */
-.ob-brand { display: flex; align-items: center; gap: 11px; padding: 16px 20px 13px; }
+/* The status bar and the Dynamic Island sit above this. In Safari the browser
+   chrome usually covers it, but a focus-zoom scroll (and standalone/PWA
+   display) put the wordmark straight under the clock. */
+.ob-brand {
+  display: flex; align-items: center; gap: 11px;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 13px;
+}
 .ob-word { font-size: 17px; font-weight: 700; letter-spacing: -.022em; }
 .ob-word em { font-style: normal; color: var(--brand); }
 .ob-brand-sep { width: 1px; height: 15px; background: var(--line); }
@@ -102,9 +125,15 @@ html, body {
 .ob-fr label { font-size: 10.5px; font-weight: 650; letter-spacing: .04em; color: var(--muted-2); text-transform: uppercase; }
 .ob-fr input {
   width: 100%; border: 0; outline: none; background: none; padding: 3px 0 0;
-  font-family: var(--font); font-size: 15px; color: var(--ink);
+  font-family: var(--font); color: var(--ink);
+  /* 16px is not a style choice. iOS Safari zooms the page on focus for any
+     editable field below it and never zooms back out, which left the layout
+     panned sideways for the rest of the session. Every editable field in this
+     flow is at or above the threshold. */
+  font-size: 16px;
 }
-.ob-fr input::placeholder { color: var(--muted-2); font-size: 14.5px; }
+/* Matches the input, so the text does not resize the moment typing starts. */
+.ob-fr input::placeholder { color: var(--muted-2); font-size: 16px; }
 .ob-fr:focus-within { background: #fbfefc; }
 .ob-fr:focus-within > svg { color: var(--brand); }
 .ob-fr.is-ok { background: var(--brand-50); }
@@ -311,11 +340,14 @@ html, body {
   font-family: var(--font); font-size: 11.5px; font-weight: 650; letter-spacing: .01em;
 }
 .ob-prov > svg { width: 15px; height: 15px; }
-.ob-prov.is-sample {
+/* ONE provenance treatment. There is no "connected" chip any more, because
+   nothing in this preview connects — both a chosen connector and the sample
+   yield demonstration data, and the chip says so in the same amber either
+   way. It is always a button: "whose data is this?" has an answer. */
+.ob-prov.is-demo {
   color: var(--amber-tx); background: var(--amber-bg);
   border: 1px solid var(--amber-line); cursor: pointer;
 }
-.ob-prov.is-real { color: var(--muted); background: var(--line-2); border: 1px solid transparent; }
 
 .ob-provdemo {
   display: flex; align-items: center; gap: 9px;
@@ -521,14 +553,14 @@ html, body {
   font-size: 11px; font-weight: 700; letter-spacing: .04em;
   color: var(--muted); background: var(--line-2);
 }
-.ob-draft-lines { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
-.ob-dl { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
-.ob-dl + .ob-dl { border-top: 1px solid var(--line-2); }
-.ob-dl-n { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ob-dl-s { flex: 0 0 auto; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.ob-draft-lines { border: 1px solid var(--line); border-radius: var(--r); padding: 0 12px; }
+.ob-draft-lines .ob-dl:first-child { border-top: 0; }
+/* The draft LINE is laid out in the correction-pass block below. It used to
+   be a single ellipsised row, which is how two different pack sizes of the
+   same pickle became the same line of text. */
 .ob-dl-q {
-  flex: 0 0 auto; width: 58px; padding: 7px 8px; text-align: center;
-  font-family: var(--font); font-size: 14px; font-weight: 650; color: var(--ink);
+  width: 62px; padding: 9px 8px; text-align: center;
+  font-family: var(--font); font-size: 16px; font-weight: 650; color: var(--ink);
   background: var(--card); border: 1px solid var(--line); border-radius: 9px;
   font-variant-numeric: tabular-nums;
 }
@@ -555,4 +587,253 @@ html, body {
   .ob-sheet-grip { display: none; }
   .ob-sheet-h { padding-top: 20px; }
   .ob-sheet-h, .ob-sheet-b, .ob-sheet-f { padding-left: 26px; padding-right: 26px; }
+}
+
+
+/* ======================================================================
+   P0 CORRECTION PASS — the draft workflow, the drafts destination, and the
+   states that had no styling because they had no implementation.
+   ====================================================================== */
+
+/* S01 — the one field-level error this form can produce. */
+.ob-fielderr {
+  display: flex; align-items: center; gap: 7px;
+  margin: 9px 2px 0; font-size: 12.5px; color: var(--warn-tx, #b4232a);
+}
+.ob-fielderr > svg { flex: 0 0 auto; width: 15px; height: 15px; }
+
+/* S05 brief — both rows are buttons now, so they need a target and a chevron. */
+button.ob-brief-r {
+  width: 100%; text-align: left; background: none; border: 0;
+  font: inherit; color: inherit; cursor: pointer;
+  padding-right: 4px;
+}
+button.ob-brief-r .ob-chev { margin-left: auto; color: var(--muted-2); display: inline-flex; }
+button.ob-brief-r:active { opacity: .6; }
+
+/* The draft list — one row per draft, which is what replaced 146 number
+   boxes in a single scroll. */
+.ob-dlist { display: flex; flex-direction: column; margin-top: 4px; }
+.ob-drow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 2px; background: none; border: 0; border-top: 1px solid var(--line-2);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.ob-drow:first-child { border-top: 0; }
+.ob-drow:active { opacity: .6; }
+.ob-drow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ob-drow-n {
+  font-size: 14px; font-weight: 640; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ob-drow-s { font-size: 12px; color: var(--muted); }
+.ob-drow-e {
+  flex: 0 0 auto; padding: 3px 8px; border-radius: 99px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--amber-tx); background: var(--amber-bg);
+}
+
+/* The single-draft editor. A changed line has to be visible AS changed —
+   the suggested figure stays beside it and never moves. */
+.ob-draft-basis { margin-bottom: 14px; }
+.ob-dl { display: grid; grid-template-columns: 1fr auto auto; align-items: center;
+         gap: 6px 10px; padding: 11px 0; border-top: 1px solid var(--line-2); }
+.ob-dl-n {
+  grid-column: 1 / 2; grid-row: 1;
+  font-size: 13.5px; line-height: 1.35; color: var(--ink);
+  white-space: normal; text-overflow: clip; overflow: visible; overflow-wrap: anywhere;
+}
+.ob-dl-s { grid-column: 1 / 2; grid-row: 2; font-size: 11.5px; color: var(--muted-2); }
+.ob-dl-q { grid-column: 2 / 3; grid-row: 1 / 3; }
+.ob-dl-x {
+  grid-column: 3 / 4; grid-row: 1 / 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--muted-2); cursor: pointer;
+}
+.ob-dl-x:hover, .ob-dl-x:active { color: var(--warn-tx, #b4232a); background: var(--line-2); }
+.ob-dl.is-edited .ob-dl-n { font-weight: 640; }
+.ob-dl-chg { font-style: normal; font-weight: 700; color: var(--amber-tx); }
+
+.ob-addline {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 14px; padding: 12px;
+  border: 1px dashed var(--line); border-radius: var(--r);
+  background: none; font: inherit; font-size: 13.5px; font-weight: 600;
+  color: var(--brand, #159a4e); cursor: pointer;
+}
+.ob-addline:active { opacity: .6; }
+
+.ob-search {
+  width: 100%; margin: 4px 0 12px; padding: 11px 13px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  font: inherit; font-size: 16px; color: var(--ink); background: var(--bg, #fff);
+}
+.ob-rec-btn { width: 100%; background: none; border: 0; border-top: 1px solid var(--line-2);
+              font: inherit; text-align: left; cursor: pointer; }
+.ob-rec-btn:active { opacity: .6; }
+.ob-rec-btn .ob-rec-b { color: var(--brand, #159a4e); display: inline-flex; }
+
+/* Undo — the other half of a confirmed destructive action. */
+.ob-undo {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 16px; padding: 11px 14px; border-radius: var(--r);
+  background: var(--ink); color: #fff; font-size: 13px;
+}
+.ob-undo button {
+  background: none; border: 0; padding: 4px 2px; font: inherit;
+  font-weight: 700; color: #fff; text-decoration: underline; cursor: pointer;
+}
+
+/* The drafts destination. */
+.ob-ledger { margin: 18px 0 22px; }
+.ob-park {
+  display: flex; align-items: flex-start; gap: 11px;
+  margin-top: 16px; padding: 14px; border-radius: var(--r);
+  background: var(--line-2); color: var(--muted);
+}
+.ob-park > svg { flex: 0 0 auto; color: var(--muted-2); }
+.ob-park p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+
+/* Desktop — the flow is designed at 375 but the shell can hand it any width,
+   and a 900px column of phone UI is not a desktop layout. */
+@media (min-width: 720px) {
+  .ob-app { max-width: 560px; margin: 0 auto; }
+}
+
+/* S02 — the source already in use, and the way back to what it produced. */
+.ob-source.is-on, .ob-samplerow.is-on { border-color: var(--brand); background: var(--brand-50); }
+.ob-source-on {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  font-size: 11px; font-weight: 700; color: var(--brand);
+}
+.ob-source-on > svg { width: 14px; height: 14px; }
+.ob-source-on + .ob-chev { margin-left: 8px; }
+
+/* A chosen file can be un-chosen. Picking the wrong one used to mean
+   cancelling the whole sheet and starting again. */
+.ob-chosen-r { justify-content: flex-start; }
+.ob-chosen-r > span { flex: 1 1 auto; min-width: 0; }
+.ob-chosen-x {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin-left: 4px; padding: 0;
+  border: 0; border-radius: 8px; background: none; color: var(--muted-2); cursor: pointer;
+}
+.ob-chosen-x:hover, .ob-chosen-x:active { color: var(--warn-tx, #b4232a); background: var(--line-2); }
+
+/* ======================================================================
+   MOBILE PASS — hit targets.
+
+   Every control below measured under 44px on a phone. The rule is to grow
+   the TOUCH area without growing the visual weight: a 44px checkbox drawn
+   at 44px would shout louder than the shop name beside it, and a "Why this
+   matters" link set in a 44px slab stops reading as a link. So the small,
+   deliberately quiet controls keep their drawn size and gain an invisible
+   expander; the ones whose size was simply mean grow properly.
+   ====================================================================== */
+
+/* — chrome — */
+.ob-back { width: 44px; height: 44px; margin-left: -12px; }
+.ob-prov { position: relative; }
+.ob-prov::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  height: 44px; transform: translateY(-50%);
+}
+
+/* — S01 — */
+.ob-verify { min-height: 44px; padding: 0 18px; }
+
+/* — S02 — */
+.ob-samplerow { min-height: 52px; padding: 15px 4px 8px; }
+
+/* — S03 — */
+.ob-addlink { min-height: 44px; padding: 6px 12px; }
+
+/* — S04 — a quiet link that must still be tappable. */
+.ob-why { position: relative; }
+.ob-why::after {
+  content: ""; position: absolute; left: -8px; right: -8px; top: 50%;
+  height: 44px; transform: translateY(-50%);
+}
+
+/* — S05 selection — the checkbox is tapped more than anything else here. */
+.ob-shop-pick { width: 44px; min-height: 44px; align-self: stretch; }
+.ob-selbar-a { min-height: 44px; padding: 0 4px; }
+.ob-morebtn { min-height: 44px; }
+
+/* — sheets — */
+.ob-sheet-x { width: 40px; height: 40px; }
+.ob-sheet-x::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 44px; height: 44px; transform: translate(-50%, -50%);
+}
+.ob-sheet-x { position: relative; }
+.ob-chip { min-height: 44px; }
+
+/* Secondary actions — Cancel, Not now, Try other files, Discard all drafts.
+   Underlined text is the right weight for them; 28px of height is not. */
+.ob-skip { min-height: 44px; padding: 6px 14px; }
+
+/* — files — */
+.ob-chosen-r { min-height: 48px; }
+.ob-chosen-x { width: 44px; height: 44px; }
+
+/* — draft editing — the remove control sits beside the quantity field, and a
+   thumb that misses one must not hit the other. Separated, and the row is
+   given the height to make both comfortable. */
+.ob-dl { padding: 13px 0; gap: 6px 12px; }
+.ob-dl-q { min-height: 44px; }
+.ob-dl-x { width: 44px; height: 44px; margin-left: 2px; }
+
+/* One-thumb reach: the primary action is already bottom-anchored, and the
+   destructive one is never the nearest thing to the thumb. */
+.ob-sheet-f .ob-skip.is-warn { margin-top: 8px; }
+
+/* S01 rows: the input was 21px of tappable height inside a 62px row, so two
+   thirds of what looks like a text field did nothing. The label already
+   carries `for`, so it focuses the input; the input is given the rest of the
+   row. Between them the whole row is live, which is what it looks like. */
+.ob-fr-main { align-self: stretch; justify-content: center; padding: 6px 0; }
+.ob-fr label { padding-bottom: 2px; cursor: text; }
+.ob-fr input { flex: 1 1 auto; min-height: 30px; padding: 2px 0 0; }
+
+/* ── the keyboard ───────────────────────────────────────────────────────
+   --ob-kb is how much of the layout viewport the on-screen keyboard covers,
+   published by trackKeyboard(). iOS never shrinks the layout viewport, so
+   without this the sticky footer and the sheet footer both sit under the
+   keyboard and the primary action vanishes while the user is typing. */
+:root { --ob-kb: 0px; }
+
+/* `sticky` cannot help here: on a short screen the footer never reaches its
+   sticky threshold, so it simply sits at the bottom of the flow — underneath
+   the keyboard. While the keyboard is up it is pinned to the viewport instead,
+   lifted by exactly what the keyboard covers. */
+.ob-kb-open .ob-foot {
+  position: fixed; z-index: 30;
+  left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 460px;
+  bottom: var(--ob-kb);
+  background: var(--card);
+  border-top: 1px solid var(--line-2);
+}
+.ob-kb-open .ob-main { padding-bottom: 96px; }
+
+/* An open sheet is bottom-anchored too, and its footer holds Save. */
+.ob-sheet {
+  bottom: var(--ob-kb);
+  max-height: calc(88dvh - var(--ob-kb));
+  transition: bottom .18s ease, max-height .18s ease;
+}
+
+/* While the keyboard is up the safe-area padding is doubling up with it. */
+.ob-kb-open .ob-foot { padding-bottom: 12px; }
+.ob-kb-open .ob-sheet { padding-bottom: 0; }
+
+/* S03 gap rows at phone width: the label, its consequence and the action were
+   fighting for one line, so every row wrapped three deep. The action drops
+   under the text instead — same elements, same words, room to read them. */
+@media (max-width: 430px) {
+  .ob-orow { flex-wrap: wrap; row-gap: 4px; }
+  .ob-orow-main { flex: 1 1 100%; min-width: 0; }
+  .ob-addlink { margin-left: 34px; padding-left: 0; }
 }

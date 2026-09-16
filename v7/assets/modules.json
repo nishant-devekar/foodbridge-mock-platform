@@ -150,10 +150,25 @@
       "id": "sales-orders",
       "name": "Sales Orders",
       "icon": "shoppingCart",
-      "url": "modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
-      "clipLeft": 256,
-      "owner": "nishant-devekar/foodbridge-sales-orders-mockup",
-      "hideBurger": true
+      "submenus": [
+        {
+          "id": "orders-list",
+          "name": "Sales Orders",
+          "url": "modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-sales-orders-mockup",
+          "hideBurger": true
+        },
+        {
+          "_why": "The destination onboarding hands prepared drafts to. Same module as onboarding under ?view=drafts, so it reads the record the flow wrote rather than a second copy of it.",
+          "id": "order-drafts",
+          "name": "Order Drafts",
+          "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts",
+          "clipLeft": 0,
+          "fullBleed": true,
+          "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+        }
+      ]
     },
     {
       "id": "distribution-logistics",
