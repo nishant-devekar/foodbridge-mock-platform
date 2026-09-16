@@ -1,0 +1,548 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Procurement — "Screen 03: Purchase Forecast Drawer"
+  Standalone-openable: open this file directly to review the screen in isolation.
+  Also reachable from Screen 02's "View Forecast Details" button.
+
+  Pixel-by-pixel replica (Phase 2 of 7 — see addendum-003) of:
+    storefront-frontend/src/components/drawer/PurchaseForecastDrawer.jsx (chrome)
+    storefront-frontend/src/components/common/PurchaseForecastTable.jsx (the widget)
+  wrapped in the shared MainDrawer.jsx chrome (backdrop + right slide-over panel + close button).
+
+  Outgoing transitions:
+    - Close (X) button / backdrop click → screen-02.html
+    - "Add to Purchase (N)" footer button (bulk, checkbox-selected rows) → screen-04.html
+    - Row "+" Add button (single item, immediate) → screen-04.html?fromForecast=1&onlyItem=... —
+      opens straight into Create Purchase Order with just that item's qty prefilled (addendum-011)
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  Use ../seed-data/seed.json for data. Disposable — informs the SSOTs, not imported by development/.
+
+  Fidelity notes (see addendum-003 outcome for the full simplification list):
+    - MainDrawer chrome (backdrop + right panel + red circular close button) is approximated
+      with plain CSS; the real one uses rc-drawer with Escape/back-button close-guards.
+    - Category filter is a checkbox dropdown standing in for react-select's multi-select.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Foodbridge Module Procurement — Screen 03: Purchase Forecast Drawer</title>
+<style>
+  :root {
+    color-scheme: light;
+    --green-50: #f0fdf4;
+    --green-100: #dcfce7;
+    --green-200: #bbf7d0;
+    --green-400: #4ade80;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --green-700: #15803d;
+    --purple-100: #f3e8ff;
+    --purple-700: #7e22ce;
+    --red-50: #fef2f2;
+    --gray-800: #1f2937;
+    --emerald-50: #ecfdf5; --emerald-100: #d1fae5; --emerald-200: #a7f3d0; --emerald-500: #10b981;
+    --emerald-600: #059669; --emerald-700: #047857;
+    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0; --slate-500: #64748b; --slate-600: #475569; --slate-900: #0f172a;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db; --gray-400: #9ca3af;
+    --gray-500: #6b7280; --gray-600: #4b5563; --gray-700: #374151; --gray-900: #111827;
+    --amber-50: #fffbeb; --amber-100: #fef3c7; --amber-600: #d97706; --amber-700: #b45309;
+    --red-50: #fef2f2; --red-100: #fee2e2; --red-500: #ef4444; --red-600: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; color: var(--gray-900); font-size: 14px; background: var(--gray-200); }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* ============ App shell — sidebar + header (see addendum-009) ============ */
+  .app-shell { display: flex; min-height: 100vh; }
+  .app-sidebar {
+    width: 256px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--gray-200);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04); position: fixed; top: 0; left: 0; bottom: 0; z-index: 5;
+    overflow-y: auto; scrollbar-width: none; transition: transform .25s ease;
+  }
+  .app-sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-inner { padding: 0 12px 16px; display: flex; flex-direction: column; height: 100%; }
+  .brand-row { height: 56px; display: flex; align-items: center; border-bottom: 1px solid var(--gray-200); margin-bottom: 12px; flex-shrink: 0; }
+  .brand-link { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px; text-decoration: none; color: inherit; width: 100%; }
+  .brand-bag { width: 28px; height: 28px; flex-shrink: 0; color: var(--emerald-500); }
+  .brand-name { font-size: 13.5px; font-weight: 700; color: var(--gray-800); }
+
+  .nav-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  .nav-scroll::-webkit-scrollbar { display: none; }
+  .nav-list { list-style: none; margin: 8px 0 0; padding: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .nav-leaf-link, .nav-group-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px;
+    border: none; background: none; font-size: 13.5px; color: var(--gray-600); cursor: pointer; text-align: left; text-decoration: none;
+  }
+  .nav-leaf-link:hover, .nav-group-btn:hover { background: var(--gray-100); }
+  .nav-leaf-link.active, .nav-group-btn.active { background: var(--green-50); color: var(--green-700); }
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .nav-group-btn { justify-content: space-between; }
+  .nav-group-btn .ngb-left { display: flex; align-items: center; }
+  .nav-group-btn .ngb-label { margin-left: 16px; }
+  .nav-group-chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--gray-400); }
+
+  .nav-sub { list-style: none; margin: 4px 0 0 32px; padding: 0; display: none; flex-direction: column; gap: 4px; }
+  .nav-sub.open { display: flex; }
+  .nav-sub-link { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12.5px; color: var(--gray-600); text-decoration: none; }
+  .nav-sub-link:hover { background: var(--gray-100); }
+  .nav-sub-link.active { background: var(--green-100); color: var(--green-700); font-weight: 600; }
+  .nav-sub-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  .nav-bottom { flex-shrink: 0; padding-top: 12px; border-top: 1px solid var(--gray-200); display: flex; flex-direction: column; gap: 8px; }
+  .nav-bottom .qr-icon { color: var(--green-600); }
+
+  .main-col { flex: 1; min-width: 0; margin-left: 256px; }
+
+  .app-header { position: sticky; top: 0; z-index: 6; height: 56px; background: #fff; border-bottom: 1px solid var(--gray-200); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .app-header-row { height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+  @media (min-width: 640px) { .app-header-row { padding: 0 24px; } }
+  .header-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .hamburger-btn { border: none; background: none; padding: 8px; border-radius: 8px; cursor: pointer; color: var(--gray-600); display: flex; }
+  .hamburger-btn:hover { background: var(--gray-100); }
+  .page-title { font-size: 15px; font-weight: 600; color: var(--gray-700); letter-spacing: -0.01em; margin: 0; }
+
+  .header-right { position: relative; }
+  .profile-trigger { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+  .profile-trigger:hover { background: var(--gray-50); }
+  .avatar-wrap { position: relative; }
+  .avatar-circle { width: 40px; height: 40px; border-radius: 999px; background: linear-gradient(135deg, var(--green-500), var(--emerald-600));
+    color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); box-sizing: border-box;
+    border: 2px solid var(--green-200); }
+  .status-dot { position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; border-radius: 999px; background: var(--green-400); border: 2px solid #fff; }
+  .profile-text { display: flex; flex-direction: column; }
+  .profile-text .pname { font-size: 13px; font-weight: 700; color: var(--gray-800); }
+  .profile-text .prole { font-size: 11px; font-weight: 600; color: var(--green-600); }
+  .profile-chevron { width: 15px; height: 15px; color: var(--gray-400); transition: transform .15s; }
+  .profile-trigger.open .profile-chevron { transform: rotate(180deg); }
+
+  .profile-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 224px; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.15); overflow: hidden; z-index: 7; }
+  .profile-dropdown.open { display: block; }
+  .pd-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--gray-700);
+    cursor: pointer; border: none; background: none; width: 100%; text-align: left; text-decoration: none; box-sizing: border-box; }
+  .pd-row:hover { background: var(--green-50); color: var(--green-700); }
+  .pd-row.danger { color: var(--red-600, #dc2626); }
+  .pd-row.danger:hover { background: var(--red-50); }
+  .pd-divider { border-top: 1px solid var(--gray-200); }
+  .preview-badge { font-size: 9.5px; font-weight: 700; background: var(--purple-100); color: var(--purple-700); padding: 1px 7px; border-radius: 999px; }
+
+  .page-behind { max-width: 1280px; margin: 0 auto; padding: 24px; }
+  .page-behind .ph-toolbar { height: 56px; background: #fff; border: 1px solid var(--gray-200); border-radius: 12px; margin-bottom: 20px; }
+  .page-behind .ph-row { height: 64px; background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 10px; }
+
+  .backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 10; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 100%; max-width: 100%; background: #fff;
+    z-index: 11; display: flex; flex-direction: column; box-shadow: -8px 0 30px rgba(0,0,0,.15); }
+  @media (min-width: 576px) { .drawer { width: 82%; } }
+
+  .close-btn {
+    position: absolute; top: 1rem; right: 1rem; z-index: 12; width: 40px; height: 40px; border-radius: 999px;
+    background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15); border: none; color: var(--red-500); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .close-btn:hover { background: var(--red-100); }
+
+  .drawer-header { flex-shrink: 0; padding: 20px 24px; border-bottom: 1px solid var(--slate-200); background: var(--slate-50);
+    display: flex; align-items: center; gap: 12px; }
+  .header-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--emerald-100); color: var(--emerald-700);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .drawer-header h2 { margin: 0; font-size: 16px; }
+  .drawer-header .sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+  .drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 24px 12px; }
+
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .search-box { position: relative; flex: 1; min-width: 200px; }
+  .search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .search-box input { width: 100%; height: 40px; padding: 0 12px 0 34px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 13.5px; }
+
+  .cat-filter-wrap { position: relative; }
+  .cat-filter-btn { height: 40px; padding: 0 12px; border: 1px solid var(--gray-300); border-radius: 8px; background: #fff;
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .cat-filter-menu { display: none; position: absolute; top: calc(100% + 4px); left: 0; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 180px; z-index: 5; padding: 6px; }
+  .cat-filter-menu.open { display: block; }
+  .cat-filter-menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .cat-filter-menu label:hover { background: var(--gray-50); }
+
+  .restock-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--amber-100); color: var(--amber-700);
+    font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; margin-bottom: 14px; }
+
+  /* desktop table */
+  .fc-table-wrap { border: 1px solid var(--slate-200); border-radius: 10px; overflow: hidden; }
+  .fc-row { display: grid; grid-template-columns: 24px minmax(0,2.4fr) minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,0.9fr) minmax(0,1.3fr) 80px;
+    gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--slate-100); }
+  .fc-row.head { background: var(--slate-50); font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--slate-600); letter-spacing: .03em; }
+  .fc-row:last-child { border-bottom: none; }
+  .fc-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--emerald-600); }
+  .fc-product { display: flex; align-items: center; gap: 10px; }
+  .fc-product .img { width: 34px; height: 34px; border-radius: 6px; background: var(--gray-100); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: var(--gray-400); }
+  .fc-product .name { font-weight: 600; font-size: 13px; }
+  .fc-product .meta { font-size: 11px; color: var(--gray-500); }
+  .fc-product .cat-chip { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--emerald-50); color: var(--emerald-700); margin-top: 3px; }
+  .fc-gap { font-weight: 700; }
+  .fc-gap.zero { color: var(--gray-400); font-weight: 400; }
+  .fc-gap.nonzero { color: var(--red-600); }
+  .fc-qty-input { width: 68px; height: 32px; border: 1px solid var(--gray-300); border-radius: 6px; padding: 0 8px; font-size: 13px; text-align: center; }
+  .fc-add-btn { height: 32px; padding: 0 16px; border-radius: 8px; border: none; background: var(--emerald-600); color: #fff; cursor: pointer;
+    font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .fc-add-btn:hover { background: var(--emerald-700); }
+
+  /* mobile cards */
+  /* states */
+  .fc-loading .skel-row { height: 52px; border-radius: 8px; background: linear-gradient(90deg,#e5e7eb 25%,#f3f4f6 37%,#e5e7eb 63%);
+    background-size: 400% 100%; animation: shimmer 1.4s ease infinite; margin-bottom: 8px; }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  .fc-empty, .fc-error { text-align: center; padding: 40px 20px; color: var(--gray-500); }
+  .fc-empty svg, .fc-error svg { margin-bottom: 10px; color: var(--gray-300); }
+  .fc-error button { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gray-300);
+    background: #fff; border-radius: 8px; padding: 7px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+
+  /* sticky footer */
+  .drawer-footer { flex-shrink: 0; border-top: 1px solid var(--slate-200); background: #fff; padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .footer-text { font-size: 12.5px; color: var(--gray-600); }
+  .footer-text strong { color: var(--gray-900); }
+  .btn-add-purchase { display: inline-flex; align-items: center; gap: 8px; border: none; background: var(--emerald-600); color: #fff;
+    font-weight: 700; font-size: 13.5px; padding: 11px 20px; border-radius: 8px; cursor: pointer; }
+  .btn-add-purchase:disabled { background: var(--gray-300); cursor: not-allowed; }
+  .btn-add-purchase:not(:disabled):hover { background: var(--emerald-700); }
+
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-inner">
+      <div class="brand-row">
+        <a class="brand-link" href="#">
+          <svg class="brand-bag" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7V6a6 6 0 0 1 12 0v1h2a1 1 0 0 1 1 1l-1.2 12a2 2 0 0 1-2 1.8H6.2a2 2 0 0 1-2-1.8L3 8a1 1 0 0 1 1-1h2Zm2 0h8V6a4 4 0 0 0-8 0v1Z"/></svg>
+          <span class="brand-name">QA store</span>
+        </a>
+      </div>
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li>
+            <button type="button" class="nav-group-btn" data-group="production">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg><span class="ngb-label">Production</span></span>
+              <svg class="nav-group-chevron" data-chevron="production" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-production">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Batch Management</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Semifinished Products</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Configure Recipe</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="inventory">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg><span class="ngb-label">Inventory</span></span>
+              <svg class="nav-group-chevron" data-chevron="inventory" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-inventory">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Finished Goods Inventory</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Raw Material Inventory</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="audit">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span class="ngb-label">Stock Audit Settlement</span></span>
+              <svg class="nav-group-chevron" data-chevron="audit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-audit">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Stock Audits</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Settlement Approvals</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn active" data-group="procurement">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="ngb-label">Procurement</span></span>
+              <svg class="nav-group-chevron" data-chevron="procurement" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-procurement">
+              <li><a class="nav-sub-link" href="screen-09.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Management</a></li>
+              <li><a class="nav-sub-link active" href="screen-02.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Purchase Orders</a></li>
+            </ul>
+          </li>
+          <li>
+            <button type="button" class="nav-group-btn" data-group="finance">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg><span class="ngb-label">Finance</span></span>
+              <svg class="nav-group-chevron" data-chevron="finance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-finance">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Customer Receivables</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Payables</a></li>
+            </ul>
+          </li>
+          <li><a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Workforce Management</a></li>
+        </ul>
+      </div>
+      <div class="nav-bottom">
+        <a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8c0 4.5-6 9-6 9s-6-4.5-6-9a6 6 0 0 1 12 0"/><circle cx="12" cy="8" r="2"/></svg>Route Delivery</a>
+        <button type="button" class="nav-leaf-link" id="btnStoreQr"><svg class="nav-icon qr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M17 17h1v1h-1z"/><path d="M14 21h1v1h-1z"/><path d="M21 14v1"/><path d="M21 21h1"/></svg>Store QR Code</button>
+      </div>
+    </div>
+  </aside>
+  <div class="main-col">
+    <header class="app-header">
+      <div class="app-header-row">
+        <div class="header-left">
+          <button type="button" class="hamburger-btn" id="hamburgerBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1 class="page-title">Purchase Orders</h1>
+        </div>
+        <div class="header-right">
+          <div class="profile-trigger" id="profileTrigger">
+            <div class="avatar-wrap">
+              <div class="avatar-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+              <span class="status-dot"></span>
+            </div>
+            <div class="profile-text"><span class="pname">Mahesh</span><span class="prole">Admin</span></div>
+            <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <button type="button" class="pd-row">My Network <span class="preview-badge">Preview</span></button>
+            <button type="button" class="pd-row">Edit Profile</button>
+            <div class="pd-divider"></div>
+            <button type="button" class="pd-row danger">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="page-behind">
+      <div class="ph-toolbar"></div>
+      <div class="ph-row"></div>
+      <div class="ph-row"></div>
+      <div class="ph-row"></div>
+    </main>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="drawer">
+  <button class="close-btn" id="closeBtn" title="Close">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+
+  <div class="drawer-header">
+    <div class="header-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    </div>
+    <div>
+      <h2>Purchase Forecast</h2>
+      <div class="sub">Recommended reorder quantities based on the last 30 days' demand</div>
+    </div>
+  </div>
+
+  <div class="drawer-body">
+    <div id="fcLoading" class="fc-loading" style="display:none">
+      <div class="skel-row"></div><div class="skel-row"></div><div class="skel-row"></div>
+    </div>
+
+    <div id="fcError" class="fc-error" style="display:none">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <div>Couldn't load forecast recommendations.</div>
+      <button id="btnRetry">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Refresh
+      </button>
+    </div>
+
+    <div id="fcEmpty" class="fc-empty" style="display:none">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <div>All products are sufficiently stocked.</div>
+    </div>
+
+    <div id="fcPopulated" style="display:none">
+      <div class="filter-bar">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="fcSearch" placeholder="Search products" />
+        </div>
+        <div class="cat-filter-wrap">
+          <button type="button" class="cat-filter-btn" id="catFilterBtn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Category
+            <span id="catFilterCount"></span>
+          </button>
+          <div class="cat-filter-menu" id="catFilterMenu"></div>
+        </div>
+      </div>
+
+      <div class="restock-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/></svg>
+        Needs Restocking (<span id="restockCount">0</span>)
+      </div>
+
+      <div class="fc-table-wrap">
+        <div class="fc-row head">
+          <span></span><span>Product</span><span>Demand (30d)</span><span>Current Stock</span><span>Gap</span><span>Recommended Qty</span><span></span>
+        </div>
+        <div id="fcTableRows"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="drawer-footer">
+    <div class="footer-text"><strong id="selCount">0</strong> selected · <strong id="selUnits">0</strong> units · opens a new purchase order</div>
+    <button class="btn-add-purchase" id="btnAddPurchase" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Add to Purchase (<span id="addBtnCount">0</span>)
+    </button>
+  </div>
+</div>
+
+<script>
+document.getElementById('profileTrigger').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('profileTrigger').classList.toggle('open');
+  document.getElementById('profileDropdown').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('profileTrigger').classList.remove('open');
+  document.getElementById('profileDropdown').classList.remove('open');
+});
+document.querySelectorAll('.nav-group-btn').forEach(btn => btn.addEventListener('click', () => {
+  const sub = document.getElementById('sub-' + btn.dataset.group);
+  sub.classList.toggle('open');
+  document.querySelector(`[data-chevron="${btn.dataset.group}"]`).style.transform = sub.classList.contains('open') ? '' : 'rotate(180deg)';
+}));
+
+// Explicit JS-driven navigation for real sidebar links (defensive: guarantees navigation
+// even in preview contexts that intercept plain <a> clicks). Placeholder "#" links stay inert.
+document.querySelectorAll('.nav-sub-link, .nav-leaf-link').forEach(link => {
+  const href = link.getAttribute('href');
+  if (href && href !== '#') {
+    link.addEventListener('click', e => { e.preventDefault(); window.location.href = href; });
+  }
+});
+let SEED = null;
+let selected = {};   // productId -> recommendedPurchase qty
+let qtyOverride = {};
+let activeCats = new Set();
+let searchTerm = '';
+
+fetch('../seed-data/seed.json').then(r => r.json()).then(seed => { SEED = seed; init(); });
+
+document.getElementById('closeBtn').addEventListener('click', () => window.location.href = 'screen-02.html');
+document.getElementById('backdrop').addEventListener('click', () => window.location.href = 'screen-02.html');
+
+function deriveRows() {
+  return SEED.forecastRecommendations.map((r, i) => {
+    const shortage = Math.max(r.demand - r.currentStock, 0);
+    return { ...r, id: r.productId || ('row-' + i), shortage, recommendedPurchase: r.recommendedQuantity || shortage };
+  });
+}
+
+function init() {
+  const rows = deriveRows();
+  buildCategoryMenu(rows);
+  renderTable();
+  wire();
+  applyState('populated');
+}
+
+function buildCategoryMenu(rows) {
+  const cats = [...new Set(rows.map(r => r.category))];
+  document.getElementById('catFilterMenu').innerHTML = cats.map(c =>
+    `<label><input type="checkbox" value="${c}" class="cat-cb"> ${c}</label>`).join('');
+  document.querySelectorAll('.cat-cb').forEach(cb => cb.addEventListener('change', () => {
+    if (cb.checked) activeCats.add(cb.value); else activeCats.delete(cb.value);
+    document.getElementById('catFilterCount').textContent = activeCats.size ? `(${activeCats.size})` : '';
+    renderTable();
+  }));
+}
+
+function visibleRows() {
+  return deriveRows().filter(r => {
+    if (activeCats.size && !activeCats.has(r.category)) return false;
+    if (searchTerm && !r.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function renderTable() {
+  const rows = visibleRows();
+  document.getElementById('restockCount').textContent = rows.filter(r => r.shortage > 0).length;
+
+  document.getElementById('fcTableRows').innerHTML = rows.map(r => `
+    <div class="fc-row" data-id="${r.id}">
+      <input type="checkbox" class="row-cb" data-id="${r.id}" ${selected[r.id] !== undefined ? 'checked' : ''}>
+      <div class="fc-product">
+        <div class="img"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/></svg></div>
+        <div>
+          <div class="name">${r.name}</div>
+          <div class="meta">${r.sku}</div>
+          <span class="cat-chip">${r.category}</span>
+        </div>
+      </div>
+      <span>${r.demand} ${r.measurement}</span>
+      <span>${r.currentStock} ${r.measurement}</span>
+      <span class="fc-gap ${r.shortage > 0 ? 'nonzero' : 'zero'}">${r.shortage > 0 ? r.shortage : '—'}</span>
+      <input type="number" class="fc-qty-input qty-input" data-id="${r.id}" value="${qtyOverride[r.id] ?? r.recommendedPurchase}" min="0">
+      <button type="button" class="fc-add-btn row-add" data-id="${r.id}" data-article="${r.articleNumber}" title="Create purchase order for this item">Add</button>
+    </div>
+  `).join('');
+
+  wireRowEvents();
+}
+
+function wireRowEvents() {
+  document.querySelectorAll('.row-cb').forEach(cb => cb.addEventListener('change', () => toggleSelect(cb.dataset.id, cb.checked)));
+  document.querySelectorAll('.row-add').forEach(btn => btn.addEventListener('click', () => {
+    window.location.href = 'screen-04.html?fromForecast=1&onlyItem=' + encodeURIComponent(btn.dataset.article);
+  }));
+  document.querySelectorAll('.qty-input').forEach(inp => inp.addEventListener('input', () => {
+    qtyOverride[inp.dataset.id] = Number(inp.value) || 0;
+    if (selected[inp.dataset.id] !== undefined) selected[inp.dataset.id] = qtyOverride[inp.dataset.id];
+    updateFooter();
+  }));
+}
+
+function toggleSelect(id, on) {
+  const qtyInput = document.querySelector(`.qty-input[data-id="${id}"]`);
+  const qty = qtyOverride[id] ?? Number(qtyInput ? qtyInput.value : 0);
+  if (on) selected[id] = qty; else delete selected[id];
+  renderTable();
+  updateFooter();
+}
+
+function updateFooter() {
+  const ids = Object.keys(selected);
+  const units = ids.reduce((a, id) => a + (selected[id] || 0), 0);
+  document.getElementById('selCount').textContent = ids.length;
+  document.getElementById('selUnits').textContent = units;
+  document.getElementById('addBtnCount').textContent = ids.length;
+  document.getElementById('btnAddPurchase').disabled = ids.length === 0;
+}
+
+function wire() {
+  document.getElementById('fcSearch').addEventListener('input', e => { searchTerm = e.target.value; renderTable(); });
+  document.getElementById('catFilterBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('catFilterMenu').classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.cat-filter-wrap')) document.getElementById('catFilterMenu').classList.remove('open');
+  });
+  document.getElementById('btnRetry').addEventListener('click', () => applyState('populated'));
+  document.getElementById('btnAddPurchase').addEventListener('click', () => {
+    if (Object.keys(selected).length) window.location.href = 'screen-04.html?fromForecast=1';
+  });
+}
+
+function applyState(state) {
+  document.getElementById('fcLoading').style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('fcError').style.display = state === 'error' ? 'block' : 'none';
+  document.getElementById('fcEmpty').style.display = state === 'empty' ? 'block' : 'none';
+  document.getElementById('fcPopulated').style.display = state === 'populated' ? 'block' : 'none';
+}
+</script>
+</body>
+</html>

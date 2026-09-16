@@ -1,0 +1,24 @@
+/* Foodbridge design tokens — matched 100% to the FoodBridge design system
+   (source: discovery design-inputs/foodbridge-design-system.md → discovery styles.css :root).
+   Scoped to .fbp-root so the module carries its own brand without leaking into the host. */
+
+.fbp-root {
+  /* Brand / FoodBridge tokens */
+  --fb-teal-800:#1B6272; --fb-teal-600:#217A8E; --fb-teal-50:#E8F5F7;
+  --fb-green-700:#2D7A42; --fb-green-600:#43A047; --fb-green-50:#F0FDF4; --fb-green-100:#BBF7D0;
+  --fb-orange-600:#F97316; --fb-orange-50:#FFF7ED;
+  --fb-red-600:#EF4444; --fb-red-50:#FEF2F2;
+  --fb-blue-600:#2563EB; --fb-blue-50:#EFF6FF;
+  --fb-bg:#F0F2F5; --fb-surface:#FFFFFF; --fb-border:#E5E7EB; --fb-border-soft:#F1F3F5;
+  --fb-text-primary:#111111; --fb-text-secondary:#555555; --fb-text-muted:#888888; --fb-text-placeholder:#9CA3AF;
+
+  /* App green (existing Spotlight brand kept for minimal change) */
+  --app-green:#1FA463; --app-green-dark:#178a53; --app-green-50:#E9F8F0;
+
+  --radius-sm:8px; --radius-md:12px; --radius-lg:14px; --radius-xl:16px; --radius-full:9999px;
+  --shadow-card:0 1px 4px rgba(0,0,0,.06);
+  --shadow-pop:0 8px 30px rgba(0,0,0,.12);
+  --shadow-drawer:-8px 0 30px rgba(0,0,0,.12);
+  --fb-ease:cubic-bezier(.4,0,.2,1);
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Dashboard — "Dashboard (desktop)"
+  ---------------------------------------------------------------------
+  PIXEL-PARITY RECREATION of https://b2bgreens.com/platform/dashboard.
+
+  Per addendum-003, this screen is built from the real source of the running app
+  (github.com/exagon-ai/storefront-frontend) rather than eyeballed from
+  screenshots. Because that app is Tailwind + @windmill/react-ui, this prototype
+  loads Tailwind from the Play CDN and reuses the app's *literal* class strings,
+  so the two render identically. Provenance for every region:
+
+    region              app source
+    ------------------  ------------------------------------------------------
+    page shell          src/layout/Layout.jsx · src/layout/Main.jsx
+    sidebar             src/components/sidebar/DesktopSidebar.jsx
+                        src/components/sidebar/SidebarContent.jsx
+                        src/components/sidebar/SidebarSubMenu.jsx
+                        src/components/sidebar/StoreSelector.jsx (brand, bag.svg)
+    header              src/components/header/Header.jsx
+    KPI tiles           src/pages/Dashboard.jsx:812-902
+                        src/components/dashboard/CardItemTwo.jsx
+                        src/components/dashboard/DashboardSection.jsx
+    tab strip/filters   src/pages/Dashboard.jsx:1252-1383
+    product sales       src/pages/Dashboard.jsx:1441-1536
+    windmill base       @windmill/react-ui@0.6.0 lib/defaultTheme.js
+                        (Card/CardBody/Table* base classes, inlined here)
+
+  Icons are the real ones, inlined as SVG: lucide-react in the sidebar,
+  react-icons (Im*/Fi*) in the KPI tiles and header — same viewBox and paths as
+  the packages ship. Sidebar icon *names* come from the backend menu config
+  (globalSetting.storefrontMenus), so the specific lucide names here are read off
+  the screenshots — see addendum-003 for the list to confirm.
+
+  Outgoing transitions (→ proto-FSM for SSOT-1 / SSOT-5):
+    - select report tab            → same screen, panel swap (viewing.<tab>)
+    - change period / sort filter  → panel re-query (viewing.<tab>)
+    - expand order row             → order line-items revealed (inline)
+    - change order status          → order.status transition
+    - hover ⚡                      → Smart Insights popover (same screen)
+    - View Timeline                → order-timeline.html?order=<id>&status=<status>
+    - view order                   → order.html?order=<id>&status=<status>
+    - Invoice ▾ → A4 Print         → Tax Invoice document + browser print dialog
+    - Invoice ▾ → Thermal Print    → Thermal Print Preview modal
+    - Follow-up Reminders          → reminders modal (not built yet)
+
+  No frameworks, no build step, no real API calls. Data comes from
+  ../../seed-data/seed.json, mirrored inline in seed.inline.js because file://
+  blocks fetching local JSON. Disposable: informs the SSOTs, never imported by
+  development/.
+-->
+<html lang="en" class="light">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard — Murli (discovery · desktop)</title>
+
+  <!-- Tailwind Play CDN: same utility names as the app's build, no build step -->
+  <script src="../../../../../vendor/tailwind-3.4.17.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          // NOT the Inter stack the app's CSS declares. The deployed app never
+          // actually applies it — measured computed font-family on
+          // b2bgreens.com/platform/dashboard is the system stack below, so that
+          // is what pixel parity means here. See addendum-003 C3.
+          fontFamily: {
+            sans: ['system-ui', 'sans-serif', 'Arial', 'Helvetica'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html,
+    body {
+      font-family: system-ui, sans-serif, Arial, Helvetica;
+    }
+
+    /* [hidden] is a UA rule and loses to any class that sets display
+     (Tailwind's .flex, .block …). Per-tab filter groups rely on it. */
+    [hidden] {
+      display: none !important;
+    }
+
+    /* app: overflow-x-auto thin-scrollbar on the tab rail, and a hidden
+     scrollbar on the sidebar nav (inline style in SidebarContent.jsx) */
+    .thin-scrollbar::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .thin-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+      .rc-nobar::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+
+<body class="antialiased">
+
+  <div class="flex h-[100dvh] bg-gray-50 overflow-x-hidden md:h-screen">
+
+    <!-- ================= SIDEBAR — DesktopSidebar.jsx (hidden below lg) ================= -->
+    <aside class="z-30 flex-shrink-0 hidden shadow-sm w-64 overflow-y-auto bg-white border-r border-gray-200 lg:block">
+      <div class="pt-0 pb-4 px-3 z-40 text-gray-500 flex flex-col h-full" data-sidebar-body>
+
+        <!-- brand — StoreSelector stacked; h-14 matches the header so the rules align -->
+        <div class="h-14 flex items-center border-b border-gray-200 flex-shrink-0 mb-3">
+          <div class="flex items-center gap-3 px-1 py-1.5 rounded-md cursor-default">
+            <a href="dashboard.html" class="flex-shrink-0">
+              <!-- assets/img/icons/bag.svg -->
+              <svg class="w-7 h-7" width="16" height="19" viewBox="0 0 16 19" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12.5714 5.71429V4.57143C12.5714 2.05071 10.5207 0 8 0C5.47929 0 3.42857 2.05071 3.42857 4.57143V5.71429H0V15.4286C0 17.0065 1.27918 18.2857 2.85714 18.2857H13.1429C14.7208 18.2857 16 17.0065 16 15.4286V5.71429H12.5714ZM5.71429 4.57143C5.71429 3.31107 6.73964 2.28571 8 2.28571C9.26036 2.28571 10.2857 3.31107 10.2857 4.57143V5.71429H5.71429V4.57143ZM11.4286 8.85714C10.9552 8.85714 10.5714 8.47339 10.5714 8C10.5714 7.52661 10.9552 7.14286 11.4286 7.14286C11.902 7.14286 12.2857 7.52661 12.2857 8C12.2857 8.47339 11.902 8.85714 11.4286 8.85714ZM4.57143 8.85714C4.09804 8.85714 3.71429 8.47339 3.71429 8C3.71429 7.52661 4.09804 7.14286 4.57143 7.14286C5.04482 7.14286 5.42857 7.52661 5.42857 8C5.42857 8.47339 5.04482 8.85714 4.57143 8.85714Z"
+                  fill="#10B981" />
+              </svg>
+            </a>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="text-sm font-semibold text-gray-800 truncate leading-tight">Murli</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto no-scrollbar" style="scrollbar-width:none;-ms-overflow-style:none">
+          <ul class="mt-2 space-y-2 pb-4" data-nav-list><!-- rendered by dashboard.js --></ul>
+        </div>
+
+        <!-- static Route Delivery entry — not backend-driven, hence the duplicate label -->
+        <div class="border-t border-gray-200 pt-3 mt-1">
+          <a class="text-md transition-colors duration-150 w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-gray-600 hover:bg-gray-100"
+            href="#">
+            <span data-icon="MapPinned" class="w-5 h-5 flex-shrink-0"></span>
+            <span>Route Delivery</span>
+          </a>
+        </div>
+
+        <div class="flex-shrink-0 py-4 w-full space-y-3"></div>
+      </div>
+    </aside>
+
+    <!-- ================= MOBILE SIDEBAR — MobileSidebar.jsx (below lg) =================
+       Same SidebarContent, mirrored into the drawer by dashboard.js. -->
+    <div id="mobile-backdrop"
+      class="fixed inset-0 z-40 flex items-end bg-black bg-opacity-50 sm:items-center sm:justify-center lg:hidden"
+      hidden></div>
+    <aside id="mobile-sidebar"
+      class="fixed inset-y-0 z-[10001] flex-shrink-0 w-64 flex flex-col bg-white lg:hidden transition ease-in-out duration-150"
+      hidden>
+      <div class="flex-1 overflow-y-auto">
+        <div class="pt-0 pb-4 px-3 z-40 text-gray-500 flex flex-col h-full" data-sidebar-body></div>
+      </div>
+    </aside>
+
+    <div class="flex flex-col flex-1 w-full min-h-0 overflow-hidden">
+
+      <!-- ================= HEADER — Header.jsx ================= -->
+      <header
+        class="app-header sticky top-0 z-30 h-14 flex-shrink-0 bg-white border-b border-gray-200 shadow-sm md:flex-shrink">
+        <div class="header-container container-fluid flex items-center justify-between h-full px-3 sm:px-6 mx-auto">
+          <div class="flex min-w-0 items-center gap-1.5">
+            <button type="button" aria-label="Toggle sidebar" id="menu-toggle"
+              class="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+              <!-- FiMenu -->
+              <svg class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <!-- Header.jsx:225-231 — brand shows here only while the sidebar is
+               hidden, i.e. below lg. StoreSelector's inline (non-stacked) layout. -->
+            <div class="flex items-center lg:hidden">
+              <div class="h-5 w-px bg-gray-200 mx-0.5"></div>
+              <div class="flex items-center gap-2 pl-1 pr-2 py-1.5 rounded-md cursor-default">
+                <a href="dashboard.html" class="flex-shrink-0">
+                  <svg class="w-7 h-7" width="16" height="19" viewBox="0 0 16 19" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M12.5714 5.71429V4.57143C12.5714 2.05071 10.5207 0 8 0C5.47929 0 3.42857 2.05071 3.42857 4.57143V5.71429H0V15.4286C0 17.0065 1.27918 18.2857 2.85714 18.2857H13.1429C14.7208 18.2857 16 17.0065 16 15.4286V5.71429H12.5714ZM5.71429 4.57143C5.71429 3.31107 6.73964 2.28571 8 2.28571C9.26036 2.28571 10.2857 3.31107 10.2857 4.57143V5.71429H5.71429V4.57143ZM11.4286 8.85714C10.9552 8.85714 10.5714 8.47339 10.5714 8C10.5714 7.52661 10.9552 7.14286 11.4286 7.14286C11.902 7.14286 12.2857 7.52661 12.2857 8C12.2857 8.47339 11.902 8.85714 11.4286 8.85714ZM4.57143 8.85714C4.09804 8.85714 3.71429 8.47339 3.71429 8C3.71429 7.52661 4.09804 7.14286 4.57143 7.14286C5.04482 7.14286 5.42857 7.52661 5.42857 8C5.42857 8.47339 5.04482 8.85714 4.57143 8.85714Z"
+                      fill="#10B981" />
+                  </svg>
+                </a>
+              </div>
+              <div class="h-5 w-px bg-gray-200 mx-0.5 hidden sm:block"></div>
+            </div>
+
+            <div class="hidden sm:flex items-center gap-2">
+              <h1 class="text-base font-semibold text-gray-700 tracking-tight">Dashboard</h1>
+            </div>
+          </div>
+
+          <ul class="flex justify-end items-center flex-shrink-0 space-x-2 sm:space-x-4">
+            <li class="relative inline-block text-left">
+              <div
+                class="flex items-center space-x-3 px-2 py-1 group cursor-pointer rounded-lg hover:bg-gray-50 transition-all duration-200">
+                <div class="flex items-center space-x-2">
+                  <div class="relative hidden lg:block">
+                    <div
+                      class="rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white h-8 w-8 sm:h-10 sm:w-10 font-semibold flex items-center justify-center ring-2 ring-green-200 shadow-md transition-all duration-200 group-hover:ring-green-300">
+                      <!-- FiUser -->
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <div
+                      class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white">
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-start min-w-0">
+                    <p class="text-sm font-semibold text-gray-800 truncate max-w-32">Mahesh</p>
+                    <div class="flex items-center space-x-1">
+                      <p class="text-xs text-green-600 font-medium truncate max-w-28">Admin</p>
+                    </div>
+                  </div>
+                  <!-- FiChevronDown -->
+                  <svg class="w-4 h-4 text-gray-400 transition-all duration-200 group-hover:text-gray-600"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </header>
+
+      <!-- ================= MAIN — Main.jsx ================= -->
+      <main class="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        <div class="w-full mx-auto px-3 sm:px-4 lg:px-6 pt-3 sm:pt-4" style="padding-bottom:1rem">
+
+          <!-- ---------- MobileMenuLabel.jsx — active menu name, small screens only ---------- -->
+          <div class="sm:hidden px-2 flex min-w-0 items-center gap-2.5" title="Dashboard" aria-current="page">
+            <span data-icon="LayoutDashboard" class="h-7 w-7 flex-shrink-0 text-green-600"></span>
+            <h1 class="truncate text-xl font-semibold leading-6 text-gray-800">Dashboard</h1>
+          </div>
+
+          <!-- ---------- KPI tiles — DashboardSection + CardItemTwo ---------- -->
+          <div class="grid gap-2 mb-4 sm:mb-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 sells-cards mt-6" id="kpi-grid">
+          </div>
+
+          <!-- ---------- Report tables ---------- -->
+          <div class="mb-8">
+
+            <!-- tab strip + per-tab filters -->
+            <!-- lg:flex-wrap: six tabs need 889px and the per-tab filters 412px, which
+                 cannot share a 1034px line. Without wrapping, one of them loses — the
+                 sixth tab was first painted over by the selects, then scrolled out of
+                 sight once the wrapper could shrink. Wrapping drops the filters onto
+                 their own line only when they do not fit, so every tab stays visible. -->
+            <div class="flex flex-col lg:flex-row lg:flex-wrap lg:items-center lg:justify-between gap-4 mb-5">
+              <!-- min-w-0 is load-bearing: a flex item defaults to min-width:auto, so
+                   this wrapper could not shrink below the ul's min-w-max content width.
+                   With six tabs the strip overflowed and the filter block landed on top
+                   of the last one — "Outstanding Recovery" was painted over by the
+                   Product Sales selects and could not be seen or clicked. Allowing the
+                   wrapper to shrink lets its own overflow-x-auto do the scrolling. -->
+              <div class="min-w-0 max-w-full overflow-x-auto thin-scrollbar">
+                <div class="text-sm font-medium text-gray-500 border-b border-gray-200">
+                  <ul class="flex -mb-px min-w-max" id="tab-list"></ul>
+                </div>
+              </div>
+
+              <div class="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3 w-full lg:w-auto">
+                <!-- Product Sales filters -->
+                <div class="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3" data-filters-for="product_sales">
+                  <select id="ps-period"
+                    class="h-10 w-full sm:w-auto sm:min-w-[180px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none">
+                    <option value="allTime" selected>All Time</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="thisMonth">This Month</option>
+                    <option value="lastMonth">Last Month</option>
+                  </select>
+                  <select id="ps-sort"
+                    class="h-10 w-full sm:w-auto sm:min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none">
+                    <option value="sales-desc" selected>Sales: High to Low</option>
+                    <option value="sales-asc">Sales: Low to High</option>
+                    <option value="qty-desc">Qty Sold: High to Low</option>
+                    <option value="qty-asc">Qty Sold: Low to High</option>
+                    <option value="name-asc">Product: A to Z</option>
+                  </select>
+                </div>
+
+                <!-- Recent Orders filters -->
+                <div class="flex flex-col sm:flex-row sm:items-center flex-wrap gap-3" data-filters-for="recent_orders"
+                  hidden>
+                  <select id="ro-status"
+                    class="h-10 w-full sm:w-auto sm:min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none">
+                    <option value="all" selected>All Orders</option>
+                    <option value="Inprogress">Inprogress</option>
+                    <option value="Dispatched">Dispatched</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                  <button id="ro-reminders"
+                    class="h-10 px-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 transition-colors flex items-center gap-2"
+                    title="View customers who need follow-up calls to place orders">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    Follow-up Reminders
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- panels are rendered by dashboard.js into this host -->
+            <div id="panel-host"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="seed.inline.js"></script>
+  <script src="icons.js"></script>
+  <script src="shell.js"></script>
+  <script src="invoice.js"></script>
+  <script src="reminders.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+
+</html>

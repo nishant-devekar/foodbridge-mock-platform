@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Create/Edit Batch — discovery v7. Faithful static port of
+  development/frontend/src/components/batch/CreateBatchDrawer.tsx + ProductionBatchForm.tsx +
+  mixEngine.ts, as they exist at the 2026-08-10 fork point. HTML/CSS/vanilla JS only.
+  Opened as create-batch.html (new) or create-batch.html?edit=<batchId> (edit, Planned-only).
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Batch — Discovery v7</title>
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="fbp-root">
+    <div class="scrim" id="scrim"></div>
+    <aside class="drawer drawer-batch drawer-batch-form in" role="dialog" aria-label="Create batch">
+      <div class="dhead" id="dhead"></div>
+      <div class="dbody" id="dbody"></div>
+    </aside>
+  </div>
+
+  <script src="batch-shared.js"></script>
+  <script src="create-batch.js"></script>
+</body>
+</html>

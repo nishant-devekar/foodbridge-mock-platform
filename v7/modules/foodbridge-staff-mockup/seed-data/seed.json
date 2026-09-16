@@ -1,0 +1,160 @@
+{
+  "_comment": "Fake but representative data used only in discovery role-play. Never imported by development/. Mirrors the shapes the live storefront-frontend receives: `setupData.data.storefrontMenus` drives the sidebar, `getAllStaff()` returns { staff, subRoles }, and staff.name is a per-language map ({ en: ... }) resolved by showingTranslateValue().",
+  "_source": "Ported from storefront-frontend@develop — src/pages/Staff.jsx (route /our-staff) and its component closure. See discovery/instructions/addendum-002-live-frontend-port.md.",
+
+  "store": {
+    "name": "QA store"
+  },
+
+  "user": {
+    "displayName": "Mahesh",
+    "role": "Admin",
+    "image": null
+  },
+
+  "appProp": {
+    "isStoreQrCode": { "isEnabled": true },
+    "isRouteDeliveryEnabled": true,
+    "notification": { "isEnabled": true },
+    "tutorialConfig": { "isEnabled": false }
+  },
+
+  "_menusComment": "Live equivalent: setupData.data.storefrontMenus. `component` is the stable key useMenuLabel() looks up first — 'our-staff' resolves to the name below, which is why the page reads 'Workforce Management' rather than 'Our Staff'.",
+  "_submenuOpenComment": "`initiallyOpen` is a DISCOVERY-ONLY field with no live counterpart. SidebarSubMenu.jsx uses useState(true), so on a fresh live load every submenu is expanded; the reference screenshot was taken after the operator had collapsed all but Product Master. We reproduce the screenshot. Set every value to true to get the live first-paint default instead.",
+  "storefrontMenus": [
+    { "name": "Dashboard", "path": "/dashboard", "component": "dashboard", "icon": "layoutGrid" },
+    {
+      "name": "Product Master",
+      "path": "/products",
+      "component": "products",
+      "icon": "package",
+      "initiallyOpen": true,
+      "submenus": [
+        { "name": "Finished Goods", "path": "/products" },
+        { "name": "Product Categories", "path": "/categories" },
+        { "name": "Raw Materials", "path": "/raw-materials" },
+        { "name": "Image Gallery", "path": "/image-gallery" }
+      ]
+    },
+    {
+      "name": "Customer Management",
+      "path": "/customers",
+      "component": "customers",
+      "icon": "usersRound",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Retail Customers", "path": "/retail-customers" },
+        { "name": "Customer Locations", "path": "/customer-locations" }
+      ]
+    },
+    { "name": "Sales Orders", "path": "/orders", "component": "orders", "icon": "shoppingCart" },
+    {
+      "name": "Distribution & Logistics",
+      "path": "/distribution",
+      "component": "distribution",
+      "icon": "usersShare",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Dispatch", "path": "/dispatch" },
+        { "name": "Delivery", "path": "/delivery" },
+        { "name": "Manage Routes", "path": "/manage-routes" }
+      ]
+    },
+    {
+      "name": "Production",
+      "path": "/production",
+      "component": "production",
+      "icon": "factory",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Recipes", "path": "/production/recipes" },
+        { "name": "Batches", "path": "/production/batches" }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "path": "/inventory",
+      "component": "inventory",
+      "icon": "warehouse",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Stock On Hand", "path": "/inventory/stock" },
+        { "name": "Stock Transfer", "path": "/inventory/transfer" }
+      ]
+    },
+    {
+      "name": "Stock Audit Settlement",
+      "path": "/stock-audit",
+      "component": "stock-audit",
+      "icon": "clipboardCheck",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Audits", "path": "/stock-audit/audits" },
+        { "name": "Settlements", "path": "/stock-audit/settlements" }
+      ]
+    },
+    {
+      "name": "Procurement",
+      "path": "/procurement",
+      "component": "procurement",
+      "icon": "shoppingBag",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Purchase Orders", "path": "/procurement/purchase-orders" },
+        { "name": "Suppliers", "path": "/procurement/suppliers" }
+      ]
+    },
+    {
+      "name": "Finance",
+      "path": "/finance",
+      "component": "finance",
+      "icon": "banknote",
+      "initiallyOpen": false,
+      "submenus": [
+        { "name": "Invoices", "path": "/finance/invoices" },
+        { "name": "Payments", "path": "/finance/payments" }
+      ]
+    },
+    { "name": "Workforce Management", "path": "/our-staff", "component": "our-staff", "icon": "userCog" }
+  ],
+
+  "_subRolesComment": "Live equivalent: getAllStaff().subRoles. A sub-role named DEFAULT renders as 'Unassigned' (StaffTable.jsx); a staff row whose subRoleRef matches nothing renders as 'N/A'. Both edge cases are exercised below. 'Delivery Superwiser' is spelled exactly as it is in the live tenant data — the typo is real and is reproduced deliberately.",
+  "subRoles": [
+    { "_id": "sr-admin", "name": "Admin" },
+    { "_id": "sr-delivery", "name": "Delivery" },
+    { "_id": "sr-delivery-supervisor", "name": "Delivery Superwiser" },
+    { "_id": "sr-salesman", "name": "Salesman" },
+    { "_id": "sr-default", "name": "DEFAULT" }
+  ],
+
+  "_staffComment": "13 rows mirroring the live QA store list — same order, same role distribution, same name lengths and phone digit counts (including the 11-digit and 9-digit outliers) so the rendered layout is identical. NAMES AND PHONE NUMBERS ARE ANONYMISED: the live tenant's real staff names and mobile numbers were replaced with invented ones before this prototype was published publicly. Nothing here is a real person or a dialable number. Most rows carry no email — the live table renders an empty cell for those, which is why the EMAIL column looks blank.",
+  "staff": [
+    { "_id": "stf-01", "name": { "en": "Arjun Deshpande" }, "email": "", "phone": "5550100001", "subRoleRef": "sr-admin" },
+    { "_id": "stf-02", "name": { "en": "Rohan Malhotra" }, "email": "", "phone": "5550100002", "subRoleRef": "sr-admin" },
+    { "_id": "stf-03", "name": { "en": "Shrinivas" }, "email": "", "phone": "5550100003", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-04", "name": { "en": "Manoj" }, "email": "", "phone": "5550100004", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-05", "name": { "en": "Anu" }, "email": "", "phone": "5550100005", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-06", "name": { "en": "Ravi" }, "email": "", "phone": "5550100006", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-07", "name": { "en": "Shamsuddeen" }, "email": "", "phone": "5550100007", "subRoleRef": "sr-admin" },
+    { "_id": "stf-08", "name": { "en": "Rajiv" }, "email": "", "phone": "5550100008", "subRoleRef": "sr-delivery-supervisor" },
+    { "_id": "stf-09", "name": { "en": "Suresh" }, "email": "", "phone": "5550100009", "subRoleRef": "sr-salesman" },
+    { "_id": "stf-10", "name": { "en": "Rahul Verma" }, "email": "", "phone": "55501000110", "subRoleRef": "sr-delivery-supervisor" },
+    { "_id": "stf-11", "name": { "en": "Naresh" }, "email": "", "phone": "5550100011", "subRoleRef": "sr-delivery-supervisor" },
+    { "_id": "stf-12", "name": { "en": "Vinod" }, "email": "", "phone": "555010012", "subRoleRef": "sr-salesman" },
+    { "_id": "stf-13", "name": { "en": "Amit Kumar" }, "email": "", "phone": "5550100013", "subRoleRef": "sr-admin" }
+  ],
+
+  "_pagedStaffComment": "A larger list used only by the pagination screen, so the CustomPagination ellipsis logic (>6 pages) can be role-played. Page size is 20, matching useFilter.js limitData.",
+  "pagedStaffExtra": [
+    { "_id": "stf-14", "name": { "en": "Anita Rao" }, "email": "anita.rao@example.com", "phone": "5550200000", "subRoleRef": "sr-salesman" },
+    { "_id": "stf-15", "name": { "en": "Deepak Shetty" }, "email": "", "phone": "5550200001", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-16", "name": { "en": "Farah Khan" }, "email": "farah.khan@example.com", "phone": "5550200002", "subRoleRef": "sr-default" },
+    { "_id": "stf-17", "name": { "en": "Gopal Iyer" }, "email": "", "phone": "5550200003", "subRoleRef": "sr-unknown-role" },
+    { "_id": "stf-18", "name": { "en": "Harpreet Singh" }, "email": "", "phone": "5550200004", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-19", "name": { "en": "Imran Sheikh" }, "email": "", "phone": "5550200005", "subRoleRef": "sr-admin" },
+    { "_id": "stf-20", "name": { "en": "Jaya Menon" }, "email": "", "phone": "5550200006", "subRoleRef": "sr-salesman" },
+    { "_id": "stf-21", "name": { "en": "Kiran Bedi" }, "email": "", "phone": "5550200007", "subRoleRef": "sr-delivery-supervisor" },
+    { "_id": "stf-22", "name": { "en": "Lalit Modi" }, "email": "", "phone": "5550200008", "subRoleRef": "sr-delivery" },
+    { "_id": "stf-23", "name": { "en": "Meena Kumari" }, "email": "", "phone": "5550200009", "subRoleRef": "sr-admin" }
+  ]
+}

@@ -1,0 +1,240 @@
+<!doctype html>
+<!--
+  DISCOVERY WIRING — Foodbridge Module Sales Orders
+  ---------------------------------------------------------
+  This file is the WIRING only — the hub + transition map. It holds NO screen
+  content; screens live in screens/orders/. The transition map below is the
+  proto-FSM that SSOT-1 (state-machine) and SSOT-5 (workflow) are derived from.
+  Rules:
+  - HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  - Screens are standalone-openable and link to each other; this hub is the entry.
+  - Use seed-data/seed.json for any data.
+  - Disposable. Each accepted round is frozen under versions/orders-vN/.
+  - Nothing here is imported by development/. It only informs the SSOTs.
+
+  This round is PHASE 1 of a fidelity port of the LIVE storefront-frontend route
+  /orders (src/pages/Orders.jsx), as of storefront-frontend@develop — the whole
+  orders LIST SCREEN, meaning every control on it. What sits BEHIND those
+  controls (order creation, detail, amendment, reporting) is deferred to later
+  phases. See instructions/addendum-002-live-orders-port.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Orders — Discovery Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --fg: #0f172a; --muted: #64748b; --line: #e2e8f0;
+      --brand: #059669; --bg: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; padding: 0;
+           color: var(--fg); background: var(--bg); line-height: 1.55; }
+    .wrap { max-width: 64rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    header.hero { border-bottom: 1px solid var(--line); background: #fff; }
+    .hero-inner { max-width: 64rem; margin: 0 auto; padding: 2.25rem 1.5rem 1.75rem; }
+    .eyebrow { display: inline-flex; align-items: center; gap: .4rem; font-size: .7rem; font-weight: 600;
+               letter-spacing: .06em; text-transform: uppercase; color: var(--brand); background: #ecfdf5;
+               border: 1px solid #a7f3d0; padding: .2rem .55rem; border-radius: 9999px; margin-bottom: .75rem; }
+    h1 { font-size: 1.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+    .sub { color: var(--muted); margin: 0; max-width: 48rem; font-size: .95rem; }
+
+    h2 { font-size: 1.05rem; margin: 2.5rem 0 .3rem; letter-spacing: -.01em; }
+    h2:first-of-type { margin-top: 1.75rem; }
+    .route-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; font-weight: 500;
+                 color: var(--brand); background: #ecfdf5; border: 1px solid #a7f3d0; padding: .1rem .4rem;
+                 border-radius: .3rem; margin-left: .5rem; }
+    .hint { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
+
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr)); }
+    a.card { display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--line);
+             border-radius: .6rem; padding: .9rem 1rem; transition: border-color .15s, box-shadow .15s, transform .15s; }
+    a.card:hover { border-color: #6ee7b7; box-shadow: 0 2px 10px rgba(5,150,105,.09); transform: translateY(-1px); }
+    .card-id { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--brand); }
+    .card-title { font-weight: 600; font-size: .95rem; margin: .15rem 0 .2rem; }
+    .card-desc { color: var(--muted); font-size: .82rem; margin: 0; }
+
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; background: #fff; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: .5rem .7rem; text-align: left; vertical-align: top; }
+    th { background: #f8fafc; font-weight: 600; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82em; background: #f1f5f9; padding: .1rem .3rem; border-radius: .25rem; }
+
+    .note { background: #fff; border: 1px solid var(--line); border-left: 3px solid #fbbf24; border-radius: .5rem;
+            padding: .8rem 1rem; font-size: .85rem; color: #334155; }
+    .note.scope { border-left-color: #38bdf8; }
+    .note strong { color: var(--fg); }
+    .note ul { margin: .5rem 0 0; padding-left: 1.1rem; }
+    .note li { margin-bottom: .35rem; }
+
+    footer { color: var(--muted); font-size: .8rem; margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Discovery prototype · phase 1</span>
+      <h1>Sales Orders <span class="route-tag">/orders</span></h1>
+      <p class="sub">
+        Disposable HTML prototypes for the <strong>Foodbridge Module Sales Orders</strong> module.
+        This round is a fidelity port of the <strong>whole orders list screen</strong> on the live storefront
+        route <code>/orders</code> — the table and its filters, and every control around them: the action bar,
+        the bulk-order dropdown, the mobile footer and Smart Insights. Same structure, same classes, same edge cases, driven entirely by seed data.
+        Nothing here calls a real API, and nothing here is imported by <code>development/</code>.
+      </p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <h2>Screens</h2>
+    <p class="hint">Each screen is standalone-openable. Append <code>?bare=1</code> to any URL to hide the discovery back-link for a clean pixel comparison.</p>
+
+    <div class="grid">
+      <a class="card" href="screens/orders/screen-01-orders-list.html">
+        <div class="card-id">Screen 01</div>
+        <div class="card-title">Orders list</div>
+        <p class="card-desc">The landing state — every order newest-first, with search, status filter, date range and CSV export.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-02-status-filtered.html">
+        <div class="card-id">Screen 02</div>
+        <div class="card-title">Filtered by status</div>
+        <p class="card-desc">Narrowed to Delivered. Status options come from the tenant’s order workflow, not a fixed enum.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-03-date-range.html">
+        <div class="card-id">Screen 03</div>
+        <div class="card-title">Date range filter</div>
+        <p class="card-desc">The range picker open, filtering orders to a calendar window.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-04-order-expanded.html">
+        <div class="card-id">Screen 04</div>
+        <div class="card-title">Order expanded</div>
+        <p class="card-desc">A row opened into OrderFulfillmentMetadata — Details, Items, Comments and Fulfillment tabs.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-05-no-results.html">
+        <div class="card-id">Screen 05</div>
+        <div class="card-title">No results</div>
+        <p class="card-desc">A search or filter that matches nothing.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-06-empty.html">
+        <div class="card-id">Screen 06</div>
+        <div class="card-title">Empty state</div>
+        <p class="card-desc">No orders at all — a brand-new tenant.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-07-loading.html">
+        <div class="card-id">Screen 07</div>
+        <div class="card-title">Loading</div>
+        <p class="card-desc">Skeleton shown while the order list is in flight.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-08-action-bar.html">
+        <div class="card-id">Screen 08</div>
+        <div class="card-title">Action bar</div>
+        <p class="card-desc">The actions this tenant enables, plus the bulk-order dropdown. Each is flag-gated.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-09-smart-insights.html">
+        <div class="card-id">Screen 09</div>
+        <div class="card-title">Smart Insights</div>
+        <p class="card-desc">The hover card: rules on age, value, dispatch failures, return rate and fulfilment, capped at three.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-10-follow-up-reminders.html">
+        <div class="card-id">Screen 10</div>
+        <div class="card-title">Follow-up Reminders</div>
+        <p class="card-desc">Customers with no sales orders in the window, filterable by search, since and catalogue.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-11-create-delivery.html">
+        <div class="card-id">Screen 11</div>
+        <div class="card-title">Create Delivery</div>
+        <p class="card-desc">Step 1 of the route-delivery wizard — pick which existing orders join the run.</p>
+      </a>
+      <a class="card" href="screens/orders/screen-12-create-sales-orders.html">
+        <div class="card-id">Screen 12</div>
+        <div class="card-title">Create Sales Orders</div>
+        <p class="card-desc">The right-hand order drawer in its empty state, before a customer is chosen.</p>
+      </a>
+    </div>
+
+    <h2>Scope of this round</h2>
+    <div class="note scope">
+      <strong>Phase 1 covers the whole list screen — every control on it.</strong> That means the table and its
+      filters, and also the full action bar, the bulk-order mode dropdown, the mobile sticky footer, the Smart Insights hover card, and bulk-order mode dropdown. Each is gated behind the same feature flag the live app uses.
+      <p style="margin:.6rem 0 0">What is <strong>not</strong> here is what sits <em>behind</em> those buttons.
+      <code>/orders</code> is by far the largest route ported so far — about 13,800 lines of reachable UI against
+      ~6,000 for each of the previous two modules — so the destinations were split into later phases. Every one of
+      them is reachable from the list and says what it is rather than doing nothing:</p>
+      <ul>
+        <li><strong>Built since</strong> — <code>OrderFulfillmentMetadata</code> (screen 04), <code>InvoicePrintButton</code>, <code>OrderReminderModal</code> (screen 10), <code>CreateDeliveryModal</code> step 1 (screen 11), and <code>CreateOrderDrawer</code>&rsquo;s empty state (screen 12).</li>
+        <li><strong>Order creation, in depth</strong> — <code>CreateOrderDrawer</code> beyond the empty state (4,832 lines, 32k closure) and <code>BulkOrderDrawer</code>. The drawer alone is larger than the staff and inventory modules combined.</li>
+        <li><strong>Order detail and amendment</strong> — <code>OrderCartModal</code>, <code>OrderEditDrawer</code>, <code>SubOrderDrawer</code>.</li>
+        <li><strong>Reporting</strong> — <code>DemandReportDrawer</code>, <code>OrderForecastDrawer</code>; plus steps 2&ndash;3 of <code>CreateDeliveryModal</code>.</li>
+      </ul>
+    </div>
+
+    <h2>Transition map (→ SSOT-1 state-machine / SSOT-5 workflow)</h2>
+    <p class="hint">This is the flow the FSM and workflow SSOTs are derived from. Data for every screen comes from <a href="seed-data/seed.json">seed-data/seed.json</a>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>From screen / state</th><th>Event</th><th>To</th></tr></thead>
+        <tbody>
+          <tr><td>Orders list</td><td>Search (debounced 400ms)</td><td>Orders list, filtered — page resets to 1</td></tr>
+          <tr><td>Orders list</td><td>Select a status</td><td>Orders list, filtered to that status</td></tr>
+          <tr><td>Orders list</td><td>Pick a date range</td><td>Orders list, filtered to that window</td></tr>
+          <tr><td>Orders list</td><td>Clear a filter</td><td>Orders list, unfiltered</td></tr>
+          <tr><td>Orders list</td><td>Filter matches nothing</td><td>No-results state</td></tr>
+          <tr><td>Orders list</td><td>Expand a row</td><td>Fulfilment panel, Details tab</td></tr>
+          <tr><td>Fulfilment panel</td><td>Items tab</td><td>Line items with article numbers and quantities</td></tr>
+          <tr><td>Fulfilment panel</td><td>Comments tab</td><td>Order comments, or an empty state</td></tr>
+          <tr><td>Fulfilment panel</td><td>Fulfillment tab</td><td>Dispatch cards with nested delivery runs and returns</td></tr>
+          <tr><td>Orders list</td><td>Invoice</td><td>Dropdown: A4 Print or Thermal Print</td></tr>
+          <tr><td>Orders list</td><td>Copy order id</td><td>Clipboard write; tick confirmation for 2s</td></tr>
+          <tr><td>Orders list</td><td>Change a row’s status</td><td>Order advances to a status its workflow permits</td></tr>
+          <tr><td>Orders list</td><td>Change status of a terminal order</td><td>Blocked — the select renders disabled</td></tr>
+          <tr><td>Orders list</td><td>Page number / arrow</td><td>Orders list, next slice (page size 20)</td></tr>
+          <tr><td>Orders list</td><td>Download all</td><td>CSV of the current filtered set</td></tr>
+          <tr><td>Orders list</td><td>Edit, on an order with no dispatches</td><td>Order edit — <em>deferred phase</em></td></tr>
+          <tr><td>Orders list</td><td>Edit, once dispatched</td><td>Blocked — the action renders disabled</td></tr>
+          <tr><td>Orders list</td><td>View / Timeline</td><td>Leaves this module’s boundary</td></tr>
+          <tr><td>Orders list</td><td>Bulk Orders → Standard / Route</td><td>Bulk order creation — <em>deferred phase</em></td></tr>
+          <tr><td>Orders list</td><td>Hover the insights icon</td><td>Smart Insights card, up to three ranked findings</td></tr>
+          <tr><td>Orders list</td><td>Follow-up Reminders</td><td>Reminder modal — customers with no orders in the window</td></tr>
+          <tr><td>Reminder modal</td><td>Search / Since / Catalogue</td><td>List filters in place; footer keeps the tenant-wide count</td></tr>
+          <tr><td>Reminder modal</td><td>Create Sales Orders, on a row</td><td>Order drawer, empty state</td></tr>
+          <tr><td>Orders list</td><td>Create Delivery</td><td>Delivery wizard, step 1 — order selection</td></tr>
+          <tr><td>Delivery wizard</td><td>Select a row / Select all</td><td>Selection toggles; “Assign Staff” enables</td></tr>
+          <tr><td>Delivery wizard</td><td>Assign Staff</td><td>Step 2 of 3 — <em>deferred phase</em></td></tr>
+          <tr><td>Orders list</td><td>Create Sales Orders</td><td>Right drawer, empty until a customer is chosen</td></tr>
+          <tr><td>Order drawer</td><td>X / mask</td><td>Back to the orders list</td></tr>
+          <tr><td>Orders list</td><td>Forecast / Demand</td><td>Their own drawers — <em>deferred phases</em></td></tr>
+          <tr><td>Mobile</td><td>Create (+)</td><td>Menu: create, bulk, or route order</td></tr>
+          <tr><td>Loading</td><td>Data arrives</td><td>Orders list, or the empty state if none</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Known divergences from the live app</h2>
+    <div class="note">
+      <strong>Recorded deliberately rather than papered over:</strong>
+      <ul>
+        <li><strong>Three of the four tabs are unreachable in the live app.</strong> <code>OrderTabView</code> is the only caller of <code>setActiveTab</code> and it is commented out, so <code>activeTab</code> is permanently <code>"TabOrders"</code>. Batch Management, Production and Reports — plus the <code>CreateBatch</code> and <code>ProxyOrderSelection</code> drawers, whose triggers are also commented out — can never render. Not ported, and worth raising as a live defect.</li>
+        <li><strong>Order dates are stored as offsets,</strong> not absolute dates, so the date-range filter stays meaningful however long after freezing this is opened.</li>
+        <li><strong>Filtering and paging run client-side here.</strong> Live they are server-side query parameters on <code>getAllOrders</code>; the mock reproduces the same contract against seed data.</li>
+        <li><strong>Feature flags match the reference tenant.</strong> The action bar shows the four buttons that tenant enables — Create Delivery, Create Order, Bulk Orders, Follow-up Reminders. Forecast Orders, Generate Demand, Download All and the Allocation Status column are all supported by the ported code but switched off in the seed, because the reference screenshot shows them off.</li>
+        <li><strong>Order status values come from the reference screenshot</strong> — Delivered, Dispatch Created, Skipped, Inprogress — but the <em>transitions between them</em> are inferred, since a screenshot cannot show a workflow.</li>
+        <li><strong>The Google Sheet subsystem is dropped.</strong> Live, <code>/orders</code> carries an export/sync toolbar with a current-vs-history mode picker and an embedded sheet view that replaces the table. Excluded from this prototype by decision — it was built and then removed, so the omission is deliberate and recorded, not an oversight.</li>
+        <li><strong>Smart Insights runs on seeded figures.</strong> Live the rules derive from the dispatch, delivery and return records themselves; those record sets are a later phase, so the seed carries the derived numbers and the rules run against them unchanged — same order, same thresholds, same copy, same three-item cap.</li>
+        <li><strong><code>createDelivery</code> defaults differently from its comment.</strong> The live code comments “defaults to shown” but checks <code>=== true</code>, so the button is actually hidden unless explicitly enabled. Reproduced as-is.</li>
+        <li><strong>The sidebar menu tree is an assumption</strong>, carried over from the staff module’s screenshot of the same tenant. The tenant’s real <code>storefrontMenus</code> is authoritative.</li>
+      </ul>
+    </div>
+
+    <footer>
+      Governed by AMDS. Discovery is HTML-only and disposable (SPEC §3.1) — it produces the decisions
+      that become the SSOTs under <code>development/sources-of-truth/</code>, and is never imported by
+      <code>development/</code>. Working rules: <code>instructions/addendum-001-working-rules.md</code>.
+    </footer>
+  </div>
+</body>
+</html>

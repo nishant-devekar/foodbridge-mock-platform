@@ -1,0 +1,50 @@
+{
+  "rows": [
+    {
+      "id": "nishant", "name": "Nishant", "phone": "333333333", "invoices": 5,
+      "invoiced": 2335, "collected": 2335, "outstanding": 0, "advance": 1263, "date": "2026-07-30",
+      "orders": [
+        { "invoiceNo": "2026073010440921", "date": "30 Jul 2026", "invoiced": 1250, "netPayable": 0, "items": [ { "name": "Brown Bread 250gm", "sku": "a105", "unitPrice": 25, "unit": "Pc", "qty": 50, "total": 1250 } ] },
+        { "invoiceNo": "2026072809331088", "date": "28 Jul 2026", "invoiced": 1085, "netPayable": 0, "items": [ { "name": "Milk Bread 200gm", "sku": "a103", "unitPrice": 15, "unit": "Pc", "qty": 43, "total": 645 }, { "name": "Mini Bread 100gm", "sku": "a102", "unitPrice": 8, "unit": "Pc", "qty": 55, "total": 440 } ] }
+      ],
+      "payments": [ { "method": "Cash", "date": "30 Jul 2026", "amount": 1250 }, { "method": "UPI", "date": "28 Jul 2026", "amount": 1085 } ]
+    },
+    {
+      "id": "mahesh", "name": "Mahesh Kumar", "phone": "744444444", "invoices": 22,
+      "invoiced": 20815, "collected": 20808, "outstanding": 7, "advance": 0, "date": "2026-08-01",
+      "orders": [
+        { "invoiceNo": "2026080103481651", "date": "1 Aug 2026", "invoiced": 815, "netPayable": 7, "items": [ { "name": "Assorted Bakery Box", "sku": "b210", "unitPrice": 815, "unit": "Box", "qty": 1, "total": 815 } ] },
+        { "invoiceNo": "2026073114220087", "date": "31 Jul 2026", "invoiced": 20000, "netPayable": 0, "items": [ { "name": "Wholesale Bread Pallet", "sku": "b900", "unitPrice": 400, "unit": "Crate", "qty": 50, "total": 20000 } ] }
+      ],
+      "payments": [ { "method": "Bank", "date": "1 Aug 2026", "amount": 808 }, { "method": "Bank", "date": "31 Jul 2026", "amount": 20000 } ]
+    },
+    {
+      "id": "kunal", "name": "Kunal Sweet Shop", "phone": "3426645432", "invoices": 5,
+      "invoiced": 702, "collected": 702, "outstanding": 0, "advance": 999, "date": "2026-06-23",
+      "orders": [
+        { "invoiceNo": "2026062310100944", "date": "23 Jun 2026", "invoiced": 250, "netPayable": 250, "items": [ { "name": "Milk Bread 350gm", "sku": "a104", "unitPrice": 25, "unit": "Pc", "qty": 10, "total": 250 } ] },
+        { "invoiceNo": "2026062007345785", "date": "20 Jun 2026", "invoiced": 14, "netPayable": 14, "items": [ { "name": "Mini Bread 100gm", "sku": "a102", "unitPrice": 7, "unit": "Pc", "qty": 2, "total": 14 } ] },
+        { "invoiceNo": "2026062005132686", "date": "20 Jun 2026", "invoiced": 208, "netPayable": 208, "items": [ { "name": "Muffin Cake Box (12 Pcs)", "sku": "c312", "unitPrice": 208, "unit": "Box", "qty": 1, "total": 208 } ] },
+        { "invoiceNo": "2026062004523015", "date": "20 Jun 2026", "invoiced": 130, "netPayable": 130, "items": [ { "name": "Brown Bread 250gm", "sku": "a105", "unitPrice": 26, "unit": "Pc", "qty": 5, "total": 130 } ] },
+        { "invoiceNo": "2026061912009088", "date": "19 Jun 2026", "invoiced": 100, "netPayable": 100, "items": [ { "name": "Cookies Jar 200gm", "sku": "c220", "unitPrice": 50, "unit": "Jar", "qty": 2, "total": 100 } ] }
+      ],
+      "payments": [ { "method": "Cash", "date": "3 Jul 2026", "amount": 300 }, { "method": "Cash", "date": "9 Jul 2026", "amount": 109 }, { "method": "Cash", "date": "10 Jul 2026", "amount": 184 }, { "method": "Cash", "date": "13 Jul 2026", "amount": 68 }, { "method": "Cash", "date": "28 Jul 2026", "amount": 41 } ]
+    },
+    {
+      "id": "agrawal", "name": "Agrawal Sweets", "phone": "43200008797", "invoices": 3,
+      "invoiced": 402, "collected": 402, "outstanding": 0, "advance": 1593, "date": "2026-07-28",
+      "orders": [
+        { "invoiceNo": "2026072808120345", "date": "28 Jul 2026", "invoiced": 402, "netPayable": 0, "items": [ { "name": "Rusk Pack 300gm", "sku": "r300", "unitPrice": 67, "unit": "Pack", "qty": 6, "total": 402 } ] }
+      ],
+      "payments": [ { "method": "UPI", "date": "28 Jul 2026", "amount": 402 } ]
+    },
+    { "id": "sagar", "name": "Sagar", "phone": "99555555888", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 898, "date": "2026-07-20", "orders": [], "payments": [] },
+    { "id": "shubham", "name": "Shubham Kashid", "phone": "75072073487", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 22905, "date": "2026-07-15", "orders": [], "payments": [] },
+    { "id": "vijay", "name": "Vijay", "phone": "75656666444", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 860, "date": "2026-07-10", "orders": [], "payments": [] },
+    { "id": "manish", "name": "Manish", "phone": "655655656565", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 149, "date": "2026-07-05", "orders": [], "payments": [] },
+    { "id": "rohit", "name": "Rohit Provision", "phone": "9812201133", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 3200, "date": "2026-07-02", "orders": [], "payments": [] },
+    { "id": "sneha", "name": "Sneha Traders", "phone": "9823014455", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 5400, "date": "2026-06-28", "orders": [], "payments": [] },
+    { "id": "anil", "name": "Anil General Store", "phone": "9811778866", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 7100, "date": "2026-06-25", "orders": [], "payments": [] },
+    { "id": "deepak", "name": "Deepak Mart", "phone": "9820556677", "invoices": 0, "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 4300, "date": "2026-06-20", "orders": [], "payments": [] }
+  ]
+}

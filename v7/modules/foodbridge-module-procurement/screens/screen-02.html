@@ -1,0 +1,1502 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Procurement — "Screen 02: Sourcing Orders (main page)"
+  Standalone-openable: open this file directly to review the screen in isolation.
+  Also reachable from the wiring hub (../index.html).
+
+  Pixel-by-pixel replica (Phase 1 of 7 — see addendum-002) of:
+    storefront-frontend/src/pages/SourcingOrder.jsx (page shell only)
+  Submodules (CreateOrderDrawer, Purchase Forecast detail, Update Audit/Payment,
+  Raw Material Report, legacy edit) are separate later-phase screens — see the
+  "Create Purchase Order" / "View Forecast Details" buttons below, which link out
+  to screen-04.html / screen-03.html once those phases exist.
+
+  Outgoing transitions:
+    - "Create Purchase Order" → screen-04.html
+    - "View Forecast Details" (forecast banner) → screen-03.html
+    - Row "Edit" (Documents menu) → screen-08.html
+
+  Note (addendum-012): the "Raw Material Calculator" toolbar button was removed — the
+  human-provided reference screenshot doesn't have it on this page. Screen 07
+  (RawMaterialReportDrawer) still exists as its own standalone discovery screen; it's
+  just no longer launched from here.
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  Use ../seed-data/seed.json for data. Disposable — informs the SSOTs, not imported by development/.
+
+  Fidelity notes (source used Tailwind CSS; this repo has no Tailwind/build step, so
+  utility values below are hand-translated to plain CSS — see addendum-002 outcome for
+  the full list of documented simplifications):
+    - Desktop/mobile split uses the source's own breakpoint (Tailwind `md` = 768px, this
+      repo's tailwind.config.js overrides the default sm:640px value) via @media queries —
+      resize the window to see both layouts, same as the source's `hidden md:block` / `md:hidden`.
+    - A dev-only "role-play state" switcher (clearly marked, not part of the real UI) lets you
+      flip between the page's 4 real states: loading / populated / empty (filtered) / empty (no results).
+    - Row expand panel approximates OrderFulfillmentMetadata (not read in the source pass) as an
+      itemized product list — flagged in the addendum outcome for a closer look if needed.
+    - Date range field is a hand-built single-month calendar dropdown (not react-datepicker),
+      matching the documented color overrides (selected/in-range bg #10b981, keyboard-selected
+      bg #d1fae5 / text #065f46, hover bg #d1fae5, header bg #f9fafb).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Foodbridge Module Procurement — Screen 02: Sourcing Orders</title>
+<style>
+  :root {
+    color-scheme: light;
+    --emerald-50: #ecfdf5;
+    --emerald-100: #d1fae5;
+    --emerald-200: #a7f3d0;
+    --emerald-300: #6ee7b7;
+    --emerald-400: #34d399;
+    --emerald-500: #10b981;
+    --emerald-600: #059669;
+    --emerald-700: #047857;
+    --emerald-800: #065f46;
+    --green-50: #f0fdf4;
+    --green-100: #dcfce7;
+    --green-200: #bbf7d0;
+    --green-400: #4ade80;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --green-700: #15803d;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --amber-50: #fffbeb;
+    --amber-100: #fef3c7;
+    --amber-300: #fcd34d;
+    --amber-400: #fbbf24;
+    --amber-500: #f59e0b;
+    --amber-600: #d97706;
+    --amber-700: #b45309;
+    --orange-50: #fff7ed;
+    --orange-100: #ffedd5;
+    --orange-300: #fdba74;
+    --red-50: #fef2f2;
+    --red-500: #ef4444;
+    --red-600: #dc2626;
+    --red-700: #b91c1c;
+    --blue-50: #eff6ff;
+    --blue-100: #dbeafe;
+    --blue-200: #bfdbfe;
+    --blue-700: #1d4ed8;
+    --purple-50: #faf5ff;
+    --purple-100: #f3e8ff;
+    --purple-200: #e9d5ff;
+    --purple-700: #7e22ce;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    background: var(--gray-100);
+    color: var(--gray-900);
+    font-size: 14.5px;
+  }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* ============ App shell — sidebar + header (see addendum-009) ============ */
+  .app-shell { display: flex; min-height: 100vh; }
+  .app-sidebar {
+    width: 256px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--gray-200);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04); position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+    overflow-y: auto; scrollbar-width: none; transition: transform .25s ease;
+  }
+  .app-sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-inner { padding: 0 12px 16px; display: flex; flex-direction: column; height: 100%; }
+  .brand-row { height: 56px; display: flex; align-items: center; border-bottom: 1px solid var(--gray-200); margin-bottom: 12px; flex-shrink: 0; }
+  .brand-link { display: flex; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 6px; text-decoration: none; color: inherit; width: 100%; }
+  .brand-bag { width: 28px; height: 28px; flex-shrink: 0; color: var(--emerald-500); }
+  .brand-name { font-size: 13.5px; font-weight: 700; color: var(--gray-800); }
+
+  .nav-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+  .nav-scroll::-webkit-scrollbar { display: none; }
+  .nav-list { list-style: none; margin: 8px 0 0; padding: 0 0 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .nav-leaf-link, .nav-group-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px;
+    border: none; background: none; font-size: 13.5px; color: var(--gray-600); cursor: pointer; text-align: left; text-decoration: none;
+  }
+  .nav-leaf-link:hover, .nav-group-btn:hover { background: var(--gray-100); }
+  .nav-leaf-link.active, .nav-group-btn.active { background: var(--green-50); color: var(--green-700); }
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .nav-group-btn { justify-content: space-between; }
+  .nav-group-btn .ngb-left { display: flex; align-items: center; }
+  .nav-group-btn .ngb-label { margin-left: 16px; }
+  .nav-group-chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--gray-400); }
+
+  .nav-sub { list-style: none; margin: 4px 0 0 32px; padding: 0; display: none; flex-direction: column; gap: 4px; }
+  .nav-sub.open { display: flex; }
+  .nav-sub-link { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12.5px; color: var(--gray-600); text-decoration: none; }
+  .nav-sub-link:hover { background: var(--gray-100); }
+  .nav-sub-link.active { background: var(--green-100); color: var(--green-700); font-weight: 600; }
+  .nav-sub-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  .nav-bottom { flex-shrink: 0; padding-top: 12px; border-top: 1px solid var(--gray-200); display: flex; flex-direction: column; gap: 8px; }
+  .nav-bottom .qr-icon { color: var(--green-600); }
+
+  .main-col { flex: 1; min-width: 0; margin-left: 256px; }
+
+  .app-header { position: sticky; top: 0; z-index: 30; height: 56px; background: #fff; border-bottom: 1px solid var(--gray-200); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .app-header-row { height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+  @media (min-width: 640px) { .app-header-row { padding: 0 24px; } }
+  .header-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .hamburger-btn { border: none; background: none; padding: 8px; border-radius: 8px; cursor: pointer; color: var(--gray-600); display: flex; }
+  .hamburger-btn:hover { background: var(--gray-100); }
+  .page-title { font-size: 15px; font-weight: 600; color: var(--gray-700); letter-spacing: -0.01em; margin: 0; }
+
+  .header-right { position: relative; }
+  .profile-trigger { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+  .profile-trigger:hover { background: var(--gray-50); }
+  .avatar-wrap { position: relative; }
+  .avatar-circle { width: 40px; height: 40px; border-radius: 999px; background: linear-gradient(135deg, var(--green-500), var(--emerald-600));
+    color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); box-sizing: border-box;
+    border: 2px solid var(--green-200); }
+  .status-dot { position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; border-radius: 999px; background: var(--green-400); border: 2px solid #fff; }
+  .profile-text { display: flex; flex-direction: column; }
+  .profile-text .pname { font-size: 13px; font-weight: 700; color: var(--gray-800); }
+  .profile-text .prole { font-size: 11px; font-weight: 600; color: var(--green-600); }
+  .profile-chevron { width: 15px; height: 15px; color: var(--gray-400); transition: transform .15s; }
+  .profile-trigger.open .profile-chevron { transform: rotate(180deg); }
+
+  .profile-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 224px; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.15); overflow: hidden; z-index: 40; }
+  .profile-dropdown.open { display: block; }
+  .pd-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--gray-700);
+    cursor: pointer; border: none; background: none; width: 100%; text-align: left; text-decoration: none; box-sizing: border-box; }
+  .pd-row:hover { background: var(--green-50); color: var(--green-700); }
+  .pd-row.danger { color: var(--red-600); }
+  .pd-row.danger:hover { background: var(--red-50); }
+  .pd-divider { border-top: 1px solid var(--gray-200); }
+  .preview-badge { font-size: 9.5px; font-weight: 700; background: var(--purple-100); color: var(--purple-700); padding: 1px 7px; border-radius: 999px; }
+
+  .page { padding: 24px 32px 40px; }
+
+  /* ---------- forecast banner ---------- */
+  .dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+  .dot.high { background: var(--red-500); }
+  .dot.med { background: var(--amber-400); }
+
+  .forecast-desktop {
+    border-radius: 12px; border: 1px solid var(--orange-100);
+    background: linear-gradient(to right, var(--orange-50), #fffdf7);
+    padding: 20px 32px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+  .fc-icon-block { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .fc-divider { width: 1px; align-self: stretch; background: var(--orange-100); flex-shrink: 0; }
+  .fc-icon-circle { position: relative; width: 56px; height: 56px; border-radius: 999px; background: var(--orange-100);
+    display: flex; align-items: center; justify-content: center; color: var(--amber-600); flex-shrink: 0; }
+  .fc-icon-circle .fc-badge { position: absolute; top: -2px; right: -2px; width: 20px; height: 20px; border-radius: 999px;
+    background: var(--red-500); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--orange-50); }
+  .fc-title { font-weight: 700; font-size: 16px; color: var(--gray-900); }
+  .fc-subtitle-line { font-weight: 400; font-size: 14px; color: var(--gray-600); margin-top: 2px; }
+  .fc-subtitle-line .fc-count { font-weight: 600; color: var(--amber-600); }
+  .fc-hint { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+  .fc-stat-block { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .fc-stat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--orange-100); color: var(--amber-600);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .fc-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-400); }
+  .fc-stat-value { font-size: 20px; font-weight: 700; color: var(--amber-600); margin-top: 2px; }
+  .fc-items-col { flex: 1; min-width: 160px; }
+  .fc-col-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-400); margin-bottom: 6px; }
+  .fc-qty-label { font-size: 10px; font-weight: 500; color: var(--gray-400); margin-bottom: 6px; }
+  .fc-name-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--slate-600); padding: 2px 0; }
+  .fc-qty-col { text-align: right; flex-shrink: 0; }
+  .fc-qty-row { font-size: 14px; font-weight: 600; color: var(--amber-600); padding: 2px 0; white-space: nowrap; }
+  .btn-forecast-view-desktop {
+    border: 1px solid var(--orange-300); background: #fff; color: var(--amber-700); font-weight: 500;
+    font-size: 14px; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap;
+  }
+
+  /* ---------- toolbar ---------- */
+  .toolbar {
+    background: #fff; border-radius: 12px; border: 1px solid var(--gray-200);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    padding: 12px 16px; margin-bottom: 20px;
+    display: flex; flex-direction: row; align-items: center; gap: 10px;
+  }
+  .search-box { position: relative; flex: 1; min-width: 260px; }
+  .search-box svg.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gray-400); }
+  .search-box input {
+    width: 100%; height: 40px; padding: 0 12px 0 34px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 13.5px;
+  }
+  .search-box input:focus { outline: 2px solid var(--emerald-200); border-color: var(--emerald-500); }
+
+  .filter-grid { display: contents; }
+
+  .select-status {
+    height: 40px; border: 1px solid var(--gray-300); border-radius: 6px; padding: 0 10px; font-size: 13.5px;
+    background: #fff; min-width: 0; width: 176px;
+  }
+
+  .date-field {
+    position: relative; min-width: 0; height: 40px; width: 272px; display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--gray-300); border-radius: 8px; padding: 0 10px; background: #fff; cursor: pointer;
+  }
+  .date-field .cal-icon { color: var(--gray-500); flex-shrink: 0; }
+  .date-field .date-text { flex: 1; font-size: 13px; color: var(--gray-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .date-field .date-text.placeholder { color: var(--gray-400); }
+  .date-field .clear-x { color: var(--gray-400); flex-shrink: 0; }
+  .date-field .clear-x:hover { color: var(--gray-600); }
+  .date-field .vdiv { width: 1px; align-self: stretch; background: var(--gray-200); flex-shrink: 0; }
+  .date-field .quick-chev { color: var(--gray-500); flex-shrink: 0; }
+
+  .quick-range-menu {
+    display: none; position: absolute; top: calc(100% + 4px); right: 0; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 170px; z-index: 30; overflow: hidden;
+  }
+  .quick-range-menu.open { display: block; }
+  .quick-range-menu button {
+    display: block; width: 100%; text-align: left; padding: 8px 12px; border: none; background: none; font-size: 13px; cursor: pointer;
+  }
+  .quick-range-menu button:hover { background: var(--emerald-50); color: var(--emerald-700); }
+
+  .calendar-pop {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.15); z-index: 2147483647; width: 264px; overflow: hidden;
+  }
+  .calendar-pop.open { display: block; }
+  .calendar-pop .cal-header { background: var(--gray-50); padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .calendar-pop .cal-header button { border: none; background: none; cursor: pointer; padding: 4px; border-radius: 6px; display: flex; }
+  .calendar-pop .cal-header button:hover { background: var(--gray-200); }
+  .calendar-pop .cal-header .month-label { font-size: 13px; font-weight: 600; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 8px; }
+  .calendar-grid .dow { font-size: 10.5px; color: var(--gray-500); text-align: center; padding: 4px 0; font-weight: 600; }
+  .calendar-grid .day {
+    text-align: center; font-size: 12.5px; padding: 6px 0; border-radius: 6px; cursor: pointer; color: var(--gray-700);
+  }
+  .calendar-grid .day.muted { color: var(--gray-300); }
+  .calendar-grid .day:hover { background: var(--emerald-100); }
+  .calendar-grid .day.in-range { background: var(--emerald-100); color: var(--emerald-800); }
+  .calendar-grid .day.selected { background: var(--emerald-500); color: #fff; font-weight: 700; }
+  .calendar-grid .day.today { box-shadow: inset 0 0 0 1px var(--emerald-400); }
+
+  .btn-create {
+    display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 8px;
+    border: none; background: var(--green-600); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .btn-create:hover { background: var(--green-500); }
+
+  /* ---------- main card ---------- */
+  .card {
+    background: #fff; border-radius: 8px 8px 0 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); overflow: hidden; margin-bottom: 16px;
+  }
+  .card-body { padding: 20px; }
+
+  table.orders-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-container { border: 1px solid var(--slate-200); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); margin-bottom: 20px; overflow: hidden; }
+  .orders-table thead tr { background: var(--slate-50); border-bottom: 2px solid var(--slate-200); }
+  .orders-table th { text-align: left; padding: 14px 24px; font-size: 12px; font-weight: 600; color: var(--slate-600); text-transform: uppercase; letter-spacing: .04em; }
+  .orders-table td { padding: 16px 24px; border-bottom: 1px solid var(--slate-100); vertical-align: top; }
+  .orders-table tbody tr.order-row:hover { background: linear-gradient(to right, var(--slate-50), transparent); }
+  .orders-table td.col-items { color: var(--slate-700); }
+  .col-po { width: 200px; } .col-supplier { width: 180px; } .col-items { width: 100px; }
+  .col-amount { width: 130px; } .col-status { width: 140px; } .col-actions { width: 150px; }
+
+  .po-cell { display: flex; align-items: flex-start; gap: 6px; }
+  .po-cell .expand-btn { border: none; background: none; cursor: pointer; color: var(--slate-600); padding: 6px; margin: -6px -2px 0 -6px; border-radius: 8px; flex-shrink: 0; }
+  .po-cell .expand-btn:hover { background: var(--slate-200); }
+  .po-number-line { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--slate-900); letter-spacing: -0.01em; }
+  .po-copy-btn { border: none; background: none; cursor: pointer; color: var(--slate-400); display: flex; padding: 4px; border-radius: 6px; }
+  .po-copy-btn:hover { color: var(--slate-600); background: var(--slate-100); }
+  .po-date-line { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--slate-500); margin-top: 6px; }
+  .supplier-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .supplier-name { font-size: 14px; font-weight: 500; color: var(--slate-900); }
+  .supplier-chip { display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; letter-spacing: .02em; }
+  .supplier-chip.internal { background: var(--blue-100); color: var(--blue-700); box-shadow: inset 0 0 0 1px var(--blue-200); }
+  .supplier-chip.department { background: var(--purple-100); color: var(--purple-700); box-shadow: inset 0 0 0 1px var(--purple-200); }
+  .supplier-chip.external { background: var(--amber-100); color: var(--amber-700); box-shadow: inset 0 0 0 1px var(--amber-300); }
+  .supplier-phone { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--slate-500); }
+
+  .amount-value { font-size: 14px; font-weight: 600; color: var(--slate-900); }
+
+  select.status-select {
+    font-size: 14px; font-weight: 500; border-radius: 6px; padding: 6px 10px; border: 1px solid var(--gray-300);
+    background: #fff; color: var(--gray-800); cursor: pointer; width: 100%;
+  }
+  select.status-select:disabled { color: var(--slate-400); background: var(--slate-50); cursor: not-allowed; }
+
+  .status-pill-badge { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .status-pill-badge.delivered { background: var(--emerald-50); color: var(--emerald-700); }
+  .status-pill-badge.shipping, .status-pill-badge.inprogress, .status-pill-badge.partial-delivered { background: var(--purple-50); color: var(--purple-700); }
+  .status-pill-badge.pending { background: var(--gray-100); color: var(--gray-500); }
+  .status-pill-badge.not-accepted { background: var(--red-50); color: var(--red-600); }
+
+  .invoice-pending-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--purple-700); font-weight: 500; margin-top: 6px; }
+  .invoice-pending-link .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--amber-500); flex-shrink: 0; }
+
+  /* ---------- row expand: Details / Items tabs ---------- */
+  .expand-tabs { display: flex; border-bottom: 1px solid var(--slate-200); }
+  .expand-tab { flex: 1; justify-content: center; padding: 12px 2px; border: none; background: none; font-size: 13px; font-weight: 600; color: var(--gray-500);
+    cursor: pointer; border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px; }
+  .expand-tab.active { color: var(--emerald-700); border-bottom-color: var(--emerald-600); }
+  .expand-panel { display: none; padding: 18px 6px 4px; }
+  .expand-panel.active { display: block; }
+  .expand-warning { display: flex; gap: 10px; align-items: flex-start; background: var(--orange-50); border-left: 3px solid var(--amber-500);
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 18px; font-size: 12.5px; }
+  .expand-warning strong { color: var(--amber-700); }
+  .expand-warning .desc { color: var(--gray-600); }
+  .expand-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 16px; }
+  .expand-field-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); letter-spacing: .03em; margin-bottom: 5px; }
+  .expand-field-value { font-size: 13.5px; font-weight: 600; color: var(--gray-900); display: flex; align-items: center; gap: 6px; }
+  .expand-supplier-box { display: flex; align-items: center; gap: 16px; background: var(--gray-50); border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; font-weight: 600; color: var(--gray-800); }
+  .expand-supplier-box .ico { color: var(--gray-400); display: flex; }
+  .expand-notes-value { font-size: 13px; color: var(--gray-400); font-style: italic; }
+  .expand-item-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+  .expand-item-row .name { font-weight: 600; font-size: 13px; color: var(--gray-900); }
+  .expand-item-row .art { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+  .expand-item-row .qty { font-weight: 600; font-size: 13px; color: var(--gray-800); }
+
+  .actions-menu-wrap { position: relative; }
+  .btn-actions { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--slate-200); background: #fff;
+    border-radius: 8px; padding: 6px 10px; font-size: 14px; font-weight: 500; color: var(--slate-700); cursor: pointer; }
+  .btn-actions:hover { background: var(--slate-50); }
+  .actions-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; background: #fff; border: 1px solid var(--gray-100);
+    border-radius: 6px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1); min-width: 220px; z-index: 25; overflow: hidden; padding: 4px 0; }
+  .actions-dropdown.open { display: block; }
+  .actions-dropdown button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 10px 12px;
+    border: none; background: none; font-size: 14px; color: var(--gray-700); cursor: pointer; }
+  .actions-dropdown button:hover { background: var(--gray-100); }
+  .actions-dropdown button.doc-blue { color: var(--blue-700); }
+  .actions-dropdown button.doc-blue:hover { background: var(--blue-50); }
+  .actions-dropdown button.doc-emerald { color: var(--emerald-700); }
+  .actions-dropdown button.doc-emerald:hover { background: var(--emerald-50); }
+  .actions-dropdown button.doc-purple { color: var(--purple-700); }
+  .actions-dropdown button.doc-purple:hover { background: var(--purple-50); }
+  .actions-dropdown button.doc-purple.needs-attention { background: var(--purple-50); font-weight: 600; }
+
+  tr.expand-row td { background: var(--slate-50); padding: 0 20px; }
+  tr.expand-row { display: none; }
+  tr.expand-row.open { display: table-row; }
+
+  /* ---------- pagination ---------- */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; flex-wrap: wrap; gap: 10px; }
+  .pagination .showing { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--gray-500); letter-spacing: .03em; }
+  .pagination .pages { display: flex; gap: 4px; }
+  .pagination .pages button { padding: 5px 11px; border-radius: 6px; font-size: 12px; border: 1px solid var(--gray-200); background: #fff; cursor: pointer; }
+  .pagination .pages button.active { background: var(--green-500); color: #fff; border-color: var(--green-500); }
+
+  /* ---------- loading skeleton ---------- */
+  .skel { background: linear-gradient(90deg,#e5e7eb 25%,#f3f4f6 37%,#e5e7eb 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 6px; }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+  /* ---------- not found ---------- */
+  .not-found { text-align: center; padding: 48px 20px; }
+  .not-found svg { margin: 0 auto 14px; color: var(--gray-300); }
+  .not-found h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; color: var(--gray-600); font-size: 17px; margin: 0 0 14px; }
+  .not-found button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gray-300); background: #fff;
+    border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* ---------- Add/Manage Invoice modal ---------- */
+  .inv-modal-backdrop { display: none; position: fixed; inset: 0; z-index: 60; align-items: center; justify-content: center; background: rgba(0,0,0,.5); }
+  .inv-modal-backdrop.open { display: flex; }
+  .inv-modal { position: relative; background: #fff; border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,.25); width: 100%; max-width: 32rem;
+    margin: 0 12px; overflow: hidden; max-height: 85vh; display: flex; flex-direction: column; }
+  .inv-modal-head { flex-shrink: 0; padding: 20px 24px; border-bottom: 1px solid var(--gray-200); background: var(--gray-50);
+    display: flex; align-items: flex-start; gap: 14px; }
+  .inv-modal-head .icon-box, .inv-modal-head .back-box { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid transparent; cursor: pointer; }
+  .inv-modal-head .icon-box { background: var(--emerald-50); border-color: var(--emerald-200); color: var(--emerald-700); cursor: default; }
+  .inv-modal-head .back-box { background: #fff; border-color: var(--gray-200); color: var(--gray-500); }
+  .inv-modal-head .back-box:hover { color: var(--gray-700); background: var(--gray-100); }
+  .inv-modal-head .titles { flex: 1; min-width: 0; }
+  .inv-modal-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--gray-900); line-height: 1.3; }
+  .inv-modal-head p { margin: 2px 0 0; font-size: 12px; color: var(--gray-500); }
+  .inv-modal-head p b { font-family: ui-monospace, monospace; font-weight: 600; color: var(--gray-700); }
+  .inv-modal-close { flex-shrink: 0; border: none; background: none; color: var(--gray-400); cursor: pointer; padding: 8px; margin: -4px -8px 0 0; border-radius: 8px; }
+  .inv-modal-close:hover { color: var(--gray-600); background: var(--gray-100); }
+  .inv-modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px; }
+  .inv-screen { display: flex; flex-direction: column; gap: 14px; }
+
+  .inv-doc-row { display: flex; align-items: center; gap: 12px; border: 1px solid var(--gray-200); border-radius: 16px; padding: 12px 14px; cursor: pointer; }
+  .inv-doc-row:hover { border-color: var(--emerald-200); background: rgba(236,253,245,.4); }
+  .inv-doc-row .ico { width: 36px; height: 36px; border-radius: 8px; background: var(--gray-100); color: var(--gray-500); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .inv-doc-row .info { flex: 1; min-width: 0; }
+  .inv-doc-row .info .lbl { font-size: 13.5px; font-weight: 600; color: var(--gray-800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inv-doc-row .info .date { font-size: 11.5px; color: var(--gray-400); margin-top: 1px; }
+  .inv-doc-row .amt { font-size: 13.5px; font-weight: 700; color: var(--gray-900); flex-shrink: 0; }
+  .inv-doc-row .icon-btn { width: 28px; height: 28px; border-radius: 8px; background: var(--gray-100); color: var(--gray-400); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: none; cursor: pointer; }
+  .inv-doc-row .icon-btn:hover { color: var(--emerald-700); background: var(--emerald-50); }
+  .inv-add-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 12px;
+    border: 1px dashed var(--emerald-300); background: rgba(236,253,245,.5); color: var(--emerald-700); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .inv-add-btn:hover { background: var(--emerald-50); border-color: var(--emerald-400); }
+  .inv-empty-note { font-size: 12.5px; color: var(--gray-400); text-align: center; padding: 8px 0; }
+
+  .inv-field label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; }
+  .inv-amount-wrap { display: flex; align-items: center; height: 44px; border-radius: 12px; border: 1px solid var(--gray-300); background: #fff; }
+  .inv-amount-wrap:focus-within { border-color: var(--emerald-500); box-shadow: 0 0 0 2px rgba(16,185,129,.25); }
+  .inv-amount-wrap .cur { padding: 0 4px 0 12px; font-size: 15px; font-weight: 600; color: var(--gray-400); flex-shrink: 0; }
+  .inv-amount-wrap input { flex: 1; min-width: 0; height: 100%; border: none; background: transparent; font-size: 15px; font-weight: 700; color: var(--gray-900); padding-right: 12px; }
+  .inv-amount-wrap input:focus { outline: none; }
+  .inv-field input[type="text"] { width: 100%; height: 44px; border-radius: 12px; border: 1px solid var(--gray-300); background: #fff; padding: 0 12px; font-size: 13.5px; color: var(--gray-900); }
+  .inv-field input[type="text"]:focus { outline: none; border-color: var(--emerald-500); box-shadow: 0 0 0 2px rgba(16,185,129,.25); }
+
+  .inv-attach-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .inv-attach-head .cnt { font-size: 11px; font-weight: 600; color: var(--gray-400); }
+  .inv-attach-head .cnt b { color: var(--emerald-700); }
+  .inv-dropzone { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 112px;
+    border-radius: 12px; border: 2px dashed var(--gray-300); background: #fff; cursor: pointer; color: var(--gray-400); }
+  .inv-dropzone:hover, .inv-dropzone.drag { border-color: var(--emerald-400); background: rgba(236,253,245,.4); }
+  .inv-dropzone .main-txt { font-size: 13.5px; font-weight: 500; color: var(--gray-600); }
+  .inv-dropzone .sub-txt { font-size: 11.5px; color: var(--gray-400); }
+  .inv-add-file-strip { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 12px;
+    border: 2px dashed var(--gray-300); background: #fff; color: var(--gray-500); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .inv-add-file-strip:hover { border-color: var(--emerald-400); background: rgba(236,253,245,.4); }
+  .inv-file-chip { display: flex; align-items: center; gap: 12px; border: 1px solid var(--gray-200); background: #fff; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+  .inv-file-chip .ico { width: 36px; height: 36px; border-radius: 8px; background: var(--red-50); color: var(--red-500); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .inv-file-chip .info { flex: 1; min-width: 0; }
+  .inv-file-chip .info .nm { font-size: 13px; font-weight: 500; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inv-file-chip .info .sz { font-size: 11.5px; color: var(--gray-400); }
+  .inv-file-chip button { border: none; background: none; color: var(--gray-400); cursor: pointer; padding: 6px; border-radius: 8px; flex-shrink: 0; }
+  .inv-file-chip button:hover { color: var(--gray-600); background: var(--gray-100); }
+
+  .inv-attach-row { display: flex; align-items: center; gap: 12px; border: 1px solid var(--gray-200); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .inv-attach-row .ico { width: 32px; height: 32px; border-radius: 8px; background: var(--red-50); color: var(--red-500); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .inv-attach-row .info { flex: 1; min-width: 0; }
+  .inv-attach-row .info .nm { font-size: 12.5px; font-weight: 600; color: var(--gray-900); }
+  .inv-attach-row .info .dt { font-size: 11px; color: var(--gray-400); }
+  .inv-attach-row .actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .inv-attach-row .actions button { width: 28px; height: 28px; border-radius: 8px; border: none; background: var(--gray-100); color: var(--gray-400); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .inv-attach-row .actions button.rm:hover { color: var(--red-500); background: var(--red-50); }
+  .inv-attach-row .actions button.rm:disabled { opacity: .4; cursor: not-allowed; }
+
+  .inv-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+  .inv-footer .btn-cancel { height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--gray-300); background: #fff; color: var(--gray-600); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .inv-footer .btn-cancel:hover { background: var(--gray-50); }
+  .inv-footer .btn-save { height: 44px; padding: 0 18px; border-radius: 10px; border: none; background: var(--emerald-600); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .inv-footer .btn-save:hover { background: var(--emerald-700); }
+  .inv-footer .btn-save:disabled { background: var(--gray-200); color: var(--gray-400); cursor: not-allowed; }
+
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="sidebar-inner">
+      <div class="brand-row">
+        <a class="brand-link" href="#">
+          <svg class="brand-bag" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7V6a6 6 0 0 1 12 0v1h2a1 1 0 0 1 1 1l-1.2 12a2 2 0 0 1-2 1.8H6.2a2 2 0 0 1-2-1.8L3 8a1 1 0 0 1 1-1h2Zm2 0h8V6a4 4 0 0 0-8 0v1Z"/></svg>
+          <span class="brand-name">QA store</span>
+        </a>
+      </div>
+
+      <div class="nav-scroll">
+        <ul class="nav-list">
+          <li>
+            <button type="button" class="nav-group-btn" data-group="production">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/></svg><span class="ngb-label">Production</span></span>
+              <svg class="nav-group-chevron" data-chevron="production" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-production">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Batch Management</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Semifinished Products</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Configure Recipe</a></li>
+            </ul>
+          </li>
+
+          <li>
+            <button type="button" class="nav-group-btn" data-group="inventory">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg><span class="ngb-label">Inventory</span></span>
+              <svg class="nav-group-chevron" data-chevron="inventory" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-inventory">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Finished Goods Inventory</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Raw Material Inventory</a></li>
+            </ul>
+          </li>
+
+          <li>
+            <button type="button" class="nav-group-btn" data-group="audit">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span class="ngb-label">Stock Audit Settlement</span></span>
+              <svg class="nav-group-chevron" data-chevron="audit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-audit">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Stock Audits</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Settlement Approvals</a></li>
+            </ul>
+          </li>
+
+          <li>
+            <button type="button" class="nav-group-btn active" data-group="procurement">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="ngb-label">Procurement</span></span>
+              <svg class="nav-group-chevron" data-chevron="procurement" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-procurement">
+              <li><a class="nav-sub-link" href="screen-09.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Management</a></li>
+              <li><a class="nav-sub-link active" href="screen-02.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Purchase Orders</a></li>
+            </ul>
+          </li>
+
+          <li>
+            <button type="button" class="nav-group-btn" data-group="finance">
+              <span class="ngb-left"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12"/><path d="M6 8h12"/><path d="m6 13 8.5 8"/><path d="M6 13h3"/><path d="M9 13c6.667 0 6.667-10 0-10"/></svg><span class="ngb-label">Finance</span></span>
+              <svg class="nav-group-chevron" data-chevron="finance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <ul class="nav-sub open" id="sub-finance">
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Customer Receivables</a></li>
+              <li><a class="nav-sub-link" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>Supplier Payables</a></li>
+            </ul>
+          </li>
+
+          <li><a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Workforce Management</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-bottom">
+        <a class="nav-leaf-link" href="#"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8c0 4.5-6 9-6 9s-6-4.5-6-9a6 6 0 0 1 12 0"/><circle cx="12" cy="8" r="2"/></svg>Route Delivery</a>
+        <button type="button" class="nav-leaf-link" id="btnStoreQr"><svg class="nav-icon qr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M17 17h1v1h-1z"/><path d="M14 21h1v1h-1z"/><path d="M21 14v1"/><path d="M21 21h1"/></svg>Store QR Code</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="app-header">
+      <div class="app-header-row">
+        <div class="header-left">
+          <button type="button" class="hamburger-btn" id="hamburgerBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <h1 class="page-title">Purchase Orders</h1>
+        </div>
+        <div class="header-right">
+          <div class="profile-trigger" id="profileTrigger">
+            <div class="avatar-wrap">
+              <div class="avatar-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+              <span class="status-dot"></span>
+            </div>
+            <div class="profile-text"><span class="pname">Mahesh</span><span class="prole">Admin</span></div>
+            <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="profile-dropdown" id="profileDropdown">
+            <button type="button" class="pd-row">My Network <span class="preview-badge">Preview</span></button>
+            <button type="button" class="pd-row">Edit Profile</button>
+            <div class="pd-divider"></div>
+            <button type="button" class="pd-row danger">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+
+  <!-- ============ Purchase Forecast banner ============ -->
+  <div class="forecast-desktop" id="forecastDesktop">
+    <div class="fc-icon-block">
+      <div class="fc-icon-circle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="fc-badge">!</span>
+      </div>
+      <div>
+        <div class="fc-title">Stock to Reorder</div>
+        <div class="fc-subtitle-line"><span class="fc-count" id="forecastCountDesktop">3</span> items running low</div>
+        <div class="fc-hint">Order now to keep shelves full</div>
+      </div>
+    </div>
+    <div class="fc-divider"></div>
+    <div class="fc-stat-block">
+      <div class="fc-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+      <div>
+        <div class="fc-stat-label">Items to Order</div>
+        <div class="fc-stat-value" id="forecastItemsDesktop">3</div>
+      </div>
+    </div>
+    <div class="fc-divider"></div>
+    <div class="fc-stat-block">
+      <div class="fc-stat-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
+      <div>
+        <div class="fc-stat-label">Suggested Order Qty</div>
+        <div class="fc-stat-value" id="forecastQtyDesktop">175 units</div>
+      </div>
+    </div>
+    <div class="fc-items-col">
+      <div class="fc-col-label">Top Items Low on Stock</div>
+      <div id="forecastNamesDesktop"></div>
+    </div>
+    <div class="fc-qty-col">
+      <div class="fc-qty-label">Qty to restock</div>
+      <div id="forecastQtysDesktop"></div>
+    </div>
+    <button class="btn-forecast-view-desktop" id="btnForecastViewDesktop">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      View Forecast Details
+    </button>
+  </div>
+
+  <!-- ============ Toolbar ============ -->
+  <form class="toolbar" id="toolbar">
+    <div class="search-box">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search purchase orders by order id, supplier, item" />
+    </div>
+
+    <div class="filter-grid" id="filterGrid">
+      <select class="select-status" id="statusFilter">
+        <option value="">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="inprogress">In Progress</option>
+        <option value="shipping">Shipping</option>
+        <option value="partial delivered">Partial Delivered</option>
+        <option value="delivered">Delivered</option>
+        <option value="not accepted">Not Accepted</option>
+      </select>
+
+      <div class="date-field" id="dateField">
+        <svg class="cal-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span class="date-text placeholder" id="dateText">Select date range</span>
+        <svg class="clear-x" id="dateClear" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <div class="vdiv"></div>
+        <svg class="quick-chev" id="quickRangeTrigger" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+
+        <div class="quick-range-menu" id="quickRangeMenu">
+          <button type="button" data-range="today">Today</button>
+          <button type="button" data-range="7">Last 7 days</button>
+          <button type="button" data-range="30">Last 30 days</button>
+          <button type="button" data-range="thisMonth">This month</button>
+          <button type="button" data-range="lastMonth">Last month</button>
+        </div>
+
+        <div class="calendar-pop" id="calendarPop">
+          <div class="cal-header">
+            <button type="button" id="calPrev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <span class="month-label" id="calMonthLabel">August 2026</span>
+            <button type="button" id="calNext"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <button type="button" class="btn-create" id="btnCreateDesktop">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Create Purchase Order
+    </button>
+  </form>
+
+  <!-- ============ Main content card ============ -->
+  <div class="card">
+    <div class="card-body">
+
+      <!-- loading state -->
+      <div id="stateLoading" style="display:none">
+        <div class="table-container">
+          <table class="orders-table"><tbody id="skelRows"></tbody></table>
+        </div>
+      </div>
+
+      <!-- populated state -->
+      <div id="statePopulated" style="display:none">
+        <div class="table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th class="col-po">PO Number</th>
+                <th class="col-supplier">Supplier</th>
+                <th class="col-items">Items</th>
+                <th class="col-amount">Amount</th>
+                <th class="col-status">Status</th>
+                <th class="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <div class="showing" id="showingText">Showing 1–6 of 6</div>
+          <div class="pages">
+            <button>‹</button><button class="active">1</button><button>›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- empty with active filters -->
+      <div id="stateEmptyFiltered" style="display:none" class="not-found">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <h2>We're sorry, no purchase orders match your current filters.</h2>
+        <button id="btnClearFromEmpty">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Clear filters
+        </button>
+      </div>
+
+      <!-- empty, no filters at all -->
+      <div id="stateEmptyNone" style="display:none" class="not-found">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <h2>We're sorry, but no purchase orders are available at the moment.</h2>
+      </div>
+
+    </div>
+  </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ============ Add/Manage Invoice modal ============ -->
+<div class="inv-modal-backdrop" id="invModalBackdrop">
+  <div class="inv-modal">
+    <div class="inv-modal-head">
+      <button type="button" class="back-box" id="invBackBtn" style="display:none">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div class="icon-box" id="invIconBox">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="titles">
+        <h2 id="invModalTitle">Invoices</h2>
+        <p>Order <b id="invModalOrderNo">#—</b></p>
+      </div>
+      <button type="button" class="inv-modal-close" id="invCloseBtn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="inv-modal-body">
+      <!-- LIST screen -->
+      <div class="inv-screen" id="invScreenList">
+        <div id="invListRows"></div>
+        <button type="button" class="inv-add-btn" id="invAddBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Invoice
+        </button>
+      </div>
+
+      <!-- ADD screen -->
+      <div class="inv-screen" id="invScreenAdd" style="display:none">
+        <div class="inv-field">
+          <label>Amount</label>
+          <div class="inv-amount-wrap">
+            <span class="cur">₹</span>
+            <input type="text" inputmode="decimal" id="invAddAmount" placeholder="0">
+          </div>
+        </div>
+        <div>
+          <div class="inv-attach-head"><label style="margin:0;font-size:12px;font-weight:600;color:var(--gray-600)">Attachments</label>
+            <span class="cnt"><b id="invAddFileCount">0</b> / 3</span></div>
+          <div id="invAddFileChips"></div>
+          <button type="button" class="inv-dropzone" id="invAddDropzone">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+            <span class="main-txt">Click to upload or drag and drop</span>
+            <span class="sub-txt">PDF, JPG or PNG · up to 3 files</span>
+          </button>
+          <button type="button" class="inv-add-file-strip" id="invAddMoreStrip" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add another file
+          </button>
+          <input type="file" id="invAddFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" style="display:none">
+        </div>
+        <div class="inv-field">
+          <label>Remarks (optional)</label>
+          <input type="text" id="invAddRemarks" placeholder="e.g. Invoice #4521, partial shipment">
+        </div>
+        <div class="inv-footer">
+          <button type="button" class="btn-cancel" id="invAddCancel">Cancel</button>
+          <button type="button" class="btn-save" id="invAddSave" disabled>Save Invoice</button>
+        </div>
+      </div>
+
+      <!-- VIEW screen -->
+      <div class="inv-screen" id="invScreenView" style="display:none">
+        <div class="inv-field">
+          <label>Amount</label>
+          <div class="inv-amount-wrap">
+            <span class="cur">₹</span>
+            <input type="text" inputmode="decimal" id="invViewAmount">
+          </div>
+        </div>
+        <div class="inv-field">
+          <label>Remarks</label>
+          <input type="text" id="invViewRemarks" placeholder="e.g. Invoice #4521, partial shipment">
+        </div>
+        <div>
+          <div class="inv-attach-head"><label style="margin:0;font-size:12px;font-weight:600;color:var(--gray-600)">Attachments</label>
+            <span class="cnt"><b id="invViewFileCount">0</b> / 3</span></div>
+          <div id="invViewAttachRows"></div>
+          <button type="button" class="inv-add-file-strip" id="invViewAddAttachment">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Attachment
+          </button>
+          <input type="file" id="invViewFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf" style="display:none">
+        </div>
+        <div class="inv-footer">
+          <button type="button" class="btn-cancel" id="invViewBack">Back</button>
+          <button type="button" class="btn-save" id="invViewSave">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('profileTrigger').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('profileTrigger').classList.toggle('open');
+  document.getElementById('profileDropdown').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('profileTrigger').classList.remove('open');
+  document.getElementById('profileDropdown').classList.remove('open');
+});
+document.querySelectorAll('.nav-group-btn').forEach(btn => btn.addEventListener('click', () => {
+  const sub = document.getElementById('sub-' + btn.dataset.group);
+  sub.classList.toggle('open');
+  document.querySelector(`[data-chevron="${btn.dataset.group}"]`).style.transform = sub.classList.contains('open') ? '' : 'rotate(180deg)';
+}));
+
+// Explicit JS-driven navigation for real sidebar links (defensive: guarantees navigation
+// even in preview contexts that intercept plain <a> clicks). Placeholder "#" links stay inert.
+document.querySelectorAll('.nav-sub-link, .nav-leaf-link').forEach(link => {
+  const href = link.getAttribute('href');
+  if (href && href !== '#') {
+    link.addEventListener('click', e => { e.preventDefault(); window.location.href = href; });
+  }
+});
+let SEED = null;
+let currentFilters = { status: '', start: null, end: null, search: '' };
+// Supplier invoices per order — no backend/persistence in discovery; resets on reload.
+// Shape: { [orderId]: [{ id, amount, remarks, files: [{name, size}], uploadedAt }] }
+let invoiceStore = {};
+let invModal = { orderId: null, screen: 'list', addFiles: [], viewEntryId: null, viewFiles: [] };
+let calView = new Date(2026, 7, 1); // August 2026, matches seed created_date range
+let calSelecting = null; // 'start' | 'end' | null
+
+const statusLabel = s => ({
+  pending: 'Pending', inprogress: 'In Progress', shipping: 'Shipping',
+  'partial delivered': 'Partial Delivered', delivered: 'Delivered', 'not accepted': 'Not Accepted'
+}[s] || s);
+const TERMINAL_STATUSES = ['delivered', 'not accepted'];
+const statusPillClass = s => s.replace(/\s+/g, '-');
+
+const supplierChip = seller => {
+  if (seller.supplierType === 'DEPARTMENT') return '<span class="supplier-chip department">Department</span>';
+  if (seller._sourceType === 'internalSupplier') return '<span class="supplier-chip internal">Internal</span>';
+  return '<span class="supplier-chip external">External</span>';
+};
+
+const currency = n => '₹' + n.toLocaleString('en-IN');
+
+const dateShort = iso => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const timeShort = iso => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const dateShortNumeric = iso => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`; };
+const isExternal = seller => seller._sourceType === 'externalSupplier' && seller.supplierType !== 'DEPARTMENT';
+
+const ICON_FILE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+const ICON_CHECK_CIRCLE = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
+const ICON_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+
+// Mirrors SourcingTable.jsx's per-row documentActions build-up: PO Document is
+// always available; Goods Received Receipt only once delivered; Add/Manage
+// Invoice is highlighted when a delivered external order still has no invoice
+// on file, and its label switches to "Manage Invoices" once one exists
+// (matches supplierInvoiceCount > 0 in the real component). Add Document is
+// always available alongside it.
+function documentActionsFor(order, seller) {
+  const delivered = order.status === 'delivered';
+  const invoiceCount = (invoiceStore[order._id] || []).length;
+  const needsInvoiceReminder = delivered && isExternal(seller) && invoiceCount === 0;
+  const actions = [
+    { cls: 'doc-blue', icon: ICON_FILE, label: 'PO Document' },
+  ];
+  if (delivered) actions.push({ cls: 'doc-emerald', icon: ICON_CHECK_CIRCLE, label: 'Goods Received Receipt' });
+  actions.push({
+    cls: 'doc-purple' + (needsInvoiceReminder ? ' needs-attention' : ''), icon: ICON_FILE,
+    label: invoiceCount > 0 ? 'Manage Invoices' : 'Add Invoice', action: 'addInvoice', orderId: order._id,
+  });
+  actions.push({ cls: '', icon: ICON_PLUS, label: 'Add Document' });
+  return actions;
+}
+
+// ============ Add/Manage Invoice modal ============
+// Mirrors PurchaseOrderDocumentModal.jsx in "invoice" mode: a List screen (existing
+// invoices + "Add Invoice"), an Add screen (amount/attachments/remarks), and a View
+// screen (edit amount/remarks, manage attachments). No backend here — files are
+// tracked by name/size only (invoiceStore resets on reload), matching this repo's
+// "disposable HTML prototype, no real API calls" scope (SPEC §3.1).
+const ICON_TRASH = '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
+const ICON_EDIT = '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>';
+const ICON_X = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+const ICON_ADD = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 KB';
+  const kb = bytes / 1024;
+  if (kb < 1024) return kb.toFixed(1) + ' KB';
+  return (kb / 1024).toFixed(1) + ' MB';
+}
+
+function openInvoiceModal(orderId) {
+  invModal = { orderId, screen: 'list', addFiles: [], viewEntryId: null, viewFiles: [] };
+  const order = SEED.purchaseOrders.find(o => o._id === orderId);
+  document.getElementById('invModalOrderNo').textContent = '#' + (order ? order.order_number : '');
+  const list = invoiceStore[orderId] || [];
+  showInvoiceScreen(list.length > 0 ? 'list' : 'add');
+  document.getElementById('invModalBackdrop').classList.add('open');
+}
+
+function closeInvoiceModal() {
+  document.getElementById('invModalBackdrop').classList.remove('open');
+  renderOrders(filteredOrders());
+}
+
+function showInvoiceScreen(screen) {
+  invModal.screen = screen;
+  document.getElementById('invScreenList').style.display = screen === 'list' ? 'flex' : 'none';
+  document.getElementById('invScreenAdd').style.display = screen === 'add' ? 'flex' : 'none';
+  document.getElementById('invScreenView').style.display = screen === 'view' ? 'flex' : 'none';
+  document.getElementById('invBackBtn').style.display = screen === 'list' ? 'none' : 'flex';
+  document.getElementById('invIconBox').style.display = screen === 'list' ? 'flex' : 'none';
+  document.getElementById('invModalTitle').textContent = screen === 'add' ? 'Add Invoice' : screen === 'view' ? 'Invoice' : 'Invoices';
+  if (screen === 'list') renderInvoiceList();
+  if (screen === 'add') resetInvoiceAddForm();
+}
+
+function renderInvoiceList() {
+  const list = invoiceStore[invModal.orderId] || [];
+  document.getElementById('invListRows').innerHTML = list.length ? list.map(entry => `
+    <div class="inv-doc-row" data-inv-id="${entry.id}">
+      <div class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_FILE}</svg></div>
+      <div class="info">
+        <div class="lbl">${entry.remarks || 'Supplier Invoice'}</div>
+        <div class="date">${dateShort(entry.uploadedAt)}</div>
+      </div>
+      <div class="amt">₹${Number(entry.amount || 0).toFixed(2)}</div>
+      <button type="button" class="icon-btn" data-inv-edit="${entry.id}" title="Edit">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_EDIT}</svg>
+      </button>
+    </div>`).join('') : '<div class="inv-empty-note">No invoices recorded yet.</div>';
+}
+
+function resetInvoiceAddForm() {
+  invModal.addFiles = [];
+  document.getElementById('invAddAmount').value = '';
+  document.getElementById('invAddRemarks').value = '';
+  renderAddFileChips();
+  updateAddSaveState();
+}
+
+function renderAddFileChips() {
+  const chipsEl = document.getElementById('invAddFileChips');
+  chipsEl.innerHTML = invModal.addFiles.map((f, idx) => `
+    <div class="inv-file-chip">
+      <div class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_FILE}</svg></div>
+      <div class="info"><div class="nm">${f.name}</div><div class="sz">${formatBytes(f.size)}</div></div>
+      <button type="button" data-remove-add-file="${idx}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_X}</svg></button>
+    </div>`).join('');
+  document.getElementById('invAddFileCount').textContent = invModal.addFiles.length;
+  const remaining = 3 - invModal.addFiles.length;
+  document.getElementById('invAddDropzone').style.display = invModal.addFiles.length === 0 && remaining > 0 ? 'flex' : 'none';
+  document.getElementById('invAddMoreStrip').style.display = invModal.addFiles.length > 0 && remaining > 0 ? 'flex' : 'none';
+}
+
+function addFilesToAdd(fileList) {
+  const remaining = 3 - invModal.addFiles.length;
+  Array.from(fileList).slice(0, remaining).forEach(f => invModal.addFiles.push({ name: f.name, size: f.size }));
+  renderAddFileChips();
+  updateAddSaveState();
+}
+
+function updateAddSaveState() {
+  const amount = parseFloat(document.getElementById('invAddAmount').value);
+  document.getElementById('invAddSave').disabled = !(amount > 0 && invModal.addFiles.length > 0);
+}
+
+function openInvoiceView(entryId) {
+  const entry = (invoiceStore[invModal.orderId] || []).find(e => e.id === entryId);
+  if (!entry) return;
+  invModal.viewEntryId = entryId;
+  invModal.viewFiles = entry.files.map(f => ({ ...f }));
+  document.getElementById('invViewAmount').value = entry.amount;
+  document.getElementById('invViewRemarks').value = entry.remarks || '';
+  renderViewAttachRows();
+  showInvoiceScreen('view');
+}
+
+function renderViewAttachRows() {
+  const rowsEl = document.getElementById('invViewAttachRows');
+  rowsEl.innerHTML = invModal.viewFiles.map((f, idx) => `
+    <div class="inv-attach-row" data-view-file-idx="${idx}">
+      <div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_FILE}</svg></div>
+      <div class="info"><div class="nm">${f.name}</div><div class="dt">${formatBytes(f.size)}</div></div>
+      <div class="actions">
+        <button type="button" class="rm" data-remove-view-file="${idx}" ${invModal.viewFiles.length <= 1 ? 'disabled title="At least one attachment is required"' : 'title="Remove"'}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICON_TRASH}</svg>
+        </button>
+      </div>
+    </div>`).join('');
+  document.getElementById('invViewFileCount').textContent = invModal.viewFiles.length;
+  document.getElementById('invViewAddAttachment').style.display = invModal.viewFiles.length < 3 ? 'flex' : 'none';
+}
+
+function wireInvoiceModal() {
+  document.getElementById('invCloseBtn').addEventListener('click', closeInvoiceModal);
+  document.getElementById('invModalBackdrop').addEventListener('click', e => {
+    if (e.target.id === 'invModalBackdrop') closeInvoiceModal();
+  });
+  // Mirrors handleBack: from View always to List; from Add only if there's an existing
+  // list to return to, otherwise close outright (an empty Add-only session has nothing to
+  // go "back" to).
+  document.getElementById('invBackBtn').addEventListener('click', () => {
+    const list = invoiceStore[invModal.orderId] || [];
+    if (invModal.screen === 'view') showInvoiceScreen('list');
+    else if (invModal.screen === 'add' && list.length > 0) showInvoiceScreen('list');
+    else closeInvoiceModal();
+  });
+
+  document.getElementById('invAddBtn').addEventListener('click', () => showInvoiceScreen('add'));
+  document.getElementById('invAddCancel').addEventListener('click', () => showInvoiceScreen('list'));
+  document.getElementById('invAddAmount').addEventListener('input', e => {
+    e.target.value = e.target.value.replace(/[^0-9.]/g, '');
+    updateAddSaveState();
+  });
+  document.getElementById('invAddDropzone').addEventListener('click', () => document.getElementById('invAddFileInput').click());
+  document.getElementById('invAddMoreStrip').addEventListener('click', () => document.getElementById('invAddFileInput').click());
+  document.getElementById('invAddFileInput').addEventListener('change', e => { addFilesToAdd(e.target.files); e.target.value = ''; });
+  ['dragover'].forEach(evt => document.getElementById('invAddDropzone').addEventListener(evt, e => { e.preventDefault(); e.target.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(evt => document.getElementById('invAddDropzone').addEventListener(evt, e => { e.preventDefault(); e.target.classList.remove('drag'); }));
+  document.getElementById('invAddDropzone').addEventListener('drop', e => addFilesToAdd(e.dataTransfer.files));
+
+  document.getElementById('invAddSave').addEventListener('click', () => {
+    const amount = parseFloat(document.getElementById('invAddAmount').value) || 0;
+    const remarks = document.getElementById('invAddRemarks').value.trim();
+    if (!(amount > 0 && invModal.addFiles.length > 0)) return;
+    const list = invoiceStore[invModal.orderId] || (invoiceStore[invModal.orderId] = []);
+    list.push({ id: 'inv-' + Date.now(), amount, remarks, files: invModal.addFiles.map(f => ({ ...f })), uploadedAt: new Date().toISOString() });
+    showInvoiceScreen('list');
+  });
+
+  document.getElementById('invViewBack').addEventListener('click', () => showInvoiceScreen('list'));
+  document.getElementById('invViewAmount').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^0-9.]/g, ''); });
+  document.getElementById('invViewAddAttachment').addEventListener('click', () => document.getElementById('invViewFileInput').click());
+  document.getElementById('invViewFileInput').addEventListener('change', e => {
+    const remaining = 3 - invModal.viewFiles.length;
+    Array.from(e.target.files).slice(0, remaining).forEach(f => invModal.viewFiles.push({ name: f.name, size: f.size }));
+    e.target.value = '';
+    renderViewAttachRows();
+  });
+  document.getElementById('invViewSave').addEventListener('click', () => {
+    const entry = (invoiceStore[invModal.orderId] || []).find(e => e.id === invModal.viewEntryId);
+    if (!entry) return;
+    const amount = parseFloat(document.getElementById('invViewAmount').value) || 0;
+    if (!(amount > 0)) return;
+    entry.amount = amount;
+    entry.remarks = document.getElementById('invViewRemarks').value.trim();
+    entry.files = invModal.viewFiles.map(f => ({ ...f }));
+    showInvoiceScreen('list');
+  });
+
+  // Delegated: list-row click/edit, remove-file buttons in both Add and View screens.
+  document.addEventListener('click', e => {
+    const row = e.target.closest('.inv-doc-row');
+    if (row && document.getElementById('invModalBackdrop').classList.contains('open')) { openInvoiceView(row.dataset.invId); return; }
+    const editBtn = e.target.closest('[data-inv-edit]');
+    if (editBtn) { openInvoiceView(editBtn.dataset.invEdit); return; }
+    const rmAddFile = e.target.closest('[data-remove-add-file]');
+    if (rmAddFile) { invModal.addFiles.splice(Number(rmAddFile.dataset.removeAddFile), 1); renderAddFileChips(); updateAddSaveState(); return; }
+    const rmViewFile = e.target.closest('[data-remove-view-file]');
+    if (rmViewFile && invModal.viewFiles.length > 1) { invModal.viewFiles.splice(Number(rmViewFile.dataset.removeViewFile), 1); renderViewAttachRows(); }
+  });
+}
+
+fetch('../seed-data/seed.json')
+  .then(r => r.json())
+  .then(seed => { SEED = seed; init(); });
+
+function init() {
+  renderForecast();
+  renderSkeleton();
+  wireInteractions();
+  wireInvoiceModal();
+  buildCalendar();
+  updateVisibilityState();
+}
+
+function forecastRows() {
+  return SEED.forecastRecommendations.map(r => ({
+    ...r, shortage: Math.max(r.demand - r.currentStock, 0),
+    recommendedPurchase: r.recommendedQuantity || Math.max(r.demand - r.currentStock, 0)
+  }));
+}
+
+function renderForecast() {
+  const rows = forecastRows();
+  const totalQty = rows.reduce((a, r) => a + r.recommendedPurchase, 0);
+  document.getElementById('forecastCountDesktop').textContent = rows.length;
+  document.getElementById('forecastItemsDesktop').textContent = rows.length;
+  document.getElementById('forecastQtyDesktop').textContent = totalQty + ' units';
+
+  const top = rows.slice(0, 2);
+  document.getElementById('forecastNamesDesktop').innerHTML = top.map(r => `
+    <div class="fc-name-row"><span class="dot ${r.shortage > 60 ? 'high' : 'med'}"></span>${r.name}</div>`).join('');
+  document.getElementById('forecastQtysDesktop').innerHTML = top.map(r => `
+    <div class="fc-qty-row">${r.recommendedPurchase} ${r.measurement}</div>`).join('');
+}
+
+function renderSkeleton() {
+  document.getElementById('skelRows').innerHTML = Array.from({ length: 6 }).map(() => `
+    <tr><td colspan="6" style="padding:14px"><div class="skel" style="height:20px;width:100%"></div></td></tr>
+  `).join('');
+}
+
+function sellerFor(order) { return SEED.sellers.find(s => s._id === order.supplier_id); }
+
+function filteredOrders() {
+  return SEED.purchaseOrders.filter(o => {
+    if (currentFilters.status && o.status !== currentFilters.status) return false;
+    if (currentFilters.search) {
+      const seller = sellerFor(o);
+      const blob = (o.order_number + ' ' + seller.name + ' ' + o.item_list.map(i => i.name).join(' ')).toLowerCase();
+      if (!blob.includes(currentFilters.search.toLowerCase())) return false;
+    }
+    if (currentFilters.start && currentFilters.end) {
+      const d = new Date(o.created_date);
+      if (d < currentFilters.start || d > currentFilters.end) return false;
+    }
+    return true;
+  });
+}
+
+function renderOrders(orders) {
+  const tbody = document.getElementById('ordersTbody');
+  tbody.innerHTML = '';
+
+  orders.forEach((order, idx) => {
+    const seller = sellerFor(order);
+    const rowId = 'row-' + order._id;
+
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr class="order-row">
+        <td class="col-po">
+          <div class="po-cell">
+            <button type="button" class="expand-btn" data-expand="${rowId}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div>
+              <div class="po-number-line">${order.order_number}
+                <button type="button" class="po-copy-btn" data-copy="${order.order_number}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+              <div class="po-date-line">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${dateShort(order.created_date)} · ${timeShort(order.created_date)}
+              </div>
+              ${isExternal(seller) ? '<div class="invoice-pending-link"><span class="dot"></span>Invoice Upload Pending</div>' : ''}
+            </div>
+          </div>
+        </td>
+        <td class="col-supplier">
+          <div class="supplier-name-row"><span class="supplier-name">${seller.name}</span>${supplierChip(seller)}</div>
+          <div class="supplier-phone">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.902.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.908.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            ${seller.phone}
+          </div>
+        </td>
+        <td class="col-items">${order.item_list.length}</td>
+        <td class="col-amount">
+          <div class="amount-value">${currency(order.total)}</div>
+        </td>
+        <td class="col-status">
+          <select class="status-select" data-status="${order.status}" ${TERMINAL_STATUSES.includes(order.status) ? 'disabled' : ''}>
+            ${['pending','inprogress','shipping','partial delivered','delivered','not accepted'].map(s =>
+              `<option value="${s}" ${s === order.status ? 'selected' : ''}>${statusLabel(s)}</option>`).join('')}
+          </select>
+        </td>
+        <td class="col-actions">
+          <div class="actions-menu-wrap">
+            <button type="button" class="btn-actions" data-menu="${rowId}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Documents
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="actions-dropdown" id="menu-${rowId}">
+              ${documentActionsFor(order, seller).map(a => `
+              <button type="button" class="${a.cls}" ${a.action ? `data-doc-action="${a.action}" data-order-id="${a.orderId}"` : ''}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${a.icon}</svg>
+                ${a.label}
+              </button>`).join('')}
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr class="expand-row" id="${rowId}">
+        <td colspan="6">
+          <div class="expand-tabs">
+            <button type="button" class="expand-tab active" data-tabtarget="details-${order._id}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Details
+            </button>
+            <button type="button" class="expand-tab" data-tabtarget="items-${order._id}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/></svg>
+              Items (${order.item_list.length})
+            </button>
+          </div>
+
+          <div class="expand-panel active" id="details-${order._id}">
+            ${isExternal(seller) ? `
+            <div class="expand-warning">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;color:var(--amber-600)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div><strong>PO shared outside system.</strong> <span class="desc">Manual follow-up required — status won't sync automatically with this supplier.</span></div>
+            </div>` : ''}
+            <div class="expand-detail-grid">
+              <div>
+                <div class="expand-field-label">PO Number</div>
+                <div class="expand-field-value">${order.order_number}
+                  <button type="button" class="po-copy-btn" data-copy="${order.order_number}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                </div>
+              </div>
+              <div>
+                <div class="expand-field-label">Status</div>
+                <div class="expand-field-value"><span class="status-pill-badge ${statusPillClass(order.status)}">${statusLabel(order.status)}</span></div>
+              </div>
+              <div>
+                <div class="expand-field-label">Order Date</div>
+                <div class="expand-field-value">${dateShortNumeric(order.created_date)}</div>
+              </div>
+            </div>
+            <div class="expand-supplier-box">
+              <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              ${seller.name}
+              <span class="ico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.902.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.908.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+              ${seller.phone}
+            </div>
+            <div class="expand-field-label">Notes / Comments</div>
+            <div class="expand-notes-value">No notes added.</div>
+          </div>
+
+          <div class="expand-panel" id="items-${order._id}">
+            ${order.item_list.map(i => `
+              <div class="expand-item-row">
+                <div><div class="name">${i.name}</div><div class="art">Art no: ${i.articleNumber}</div></div>
+                <div class="qty">${i.qty} ${i.orderingUnit}</div>
+              </div>`).join('')}
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+
+  document.getElementById('showingText').textContent = `Showing 1–${orders.length} of ${orders.length}`;
+}
+
+function applyState(state) {
+  document.getElementById('stateLoading').style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('statePopulated').style.display = state === 'populated' ? 'block' : 'none';
+  document.getElementById('stateEmptyFiltered').style.display = state === 'emptyFiltered' ? 'block' : 'none';
+  document.getElementById('stateEmptyNone').style.display = state === 'emptyNone' ? 'block' : 'none';
+}
+
+function updateVisibilityState() {
+  const orders = filteredOrders();
+  if (orders.length === 0) {
+    const hasFilters = Boolean(currentFilters.status || currentFilters.search || (currentFilters.start && currentFilters.end));
+    applyState(hasFilters ? 'emptyFiltered' : 'emptyNone');
+  } else {
+    applyState('populated');
+    renderOrders(orders);
+  }
+}
+
+function wireInteractions() {
+  // forecast view details -> phase 2 screen
+  document.getElementById('btnForecastViewDesktop').addEventListener('click', () => {
+    window.location.href = 'screen-03.html';
+  });
+
+  // create -> phase 3 screen
+  document.getElementById('btnCreateDesktop').addEventListener('click', () => {
+    window.location.href = 'screen-04.html';
+  });
+
+  // quick range menu
+  const dateField = document.getElementById('dateField');
+  const quickTrigger = document.getElementById('quickRangeTrigger');
+  const quickMenu = document.getElementById('quickRangeMenu');
+  const calendarPop = document.getElementById('calendarPop');
+  quickTrigger.addEventListener('click', e => {
+    e.stopPropagation();
+    quickMenu.classList.toggle('open');
+    calendarPop.classList.remove('open');
+  });
+  dateField.addEventListener('click', e => {
+    if (e.target === quickTrigger || quickMenu.contains(e.target)) return;
+    if (e.target === document.getElementById('dateClear')) return;
+    calendarPop.classList.toggle('open');
+    quickMenu.classList.remove('open');
+  });
+  document.addEventListener('click', e => {
+    if (!dateField.contains(e.target)) {
+      quickMenu.classList.remove('open');
+      calendarPop.classList.remove('open');
+    }
+  });
+
+  quickMenu.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+    const now = new Date(2026, 7, 11); // "today" pinned to seed's latest data for stable role-play
+    let start, end = new Date(now);
+    switch (btn.dataset.range) {
+      case 'today': start = new Date(now); break;
+      case '7': start = new Date(now); start.setDate(start.getDate() - 6); break;
+      case '30': start = new Date(now); start.setDate(start.getDate() - 29); break;
+      case 'thisMonth': start = new Date(now.getFullYear(), now.getMonth(), 1); break;
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+    }
+    setDateRange(start, end);
+    quickMenu.classList.remove('open');
+  }));
+
+  document.getElementById('dateClear').addEventListener('click', e => {
+    e.stopPropagation();
+    setDateRange(null, null);
+  });
+
+  document.getElementById('btnClearFromEmpty').addEventListener('click', clearAllFilters);
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    currentFilters.search = e.target.value;
+    updateVisibilityState();
+  });
+  document.getElementById('statusFilter').addEventListener('change', e => {
+    currentFilters.status = e.target.value;
+    updateVisibilityState();
+  });
+
+  document.getElementById('calPrev').addEventListener('click', () => { calView.setMonth(calView.getMonth() - 1); buildCalendar(); });
+  document.getElementById('calNext').addEventListener('click', () => { calView.setMonth(calView.getMonth() + 1); buildCalendar(); });
+
+  // delegated: expand rows, copy buttons, action menus, mobile card toggle, edit -> phase 7
+  document.addEventListener('click', e => {
+    const expandBtn = e.target.closest('[data-expand]');
+    if (expandBtn) {
+      document.getElementById(expandBtn.dataset.expand).classList.toggle('open');
+      return;
+    }
+    const copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) { navigator.clipboard && navigator.clipboard.writeText(copyBtn.dataset.copy).catch(() => {}); return; }
+    const tabBtn = e.target.closest('[data-tabtarget]');
+    if (tabBtn) {
+      const tabs = tabBtn.closest('.expand-tabs');
+      tabs.querySelectorAll('.expand-tab').forEach(t => t.classList.remove('active'));
+      tabBtn.classList.add('active');
+      const panelsRoot = tabs.parentElement;
+      panelsRoot.querySelectorAll('.expand-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(tabBtn.dataset.tabtarget).classList.add('active');
+      return;
+    }
+    const menuBtn = e.target.closest('[data-menu]');
+    if (menuBtn) {
+      e.stopPropagation();
+      const menu = document.getElementById('menu-' + menuBtn.dataset.menu);
+      document.querySelectorAll('.actions-dropdown.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+      menu.classList.toggle('open');
+      return;
+    }
+    const docActionBtn = e.target.closest('[data-doc-action]');
+    if (docActionBtn) {
+      document.querySelectorAll('.actions-dropdown.open').forEach(m => m.classList.remove('open'));
+      if (docActionBtn.dataset.docAction === 'addInvoice') openInvoiceModal(docActionBtn.dataset.orderId);
+      return;
+    }
+    if (!e.target.closest('.actions-menu-wrap')) document.querySelectorAll('.actions-dropdown.open').forEach(m => m.classList.remove('open'));
+
+    const gotoBtn = e.target.closest('[data-goto]');
+    if (gotoBtn) { window.location.href = gotoBtn.dataset.goto; }
+  });
+}
+
+function setDateRange(start, end) {
+  currentFilters.start = start; currentFilters.end = end;
+  const dateText = document.getElementById('dateText');
+  const dateClear = document.getElementById('dateClear');
+  if (start && end) {
+    const fmt = d => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    dateText.textContent = `${fmt(start)} – ${fmt(end)}`;
+    dateText.classList.remove('placeholder');
+    dateClear.style.display = 'block';
+  } else {
+    dateText.textContent = 'Select date range';
+    dateText.classList.add('placeholder');
+    dateClear.style.display = 'none';
+  }
+  updateVisibilityState();
+  buildCalendar();
+}
+
+function clearAllFilters() {
+  currentFilters = { status: '', start: null, end: null, search: '' };
+  document.getElementById('searchInput').value = '';
+  document.getElementById('statusFilter').value = '';
+  setDateRange(null, null);
+}
+
+function buildCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  const label = document.getElementById('calMonthLabel');
+  const year = calView.getFullYear(), month = calView.getMonth();
+  label.textContent = calView.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  let html = ['S','M','T','W','T','F','S'].map(d => `<div class="dow">${d}</div>`).join('');
+
+  const cells = [];
+  for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, muted: true, date: new Date(year, month - 1, daysInPrevMonth - i) });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, muted: false, date: new Date(year, month, d) });
+  while (cells.length % 7 !== 0) { const n = cells.length - (firstDow + daysInMonth); cells.push({ day: n + 1, muted: true, date: new Date(year, month + 1, cells.length - firstDow - daysInMonth + 1) }); }
+
+  const today = new Date(2026, 7, 11);
+  html += cells.map(c => {
+    const classes = ['day'];
+    if (c.muted) classes.push('muted');
+    if (sameDay(c.date, today)) classes.push('today');
+    if (currentFilters.start && currentFilters.end && c.date >= stripTime(currentFilters.start) && c.date <= stripTime(currentFilters.end)) classes.push('in-range');
+    if (currentFilters.start && sameDay(c.date, currentFilters.start)) classes.push('selected');
+    if (currentFilters.end && sameDay(c.date, currentFilters.end)) classes.push('selected');
+    return `<div class="${classes.join(' ')}" data-date="${c.date.toISOString()}">${c.day}</div>`;
+  }).join('');
+
+  grid.innerHTML = html;
+  grid.querySelectorAll('.day').forEach(el => el.addEventListener('click', () => {
+    const clicked = new Date(el.dataset.date);
+    if (!currentFilters.start || (currentFilters.start && currentFilters.end)) {
+      currentFilters.start = clicked; currentFilters.end = null;
+    } else if (clicked < currentFilters.start) {
+      currentFilters.end = currentFilters.start; currentFilters.start = clicked;
+    } else {
+      currentFilters.end = clicked;
+    }
+    if (currentFilters.start && currentFilters.end) setDateRange(currentFilters.start, currentFilters.end);
+    else buildCalendar();
+  }));
+}
+function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+</script>
+</body>
+</html>

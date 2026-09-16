@@ -1,0 +1,197 @@
+<!doctype html>
+<!--
+  DISCOVERY WIRING — Foodbridge Module Staff Management
+  ---------------------------------------------------------
+  This file is the WIRING only — the hub + transition map. It holds NO screen
+  content; screens live in screens/. The transition map below is the proto-FSM
+  that SSOT-1 (state-machine) and SSOT-5 (workflow) are later derived from.
+  Rules:
+  - HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  - Screens are standalone-openable and link to each other; this hub is the entry.
+  - Use seed-data/seed.json for any data.
+  - Disposable. When a version is accepted, snapshot the whole folder
+    (screens/ + index.html + seed-data) into versions/vN/.
+  - Nothing here is imported by development/. It only informs the SSOTs.
+
+  This round is a fidelity port of the LIVE storefront-frontend route /our-staff
+  (src/pages/Staff.jsx and its component closure) as of storefront-frontend@develop.
+  See instructions/addendum-002-live-frontend-port.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workforce Management — Discovery Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --fg: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --brand: #16a34a;
+      --bg: #f9fafb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 62rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    header.hero { border-bottom: 1px solid var(--line); background: #fff; }
+    .hero-inner { max-width: 62rem; margin: 0 auto; padding: 2.25rem 1.5rem 1.75rem; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--brand); background: #f0fdf4; border: 1px solid #bbf7d0;
+      padding: .2rem .55rem; border-radius: 9999px; margin-bottom: .75rem;
+    }
+    h1 { font-size: 1.6rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+    .sub { color: var(--muted); margin: 0; max-width: 46rem; font-size: .95rem; }
+
+    h2 { font-size: 1rem; margin: 2.5rem 0 .35rem; letter-spacing: -.01em; }
+    h2:first-of-type { margin-top: 1.75rem; }
+    .hint { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
+
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+    a.card {
+      display: block; text-decoration: none; color: inherit;
+      background: #fff; border: 1px solid var(--line); border-radius: .6rem;
+      padding: .9rem 1rem; transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    a.card:hover {
+      border-color: #86efac;
+      box-shadow: 0 2px 10px rgba(16, 163, 74, .08);
+      transform: translateY(-1px);
+    }
+    .card-id { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--brand); }
+    .card-title { font-weight: 600; font-size: .95rem; margin: .15rem 0 .2rem; }
+    .card-desc { color: var(--muted); font-size: .82rem; margin: 0; }
+
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; background: #fff; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    th, td { border-bottom: 1px solid var(--line); padding: .5rem .7rem; text-align: left; vertical-align: top; }
+    th { background: #f9fafb; font-weight: 600; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    tr:last-child td { border-bottom: 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82em; background: #f3f4f6; padding: .1rem .3rem; border-radius: .25rem; }
+
+    .note {
+      background: #fff; border: 1px solid var(--line); border-left: 3px solid #fbbf24;
+      border-radius: .5rem; padding: .8rem 1rem; font-size: .85rem; color: #374151;
+    }
+    .note strong { color: var(--fg); }
+    .note ul { margin: .5rem 0 0; padding-left: 1.1rem; }
+    .note li { margin-bottom: .3rem; }
+
+    footer { color: var(--muted); font-size: .8rem; margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Discovery prototype</span>
+      <h1>Workforce Management</h1>
+      <p class="sub">
+        Disposable HTML prototypes for the <strong>Foodbridge Module Staff Management</strong> module.
+        This round is a fidelity port of the live storefront route <code>/our-staff</code> — same
+        structure, same classes, same edge cases — driven entirely by seed data. Nothing here calls a
+        real API, and nothing here is imported by <code>development/</code>.
+      </p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <h2>Screens</h2>
+    <p class="hint">Each screen is standalone-openable. Append <code>?bare=1</code> to any URL to hide the discovery back-link for a clean pixel comparison.</p>
+
+    <div class="grid">
+      <a class="card" href="screens/screen-01-staff-list.html">
+        <div class="card-id">Screen 01</div>
+        <div class="card-title">Staff list</div>
+        <p class="card-desc">Default landing state — searchable, paginated list. Matches the reference screenshot.</p>
+      </a>
+      <a class="card" href="screens/screen-02-staff-add.html">
+        <div class="card-id">Screen 02</div>
+        <div class="card-title">Add staff drawer</div>
+        <p class="card-desc">Right-hand drawer, required-field validation, role picker with “Create new role”.</p>
+      </a>
+      <a class="card" href="screens/screen-03-staff-edit.html">
+        <div class="card-id">Screen 03</div>
+        <div class="card-title">Edit staff drawer</div>
+        <p class="card-desc">Same drawer pre-filled from a row; “Update” copy, no Notify User field.</p>
+      </a>
+      <a class="card" href="screens/screen-04-staff-delete.html">
+        <div class="card-id">Screen 04</div>
+        <div class="card-title">Delete confirmation</div>
+        <p class="card-desc">Destructive confirm modal. No close X, matching the live Windmill modal.</p>
+      </a>
+      <a class="card" href="screens/screen-05-staff-empty.html">
+        <div class="card-id">Screen 05</div>
+        <div class="card-title">Empty state</div>
+        <p class="card-desc">The NotFound branch — no staff, or a search that matches nothing.</p>
+      </a>
+      <a class="card" href="screens/screen-06-staff-loading.html">
+        <div class="card-id">Screen 06</div>
+        <div class="card-title">Loading skeleton</div>
+        <p class="card-desc">Shimmer placeholder shown while the staff list is in flight.</p>
+      </a>
+      <a class="card" href="screens/screen-07-staff-pagination.html">
+        <div class="card-id">Screen 07</div>
+        <div class="card-title">Pagination</div>
+        <p class="card-desc">23-row dataset across 2 pages, page size 20.</p>
+      </a>
+    </div>
+
+    <h2>Transition map (→ SSOT-1 state-machine / SSOT-5 workflow)</h2>
+    <p class="hint">This is the flow the FSM and workflow SSOTs are derived from. Data for every screen comes from <a href="seed-data/seed.json">seed-data/seed.json</a>.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>From screen / state</th><th>Event</th><th>To</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Staff list</td><td>Add &lt;label&gt;</td><td>Add staff drawer</td></tr>
+          <tr><td>Staff list</td><td>Edit (row action)</td><td>Edit staff drawer</td></tr>
+          <tr><td>Staff list</td><td>Delete (row action)</td><td>Delete confirmation</td></tr>
+          <tr><td>Staff list</td><td>Search (debounced 400ms)</td><td>Staff list, filtered — page resets to 1</td></tr>
+          <tr><td>Staff list</td><td>Search matches nothing</td><td>Empty state</td></tr>
+          <tr><td>Staff list</td><td>Page number / arrow</td><td>Staff list, next slice (page size 20)</td></tr>
+          <tr><td>Add staff drawer</td><td>Submit, valid</td><td>Staff list (row appended)</td></tr>
+          <tr><td>Add staff drawer</td><td>Submit, invalid</td><td>Add staff drawer with field errors</td></tr>
+          <tr><td>Add staff drawer</td><td>Create new role</td><td>Create-sub-role modal</td></tr>
+          <tr><td>Add / Edit drawer</td><td>Cancel · X · mask · Esc, form clean</td><td>Staff list</td></tr>
+          <tr><td>Add / Edit drawer</td><td>Cancel · X · mask · Esc, form dirty</td><td>Discard-changes modal</td></tr>
+          <tr><td>Discard-changes modal</td><td>Yes, Discard</td><td>Staff list (edits dropped)</td></tr>
+          <tr><td>Discard-changes modal</td><td>No, Wait</td><td>Back to the drawer, edits intact</td></tr>
+          <tr><td>Edit staff drawer</td><td>Submit, valid</td><td>Staff list (row updated)</td></tr>
+          <tr><td>Delete confirmation</td><td>Delete</td><td>Staff list (row removed)</td></tr>
+          <tr><td>Delete confirmation</td><td>Cancel</td><td>Staff list (unchanged)</td></tr>
+          <tr><td>Loading</td><td>Data arrives</td><td>Staff list, or Empty state if none</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Known divergences from the live app</h2>
+    <p class="hint">Recorded deliberately rather than papered over.</p>
+    <div class="note">
+      <strong>Three, all documented in the addendum:</strong>
+      <ul>
+        <li><strong>Google Sheet subsystem not ported.</strong> Export/sync toolbar, iframe sheet view and diff engine are excluded by decision. On the reference tenant its feature flags are off, so it renders nothing there either — the toolbar slot is present but empty.</li>
+        <li><strong>Sidebar submenus start collapsed</strong> except Product Master, matching the reference screenshot. The live default is <code>useState(true)</code> — every submenu expanded on first paint. Flip <code>initiallyOpen</code> in the seed to get the live default.</li>
+        <li><strong>“Workforce Management” is a tenant label,</strong> not a hardcoded string. Live it comes from <code>useMenuLabel("our-staff")</code> reading <code>storefrontMenus</code>; the same page reads “Our Staff” on a tenant that hasn’t renamed it. It is seeded here.</li>
+      </ul>
+    </div>
+
+    <footer>
+      Governed by AMDS. Discovery is HTML-only and disposable (SPEC §3.1) — it produces the decisions
+      that become the SSOTs under <code>development/sources-of-truth/</code>, and is never imported by
+      <code>development/</code>. Working rules: <code>instructions/addendum-001-working-rules.md</code>.
+    </footer>
+  </div>
+</body>
+</html>

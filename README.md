@@ -59,9 +59,17 @@ in `v5` is still the 30 August bytes. See [`v5/VERSION.md`](v5/VERSION.md).
 **▶ Current: [`v6`](https://nishant-devekar.github.io/foodbridge-mock-platform/v6/)** — the full platform, opened from the `v5` freeze.
 [`v4`](https://nishant-devekar.github.io/foodbridge-mock-platform/v4/) is a one-screen cut standing *beside* it, not behind it.
 
+**`v7` does not supersede `v6`, despite the number.** It is a narrow product
+experiment — new-user onboarding — carried over from `exagon-ai/foodbridge-pmf`
+so its reasoning can be read beside the platform it was designed against. It is
+here to be referred to, not continued; work that would change it belongs in the
+PMF repo, where it carries its lifecycle and its customer URL. Everything behind
+its flow is **simulated**. See [`v7/VERSION.md`](v7/VERSION.md).
+
 | | What it is | State | Destinations |
 | --- | --- | --- | --- |
 | Live (`/`) | follows each team's Pages site at view time | moves with every push | 26, whatever `assets/modules.json` says today |
+| [`v7`](https://nishant-devekar.github.io/foodbridge-mock-platform/v7/) | **new-user onboarding alone** — a product experiment carried over from the PMF repo, *not* the next platform cut | reference — carried over 16 September 2026 | 1 flow: 5 screens, 9 sheets |
 | [`v6`](https://nishant-devekar.github.io/foodbridge-mock-platform/v6/) | the full platform, from the `v5` freeze | working — opened 30 August 2026 | 26, plus 1 retired |
 | [`v5`](https://nishant-devekar.github.io/foodbridge-mock-platform/v5/) | the full platform, with Delivery Management ported to a real offline app | frozen 30 August 2026, except Stock Audit | 26, plus 1 retired |
 | [`v4`](https://nishant-devekar.github.io/foodbridge-mock-platform/v4/) | Stock Audit alone, no sidebar | working — cut 25 August 2026 | 1 |

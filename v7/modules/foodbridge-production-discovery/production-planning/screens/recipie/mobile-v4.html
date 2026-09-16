@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Premium Butter Cookies — Recipe (feedback-4 · mobile)</title>
+<style>
+/* ===== feedback-4 mobile fork — self-contained (addendum-009) =====
+   FoodBridge tokens + persona guidelines: thumb-first, bottom tabs,
+   bottom-sheets, large targets, sticky bottom action, high contrast. */
+:root{
+  --teal:#1B6272;--teal-d:#0F3D47;--teal-50:#E8F5F7;
+  --green:#1FA463;--green-d:#178a53;--green-50:#E9F8F0;--green-600:#43A047;
+  --amber:#F97316;--red:#EF4444;--red-50:#FEF2F2;
+  --bg:#F0F2F5;--surface:#fff;--border:#E5E7EB;--soft:#F1F3F5;
+  --tx:#111;--tx2:#555;--tx3:#888;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:#c9ced6;color:var(--tx);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+
+/* phone frame on desktop; full screen on real phones */
+.phone{width:412px;height:860px;margin:24px auto;background:var(--bg);border-radius:44px;box-shadow:0 24px 64px rgba(0,0,0,.28),0 0 0 11px #1a1a1a;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;background:#1a1a1a;border-radius:0 0 16px 16px;z-index:50}
+@media (max-width:480px){body{background:var(--bg)}.phone{width:100vw;height:100vh;height:100dvh;margin:0;border-radius:0;box-shadow:none}.notch{display:none}}
+
+/* header */
+.hdr{background:var(--teal);color:#fff;padding:26px 18px 14px}
+.hdr .hback{font-size:12px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:6px;display:inline-flex;align-items:center;gap:2px}
+.hdr .hback:active{color:#fff}
+.hdr .rn{font-size:19px;font-weight:800}
+
+/* F1: recipe list entry screen */
+.reclist{position:absolute;inset:0;z-index:35;background:var(--bg);display:none;flex-direction:column;overflow-y:auto;padding:30px 16px calc(16px + env(safe-area-inset-bottom))}
+.reclist.on{display:flex}
+.reclist .rl-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.reclist .rl-bar span{font-size:23px;font-weight:800}
+.rl-close{width:36px;height:36px;border-radius:999px;background:#fff;border:1px solid var(--border);font-size:15px;font-weight:700;color:var(--tx2)}
+.rl-close:active{background:var(--soft)}
+.reclist .rl-top{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.rl-create{width:100%;padding:15px;border-radius:14px;background:var(--teal);color:#fff;font-size:15px;font-weight:800}
+.rl-create:active{background:var(--teal-d)}
+#rl-search{margin-bottom:12px}
+.rl-cards{display:flex;flex-direction:column;gap:10px}
+.rl-card{display:block;text-align:left;width:100%;background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;font-size:16px;font-weight:800;color:var(--tx)}
+.rl-card small{display:block;font-size:12px;font-weight:600;color:var(--tx3);margin-top:3px}
+.rl-card:active{background:var(--soft)}
+.hdr .sub{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.hdr .vchip{font-size:11px;font-weight:700;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:999px}
+.hdr .prods{font-size:11.5px;color:rgba(255,255,255,.82);margin-top:6px}
+
+/* body */
+.body{flex:1;overflow-y:auto;padding:14px 14px 150px} /* room for tabbar (60) + action bar so page buttons aren't hidden (F3) */
+.screen{display:none}.screen.on{display:block}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--tx3);margin:4px 0 10px}
+.card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px}
+
+/* ingredient bars */
+.ing{background:#fff;border:1px solid var(--border);border-radius:16px;margin-bottom:10px;overflow:hidden}
+.ing.open{border-color:var(--teal);box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.ing-row{padding:14px;cursor:pointer}
+.ing-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.ing-top .nm{font-size:15px;font-weight:800}
+.ing-top .nm small{display:block;font-size:11px;font-weight:500;color:var(--tx3)}
+.ing-top .qty{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.track{height:22px;background:var(--soft);border-radius:8px;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,#217A8E,var(--teal));border-radius:8px;transition:width .3s cubic-bezier(.4,0,.2,1)}
+.ing-edit{display:none;border-top:1px dashed var(--border);padding:14px;background:#FAFEFF}
+.ing.open .ing-edit{display:block}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:6px}
+.inp{width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:12px;font-size:15px;background:#fff}
+.inp:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-50)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* Operator (SSOT-2 addendum-0040): real ProductionBatchForm.tsx sources this from the staff
+   roster via a search-and-select OperatorPicker, not a plain <select>. */
+.op-picker-wrap{position:relative}
+.op-picker-wrap .ic{position:absolute;top:50%;transform:translateY(-50%);color:var(--tx2);font-size:14px;pointer-events:none}
+.op-picker-wrap .ic:not(.trail){left:13px}
+.op-picker-wrap .ic.trail{right:13px}
+.op-picker-input{padding-left:36px;padding-right:34px}
+
+/* stepper (near-zero typing) */
+.stepper{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:12px;overflow:hidden;width:100%}
+.stepper button{width:52px;font-size:22px;font-weight:700;color:var(--teal);background:#fff}
+.stepper button:active{background:var(--soft)}
+.stepper input{flex:1;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);font-size:16px;font-weight:800}
+.stepper input:focus{outline:none}
+
+.add-btn{width:100%;border:1.5px dashed var(--border);border-radius:16px;padding:16px;font-weight:800;color:var(--teal);background:var(--teal-50);font-size:15px}
+
+.yield-tile{display:flex;justify-content:space-between;align-items:center;border:1px solid #BBF7D0;background:var(--green-50);border-radius:16px;padding:16px;margin:12px 0}
+.yield-tile .yv{font-size:28px;font-weight:800;color:var(--green-d)}
+
+/* cost */
+.cline{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--soft)}
+.cline:last-child{border-bottom:none}
+.cline .cn{font-size:14px;font-weight:700}
+.cline .cn small{display:block;font-size:11px;color:var(--tx3);font-weight:500}
+.cline .cv{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+/* stronger, stand-out total rows (R7) */
+.sec-tot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:13px 14px;background:var(--teal-50);border:1px solid #BFE2E7;border-top:2px solid var(--teal);border-radius:12px;font-weight:800;color:var(--teal-d)}
+.sec-tot b{font-size:17px;font-variant-numeric:tabular-nums}
+.grand{display:flex;justify-content:space-between;align-items:center;background:var(--green-50);border:1px solid #BBF7D0;border-top:3px solid var(--green-600);border-radius:16px;padding:16px}
+.grand .gv{font-size:26px;font-weight:800;color:var(--green-d);font-variant-numeric:tabular-nums}
+.grand .gnote{display:block;font-size:10px;font-weight:600;color:var(--tx3);margin-top:2px}
+
+/* batch-size preview (header, non-destructive) */
+.bprev{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.bprev .bpl{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.82)}
+.bprev .pchip{padding:6px 13px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.30)}
+.bprev .pchip.sel{background:#fff;color:var(--teal)}
+
+/* cost sub-tabs */
+.csub{display:flex;gap:4px;background:#E3E7EB;border-radius:12px;padding:4px;margin-bottom:12px}
+.csub button{flex:1;padding:10px 6px;border-radius:9px;font-size:12px;font-weight:800;color:var(--tx2)}
+.csub button.on{background:#fff;color:var(--teal);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+[data-costpanel][hidden]{display:none}
+
+/* inline cost editor (replaces sheet-costedit) */
+.cline.editable{display:block}
+.cline.editable .cl-row{display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.cline.editable .cl-edit{display:none;margin-top:12px}
+.cline.editable.open .cl-edit{display:block}
+.cline.editable.open{background:#FAFEFF;border-radius:12px;margin:0 -8px;padding:12px 8px}
+
+/* production */
+.warn{display:none;background:var(--red-50);border:1px solid #FECACA;color:#991B1B;border-radius:12px;padding:12px;font-size:13px;font-weight:600;margin-top:8px}
+.warn.on{display:block}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:11px 15px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;font-weight:700;color:var(--tx2);background:#fff}
+.chip.sel{border-color:var(--teal);background:var(--teal-50);color:var(--teal)}
+
+/* two-stage headers */
+.stage-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+.stage-sub{font-size:12px;color:var(--tx2);margin:2px 0 8px}
+.stag{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:4px 9px;border-radius:999px}
+.stag-kg{background:var(--teal-50);color:var(--teal);border:1px solid var(--teal)}
+.stag-pcs{background:#FFF7ED;color:#9A3412;border:1px solid #FDBA74}
+.hint{font-size:11px;color:var(--tx2);margin-top:6px;line-height:1.45}
+/* the batch weight this stage divides — context, not a metric */
+.pivot{font-size:11.5px;color:var(--tx2);margin:-4px 0 8px}
+.pivot b{color:var(--teal);font-weight:800}
+.pivot-edit{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pivot-edit .pe-label{font-weight:800;color:var(--tx)}
+.num-in-sm{width:108px}
+.num-in-sm .inp{padding:9px 30px 9px 10px;font-weight:800;font-size:14px}
+.num-in-sm .num-suffix{right:10px;font-size:12px}
+.pe-note{font-size:11px;color:var(--tx2)}
+.pe-note.out{color:#991B1B;font-weight:700}
+
+/* packaging mix — stacked cards, never a wide table on a phone */
+.mrow{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;background:#fff}
+.mrow.locked{background:#FAFBFC}
+.mrow-h{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+.mrow-h .vn{font-size:14px;font-weight:800}
+.mrow-h .vn small{display:block;font-size:11px;font-weight:500;color:var(--tx2);margin-top:2px}
+.lock-btn{width:40px;height:36px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:15px;flex:none}
+.lock-btn[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+.mtrio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mrow.locked .mtrio input{background:#F1F5F9;color:var(--tx2)}
+.num-in{position:relative;display:flex;align-items:center}
+.num-in .inp{padding-right:32px}
+.num-suffix{position:absolute;right:12px;font-size:13px;font-weight:700;color:var(--tx2);pointer-events:none}
+.band{margin-top:8px}
+.band-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--tx2);margin-bottom:5px}
+.band-row b{color:var(--tx);font-weight:800}
+.band-val{font-weight:800;color:var(--teal);font-variant-numeric:tabular-nums}
+.band-track{position:relative;height:6px;border-radius:999px;background:linear-gradient(90deg,var(--red-50) 0,#ECFDF5 14%,#ECFDF5 86%,var(--red-50) 100%);border:1px solid var(--border)}
+.band-mark{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:var(--teal);border:2px solid #fff;box-shadow:0 0 0 1px var(--teal);transform:translate(-50%,-50%);transition:left .12s}
+.band.out .band-val{color:#991B1B}
+.band.out .band-mark{background:#991B1B;box-shadow:0 0 0 1px #991B1B}
+.mtrio label{display:block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--tx2);margin-bottom:4px}
+.mtrio input{width:100%;text-align:right;padding:9px 8px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-weight:700;background:#fff}
+.mdem{display:flex;align-items:center;justify-content:space-between;margin-top:9px;font-size:12px;color:var(--tx2)}
+.mdem b{font-weight:800}
+.mdem.met b{color:var(--green)}
+.mdem.short b{color:#B45309}
+.mult-hint{display:none;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:#9A3412;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;padding:7px 9px;margin-top:9px}
+.mrow.off-multiple .mult-hint{display:flex}
+.mult-hint .chip{padding:4px 9px;font-size:11px}
+.mnote{font-size:11.5px;color:var(--tx2);line-height:1.45;margin:2px 0 10px}
+/* notices — persistent across both sub-tabs; each shows only when it needs a decision */
+.notices{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.nb{font-size:11.5px;line-height:1.5;color:var(--tx2);border-left:3px solid var(--teal);padding:8px 10px;background:#FAFEFF;border-radius:0 8px 8px 0}
+.nb[hidden]{display:none}
+.nb b{font-weight:800;color:var(--tx)}
+.nb-act,.nb-ok{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nb-act{border-left-color:#FDBA74;background:#FFF7ED;color:#9A3412}
+.nb-act b{color:#9A3412}
+.nb-ok{border-left-color:var(--green);background:#F0FDF4;color:#166534}
+.nb-ok b{color:#166534}
+.nb-bad{border-left-color:#DC2626;background:var(--red-50);color:#991B1B;font-weight:600}
+.nb-bad b{color:#991B1B}
+.nb .chip{padding:5px 10px;font-size:11.5px;flex:none}
+/* live summary — persistent across both production sub-tabs */
+.abar{flex-wrap:wrap}
+.abar-note{width:100%;font-size:11.5px;font-weight:700;color:#991B1B;margin-bottom:2px}
+.abar-note[hidden]{display:none}
+
+/* success screen */
+.success{display:none;position:absolute;inset:0;background:var(--green-600);color:#fff;z-index:60;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;animation:slideup .4s cubic-bezier(.4,0,.2,1)}
+.success.on{display:flex}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.success .ic{font-size:60px}
+.success h2{font-size:26px;font-weight:800;margin-top:10px}
+.success .pb{font-size:20px;font-weight:800;letter-spacing:.5px;margin-top:6px}
+.success canvas{background:#fff;border-radius:10px;margin:18px 0;padding:8px}
+.success .sbtn{width:100%;background:#fff;color:var(--teal);font-size:16px;font-weight:800;padding:16px;border-radius:16px;margin-top:8px}
+
+/* bottom action bar (thumb CTA) */
+.abar{position:absolute;left:0;right:0;bottom:60px;background:#fff;border-top:1px solid var(--border);padding:12px 14px;display:flex;gap:10px;z-index:20}
+.abar[hidden]{display:none} /* F3: class display:flex was overriding the hidden attribute → every screen's bar (incl. Create Batch) showed at once */
+.abar .btn{flex:1;padding:16px;border-radius:16px;font-size:16px;font-weight:800;text-align:center}
+.btn-g{background:var(--green);color:#fff}
+.btn-t{background:var(--teal);color:#fff}
+.btn-o{background:#fff;color:var(--teal);border:2px solid var(--teal)}
+
+/* footer tabs */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:60px;background:#fff;border-top:1px solid var(--border);display:flex;z-index:25}
+.tabbar .ti{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;color:#9CA3AF}
+.tabbar .ti .i{font-size:20px}
+.tabbar .ti.on{color:var(--teal)}
+
+/* bottom sheet */
+.scrim{position:absolute;inset:0;background:rgba(17,17,17,.4);z-index:40;display:none}
+.scrim.on{display:block}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;z-index:45;transform:translateY(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);max-height:88%;overflow-y:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.sheet.on{transform:translateY(0)}
+.sheet .grip{width:40px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 14px}
+.sheet h3{font-size:17px;font-weight:800;margin-bottom:14px}
+.sheet .sbtn{width:100%;background:var(--green);color:#fff;font-size:16px;font-weight:800;padding:16px;border-radius:16px;margin-top:8px}
+.out{padding:13px 14px;border:1px dashed var(--border);border-radius:12px;background:#FAFBFC;font-weight:800;color:var(--tx2)}
+/* add-ingredient sheet: search existing + create (F2) */
+.opts{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;max-height:300px;overflow-y:auto}
+.opt{display:block;width:100%;text-align:left;padding:13px 14px;border:1px solid var(--border);border-radius:12px;font-size:15px;font-weight:700;background:#fff}
+.opt small{display:block;font-size:11.5px;font-weight:500;color:var(--tx3);margin-top:2px}
+.opt:active{background:var(--soft)}
+.opt.create{margin-top:2px;color:var(--teal);border:1.5px dashed var(--border);font-weight:800;background:var(--teal-50)}
+.toast{position:absolute;left:50%;bottom:132px;transform:translateX(-50%);background:#111;color:#fff;padding:11px 18px;border-radius:999px;font-size:13px;font-weight:700;z-index:70;opacity:0;transition:opacity .2s}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="notch"></div>
+
+  <!-- recipe list (opened from the Recipes footer tab) -->
+  <div class="reclist" id="reclist">
+    <div class="rl-bar"><span>Recipes</span><button class="rl-close" data-close-list aria-label="Close">✕</button></div>
+    <div class="rl-top">
+      <button class="rl-create" data-sheet-open="sheet-newrecipe">＋ Create New Recipe</button>
+    </div>
+    <input class="inp" id="rl-search" placeholder="Search recipes…">
+    <div class="rl-cards" id="rl-cards">
+      <button class="rl-card" data-open-recipe="Premium Butter Cookies">Premium Butter Cookies<small>3 versions · Active</small></button>
+      <button class="rl-card" data-open-recipe="Kaju Katli">Kaju Katli<small>No recipe yet</small></button>
+      <button class="rl-card" data-open-recipe="Garam Masala">Garam Masala<small>4 inputs</small></button>
+      <button class="rl-card" data-open-recipe="Turmeric Powder">Turmeric Powder<small>No recipe yet</small></button>
+    </div>
+  </div>
+
+  <!-- persistent header -->
+  <div class="hdr">
+    <div class="rn">Premium Butter Cookies</div>
+    <div class="sub"><span class="vchip">▼ V4.2 · Premium Butter</span><span style="font-size:11px;color:rgba(255,255,255,.82)">50–200kg</span></div>
+    <div class="prods">Cookies 100g · Cookies 250g · Bulk Pack</div>
+    <div class="bprev">
+      <span class="bpl">Preview at</span>
+      <button class="pchip" data-prev="50">50kg</button>
+      <button class="pchip sel" data-prev="100">100kg</button>
+      <button class="pchip" data-prev="200">200kg</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- ===== INGREDIENTS ===== -->
+    <section class="screen on" data-screen="ingredients">
+      <div class="eyebrow">Formulation</div>
+      <div id="ing-list">
+        <div class="ing" data-qty="12" data-unit="kg" data-yield="98">
+          <div class="ing-row"><div class="ing-top"><div class="nm">Butter<small>Amul · Grade A · Yield 98%</small></div><div class="qty">12 kg</div></div><div class="track"><div class="fill"></div></div></div>
+          <div class="ing-edit">
+            <div class="two"><div class="fld"><label>Brand</label><input class="inp" data-f="brand" value="Amul"></div><div class="fld"><label>Quality</label><input class="inp" data-f="quality" value="Grade A"></div></div>
+            <div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="12"><button data-step="1">+</button></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="98"></div></div>
+            <button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>
+          </div>
+        </div>
+        <div class="ing" data-qty="6" data-unit="kg" data-yield="99">
+          <div class="ing-row"><div class="ing-top"><div class="nm">Milk Powder<small>Nestlé · Yield 99%</small></div><div class="qty">6 kg</div></div><div class="track"><div class="fill"></div></div></div>
+          <div class="ing-edit">
+            <div class="two"><div class="fld"><label>Brand</label><input class="inp" data-f="brand" value="Nestlé"></div><div class="fld"><label>Quality</label><input class="inp" data-f="quality" value="Grade A"></div></div>
+            <div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="6"><button data-step="1">+</button></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="99"></div></div>
+            <button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>
+          </div>
+        </div>
+        <div class="ing" data-qty="15" data-unit="kg" data-yield="100">
+          <div class="ing-row"><div class="ing-top"><div class="nm">Sugar<small>Fine white · Yield 100%</small></div><div class="qty">15 kg</div></div><div class="track"><div class="fill"></div></div></div>
+          <div class="ing-edit">
+            <div class="fld"><label>Quality</label><input class="inp" data-f="quality" value="Fine white"></div>
+            <div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="15"><button data-step="1">+</button></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="100"></div></div>
+            <button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>
+          </div>
+        </div>
+        <div class="ing" data-qty="22" data-unit="kg" data-yield="97">
+          <div class="ing-row"><div class="ing-top"><div class="nm">Flour<small>Maida · Yield 97%</small></div><div class="qty">22 kg</div></div><div class="track"><div class="fill"></div></div></div>
+          <div class="ing-edit">
+            <div class="fld"><label>Quality</label><input class="inp" data-f="quality" value="Grade A"></div>
+            <div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="22"><button data-step="1">+</button></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="97"></div></div>
+            <button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>
+          </div>
+        </div>
+        <div class="ing" data-qty="0.5" data-unit="kg" data-yield="100">
+          <div class="ing-row"><div class="ing-top"><div class="nm">Salt<small>Iodised · Yield 100%</small></div><div class="qty">0.5 kg</div></div><div class="track"><div class="fill"></div></div></div>
+          <div class="ing-edit">
+            <div class="fld"><label>Quality</label><input class="inp" data-f="quality" value="Iodised"></div>
+            <div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="0.5"><button data-step="1">+</button></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="100"></div></div>
+            <button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>
+          </div>
+        </div>
+      </div>
+      <button class="add-btn" data-sheet-open="sheet-createing" style="margin-top:2px">＋ Add Ingredient</button>
+      <div class="yield-tile"><div><div class="eyebrow" style="margin:0">Expected Yield</div></div><div class="yv" id="yield-value">97%</div></div>
+    </section>
+
+    <!-- ===== COST ===== -->
+    <section class="screen" data-screen="cost">
+      <div class="csub">
+        <button class="on" data-costsub="ing">Ingredients</button>
+        <button data-costsub="making">Making</button>
+        <button data-costsub="pack">Packaging</button>
+      </div>
+
+      <div class="card" data-csec data-cost-scale data-costpanel="ing">
+        <div class="eyebrow">Ingredients Cost</div>
+        <div class="cline editable" data-amt="820" data-name="Butter" data-price="68.33" data-qtyv="12" data-unit="kg">
+          <div class="cl-row"><div class="cn">Butter<small></small></div><div class="cv">₹820</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="68.33"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="12"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹820</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="540" data-name="Milk Powder" data-price="90" data-qtyv="6" data-unit="kg">
+          <div class="cl-row"><div class="cn">Milk Powder<small></small></div><div class="cv">₹540</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="90"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="6"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹540</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="600" data-name="Sugar" data-price="40" data-qtyv="15" data-unit="kg">
+          <div class="cl-row"><div class="cn">Sugar<small></small></div><div class="cv">₹600</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="40"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="15"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹600</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="700" data-name="Flour" data-price="31.82" data-qtyv="22" data-unit="kg">
+          <div class="cl-row"><div class="cn">Flour<small></small></div><div class="cv">₹700</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="31.82"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="22"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹700</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="20" data-name="Salt" data-price="40" data-qtyv="0.5" data-unit="kg">
+          <div class="cl-row"><div class="cn">Salt<small></small></div><div class="cv">₹20</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="40"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="0.5"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹20</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="sec-tot"><span>Total Ingredients Cost</span><b data-sectot>₹2,680</b></div>
+        <div class="eyebrow" style="margin:8px 0 0;font-weight:600;text-transform:none;color:var(--tx3)">Tap a row to edit inline · scales with batch size</div>
+      </div>
+
+      <div class="card" data-csec data-cost-scale data-costpanel="making" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center"><div class="eyebrow">Making Cost</div><button class="chip" data-add-making>＋ Add</button></div>
+        <div id="making-list">
+          <div class="cline" data-amt="250"><div class="cn">Labour</div><div class="cv">₹250</div></div>
+          <div class="cline" data-amt="90"><div class="cn">Electricity</div><div class="cv">₹90</div></div>
+          <div class="cline" data-amt="60"><div class="cn">Gas</div><div class="cv">₹60</div></div>
+        </div>
+        <div class="sec-tot"><span>Total Making Cost</span><b data-sectot>₹400</b></div>
+      </div>
+
+      <div class="card" data-csec data-costpanel="pack" hidden>
+        <div class="eyebrow">Packaging Cost</div>
+        <div class="cline editable" data-amt="2.10" data-name="100g Pouch" data-price="2.10" data-qtyv="1" data-unit="pack" data-keepsmall>
+          <div class="cl-row"><div class="cn">100g Pouch<small>→ Cookies 100g</small></div><div class="cv">₹2.10</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="2.10"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="1"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>pack</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹2.10</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="3.80" data-name="250g Pouch" data-price="3.80" data-qtyv="1" data-unit="pack" data-keepsmall>
+          <div class="cl-row"><div class="cn">250g Pouch<small>→ Cookies 250g</small></div><div class="cv">₹3.80</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="3.80"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="1"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>pack</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹3.80</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="cline editable" data-amt="14" data-name="Bulk Pack" data-price="14" data-qtyv="1" data-unit="pack" data-keepsmall>
+          <div class="cl-row"><div class="cn">Bulk Pack<small>→ Bulk Pack</small></div><div class="cv">₹14.00</div></div>
+          <div class="cl-edit">
+            <div class="two"><div class="fld"><label>Unit Price (₹)</label><input class="inp" data-cf="price" type="number" value="14"></div><div class="fld"><label>Quantity</label><input class="inp" data-cf="qty" type="number" value="1"></div></div>
+            <div class="two"><div class="fld"><label>Unit</label><select class="inp" data-cf="unit"><option>pack</option><option>pcs</option></select></div><div class="fld"><label>Effective (₹)</label><div class="out" data-cf="eff">₹14.00</div></div></div>
+            <button class="add-btn" data-cost-save style="background:var(--green);color:#fff;border:none;margin-top:4px">✓ Save</button>
+          </div>
+        </div>
+        <div class="sec-tot"><span>Total Packaging Cost</span><b data-sectot>₹19.90</b></div>
+        <div class="eyebrow" style="margin:8px 0 0;font-weight:600;text-transform:none;color:var(--tx3)">Per pack · not scaled by batch size</div>
+      </div>
+
+      <div class="grand"><span style="font-weight:800">Grand Total<span class="gnote" id="grand-note">at 100 kg</span></span><span class="gv" id="grand-total">₹3,099.90</span></div>
+    </section>
+
+    <!-- ===== PRODUCTION ===== -->
+    <!-- Two stages, never one form (feedback-02): A plans the process in kg,
+         B allocates that weight into SKUs in pcs. -->
+    <section class="screen" data-screen="production">
+
+      <!-- staged as sub-tabs, mirroring the Cost screen's segmented control -->
+      <div class="csub">
+        <button class="on" data-prodsub="batch">Batch · kg</button>
+        <button data-prodsub="sku">SKU Planning · pcs</button>
+      </div>
+
+      <!-- Stage A · process manufacturing (kg) -->
+      <div data-prodpanel="batch">
+      <div class="stage-hd"><span class="eyebrow">Production Batch</span><span class="stag stag-kg">kg</span></div>
+      <div class="stage-sub">Process manufacturing — planned in kg, never in pieces.</div>
+      <div class="card">
+        <div class="fld"><label>Recipe Version</label><select class="inp" id="pb-ver"><option>V4.2 — Premium Butter</option><option>V4.1 — Butter Base</option></select></div>
+        <!-- Batch Size = batch weight, editable within a quality band (D-P11). -->
+        <div class="fld"><label>Batch Size</label>
+          <div class="num-in"><input class="inp" id="pb-size" type="number" min="1" step="0.5" value="100"><span class="num-suffix">kg</span></div>
+          <div class="band" id="pb-band">
+            <div class="band-row"><span>Quality band <b>90–110 kg</b> (±10%)</span><span class="band-val" id="band-val">100 kg</span></div>
+            <div class="band-track"><i class="band-mark" id="band-mark"></i></div>
+          </div>
+          <div class="warn" id="batch-warn">Beyond the quality tolerance — taste &amp; texture would change. Stay within the band, or create a dedicated recipe version.<br><button class="chip" style="margin-top:8px" data-sheet-open="sheet-newver">＋ Create New Recipe Version</button></div>
+        </div>
+        <div class="fld"><label>Planned Date</label><input class="inp" type="date"></div>
+        <div class="fld"><label>Expected Finish Date</label><input class="inp" id="pb-finish" type="date">
+          <div class="hint">Packaging may run hours or days after production (Rule 4).</div>
+        </div>
+        <div class="fld"><label>Operator</label>
+          <div class="op-picker-wrap">
+            <span class="ic">👤</span>
+            <input class="inp op-picker-input" type="text" placeholder="Search operators…" autocomplete="off">
+            <span class="ic trail">⌄</span>
+          </div>
+        </div>
+        <div class="fld"><label>Batch Number</label><div class="out">AUTO · on create</div></div>
+      </div>
+      </div><!-- /stage A panel -->
+
+      <!-- Stage B · packaging manufacturing (pcs) -->
+      <div data-prodpanel="sku" hidden>
+      <div class="stage-hd"><span class="eyebrow">SKU Planning</span><span class="stag stag-pcs">pcs</span></div>
+      <div class="stage-sub">Converts the manufactured weight into finished SKUs.</div>
+      <!-- batch size — editable here too, synced to the Batch sub-tab (D-P12) -->
+      <div class="pivot pivot-edit">
+        <span class="pe-label">Batch size</span>
+        <span class="num-in num-in-sm"><input class="inp" id="pb-size-sku" type="number" min="1" step="0.5" value="100"><span class="num-suffix">kg</span></span>
+        <span class="pe-note" id="band-note-sku">· within 90–110 kg band</span>
+      </div>
+      <div class="card">
+        <div class="fld"><label>Packaging Strategy</label>
+          <select class="inp" id="mix-strategy">
+            <option value="default" selected>Default Mix · 60 / 30 / 10</option>
+            <option value="festive">Festive Mix · 40 / 35 / 25</option>
+            <option value="bulk">Bulk-led Mix · 20 / 30 / 50</option>
+          </select>
+          <div class="hint">Seeds the mix. Editing a row rebalances the rest; lock a row to hold it.</div>
+        </div>
+        <div class="chips" style="margin-bottom:4px">
+          <button class="chip" id="mix-demand">◎ Fit to Demand</button>
+          <button class="chip" id="mix-reset">↺ Reset</button>
+        </div>
+        <div id="mix-rows"></div>
+        <div class="mnote"><b>Fit to Demand</b> flexes the batch within its band and balances the mix to orders. Edit any cell to adjust — unlocked rows rebalance to 100%.</div>
+      </div>
+      </div><!-- /stage B panel -->
+
+      <!-- No KPI strip (D-P8). Each notice shows only when it needs a decision.
+           Persistent across both sub-tabs; per-row Demand covers fulfilment. -->
+      <div class="notices">
+        <div class="nb nb-bad" id="n-over" hidden>⚠ Over-allocated by <b id="over-kg">0 kg</b> — this batch holds <b id="over-cap">100 kg</b>. Reduce quantities until the plan fits.</div>
+        <div class="nb" id="semi-note" hidden><b id="semi-kg">0 kg</b> of the batch is unallocated → <b>Semi Finished Inventory</b>, pack it later (Rule 5).</div>
+        <div class="nb nb-act" id="n-out" hidden><span><b id="out-pcs">0 pcs</b> of demand won't fit this batch.</span><button class="chip" id="carry">＋ Carry to next batch</button></div>
+        <div class="nb nb-ok" id="n-carry" hidden><span>Carrying <b id="carry-pcs">0 pcs</b> to the next batch.</span><button class="chip" id="carry-undo">✕</button></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- sticky bottom action (swaps per screen) -->
+  <div class="abar" data-abar="ingredients">
+    <button class="btn btn-o" id="save-toast">Save</button>
+    <button class="btn btn-g" data-sheet-open="sheet-newver">Save As New Version</button>
+  </div>
+  <div class="abar" data-abar="cost" hidden>
+    <button class="btn btn-t" data-screen-go="production">Go to Production →</button>
+  </div>
+  <div class="abar" data-abar="production" hidden>
+    <!-- the batch-size alert lives on the Batch sub-tab; carry its reason to the sticky bar -->
+    <span class="abar-note" id="pb-actnote" hidden>⚠ Unsupported batch size — fix it on the Batch tab.</span>
+    <button class="btn btn-t" id="create-batch">Create Production Order</button>
+  </div>
+
+  <!-- footer 3 tabs -->
+  <nav class="tabbar">
+    <button class="ti" data-open-list><span class="i">📋</span>Recipes</button>
+    <button class="ti on" data-screen-go="ingredients"><span class="i">🧪</span>Ingredients</button>
+    <button class="ti" data-screen-go="cost"><span class="i">₹</span>Cost</button>
+    <button class="ti" data-screen-go="production"><span class="i">🏭</span>Production</button>
+  </nav>
+
+  <!-- success screen -->
+  <div class="success" id="success">
+    <div class="ic">✅</div>
+    <h2>Batch Created</h2>
+    <div class="pb" id="s-pb">PB-2026-00182</div>
+    <canvas id="s-qr" width="132" height="132"></canvas>
+    <div style="font-size:13px;opacity:.9">Status: Created · scan on the floor</div>
+    <button class="sbtn" data-success-close>Back to Recipe</button>
+  </div>
+
+  <!-- sheets -->
+  <div class="scrim" data-scrim></div>
+
+  <div class="sheet" id="sheet-newrecipe">
+    <div class="grip"></div><h3>Create New Recipe</h3>
+    <div class="fld"><label>Recipe Name</label><input class="inp" placeholder="e.g. Almond Cookies"></div>
+    <div class="fld"><label>Linked Product / Variant</label><input class="inp" placeholder="e.g. Cookies 100g"></div>
+    <div class="fld"><label>Allowed Batch Sizes</label><div class="chips"><button class="chip sel">50kg</button><button class="chip sel">100kg</button><button class="chip">200kg</button></div></div>
+    <div class="fld"><label>Best Before (days)</label><input class="inp" type="number" value="180"></div>
+    <button class="sbtn" data-sheet-close>Create Recipe</button>
+  </div>
+
+  <div class="sheet" id="sheet-createing">
+    <div class="grip"></div><h3>Add Ingredient</h3>
+    <input class="inp" id="ing-search" placeholder="Search ingredient…" style="margin-bottom:10px">
+    <div class="opts" id="ing-options">
+      <button class="opt" data-pick="Butter" data-brand="Amul">Butter<small>Amul · ₹68.33 / kg</small></button>
+      <button class="opt" data-pick="Sugar" data-brand="">Sugar<small>Fine white · ₹40 / kg</small></button>
+      <button class="opt" data-pick="Milk Powder" data-brand="Nestlé">Milk Powder<small>Nestlé · ₹90 / kg</small></button>
+      <button class="opt" data-pick="Cocoa Powder" data-brand="Hershey's">Cocoa Powder<small>Hershey's · ₹210 / kg</small></button>
+      <button class="opt" data-pick="Baking Soda" data-brand="">Baking Soda<small>₹55 / kg</small></button>
+    </div>
+    <button class="opt create" id="show-create">＋ Create New Ingredient</button>
+    <div id="create-form" hidden>
+      <div class="fld"><label>Ingredient Name</label><input class="inp" placeholder="e.g. Cocoa Powder"></div>
+      <div class="two"><div class="fld"><label>Brand</label><input class="inp" placeholder="e.g. Hershey's"></div><div class="fld"><label>Unit</label><select class="inp"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>pcs</option></select></div></div>
+      <div class="two"><div class="fld"><label>Price</label><input class="inp" type="number" placeholder="0"></div><div class="fld"><label>Tax %</label><select class="inp"><option>0%</option><option>5%</option><option>12%</option><option>18%</option></select></div></div>
+      <button class="sbtn" data-sheet-close>Create Ingredient</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet-newver">
+    <div class="grip"></div><h3>Save As New Version</h3>
+    <div class="fld"><label>New Version Name</label><input class="inp" value="V4.3 — " placeholder="e.g. V4.3 — Low Sugar"></div>
+    <div class="fld"><label>Supported Batch Sizes</label><div class="chips"><button class="chip sel">25kg</button><button class="chip sel">50kg</button><button class="chip sel">100kg</button><button class="chip">200kg</button></div></div>
+    <div class="fld"><label>Linked Products</label><div class="chips"><button class="chip sel">Cookies 100g</button><button class="chip sel">Cookies 250g</button><button class="chip">Bulk Pack</button></div></div>
+    <div class="fld"><label>Best Before (days)</label><input class="inp" type="number" value="180"></div>
+    <button class="sbtn" data-sheet-close>Create Version</button>
+  </div>
+
+  <div class="toast" id="toast">Saved ✓</div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+  var num=function(v){var n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n};
+  var money=function(n){return '₹'+(Math.round(n*100)/100).toLocaleString('en-IN',{maximumFractionDigits:2})};
+  var fmtQty=function(n){n=Math.round(n*1000)/1000;return String(n)};
+
+  /* batch-size preview (non-destructive): base recipe authored at 100kg */
+  var BASE_BATCH=100, previewFactor=1;
+
+  /* screen + tab switch */
+  function go(id){
+    $$('[data-screen]').forEach(function(s){s.classList.toggle('on',s.getAttribute('data-screen')===id)});
+    $$('.tabbar .ti').forEach(function(t){t.classList.toggle('on',t.getAttribute('data-screen-go')===id)});
+    $$('[data-abar]').forEach(function(a){a.hidden=a.getAttribute('data-abar')!==id});
+    $('.body').scrollTop=0;
+  }
+  document.addEventListener('click',function(e){
+    var g=e.target.closest('[data-screen-go]'); if(g){go(g.getAttribute('data-screen-go'));}
+  });
+
+  /* recipe list — open from footer tab / close / pick a recipe / search */
+  document.addEventListener('click',function(e){
+    if(e.target.closest('[data-open-list]')){$('#reclist').classList.add('on');return;}
+    if(e.target.closest('[data-close-list]')){$('#reclist').classList.remove('on');return;}
+    var open=e.target.closest('[data-open-recipe]');
+    if(open){$('.hdr .rn').textContent=open.getAttribute('data-open-recipe');$('#reclist').classList.remove('on');go('ingredients');return;}
+  });
+  document.addEventListener('input',function(e){
+    if(e.target.id!=='rl-search')return;
+    var q=e.target.value.toLowerCase();
+    $$('#rl-cards .rl-card').forEach(function(c){c.hidden=c.getAttribute('data-open-recipe').toLowerCase().indexOf(q)<0});
+  });
+
+  /* ingredient bars */
+  function bars(){
+    var rows=$$('.ing'); var max=Math.max.apply(null,rows.map(function(r){return num(r.getAttribute('data-qty'))}).concat([1]));
+    rows.forEach(function(r){
+      var base=num(r.getAttribute('data-qty'));
+      var f=$('.fill',r); if(f)f.style.width=(base/max*100)+'%';
+      var q=$('.qty',r); if(q)q.textContent=fmtQty(base*previewFactor)+' '+(r.getAttribute('data-unit')||'kg');
+    });
+    var ys=$$('.ing [data-f=yield]').map(function(i){return num(i.value)}).filter(function(n){return n>0});
+    if(ys.length)$('#yield-value').textContent=Math.round(ys.reduce(function(a,b){return a+b},0)/ys.length)+'%';
+  }
+  /* expand only selected row */
+  document.addEventListener('click',function(e){
+    var row=e.target.closest('.ing-row');
+    if(row){var ing=row.closest('.ing');var was=ing.classList.contains('open');$$('.ing.open').forEach(function(x){x.classList.remove('open')});if(!was)ing.classList.add('open');}
+  });
+  /* steppers */
+  document.addEventListener('click',function(e){
+    var s=e.target.closest('[data-step]'); if(!s)return;
+    var inp=s.parentElement.querySelector('input'); var step=num(s.getAttribute('data-step'));
+    inp.value=Math.max(0,Math.round((num(inp.value)+step)*100)/100);
+  });
+  /* inline save */
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-ing-save]'); if(!b)return;
+    var ing=b.closest('.ing');
+    ing.setAttribute('data-qty',num($('[data-f=qty]',ing).value));   // BASE value
+    var unit=($('[data-f=unit]',ing)||{}).value||'kg'; ing.setAttribute('data-unit',unit);
+    var yld=num(($('[data-f=yield]',ing)||{}).value); ing.setAttribute('data-yield',yld);
+    var brand=($('[data-f=brand]',ing)||{}).value||'';
+    var quality=($('[data-f=quality]',ing)||{}).value||'';
+    var sub=$('.ing-top .nm small',ing);
+    if(sub){var parts=[];if(brand&&brand!=='—')parts.push(brand);if(quality&&quality!==brand)parts.push(quality);if(yld)parts.push('Yield '+yld+'%');sub.textContent=parts.join(' · ');}
+    ing.classList.remove('open'); bars(); toast('Saved ✓');
+  });
+
+  /* F2: add-ingredient sheet — search existing OR create new */
+  function appendIng(name,brand){
+    var el=document.createElement('div');
+    el.className='ing'; el.setAttribute('data-qty','5'); el.setAttribute('data-unit','kg'); el.setAttribute('data-yield','98');
+    el.innerHTML='<div class="ing-row"><div class="ing-top"><div class="nm">'+name+'<small>'+(brand?brand+' · ':'')+'Yield 98%</small></div><div class="qty">5 kg</div></div><div class="track"><div class="fill"></div></div></div>'+
+      '<div class="ing-edit">'+
+      '<div class="two"><div class="fld"><label>Brand</label><input class="inp" data-f="brand" value="'+(brand||'')+'"></div><div class="fld"><label>Quality</label><input class="inp" data-f="quality" value=""></div></div>'+
+      '<div class="fld"><label>Quantity (kg)</label><div class="stepper"><button data-step="-1">−</button><input data-f="qty" type="number" value="5"><button data-step="1">+</button></div></div>'+
+      '<div class="two"><div class="fld"><label>Unit</label><select class="inp" data-f="unit"><option>kg</option><option>g</option></select></div><div class="fld"><label>Yield %</label><input class="inp" data-f="yield" type="number" value="98"></div></div>'+
+      '<button class="add-btn" data-ing-save style="background:var(--green);color:#fff;border:none">✓ Save</button>'+
+      '</div>';
+    $('#ing-list').appendChild(el); bars();
+  }
+  document.addEventListener('input',function(e){
+    if(e.target.id!=='ing-search')return;
+    var q=e.target.value.toLowerCase();
+    $$('#ing-options .opt').forEach(function(o){o.hidden=o.getAttribute('data-pick').toLowerCase().indexOf(q)<0});
+  });
+  document.addEventListener('click',function(e){
+    var pick=e.target.closest('.opt[data-pick]');
+    if(pick){appendIng(pick.getAttribute('data-pick'),pick.getAttribute('data-brand')||'');closeSheet();toast('Added ✓');return;}
+    if(e.target.closest('#show-create')){var f=$('#create-form');if(f)f.hidden=false;e.target.closest('#show-create').hidden=true;}
+  });
+
+  /* cost auto totals */
+  function cost(){
+    var grand=0;
+    $$('[data-csec]').forEach(function(sec){
+      var scale=sec.hasAttribute('data-cost-scale'); var f=scale?previewFactor:1;
+      var sum=0;
+      $$('.cline',sec).forEach(function(l){
+        var base=num(l.getAttribute('data-amt')); sum+=base*f;
+        if(l.classList.contains('editable')){
+          var cv=$('.cv',l); if(cv)cv.textContent=money(base*f);
+          var small=$('.cn small',l);
+          if(small&&!l.hasAttribute('data-keepsmall')){
+            var price=num(l.getAttribute('data-price')); var q=num(l.getAttribute('data-qtyv'))*f; var u=l.getAttribute('data-unit')||'';
+            small.textContent='₹'+price+' × '+fmtQty(q)+(u?' '+u:'');
+          }
+        }
+      });
+      var o=$('[data-sectot]',sec); if(o)o.textContent=money(sum); grand+=sum;
+    });
+    $('#grand-total').textContent=money(grand);
+    var gn=$('#grand-note'); if(gn)gn.textContent='at '+fmtQty(BASE_BATCH*previewFactor)+' kg';
+  }
+
+  /* inline cost editor (replaces the old bottom-sheet) */
+  document.addEventListener('click',function(e){
+    var row=e.target.closest('.cl-row');
+    if(row){var l=row.closest('.cline.editable'); if(l){var was=l.classList.contains('open');$$('.cline.editable.open').forEach(function(x){x.classList.remove('open')});if(!was)l.classList.add('open');return;}}
+    var s=e.target.closest('[data-cost-save]'); if(!s)return;
+    var line=s.closest('.cline');
+    var price=num(($('[data-cf=price]',line)||{}).value); var qty=num(($('[data-cf=qty]',line)||{}).value)||1; var unit=($('[data-cf=unit]',line)||{}).value||'';
+    var eff=price*qty;
+    line.setAttribute('data-price',price);line.setAttribute('data-qtyv',qty);line.setAttribute('data-unit',unit);line.setAttribute('data-amt',eff);
+    line.classList.remove('open'); cost(); toast('Updated ✓');
+  });
+  document.addEventListener('input',function(e){
+    var edit=e.target.closest('.cl-edit'); if(!edit)return;
+    var line=e.target.closest('.cline'); var price=num(($('[data-cf=price]',line)||{}).value); var qty=num(($('[data-cf=qty]',line)||{}).value)||1;
+    var out=$('[data-cf=eff]',line); if(out)out.textContent=money(price*qty);
+  });
+
+  /* cost sub-tabs */
+  document.addEventListener('click',function(e){
+    var s=e.target.closest('[data-costsub]'); if(!s)return;
+    var id=s.getAttribute('data-costsub');
+    $$('[data-costsub]').forEach(function(x){x.classList.toggle('on',x===s)});
+    $$('[data-costpanel]').forEach(function(p){p.hidden=p.getAttribute('data-costpanel')!==id});
+  });
+
+  /* batch-size preview chips */
+  document.addEventListener('click',function(e){
+    var c=e.target.closest('.bprev .pchip'); if(!c)return;
+    $$('.bprev .pchip').forEach(function(x){x.classList.toggle('sel',x===c)});
+    previewFactor=num(c.getAttribute('data-prev'))/BASE_BATCH;
+    bars(); cost();
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('[data-add-making]'))return;
+    var el=document.createElement('div');el.className='cline';el.setAttribute('data-amt','0');
+    el.innerHTML='<div class="cn"><input class="inp" placeholder="Cost name" style="padding:8px 10px"></div><input class="inp" type="number" placeholder="0" style="width:90px;text-align:right" data-mk>';
+    $('#making-list').appendChild(el);
+  });
+  document.addEventListener('input',function(e){
+    if(e.target.matches('[data-mk]')){var l=e.target.closest('.cline');l.setAttribute('data-amt',num(e.target.value));
+      var cv=l.querySelector('.cv'); l.setAttribute('data-amt',num(e.target.value)); cost();}
+  });
+
+  /* ===== production: two-stage planning (mirrors recipe-v4.js) =====
+     Stage A in kg, Stage B in pcs. Only `ratio` is stored per row; weight and qty
+     are derived from batch weight, so the three can never drift apart. */
+  var NOMINAL=100, BUF=0.10, EPS=1e-9;   // batch nominal + ±10% quality tolerance (D-P11)
+  function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v))}
+  function r2(n){return Math.round(n*100)/100}
+  function bandLo(){return r2(NOMINAL*(1-BUF))}
+  function bandHi(){return r2(NOMINAL*(1+BUF))}
+  function inBand(v){return v>=bandLo()-EPS&&v<=bandHi()+EPS}
+
+  var VARIANTS=[
+    {id:'250g',name:'250g Pouch',sku:'Cookies 250g',net:0.25,multiple:24,demand:238},
+    {id:'500g',name:'500g Pouch',sku:'Cookies 500g',net:0.5,multiple:12,demand:82},
+    {id:'1kg',name:'1kg Box',sku:'Cookies 1kg',net:1,multiple:6,demand:7}
+  ];
+  var STRATEGIES={default:{'250g':60,'500g':30,'1kg':10},festive:{'250g':40,'500g':35,'1kg':25},bulk:{'250g':20,'500g':30,'1kg':50}};
+  var mix=[], carryNext=false;   // carryNext: planner takes the shortfall in a later batch
+  function loadStrategy(k){
+    var s=STRATEGIES[k]||STRATEGIES.default;
+    mix=VARIANTS.map(function(v){var o={};for(var p in v)o[p]=v[p];o.ratio=s[v.id]||0;o.locked=false;return o});
+  }
+  /* #pb-size (Batch tab) is canonical; #pb-size-sku mirrors it on the SKU tab (D-P12). */
+  function batchSize(){return num($('#pb-size')&&$('#pb-size').value)}
+  function setBatch(v){var el=$('#pb-size'); if(el)el.value=r2(v)}
+  function planWeight(){return batchSize()}
+  function rowWeight(r){return planWeight()*r.ratio/100}
+  function rowQty(r){return Math.floor((rowWeight(r)+EPS)/r.net)}
+  function allocated(){return mix.reduce(function(s,r){return s+rowQty(r)*r.net},0)}
+
+  /* auto-rebalance (restored, D-P1) — delta off the largest unlocked row, ratios re-sum to 100 */
+  function rebalance(idx,wanted){
+    var lockedSum=mix.reduce(function(s,r,i){return i!==idx&&r.locked?s+r.ratio:s},0);
+    var room=100-lockedSum, rr=clamp(wanted,0,room);
+    mix[idx].ratio=rr;
+    var others=mix.filter(function(row,i){return i!==idx&&!row.locked});
+    if(!others.length)return;
+    var pool=others.reduce(function(s,o){return s+o.ratio},0);
+    var diff=(room-rr)-pool;
+    if(pool<=EPS&&diff>0){others.forEach(function(o){o.ratio=diff/others.length});return}
+    others.slice().sort(function(a,b){return b.ratio-a.ratio}).forEach(function(o){
+      if(Math.abs(diff)<EPS)return;
+      var next=o.ratio+diff;
+      if(next>=-EPS){o.ratio=Math.max(0,next);diff=0}else{diff=next;o.ratio=0}
+    });
+    if(Math.abs(diff)>EPS)mix[idx].ratio=clamp(rr+diff,0,room);
+  }
+
+  /* Fit to Demand (restored, D-P5) with the batch lever (D-P11): flex batch to demand weight
+     within the quality band, then meet each unlocked variant's demand. */
+  function fitToDemand(){
+    var demandW=mix.reduce(function(s,r){return s+r.demand*r.net},0);
+    var B=clamp(demandW,bandLo(),bandHi());
+    setBatch(B); if(!B)return;
+    var lockedRatio=mix.reduce(function(s,r){return r.locked?s+r.ratio:s},0);
+    var cap=B*(100-lockedRatio)/100;
+    var open=mix.filter(function(r){return !r.locked});
+    var uDemandW=open.reduce(function(s,r){return s+r.demand*r.net},0);
+    var f=(uDemandW>cap&&uDemandW>EPS)?cap/uDemandW:1;
+    open.forEach(function(r){var q=Math.floor(r.demand*f+EPS);r.ratio=(q*r.net)/B*100});
+    var left=cap-open.reduce(function(s,r){return s+B*r.ratio/100},0);
+    var byNet=open.slice().sort(function(a,b){return b.net-a.net});
+    for(var g=0;g<500&&left>EPS;g++){
+      var hit=null;
+      for(var i=0;i<byNet.length;i++){if(byNet[i].net<=left+EPS){hit=byNet[i];break}}
+      if(!hit)break;
+      hit.ratio=(B*hit.ratio/100+hit.net)/B*100; left-=hit.net;
+    }
+    renderMix();
+  }
+
+  function renderBand(W){
+    var lo=bandLo(),hi=bandHi(),ok=inBand(W);
+    var mark=$('#band-mark'); if(mark)mark.style.left=(clamp((W-lo)/(hi-lo),0,1)*100)+'%';
+    var wrap=$('#pb-band'); if(wrap)wrap.classList.toggle('out',!ok);
+    var val=$('#band-val'); if(val)val.textContent=r2(W)+' kg';
+    var note=$('#band-note-sku');
+    if(note){note.textContent=(ok?'· within ':'· ⚠ beyond ')+lo+'–'+hi+' kg band';note.classList.toggle('out',!ok)}
+  }
+
+  function renderMix(){
+    var host=$('#mix-rows'); if(!host)return;
+    var W=planWeight();
+    host.innerHTML=mix.map(function(r,i){
+      var w=rowWeight(r),q=rowQty(r);
+      var off=r.multiple>1&&q%r.multiple!==0&&q>0;
+      var up=Math.ceil(q/r.multiple)*r.multiple,dn=Math.floor(q/r.multiple)*r.multiple;
+      var met=q>=r.demand;
+      return '<div class="mrow '+(r.locked?'locked':'')+' '+(off?'off-multiple':'')+'" data-i="'+i+'">'
+        +'<div class="mrow-h"><span class="vn">'+r.name+'<small>→ '+r.sku+' · '+r.net+' kg · carton of '+r.multiple+'</small></span>'
+        +'<button class="lock-btn" type="button" data-lock aria-pressed="'+r.locked+'">'+(r.locked?'🔒':'🔓')+'</button></div>'
+        +'<div class="mtrio">'
+        +'<div><label>Ratio %</label><input data-f="ratio" type="number" min="0" max="100" step="0.1" value="'+r2(r.ratio)+'"'+(r.locked?' readonly':'')+'></div>'
+        +'<div><label>Weight kg</label><input data-f="weight" type="number" min="0" step="0.05" value="'+r2(w)+'"'+(r.locked?' readonly':'')+'></div>'
+        +'<div><label>Qty pcs</label><input data-f="qty" type="number" min="0" step="1" value="'+q+'"'+(r.locked?' readonly':'')+'></div>'
+        +'</div>'
+        +'<div class="mdem '+(met?'met':'short')+'"><span>Demand</span><span><b>'+r.demand+'</b> · '+(met?'met':'short '+(r.demand-q))+'</span></div>'
+        +(off?'<div class="mult-hint"><span>'+q+' pcs ≠ full carton of '+r.multiple+'</span><span class="chips"><button class="chip" data-mult="'+dn+'">→ '+dn+'</button><button class="chip" data-mult="'+up+'">→ '+up+'</button></span></div>':'')
+        +'</div>';
+    }).join('');
+
+    var skuIn=$('#pb-size-sku');               // mirror of batch size on this tab (D-P12)
+    if(skuIn&&document.activeElement!==skuIn)skuIn.value=r2(W);
+    renderBand(W);
+    renderLedger(W);
+  }
+
+  /* the two ledgers the planner balances by hand — each notice shows only when it needs a decision */
+  function renderLedger(W){
+    var res=r2(W-allocated());
+    var outstanding=mix.reduce(function(s,r){return s+Math.max(0,r.demand-rowQty(r))},0);
+    var over=res<-EPS;
+    show('#n-over',over);
+    if(over){$('#over-kg').textContent=r2(-res)+' kg';$('#over-cap').textContent=r2(W)+' kg'}
+    show('#semi-note',!over&&res>EPS);
+    $('#semi-kg').textContent=r2(Math.max(0,res))+' kg';
+    show('#n-out',!over&&outstanding>0&&!carryNext);
+    $('#out-pcs').textContent=outstanding+' pcs';
+    show('#n-carry',!over&&outstanding>0&&carryNext);
+    $('#carry-pcs').textContent=outstanding+' pcs';
+    if(outstanding===0)carryNext=false;
+    refreshCreate();
+  }
+  function show(sel,on){var el=$(sel); if(el)el.hidden=!on}
+
+  /* Create is blocked by a batch beyond the quality band OR an over-allocated plan. */
+  function refreshCreate(){
+    var sizeOk=inBand(batchSize());
+    var over=r2(planWeight()-allocated())<-EPS;
+    var b=$('#create-batch'); b.style.opacity=(sizeOk&&!over)?'1':'.5'; b.disabled=!sizeOk||over;
+    var n=$('#pb-actnote');
+    n.hidden=sizeOk&&!over;
+    /* point at the other tab only when the problem is on the other tab */
+    var act=$('[data-prodsub].on'), here=act?act.getAttribute('data-prodsub'):'batch';
+    n.textContent=!sizeOk?('⚠ Batch size beyond quality tolerance'+(here==='batch'?'.':' — fix it on the Batch tab.'))
+      :('⚠ The SKU plan exceeds the batch'+(here==='sku'?'.':' — fix it on the SKU Planning tab.'));
+  }
+  function renderProduction(){renderMix()}
+
+  function validateBatch(){
+    var ok=inBand(batchSize());
+    $('#batch-warn').classList.toggle('on',!ok);
+    refreshCreate();   // the alert itself sits on the Batch sub-tab
+    return ok;
+  }
+
+  /* sub-tabs — same segmented pattern as the Cost screen */
+  function showProdSub(id){
+    $$('[data-prodsub]').forEach(function(s){s.classList.toggle('on',s.getAttribute('data-prodsub')===id)});
+    $$('[data-prodpanel]').forEach(function(p){p.hidden=p.getAttribute('data-prodpanel')!==id});
+  }
+  document.addEventListener('click',function(e){
+    var s=e.target.closest('[data-prodsub]'); if(s){showProdSub(s.getAttribute('data-prodsub'));refreshCreate()}
+  });
+
+  document.addEventListener('input',function(e){
+    if(e.target.matches('#pb-size')){validateBatch(); renderProduction();}
+    else if(e.target.matches('#pb-size-sku')){var el=$('#pb-size'); if(el)el.value=e.target.value; validateBatch(); renderProduction();}
+  });
+  document.addEventListener('change',function(e){
+    if(e.target.matches('#mix-strategy')){loadStrategy(e.target.value);renderMix()}
+    /* per-row ratio ⇄ weight ⇄ qty, then auto-rebalance the rest (D-P1) */
+    var inp=e.target.closest('.mtrio input'); if(!inp)return;
+    var i=+inp.closest('.mrow').getAttribute('data-i'), r=mix[i]; if(r.locked)return;
+    var W=planWeight(), v=Math.max(0,num(inp.value)), f=inp.getAttribute('data-f'), ratio;
+    if(f==='ratio')ratio=v; else if(f==='weight')ratio=W?v/W*100:0; else ratio=W?(v*r.net)/W*100:0;
+    setRow(i,ratio);
+  });
+  function setRow(i,ratio){if(!mix[i].locked){rebalance(i,ratio);renderMix()}}
+  document.addEventListener('click',function(e){
+    var lock=e.target.closest('[data-lock]');
+    if(lock){var li=+lock.closest('.mrow').getAttribute('data-i');mix[li].locked=!mix[li].locked;renderMix();return}
+    var m=e.target.closest('[data-mult]');
+    if(m){var j=+m.closest('.mrow').getAttribute('data-i'),W=planWeight();
+      setRow(j,W?(num(m.getAttribute('data-mult'))*mix[j].net)/W*100:0); return}
+    if(e.target.closest('#mix-reset')){loadStrategy($('#mix-strategy').value);renderMix()}
+    if(e.target.closest('#mix-demand')){fitToDemand()}
+    /* the planner's call: take the shortfall in a later batch, or don't */
+    if(e.target.closest('#carry')){carryNext=true;renderMix()}
+    if(e.target.closest('#carry-undo')){carryNext=false;renderMix()}
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('#create-batch')||e.target.closest('#create-batch').disabled)return;
+    var no='PO-2026-'+String(180+Math.floor(Math.random()*40)).padStart(5,'0');
+    $('#s-pb').textContent=no; drawQR($('#s-qr'),'recipe=PBC;ver=V4.2;'+no);
+    $('#success').classList.add('on');
+  });
+  document.addEventListener('click',function(e){if(e.target.closest('[data-success-close]'))$('#success').classList.remove('on')});
+
+  /* sheets */
+  function openSheet(id){
+    if(id==='sheet-createing'){var f=$('#create-form');if(f)f.hidden=true;var sc=$('#show-create');if(sc)sc.hidden=false;var q=$('#ing-search');if(q)q.value='';$$('#ing-options .opt').forEach(function(o){o.hidden=false});}
+    $('[data-scrim]').classList.add('on');$('#'+id).classList.add('on');
+  }
+  function closeSheet(){$('[data-scrim]').classList.remove('on');$$('.sheet.on').forEach(function(s){s.classList.remove('on')})}
+  document.addEventListener('click',function(e){
+    var o=e.target.closest('[data-sheet-open]'); if(o){openSheet(o.getAttribute('data-sheet-open'));}
+    if(e.target.closest('[data-sheet-close]')){closeSheet();toast('Done ✓');}
+    if(e.target.closest('[data-scrim]'))closeSheet();
+  });
+  /* generic chip toggle inside sheets */
+  document.addEventListener('click',function(e){
+    var c=e.target.closest('.sheet .chip'); if(c)c.classList.toggle('sel');
+  });
+
+  /* toast */
+  var tt;
+  function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},1400)}
+  document.addEventListener('click',function(e){if(e.target.closest('#save-toast'))toast('Saved ✓')});
+
+  /* deterministic QR preview (self-contained) */
+  function drawQR(cv,payload){
+    var N=21,size=cv.width,ctx=cv.getContext('2d'),cell=size/N;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);ctx.fillStyle='#111';
+    var h=2166136261;for(var i=0;i<payload.length;i++){h^=payload.charCodeAt(i);h=(h*16777619)>>>0}
+    function bit(){h^=h<<13;h^=h>>>17;h^=h<<5;h>>>=0;return h&1}
+    function finder(ox,oy){for(var y=0;y<7;y++)for(var x=0;x<7;x++){var edge=x===0||x===6||y===0||y===6,core=x>=2&&x<=4&&y>=2&&y<=4;if(edge||core)ctx.fillRect((ox+x)*cell,(oy+y)*cell,cell,cell)}}
+    for(var y=0;y<N;y++)for(var x=0;x<N;x++){var inF=(x<8&&y<8)||(x>N-9&&y<8)||(x<8&&y>N-9);if(inF)continue;if(bit())ctx.fillRect(x*cell,y*cell,cell,cell)}
+    finder(0,0);finder(N-7,0);finder(0,N-7);
+  }
+
+  bars(); cost();
+  showProdSub('batch'); loadStrategy('default'); validateBatch(); renderProduction();
+})();
+</script>
+</body>
+</html>

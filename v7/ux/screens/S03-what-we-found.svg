@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1210 844" width="1210" height="844" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <!-- S03 — What we received · THREE STATES. LOW FIDELITY.
+       Flow node: F08. Redrawn against D-018.
+
+       MUST-HAVE ONLY. Removed: "Ready to use in FoodBridge" (reassurance — the
+       ticks say it). MOVED into the inspect sheet: the provenance sentence,
+       which belongs with the records it describes. COMPRESSED: each gap is one
+       short label naming its unlock, not a sentence.
+       The transition is semantic: "See what this means", not "Continue".
+       BELOW THE FLOOR there is still no transition at all. -->
+  <rect x="0" y="0" width="1210" height="844" fill="#ffffff"/>
+
+  <!-- ====================== above the floor ========================= -->
+  <rect x="0" y="0" width="390" height="844" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <text x="24" y="44" font-size="13" font-weight="600" fill="#111111">FoodBridge</text>
+  <text x="120" y="44" font-size="11" fill="#999999">Step 3 of 3</text>
+  <rect x="24" y="58" width="80" height="3" rx="2" fill="#111111"/>
+  <rect x="110" y="58" width="80" height="3" rx="2" fill="#111111"/>
+  <rect x="196" y="58" width="80" height="3" rx="2" fill="#111111"/>
+
+  <text x="24" y="112" font-size="23" font-weight="600" fill="#111111">Here's what we</text>
+  <text x="24" y="140" font-size="23" font-weight="600" fill="#111111">received</text>
+
+  <!-- the key fact, and every figure opens its own records -->
+  <rect x="20" y="176" width="112" height="104" rx="12" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <rect x="34" y="192" width="20" height="20" rx="5" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="34" y="244" font-size="22" font-weight="700" fill="#111111">532</text>
+  <text x="34" y="264" font-size="11" fill="#666666">Orders</text>
+  <text x="118" y="200" font-size="13" fill="#cccccc" text-anchor="end">&#8250;</text>
+
+  <rect x="139" y="176" width="112" height="104" rx="12" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <rect x="153" y="192" width="20" height="20" rx="5" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="153" y="244" font-size="22" font-weight="700" fill="#111111">86</text>
+  <text x="153" y="264" font-size="11" fill="#666666">Products</text>
+  <text x="237" y="200" font-size="13" fill="#cccccc" text-anchor="end">&#8250;</text>
+
+  <rect x="258" y="176" width="112" height="104" rx="12" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <rect x="272" y="192" width="20" height="20" rx="5" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="272" y="244" font-size="22" font-weight="700" fill="#111111">40</text>
+  <text x="272" y="264" font-size="11" fill="#666666">Customers</text>
+  <text x="356" y="200" font-size="13" fill="#cccccc" text-anchor="end">&#8250;</text>
+
+  <text x="24" y="324" font-size="10" font-weight="700" fill="#999999">ADD LATER TO SEE MORE</text>
+  <rect x="20" y="336" width="350" height="124" rx="12" fill="#f6f8f7"/>
+  <rect x="36" y="358" width="20" height="20" rx="5" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="68" y="366" font-size="14" fill="#111111">Invoices &amp; payments</text>
+  <text x="68" y="386" font-size="12" fill="#666666">Unlocks receivables &amp; collections</text>
+  <text x="352" y="374" font-size="13" font-weight="600" fill="#111111" text-anchor="end">Add</text>
+  <line x1="36" y1="404" x2="354" y2="404" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="36" y="420" width="20" height="20" rx="5" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="68" y="428" font-size="14" fill="#111111">Cost price</text>
+  <text x="68" y="448" font-size="12" fill="#666666">Unlocks stock value &amp; margin</text>
+  <text x="352" y="436" font-size="13" font-weight="600" fill="#111111" text-anchor="end">Add</text>
+
+  <rect x="20" y="700" width="350" height="54" rx="10" fill="#111111"/>
+  <text x="195" y="734" font-size="16" fill="#ffffff" text-anchor="middle">See what this means</text>
+
+  <!-- ====================== inspect sheet =========================== -->
+  <rect x="410" y="0" width="390" height="844" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <rect x="410" y="0" width="390" height="844" fill="#f6f8f7" opacity="0.6"/>
+  <rect x="410" y="220" width="390" height="624" rx="18" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <rect x="580" y="238" width="50" height="4" rx="2" fill="#e5e7eb"/>
+
+  <text x="434" y="296" font-size="21" font-weight="600" fill="#111111">Orders</text>
+  <text x="776" y="296" font-size="21" font-weight="700" fill="#111111" text-anchor="end">532</text>
+
+  <text x="434" y="338" font-size="10" font-weight="700" fill="#999999">A FEW OF THEM</text>
+  <rect x="430" y="350" width="350" height="230" rx="10" fill="none" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="446" y="380" font-size="13" fill="#111111">24 Aug 2026</text>
+  <text x="764" y="380" font-size="13" fill="#666666" text-anchor="end">4 lines</text>
+  <line x1="446" y1="396" x2="764" y2="396" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="424" font-size="13" fill="#111111">19 Aug 2026</text>
+  <text x="764" y="424" font-size="13" fill="#666666" text-anchor="end">7 lines</text>
+  <line x1="446" y1="440" x2="764" y2="440" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="468" font-size="13" fill="#111111">11 Aug 2026</text>
+  <text x="764" y="468" font-size="13" fill="#666666" text-anchor="end">4 lines</text>
+  <line x1="446" y1="484" x2="764" y2="484" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="512" font-size="13" fill="#111111">05 Aug 2026</text>
+  <text x="764" y="512" font-size="13" fill="#666666" text-anchor="end">11 lines</text>
+  <line x1="446" y1="528" x2="764" y2="528" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="556" font-size="13" fill="#111111">29 Jul 2026</text>
+  <text x="764" y="556" font-size="13" fill="#666666" text-anchor="end">3 lines</text>
+
+  <!-- provenance moved OFF the primary screen and in here, beside the records -->
+  <text x="434" y="618" font-size="10" font-weight="700" fill="#999999">WHERE THIS CAME FROM</text>
+  <text x="434" y="644" font-size="13" fill="#666666">Your Tally export</text>
+  <text x="434" y="664" font-size="13" fill="#666666">26 Aug 2024 &#8211; 24 Aug 2026</text>
+  <text x="434" y="684" font-size="13" fill="#666666">39 of your 40 shops</text>
+
+  <rect x="430" y="742" width="350" height="50" rx="10" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="605" y="773" font-size="15" fill="#111111" text-anchor="middle">Close</text>
+
+  <!-- ====================== below the floor ========================= -->
+  <rect x="820" y="0" width="390" height="844" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <text x="844" y="44" font-size="13" font-weight="600" fill="#111111">FoodBridge</text>
+  <text x="940" y="44" font-size="11" fill="#999999">Step 3 of 3</text>
+  <rect x="844" y="58" width="80" height="3" rx="2" fill="#111111"/>
+  <rect x="930" y="58" width="80" height="3" rx="2" fill="#111111"/>
+  <rect x="1016" y="58" width="80" height="3" rx="2" fill="#111111"/>
+
+  <text x="844" y="112" font-size="23" font-weight="600" fill="#111111">We need a little</text>
+  <text x="844" y="140" font-size="23" font-weight="600" fill="#111111">more</text>
+
+  <rect x="840" y="188" width="350" height="122" rx="12" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <rect x="856" y="206" width="30" height="30" rx="8" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="898" y="227" font-size="15" font-weight="600" fill="#111111">Sales or orders</text>
+  <rect x="856" y="254" width="96" height="38" rx="9" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="904" y="278" font-size="13" fill="#111111" text-anchor="middle">Connect</text>
+  <rect x="962" y="254" width="96" height="38" rx="9" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="1010" y="278" font-size="13" fill="#111111" text-anchor="middle">Upload</text>
+
+  <rect x="840" y="326" width="350" height="122" rx="12" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <rect x="856" y="344" width="30" height="30" rx="8" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="898" y="365" font-size="15" font-weight="600" fill="#111111">Invoices</text>
+  <rect x="856" y="392" width="96" height="38" rx="9" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="904" y="416" font-size="13" fill="#111111" text-anchor="middle">Upload</text>
+  <rect x="962" y="392" width="112" height="38" rx="9" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="1018" y="416" font-size="13" fill="#111111" text-anchor="middle">Take photo</text>
+  <!-- NO transition exists below the floor. -->
+</svg>

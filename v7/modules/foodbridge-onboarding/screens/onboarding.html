@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  FOODBRIDGE v5 — NEW USER ONBOARDING
+
+  Implements O-001's locked UX (lock b556ecf1e4cdbe35, approved by Nishant
+  Devekar at GATE B on 16 September 2026) under the Production UX Contract
+  recorded as research/DECISIONS.md#D-018. The canonical artifact is
+  versions/v5/ux/FLOW-MAP.md; this page draws it and adds nothing to it.
+
+  FIVE primary screens and NINE contextual sheets. The user starts every
+  consequential operation and can cancel any of it; primary screens carry
+  state, decision and action only.
+
+  Reached at #/onboarding — a STANDALONE, FULL-BLEED destination. Standalone
+  because onboarding is not an admin sub-screen and does not belong in the
+  sidebar; full-bleed because it is its own experience and the platform must
+  hand it the whole window. That combination already exists in this shell for
+  the storefront, so no new module architecture was invented for it.
+
+  The user is ALREADY AUTHENTICATED when they arrive (D-014). There is no
+  signup, no password, no login and no terms block anywhere in this flow.
+
+  LOAD ORDER MATTERS and is not incidental:
+    order-history.js    window.FB_ORDER_HISTORY — the tenant's REAL Zoho
+                        export. Must precede the seed, which adopts it as
+                        SEED.orderingSignals (seed.inline.js:368).
+    seed.inline.js      window.SEED — 86 products, 40 B2B shops
+    predictive-order.js window.FB_PREDICT — the back-tested reorder engine
+    evidence.js         window.FB_EVIDENCE — what we have, what is
+                        computable, what is blocked, what would unlock
+    onboarding.js       the five screens, the nine sheets, the router
+
+  The first three are REUSED by reference from the Stock Audit module rather
+  than copied: they are this version's data and engines, and a second copy is
+  how two views of one business start disagreeing. The stylesheet is NOT
+  shared, deliberately — see onboarding.css.
+
+  Real vs simulated, at a glance:
+    Products, customers, orders   REAL     — Miha's own records
+    Cadence, stock, reorder       REAL     — computed from those records
+    Receivables, collections,
+      capital tied, margin        ABSENT   — no evidence exists for this
+                                             tenant, so nothing is drawn
+    Tally / Zoho / Vyapar         SIMULATED — nothing is contacted
+    Upload, photo, extraction,
+      mapping, validation         SIMULATED — the interaction is real, the
+                                             ingestion is not
+    GST verification              SIMULATED — nothing is looked up
+    Draft preparation             SIMULATED — drafts are held in the
+                                             browser, sent to nobody and
+                                             written to no accounting system
+  See versions/v5/STATUS.md.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome to FoodBridge</title>
+<link rel="stylesheet" href="onboarding.css?v=202609161247">
+</head>
+<body>
+  <div class="ob-app"><div id="ob-root"></div></div>
+
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=202609161247"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=202609161247"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=202609161247"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=202609161247"></script>
+  <script src="evidence.js?v=202609161247"></script>
+  <script src="onboarding.js?v=202609161247"></script>
+  <script>window.FB_ONBOARDING.mount();</script>
+</body>
+</html>

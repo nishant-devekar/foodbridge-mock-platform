@@ -1,0 +1,558 @@
+/* ==========================================================================
+   ONBOARDING — the visual layer. v5, drawing O-001's locked UX
+   (lock e14f20ea96ee5c51).
+
+   The locked sketches settled information architecture, content, states and
+   behaviour. They are not the visual design. This file is the product's own
+   language: the tokens, radii and soft slate shadows that styles.css and
+   stock-audit.css already document, lucide icon geometry from icons.js, and
+   system-ui type per tailwind.config.js. Restated rather than linked, because
+   a module that reaches into another module's stylesheet breaks the moment
+   that module is edited for its own reasons.
+
+   MOBILE-FIRST: the locked UX was designed and reviewed at 390px, and this
+   holds down to 355px. Desktop is the same single column given room and set
+   on a surface — never a second column, never extra content (D-012).
+
+   Under D-018 the primary screens carry state, decision and action only, and
+   NINE CONTEXTUAL SHEETS carry everything else. One sheet component does all
+   nine: it rises from the bottom on a phone, is centred on desktop, and is
+   never styled to look like a screen — the surface underneath stays visible,
+   which is what tells somebody they are looking deeper rather than moving on.
+   ========================================================================== */
+
+:root {
+  --brand: #16a34a;
+  --brand-d: #15803d;
+  --brand-dd: #14532d;
+  --brand-50: #f0fdf4;
+  --brand-100: #dcfce7;
+  --brand-200: #bbf7d0;
+
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --muted: #64748b;
+  --muted-2: #94a3b8;
+  --line: #e7ebef;
+  --line-2: #f1f5f9;
+  --surface: #f6f8f7;
+  --card: #ffffff;
+
+  --amber-bg: #fffbeb;
+  --amber-line: #fde68a;
+  --amber-tx: #b45309;
+
+  --font: system-ui, sans-serif, Arial, Helvetica;
+  --r: 14px;
+  --r-lg: 18px;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, .04);
+  --shadow-lift: 0 18px 40px -16px rgba(15, 23, 42, .22);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ob-app { max-width: 460px; margin: 0 auto; background: var(--card); }
+/* The FLEX COLUMN lives on #ob-root, which is what the router replaces. */
+#ob-root { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+
+/* ── chrome ──────────────────────────────────────────────────────────── */
+.ob-brand { display: flex; align-items: center; gap: 11px; padding: 16px 20px 13px; }
+.ob-word { font-size: 17px; font-weight: 700; letter-spacing: -.022em; }
+.ob-word em { font-style: normal; color: var(--brand); }
+.ob-brand-sep { width: 1px; height: 15px; background: var(--line); }
+.ob-brand-step { font-size: 12px; color: var(--muted-2); font-weight: 550; }
+
+.ob-prog { display: flex; gap: 5px; padding: 0 20px 18px; }
+.ob-prog i { flex: 1; height: 3px; border-radius: 99px; background: var(--line); transition: background .35s ease; }
+.ob-prog i.on { background: var(--brand); }
+
+.ob-navrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 20px; min-height: 34px; }
+.ob-back {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; margin: 0 0 2px -7px;
+  border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 50%;
+}
+.ob-back:active { background: var(--line-2); }
+
+.ob-main { flex: 1 1 auto; padding: 6px 20px 26px; }
+.ob-h1 { margin: 0; font-size: 25px; line-height: 1.24; font-weight: 650; letter-spacing: -.026em; }
+.ob-eyebrow { margin: 0 0 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--muted-2); }
+.ob-section { margin-top: 24px; }
+
+/* ── S01 · grouped field sets ────────────────────────────────────────────
+   Five identical boxes made the user read every one to find the shape of
+   the form. Grouped, the screen says at a glance: this is your business,
+   this is how we reach you. */
+.ob-fs {
+  border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: var(--shadow-card); overflow: hidden; background: var(--card);
+}
+.ob-fr { display: flex; align-items: center; gap: 12px; padding: 9px 15px; min-height: 62px; }
+.ob-fr + .ob-fr { border-top: 1px solid var(--line-2); }
+.ob-fr > svg { flex: 0 0 auto; color: var(--muted-2); }
+.ob-fr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.ob-fr label { font-size: 10.5px; font-weight: 650; letter-spacing: .04em; color: var(--muted-2); text-transform: uppercase; }
+.ob-fr input {
+  width: 100%; border: 0; outline: none; background: none; padding: 3px 0 0;
+  font-family: var(--font); font-size: 15px; color: var(--ink);
+}
+.ob-fr input::placeholder { color: var(--muted-2); font-size: 14.5px; }
+.ob-fr:focus-within { background: #fbfefc; }
+.ob-fr:focus-within > svg { color: var(--brand); }
+.ob-fr.is-ok { background: var(--brand-50); }
+.ob-fr.is-ok > svg, .ob-fr.is-ok .ob-fr-ok { color: var(--brand); }
+.ob-fr.is-ok input { color: var(--ink-2); }
+.ob-fr-ok { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 650; color: var(--brand-d); }
+.ob-verify {
+  flex: 0 0 auto; min-height: 38px; padding: 0 16px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 650; color: var(--brand-d);
+  background: var(--brand-50); border: 1px solid var(--brand-100); border-radius: 10px; cursor: pointer;
+}
+.ob-verify:disabled { color: var(--muted-2); background: var(--line-2); border-color: var(--line); cursor: default; }
+
+/* ── S02 · source choices ────────────────────────────────────────────────
+   Each source gets its own mark and tint so the list reads as real choices
+   rather than four rows of the same thing. Tints are UI, not logos: no
+   third-party brand mark is reproduced. */
+.ob-sources { display: flex; flex-direction: column; gap: 9px; margin-top: 20px; }
+.ob-source {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 15px 16px; text-align: left; cursor: pointer; font-family: var(--font);
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow-card);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .07s ease;
+}
+.ob-source:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
+.ob-source:active { transform: scale(.99); }
+.ob-mark { flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
+.ob-mark.t-indigo { background: #eef2ff; color: #4338ca; }
+.ob-mark.t-rose   { background: #fff1f2; color: #be123c; }
+.ob-mark.t-blue   { background: #eff6ff; color: #1d4ed8; }
+.ob-mark.t-green  { background: var(--brand-50); color: var(--brand-d); }
+.ob-source-t { flex: 1 1 auto; font-size: 16px; font-weight: 600; color: var(--ink); }
+.ob-chev { flex: 0 0 auto; color: var(--muted-2); }
+
+/* ── the read · an intentional process, not four status rows ───────────── */
+.ob-proc { position: relative; margin-top: 26px; }
+.ob-proc::before {
+  content: ""; position: absolute; left: 14px; top: 20px; bottom: 20px;
+  width: 2px; background: var(--line);
+}
+.ob-pstep { position: relative; display: flex; align-items: center; gap: 15px; padding: 11px 0; }
+.ob-pdot {
+  position: relative; z-index: 1; flex: 0 0 auto;
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--line); color: var(--muted-2);
+  transition: background .3s ease, border-color .3s ease, color .3s ease;
+}
+.ob-pt { font-size: 14.5px; color: var(--muted-2); transition: color .3s ease; }
+.ob-pstep.is-active .ob-pdot { border-color: var(--brand); color: var(--brand); }
+.ob-pstep.is-active .ob-pt { color: var(--ink); font-weight: 600; }
+.ob-pstep.is-done .ob-pdot { background: var(--brand); border-color: var(--brand); color: #fff; }
+.ob-pstep.is-done .ob-pt { color: var(--ink-2); }
+.ob-spin {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: ob-spin .7s linear infinite;
+}
+@keyframes ob-spin { to { transform: rotate(360deg); } }
+
+/* ── S03 · evidence understood, then what is optional ──────────────────── */
+.ob-ev { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ob-ev-cell {
+  position: relative; display: block; width: 100%; text-align: left;
+  padding: 14px 12px; cursor: pointer; font-family: var(--font);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: var(--shadow-card); transition: border-color .18s ease, box-shadow .18s ease;
+}
+.ob-ev-cell:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
+.ob-ev-cell:active { transform: scale(.99); }
+.ob-ev-chev { position: absolute; top: 12px; right: 8px; color: var(--line); }
+.ob-ev-cell > svg { color: var(--brand-d); }
+.ob-ev-n {
+  display: block; margin-top: 9px; font-size: 22px; font-weight: 700;
+  letter-spacing: -.02em; color: var(--brand-dd); font-variant-numeric: tabular-nums;
+}
+.ob-ev-l { display: block; margin-top: 1px; font-size: 12px; color: var(--ink-2); }
+
+/* subordinate by construction: no card, no border, muted ground */
+.ob-optional { margin-top: 26px; padding: 4px 16px 6px; background: var(--surface); border-radius: var(--r); }
+.ob-orow { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
+.ob-orow + .ob-orow { border-top: 1px solid var(--line); }
+.ob-orow > svg { flex: 0 0 auto; color: var(--muted-2); }
+.ob-orow-main { flex: 1 1 auto; min-width: 0; }
+.ob-orow-t { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.ob-orow-s { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.ob-addlink {
+  flex: 0 0 auto; padding: 6px 12px; font-family: var(--font);
+  font-size: 13px; font-weight: 650; color: var(--brand-d);
+  background: none; border: 0; cursor: pointer; border-radius: 8px;
+}
+.ob-addlink:hover { background: var(--brand-50); }
+
+/* below the floor */
+.ob-need { padding: 17px; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-card); }
+.ob-need-h { display: flex; align-items: center; gap: 12px; }
+.ob-need-h b { font-size: 15.5px; font-weight: 650; }
+.ob-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+}
+.ob-chip:hover { border-color: var(--muted-2); }
+.ob-chip.key { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
+
+/* ── S04 · one dominant insight, then supporting opportunities ─────────── */
+.ob-lead-h { margin: 0; font-size: 31px; line-height: 1.14; font-weight: 700; letter-spacing: -.035em; }
+
+/* Supporting signals are rows, not cards: a card here competes with the
+   insight above it, and only one thing on this screen is primary. */
+.ob-support { margin-top: 26px; border-top: 1px solid var(--line); }
+.ob-srow {
+  display: flex; align-items: center; gap: 13px; width: 100%;
+  padding: 15px 2px; text-align: left; cursor: pointer; font-family: var(--font);
+  background: none; border: 0; border-bottom: 1px solid var(--line);
+}
+.ob-srow:hover .ob-srow-t { color: var(--brand-d); }
+.ob-srow-ic { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--line-2); color: var(--muted); }
+.ob-srow-t { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+
+.ob-quiet { margin-top: 20px; font-size: 15px; color: var(--muted); }
+
+/* ── footer ──────────────────────────────────────────────────────────── */
+.ob-foot {
+  position: sticky; bottom: 0;
+  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--card) 24%);
+}
+.ob-cta {
+  display: block; width: 100%; min-height: 54px;
+  font-family: var(--font); font-size: 16px; font-weight: 650; color: #fff;
+  background: var(--brand); border: 0; border-radius: var(--r); cursor: pointer;
+  box-shadow: 0 8px 18px -8px rgba(22,163,74,.6);
+  transition: background .15s ease;
+}
+.ob-cta:hover { background: var(--brand-d); }
+.ob-cta:active { background: var(--brand-dd); }
+.ob-cta:disabled { background: var(--line); color: var(--muted-2); box-shadow: none; cursor: default; }
+/* Unmistakably secondary: a text link, not a button. */
+.ob-skip {
+  display: block; margin: 12px auto 0; padding: 6px 10px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 550; color: var(--muted-2);
+  background: none; border: 0; cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px; text-decoration-color: var(--line);
+}
+.ob-skip:hover { color: var(--muted); }
+
+/* ── narrow phones ───────────────────────────────────────────────────── */
+@media (max-width: 374px) {
+  .ob-main, .ob-brand, .ob-prog, .ob-navrow, .ob-foot { padding-left: 16px; padding-right: 16px; }
+  .ob-h1 { font-size: 23px; }
+  .ob-lead-h { font-size: 27px; }
+  .ob-ev-cell { padding: 12px 10px; }
+  .ob-ev-n { font-size: 19px; }
+  .ob-ev-l { font-size: 11px; }
+}
+
+/* ── desktop: the same column, on a surface, with room ───────────────── */
+@media (min-width: 768px) {
+  body { background: var(--surface); }
+  .ob-app {
+    max-width: 480px; margin: 44px auto;
+    border: 1px solid var(--line); border-radius: 26px;
+    box-shadow: var(--shadow-lift); overflow: hidden;
+  }
+  #ob-root { min-height: 600px; }
+  .ob-brand { padding-top: 22px; }
+  .ob-main, .ob-brand, .ob-prog, .ob-navrow, .ob-foot { padding-left: 30px; padding-right: 30px; }
+  .ob-foot { position: static; padding-bottom: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+/* ── the operation, and the failure it can end in ──────────────────────
+   C2: a finished step says what it FOUND, from a real count. C4: a failure
+   is a state with a cause and two ways out, drawn as a state and not as a
+   toast that disappears before it is read.
+   ====================================================================== */
+.ob-main-op { padding-top: 14px; }
+.ob-pv {
+  margin-left: auto; padding-left: 12px;
+  font-size: 12.5px; color: var(--muted-2); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ob-pstep.is-done .ob-pv { color: var(--brand-d); }
+
+.ob-fail { padding-top: 34px; text-align: center; }
+.ob-fail > svg { color: var(--amber-tx); }
+.ob-fail .ob-h1 { margin-top: 16px; }
+.ob-fail-c { margin: 12px auto 0; max-width: 30ch; font-size: 14px; line-height: 1.55; color: var(--muted); }
+
+/* ── C6 · provenance, and it is never ambiguous ────────────────────────
+   Amber for a sample, and the marker is a BUTTON there because leaving the
+   sample is a real action the user must be able to reach. Connected data is
+   quiet and not actionable: there is nothing to leave.
+   ====================================================================== */
+.ob-prov {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px 5px 9px; border-radius: 99px;
+  font-family: var(--font); font-size: 11.5px; font-weight: 650; letter-spacing: .01em;
+}
+.ob-prov > svg { width: 15px; height: 15px; }
+.ob-prov.is-sample {
+  color: var(--amber-tx); background: var(--amber-bg);
+  border: 1px solid var(--amber-line); cursor: pointer;
+}
+.ob-prov.is-real { color: var(--muted); background: var(--line-2); border: 1px solid transparent; }
+
+.ob-provdemo {
+  display: flex; align-items: center; gap: 9px;
+  margin: 14px 0 4px; padding: 11px 14px; border-radius: var(--r);
+  color: var(--amber-tx); background: var(--amber-bg);
+  border: 1px dashed var(--amber-line);
+  font-size: 11.5px; font-weight: 700; letter-spacing: .07em;
+}
+
+/* The sample is a real answer to the question above it, and a quieter one —
+   it must never compete with the four sources. */
+.ob-samplerow {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin-top: 22px; padding: 15px 4px 0;
+  text-align: left; cursor: pointer; font-family: var(--font);
+  background: none; border: 0; border-top: 1px solid var(--line);
+  font-size: 14px; color: var(--muted);
+}
+.ob-samplerow span:first-child { flex: 1 1 auto; }
+.ob-samplerow:hover { color: var(--ink-2); }
+
+/* ── C10 · the sheet. One component, nine uses ─────────────────────────
+   It rises from the bottom and leaves the screen visible behind it, because
+   a sheet that fills the viewport has become a screen and the user has lost
+   the decision they were in the middle of.
+   ====================================================================== */
+.ob-scrim {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(15, 23, 42, .34);
+  animation: ob-fade .18s ease;
+}
+.ob-sheet {
+  position: fixed; z-index: 41; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  max-height: 88vh; max-height: 88dvh;
+  background: var(--card);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -20px 50px -18px rgba(15, 23, 42, .3);
+  animation: ob-rise .26s cubic-bezier(.22, 1, .36, 1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@keyframes ob-fade { from { opacity: 0; } }
+@keyframes ob-rise { from { transform: translateY(14px); opacity: .6; } }
+
+.ob-sheet-grip { width: 42px; height: 4px; border-radius: 99px; background: var(--line); margin: 9px auto 0; }
+.ob-sheet-h { display: flex; align-items: center; gap: 10px; padding: 14px 20px 10px; }
+.ob-sheet-h h2 { margin: 0; flex: 1 1 auto; font-size: 19px; font-weight: 650; letter-spacing: -.024em; }
+.ob-sheet-n { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-sheet-x {
+  flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: 10px; border: 0; background: var(--line-2); color: var(--muted);
+  cursor: pointer;
+}
+.ob-sheet-x:hover { background: var(--line); color: var(--ink-2); }
+.ob-sheet-b { flex: 1 1 auto; overflow-y: auto; padding: 4px 20px 18px; -webkit-overflow-scrolling: touch; }
+.ob-sheet-f { flex: 0 0 auto; padding: 12px 20px 18px; border-top: 1px solid var(--line-2); }
+
+.ob-sheet-eyebrow {
+  display: flex; align-items: center; gap: 7px;
+  margin: 20px 0 9px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .08em; color: var(--muted-2);
+}
+.ob-sheet-eyebrow > svg { width: 15px; height: 15px; }
+.ob-sheet-b > .ob-sheet-eyebrow:first-child { margin-top: 6px; }
+.ob-sheet-p { margin: 0 0 4px; font-size: 14px; line-height: 1.58; color: var(--ink-2); }
+.ob-sheet-ul { margin: 0; padding-left: 18px; }
+.ob-sheet-ul li { font-size: 14px; line-height: 1.72; color: var(--ink-2); }
+
+.ob-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); box-shadow: none; }
+.ob-ghost:hover { background: var(--line-2); }
+.ob-cta.is-warn { background: #b91c1c; }
+.ob-cta.is-warn:hover { background: #991b1b; }
+.ob-skip.is-warn { color: #b91c1c; }
+
+/* Records, and the provenance that belongs beside them rather than on S03 */
+.ob-reclist { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.ob-rec { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
+.ob-rec + .ob-rec { border-top: 1px solid var(--line-2); }
+.ob-rec-a { flex: 1 1 auto; min-width: 0; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-rec-b { flex: 0 0 auto; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-prov-lines p { margin: 0 0 3px; font-size: 13px; color: var(--muted); }
+
+.ob-kv { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.ob-kv-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
+.ob-kv-r + .ob-kv-r { border-top: 1px solid var(--line-2); }
+.ob-kv-r b { font-size: 14.5px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.ob-filepick { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+.ob-filepick .ob-chip { cursor: pointer; }
+.ob-chosen { margin-top: 4px; }
+.ob-chosen-r { display: flex; align-items: center; gap: 9px; padding: 9px 0; font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--line-2); }
+.ob-chosen-r > svg { flex: 0 0 auto; color: var(--muted-2); }
+.ob-chosen-r span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── S04 · one dominant message, one action ────────────────────────────
+   The only thing between the headline and the action is the way into the
+   reasoning — and the reasoning itself is not here.
+   ====================================================================== */
+.ob-why {
+  display: inline-flex; align-items: center; gap: 2px;
+  margin-top: 18px; padding: 0; cursor: pointer; font-family: var(--font);
+  background: none; border: 0;
+  font-size: 14.5px; font-weight: 650; color: var(--ink);
+}
+.ob-why > svg { color: var(--muted-2); }
+.ob-why:hover { color: var(--brand-d); }
+.ob-why:hover > svg { color: var(--brand-d); }
+.ob-srow-t { flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.ob-quiet-s { margin: 12px 0 0; font-size: 12.5px; color: var(--muted-2); }
+
+/* ── S05 · brief, then choose, then prepared ───────────────────────────
+   The brief exists because a list of twenty-three checkboxes is a job, and a
+   job is not an explanation of why you are looking at one.
+   ====================================================================== */
+.ob-brief { margin-top: 26px; border-top: 1px solid var(--line); }
+.ob-brief-r { display: flex; align-items: baseline; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line-2); }
+.ob-brief-r b {
+  flex: 0 0 auto; min-width: 42px;
+  font-size: 27px; font-weight: 700; letter-spacing: -.03em;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.ob-brief-r span { font-size: 14px; line-height: 1.45; color: var(--muted); }
+
+.ob-selbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0 14px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.ob-selbar-n { font-size: 14px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-selbar-a {
+  padding: 7px 13px; cursor: pointer; font-family: var(--font);
+  font-size: 13px; font-weight: 650; color: var(--brand-d);
+  background: var(--brand-50); border: 1px solid var(--brand-100); border-radius: 99px;
+}
+.ob-selbar-a:hover { background: var(--brand-100); }
+
+.ob-shops { margin: 4px 0 0; display: flex; flex-direction: column; gap: 9px; }
+.ob-shop {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 13px 13px 13px 11px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow-card);
+  transition: border-color .16s ease, background .16s ease;
+}
+.ob-shop.is-on { border-color: var(--brand-200); background: #fbfefc; }
+.ob-shop-pick { flex: 0 0 auto; padding: 2px; background: none; border: 0; cursor: pointer; }
+.ob-box {
+  display: grid; place-items: center; width: 23px; height: 23px;
+  border-radius: 7px; border: 1.5px solid var(--line);
+  background: var(--card); color: transparent;
+}
+.ob-shop.is-on .ob-box { background: var(--brand); border-color: var(--brand); color: #fff; }
+.ob-shop.is-stale.is-on .ob-box { background: var(--amber-tx); border-color: var(--amber-tx); }
+.ob-shop-open {
+  flex: 1 1 auto; min-width: 0; padding: 0; text-align: left;
+  background: none; border: 0; cursor: pointer; font-family: var(--font);
+}
+.ob-shop-n { display: block; font-size: 14.5px; font-weight: 650; color: var(--ink); }
+.ob-shop-why { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+.ob-sugg {
+  display: inline-block; margin-top: 7px; padding: 3px 9px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 650;
+  color: var(--brand-d); background: var(--brand-50);
+}
+/* A FACT about the past, and it is tinted differently from a prediction so
+   the two can never be read as the same kind of thing. */
+.ob-repeat {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 7px; padding: 3px 9px 3px 7px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 650;
+  color: var(--amber-tx); background: var(--amber-bg);
+}
+.ob-repeat > svg { width: 14px; height: 14px; }
+.ob-shop .ob-chev { align-self: center; }
+
+.ob-morebtn {
+  display: block; width: 100%; margin-top: 12px; padding: 12px;
+  cursor: pointer; font-family: var(--font);
+  font-size: 13.5px; font-weight: 650; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+}
+.ob-morebtn:hover { background: var(--line-2); }
+
+.ob-done { padding-top: 30px; text-align: center; }
+.ob-done-ring {
+  display: grid; place-items: center; width: 66px; height: 66px; margin: 0 auto;
+  border-radius: 50%; color: #fff; background: var(--brand);
+  box-shadow: 0 12px 26px -12px rgba(22, 163, 74, .8);
+}
+.ob-done-h { margin: 20px 0 0; font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
+.ob-done-list { margin-top: 26px; text-align: left; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-card); }
+.ob-done-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; font-size: 13.5px; color: var(--muted); }
+.ob-done-row + .ob-done-row { border-top: 1px solid var(--line-2); }
+.ob-done-row b { font-size: 14.5px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* The draft, in the sheet that reviews it. `suggestedQty` sits beside the
+   editable quantity and never moves — it is the only record of what
+   FoodBridge actually proposed. */
+.ob-draft + .ob-draft { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ob-draft-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+.ob-draft-h b { font-size: 14.5px; font-weight: 650; }
+.ob-draft-b {
+  flex: 0 0 auto; padding: 3px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); background: var(--line-2);
+}
+.ob-draft-lines { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.ob-dl { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
+.ob-dl + .ob-dl { border-top: 1px solid var(--line-2); }
+.ob-dl-n { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-dl-s { flex: 0 0 auto; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.ob-dl-q {
+  flex: 0 0 auto; width: 58px; padding: 7px 8px; text-align: center;
+  font-family: var(--font); font-size: 14px; font-weight: 650; color: var(--ink);
+  background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.ob-dl-q:focus { outline: none; border-color: var(--brand); background: var(--brand-50); }
+
+/* ── narrow phones ───────────────────────────────────────────────────── */
+@media (max-width: 374px) {
+  .ob-sheet-h, .ob-sheet-b, .ob-sheet-f { padding-left: 16px; padding-right: 16px; }
+  .ob-brief-r b { font-size: 24px; min-width: 36px; }
+  .ob-dl-q { width: 52px; }
+}
+
+/* ── desktop: the sheet is centred, not stuck to the bottom ──────────── */
+@media (min-width: 768px) {
+  .ob-sheet {
+    left: 50%; bottom: auto; top: 50%; right: auto;
+    width: 440px; max-height: 76vh;
+    transform: translate(-50%, -50%);
+    border-radius: 22px;
+    box-shadow: var(--shadow-lift);
+    animation: ob-pop .2s cubic-bezier(.22, 1, .36, 1);
+  }
+  @keyframes ob-pop { from { transform: translate(-50%, -48%) scale(.98); opacity: .5; } }
+  .ob-sheet-grip { display: none; }
+  .ob-sheet-h { padding-top: 20px; }
+  .ob-sheet-h, .ob-sheet-b, .ob-sheet-f { padding-left: 26px; padding-right: 26px; }
+}

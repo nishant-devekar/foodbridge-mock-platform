@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Staff Management — "Add staff drawer"
+
+  Standalone-openable: serve discovery/ over HTTP and open this file directly to
+  review the screen in isolation. Also reachable from the wiring hub (../index.html).
+
+  The Add drawer open over the list. Name and Contact Number are required;
+  Email is optional. The Role picker pins "Create new role" at the top.
+
+  Outgoing transitions (proto-FSM feeding SSOT-1 / SSOT-5):
+    - Add <label> (submit) -> screen-01-staff-list.html (row appended)
+    - Create new role      -> create-sub-role modal (in place)
+    - Cancel / X / mask    -> screen-01-staff-list.html, via discard guard if dirty
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  Data comes from ../seed-data/seed.json. Disposable — informs the SSOTs, not
+  imported by development/.
+
+  Ported from storefront-frontend@develop, route /our-staff (src/pages/Staff.jsx).
+  See ../instructions/addendum-002-live-frontend-port.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workforce Management — Add staff drawer</title>
+
+  <!-- Tailwind, vendored (no build step, no network dependency at view time).
+       Downloaded once from https://cdn.tailwindcss.com/3.4.16 -->
+  <script src="../assets/tailwind-play-3.4.16.js"></script>
+  <script>
+    // Mirrors storefront-frontend/tailwind.config.js — the custom `screens`
+    // scale REPLACES Tailwind's defaults there, so it must here too or the
+    // responsive breakpoints diverge.
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        screens: {
+          xss: "320px",
+          xs: "420px",
+          sm: "640px",
+          md: "768px",
+          ipad: { min: "960px", max: "1023px" },
+          lg: "1024px",
+          xl: "1280px",
+          "2xl": "1440px",
+        },
+        extend: {
+          fontFamily: {
+            sans: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+            serif: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+          },
+          boxShadow: {
+            bottom: "0 5px 6px -7px rgba(0, 0, 0, 0.6), 0 2px 4px -5px rgba(0, 0, 0, 0.06)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="../assets/mock-shell.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Discovery-only affordance. Not part of the live UI. Append ?bare=1 to the
+       URL to remove it for a clean pixel comparison against the live app. -->
+  <a id="back-pill" href="../index.html"
+     style="position:fixed;left:12px;bottom:12px;z-index:99999;font:500 11px system-ui,sans-serif;
+            background:rgba(31,41,55,.88);color:#e5e7eb;padding:5px 10px;border-radius:9999px;
+            text-decoration:none;backdrop-filter:blur(4px)">&#8592; screens</a>
+
+  <script src="../assets/icons.js"></script>
+  <script src="../assets/mock-shell.js"></script>
+  <script src="../assets/mock-staff.js"></script>
+  <script>
+    if (new URLSearchParams(location.search).has("bare")) {
+      document.getElementById("back-pill").remove();
+    }
+    window.MockStaff.mount({ initial: "add" });
+  </script>
+</body>
+</html>
