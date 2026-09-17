@@ -927,3 +927,59 @@ published page once opened with `?fbapi=http://localhost:8787` keeps calling
 localhost — which WebKit then blocks as mixed content — and reports *Couldn't
 reach*. Open it once with `?fbapi=https://zoho-function-nu.vercel.app` to put
 it back.
+
+### 17 September 2026 — Xero, on the same channel as Zoho Books
+
+**Product owner:** finish Xero end to end and make it active, just like Zoho.
+Chosen over QuickBooks (production keys sit behind Intuit's questionnaire) and
+over Tally and Vyapar (no hosted API; their honest path is export → Upload
+files). Built as **one channel with two providers**, not a second copy:
+
+- **Bridge** — `zoho-function/xero.js` beside `onboarding.js`, sharing the
+  seal, the signed state, the return-address rule and the reason codes;
+  `api/xero/{ready,start,callback,orgs,read}`. Read scopes only
+  (`accounting.contacts.read`, `accounting.settings.read`,
+  `accounting.transactions.read`), no `offline_access`, so the 30-minute token
+  is all there is. A sealed Zoho token is refused by the Xero routes (`p:
+  "xero"` inside the seal). Organisations come from `/connections`, practices
+  filtered out. **Xero has no sales orders:** ACCREC invoices in the 24-month
+  window are the orders (DRAFT, SUBMITTED, AUTHORISED, PAID count; VOIDED and
+  DELETED are counted in the notes); their line items ride along with the
+  page, so the page fetches lines only for an invoice that came without.
+  Quotes are estimates, ACCPAY invoices bills, suppliers vendors, payments and
+  credit notes themselves. Items are keyed by their Code, which is all a line
+  carries. 429 with `X-Rate-Limit-Problem: day` is `daily_limit`, otherwise
+  `busy`. Every chunk comes out in the shape `onboarding.js` already returns.
+- **Page** — `readers.js` has `apps.{zoho,xero}`, each `RealAppOAuth` and
+  `RealAppReader` over `/api/<app>/…`; `takeReturn` accepts `?zoho=` or
+  `?xero=`. `dataset.js fromApp(raw)` (fromZoho stays as its old name) with a
+  per-app table: id prefix (`z`/`x`), module id fields and module shapes —
+  Xero's `/Date(ms)/` dates, `Contact.ContactID`, `AmountDue`,
+  `RemainingCredit`. Provenance `kind` is the app; the label *Your Xero*.
+- **Screens** — an `APPS` table (name, mark, what the consent sheet promises,
+  what it calls a business) drives S02-C's rows, the consent sheet, the
+  sign-in, the return, the organisation picker, *Reading your Xero* (its own
+  step names: *Invoices, as orders* · *Payments, quotes and purchases*), the
+  failure sentences (*You didn't allow access in Xero…*), the chip and the
+  provenance sheet. `state.zoho` became `state.conn { app, … }`; a return for
+  a different app than the tab asked for is *not connected*. Xero left the
+  *Coming soon* list; S02-A's cluster mark already showed it.
+- **Stand-ins** serve both apps (`?fbmock=zoho:<scenario>` for either).
+
+**Verified.** 75/75 bridge tests (6 new: scopes and signed state; exchange
+with basic auth and the seal boundary; a bad code; organisations only; every
+chunk's shape with the tenant on every call, `/Date/` parsing, drafts kept,
+voided counted, lines fetched only when missing; Xero's refusals as the page's
+reasons). 22/22 dataset tests (1 new: a Xero read lands as a Zoho read does,
+under its own name — derived shop and product marked, same-day merge, payments
+and bills in shape, a forbidden module absent with its reason, no second
+invoices list). In the browser with the stand-ins: S02-C shows Zoho Books and
+Xero live; Xero → consent in Xero's words → sign-in → *Reading your Xero* →
+S03 165 · 86 · 40, chip *Your Xero · Stand-in Distributors (Xero)*, provenance
+sheet naming Xero; denied on each app reads as that app.
+
+**Not yet verified: a real Xero sign-in.** It needs a Xero app (free, at
+developer.xero.com) with `https://zoho-function-nu.vercel.app/api/xero/callback`
+as a redirect URI and its client id and secret in the bridge's environment —
+`deploy.sh` pushes them. Until then the live page's Xero row says *We couldn't
+reach Xero* (`/api/xero/ready` → `not_configured`), which is the truth.

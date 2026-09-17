@@ -5,7 +5,7 @@
 
      { provenance, readAt, dataset, notes }
 
-     provenance  { kind:"zoho",  label:"Your Zoho Books", org:{id,name} }
+     provenance  { kind:"zoho"|"xero", label:"Your Zoho Books"|"Your Xero", org:{id,name} }
                | { kind:"files", label:"Your uploaded files", files:[{id,name,type}] }
      dataset     { customers, products, orders, invoices }   each a Collection
      Collection  { present:false } | { present:true, records:[…] }
@@ -16,7 +16,8 @@
    no orders is the second, and is a real result, not a failure.
 
    Two ways in, one shape out:
-     fromZoho(raw)     records the bridge read, already stripped to ids/names
+     fromApp(raw)      records the bridge read from a connected app (Zoho
+                       Books or Xero), in one shape; fromZoho is its old name
      fromFiles(parts)  what readFile() got out of each file the user added
 
    And one way on to the existing engines, which predate this contract:
@@ -688,19 +689,70 @@
   /* raw: { org:{id,name}, customers:[{id,name}], products:[{id,name,sku?,unit?,stockOnHand?}],
             orders:[{id,customerId,customerName,date,lines:[{itemId,name,qty,unit?}]}] }
      A completed read: all three collections are present even when empty. */
-  function fromZoho(raw, readAt) {
-    const zref = function (entity, id) { return { kind: "zoho", entity: entity, externalId: String(id) }; };
+  /* The apps the bridge reads. Customers, products, orders and lines arrive
+     in one shape for every app (the bridge normalises); the other modules
+     arrive as the app's own records, so what identifies one and what an
+     invoice's fields are called is per app. */
+  /* h: { customer(extId) → dataset id, vendor(extId), money(v) }. A Xero
+     date is "2026-08-11T00:00:00" or "/Date(ms)/"; the bridge's orders are
+     already plain, the modules are not. */
+  const xdate = function (r, k) {
+    const v = r[k + "String"] || r[k];
+    if (!v) return undefined;
+    if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10);
+    const m = /\/Date\((\d+)/.exec(String(v));
+    return m ? new Date(Number(m[1])).toISOString().slice(0, 10) : undefined;
+  };
+  const xcontact = function (r) { return r.Contact && r.Contact.ContactID; };
+  const APPS = {
+    zoho: {
+      label: "Your Zoho Books", prefix: "z",
+      idOf: { invoices: "invoice_id", customerpayments: "payment_id", creditnotes: "creditnote_id",
+              estimates: "estimate_id", purchaseorders: "purchaseorder_id", bills: "bill_id",
+              expenses: "expense_id", vendors: "contact_id" },
+      shapes: {
+        invoices: function (r, h) { return { customerId: h.customer(r.customer_id), number: r.invoice_number, date: r.date, dueDate: r.due_date || undefined, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        customerpayments: function (r, h) { return { customerId: h.customer(r.customer_id), date: r.date, amount: h.money(r.amount), mode: r.payment_mode }; },
+        creditnotes: function (r, h) { return { customerId: h.customer(r.customer_id), date: r.date, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        estimates: function (r, h) { return { customerId: h.customer(r.customer_id), date: r.date, total: h.money(r.total), status: r.status }; },
+        purchaseorders: function (r, h) { return { vendorId: h.vendor(r.vendor_id), date: r.date, total: h.money(r.total), status: r.status }; },
+        bills: function (r, h) { return { vendorId: h.vendor(r.vendor_id), date: r.date, dueDate: r.due_date || undefined, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        expenses: function (r, h) { return { date: r.date, total: h.money(r.total), account: r.account_name, status: r.status }; },
+        vendors: function (r) { return { name: r.contact_name }; },
+      },
+    },
+    xero: {
+      label: "Your Xero", prefix: "x",
+      // Xero has no invoices module here: its ACCREC invoices ARE the orders.
+      idOf: { customerpayments: "PaymentID", creditnotes: "CreditNoteID", estimates: "QuoteID",
+              purchaseorders: "PurchaseOrderID", bills: "InvoiceID", vendors: "ContactID" },
+      shapes: {
+        customerpayments: function (r, h) { return { customerId: h.customer(r.Invoice && xcontact(r.Invoice)), date: xdate(r, "Date"), amount: h.money(r.Amount), mode: r.PaymentType }; },
+        creditnotes: function (r, h) { return { customerId: h.customer(xcontact(r)), date: xdate(r, "Date"), total: h.money(r.Total), balance: h.money(r.RemainingCredit), status: r.Status }; },
+        estimates: function (r, h) { return { customerId: h.customer(xcontact(r)), date: xdate(r, "Date"), total: h.money(r.Total), status: r.Status }; },
+        purchaseorders: function (r, h) { return { vendorId: h.vendor(xcontact(r)), date: xdate(r, "Date"), total: h.money(r.Total), status: r.Status }; },
+        bills: function (r, h) { return { vendorId: h.vendor(xcontact(r)), date: xdate(r, "Date"), dueDate: xdate(r, "DueDate"), total: h.money(r.Total), balance: h.money(r.AmountDue), status: r.Status }; },
+        vendors: function (r) { return { name: r.Name }; },
+      },
+    },
+  };
+
+  function fromApp(raw, readAt) {
+    const app = APPS[raw.app] ? raw.app : "zoho";
+    const A = APPS[app];
+    const zref = function (entity, id) { return { kind: app, entity: entity, externalId: String(id) }; };
+    const Z = A.prefix;
     const customers = [], products = [], orders = [];
     const custById = {}, prodById = {};
     const skips = Skips();
 
     (raw.customers || []).forEach(function (c) {
-      const r = { id: "z" + c.id, name: c.name, from: zref("contact", c.id) };
+      const r = { id: Z + c.id, name: c.name, from: zref("contact", c.id) };
       if (c.raw) r.raw = c.raw;
       custById[c.id] = r; customers.push(r);
     });
     (raw.products || []).forEach(function (p) {
-      const r = { id: "z" + p.id, name: p.name, from: zref("item", p.id) };
+      const r = { id: Z + p.id, name: p.name, from: zref("item", p.id) };
       if (p.sku) r.sku = p.sku;
       if (p.unit) r.unit = p.unit;
       if (typeof p.stockOnHand === "number") r.stockOnHand = p.stockOnHand;
@@ -711,7 +763,7 @@
       let cust = custById[o.customerId];
       if (!cust) {
         if (!o.customerName) { skips.add("unknown_customer"); return; }
-        cust = { id: "z" + o.customerId, name: o.customerName, from: zref("salesorder", o.id), derived: true };
+        cust = { id: Z + o.customerId, name: o.customerName, from: zref("salesorder", o.id), derived: true };
         custById[o.customerId] = cust; customers.push(cust);
       }
       const lines = [];
@@ -721,7 +773,7 @@
         let prod = prodById[l.itemId];
         if (!prod) {
           if (!l.name) { skips.add("unknown_product"); return; }
-          prod = { id: "z" + (l.itemId || "n:" + norm(l.name)), name: l.name, from: zref("salesorder", o.id), derived: true };
+          prod = { id: Z + (l.itemId || "n:" + norm(l.name)), name: l.name, from: zref("salesorder", o.id), derived: true };
           prodById[l.itemId] = prod; products.push(prod);
         }
         const line = { productId: prod.id, qty: l.qty };
@@ -730,75 +782,61 @@
         lines.push(line);
       });
       if (!lines.length) { skips.add("no_usable_lines"); return; }
-      const ord = { id: "z" + o.id, customerId: cust.id, date: o.date, lines: lines, from: zref("salesorder", o.id) };
+      const ord = { id: Z + o.id, customerId: cust.id, date: o.date, lines: lines, from: zref("salesorder", o.id) };
       if (o.status) ord.status = o.status;
       if (o.raw) ord.raw = Object.assign({}, o.raw, o.detail ? { detail: o.detail } : {});
       orders.push(ord);
     });
 
     const day = mergeSameDay(orders);
-    const notes = skips.list().map(function (s) { return { reason: s.reason, count: s.count, from: { kind: "zoho" } }; });
+    const notes = skips.list().map(function (s) { return { reason: s.reason, count: s.count, from: { kind: app } }; });
     const ex = (raw.orderNotes && raw.orderNotes.excluded) || {};
-    Object.keys(ex).forEach(function (k) { notes.push({ reason: "not_demand:" + k, count: ex[k], from: { kind: "zoho" } }); });
-    if (day.merged) notes.push({ reason: "merged_same_day", count: day.merged, from: { kind: "zoho" } });
+    Object.keys(ex).forEach(function (k) { notes.push({ reason: "not_demand:" + k, count: ex[k], from: { kind: app } }); });
+    if (day.merged) notes.push({ reason: "merged_same_day", count: day.merged, from: { kind: app } });
 
     /* Every other module the account showed, whole. A module Zoho would not
        show this login is ABSENT with the reason -- never an empty list, which
        would say the business has none. */
     const mods = raw.modules || {};
-    const idOf = { invoices: "invoice_id", customerpayments: "payment_id", creditnotes: "creditnote_id",
-                   estimates: "estimate_id", purchaseorders: "purchaseorder_id", bills: "bill_id",
-                   expenses: "expense_id", vendors: "contact_id" };
+    const idOf = A.idOf;
     function moduleCollection(name, shape) {
       const m = mods[name];
       if (!m) return ABSENT;
-      if (!m.ok) { notes.push({ reason: "module_unavailable:" + name + ":" + m.reason, count: 1, from: { kind: "zoho" } }); return { present: false, unavailable: m.reason }; }
+      if (!m.ok) { notes.push({ reason: "module_unavailable:" + name + ":" + m.reason, count: 1, from: { kind: app } }); return { present: false, unavailable: m.reason }; }
       return present(m.records.map(function (r) {
         const out = shape ? shape(r) : {};
-        out.id = "z" + r[idOf[name]];
+        out.id = Z + r[idOf[name]];
         out.from = zref(name, r[idOf[name]]);
         out.raw = r;
         return out;
       }));
     }
     const money = function (v) { return typeof v === "number" ? v : (v != null && v !== "" && isFinite(Number(v)) ? Number(v) : undefined); };
-    const customerRef = function (r) {
-      const c = custById[r.customer_id];
-      return c ? c.id : (r.customer_id ? "z" + r.customer_id : undefined);
+    const customerRef = function (extId) {
+      const c = custById[extId];
+      return c ? c.id : (extId ? Z + extId : undefined);
     };
-    const invoices = moduleCollection("invoices", function (r) {
-      return { customerId: customerRef(r), number: r.invoice_number, date: r.date, dueDate: r.due_date || undefined,
-               total: money(r.total), balance: money(r.balance), status: r.status };
-    });
+    const h = { customer: customerRef, vendor: function (id) { return id ? Z + id : undefined; }, money: money };
+    const mod = function (name) {
+      const shape = A.shapes[name];
+      return shape ? moduleCollection(name, function (r) { return shape(r, h); }) : ABSENT;
+    };
 
     return {
-      provenance: { kind: "zoho", label: "Your Zoho Books", org: { id: String(raw.org.id), name: raw.org.name } },
+      provenance: { kind: app, label: A.label, org: { id: String(raw.org.id), name: raw.org.name } },
       readAt: readAt || new Date().toISOString(),
       dataset: {
         customers: present(customers),
         products: present(products),
         orders: present(day.orders),
-        invoices: invoices,
-        payments: moduleCollection("customerpayments", function (r) {
-          return { customerId: customerRef(r), date: r.date, amount: money(r.amount), mode: r.payment_mode };
-        }),
-        creditNotes: moduleCollection("creditnotes", function (r) {
-          return { customerId: customerRef(r), date: r.date, total: money(r.total), balance: money(r.balance), status: r.status };
-        }),
-        estimates: moduleCollection("estimates", function (r) {
-          return { customerId: customerRef(r), date: r.date, total: money(r.total), status: r.status };
-        }),
-        purchaseOrders: moduleCollection("purchaseorders", function (r) {
-          return { vendorId: r.vendor_id ? "z" + r.vendor_id : undefined, date: r.date, total: money(r.total), status: r.status };
-        }),
-        bills: moduleCollection("bills", function (r) {
-          return { vendorId: r.vendor_id ? "z" + r.vendor_id : undefined, date: r.date, dueDate: r.due_date || undefined,
-                   total: money(r.total), balance: money(r.balance), status: r.status };
-        }),
-        expenses: moduleCollection("expenses", function (r) {
-          return { date: r.date, total: money(r.total), account: r.account_name, status: r.status };
-        }),
-        vendors: moduleCollection("vendors", function (r) { return { name: r.contact_name }; }),
+        invoices: mod("invoices"),
+        payments: mod("customerpayments"),
+        creditNotes: mod("creditnotes"),
+        estimates: mod("estimates"),
+        purchaseOrders: mod("purchaseorders"),
+        bills: mod("bills"),
+        expenses: mod("expenses"),
+        vendors: mod("vendors"),
       },
       notes: { skipped: notes, window: raw.orderNotes && raw.orderNotes.from ? { from: raw.orderNotes.from } : undefined,
                ordersListed: raw.orderNotes ? raw.orderNotes.listed : undefined },
@@ -1008,7 +1046,8 @@
     };
   }
 
-  const API = { FILE_TYPES, EVIDENCE_TYPES, addEvidence, MAX_BYTES, readFile, classify, parseCsv, parseXlsx, extract, parseDate, fromFiles, fromZoho, toEngine };
+  const fromZoho = fromApp;   // the name the first provider gave it
+  const API = { FILE_TYPES, EVIDENCE_TYPES, APPS, addEvidence, MAX_BYTES, readFile, classify, parseCsv, parseXlsx, extract, parseDate, fromFiles, fromApp, fromZoho, toEngine };
   root.FB_DATASET = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

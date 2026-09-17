@@ -7,8 +7,8 @@
 
      F01 Business profile          S01
      S02-A How do you want to bring…   S02   Connect an app · Upload files
-     S02-C Connect an app                      Zoho Books → CONSENT SHEET → Zoho
-     S02-S Reading your Zoho Books             SYSTEM — real progress, Stop
+     S02-C Connect an app                      Zoho Books | Xero → CONSENT SHEET → the app
+     S02-S Reading your <app>                  SYSTEM — real progress, Stop
      S02-F Add your business files             each file says what it holds; a result per file
            DataReady                           the one hand-off to S03 (dataset.js)
      F08 What we received          S03   CONDITIONAL, two shapes
@@ -43,8 +43,8 @@
                          explanation in this file is inside a sheet.
 
    ── WHAT IS REAL ─────────────────────────────────────────────────────────
-     Zoho Books           a real sign-in and a read-only read, through the
-                          bridge (zoho-function/onboarding.js)
+     Zoho Books, Xero     a real sign-in and a read-only read, through the
+                          bridge (zoho-function/onboarding.js, xero.js)
      Excel and CSV files  read in this browser by dataset.js; not uploaded
      window.FB_PREDICT    the back-tested reorder engine
      window.FB_EVIDENCE   the evidence layer
@@ -137,7 +137,7 @@
     dataReady: null,       // S02's ONE hand-off: {provenance, readAt, dataset, notes}
     engine: null,          // the engines' view of dataReady, derived, never stored
     s02: "A",              // "A" how · "C" connect an app · "F" upload files
-    zoho: idleZoho(),      // the Zoho sign-in and read in progress, never persisted
+    conn: idleConn(),      // the app sign-in and read in progress (Zoho Books or Xero), never persisted
     files: [],             // [{id, name, type, status, reason, file, result}]
     filesRun: null,        // the file read in progress
     later: { files: [], run: null },  // S03 "Add later": files and photos chosen, and the read in progress
@@ -162,7 +162,7 @@
     if (!dr) return "";
     const extra = (dr.provenance.additions || []).length;
     const more = extra ? " + " + extra + (extra === 1 ? " file" : " files") : "";
-    if (dr.provenance.kind === "zoho") return "Your Zoho Books \u00b7 " + dr.provenance.org.name + more;
+    if (APPS[dr.provenance.kind]) return "Your " + APPS[dr.provenance.kind].name + " \u00b7 " + dr.provenance.org.name + more;
     return "Your uploaded files" + more;
   }
 
@@ -344,7 +344,7 @@
     const label = provenanceLabel();
     if (!label) return "";
     const kind = state.dataReady.provenance.kind;
-    return '<button class="ob-prov" id="b-prov">' + (kind === "zoho" ? ICON.cloud : ICON.files) +
+    return '<button class="ob-prov" id="b-prov">' + (APPS[kind] ? ICON.cloud : ICON.files) +
            "<span>" + esc(label) + "</span></button>";
   }
 
@@ -362,11 +362,11 @@
     const TL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
     openSheet({
       title: "Where this data comes from",
-      body: (dr.provenance.kind === "zoho"
-        ? '<p class="ob-sheet-p">Read from your Zoho Books \u00b7 ' + esc(dr.provenance.org.name) +
+      body: (APPS[dr.provenance.kind]
+        ? '<p class="ob-sheet-p">Read from your ' + esc(APPS[dr.provenance.kind].name) + ' \u00b7 ' + esc(dr.provenance.org.name) +
             " on " + esc(readAtText(dr.readAt)) + ".</p>" +
           '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT DIDN'T CHANGE</p>" +
-          '<ul class="ob-sheet-ul"><li>FoodBridge only read.</li><li>Nothing in Zoho Books was changed.</li></ul>'
+          '<ul class="ob-sheet-ul"><li>FoodBridge only read.</li><li>Nothing in ' + esc(APPS[dr.provenance.kind].name) + ' was changed.</li></ul>'
         : '<p class="ob-sheet-p">Read from the files you added on ' + esc(readAtText(dr.readAt)) + ".</p>" +
           '<div class="ob-reclist">' + dr.provenance.files.map(function (f) {
             const kinds = (f.types || (f.type ? [f.type] : [])).map(function (t) { return TL[t] || t; }).join(" \u00b7 ");
@@ -498,8 +498,8 @@
     if (state.sheet) { closeSheet(); return; }
     if (state.view === "drafts") return;
     if (state.screen === "S02") {
-      if (state.zoho.phase === "reading") { stopZohoRead(); return; }
-      if (state.s02 === "C") { state.zoho = idleZoho(); goS02("A"); return; }
+      if (state.conn.phase === "reading") { stopAppRead(); return; }
+      if (state.s02 === "C") { state.conn = idleConn(); goS02("A"); return; }
       if (state.s02 === "F") { leaveFiles(); return; }
       go("S01");
       return;
@@ -890,8 +890,8 @@
      decision per surface:
 
        S02-A  choose how            Connect an app · Upload files
-       S02-C  Connect an app        Zoho Books · My app isn't listed
-       S02-S  Reading your Zoho Books   (Customers · Products · Orders, Stop)
+       S02-C  Connect an app        Zoho Books · Xero · My app isn't listed
+       S02-S  Reading your <app>       (Customers · Products · Orders, Stop)
        S02-F  Add your business files   (each file says what it holds; a
                                         result per file, in business words)
 
@@ -900,7 +900,7 @@
      A new source replaces the old data as a whole, after asking. */
 
   const RD = function () { return window.FB_READERS; };
-  const OAUTH_KEY = "fb.v7.zoho.pending";
+  const OAUTH_KEY = "fb.v7.zoho.pending";     // { n, app, at } — the sign-in this tab is waiting on
 
   const TYPE_LABEL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
   const TYPE_HELP = {
@@ -925,25 +925,49 @@
   };
   const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-  const NOT_CONNECTED = {
-    denied: "You didn't allow access in Zoho, so nothing was read.",
-    failed: "Zoho couldn't finish signing you in. Nothing was read.",
-    unreachable: "We couldn't reach Zoho just now. Nothing was read.",
+  /* The apps a user can connect. Each is the same channel on the bridge
+     (/api/<id>/ready, start, orgs, read) and the same screens here; what
+     differs is the name, the mark, what it reads, and what it calls a
+     business. `reads` is what the consent sheet promises, in the user's
+     words, and must match what the bridge actually asks for. */
+  const APPS = {
+    zoho: {
+      name: "Zoho Books", short: "Zoho", logo: "zoho.svg", wide: true,
+      reads: "Customers &#183; Products &#183; Orders &#183; Invoices &#183; Payments &#183; Credit notes &#183; Estimates &#183; Vendors &#183; Purchase orders &#183; Bills &#183; Expenses",
+      noorg: "This Zoho account doesn't have a Zoho Books business.",
+    },
+    xero: {
+      name: "Xero", short: "Xero", logo: "xero.svg", wide: false,
+      /* Xero has no sales orders: its invoices are read as the orders. */
+      reads: "Customers &#183; Products &#183; Invoices, as your orders &#183; Payments &#183; Credit notes &#183; Quotes &#183; Suppliers &#183; Purchase orders &#183; Bills",
+      noorg: "This Xero login doesn't have an organisation FoodBridge can read.",
+    },
   };
-  const READ_FAILED = {
-    unavailable: "Zoho stopped responding. Nothing was kept.",
-    timeout: "Zoho stopped responding. Nothing was kept.",
-    busy: "Zoho is busy right now. Nothing was kept. Try again in a few minutes.",
-    daily_limit: "Zoho has reached today's limit for reading this account. Nothing was kept. Try again tomorrow.",
-    expired: "Your Zoho sign-in expired before we finished. Nothing was kept.",
-    forbidden: "This Zoho login can't see your orders. Try again with the account owner's login.",
-    noorg: "This Zoho account doesn't have a Zoho Books business.",
+  const NOT_CONNECTED = function (why, app) {
+    const n = APPS[app].short;
+    return {
+      denied: "You didn't allow access in " + n + ", so nothing was read.",
+      failed: n + " couldn't finish signing you in. Nothing was read.",
+      unreachable: "We couldn't reach " + n + " just now. Nothing was read.",
+    }[why];
+  };
+  const READ_FAILED = function (reason, app) {
+    const n = APPS[app].short;
+    return {
+      unavailable: n + " stopped responding. Nothing was kept.",
+      timeout: n + " stopped responding. Nothing was kept.",
+      busy: n + " is busy right now. Nothing was kept. Try again in a few minutes.",
+      daily_limit: n + " has reached today's limit for reading this account. Nothing was kept. Try again tomorrow.",
+      expired: "Your " + n + " sign-in expired before we finished. Nothing was kept.",
+      forbidden: "This " + n + " login can't see your orders. Try again with the account owner's login.",
+      noorg: APPS[app].noorg,
+    }[reason];
   };
 
   const plural = function (n, one, many) { return n + " " + (n === 1 ? one : many); };
 
   function drawS02() {
-    if (state.zoho.phase === "reading") return drawZohoReading();
+    if (state.conn.phase === "reading") return drawAppReading();
     if (state.s02 === "C") return drawS02C();
     if (state.s02 === "F") return drawS02F();
     return drawS02A();
@@ -979,8 +1003,8 @@
         '<h1 class="ob-h1">How do you want to bring your business data into FoodBridge?</h1>' +
         '<div class="ob-sources">' +
           pathRow("connect", MARK_CONNECT, "Connect an app",
-            kind === "zoho" ? doneSub("Your Zoho Books · " + dr.provenance.org.name)
-                            : esc("Link the system you already use to manage your business"), kind === "zoho") +
+            APPS[kind] ? doneSub("Your " + APPS[kind].name + " · " + dr.provenance.org.name)
+                       : esc("Link the system you already use to manage your business"), !!APPS[kind]) +
           pathRow("upload", MARK_UPLOAD, "Upload files",
             kind === "files" ? doneSub(plural(dr.provenance.files.length, "file", "files") + " read")
                              : esc("Add orders, customers, products or invoices"), kind === "files") +
@@ -1006,8 +1030,8 @@
       title: "Replace your current data?",
       body:
         '<p class="ob-sheet-p">FoodBridge will use ' +
-          (nextKind === "zoho" ? "your Zoho Books" : "your uploaded files") + " instead. " +
-          (dr.provenance.kind === "zoho" ? "The Zoho Books account isn't changed." : "Your files aren't changed.") +
+          (APPS[nextKind] ? "your " + APPS[nextKind].name : "your uploaded files") + " instead. " +
+          (APPS[dr.provenance.kind] ? "The " + APPS[dr.provenance.kind].name + " account isn't changed." : "Your files aren't changed.") +
         "</p>" +
         (drafts ? '<p class="ob-sheet-p">The ' + plural(drafts, "draft", "drafts") + " you prepared will be discarded.</p>" : ""),
       actions: '<button class="ob-cta" id="s-replace">Replace</button>' +
@@ -1029,7 +1053,7 @@
     state.parked = false; state.undo = null; state.draftEdit = null;
     state.showAll = false; state.showAllStale = false;
     state.sheet = null;
-    if (ready.provenance.kind === "zoho") state.files = [];
+    if (APPS[ready.provenance.kind]) state.files = [];
     state.s02 = "A";
     save();
     go("S03");
@@ -1040,29 +1064,33 @@
   /* Each app's own mark (see logos/SOURCES.md). Decorative: the name beside it
      is what a screen reader announces. */
   const logo = function (file, wide) { return '<img class="ob-logo' + (wide ? " is-wide" : "") + '" src="logos/' + file + '" alt="" width="32" height="32">'; };
+  const LIVE_APPS = ["zoho", "xero"];
   const SOON_APPS = [
     { label: "Tally", icon: logo("tally.png", true) },
     { label: "Vyapar", icon: logo("vyapar.png") },
     { label: "QuickBooks Online", icon: logo("quickbooks.svg") },
-    { label: "Xero", icon: logo("xero.svg") },
   ];
 
   function drawS02C() {
-    const connected = state.zoho.phase === "connected";
+    const connected = state.conn.phase === "connected";
     render(
       chrome("S02", { back: true }) +
       '<main class="ob-main">' +
         '<h1 class="ob-h1">Connect an app</h1>' +
         '<div class="ob-sources">' +
-          '<button class="ob-source ob-path" id="b-zoho"' + (connected ? " disabled" : "") + ">" +
-            '<span class="ob-mark ob-mark-logo">' + logo("zoho.svg", true) + "</span>" +
-            '<span class="ob-path-main"><span class="ob-source-t">Zoho Books</span>' +
-              '<span class="ob-path-s">' +
-                /* Only a genuine return from Zoho gets here. */
-                (connected ? '<span class="ob-path-ok">' + ICON.check + "Zoho Books connected</span>"
-                           : "Connect your Zoho Books account") +
-              "</span></span>" +
-            '<span class="ob-chev">' + (connected ? '<span class="ob-spin"></span>' : ICON.chev) + "</span></button>" +
+          LIVE_APPS.map(function (id) {
+            const a = APPS[id];
+            const on = connected && state.conn.app === id;
+            return '<button class="ob-source ob-path" data-app="' + id + '"' + (connected ? " disabled" : "") + ">" +
+              '<span class="ob-mark ob-mark-logo">' + logo(a.logo, a.wide) + "</span>" +
+              '<span class="ob-path-main"><span class="ob-source-t">' + esc(a.name) + "</span>" +
+                '<span class="ob-path-s">' +
+                  /* Only a genuine return from the app gets here. */
+                  (on ? '<span class="ob-path-ok">' + ICON.check + esc(a.name) + " connected</span>"
+                      : "Connect your " + esc(a.name) + " account") +
+                "</span></span>" +
+              '<span class="ob-chev">' + (on ? '<span class="ob-spin"></span>' : ICON.chev) + "</span></button>";
+          }).join("") +
           /* Added 17 Sep 2026 at the product owner's request. They are not
              buttons: nothing happens on a tap, and each says plainly that it
              is not available yet, so an unbuilt source never looks usable. */
@@ -1076,14 +1104,16 @@
         '<button class="ob-textlink" id="b-notlisted">My app isn\'t listed</button>' +
       "</main>"
     );
-    $("#b-zoho").addEventListener("click", function () { if (!connected) openZohoConsent(false); });
+    $$("[data-app]").forEach(function (b) {
+      b.addEventListener("click", function () { if (!connected) openAppConsent(b.dataset.app, false); });
+    });
     $("#b-notlisted").addEventListener("click", openNotListed);
   }
 
   function openNotListed() {
     openSheet({
       title: "Can't find your app?",
-      body: '<p class="ob-sheet-p">FoodBridge connects to Zoho Books today. You can still bring your data in ' +
+      body: '<p class="ob-sheet-p">FoodBridge connects to Zoho Books and Xero today. You can still bring your data in ' +
             "by uploading files exported from your app.</p>",
       actions: '<button class="ob-cta" id="s-upload">Upload files instead</button>' +
                '<button class="ob-skip" id="s-close">Close</button>',
@@ -1095,26 +1125,26 @@
   }
 
   /* C1 — the tap opened this; nothing has been read or started. */
-  function openZohoConsent(busy) {
+  function openAppConsent(app, busy) {
+    const a = APPS[app];
     openSheet({
-      title: "Connect Zoho Books",
+      title: "Connect " + a.name,
       busy: busy,
       body:
-        '<p class="ob-sheet-p">You\'ll sign in to Zoho and allow FoodBridge to read your business records.</p>' +
+        '<p class="ob-sheet-p">You\'ll sign in to ' + esc(a.short) + ' and allow FoodBridge to read your business records.</p>' +
         '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
         /* Updated 17 Sep 2026 by the product owner's decision to read every
-           module Zoho Books will show: the sheet names all of it. */
-        '<p class="ob-sheet-p">Customers &#183; Products &#183; Orders &#183; Invoices &#183; Payments &#183; ' +
-          "Credit notes &#183; Estimates &#183; Vendors &#183; Purchase orders &#183; Bills &#183; Expenses</p>" +
+           module the app will show: the sheet names all of it. */
+        '<p class="ob-sheet-p">' + a.reads + "</p>" +
         '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
-        '<ul class="ob-sheet-ul"><li>FoodBridge only reads.</li><li>Nothing in Zoho Books is changed.</li></ul>',
+        '<ul class="ob-sheet-ul"><li>FoodBridge only reads.</li><li>Nothing in ' + esc(a.name) + ' is changed.</li></ul>',
       actions: busy
-        ? '<button class="ob-cta ob-cta-busy" disabled><span class="ob-spin"></span>Opening Zoho…</button>'
-        : '<button class="ob-cta" id="s-zoho">Continue to Zoho</button>' +
+        ? '<button class="ob-cta ob-cta-busy" disabled><span class="ob-spin"></span>Opening ' + esc(a.short) + '…</button>'
+        : '<button class="ob-cta" id="s-go">Continue to ' + esc(a.short) + '</button>' +
           '<button class="ob-skip" id="s-cancel">Cancel</button>',
       bind: function () {
         if (busy) return;
-        $("#s-zoho").addEventListener("click", function () { confirmReplaceThen("zoho", startZohoSignIn); });
+        $("#s-go").addEventListener("click", function () { confirmReplaceThen(app, function () { startAppSignIn(app); }); });
         $("#s-cancel").addEventListener("click", closeSheet);
       },
     });
@@ -1124,66 +1154,72 @@
 
   /* Leaves FoodBridge for Zoho, in the same tab. The nonce is how the return
      proves it belongs to a sign-in THIS tab started. */
-  function startZohoSignIn() {
+  function startAppSignIn(app) {
     const nonce = RD().newNonce();
-    try { sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ n: nonce, at: Date.now() })); } catch (e) { /* see below */ }
-    state.zoho = idleZoho();
+    try { sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ n: nonce, app: app, at: Date.now() })); } catch (e) { /* see below */ }
+    state.conn = idleConn(app);
     state.screen = "S02"; state.s02 = "C";
     save();
-    openZohoConsent(true);
-    RD().zohoAuth.begin(nonce, RD().returnUrl()).catch(function () {
+    openAppConsent(app, true);
+    RD().apps[app].auth.begin(nonce, RD().returnUrl()).catch(function () {
       clearPending();
-      openNotConnected("unreachable");
+      openNotConnected("unreachable", app);
     });
   }
 
-  function idleZoho() { return { phase: "idle", handle: null, org: null, run: null, progress: null }; }
+  function idleConn(app) { return { app: app || null, phase: "idle", handle: null, org: null, run: null, progress: null }; }
+  /* The app the connection in progress, or the data in use, belongs to. */
+  function connApp() { return state.conn.app || (state.dataReady && APPS[state.dataReady.provenance.kind] ? state.dataReady.provenance.kind : "zoho"); }
+  function A() { return APPS[connApp()]; }
 
   /* Runs once, on load. Three ways to arrive here after leaving for Zoho:
      a result in the URL, nothing at all (the user pressed Back), or a result
      this tab never asked for. Only the first, with a matching nonce and a
      handle, is ever called connected. */
-  function handleZohoReturn() {
-    const ret = RD().zohoAuth.takeReturn();
+  function handleAppReturn() {
+    const ret = RD().takeReturn();
     let pending = null;
     try { pending = JSON.parse(sessionStorage.getItem(OAUTH_KEY) || "null"); } catch (e) { pending = null; }
     if (!ret && !pending) return;
     clearPending();
+    const app = APPS[ret ? ret.app : pending && pending.app] ? (ret ? ret.app : pending.app) : "zoho";
     state.screen = "S02"; state.s02 = "C";
-    state.zoho = idleZoho();
-    if (!ret) return;                                     // Back from Zoho: quietly here
-    if (!pending || ret.n !== pending.n) { state.sheet = notConnectedSheet("failed"); return; }
-    if (ret.zoho === "denied") { state.sheet = notConnectedSheet("denied"); return; }
-    if (ret.zoho !== "connected" || !ret.c) { state.sheet = notConnectedSheet("failed"); return; }
-    state.zoho.handle = ret.c;
-    state.zoho.phase = "connected";
+    state.conn = idleConn(app);
+    if (!ret) return;                                     // Back from the app: quietly here
+    // A result this tab never asked for, or for a different app than it asked
+    // for, is not a connection.
+    if (!pending || ret.n !== pending.n || (pending.app && pending.app !== ret.app)) { state.sheet = notConnectedSheet("failed", app); return; }
+    if (ret.result === "denied") { state.sheet = notConnectedSheet("denied", app); return; }
+    if (ret.result !== "connected" || !ret.c) { state.sheet = notConnectedSheet("failed", app); return; }
+    state.conn.handle = ret.c;
+    state.conn.phase = "connected";
     discoverOrganisations();
   }
 
-  function notConnectedSheet(why) {
+  function notConnectedSheet(why, app) {
     return {
-      title: "Zoho Books wasn't connected",
-      body: '<p class="ob-sheet-p">' + esc(NOT_CONNECTED[why] || NOT_CONNECTED.failed) + "</p>",
+      title: APPS[app].name + " wasn't connected",
+      body: '<p class="ob-sheet-p">' + esc(NOT_CONNECTED(why, app) || NOT_CONNECTED("failed", app)) + "</p>",
       actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
                '<button class="ob-skip" id="s-upload">Upload files instead</button>',
       bind: function () {
-        $("#s-retry").addEventListener("click", function () { state.sheet = null; startZohoSignIn(); });
+        $("#s-retry").addEventListener("click", function () { state.sheet = null; startAppSignIn(app); });
         $("#s-upload").addEventListener("click", function () { state.sheet = null; goS02("F"); });
       },
     };
   }
-  function openNotConnected(why) { state.zoho = idleZoho(); state.s02 = "C"; openSheet(notConnectedSheet(why)); }
+  function openNotConnected(why, app) { state.conn = idleConn(app); state.s02 = "C"; openSheet(notConnectedSheet(why, app)); }
 
   function discoverOrganisations() {
-    const handle = state.zoho.handle;
-    RD().zohoReader.organisations(handle).then(function (orgs) {
-      if (state.zoho.handle !== handle || state.zoho.phase !== "connected") return;
-      if (!orgs.length) { state.zoho = idleZoho(); return openReadFailed("noorg", null); }
-      if (orgs.length === 1) return startZohoRead(orgs[0]);
+    const handle = state.conn.handle, app = state.conn.app;
+    RD().apps[app].reader.organisations(handle).then(function (orgs) {
+      if (state.conn.handle !== handle || state.conn.phase !== "connected") return;
+      if (!orgs.length) { state.conn = idleConn(app); return openReadFailed("noorg", null); }
+      if (orgs.length === 1) return startAppRead(orgs[0]);
       openChooseOrg(orgs);
     }, function (err) {
-      if (state.zoho.handle !== handle) return;
-      state.zoho.phase = "idle";
+      if (state.conn.handle !== handle) return;
+      state.conn.phase = "idle";
       openReadFailed((err && err.reason) || "unavailable", null);
     });
   }
@@ -1200,7 +1236,7 @@
         }).join("") + "</div>",
       actions: '<button class="ob-cta" id="s-read" disabled>Read this business</button>' +
                '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      onClose: function () { state.zoho = idleZoho(); },
+      onClose: function () { state.conn = idleConn(state.conn.app); },
       bind: function () {
         $$("[data-org]").forEach(function (b) {
           b.addEventListener("click", function () {
@@ -1216,63 +1252,66 @@
         $("#s-read").addEventListener("click", function () {
           if (picked < 0) return;
           state.sheet = null;
-          startZohoRead(orgs[picked]);
+          startAppRead(orgs[picked]);
         });
         $("#s-cancel").addEventListener("click", closeSheet);
       },
     });
   }
 
-  function startZohoRead(org) {
+  function startAppRead(org) {
+    const app = state.conn.app;
     const run = { stopped: false };
-    state.zoho.phase = "reading";
-    state.zoho.org = org;
-    state.zoho.run = run;
-    state.zoho.progress = { customers: "reading", products: "waiting", orders: "waiting", others: "waiting", done: 0, total: null };
+    state.conn.phase = "reading";
+    state.conn.org = org;
+    state.conn.run = run;
+    state.conn.progress = { customers: "reading", products: "waiting", orders: "waiting", others: "waiting", done: 0, total: null };
     state.sheet = null;
     state.screen = "S02";
     draw();
-    RD().zohoReader.read(state.zoho.handle, org, {
+    RD().apps[app].reader.read(state.conn.handle, org, {
       shouldStop: function () { return run.stopped; },
       onProgress: function (p) {
-        if (run.stopped || state.zoho.run !== run) return;
-        state.zoho.progress = p;
-        if (state.screen === "S02" && !state.sheet) drawZohoReading();
+        if (run.stopped || state.conn.run !== run) return;
+        state.conn.progress = p;
+        if (state.screen === "S02" && !state.sheet) drawAppReading();
       },
     }).then(function (raw) {
-      if (run.stopped || state.zoho.run !== run || !raw) return;
-      state.zoho = idleZoho();                // the handle is not kept past the read
-      emitDataReady(window.FB_DATASET.fromZoho(raw));
+      if (run.stopped || state.conn.run !== run || !raw) return;
+      state.conn = idleConn();                // the handle is not kept past the read
+      raw.app = app;
+      emitDataReady(window.FB_DATASET.fromApp(raw));
     }, function (err) {
-      if (run.stopped || state.zoho.run !== run) return;
-      state.zoho.phase = "idle";
-      state.zoho.run = null;
-      state.zoho.progress = null;
+      if (run.stopped || state.conn.run !== run) return;
+      state.conn.phase = "idle";
+      state.conn.run = null;
+      state.conn.progress = null;
       openReadFailed((err && err.reason) || "unavailable", org);
     });
   }
 
   /* Stop keeps NOTHING. A half-read account labelled "Your Zoho Books" would
      misrepresent the user's own books. */
-  function stopZohoRead() {
-    if (state.zoho.run) state.zoho.run.stopped = true;
-    state.zoho = idleZoho();
+  function stopAppRead() {
+    if (state.conn.run) state.conn.run.stopped = true;
+    state.conn = idleConn(state.conn.app);
     state.s02 = "C";
     draw();
   }
 
-  function drawZohoReading() {
-    const p = state.zoho.progress || {};
+  function drawAppReading() {
+    const p = state.conn.progress || {};
+    const a = A();
     /* The fourth step exists because the read now takes in more than the three
        the screen was designed with; progress must not sit on a ticked "Orders"
        while invoices and purchases are still being read. */
-    const steps = [["customers", "Customers"], ["products", "Products"], ["orders", "Orders"],
-                   ["others", "Invoices, payments and purchases"]];
+    const steps = [["customers", "Customers"], ["products", "Products"], ["orders", state.conn.app === "xero" ? "Invoices, as orders" : "Orders"],
+                   ["others", state.conn.app === "xero" ? "Payments, quotes and purchases" : "Invoices, payments and purchases"]];
     render(
       chrome("S02", { back: true }) +
       '<main class="ob-main ob-main-op">' +
-        '<h1 class="ob-h1">Reading your Zoho Books</h1>' +
-        '<p class="ob-sub">' + esc(state.zoho.org ? state.zoho.org.name : "") + "</p>" +
+        '<h1 class="ob-h1">Reading your ' + esc(a.name) + '</h1>' +
+        '<p class="ob-sub">' + esc(state.conn.org ? state.conn.org.name : "") + "</p>" +
         '<div class="ob-proc">' +
           steps.map(function (s) {
             const st = p[s[0]];
@@ -1287,26 +1326,27 @@
       "</main>" +
       '<footer class="ob-foot"><button class="ob-skip" id="b-stop">Stop</button></footer>'
     );
-    $("#b-stop").addEventListener("click", stopZohoRead);
+    $("#b-stop").addEventListener("click", stopAppRead);
   }
 
   function openReadFailed(reason, org) {
     state.screen = "S02"; state.s02 = "C";
-    const signInAgain = !org || reason === "expired" || reason === "forbidden" || reason === "noorg" || !state.zoho.handle;
+    const app = state.conn.app || "zoho";
+    const signInAgain = !org || reason === "expired" || reason === "forbidden" || reason === "noorg" || !state.conn.handle;
     openSheet({
-      title: "We couldn't finish reading your Zoho Books",
-      body: '<p class="ob-sheet-p">' + esc(READ_FAILED[reason] || READ_FAILED.unavailable) + "</p>",
+      title: "We couldn't finish reading your " + APPS[app].name,
+      body: '<p class="ob-sheet-p">' + esc(READ_FAILED(reason, app) || READ_FAILED("unavailable", app)) + "</p>",
       actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
                '<button class="ob-skip" id="s-upload">Upload files instead</button>',
-      onClose: function () { state.zoho = idleZoho(); },
+      onClose: function () { state.conn = idleConn(app); },
       bind: function () {
         $("#s-retry").addEventListener("click", function () {
           state.sheet = null;
           // C5 — the SAME read, from the start. A sign-in that can no longer
-          // read goes back through Zoho instead.
-          if (signInAgain) startZohoSignIn(); else startZohoRead(org);
+          // read goes back through the app instead.
+          if (signInAgain) startAppSignIn(app); else startAppRead(org);
         });
-        $("#s-upload").addEventListener("click", function () { state.sheet = null; state.zoho = idleZoho(); goS02("F"); });
+        $("#s-upload").addEventListener("click", function () { state.sheet = null; state.conn = idleConn(app); goS02("F"); });
       },
     });
   }
@@ -3065,7 +3105,7 @@
     trackKeyboard();
     document.addEventListener("focusin", keepFocusVisible);
     restore();                                   // C7 — a reload lands where it left
-    handleZohoReturn();                          // back from Zoho, however it went
+    handleAppReturn();                           // back from the app, however it went
     /* Back from Zoho can restore this page from the browser's cache instead of
        reloading it. iOS Safari brings the platform shell back with its iframe
        unresponsive to touch (verified on the Simulator: the screen draws, no tap

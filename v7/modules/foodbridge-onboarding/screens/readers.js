@@ -97,9 +97,13 @@
     return u.toString();
   }
 
-  /* #/onboarding?zoho=connected&n=…&c=… → { zoho, n, c }, read from whichever
-     window carries it, and wiped from the address bar straight away so a
-     reload, a bookmark or a shared link never replays it. */
+  /* The apps a user can connect: each has its own routes on the bridge and
+     its own result parameter on the way back. */
+  const APP_IDS = ["zoho", "xero"];
+
+  /* #/onboarding?zoho=connected&n=…&c=… (or ?xero=…) → { app, result, n, c },
+     read from whichever window carries it, and wiped from the address bar
+     straight away so a reload, a bookmark or a shared link never replays it. */
   function takeReturn() {
     const wins = [topWin(), window];
     for (let i = 0; i < wins.length; i++) {
@@ -109,9 +113,10 @@
         const q = h.indexOf("?");
         if (q === -1) continue;
         const p = new URLSearchParams(h.slice(q + 1));
-        if (!p.get("zoho")) continue;
+        const app = APP_IDS.filter(function (a) { return p.get(a); })[0];
+        if (!app) continue;
         w.history.replaceState(null, "", w.location.pathname + w.location.search + h.slice(0, q));
-        return { zoho: p.get("zoho"), n: p.get("n") || "", c: p.get("c") || "" };
+        return { app: app, result: p.get(app), n: p.get("n") || "", c: p.get("c") || "" };
       } catch (e) { /* a frame we may not touch */ }
     }
     return null;
@@ -119,19 +124,29 @@
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  /* ───────────────────────────────────────────────── real: Zoho ── */
+  /* ────────────────────────────────────── real: a connected app ── */
 
-  const RealZohoOAuth = {
-    begin: function (nonce, back) {
-      // Ask first: sending the whole window to a bridge that is down would
-      // strand the user on a browser error page with no way back in.
-      return fetch(apiBase() + "/api/zoho/ready").then(function (r) {
-        if (!r.ok) throw { reason: "unreachable" };
-        topWin().location.href = apiBase() + "/api/zoho/start?" +
-          new URLSearchParams({ return: back, n: nonce }).toString();
-      }, function () { throw { reason: "unreachable" }; });
-    },
-    takeReturn: takeReturn,
+  /* The bridge speaks the same five routes for every app: /api/<app>/ready,
+     start, callback, orgs, read. */
+  function RealAppOAuth(app) {
+    return {
+      begin: function (nonce, back) {
+        // Ask first: sending the whole window to a bridge that is down would
+        // strand the user on a browser error page with no way back in.
+        return fetch(apiBase() + "/api/" + app + "/ready").then(function (r) {
+          if (!r.ok) throw { reason: "unreachable" };
+          topWin().location.href = apiBase() + "/api/" + app + "/start?" +
+            new URLSearchParams({ return: back, n: nonce }).toString();
+        }, function () { throw { reason: "unreachable" }; });
+      },
+      takeReturn: takeReturn,
+    };
+  }
+
+  /* The other modules each app shows, read whole after the three that matter. */
+  const APP_MODULES = {
+    zoho: ["invoices", "customerpayments", "creditnotes", "estimates", "purchaseorders", "bills", "expenses", "vendors"],
+    xero: ["customerpayments", "creditnotes", "estimates", "purchaseorders", "bills", "vendors"],
   };
 
   /* Zoho's per-minute cap answers 429 and clears within the minute, so a busy
@@ -148,9 +163,11 @@
     }
   }
 
-  const RealZohoReader = {
+  function RealAppReader(app) {
+    const route = "/api/" + app;
+    return {
     organisations: function (handle) {
-      return post("/api/zoho/orgs", { c: handle }).then(function (b) { return b.organizations || []; });
+      return post(route + "/orgs", { c: handle }).then(function (b) { return b.organizations || []; });
     },
 
     read: async function (handle, org, opts) {
@@ -163,7 +180,7 @@
         const out = [];
         for (let page = 1; page <= 500; page++) {
           if (stop()) return null;
-          const b = await postPatiently("/api/zoho/read", { c: handle, org: org.id, what: what, page: page }, stop);
+          const b = await postPatiently(route + "/read", { c: handle, org: org.id, what: what, page: page }, stop);
           out.push.apply(out, b.records || []);
           if (what === "orders") {
             notes.listed += b.listed || 0;
@@ -188,22 +205,26 @@
       if (!orders) return null;
       prog.total = orders.length; tell();
 
+      /* Lines: Zoho hands them back one order at a time; Xero's ride along
+         with the list, so only an order that came without any is fetched. */
       const byId = {};
-      orders.forEach(function (x) { x.lines = []; byId[x.id] = x; });
-      for (let i = 0; i < orders.length; i += 10) {
+      const need = [];
+      orders.forEach(function (x) { byId[x.id] = x; if (!Array.isArray(x.lines)) { x.lines = []; need.push(x.id); } });
+      prog.done = orders.length - need.length; tell();
+      for (let i = 0; i < need.length; i += 10) {
         if (stop()) return null;
-        const ids = orders.slice(i, i + 10).map(function (x) { return x.id; });
-        const b = await postPatiently("/api/zoho/read", { c: handle, org: org.id, what: "lines", ids: ids }, stop);
+        const ids = need.slice(i, i + 10);
+        const b = await postPatiently(route + "/read", { c: handle, org: org.id, what: "lines", ids: ids }, stop);
         (b.records || []).forEach(function (r) { if (byId[r.id]) byId[r.id].lines = r.lines || []; });
-        prog.done = Math.min(orders.length, i + ids.length); tell();
+        prog.done = Math.min(orders.length, prog.done + ids.length); tell();
       }
       if (stop()) return null;
       prog.orders = "done"; prog.others = "reading"; tell();
 
-      /* Everything else the account shows. A module Zoho will not show this
-         login is recorded and skipped; a sign-in that has expired, or a spent
-         daily allowance, still ends the whole read. */
-      const MODULES = ["invoices", "customerpayments", "creditnotes", "estimates", "purchaseorders", "bills", "expenses", "vendors"];
+      /* Everything else the account shows. A module the app will not show
+         this login is recorded and skipped; a sign-in that has expired, or a
+         spent daily allowance, still ends the whole read. */
+      const MODULES = APP_MODULES[app] || [];
       const modules = {};
       for (let m = 0; m < MODULES.length; m++) {
         if (stop()) return null;
@@ -218,9 +239,10 @@
       }
       if (stop()) return null;
       prog.others = "done"; tell();
-      return { org: org, customers: customers, products: products, orders: orders, orderNotes: notes, modules: modules };
+      return { app: app, org: org, customers: customers, products: products, orders: orders, orderNotes: notes, modules: modules };
     },
-  };
+    };
+  }
 
   /* ───────────────────────────────────────────────── real: files ── */
 
@@ -292,16 +314,18 @@
     else badge();
   }
 
+  const apps = {};
+  APP_IDS.forEach(function (a) { apps[a] = { auth: RealAppOAuth(a), reader: RealAppReader(a) }; });
+
   window.FB_READERS = {
-    zohoAuth: RealZohoOAuth,
-    zohoReader: RealZohoReader,
+    apps: apps,                                   // { zoho:{auth,reader}, xero:{auth,reader} }
     files: RealFileReader,
     mock: { active: !!setting, scenario: scenario },
     /* Called by readers-mock.js, and only honoured under the guard above. */
-    useStandIns: function (zohoAuth, zohoReader, files) {
+    useStandIns: function (appStandIns, files) {
       if (!setting || !DEV_HOST) return;
-      this.zohoAuth = zohoAuth;
-      this.zohoReader = zohoReader;
+      const self = this;
+      Object.keys(appStandIns || {}).forEach(function (a) { if (self.apps[a]) self.apps[a] = appStandIns[a]; });
       this.files = files;
     },
     newNonce: newNonce,

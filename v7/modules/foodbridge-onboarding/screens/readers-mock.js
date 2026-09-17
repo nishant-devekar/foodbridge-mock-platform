@@ -36,27 +36,33 @@
   }
   const nameOf = function (c) { return (c.name && (c.name.en || c.name)) || c._id; };
 
-  const MockZohoOAuth = {
-    takeReturn: R.takeReturn,
-    begin: async function (nonce, back) {
-      await sleep(400);
-      if (S.zoho === "unreachable") throw { reason: "unreachable" };
-      const page = new URL("mock-zoho.html", location.href);
-      page.searchParams.set("return", back);
-      page.searchParams.set("n", nonce);
-      page.searchParams.set("s", S.zoho);
-      R.topWin().location.href = page.toString();
-    },
+  /* One stand-in serves both apps; the scenario is ?fbmock=zoho:<one> for
+     either. The sign-in page is told which app it is standing in for so the
+     result comes back under that app's name. */
+  const MockAppOAuth = function (app) {
+    return {
+      takeReturn: R.takeReturn,
+      begin: async function (nonce, back) {
+        await sleep(400);
+        if (S.zoho === "unreachable") throw { reason: "unreachable" };
+        const page = new URL("mock-zoho.html", location.href);
+        page.searchParams.set("return", back);
+        page.searchParams.set("n", nonce);
+        page.searchParams.set("s", S.zoho);
+        page.searchParams.set("app", app);
+        R.topWin().location.href = page.toString();
+      },
+    };
   };
 
-  const MockZohoReader = {
+  const MockAppReader = function (app) { return {
     organisations: async function (handle) {
       await sleep(500);
       if (handle !== "mock") throw { reason: "expired" };
       if (S.zoho === "noorg") return [];
-      if (S.zoho === "orgs") return [{ id: "9001", name: "Stand-in Distributors Pvt Ltd" },
-                                    { id: "9002", name: "Stand-in Distributors — Pune" }];
-      return [{ id: "9001", name: "Stand-in Distributors Pvt Ltd" }];
+      const name = app === "xero" ? "Stand-in Distributors (Xero)" : "Stand-in Distributors Pvt Ltd";
+      if (S.zoho === "orgs") return [{ id: "9001", name: name }, { id: "9002", name: "Stand-in Distributors — Pune" }];
+      return [{ id: "9001", name: name }];
     },
 
     read: async function (handle, org, opts) {
@@ -103,9 +109,9 @@
         prog.done = Math.min(orders.length, i + 10); tell();
       }
       prog.orders = "done"; prog.others = "done"; tell();
-      return { org: org, customers: customers, products: products, orders: orders, modules: {} };
+      return { app: app, org: org, customers: customers, products: products, orders: orders, modules: {} };
     },
-  };
+  }; };
 
   const FAILS = ["no_records", "damaged", "protected", "unsupported", "too_large"];
   let failN = 0;
@@ -184,5 +190,8 @@
     },
   };
 
-  R.useStandIns(MockZohoOAuth, MockZohoReader, MockFileReader);
+  R.useStandIns({
+    zoho: { auth: MockAppOAuth("zoho"), reader: MockAppReader("zoho") },
+    xero: { auth: MockAppOAuth("xero"), reader: MockAppReader("xero") },
+  }, MockFileReader);
 })();

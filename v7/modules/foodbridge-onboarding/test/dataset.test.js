@@ -291,3 +291,39 @@ test("a file can carry several tags: each kind is read from it, and a tag that g
   assert.deepEqual(await D.readFile(fx("orders.csv"), ["invoices"]), { ok: false, reason: "no_records", none: ["invoices"] });
   assert.deepEqual(await D.readFile(fx("orders.csv"), []), { ok: false, reason: "no_records" });
 });
+
+/* ── Connect an app: Xero, through the same contract ───────────────────── */
+
+test("a Xero read lands in the Dataset the way a Zoho read does, under its own name", () => {
+  const raw = {
+    app: "xero", org: { id: "0f4c3a3e-1111-4c2b-9d5e-abcdefabcdef", name: "Acme Foods NZ" },
+    customers: [{ id: "c1", name: "Ashok Sweets" }],
+    products: [{ id: "PK1", name: "Pickle 250g", sku: "PK1", stockOnHand: 12 }, { id: "SVC", name: "Delivery", sku: "SVC" }],
+    orders: [
+      { id: "v1", customerId: "c1", customerName: "Ashok Sweets", date: "2099-01-01", status: "AUTHORISED", lines: [{ itemId: "PK1", name: "Pickle 250g", qty: 6 }] },
+      { id: "v2", customerId: "c1", customerName: "Ashok Sweets", date: "2099-01-01", status: "DRAFT", lines: [{ itemId: "NEW", name: "Chutney", qty: 2 }] },
+      { id: "v9", customerId: "c9", customerName: "Walk-in", date: "2099-02-01", status: "PAID", lines: [{ itemId: "PK1", name: "Pickle 250g", qty: 1 }] },
+    ],
+    orderNotes: { listed: 4, excluded: { voided: 1 }, from: "2097-01-01" },
+    modules: {
+      customerpayments: { ok: true, records: [{ PaymentID: "p1", Amount: 10, Date: "/Date(4070908800000+0000)/", Invoice: { Contact: { ContactID: "c1" } } }] },
+      bills: { ok: true, records: [{ InvoiceID: "b1", Type: "ACCPAY", DateString: "2099-01-05T00:00:00", Total: 99, AmountDue: 9, Status: "AUTHORISED", Contact: { ContactID: "s1" } }] },
+      vendors: { ok: false, reason: "forbidden" },
+    },
+  };
+  const ready = D.fromApp(raw, "2026-09-17T00:00:00Z");
+  assert.deepEqual(ready.provenance, { kind: "xero", label: "Your Xero", org: { id: raw.org.id, name: "Acme Foods NZ" } });
+  const { customers, products, orders, payments, bills, vendors, invoices } = ready.dataset;
+  assert.deepEqual(customers.records.map((c) => [c.id, c.name, !!c.derived]), [["xc1", "Ashok Sweets", false], ["xc9", "Walk-in", true]]);
+  assert.deepEqual(products.records.map((p) => [p.id, p.name, !!p.derived]), [["xPK1", "Pickle 250g", false], ["xSVC", "Delivery", false], ["xNEW", "Chutney", true]]);
+  assert.equal(orders.records.length, 2, "two invoices on one day for one shop are one order; the draft counts");
+  assert.deepEqual(orders.records.find((o) => o.customerId === "xc1").lines.map((l) => [l.productId, l.qty]), [["xPK1", 6], ["xNEW", 2]]);
+  assert.deepEqual(payments.records[0], { customerId: "xc1", date: "2099-01-01", amount: 10, mode: undefined, id: "xp1", from: { kind: "xero", entity: "customerpayments", externalId: "p1" }, raw: raw.modules.customerpayments.records[0] });
+  assert.equal(bills.records[0].balance, 9); assert.equal(bills.records[0].vendorId, "xs1"); assert.equal(bills.records[0].date, "2099-01-05");
+  assert.deepEqual(vendors, { present: false, unavailable: "forbidden" });
+  assert.deepEqual(invoices, { present: false }, "Xero's invoices are the orders, not a second list");
+  assert.ok(ready.notes.skipped.some((n) => n.reason === "not_demand:voided" && n.from.kind === "xero"));
+  const eng = D.toEngine(ready.dataset);
+  assert.equal(eng.seed.products.find((p) => p.id === "xPK1").systemStock, 12);
+  assert.equal(eng.presence.payments, true);
+});

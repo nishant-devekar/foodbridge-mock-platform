@@ -32,6 +32,11 @@ const ROUTES = {
   "/api/zoho/orgs": () => import("./api/zoho/orgs.js"),
   "/api/zoho/read": () => import("./api/zoho/read.js"),
   "/api/extract": () => import("./api/extract.js"),
+  "/api/xero/ready": () => import("./api/xero/ready.js"),
+  "/api/xero/start": () => import("./api/xero/start.js"),
+  "/api/xero/callback": () => import("./api/xero/callback.js"),
+  "/api/xero/orgs": () => import("./api/xero/orgs.js"),
+  "/api/xero/read": () => import("./api/xero/read.js"),
 };
 
 const port = Number(process.env.PORT || 8787);
@@ -72,6 +77,7 @@ createServer(async (req, res) => {
     `  connect  http://localhost:${port}/api/connect   (one-time OAuth setup)\n` +
     `  gstin    http://localhost:${port}/api/gstin?gstin=<15 chars>\n` +
     `  zoho     http://localhost:${port}/api/zoho/*        (onboarding: sign in + read)\n` +
+    `  xero     http://localhost:${port}/api/xero/*        (onboarding: sign in + read${process.env.XERO_CLIENT_ID ? "" : " — XERO_CLIENT_ID/SECRET not set"})\n` +
     (process.env.ALLOW_LOOPBACK_ORIGINS === "1"
       ? `  origins  any http://localhost:* or 127.0.0.1:* page, plus ALLOWED_ORIGINS\n`
       : `  origins  ALLOWED_ORIGINS only (loopback not widened)\n`) +

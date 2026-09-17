@@ -25,9 +25,9 @@
 </head>
 <body>
 <main id="m" hidden>
-  <span class="dev">DEV · NOT ZOHO</span>
-  <h1>Stand-in for Zoho sign-in</h1>
-  <p>A real user would sign in to Zoho here and approve FoodBridge reading their Zoho Books.
+  <span class="dev">DEV · NOT THE REAL APP</span>
+  <h1>Stand-in for <span id="appname">Zoho</span> sign-in</h1>
+  <p>A real user would sign in to <span class="appname">the app</span> here and approve FoodBridge reading their records.
      Scenario: <b id="s"></b>. Use the browser's Back button to test leaving without deciding.</p>
   <button id="allow">Accept</button>
   <button id="deny">Reject</button>
@@ -36,10 +36,12 @@
 (function () {
   if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
   var q = new URLSearchParams(location.search);
-  var back = q.get("return"), n = q.get("n") || "", s = q.get("s") || "ok";
+  var back = q.get("return"), n = q.get("n") || "", s = q.get("s") || "ok", app = /^(zoho|xero)$/.test(q.get("app") || "") ? q.get("app") : "zoho";
+  var withApp = function (result, extra) { var p = {}; p[app] = result; p.n = n; if (extra) Object.keys(extra).forEach(function (k) { p[k] = extra[k]; }); return p; };
   try { if (new URL(back).origin !== location.origin) return; } catch (e) { return; }
   document.getElementById("m").hidden = false;
   document.getElementById("s").textContent = s;
+  document.getElementById("appname").textContent = app === "xero" ? "Xero" : "Zoho";
   function go(params) {
     var u = new URL(back);
     var base = (u.hash || "").split("?")[0];
@@ -47,11 +49,11 @@
     location.href = u.toString();
   }
   document.getElementById("allow").onclick = function () {
-    if (s === "denied") return go({ zoho: "denied", n: n });
-    if (s === "authfail") return go({ zoho: "failed", n: n });
-    go({ zoho: "connected", n: n, c: "mock" });
+    if (s === "denied") return go(withApp("denied"));
+    if (s === "authfail") return go(withApp("failed"));
+    go(withApp("connected", { c: "mock" }));
   };
-  document.getElementById("deny").onclick = function () { go({ zoho: "denied", n: n }); };
+  document.getElementById("deny").onclick = function () { go(withApp("denied")); };
 })();
 </script>
 </body>

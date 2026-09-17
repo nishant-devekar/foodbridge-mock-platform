@@ -140,6 +140,17 @@ environment (with `ALLOWED_ORIGINS` set to the Pages origin and
 `api/*.js` become the endpoints. Nothing else moves — FoodBridge stays on
 GitHub Pages.
 
+**Xero.** The same channel, a second app. Create an app at developer.xero.com
+(*My Apps → New app*, "Web app"), give it both redirect URIs —
+`http://localhost:8787/api/xero/callback` for local work and
+`https://zoho-function-nu.vercel.app/api/xero/callback` for the deployment —
+and put its `XERO_CLIENT_ID` and `XERO_CLIENT_SECRET` in `.env`. `deploy.sh`
+pushes them and sets `XERO_REDIRECT_URI` to the deployment's callback. Without
+them `/api/xero/ready` answers `not_configured` and the page says Xero could
+not be reached. Xero has no sales orders: its ACCREC invoices are read as the
+orders (drafts included, voided and deleted not), quotes as estimates, ACCPAY
+invoices as bills. An uncertified Xero app may connect up to 25 organisations.
+
 **The onboarding sign-in needs one thing Vercel cannot set:** the deployment's
 callback, `https://zoho-function-nu.vercel.app/api/callback`, must be listed
 under *Authorized Redirect URIs* for the client in the Zoho API console
