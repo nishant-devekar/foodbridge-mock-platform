@@ -96,9 +96,22 @@ button { font-family: var(--font); }
 /* ── chrome ───────────────────────────────────────────────────────────────
    Back arrow at x 17→29, the four-segment progress at x 42→197, both centred
    25 image px below the top of the screen. The status bar sits above that. */
+/* Sticky, on every screen that has it (17 Sep 2026). Back is navigation: on a
+   long screen 5 it scrolled away and the only way out was to scroll back up.
+   The safe-area inset stays inside the header's own height, so pinned at top:0
+   it keeps the status bar clear rather than sliding content under the clock.
+   z-index 6 clears the sticky footer's 5 and stays far below the sheets' 40. */
 .ob-top {
-  position: relative; flex: 0 0 auto;
+  position: sticky; top: 0; z-index: 6; flex: 0 0 auto;
   height: calc(3.4rem + env(safe-area-inset-top, 0px));
+  background: var(--card);
+}
+/* Rows dissolve under the header instead of being cut in half by its edge --
+   the mirror of the footer's fade. */
+.ob-top::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: .8rem;
+  background: linear-gradient(to bottom, var(--card), rgba(255, 255, 255, 0));
+  pointer-events: none;
 }
 .ob-back {
   position: absolute; left: 1.1rem; top: calc(1.3rem + env(safe-area-inset-top, 0px));
@@ -198,6 +211,50 @@ button.ob-row:active, label.ob-row:active { background: #fafbfa; }
 .ob-sec { margin: 1.6rem .5rem -.5rem; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
 .ob-list + .ob-sec { margin-top: 1.7rem; }
 
+/* ── screen 6: the data manifest ─────────────────────────────────────────
+   Redesigned 17 Sep 2026. It had been twelve separate rounded cards, each
+   with its own border, a big green tick and a chunky outlined button — a
+   reward chart, not a summary of a business's books. A manifest is a dense,
+   quiet thing: one card per group, hairline rules between rows, the counts
+   right-aligned on tabular figures so the column reads down, and colour spent
+   only where there is something wrong. */
+.ob-glabel {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  margin: 1.45rem .2rem .45rem;
+  font-size: .68rem; line-height: 1rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted-2);
+}
+.ob-glabel span { font-size: .68rem; font-weight: 500; letter-spacing: .02em; text-transform: none; color: var(--muted-2); }
+.ob-group {
+  border: 1px solid var(--line); border-radius: .6rem;
+  background: var(--card); box-shadow: var(--shadow-row); overflow: hidden;
+}
+.ob-grow {
+  display: flex; align-items: center; gap: .8rem; width: 100%;
+  min-height: 2.85rem; padding: .4rem 1rem;
+  margin: 0; background: none; border: 0; text-align: left;
+  font-family: var(--font); color: var(--ink); cursor: default;
+}
+button.ob-grow { cursor: pointer; }
+button.ob-grow:active { background: var(--line-2); }
+.ob-grow + .ob-grow { border-top: 1px solid var(--line-2); }
+.ob-grow-ic { flex: 0 0 auto; display: grid; place-items: center; width: 1.15rem; color: var(--muted-2); }
+.ob-grow-ic > svg { width: 1.15rem; height: 1.15rem; }
+.ob-grow-t { flex: 1 1 auto; min-width: 0; font-size: .88rem; line-height: 1.2rem; font-weight: 500; }
+.ob-grow-n {
+  flex: 0 0 auto; font-size: .88rem; line-height: 1.2rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.ob-grow-s { flex: 0 0 auto; font-size: .8rem; line-height: 1.2rem; color: var(--muted-2); }
+.ob-grow-go { flex: 0 0 auto; display: grid; place-items: center; width: .85rem; color: var(--muted-2); margin-right: -.2rem; }
+.ob-grow-go > svg { width: .85rem; height: .85rem; }
+/* The one place colour is spent: a must-have the product cannot run without. */
+.ob-grow.is-need .ob-grow-ic, .ob-grow.is-need .ob-grow-s { color: var(--red); }
+
+/* The sticky footer lifts over the end of the flow, and the last row here can
+   carry an action. */
+.ob-main.is-check { padding-bottom: 6.4rem; }
+
 /* ── the green link (screen 6 "I'll do this later", screen 7 "+ Add another") */
 .ob-link {
   display: flex; align-items: center; justify-content: center; gap: .5rem;
@@ -259,6 +316,20 @@ label.ob-link { position: relative; }
 .ob-cta:disabled { background: #e3e5e8; color: #9ca1a9; box-shadow: none; cursor: default; }
 .ob-cta.is-warn { background: var(--red); box-shadow: none; }
 .ob-cta.is-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); box-shadow: none; }
+/* A second action, not a dismissal: carries the green so it reads as a way
+   ON, where is-ghost's grey reads as a way out. */
+.ob-cta.is-alt { background: var(--card); color: var(--g); border: 1.5px solid var(--g); box-shadow: none; }
+@media (hover: hover) { .ob-cta.is-alt:hover { background: var(--g-tint); } }
+.ob-cta.is-alt:active { background: var(--g-tint); }
+
+/* Screen 8's fork. The two ways on were cards with a hairline and a grey
+   chevron -- the same clothes the data manifest wears, so they read as rows of
+   information rather than as things to press. They are buttons now, with what
+   each one does said underneath rather than inside. */
+.ob-pick { margin-top: 1.75rem; }
+.ob-pick .ob-cta { min-height: 3rem; font-size: .95rem; }
+.ob-pick-s { margin: .55rem .7rem 0; text-align: center; font-size: .78rem; line-height: 1.1rem; color: var(--muted); }
+.ob-pick-s + .ob-cta { margin-top: 1.3rem; }
 .ob-cta .ob-spin { color: rgba(255,255,255,.85); }
 .ob-cta:disabled .ob-spin { color: var(--muted-2); }
 label.ob-cta { position: relative; }
@@ -290,9 +361,17 @@ label.ob-cta { position: relative; }
 .ob-hero.is-clip + .ob-h1 { margin-top: 1.9rem; }
 .ob-hero.is-store + .ob-h1 { margin-top: 3.1rem; }
 .ob-h1.s03b-h { margin-top: 3.48rem; }
-.ob-person-s .is-repeat { color: var(--amber); font-weight: 500; }
 .ob-wordmark + .ob-main > .ob-h1.s11-h:first-child, .ob-wordmark + .ob-main > .ob-undo + .ob-h1 { margin-top: 1.6rem; }
 .ob-h1.is-center + .ob-list { margin-top: 2.05rem; }
+
+/* Screen 5 with a rich channel: up to eleven kinds of record. The full hero
+   leaves room for three rows, so the list the screen is FOR sits under the
+   fold. Dense trades illustration for findings -- smaller check, tighter rows. */
+.ob-hero.is-check.is-dense { width: 8.2rem; height: 4.7rem; margin-top: 1.1rem; }
+.ob-hero.is-check.is-dense + .ob-h1 { margin-top: .9rem; }
+.ob-h1.is-dense + .ob-sub { margin-top: .5rem; }
+.ob-h1.is-center.is-dense + .ob-sub + .ob-group { margin-top: 1.15rem; }
+.ob-group.is-found { margin-top: 1.15rem; }
 .ob-sub.is-center + .ob-list { margin-top: 2.05rem; }
 
 /* ── consent features (screen 3) ───────────────────────────────────────── */
@@ -373,25 +452,12 @@ button.ob-card-row:active { opacity: .6; }
 .ob-selbar { display: flex; align-items: center; justify-content: space-between; margin: 1.2rem .5rem -.4rem; min-height: 44px; }
 .ob-selbar-n { font-size: .8rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .ob-selbar-a { min-height: 44px; padding: 0; font-family: var(--font); font-size: .8rem; font-weight: 600; color: var(--g); background: none; border: 0; cursor: pointer; }
-.ob-people { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.3rem; }
-.ob-person {
   display: flex; align-items: center; gap: .85rem; min-height: 4.2rem; padding: .7rem .5rem .7rem .8rem;
   background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
 }
-.ob-person.is-on { border-color: var(--g-100); background: var(--g-tint); }
-.ob-person-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .85rem; padding: 0; background: none; border: 0; text-align: left; cursor: pointer; font-family: var(--font); }
-.ob-avatar {
   flex: 0 0 auto; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%;
   font-size: .72rem; font-weight: 600; color: #2b2f35; background: #dcdde0;
 }
-.ob-avatar.t1 { background: #fde2e1; color: #b3261e; }
-.ob-avatar.t2 { background: #d9efe8; color: #0f5c4a; }
-.ob-avatar.t3 { background: #e5e9fb; color: #3446a8; }
-.ob-avatar.t4 { background: #fcefd9; color: #9a5b06; }
-.ob-person-main { min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
-.ob-person-n { font-size: .8rem; line-height: 1.1rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ob-person-s { font-size: .68rem; line-height: 1rem; color: var(--muted); }
-.ob-person-s.is-repeat { color: var(--amber); font-weight: 500; }
 .ob-pick {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .5rem;
   min-width: 6rem; min-height: 2.3rem; padding: 0 .65rem 0 .75rem;
@@ -401,7 +467,6 @@ button.ob-card-row:active { opacity: .6; }
 .ob-pick > svg { width: .85rem; height: .85rem; color: var(--muted); }
 .ob-pick[aria-pressed="true"] { color: #fff; background: var(--g); border-color: var(--g); }
 .ob-pick[aria-pressed="true"] > svg { color: #fff; }
-.ob-person.is-stale .ob-pick[aria-pressed="true"] { background: var(--amber); border-color: var(--amber); }
 
 /* ── Create Order (screen 9) — the draft, edited ───────────────────────── */
 .ob-main.is-order { padding-top: .4rem; }
@@ -522,6 +587,10 @@ button.ob-card-row:active { opacity: .6; }
   background: var(--card); border: 1px solid var(--line); border-radius: .55rem;
 }
 .ob-choice.is-on { border-color: var(--g); background: var(--g-tint); }
+/* Screen 8's fork: the two ways on, as choices rather than one CTA and a link. */
+.ob-choices.is-next { margin-top: 1.6rem; gap: .55rem; }
+.ob-choices.is-next .ob-choice { min-height: 3.6rem; padding: .7rem 1.1rem; box-shadow: var(--shadow-row); }
+.ob-choices.is-next .ob-choice-main { flex: 1 1 auto; }
 .ob-radio { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; border-radius: 50%; border: 1.5px solid #c9ccd1; background: var(--card); }
 .ob-choice.is-on .ob-radio { border-color: var(--g); box-shadow: inset 0 0 0 .22rem var(--card); background: var(--g); }
 .ob-tick { flex: 0 0 auto; display: grid; place-items: center; width: 1.05rem; height: 1.05rem; border-radius: .25rem; border: 1.5px solid #c9ccd1; background: var(--card); color: transparent; }
@@ -666,21 +735,11 @@ button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor:
 label.ob-row.is-check { cursor: pointer; }
 
 /* 7 · Staff */
-.ob-sub.s07-sub { line-height: 1.4rem; }
-.ob-people { gap: .65rem; margin-top: 1.25rem; }
-.ob-person { min-height: 4.1rem; padding: .5rem .3rem .5rem .9rem; }
-.ob-person-open { gap: .8rem; }
-.ob-person-n { font-weight: 500; }
-.ob-select {
   position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .4rem;
   min-width: 5.9rem; height: 2.3rem; padding: 0 .6rem 0 .8rem;
   font-size: .75rem; font-weight: 500; color: var(--ink-2);
   background: var(--card); border: 1px solid var(--line); border-radius: .35rem;
 }
-.ob-select > svg { width: .85rem; height: .85rem; color: #3a3e45; }
-.ob-select select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
-.ob-link.is-add { margin-top: .75rem; }
-.ob-choices.is-roles { margin-top: .8rem; }
 
 /* 8 · Ready */
 .ob-sub.s08-sub { line-height: 1.3rem; }
@@ -710,13 +769,6 @@ label.ob-row.is-check { cursor: pointer; }
 
 /* 11 · You're ready */
 .ob-wordmark + .ob-main > .ob-hero.is-store:first-child { margin-top: .68rem; }
-.ob-feats3 { display: grid; grid-template-columns: repeat(3, 1fr); margin: 1.83rem .1rem 0; }
-.ob-f3 { display: flex; flex-direction: column; align-items: center; gap: .9rem; font-size: .73rem; font-weight: 500; color: var(--ink-2); text-align: center; }
-.ob-f3-c { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 50%; }
-.ob-f3-c > svg { width: 1.7rem; height: 1.7rem; }
-.ob-f3-c.is-blue { background: #e8f0fd; color: #2563eb; }
-.ob-f3-c.is-purple { background: #efedfc; color: #6d4fd6; }
-.ob-f3-c.is-green { background: #e9f6ee; color: var(--g); }
 
 /* 2 · second pass against the overlay */
 .ob-list.is-src .ob-row { gap: .75rem; }
@@ -747,12 +799,6 @@ label.ob-row.is-check { cursor: pointer; }
 /* 5 · the same row, measured on screen 5 */
 .ob-hero.is-check ~ .ob-list .ob-row { padding-left: 1.05rem; padding-right: 1rem; }
 /* 7 · second pass against the overlay */
-.ob-sub.s07-sub { line-height: 1.45rem; }
-.s07-sub + .ob-people { margin-top: 1.4rem; gap: .6rem; }
-.ob-person { min-height: 4.2rem; }
-.ob-person-n { font-size: .82rem; }
-.ob-avatar { width: 2.5rem; height: 2.5rem; font-size: .76rem; }
-.ob-people + .ob-link.is-add { margin-top: 1.4rem; }
 .ob-sub.s08-sub { font-size: .875rem; line-height: 1.35rem; margin-left: .2rem; margin-right: .2rem; }
 /* 9 · the image draws Create Order on a card 362px wide; a phone is 220. The
    same components, with the stepper and the line total on the row under the
@@ -775,8 +821,6 @@ label.ob-row.is-check { cursor: pointer; }
 /* 11 · second pass against the overlay (the image draws this card 235 wide) */
 .ob-hero.is-store + .ob-h1 { margin-top: 2.3rem; }
 .ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .35rem; }
-.ob-feats3 { margin-top: 1.3rem; }
-.ob-f3 { gap: .75rem; }
 .s04-h + .ob-sub + .ob-checks { margin-top: 1.9rem; margin-left: .55rem; margin-right: .5rem; }
 /* 10 · corrected against the like-for-like overlay (centre 220 of the 236 card) */
 .ob-hero.is-check.is-top + .ob-h1 { margin-top: .15rem; }
@@ -788,9 +832,6 @@ label.ob-row.is-check { cursor: pointer; }
 .ob-hero.is-store { width: 18.5rem; height: 11.1rem; }
 .ob-hero.is-store + .ob-h1 { margin-top: 2.2rem; }
 .ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .6rem; }
-.ob-feats3 { margin-top: 2rem; }
-.ob-f3-c { width: 4.3rem; height: 4.3rem; }
-.ob-f3 { gap: .95rem; }
 /* 1 · four fields (17 Sep 2026): the GST number's Verify sits where the image's eye does */
 .ob-gst-end { flex: 0 0 auto; display: flex; align-items: center; }
 .ob-verify.is-busy .ob-spin { width: .8rem; height: .8rem; }

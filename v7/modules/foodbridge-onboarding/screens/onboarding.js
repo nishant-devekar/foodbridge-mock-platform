@@ -18,7 +18,6 @@
       4  Importing your data      the real read, step by step
       5  Data found               real counts from what was read
       6  Data check               what was not found; skipped when nothing is
-      7  Quick setup (Staff)      the team, kept in this browser
       8  Ready to order           how many of the four are ready
       9  Create order             a real customer and real products, prefilled
                                   from the reorder engine where it can predict
@@ -29,7 +28,7 @@
    CSV read in this browser (dataset.js), FB_PREDICT. Dev stand-ins for both
    readers exist only on localhost with ?fbmock=… (readers.js guards it).
    HELD IN THIS BROWSER, and said nowhere to be anything else: the account,
-   the staff list and the orders created — this cut has no backend for them.
+   the orders created — this cut has no backend for them.
    ========================================================================== */
 
 (function () {
@@ -46,6 +45,7 @@
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + (size || 20) + '" height="' + (size || 20) +
     '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) + '" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
+  const FLASK_D = '<path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/>';
   const ICON = {
     back: lu('<path d="m15 18-6-6 6-6"/>', 22),
     arrowLeft: lu('<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>', 22),
@@ -56,6 +56,7 @@
     tickSm: lu('<path d="M20 6 9 17l-5-5"/>', 14, 3.2),
     user: lu('<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>', 20, 1.6),
     doc: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>', 20, 1.6),
+    flask: lu(FLASK_D, 20, 1.6),
     docDash: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M10 15h4"/>', 20, 1.6),
     phone: lu('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>', 20, 1.6),
     mail: lu('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>', 20, 1.6),
@@ -66,7 +67,6 @@
     pkg: lu('<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/>'),
     users: lu('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
     person: lu('<circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1Z"/>'),
-    staff: lu('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>'),
     alertCircle: lu('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 18),
     info: lu('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>', 18),
     search: lu('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 18),
@@ -79,13 +79,20 @@
     /* Screen 3's marks are solid: a shield, a lock, a turning arrow. */
     shieldFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z" fill="currentColor"/><path d="m8.5 12.2 2.4 2.4 4.6-4.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     controlFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12A8.5 8.5 0 1 1 15 4.05" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path d="M13.5 1.6 18.4 4l-3 4.4z" fill="currentColor"/><path d="m8.6 12.3 2.4 2.4 4.4-4.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    receipt: lu('<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/>', 20, 1.6),
+    banknote: lu('<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>', 20, 1.6),
+    fileMinus: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 15h6"/>', 20, 1.6),
+    cart: lu('<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>', 20, 1.6),
+    coins: lu('<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>', 20, 1.6),
     orders: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 12h6"/><path d="M9 16h6"/>', 22),
-    track: lu('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l4-5 3 3 3-4"/>', 22),
-    grow: lu('<path d="M3 20h18"/><path d="M6 16v-3"/><path d="M11 16v-6"/><path d="M16 16v-9"/><path d="m14 5 4-2 1 4"/>', 22),
   };
 
   /* ── brand marks, drawn at the size screens 2 and 3 show them ────────── */
   const MARK = {
+    sample: function (w) {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + w + '" height="' + w + '" aria-label="Sample data" role="img" ' +
+        'fill="none" stroke="#2b2f35" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + FLASK_D + "</svg>";
+    },
     tally: function (w) {
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 30" width="' + w + '" height="' + Math.round(w * 30 / 64) + '" aria-label="Tally" role="img">' +
         '<text x="3" y="21" font-family="Georgia, \'Times New Roman\', serif" font-style="italic" font-weight="700" font-size="22" letter-spacing="-.5" fill="#1a1a1a">Tally</text>' +
@@ -139,6 +146,11 @@
       '<path d="M55.5 37.5l6.5 6.5 13-13" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>' +
     "</svg></div>";
   }
+  /* The files mark, at the size the cloud's slot expects. */
+  const ICON_FILE_GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="64" height="64" aria-hidden="true" ' +
+    'fill="none" stroke="#2b2f35" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>';
+
   function heroCloud(markSvg) {
     const tile = function (x, y, stroke, glyph) {
       return '<rect x="' + x + '" y="' + y + '" width="26" height="26" rx="6" fill="#fff" stroke="' + stroke + '" stroke-width="1"/>' + glyph;
@@ -196,14 +208,16 @@
     xero: { name: "Xero", mode: "app", app: "xero", mark: MARK.xero },
     vyapar: { name: "Vyapar", mode: "files", mark: MARK.vyapar },
     files: { name: "your files", mode: "files" },
+    /* Explore-only. No account, no files, no network -- it skips S03 entirely
+       and goes straight to the import screen. */
+    sample: { name: "Sample data", mode: "sample" },
   };
   const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const ROLES = ["Admin", "Sales", "Delivery", "Warehouse", "Accounts"];
   const STORE_KEY = "fb.v7.flow";
   const ACCOUNT_KEY = "fb.v7.account";
   const ORDERS_KEY = "fb.v7.orders";
   const OAUTH_KEY = "fb.v7.zoho.pending";
-  const PROGRESS = { source: 1, connect: 2, import: 2, found: 3, check: 3, staff: 3, ready: 3 };
+  const PROGRESS = { source: 1, connect: 2, import: 2, found: 3, check: 3, ready: 3 };
 
   const state = {
     screen: "signup",
@@ -216,8 +230,6 @@
     read: null,              // { done: steps finished, run: {stopped} }
     dataReady: null,
     parts: [],               // file parts, kept so an added file re-reads with them
-    staff: [],               // [{id, name, role}]
-    staffDone: false,
     order: null,             // { customerId, customerName, lines: [{productId, name, qty, price, unit}], filter }
     created: null,
     sheet: null,
@@ -232,25 +244,32 @@
   function withoutRaw(dr) { return dr ? JSON.parse(JSON.stringify(dr, function (k, v) { return k === "raw" ? undefined : v; })) : dr; }
   function save() {
     const v = { screen: state.screen, source: state.source, dataReady: state.dataReady, parts: state.parts,
-                staff: state.staff, staffDone: state.staffDone, order: state.order, created: state.created };
+                order: state.order, created: state.created };
     if (!ls.set(STORE_KEY, v, sessionStorage)) {
       v.dataReady = withoutRaw(v.dataReady); v.parts = [];
       ls.set(STORE_KEY, v, sessionStorage);
     }
-    if (state.account) ls.set(ACCOUNT_KEY, Object.assign({}, state.account, { staff: state.staff }));
+    if (state.account) ls.set(ACCOUNT_KEY, state.account);
   }
   function restore() {
     state.account = ls.get(ACCOUNT_KEY);
     if (!state.account) return;
-    state.staff = state.account.staff || [{ id: "s1", name: state.account.name, role: "Admin" }];
     const v = ls.get(STORE_KEY, sessionStorage);
     if (!v) { state.screen = "source"; return; }
-    Object.assign(state, { source: v.source, dataReady: v.dataReady, parts: v.parts || [], staff: v.staff || state.staff,
-                           staffDone: !!v.staffDone, order: v.order, created: v.created });
+    Object.assign(state, { source: v.source, dataReady: v.dataReady, parts: v.parts || [],
+                           order: v.order, created: v.created });
     // A read cannot survive a reload; it starts again from where it was started.
     state.screen = v.screen === "import" ? (v.source === "files" ? "source" : "connect") : (v.screen || "source");
     if (state.screen === "connect" && !(SOURCES[state.source] && SOURCES[state.source].mode === "app")) state.screen = "source";
     if (state.screen === "signup") state.screen = "source";
+    /* Sessions stored before the Staff screen was removed (17 Sep 2026) still
+       point at it. Without this they fall through draw()'s switch to the
+       sign-up form, which someone who already has an account should never be
+       shown again. */
+    if (state.screen === "staff") state.screen = "check";
+    /* Same for the Welcome screen, removed 17 Sep 2026: the flow ends at
+       Order created, so a session parked on it lands there. */
+    if (state.screen === "welcome") state.screen = "created";
   }
 
   /* ── plumbing ────────────────────────────────────────────────────────── */
@@ -335,9 +354,8 @@
       case "import": return stopImport();
       case "found": return go("source");
       case "check": return go(state.dataReady ? "found" : "source");
-      case "staff": return go(state.dataReady && !missingKinds().filter(function (k) { return k !== "staff"; }).length && state.staffDone ? "found" : "check");
-      case "ready": return go("staff");
-      case "order": return go("ready");
+      case "ready": return go("check");
+      case "order": state.order = null; return go("ready");
       default: return;
     }
   }
@@ -634,8 +652,7 @@
       createdAt: new Date().toISOString(),
     };
     // The person signing up is the first member of the team, as screen 7 shows.
-    state.staff = [{ id: "s1", name: state.account.name, role: "Admin" }];
-    state.staffDone = false; state.dataReady = null; state.parts = []; state.order = null; state.created = null;
+    state.dataReady = null; state.parts = []; state.order = null; state.created = null;
     go("source");
   }
 
@@ -701,13 +718,19 @@
           srcRow("zoho", MARK.zoho(36), "Zoho") +
           srcRow("xero", MARK.xero(24), "Xero") +
           srcRow("files", ICON.doc, "Files / Documents", "Upload invoices, challans,<br>POs, Excel, CSV etc.") +
+          srcRow("sample", ICON.flask, "Sample data", "Explore with a demo business") +
           srcRow("tally", MARK.tally(34), "Tally", "", true) +
           srcRow("vyapar", MARK.vyapar(24), "Vyapar", "", true) +
         "</div>" +
       "</main>"
     );
     $$("button[data-src]").forEach(function (b) {
-      b.addEventListener("click", function () { state.source = b.dataset.src; go("connect"); });
+      b.addEventListener("click", function () {
+        state.source = b.dataset.src;
+        /* Sample has nothing to connect to, so S03 would be an empty screen. */
+        if (b.dataset.src === "sample") return startSampleImport();
+        go("connect");
+      });
     });
     $("#i-files").addEventListener("change", function () {
       const files = Array.prototype.slice.call(this.files || []);
@@ -828,8 +851,11 @@
   /* ════════════════════════════════════════════════════════════════════
      4 · IMPORTING YOUR DATA — five steps, each advanced by real work
      ════════════════════════════════════════════════════════════════════ */
-  function beginImport() {
-    state.read = { done: 0, run: { stopped: false } };
+  /* `add` marks an import started from the check screen for a single file:
+     same screen, its own five steps, and it returns to check rather than
+     going on to Data found. */
+  function beginImport(add) {
+    state.read = { done: 0, run: { stopped: false }, add: add || null };
     state.screen = "import";
     state.sheet = null;
     draw();
@@ -900,6 +926,114 @@
     finishImport(ready, parts);
   }
 
+  /* ────────────────────────────────────────────── the sample business ──
+     S02's explore-only channel. Someone who has no account to connect and no
+     export to hand should still get to see what FoodBridge does, rather than
+     leave on S02.
+
+     Its records are the demonstration tenant's (the same export the dev
+     stand-ins use), but they arrive here as their OWN source: app "sample",
+     registered in dataset.js so nothing stamps them as read from Zoho. They
+     are loaded only when this row is tapped -- ~200KB that a real import
+     should not pay for -- and never read the network beyond this origin.  */
+  const SAMPLE_ORG = { id: "sample", name: "Sample Distributors" };
+  let sampleLoading = null;
+
+  function loadSampleRecords() {
+    if (window.SEED && window.FB_ORDER_HISTORY && window.FB_SAMPLE) return Promise.resolve();
+    if (sampleLoading) return sampleLoading;
+    /* Carry whatever cache-busting token this build was served with, so the
+       sample cannot come back stale from a version the rest of the page is
+       no longer using. */
+    const self = document.querySelector('script[src*="onboarding.js"]');
+    const q = self && self.src.indexOf("?") !== -1 ? self.src.slice(self.src.indexOf("?")) : "";
+    const base = "../../foodbridge-customer-mockup/v3/screens/customers/";
+    const one = function (file) {
+      return new Promise(function (res, rej) {
+        const el = document.createElement("script");
+        el.src = new URL(base + file + q, location.href).toString();
+        el.onload = res;
+        el.onerror = function () { rej(new Error(file)); };
+        document.head.appendChild(el);
+      });
+    };
+    const here = function (file) {
+      return new Promise(function (res, rej) {
+        const el = document.createElement("script");
+        el.src = new URL(file + q, location.href).toString();
+        el.onload = res;
+        el.onerror = function () { rej(new Error(file)); };
+        document.head.appendChild(el);
+      });
+    };
+    sampleLoading = one("order-history.js")
+      .then(function () { return one("seed.inline.js"); })
+      .then(function () { return here("sample-business.js"); })
+      .catch(function (e) { sampleLoading = null; throw e; });
+    return sampleLoading;
+  }
+
+  /* The demonstration tenant's export, in the shape fromApp() reads -- the
+     same shape the real Zoho and Xero readers hand over, so S05 onward cannot
+     tell the difference and no screen needs a special case. */
+  function sampleRaw() {
+    const seed = window.SEED || {};
+    const hist = window.FB_ORDER_HISTORY || {};
+    const nameOf = function (c) { return (c.name && (c.name.en || c.name)) || c._id; };
+    const customers = (seed.b2b || []).map(function (c) { return { id: c._id, name: nameOf(c) }; });
+    const products = (seed.products || []).map(function (p) {
+      const r = { id: p.id, name: p.name, sku: p.artNo, unit: p.unit };
+      if (typeof p.systemStock === "number") r.stockOnHand = p.systemStock;
+      return r;
+    });
+    const byName = {};
+    customers.forEach(function (c) { byName[c.id] = c.name; });
+    const from = new Date(Date.now() - 240 * 86400000).toISOString().slice(0, 10);
+    const orders = [];
+    Object.keys(hist).forEach(function (cid) {
+      (hist[cid].orders || []).forEach(function (occ, i) {
+        if (occ.at < from) return;
+        orders.push({ id: cid + "-" + i, customerId: cid, customerName: byName[cid] || cid, date: occ.at,
+          lines: (occ.lines || []).map(function (l) { return { itemId: l.productId, qty: l.qty, unit: "pcs" }; }) });
+      });
+    });
+    /* The tenant's export stops at orders. Everything a whole business also
+       has — suppliers, invoices, payments, credit notes, quotes, purchase
+       orders, bills, expenses — is derived from it by sample-business.js, so
+       the sample exercises every collection the Dataset can hold. */
+    const modules = window.FB_SAMPLE
+      ? window.FB_SAMPLE.build(seed, orders, new Date().toISOString().slice(0, 10))
+      : {};
+    return { app: "sample", org: SAMPLE_ORG, customers: customers, products: products, orders: orders, modules: modules };
+  }
+
+  async function startSampleImport() {
+    beginImport();
+    const run = state.read.run;
+    try {
+      await loadSampleRecords();
+    } catch (e) {
+      if (!run.stopped) importFailed("We couldn’t load the sample data. Check your connection and try again.");
+      return;
+    }
+    if (run.stopped) return;
+    const raw = sampleRaw();
+    if (!raw.orders.length || !raw.customers.length) {
+      return importFailed("The sample data didn’t load completely. Nothing was kept.");
+    }
+    step(1); await pause();
+    if (run.stopped) return;
+    step(2); await pause();
+    if (run.stopped) return;
+    const ready = window.FB_DATASET.fromApp(raw);
+    step(3); await pause();
+    if (run.stopped) return;
+    window.FB_DATASET.toEngine(ready.dataset);
+    step(4); await pause();
+    if (run.stopped) return;
+    finishImport(ready, []);
+  }
+
   /* A file whose one name column could be either. Asked, never guessed. */
   function askKind(name, choices) {
     const list = choices && choices.length ? choices : ["products", "customers"];
@@ -946,25 +1080,32 @@
   }
 
   function stopImport() {
+    const back = state.read && state.read.add ? "check" : null;
     if (state.read) state.read.run.stopped = true;
     state.read = null;
     state.conn = { phase: "idle" };
-    go(state.source === "files" ? "source" : "connect");
+    if (back === "check") return go("check");
+    go(state.source === "files" || state.source === "sample" ? "source" : "connect");
   }
 
-  function importFailed(text) {
+  function importFailed(text, opts) {
+    const adding = !!(state.read && state.read.add);
     if (state.read) state.read.run.stopped = true;
     state.read = null;
     state.conn = { phase: "idle" };
-    state.screen = state.source === "files" ? "source" : "connect";
+    state.screen = adding ? "check"
+      : state.source === "files" || state.source === "sample" ? "source" : "connect";
     save();
     openSheet({
-      title: "We couldn’t import your data",
+      title: (opts && opts.title) || "We couldn’t import your data",
       body: '<p class="ob-sheet-p">' + esc(text) + "</p>",
-      actions: '<button class="ob-cta" id="s-retry">Try again</button><button class="ob-link" id="s-other">Choose another way</button>',
+      actions: adding
+        ? '<button class="ob-cta is-ghost" id="s-retry">Close</button>'
+        : '<button class="ob-cta" id="s-retry">Try again</button><button class="ob-link" id="s-other">Choose another way</button>',
       bind: function () {
         $("#s-retry").addEventListener("click", closeSheet);
-        $("#s-other").addEventListener("click", function () { go("source"); });
+        const other = $("#s-other");
+        if (other) other.addEventListener("click", function () { go("source"); });
       },
     });
   }
@@ -972,14 +1113,25 @@
   function drawImport() {
     const s = SOURCES[state.source] || SOURCES.files;
     const r = state.read || { done: 0 };
-    const labels = [s.mark ? "Connecting to " + s.name : "Opening your files", "Fetching data", "Processing data", "Organizing data", "Finalizing setup"];
+    const add = r.add;
+    /* One file added from the check screen says what it is doing to THAT file;
+       a channel import says what it is doing to the channel. */
+    const first = add
+      ? (add.files.length === 1 ? "Opening " + add.files[0] : "Opening " + add.files.length + " files")
+      : s.mode === "sample" ? "Loading the sample data" : s.mark ? "Connecting to " + s.name : "Opening your files";
+    const labels = add
+      ? [first, "Reading the rows", "Matching to your data", "Adding your " + add.label, "Finishing up"]
+      : [first, "Fetching data", "Processing data", "Organizing data", "Finalizing setup"];
     const dot = function (on) { return '<span class="ob-ck-dot' + (on ? " is-on" : "") + '">' + (on ? ICON.tickSm : "") + "</span>"; };
     render(
-      chrome("import") +
+      chrome(add ? "check" : "import") +
       '<main class="ob-main">' +
-        heroCloud(s.mark ? s.mark(64) : '<text x="32" y="20" text-anchor="middle" font-family="Inter, sans-serif" font-weight="700" font-size="16" fill="#2b2f35">Files</text>') +
-        '<h1 class="ob-h1 is-center is-m s04-h">Importing your data...</h1>' +
-        '<p class="ob-sub is-center">This may take a few minutes.</p>' +
+        heroCloud(add ? ICON_FILE_GLYPH
+          : s.mark ? s.mark(64)
+          : s.mode === "sample" ? MARK.sample(64)
+          : '<text x="32" y="20" text-anchor="middle" font-family="Inter, sans-serif" font-weight="700" font-size="16" fill="#2b2f35">Files</text>') +
+        '<h1 class="ob-h1 is-center is-m s04-h">' + (add ? (add.files.length === 1 ? "Reading your file..." : "Reading your files...") : "Importing your data...") + "</h1>" +
+        '<p class="ob-sub is-center">' + (add ? "This stays on your phone." : "This may take a few minutes.") + "</p>" +
         '<div class="ob-checks" role="status" aria-live="polite">' + labels.map(function (l, i) {
           const done = i < r.done, active = i === r.done;
           return '<div class="ob-ck ' + (done ? "is-done" : active ? "is-active" : "is-wait") + '">' + dot(done) +
@@ -993,216 +1145,484 @@
   /* ════════════════════════════════════════════════════════════════════
      5 · DATA FOUND   6 · DATA CHECK
      ════════════════════════════════════════════════════════════════════ */
-  const KINDS = [
-    { k: "products", l: "Products", icon: ICON.pkg },
-    { k: "customers", l: "Customers", icon: ICON.users },
-    { k: "suppliers", l: "Suppliers", icon: ICON.person },
-    { k: "staff", l: "Staff", icon: ICON.staff },
+  /* Everything a channel can hand over. Zoho reads eight modules beyond the
+     three that matter, Xero six, and a files import can carry invoices -- all
+     of it landed in the Dataset and none of it reached this screen, which
+     showed Products and Customers and nothing else. `c` is the Dataset
+     collection each row counts. */
+  const FINDINGS = [
+    { k: "orders", c: "orders", l: "Sales orders", icon: ICON.orders },
+    { k: "products", c: "products", l: "Products", icon: ICON.pkg },
+    { k: "customers", c: "customers", l: "Customers", icon: ICON.users },
+    { k: "suppliers", c: "vendors", l: "Suppliers", icon: ICON.person },
+    { k: "invoices", c: "invoices", l: "Invoices", icon: ICON.receipt },
+    { k: "payments", c: "payments", l: "Payments", icon: ICON.banknote },
+    { k: "creditNotes", c: "creditNotes", l: "Credit notes", icon: ICON.fileMinus },
+    { k: "estimates", c: "estimates", l: "Quotes", icon: ICON.docDash },
+    { k: "purchaseOrders", c: "purchaseOrders", l: "Purchase orders", icon: ICON.cart },
+    { k: "bills", c: "bills", l: "Bills", icon: ICON.doc },
+    { k: "expenses", c: "expenses", l: "Expenses", icon: ICON.coins },
   ];
+  /* Everything the flow accounts for -- which is exactly what a channel can
+     return. Staff was removed on 17 Sep 2026: it never came from a channel,
+     so it had no place in a manifest of what one handed over. */
+  const ALL_KINDS = FINDINGS;
   function counts() {
     const d = (state.dataReady && state.dataReady.dataset) || {};
     const n = function (c) { return c && c.present && c.records ? c.records.length : 0; };
-    return { products: n(d.products), customers: n(d.customers), suppliers: n(d.vendors),
-             staff: state.staffDone ? state.staff.length : 0 };
+    const c = {};
+    FINDINGS.forEach(function (f) { c[f.k] = n(d[f.c]); });
+    return c;
   }
-  function missingKinds() { const c = counts(); return KINDS.map(function (x) { return x.k; }).filter(function (k) { return !c[k]; }); }
 
   function drawFound() {
     const c = counts();
-    const found = KINDS.filter(function (x) { return c[x.k]; });
+    const found = FINDINGS.filter(function (x) { return c[x.k]; });
+    const total = found.reduce(function (t, x) { return t + c[x.k]; }, 0);
+    /* Eleven kinds behind a full-size hero left three rows above the fold, and
+       this screen exists for the list. */
+    const dense = found.length > 4;
     render(
       chrome("found") +
       '<main class="ob-main">' +
-        heroCheck() +
-        '<h1 class="ob-h1 is-center is-m">Great! We found this data</h1>' +
-        '<p class="ob-sub is-center">Review and continue.</p>' +
-        '<div class="ob-list">' + found.map(function (x) {
-          return '<div class="ob-row"><span class="ob-row-ic">' + x.icon + "</span>" +
-            '<span class="ob-row-main"><span class="ob-row-t">' + x.l + "</span></span>" +
-            '<span class="ob-row-n">' + c[x.k].toLocaleString("en-IN") + "</span></div>";
+        heroCheck(dense ? "is-dense" : "") +
+        '<h1 class="ob-h1 is-center is-m' + (dense ? " is-dense" : "") + '">Great! We found this data</h1>' +
+        '<p class="ob-sub is-center">' +
+          (total ? total.toLocaleString("en-IN") + " records across " + found.length + " " + (found.length === 1 ? "type" : "types") + ". Review and continue."
+                 : "Review and continue.") +
+        "</p>" +
+        /* The same manifest screen 6 uses: this is the same data, so it reads
+           the same way -- one card, hairline rules, counts in a column. */
+        '<div class="ob-group is-found">' + found.map(function (x) {
+          return '<div class="ob-grow">' +
+            '<span class="ob-grow-ic">' + x.icon + "</span>" +
+            '<span class="ob-grow-t">' + x.l + "</span>" +
+            '<span class="ob-grow-n">' + c[x.k].toLocaleString("en-IN") + "</span>" +
+          "</div>";
         }).join("") + "</div>" +
       "</main>" +
       '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
     );
-    $("#b-continue").addEventListener("click", function () { go(missingKinds().length ? "check" : "staff"); });
+    $("#b-continue").addEventListener("click", function () { go("check"); });
+  }
+
+  /* ── screen 6 ──────────────────────────────────────────────────────────
+     MUST HAVE is not a matter of taste: toEngine() builds the reorder engine
+     out of products, customers and orders and reads nothing else. Without
+     those three the product cannot predict an order or create one. Suppliers
+     and staff used to sit in this list and BLOCK, and nothing consumed
+     either. Suppliers moved down; staff is gone entirely. */
+  const MUST = ["orders", "products", "customers"];
+
+  /* One row of the manifest. Present: the count, right-aligned. Absent: what
+     it is, and a chevron, because the row itself is the way to fix it — the
+     actions moved into a sheet so every row is the same height and the column
+     of numbers reads straight down. */
+  function checkRow(x, c, must) {
+    const n = c[x.k] || 0;
+    if (n) {
+      return '<div class="ob-grow">' +
+        '<span class="ob-grow-ic">' + x.icon + "</span>" +
+        '<span class="ob-grow-t">' + x.l + "</span>" +
+        '<span class="ob-grow-n">' + n.toLocaleString("en-IN") + "</span>" +
+      "</div>";
+    }
+    return '<button class="ob-grow' + (must ? " is-need" : "") + '" data-add="' + x.k + '">' +
+      '<span class="ob-grow-ic">' + x.icon + "</span>" +
+      '<span class="ob-grow-t">' + x.l + "</span>" +
+      '<span class="ob-grow-s">' + (must ? "Missing" : "Not added") + "</span>" +
+      '<span class="ob-grow-go">' + ICON.chev + "</span>" +
+    "</button>";
+  }
+
+  /* Every gap is filled the same way, through one sheet, whatever the gap is.
+     What it offers depends on what can honestly be done for that collection:
+     a file only where dataset.js can read one and it merges, and the sample
+     business otherwise. */
+  function openAddSheet(x) {
+    const src = SOURCES[state.source] || SOURCES.files;
+    const from = src.mode === "sample" ? "the sample data" : src.mark ? "your " + src.name : "your files";
+    const opts = [];
+    if (canUpload(x.k)) {
+      opts.push('<label class="ob-choice" data-pick="file">' +
+        '<span class="ob-choice-main"><span class="ob-choice-t">Upload files</span>' +
+        '<span class="ob-choice-s">CSV or Excel, one or more, read on this phone</span></span>' +
+        '<input type="file" data-file="' + x.k + '" accept="' + ACCEPT + '" multiple hidden></label>');
+    }
+    opts.push('<button class="ob-choice" data-sample="' + x.k + '">' +
+      '<span class="ob-choice-main"><span class="ob-choice-t">Use sample data</span>' +
+      '<span class="ob-choice-s">Records from the demo business</span></span></button>');
+    openSheet({
+      title: "Add " + x.l.toLowerCase(),
+      body: '<p class="ob-sheet-p">We didn’t find any in ' + esc(from) + ".</p>" +
+        '<div class="ob-choices">' + opts.join("") + "</div>",
+      bind: function () {
+        $$("[data-sample]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            state.sheet = null;
+            fillFromSample(b.dataset.sample);
+          });
+        });
+        $$("input[data-file]").forEach(function (inp) {
+          inp.addEventListener("change", function () {
+            const files = Array.prototype.slice.call(this.files || []);
+            this.value = "";
+            if (files.length) { state.sheet = null; addFilesAs(files, inp.dataset.file); }
+          });
+        });
+      },
+    });
   }
 
   function drawCheck() {
     const c = counts();
-    const miss = missingKinds();
-    const s = SOURCES[state.source] || SOURCES.files;
-    const where = " in your " + (s.mark ? s.name : "files");
-    const words = { products: "product", customers: "customer", suppliers: "supplier", staff: "staff" };
-    const list = miss.map(function (k) { return words[k]; });
-    const named = list.length > 1 ? list.slice(0, -1).join(", ") + " and " + list[list.length - 1] : list[0];
-    /* The action names the first thing that can be added right here: staff on
-       the next screen, products or customers from a file. Suppliers have no
-       way in yet, so they never make the action. */
-    const addable = miss.filter(function (k) { return k !== "suppliers"; });
-    const add = addable.indexOf("staff") !== -1 ? "staff" : addable[0];
+    const src = SOURCES[state.source] || SOURCES.files;
+    const where = src.mode === "sample" ? "the sample data" : src.mark ? "your " + src.name : "your files";
+    const must = ALL_KINDS.filter(function (x) { return MUST.indexOf(x.k) !== -1; });
+    const later = ALL_KINDS.filter(function (x) { return MUST.indexOf(x.k) === -1; });
+    const short = must.filter(function (x) { return !c[x.k]; });
+    const total = ALL_KINDS.reduce(function (t, x) { return t + (c[x.k] || 0); }, 0);
+
     render(
       chrome("check") +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1 is-center s06-h">Almost there!</h1>' +
-        '<p class="ob-sub is-center">We just need a few more things.</p>' +
-        '<div class="ob-list">' + KINDS.map(function (x) {
-          const ok = !!c[x.k];
-          const pick = !ok && (x.k === "products" || x.k === "customers");
-          const tag = pick ? "label" : "div";
-          return "<" + tag + ' class="ob-row is-check">' +
-            '<span class="ob-row-ic' + (ok ? "" : " is-bad") + '">' + (ok ? x.icon : ICON.alertCircle) + "</span>" +
-            '<span class="ob-row-main"><span class="ob-row-t">' + x.l + "</span></span>" +
-            (ok ? '<span class="ob-row-tick">' + ICON.check + '</span><span class="ob-row-n">' + c[x.k].toLocaleString("en-IN") + "</span>"
-                : '<span class="ob-row-tick is-bad">!</span><span class="ob-row-miss">Missing</span>') +
-            (pick ? '<input type="file" data-add="' + x.k + '" accept="' + ACCEPT + '" hidden>' : "") +
-            "</" + tag + ">";
-        }).join("") + "</div>" +
-        '<div class="ob-callout">' + ICON.info + "<p>We couldn’t find " + esc(named) + " data" + esc(where) + ". Please add it to continue.</p></div>" +
+      '<main class="ob-main is-check">' +
+        '<h1 class="ob-h1 s06-h">Data check</h1>' +
+        '<p class="ob-sub">' +
+          (short.length
+            /* Every one of these labels is a plural noun -- "sales orders is
+               missing" is wrong however many are short. Only the sentence's
+               first letter is raised; the rest stay lowercase mid-sentence. */
+            ? (function () {
+                const names = short.map(function (x) { return x.l.toLowerCase(); }).join(" and ");
+                return esc(names.charAt(0).toUpperCase() + names.slice(1)) +
+                  " are missing from " + esc(where) + ". FoodBridge needs them to predict and create orders.";
+              })()
+            : total.toLocaleString("en-IN") + " records from " + esc(where) + ". Everything essential is here.") +
+        "</p>" +
+        '<p class="ob-glabel">Must have<span>Needed to order</span></p>' +
+        '<div class="ob-group">' + must.map(function (x) { return checkRow(x, c, true); }).join("") + "</div>" +
+        '<p class="ob-glabel">Can add later<span>Optional</span></p>' +
+        '<div class="ob-group">' + later.map(function (x) { return checkRow(x, c, false); }).join("") + "</div>" +
       "</main>" +
-      '<footer class="ob-foot">' +
-        (add === "staff" || !add
-          ? '<button class="ob-cta" id="b-add">' + (add ? "Add staff" : "Continue") + "</button>"
-          : '<label class="ob-cta">Add ' + esc(words[add]) + 's<input type="file" data-add="' + add + '" accept="' + ACCEPT + '" hidden></label>') +
-        '<button class="ob-link" id="b-later">I’ll do this later</button>' +
-      "</footer>"
+      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
     );
-    const b = $("#b-add");
-    if (b) b.addEventListener("click", function () { go(add ? "staff" : "ready"); });
-    $("#b-later").addEventListener("click", function () { go("ready"); });
-    $$("input[data-add]").forEach(function (inp) {
-      inp.addEventListener("change", function () {
-        const file = this.files && this.files[0];
-        this.value = "";
-        if (file) addFileAs(file, inp.dataset.add);
+
+    /* Never disabled: someone exploring reaches the end whatever they brought. */
+    $("#b-continue").addEventListener("click", function () { go("ready"); });
+    $$("[data-add]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const x = ALL_KINDS.filter(function (k) { return k.k === b.dataset.add; })[0];
+        if (x) openAddSheet(x);
       });
     });
   }
 
   /* A products or customers file added from the check, read AS that kind and
      joined to what is already there. */
-  async function addFileAs(file, kind) {
-    openSheet({ title: "Reading " + file.name, locked: true, body: '<p class="ob-sheet-p ob-busy"><span class="ob-spin"></span>Reading on this phone…</p>' });
-    let out;
-    try { out = await RD().files.read(file, [kind]); } catch (e) { out = { ok: false }; }
-    const got = out && out.ok ? (out.found || []).filter(function (p) { return p.type === kind && p.records && p.records.length; }) : [];
-    state.sheet = null;
-    if (!got.length) {
-      return openSheet({
-        title: "We couldn’t read " + file.name,
-        body: '<p class="ob-sheet-p">We couldn’t find any ' + kind + " in this file. Its first row needs a name column, such as " + (kind === "products" ? "Item Name" : "Customer Name") + ".</p>",
-        actions: '<button class="ob-cta is-ghost" id="s-close">Close</button>',
-        bind: function () { $("#s-close").addEventListener("click", closeSheet); },
+  /* What each kind needs in a file's first row, said in the file's own words
+     when we could not find it. */
+  const FILE_HINT = {
+    products: "Item Name", customers: "Customer Name", suppliers: "Supplier Name",
+    orders: "Customer Name, Item Name, Quantity and a date",
+    invoices: "Customer Name, Total and a date", payments: "Customer Name, Amount and a date",
+    creditNotes: "Customer Name, Total and a date", estimates: "Customer Name, Total and a date",
+    purchaseOrders: "Supplier Name, Total and a date", bills: "Supplier Name, Total and a date",
+    expenses: "Total and a date, and an Account if you have one",
+  };
+  /* The ledger kinds fromFiles() knows nothing about, so they are merged here
+     rather than rebuilt with it. Their party column is linked to a record that
+     is already there, by name; a party nobody has becomes one, from this file. */
+  const LEDGER = {
+    invoices: { col: "invoices", into: "customers", field: "customerId" },
+    payments: { col: "payments", into: "customers", field: "customerId", amount: "amount" },
+    creditNotes: { col: "creditNotes", into: "customers", field: "customerId" },
+    estimates: { col: "estimates", into: "customers", field: "customerId" },
+    purchaseOrders: { col: "purchaseOrders", into: "vendors", field: "vendorId" },
+    bills: { col: "bills", into: "vendors", field: "vendorId" },
+    expenses: { col: "expenses" },
+    suppliers: { col: "vendors", names: true },
+  };
+
+  function canUpload(kind) {
+    if (kind === "products" || kind === "customers" || kind === "orders") return true;
+    return !!LEDGER[kind];
+  }
+
+  /* Files added from the check screen, read AS the kind whose row asked for
+     them. Runs on the SAME import screen a channel uses, then returns to the
+     check screen with that row's count moved on.
+
+     A set is read one file at a time and the ones that read are kept: a
+     spreadsheet nobody can parse should not throw away the three beside it
+     that were fine. What could not be read is said afterwards, never dropped
+     quietly -- the same bargain screen 2's import makes. */
+  async function addFilesAs(files, kind) {
+    const label = (FINDINGS.filter(function (x) { return x.k === kind; })[0] || { l: kind }).l.toLowerCase();
+    beginImport({ kind: kind, files: files.map(function (f) { return f.name; }), label: label });
+    const run = state.read.run;
+
+    step(1); await pause();
+    if (run.stopped) return;
+
+    const fileId = "a" + Date.now();
+    const added = [], failed = [];
+    for (let i = 0; i < files.length; i++) {
+      if (run.stopped) return;
+      let out;
+      try { out = await RD().files.read(files[i], [kind]); } catch (e) { out = { ok: false }; }
+      if (run.stopped) return;
+      const got = out && out.ok ? (out.found || []).filter(function (p) { return p.type === kind && p.records && p.records.length; }) : [];
+      if (!got.length) { failed.push(files[i].name); continue; }
+      got.forEach(function (p, j) {
+        added.push({ id: fileId + i + "_" + j, name: files[i].name, type: p.type, records: p.records, skipped: p.skipped });
       });
     }
-    const added = got.map(function (p, i) { return { id: "a" + Date.now() + i, name: file.name, type: p.type, records: p.records, skipped: p.skipped }; });
-    if (!state.dataReady || state.dataReady.provenance.kind === "files") {
+
+    if (!added.length) {
+      return importFailed(
+        "We couldn’t find any " + label + " in " +
+        (files.length === 1 ? files[0].name : "these " + files.length + " files") +
+        ". The first row needs column names, such as " + (FILE_HINT[kind] || "Name") + ".",
+        { title: files.length === 1 ? "We couldn’t read " + files[0].name : "We couldn’t read these files" });
+    }
+
+    step(2); await pause();
+    if (run.stopped) return;
+
+    const led = LEDGER[kind];
+    if (led && kind !== "invoices") {
+      added.forEach(function (part) { mergeLedgerFile(led, part, part.id); });
+    } else if (!state.dataReady || state.dataReady.provenance.kind === "files") {
+      /* A files import keeps its parts, so the whole set is read again through
+         the same fromFiles() the first upload used -- one code path, and the
+         joins across files stay right. */
       state.parts = state.parts.concat(added);
       state.dataReady = window.FB_DATASET.fromFiles(state.parts);
+    } else if (led) {
+      added.forEach(function (part) { mergeLedgerFile(led, part, part.id); });
     } else {
+      /* Another channel's data is already here, so these files are read on
+         their own through fromFiles() -- which does the customer and product
+         linking, across the whole set -- and the result is merged in.
+         Re-prefixed first, because fromFiles() numbers from cu1/pr1 every time
+         and a second upload would collide. */
+      const mini = window.FB_DATASET.fromFiles(added);
       const ds = state.dataReady.dataset;
-      const col = ds[kind] && ds[kind].present ? ds[kind] : (ds[kind] = { present: true, records: [] });
-      const have = {};
-      col.records.forEach(function (r) { have[String(r.name).toLowerCase()] = true; });
-      added[0].records.forEach(function (r, i) {
-        if (have[String(r.name).toLowerCase()]) return;
-        const rec = { id: "af" + Date.now() + i, name: r.name, from: { kind: "file", fileId: added[0].id, row: r.row } };
-        if (r.sku) rec.sku = r.sku;
-        if (r.unit) rec.unit = r.unit;
-        col.records.push(rec);
+      const reid = {};
+      ["customers", "products", "orders", "invoices"].forEach(function (c) {
+        const recs = (mini.dataset[c] && mini.dataset[c].present && mini.dataset[c].records) || [];
+        recs.forEach(function (r) { reid[r.id] = fileId + r.id; r.id = reid[r.id]; });
+      });
+      ["orders", "invoices"].forEach(function (c) {
+        const recs = (mini.dataset[c] && mini.dataset[c].present && mini.dataset[c].records) || [];
+        recs.forEach(function (r) {
+          if (reid[r.customerId]) r.customerId = reid[r.customerId];
+          (r.lines || []).forEach(function (l) { if (reid[l.productId]) l.productId = reid[l.productId]; });
+        });
+      });
+      ["customers", "products", "orders", "invoices"].forEach(function (c) {
+        const recs = (mini.dataset[c] && mini.dataset[c].present && mini.dataset[c].records) || [];
+        if (recs.length) mergeById(ds, c, recs);
       });
     }
-    state.order = null;
-    save(); draw();
+
+    step(3); await pause();
+    if (run.stopped) return;
+    window.FB_DATASET.toEngine(state.dataReady.dataset);
+    state.order = null;                 // the prediction was made without this
+    step(4); await pause();
+    if (run.stopped) return;
+    step(5);
+    setTimeout(function () {
+      if (!state.read || state.read.run.stopped) return;
+      state.read = null;
+      save();
+      go("check");                      // back where the row asked for it
+      /* Said on the screen that shows what DID read, never dropped quietly. */
+      if (failed.length) {
+        openSheet({
+          title: "We couldn’t read " + (failed.length === 1 ? failed[0] : failed.length + " of these files"),
+          body: '<p class="ob-sheet-p">' + (failed.length === 1 ? "It" : esc(failed.join(", ")) + " each") +
+            " had no " + esc(label) + " we could find. Everything else was read and is counted here.</p>",
+          actions: '<button class="ob-cta is-ghost" id="s-ok">Close</button>',
+          bind: function () { $("#s-ok").addEventListener("click", closeSheet); },
+        });
+      }
+    }, 320);
   }
 
-  /* ════════════════════════════════════════════════════════════════════
-     7 · QUICK SETUP (STAFF)
-     ════════════════════════════════════════════════════════════════════ */
-  function initials(name) {
-    const w = String(name || "").replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
-    return ((w[0] || "?").charAt(0) + (w[1] ? w[1].charAt(0) : "")).toUpperCase();
-  }
-  function drawStaff() {
-    render(
-      chrome("staff") +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">Add your staff</h1>' +
-        '<p class="ob-sub s07-sub">This helps you manage access<br>and responsibilities.</p>' +
-        '<div class="ob-people">' + state.staff.map(function (p, i) {
-          return '<div class="ob-person">' +
-            '<button class="ob-person-open" data-edit="' + i + '"><span class="ob-avatar t' + (i % 5) + '">' + esc(initials(p.name)) + "</span>" +
-              '<span class="ob-person-main"><span class="ob-person-n">' + esc(p.name) + "</span></span></button>" +
-            '<label class="ob-select"><span>' + esc(p.role) + "</span>" + ICON.chevDown +
-              '<select data-role="' + i + '" aria-label="Role for ' + esc(p.name) + '">' +
-                ROLES.map(function (r) { return "<option" + (r === p.role ? " selected" : "") + ">" + r + "</option>"; }).join("") +
-              "</select></label>" +
-          "</div>";
-        }).join("") + "</div>" +
-        '<button class="ob-link is-add" id="b-addstaff">' + ICON.plus + "Add another staff</button>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
-    );
-    $$("select[data-role]").forEach(function (sel) {
-      sel.addEventListener("change", function () { state.staff[Number(sel.dataset.role)].role = sel.value; save(); drawStaff(); });
+  /* One ledger file into one collection, with its party linked. */
+  function mergeLedgerFile(led, part, fileId) {
+    const ds = state.dataReady.dataset;
+    if (led.names) {
+      const col = collection(ds, led.col);
+      const have = {};
+      col.records.forEach(function (r) { have[String(r.name).toLowerCase()] = true; });
+      part.records.forEach(function (r, i) {
+        if (have[String(r.name).toLowerCase()]) return;
+        have[String(r.name).toLowerCase()] = true;
+        col.records.push({ id: fileId + "v" + i, name: r.name, from: { kind: "file", fileId: part.id, row: r.row } });
+      });
+      return;
+    }
+    /* The party this document is with, matched to a record already here. */
+    let partyId = null;
+    if (led.into) {
+      const pcol = collection(ds, led.into);
+      const byName = {};
+      pcol.records.forEach(function (r) { byName[String(r.name).toLowerCase()] = r.id; });
+      partyId = function (name) {
+        const k = String(name || "").toLowerCase();
+        if (!k) return undefined;
+        if (byName[k]) return byName[k];
+        const id = fileId + "p" + pcol.records.length;
+        pcol.records.push({ id: id, name: name, derived: true, from: { kind: "file", fileId: part.id } });
+        byName[k] = id;
+        return id;
+      };
+    }
+    const col = collection(ds, led.col);
+    part.records.forEach(function (r, i) {
+      const rec = { id: fileId + "d" + i, date: r.date, from: { kind: "file", fileId: part.id, row: r.row } };
+      rec[led.amount || "total"] = r.total !== undefined ? r.total : r.amount;
+      if (partyId) rec[led.field] = partyId(r.party !== undefined ? r.party : r.customer);
+      if (r.number) rec.number = r.number;
+      if (r.balance !== undefined) rec.balance = r.balance;
+      if (r.dueDate) rec.dueDate = r.dueDate;
+      if (r.status) rec.status = r.status;
+      if (r.account) rec.account = r.account;
+      col.records.push(rec);
     });
-    $$("[data-edit]").forEach(function (b) { b.addEventListener("click", function () { openStaffSheet(Number(b.dataset.edit)); }); });
-    $("#b-addstaff").addEventListener("click", function () { openStaffSheet(-1); });
-    $("#b-continue").addEventListener("click", function () { state.staffDone = true; go("ready"); });
   }
 
-  function openStaffSheet(i) {
-    const p = i >= 0 ? state.staff[i] : { name: "", role: "Sales" };
-    let role = p.role;
-    openSheet({
-      title: i >= 0 ? "Edit staff" : "Add staff",
-      body: '<div class="ob-fields is-sheet">' + field("sname", "Name", ICON.user, p.name, { caps: "words", auto: "off", enter: "done" }) + "</div>" +
-        '<div class="ob-choices is-roles" role="radiogroup" aria-label="Role">' + ROLES.map(function (r) {
-          return '<button class="ob-choice' + (r === p.role ? " is-on" : "") + '" role="radio" aria-checked="' + (r === p.role) + '" data-r="' + r + '"><span class="ob-radio"></span><span class="ob-choice-t">' + r + "</span></button>";
-        }).join("") + "</div>",
-      actions: '<button class="ob-cta" id="s-save">' + (i >= 0 ? "Save" : "Add staff") + "</button>" +
-        (i > 0 ? '<button class="ob-link is-warn" id="s-rm">Remove</button>' : ""),
-      bind: function () {
-        $$("[data-r]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            role = b.dataset.r;
-            $$("[data-r]").forEach(function (x) { x.classList.toggle("is-on", x === b); x.setAttribute("aria-checked", x === b); });
-          });
-        });
-        const inp = $("#f-sname");
-        $("#s-save").addEventListener("click", function () {
-          const name = inp.value.trim();
-          if (name.length < 2) { inp.closest(".ob-field").classList.add("is-bad"); inp.focus(); return; }
-          if (i >= 0) Object.assign(state.staff[i], { name: name, role: role });
-          else state.staff.push({ id: "s" + Date.now(), name: name, role: role });
-          state.sheet = null; save(); draw();
-        });
-        const rm = $("#s-rm");
-        if (rm) rm.addEventListener("click", function () { state.staff.splice(i, 1); state.sheet = null; save(); draw(); });
-      },
+  /* ── filling one collection from the sample business ───────────────────
+     Screen 6 offers this for anything the channel did not return, so nobody
+     is stopped by a gap they cannot fill right now.
+
+     It copies ONE collection out of a full sample read. The catch is that a
+     collection does not stand alone: sample invoices name sample customers,
+     sample orders name sample products, and dropping them into a real Zoho
+     dataset alone would leave rows pointing at records that are not there —
+     the reorder engine reads orders by product id. So whatever the copied
+     records reference is copied with them, and only what is actually missing.
+
+     Per-record provenance is kept (`from.kind: "sample"`), exactly as a file
+     added on this screen is kept as `kind: "file"`. The product owner's call
+     of 17 Sep is that the SCREEN does not label these rows. */
+  let sampleDatasetCache = null;
+
+  async function sampleDataset() {
+    if (sampleDatasetCache) return sampleDatasetCache;
+    await loadSampleRecords();
+    sampleDatasetCache = window.FB_DATASET.fromApp(sampleRaw());
+    return sampleDatasetCache;
+  }
+
+  /* The collections a copied record can point at, and the field that points. */
+  const REFS = {
+    orders: [["customers", "customerId"], ["products", null]],
+    invoices: [["customers", "customerId"]],
+    payments: [["customers", "customerId"]],
+    creditNotes: [["customers", "customerId"]],
+    estimates: [["customers", "customerId"]],
+    purchaseOrders: [["vendors", "vendorId"]],
+    bills: [["vendors", "vendorId"]],
+  };
+
+  function collection(ds, key) {
+    if (!ds[key] || !ds[key].present || !ds[key].records) ds[key] = { present: true, records: [] };
+    return ds[key];
+  }
+
+  /* Copies `records` into ds[key], skipping any id already there. */
+  function mergeById(ds, key, records) {
+    const col = collection(ds, key);
+    const have = {};
+    col.records.forEach(function (r) { have[r.id] = true; });
+    let added = 0;
+    records.forEach(function (r) { if (!have[r.id]) { col.records.push(r); have[r.id] = true; added++; } });
+    return added;
+  }
+
+  async function fillFromSample(kind) {
+    const f = FINDINGS.filter(function (x) { return x.k === kind; })[0];
+    if (!f) return;
+    let src;
+    try { src = await sampleDataset(); }
+    catch (e) {
+      return openSheet({
+        title: "We couldn’t load the sample data",
+        body: '<p class="ob-sheet-p">Check your connection and try again.</p>',
+        actions: '<button class="ob-cta" id="s-ok">Close</button>',
+        bind: function () { $("#s-ok").addEventListener("click", closeSheet); },
+      });
+    }
+    const from = src.dataset[f.c];
+    const records = (from && from.present && from.records) || [];
+    if (!records.length) return;
+
+    const ds = state.dataReady.dataset;
+    mergeById(ds, f.c, records);
+
+    /* Whatever those records name, brought along so nothing dangles. */
+    (REFS[f.c] || []).forEach(function (pair) {
+      const key = pair[0], field = pair[1];
+      const pool = (src.dataset[key] && src.dataset[key].records) || [];
+      if (!pool.length) return;
+      let wanted;
+      if (field) {
+        const ids = {};
+        records.forEach(function (r) { if (r[field]) ids[r[field]] = true; });
+        wanted = pool.filter(function (r) { return ids[r.id]; });
+      } else {
+        /* Products are named line by line, not by one field. */
+        const ids = {};
+        records.forEach(function (r) { (r.lines || []).forEach(function (l) { ids[l.productId] = true; }); });
+        wanted = pool.filter(function (r) { return ids[r.id]; });
+      }
+      mergeById(ds, key, wanted);
     });
+
+    window.FB_DATASET.toEngine(ds);
+    state.order = null;                 // the prediction was made without this
+    save();
+    draw();
   }
 
   /* ════════════════════════════════════════════════════════════════════
      8 · READY TO ORDER
      ════════════════════════════════════════════════════════════════════ */
+  /* Two ways on, asked rather than assumed. The flow's own next step is the
+     first order -- the predictor has already drafted one -- but someone who
+     just watched FoodBridge read their business may well want to see what it
+     found before they order anything.
+
+     The control tower is not built yet, so that choice hands off to the
+     dashboard. When the page exists, only the handoff below changes. */
   function drawReady() {
     const c = counts();
-    const ready = KINDS.filter(function (x) { return c[x.k]; }).length;
-    const dot = '<span class="ob-ck-dot is-on">' + ICON.tickSm + "</span>";
+    const ready = ALL_KINDS.filter(function (x) { return c[x.k]; }).length;
+    /* Buttons, not rows: what each one does is said underneath it, so the
+       thing you press still looks like a thing you press. */
+    const pick = function (id, title, sub, alt) {
+      return '<button class="ob-cta' + (alt ? " is-alt" : "") + '" id="' + id + '">' + title + "</button>" +
+        '<p class="ob-pick-s">' + sub + "</p>";
+    };
     render(
       chrome("ready") +
       '<main class="ob-main">' +
         HERO_CLIP +
         '<h1 class="ob-h1 is-center">You’re all set!</h1>' +
-        '<p class="ob-sub is-center s08-sub">Your setup is ready. Create your<br>first order to get started.</p>' +
-        '<div class="ob-card">' +
-          '<div class="ob-card-row">' + dot + "<span>" + (ready === 1 ? "1 thing is ready" : ready + " things are ready") + "</span></div>" +
-          '<div class="ob-card-row">' + dot + "<span>You can always change this later</span></div>" +
+        '<p class="ob-sub is-center s08-sub">' +
+          (ready === 1 ? "1 thing is" : ready + " things are") + " ready. What would you<br>like to do first?</p>" +
+        '<div class="ob-pick">' +
+          pick("b-order", "Create your first order", "We’ve drafted one from your order history") +
+          pick("b-tower", "Open your control tower", "See what FoodBridge found in your business", true) +
         "</div>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-cta" id="b-order">Create first order</button></footer>'
+      "</main>"
     );
     $("#b-order").addEventListener("click", function () { go("order"); });
+    $("#b-tower").addEventListener("click", function () { save(); handoff("dashboard"); });
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -1263,84 +1683,270 @@
     return order;
   }
 
-  function drawOrder() {
-    if (!state.order) { state.order = prefillOrder(); save(); }
-    const o = state.order;
-    const cat = catalogue();
-    const q = (o.filter || "").trim().toLowerCase();
-    const have = {};
-    o.lines.forEach(function (l) { have[l.productId] = true; });
-    const hits = q ? cat.products.filter(function (p) { return !have[p.id] && (p.name.toLowerCase().indexOf(q) !== -1 || String(p.sku || "").toLowerCase().indexOf(q) !== -1); }).slice(0, 8) : [];
-    const items = o.lines.reduce(function (n, l) { return n + l.qty; }, 0);
-    const priced = o.lines.length > 0 && o.lines.every(function (l) { return l.price != null; });
-    const total = o.lines.reduce(function (n, l) { return n + (l.price || 0) * l.qty; }, 0);
-    const canCreate = !!o.customerName && o.lines.length > 0;
+  /* ── the build screen, cloned from Stock Audit ─────────────────────────
+     Product owner, 17 Sep 2026: "exactly like create order flow from customer
+     stock audit". Its markup, its classes and its interactions are that
+     screen's, under `.ob-so` (see order-stockaudit.css).
 
-    render(
-      chrome("order", { title: "Create Order" }) +
-      '<main class="ob-main is-order">' +
-        '<div class="ob-ocard is-cust">' +
-          '<div class="ob-ocard-main"><p class="ob-ocard-l">Customer</p><p class="ob-ocard-v">' + (o.customerName ? esc(o.customerName) : '<span class="is-ph">Choose a customer</span>') + "</p></div>" +
-          '<button class="ob-ocard-a" id="e-cust">View</button>' +
-        "</div>" +
-        '<div class="ob-ocard is-items has-total">' +
-          '<p class="ob-ocard-l">Add Items</p>' +
-          '<label class="ob-osearch">' + ICON.search +
-            '<input id="e-q" type="search" enterkeyhint="search" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search products by name / code" value="' + esc(o.filter || "") + '"></label>' +
-          (q ? '<div class="ob-ohits">' +
-              hits.map(function (p, k) { return '<button class="ob-ohit" data-hit="' + k + '"><span>' + esc(p.name) + "</span>" + ICON.plus + "</button>"; }).join("") +
-              (!hits.length ? '<button class="ob-ohit" data-new="1"><span>Add “' + esc(o.filter.trim()) + "” as a new item</span>" + ICON.plus + "</button>" : "") +
-            "</div>" : "") +
-          o.lines.map(function (l, i) {
-            return '<div class="ob-oline">' +
-              '<span class="ob-othumb">' + ICON.pkg + "</span>" +
-              '<div class="ob-oline-main"><p class="ob-oline-n">' + esc(l.name) + "</p>" +
-                (l.price != null ? '<p class="ob-oline-s">' + money(l.price) + (l.unit ? " / " + esc(l.unit) : "") + "</p>" : (l.unit ? '<p class="ob-oline-s">' + esc(l.unit) + "</p>" : "")) + "</div>" +
-              '<div class="ob-step">' +
-                (l.qty <= 1 ? '<button class="is-rm" data-rm="' + i + '" aria-label="Remove ' + esc(l.name) + '">' + ICON.trash + "</button>"
-                            : '<button data-dec="' + i + '" aria-label="One fewer ' + esc(l.name) + '">' + ICON.minus + "</button>") +
-                '<input type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="9999" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity for ' + esc(l.name) + '">' +
-                '<button data-inc="' + i + '" aria-label="One more ' + esc(l.name) + '">' + ICON.plus + "</button>" +
-              "</div>" +
-              (l.price != null ? '<span class="ob-oline-t">' + money(l.price * l.qty) + "</span>" : '<span class="ob-oline-t"></span>') +
-            "</div>";
-          }).join("") +
-          '<button class="ob-oadd" id="e-add">' + ICON.plus + "Add more items</button>" +
-        "</div>" +
-        '<div class="ob-ototal"><span>Total (' + items + (items === 1 ? " item" : " items") + ")</span><b>" + (priced ? money(total) : "—") + "</b></div>" +
-      "</main>" +
-      '<footer class="ob-foot is-order"><button class="ob-cta" id="e-create"' + (canCreate ? "" : " disabled") + ">Create order</button></footer>"
-    );
+     Two deliberate differences, both decided the same day:
 
-    const setQty = function (i, v) { o.lines[i].qty = Math.max(1, Math.min(9999, v)); save(); drawOrder(); };
-    $$("[data-inc]").forEach(function (b) { b.addEventListener("click", function () { const i = Number(b.dataset.inc); setQty(i, o.lines[i].qty + 1); }); });
-    $$("[data-dec]").forEach(function (b) { b.addEventListener("click", function () { const i = Number(b.dataset.dec); setQty(i, o.lines[i].qty - 1); }); });
-    $$("[data-rm]").forEach(function (b) { b.addEventListener("click", function () { o.lines.splice(Number(b.dataset.rm), 1); save(); drawOrder(); }); });
-    $$("[data-q]").forEach(function (inp) {
-      inp.addEventListener("focus", function () { setTimeout(function () { try { inp.select(); } catch (e) {} }, 0); });
-      inp.addEventListener("change", function () { setQty(Number(inp.dataset.q), parseInt(inp.value, 10) || 1); });
-    });
-    const qi = $("#e-q");
-    qi.addEventListener("input", function () {
-      o.filter = qi.value;
-      const pos = qi.selectionStart;
-      drawOrder();
-      const again = $("#e-q"); again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {}
-    });
-    $$("[data-hit]").forEach(function (b) {
-      b.addEventListener("click", function () { const p = hits[Number(b.dataset.hit)]; o.lines.push(lineOf(p.id, p.name, 1)); o.filter = ""; save(); drawOrder(); });
-    });
-    const nw = $("[data-new]");
-    if (nw) nw.addEventListener("click", function () {
-      o.lines.push({ productId: "new:" + o.filter.trim().toLowerCase(), name: o.filter.trim(), qty: 1, price: null, unit: "" });
-      o.filter = ""; save(); drawOrder();
-    });
-    $("#e-add").addEventListener("click", function () { $("#e-q").focus(); });
-    $("#e-cust").addEventListener("click", openCustomerSheet);
-    const cr = $("#e-create");
-    if (cr && canCreate) cr.addEventListener("click", createOrder);
+     1 · NO STOCK AUDIT. That screen is built on a completed shelf count --
+         it drives the recommendation and the per-line stock. Onboarding never
+         has one, so the audit-only parts are dropped rather than faked;
+         generatePredictiveOrder() takes a null audit and falls back to order
+         history, which is the signal this cut does have.
+     2 · NO ZOHO. Confirm creates the order in FoodBridge and hands over to
+         screen 10; it does not call FB_ZOHO.createSalesOrder(). Onboarding can
+         be driven by sample data, and a real sales order in the live org for a
+         demonstration customer is not something this flow may raise. */
+  const OB_STATE = { q: "", focused: false, adding: false, confirm: false };
+
+  function orderTotals(lines) {
+    const active = (lines || []).filter(function (l) { return Number(l.qty) > 0; });
+    return { active: active, products: active.length,
+             units: active.reduce(function (n, l) { return n + (Number(l.qty) || 0); }, 0) };
   }
 
+  /* Kick off a prediction and land on the build screen. Async only so the
+     working state is actually seen -- the engine is synchronous. */
+  function startOrderFor(customerId, customerName) {
+    state.order = { customerId: customerId, customerName: customerName, lines: [],
+                    prediction: null, loading: true, committing: false };
+    OB_STATE.q = ""; OB_STATE.focused = false; OB_STATE.adding = false; OB_STATE.confirm = false;
+    draw();
+    setTimeout(function () {
+      const o = state.order;
+      if (!o || o.customerId !== customerId) return;      // left mid-generation
+      try {
+        const e = engineView();
+        const hist = (e.history[customerId] && e.history[customerId].orders) || [];
+        const res = window.FB_PREDICT.generatePredictiveOrder({
+          customerId: customerId,
+          latestCompletedAudit: null,                      // onboarding has none
+          orders: hist,
+          products: e.seed.products,
+          now: new Date(),
+        });
+        o.prediction = res;
+        o.lines = res.ok ? res.lines.map(function (l) { return lineOf(l.productId, null, l.recommendedQty); }) : [];
+      } catch (err) {
+        o.prediction = null; o.lines = []; o.error = err;
+      }
+      o.loading = false;
+      if (state.screen === "order") drawOrder();
+    }, 650);
+  }
+
+  const obPreviewing = function () { return !OB_STATE.q.trim() && (OB_STATE.adding || OB_STATE.focused); };
+  const obSearching = function () { return !!OB_STATE.q.trim() || obPreviewing(); };
+
+  function obRowHTML(l) {
+    const qty = l.qty == null ? "" : l.qty;
+    return '<div class="qc-line qc-row ord-row' + (Number(l.qty) > 0 ? " done" : "") + '" data-order-row="' + esc(l.productId) + '">' +
+      '<div class="info">' +
+        '<div class="nm" title="' + esc(l.name) + '">' + esc(l.name) + "</div>" +
+        '<div class="meta ask">Remove?</div>' +
+      "</div>" +
+      '<span class="qty-col">' +
+        (l.price != null ? '<span class="line-econ">' + esc(money(l.price)) + (l.unit ? "/" + esc(l.unit) : "") + "</span>" : "") +
+        '<span class="pd-stepper" data-field="' + esc(l.productId) + '">' +
+          '<button type="button" data-delta="-1">−</button>' +
+          '<span class="val"><input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" value="' + qty + '" placeholder="0"></span>' +
+          '<button type="button" data-delta="1">+</button>' +
+        "</span>" +
+      "</span>" +
+      '<button type="button" class="qc-remove" data-order-remove="' + esc(l.productId) + '" aria-label="Remove ' + esc(l.name) + '">' + ICON.trash + "</button>" +
+      '<button type="button" class="ci-btn sm yes" data-order-remove-yes="' + esc(l.productId) + '" aria-label="Confirm removing ' + esc(l.name) + '">✓</button>' +
+      '<button type="button" class="ci-btn sm no" data-order-remove-no="' + esc(l.productId) + '" aria-label="Keep ' + esc(l.name) + '">✗</button>' +
+    "</div>";
+  }
+
+  function obEmptyHTML() {
+    const o = state.order;
+    if (o.error) return '<div class="ord-note">Couldn’t generate a recommendation</div>';
+    if (o.prediction && !o.prediction.ok) return '<div class="ord-note">No recommendation</div>';
+    return '<div class="ord-note">No products yet</div>';
+  }
+
+  function obFootHTML() {
+    const t = orderTotals(state.order.lines);
+    if (state.order.committing) return '<button type="button" class="btn-wide primary" disabled>Creating order…</button>';
+    if (!OB_STATE.confirm) {
+      return (obSearching() ? "" : '<button type="button" class="btn-add" id="obAdd">+ Add Product</button>') +
+        '<button type="button" class="btn-wide primary" id="obConfirm"' + (t.products ? "" : " disabled") + ">Confirm Order</button>";
+    }
+    return '<span class="confirm-inline">' +
+        '<span class="ci-copy"><span class="ci-prompt">Confirm order?</span>' +
+        '<span class="ci-detail">' + esc(plural(t.products, "product", "products")) + " · " + esc(plural(t.units, "unit", "units")) + "</span></span>" +
+        '<button type="button" class="ci-btn yes" id="obYes" aria-label="Confirm order">✓</button>' +
+        '<button type="button" class="ci-btn no" id="obNo" aria-label="Keep editing">✗</button>' +
+      "</span>";
+  }
+
+  function drawOrder() {
+    if (!state.order) {
+      const pre = prefillOrder();
+      if (!pre.customerId) { render(chrome(null, { title: "Create Order" }) + '<main class="ob-main"><p class="ob-sub">No customers to order for.</p></main>'); return; }
+      return startOrderFor(pre.customerId, pre.customerName);
+    }
+    const o = state.order;
+
+    if (o.loading) {
+      render(
+        chrome(null, { title: "Create Order" }) +
+        '<main class="ob-main ob-so">' +
+          '<div class="ws-head">' +
+            '<button type="button" class="ws-who">' + esc(o.customerName) + "</button>" +
+            '<div class="ws-count">Preparing order…</div>' +
+            '<div class="ws-bar indeterminate"><span></span></div>' +
+          "</div>" +
+        "</main>"
+      );
+      return;
+    }
+
+    const cat = catalogue();
+    const q = OB_STATE.q.trim().toLowerCase();
+    const chosen = o.lines.map(function (l) { return l.productId; });
+    const available = cat.products.filter(function (p) { return chosen.indexOf(p.id) === -1; });
+    const results = !obSearching() ? []
+      : q ? available.filter(function (p) { return (p.name + " " + (p.sku || "")).toLowerCase().indexOf(q) !== -1; })
+          : available.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).slice(0, 5);
+    const t = orderTotals(o.lines);
+    const recommended = !!(o.prediction && o.prediction.ok);
+
+    render(
+      chrome(null, { title: "Create Order" }) +
+      '<main class="ob-main ob-so">' +
+        '<div class="ws-head">' +
+          '<button type="button" class="ws-who" id="obWho">' + esc(o.customerName) + "</button>" +
+          '<div class="ws-count">' + (t.products ? esc(plural(t.products, "product", "products")) + " · " + esc(plural(t.units, "unit", "units")) : "Nothing to order yet") + "</div>" +
+          '<div class="ws-bar"><span style="width:' + (o.lines.length ? Math.round((t.products / o.lines.length) * 100) : 0) + '%"></span></div>' +
+        "</div>" +
+        '<div class="sah-search-row"><div class="sah-search">' +
+          '<input type="search" id="obQ" autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(OB_STATE.q) + '" placeholder="Search product"></div></div>' +
+        (obSearching()
+          ? '<div class="picker-list dropdown">' + (results.length
+              ? results.map(function (p) {
+                  return '<button type="button" class="picker-row" data-order-add="' + esc(p.id) + '">' +
+                    '<span><span class="nm">' + esc(p.name) + "</span>" +
+                    (p.sku ? '<div class="sub">' + esc(p.sku) + "</div>" : "") + "</span>" +
+                    '<span class="add-ic" aria-hidden="true">+</span></button>';
+                }).join("")
+              : '<div class="dropdown-empty">No product found</div>') +
+            (obPreviewing() && available.length > results.length
+              ? '<div class="suggest-hint">Showing ' + results.length + " of " + plural(available.length, "product", "products") + " — keep typing to search all</div>"
+              : "") + "</div>"
+          : (o.lines.length ? '<div class="section-head-row attached"><h2>' + (recommended ? "Recommended" : "Products") + "</h2>" +
+                (recommended ? '<span class="ord-basis-line">From ' + esc(plural((o.prediction.context && o.prediction.context.recentOrderCount) || 0, "order", "orders")) + "</span>" : "") + "</div>" : "") +
+            (o.lines.length ? '<div class="qc-card">' + o.lines.map(obRowHTML).join("") + "</div>" : obEmptyHTML())) +
+      "</main>" +
+      '<footer class="sah-foot ws-foot ob-so"><div class="inner" id="obFoot">' + obFootHTML() + "</div></footer>"
+    );
+    wireOrderBuild();
+  }
+
+  function obRefreshChrome() {
+    const o = state.order, t = orderTotals(o.lines);
+    const c = $(".ws-count"); if (c) c.textContent = t.products ? plural(t.products, "product", "products") + " · " + plural(t.units, "unit", "units") : "Nothing to order yet";
+    const b = $(".ws-bar > span"); if (b) b.style.width = (o.lines.length ? Math.round((t.products / o.lines.length) * 100) : 0) + "%";
+    const f = $("#obFoot"); if (f) { f.innerHTML = obFootHTML(); wireOrderFoot(); }
+  }
+
+  function wireOrderBuild() {
+    const o = state.order;
+    const inp = $("#obQ");
+    if (inp) {
+      inp.addEventListener("input", function () { OB_STATE.q = inp.value; drawOrder(); });
+      inp.addEventListener("focus", function () { OB_STATE.focused = true; drawOrder(); });
+      inp.addEventListener("blur", function () {
+        setTimeout(function () {
+          if (state.screen !== "order") return;
+          OB_STATE.focused = false; OB_STATE.adding = false; drawOrder();
+        }, 140);
+      });
+    }
+    const add = function (p) {
+      if (!p) return;
+      if (!o.lines.some(function (l) { return l.productId === p.id; })) {
+        const line = lineOf(p.id, p.name, 1);
+        line.qty = 0;                                    // theirs to set, not ours
+        o.lines.unshift(line);
+      }
+      OB_STATE.q = ""; OB_STATE.adding = false; OB_STATE.focused = false;
+      save(); drawOrder();
+    };
+    $$("[data-order-add]").forEach(function (b) {
+      b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      b.addEventListener("click", function () { add(cat_by_id(b.dataset.orderAdd)); });
+    });
+
+    /* Removal asks in the row, exactly as Stock Audit's does. */
+    $$("[data-order-remove]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        $$(".qc-row.confirming").forEach(function (r) { r.classList.remove("confirming"); });
+        b.closest(".qc-row").classList.add("confirming");
+      });
+    });
+    $$("[data-order-remove-no]").forEach(function (b) {
+      b.addEventListener("click", function () { b.closest(".qc-row").classList.remove("confirming"); });
+    });
+    $$("[data-order-remove-yes]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        o.lines = o.lines.filter(function (l) { return l.productId !== b.dataset.orderRemoveYes; });
+        save(); drawOrder();
+      });
+    });
+
+    /* Quantity, in place -- never a re-render, or the caret is lost mid-type. */
+    $$(".ord-row .pd-stepper").forEach(function (st) {
+      const line = o.lines.filter(function (l) { return l.productId === st.dataset.field; })[0];
+      if (!line) return;
+      const row = st.closest(".qc-row");
+      const box = st.querySelector("input");
+      const set = function (v) {
+        const qty = Math.max(0, Math.floor(Number(v) || 0));
+        box.value = qty; line.qty = qty;
+        row.classList.toggle("done", qty > 0);
+        save(); obRefreshChrome();
+      };
+      st.querySelectorAll("[data-delta]").forEach(function (b) {
+        b.addEventListener("click", function () { set((Number(box.value) || 0) + Number(b.dataset.delta)); });
+      });
+      box.addEventListener("input", function () { set(box.value); });
+    });
+
+    const who = $("#obWho");
+    if (who) who.addEventListener("click", openCustomerSheet);
+    wireOrderFoot();
+  }
+
+  /* Re-wired on every footer swap, since the footer replaces its own markup. */
+  function wireOrderFoot() {
+    const a = $("#obAdd");
+    if (a) a.addEventListener("click", function () { OB_STATE.adding = true; drawOrder(); setTimeout(function () { const i = $("#obQ"); if (i) i.focus(); }, 0); });
+    const c = $("#obConfirm");
+    if (c) c.addEventListener("click", function () { OB_STATE.confirm = true; obRefreshChrome(); });
+    const no = $("#obNo");
+    if (no) no.addEventListener("click", function () { OB_STATE.confirm = false; obRefreshChrome(); });
+    const yes = $("#obYes");
+    if (yes) yes.addEventListener("click", function () {
+      state.order.lines = state.order.lines.filter(function (l) { return Number(l.qty) > 0; });
+      state.order.committing = true;
+      OB_STATE.confirm = false;
+      obRefreshChrome();
+      /* Created in FoodBridge, and nowhere else: no bridge call. Screen 10
+         takes over from here. */
+      setTimeout(createOrder, 420);
+    });
+  }
+
+  function cat_by_id(id) { return catalogue().products.filter(function (p) { return p.id === id; })[0]; }
+
+
+  /* Changing who the order is for starts that customer's order, the way
+     Stock Audit's pick screen does -- a new customer gets their own
+     recommendation, not the last one's lines. */
   function openCustomerSheet() {
     const cat = catalogue();
     let filter = "";
@@ -1350,8 +1956,7 @@
       return hits.map(function (c) {
         return '<button class="ob-rec" data-cust="' + esc(c.id) + '"><span class="ob-rec-a">' + esc(c.name) + "</span>" +
           (c.id === state.order.customerId ? '<span class="ob-rec-b">' + ICON.check + "</span>" : "") + "</button>";
-      }).join("") + (q && !hits.some(function (c) { return c.name.toLowerCase() === q; })
-        ? '<button class="ob-rec" data-newcust="1"><span class="ob-rec-a">Add “' + esc(filter.trim()) + "” as a new customer</span>" + '<span class="ob-rec-b">' + ICON.plus + "</span></button>" : "");
+      }).join("");
     };
     openSheet({
       title: "Customer",
@@ -1362,22 +1967,10 @@
           $$("[data-cust]").forEach(function (b) {
             b.addEventListener("click", function () {
               const c = cat.customers.filter(function (x) { return x.id === b.dataset.cust; })[0];
-              if (c.id !== state.order.customerId) {
-                state.order.customerId = c.id; state.order.customerName = c.name;
-                // What this customer last ordered, as a start; nothing if it never has.
-                try {
-                  const h = engineView().history[c.id];
-                  const last = h && h.orders[0];
-                  state.order.lines = last ? last.lines.slice(0, 6).map(function (l) { return lineOf(l.productId, null, l.qty); }) : [];
-                } catch (err) { state.order.lines = []; }
-              }
-              state.sheet = null; save(); draw();
+              state.sheet = null;
+              if (!c || c.id === state.order.customerId) { draw(); return; }
+              startOrderFor(c.id, c.name);
             });
-          });
-          const nc = $("[data-newcust]");
-          if (nc) nc.addEventListener("click", function () {
-            state.order.customerId = "new:" + filter.trim().toLowerCase(); state.order.customerName = filter.trim();
-            state.sheet = null; save(); draw();
           });
         };
         bindList();
@@ -1434,27 +2027,11 @@
         '<p class="ob-sub is-center">Your first order has been created<br>successfully.</p>' +
         orderCard(r) +
       "</main>" +
-      '<footer class="ob-foot"><button class="ob-cta" id="b-dash">Go to dashboard</button></footer>'
+      '<footer class="ob-foot"><button class="ob-cta" id="b-dash">Open your control tower</button></footer>'
     );
-    $("#b-dash").addEventListener("click", function () { go("welcome"); });
-  }
-
-  function drawWelcome() {
-    render(
-      chrome("welcome", { wordmark: true }) +
-      '<main class="ob-main">' +
-        HERO_STORE +
-        '<h1 class="ob-h1 is-center">Welcome to FoodBridge!</h1>' +
-        '<p class="ob-sub is-center">You’re ready to grow your business<br>smarter and faster.</p>' +
-        '<div class="ob-feats3">' +
-          '<div class="ob-f3"><span class="ob-f3-c is-blue">' + ICON.orders + "</span><span>Manage orders</span></div>" +
-          '<div class="ob-f3"><span class="ob-f3-c is-purple">' + ICON.track + "</span><span>Track business</span></div>" +
-          '<div class="ob-f3"><span class="ob-f3-c is-green">' + ICON.grow + "</span><span>Grow profits</span></div>" +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-cta" id="b-go">Go to FoodBridge</button></footer>'
-    );
-    $("#b-go").addEventListener("click", function () { save(); handoff("dashboard"); });
+    /* The same destination screen 8 offers, under the same name. The control
+       tower is not built yet; this hands off to the dashboard until it is. */
+    $("#b-dash").addEventListener("click", function () { save(); handoff("dashboard"); });
   }
 
   /* The Order Drafts destination (?view=drafts): the orders created here. */
@@ -1484,11 +2061,9 @@
       case "import": return drawImport();
       case "found": return drawFound();
       case "check": return drawCheck();
-      case "staff": return drawStaff();
       case "ready": return drawReady();
       case "order": return drawOrder();
       case "created": return drawCreated();
-      case "welcome": return drawWelcome();
       default: return drawSignup();
     }
   }

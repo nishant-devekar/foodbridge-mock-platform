@@ -1143,3 +1143,689 @@ are the active channels; remove Other and "I don't have any data".
   stand-in from Connect to Data found (86 products · 40 customers). A real Xero
   sign-in still needs the Xero app's client id and secret in the bridge
   environment (see the Xero entry above).
+
+### 17 September 2026 — Sample data: a fourth channel, so nobody leaves on screen 2
+
+**Product owner:** someone who only came to look at FoodBridge should not have to
+attach a real channel to get past *Where is your data?*. Add a sample-data
+channel so an explorer is never blocked on that screen.
+
+- Screen 2 is now **Zoho · Xero · Files / Documents · Sample data** (live), then
+  Tally · Vyapar as *Coming soon*. The new row carries a flask mark, the title
+  **Sample data** and the line *Explore with a demo business*.
+- It **skips screen 3 entirely** — there is no account to connect — and goes
+  straight to Importing, then Data found. Its first import step reads *Loading
+  the sample data*, never "Connecting to…", because no connection is made.
+- Its records are the demonstration tenant's export (`order-history.js` +
+  `seed.inline.js`), **loaded only when the row is tapped**: ~200KB a real
+  import never pays for, fetched from this origin and nowhere else.
+- They arrive as their **own source**, `app: "sample"`, registered in
+  `dataset.js` beside `zoho` and `xero`. This is not cosmetic: `fromApp()`
+  falls back to `"zoho"` for an app it does not know, which would have stamped
+  every sample record `kind: "zoho"` and prefixed it `z` — the flow would have
+  been carrying demonstration records labelled as the user's own Zoho Books.
+  They now carry `kind: "sample"`, prefix `s`, label *Sample data*.
+- Screen 6 says what it looked in: *…in the sample data*, not "in your files".
+- **There is no marker after screen 2** (product owner's call, this date). The
+  choice is named on the row the user taps and nowhere after it: no chip on the
+  later screens, and no way back out that clears what the sample produced. The
+  earlier design (D-018, before the flip) put an amber *Sample business* chip on
+  every screen and discarded the sample's work on leaving; that is deliberately
+  not restored here.
+- Failure is honest: if the sample records cannot be fetched, the import sheet
+  says *We couldn't load the sample data. Check your connection and try again.*
+  and drops back to screen 2 — not to the connect screen, which sample has none.
+
+Verified end to end on the iPhone 16 Pro Simulator and at 402×714, **with the
+dev stand-ins off** (no `?fbmock`), so this was the production path: screen 2 →
+Importing → Data found (86 products · 40 customers, 165 orders in the 240-day
+window) → Almost there → You're all set → Create order (the predictor filled a
+29-item order for Guwahati Dairy from the sample catalogue) → Order created
+`FB-ORD-0001` → Welcome. No console errors. The stored dataset was checked for
+provenance: every record `kind: "sample"`, no `"kind":"zoho"` anywhere in it.
+The load-failure branch was exercised by serving `order-history.js` as a 404.
+
+### 17 September 2026 — Data found shows everything the channel gave, not two rows
+
+**Product owner:** screen 5 listed Products and Customers and nothing else. List
+every data point the channel actually returned — sales orders, purchase orders,
+payments, invoices, suppliers — because the whole business pattern is what
+FoodBridge has to understand.
+
+The data was never missing. Every channel already read far more than screen 5
+showed, and it all reached the Dataset:
+
+| Channel | What it reads beyond customers and products |
+| --- | --- |
+| Zoho | orders, then **invoices · payments · credit notes · estimates · purchase orders · bills · expenses · vendors** (`MODULES.zoho`) |
+| Xero | orders, then **payments · credit notes · estimates · purchase orders · bills · vendors** |
+| Files | orders and **invoices**, when a file carries them |
+| Sample | orders (the demonstration tenant has no invoice, payment or vendor records) |
+
+`counts()` read four collections — products, customers, vendors, staff — and
+`drawFound()` rendered those. **Sales orders were read, counted into the
+Dataset, used by the reorder engine, and never once shown**: a Zoho import of
+165 orders and 1,240 invoices reported "Products 86 · Customers 40".
+
+- A new `FINDINGS` table maps each screen-5 row to its Dataset collection:
+  Sales orders · Products · Customers · Suppliers · Invoices · Payments ·
+  Credit notes · Quotes · Purchase orders · Bills · Expenses. `counts()` now
+  counts all of them; screen 5 lists every one with a record and skips the rest,
+  so each channel shows exactly what it returned and never a row of zero.
+- The subtitle carries the total: *3,596 records across 11 types.*
+- **`KINDS` is untouched and still drives screen 6.** Widening what is *shown*
+  must not widen what the user is *made to supply*: screen 6 asks for the same
+  four things as before (products, customers, suppliers, staff), with the same
+  copy and the same *I'll do this later*. Showing 11 kinds and demanding 11
+  would have blocked every explorer, which is the opposite of the sample channel.
+- Layout: eleven rows behind the full-size hero left **three** above the fold, so
+  the screen buried the list it exists for. Above four findings it goes dense —
+  smaller check, tighter rows (`.is-dense`) — which brings six into view; the
+  rest scroll. Four or fewer keeps the original hero, so the sample and a files
+  import look exactly as they did.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator. Sample: *291 records
+across 3 types* — Sales orders 165 · Products 86 · Customers 40, full hero, no
+scroll. A Zoho-shaped dataset (rehydrated through `sessionStorage`, since a live
+Zoho sign-in is still blocked and the dev stand-in returns `modules: {}`) renders
+all eleven rows dense and in order, with `en-IN` grouping — *3,596 records across
+11 types*. Screen 6 after both still shows its four rows unchanged.
+
+**Not done here:** the sample channel still shows three types, because the
+demonstration tenant genuinely has no invoices, payments or vendors — inventing
+them would put fabricated records behind a *Great! We found this data*. If the
+sample should demonstrate the full depth, the demonstration export needs those
+records first. Nothing AI-facing was built; this only makes sure the Dataset such
+a feature would read is all visible at the point it is captured.
+
+### 17 September 2026 — The sample business: every collection, derived from the tenant
+
+**Product owner:** enrich the sample so it covers all the dataset types.
+
+The previous entry left the sample at three types, because the demonstration
+tenant's export genuinely stops at customers, products and order history. The
+missing eight are now built from that export by
+[`sample-business.js`](modules/foodbridge-onboarding/screens/sample-business.js),
+loaded lazily beside it, and the sample reports **778 records across 11 types**:
+
+| | | |
+| --- | --- | --- |
+| Sales orders | 165 | the tenant's own history, 240-day window |
+| Products | 86 | the tenant's catalogue |
+| Customers | 40 | the tenant's B2B list |
+| Suppliers | 6 | one per product **category** the catalogue uses |
+| Invoices | 165 | one per order, priced from its lines |
+| Payments | 134 | one per settled invoice, on or after its date |
+| Credit notes | 8 | returns against an invoice, for part of its value |
+| Quotes | 38 | the orders quoted first, dated before them |
+| Purchase orders | 48 | each supplier restocked once a month |
+| Bills | 48 | one per purchase order |
+| Expenses | 40 | five accounts a month across the window |
+
+Three rules the generator holds, because these sit behind *Great! We found this
+data*:
+
+- **Derived, not imagined.** Every record traces to the export. Invoices are the
+  orders; payments are the invoices; suppliers are the product categories —
+  including both `SPICE` and `SPICES`, which is the real catalogue and is not
+  tidied up. Checked: payment count equals paid-invoice count, every payment
+  matches its invoice's total and is dated on or after it, every credit note is
+  worth less than the invoice it credits and is dated after it, every quote
+  predates its order, bills match purchase orders 1:1, every purchase order's
+  vendor is a supplier, no invoice totals zero, and balance agrees with status.
+- **Deterministic.** No `Math.random`, no clock inside a record: the same export
+  gives byte-identical output on every run (checked), so a count that moves
+  means the data moved. The import date only decides what has fallen overdue —
+  moving it does not change a single count (checked).
+- **Priced from the catalogue, and said so.** The tenant has no price field. 63
+  of its 86 products carry an MRP inside the product *name*
+  (`… (OLD MRP 700) NEW MRP 660`), which is parsed out; the other 23 take their
+  category's median. That is the whole pricing model, and it is written at the
+  top of the file so nobody later mistakes these for real catalogue prices.
+  Nothing in the flow renders money today — the totals exist so the collections
+  are coherent, not to be quoted.
+
+They remain sample records end to end: app `sample`, prefix `s`, label *Sample
+data*. Verified in the stored Dataset — all eleven collections present, every
+record `kind: "sample"`, customer references resolved (`sc01`), and no
+`"kind":"zoho"` anywhere.
+
+One bug worth recording. The generator keys its choices off a hash of each
+record's id so they stay stable. FNV-1a alone, over keys as alike as
+`cninv0001`…`cninv0165`, avalanched so weakly that the output clustered in three
+deciles and **never fell below 0.219** — so `< 0.05` matched nothing and credit
+notes came out empty, while every other threshold was quietly skewed. A fmix32
+tail fixed the distribution (mean 0.500, full range), and the counts above are
+from after it.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator, stand-ins off: screen 5
+lists all eleven dense; screen 6 now ticks Suppliers and asks only for staff —
+its copy singularises itself (*We couldn't find staff data in the sample data*);
+screen 8 reads *3 things are ready*; Create order still predicts a 29-item order
+for Guwahati Dairy and `FB-ORD-0001` is created. No console errors.
+
+### 17 September 2026 — The header stays put
+
+**Product owner:** keep the back-button row sticky on every screen; take the UX
+call yourself.
+
+`.ob-top` was `position: relative`, so it scrolled away with the content. The
+footer had been sticky since the flip; the header never was. On the screens that
+now scroll — screen 5 with eleven findings, screen 9 with a 29-item order — the
+**back button left the viewport entirely**, and the only way back was to scroll
+up first. On a phone that reads as a dead end. Worse, the rows then slid up
+behind the status bar with nothing between them and the clock.
+
+`.ob-top` is now `position: sticky; top: 0; z-index: 6` on an opaque
+background. Three details that matter:
+
+- **The safe-area inset stays inside the header's own height**
+  (`3.4rem + env(safe-area-inset-top)`), so pinning at `top: 0` keeps the status
+  bar covered rather than sliding content under the clock.
+- **z-index 6** clears the sticky footer's 5 and sits far below the sheets' 40 —
+  verified: opening the Customer sheet dims and covers the header as before.
+- **A fade below it** (`.ob-top::after`, the mirror of the footer's gradient) so
+  rows dissolve under the header instead of being sliced by a hard edge.
+
+**The call: this applies to `.ob-top`, not to `.ob-wordmark`.** Screens 1 and 11
+head with the wordmark, which carries no back button and nothing else to reach —
+it is branding, not navigation. Pinning it would cost about two rem at the top of
+the sign-up form, the one screen where the keyboard already takes half the
+viewport, and buy the user nothing. Sticky is for what you need to reach, not for
+what you need to see once.
+
+Verified on the iPhone 16 Pro Simulator: screens 5, 6 and 9 hold the header while
+their content scrolls under it, the titled *Create Order* bar included; the
+Customer sheet still covers it; the keyboard on screen 9's search does not
+dislodge it; screens 1 and 11 are unchanged.
+
+**Left alone, and worth a decision:** the sticky footer overlaps the last of the
+content — screen 6's callout is cut mid-sentence by *Add staff*, and screen 9's
+*Total (29 items)* by *Create order*. That is `bottom: 0` stickiness lifting the
+footer off its place in the flow and over what precedes it. It predates this
+change (and the findings work), so it was not fixed here; the fix is bottom
+padding on `.ob-main` sized to the footer, on the screens that pin one.
+
+### 17 September 2026 — Data check: two tiers, and a way out of every gap
+
+**Product owner:** list all the types here, sort them into must have and can add
+later, and wherever something is missing let the user upload a file or use sample
+data, so nobody is blocked and anyone can explore.
+
+Screen 6 listed the same four rows it had always listed — products, customers,
+suppliers, staff — while the channel was returning up to eleven collections. It
+called every gap **Missing** in red, and its only actions were *Add staff*,
+a file for products or customers, and *I'll do this later*.
+
+**The tiers are not a matter of taste.** `toEngine()` builds the reorder engine
+from **products, customers and orders** and reads nothing else; without those
+three the product cannot predict an order or create one. Suppliers and staff were
+in the blocking list and **nothing consumes either** — they are operational
+detail. So:
+
+| Must have | Can add later |
+| --- | --- |
+| Sales orders · Products · Customers | Suppliers · Invoices · Payments · Credit notes · Quotes · Purchase orders · Bills · Expenses · Staff |
+
+- **Missing is no longer one thing.** A must-have is red and says *Missing*.
+  Anything else is grey and says *Not added* — calling nine optional collections
+  "Missing" in red reads as nine failures, which is the fastest way to lose
+  someone who only came to look.
+- **Every gap carries its own way forward, on the row.** *Use sample* for any
+  collection; *Upload file* only where a file genuinely merges — products and
+  customers always, orders and invoices when the import was files and its `parts`
+  can be rebuilt through `fromFiles`. It is not offered for payments, bills,
+  expenses, quotes, credit notes or suppliers, because `FILE_TYPES` has no reader
+  for them and a button that cannot work is worse than no button. Staff keeps its
+  own action, to screen 7.
+- **Continue is never disabled**, and *I'll do this later* is gone with it — the
+  per-row actions are the way to fill a gap, and the footer's one job is to let
+  anyone reach the end of the flow whatever they could bring.
+- The heading answers the state: *Almost there!* with *We couldn't find
+  everything in your Zoho* when a must-have is short, *Here's what we have* with
+  *Everything we need is here. The rest can come later.* when it is not.
+
+**Filling one collection from the sample is not a copy.** A collection does not
+stand alone: sample invoices name sample customers and sample orders name sample
+products, so dropping orders alone into a real Zoho dataset would leave the
+reorder engine reading order lines whose products do not exist. `fillFromSample()`
+therefore copies what the records reference as well — and **only what is actually
+missing**. Verified against a dataset sharing nothing with the sample (one real
+product, one real customer): filling Sales orders brought 165 orders, took
+products 1 → 32 and customers 1 → 39 (the 31 and 38 those orders actually name,
+not the whole 86-product catalogue), kept both real records, and left **zero
+dangling product or customer references**. Per-record provenance is kept, so the
+dataset carries `kind: "zoho"` and `kind: "sample"` side by side exactly as a
+file added on this screen carries `kind: "file"`.
+
+**The product owner's call, this date: the screen does not label a sample-filled
+row.** It shows the count like any other. The risk was put to them — a real
+account's supplier list can become six demonstration companies with nothing on
+any screen saying so, including this one when they come back — and they chose no
+label, consistent with the no-marker decision taken with the channel itself.
+The provenance is still in the data; only the UI is silent.
+
+Also fixed here, both introduced by the longer screen: the red `!` badge beside
+the already-red alert icon was redundant and fell off the line once a row wrapped
+to carry its actions, so missing rows now show their status text alone; and
+`.ob-main.is-check` gained bottom padding, because the sticky footer lifts over
+the end of the flow and the last row on this screen carries an action.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: sample lands on *Here's
+what we have* with all three must-haves ticked and Staff the only *Not added*;
+a stripped Zoho dataset shows *Missing* on Sales orders with *Use sample*, greys
+the four it did not return, and fills each on tap; the last row clears the
+footer; and the flow runs to `FB-ORD-0001` on the mixed dataset. No console
+errors.
+
+### 17 September 2026 — Data check redesigned; the Staff screen is gone
+
+**Product owner:** the screen looks childish — re-imagine it and redesign. Remove
+the Add staff flow and make staff unified like the others.
+
+**What was childish, precisely.** Twelve separate rounded cards, each with its
+own border and shadow, each carrying a large green tick and a large green icon,
+several with a chunky outlined button wedged inside them at a ragged height. Every
+row shouted at the same volume, and green — the colour that should mean *this is
+fine* — was on all of it. It read as a reward chart, not as a summary of a
+business's books.
+
+**The redesign is a manifest.** One card per group with hairline rules between
+rows, uniform 2.85rem rows, small muted icons, counts right-aligned on tabular
+figures so the column reads straight down, and section labels in small caps with
+their qualifier on the right (`MUST HAVE — Needed to order`). The green ticks are
+gone: a row with a number is self-evidently fine, and a tick beside a count said
+the same thing twice. **Colour is now spent in exactly one place** — a must-have
+the product cannot run without, in red.
+
+- The heading is *Data check*, not *Almost there!*, and the line under it states
+  the case: *Sales orders are missing from your Zoho. FoodBridge needs them to
+  predict and create orders*, or *779 records from the sample data. Everything
+  essential is here.*
+- **The fixes moved off the row and into a sheet.** Inline buttons forced rows to
+  different heights and broke the column of numbers. Tapping any gap now opens
+  one *Add …* sheet that says where we looked and offers what can honestly be
+  done for that collection — a file only where `dataset.js` can read one and it
+  merges, the sample business otherwise.
+- **Screen 5 was rebuilt in the same language.** It lists the same collections
+  with the same counts; leaving it as twelve chunky cards would have shipped two
+  visual languages for one thing. Its row-level `is-dense` hack is gone with it —
+  manifest rows are already dense — while the shrinking hero stays, since eleven
+  rows still need the room.
+
+**The Staff screen (7) is removed.** It was a whole screen for a list that starts
+with one row already filled in — the account owner — and it was the only thing on
+the check screen that could not be handled where it was named. Staff is now a row
+in *Can add later* like any other, and because it always has at least the owner
+in it, the row keeps its chevron rather than going quiet at a count: tapping it
+opens the old screen's body as a sheet, where people are added, edited and given
+roles. `state.staffDone` went with the screen — it only ever meant *that screen
+was visited* — and staff is now present when there is a person, which there
+always is.
+
+**This is a deliberate departure from the product owner's board**, which has
+Staff as its seventh screen; the flow is ten screens now. The 17 September rule
+was that the image is the UI, and this overrides it on the owner's own
+instruction. `README.md` says so where it describes the flow.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: the sample lands on *Data
+check* with all three must-haves counted and staff at 1; a stripped Zoho dataset
+shows *Missing* in red on Sales orders and greys the four it did not return;
+tapping one opens *Add sales orders* offering only *Use sample data* (no file,
+because a Zoho import has no `parts` to rebuild) and filling it flips the heading
+to *Everything essential is here*; the Staff row opens the list, *Add another
+staff* adds Priya Das and the row goes to 2; and the flow runs on to
+`FB-ORD-0001`. Screen 5's hero measured 150×86 dense against 274×164 full, with
+six rows above the fold. No console errors.
+
+Also fixed: *sales orders is missing* — the label is a plural noun whatever the
+count, so the sentence now reads *Sales orders are missing*, with only its first
+letter raised.
+
+### 17 September 2026 — Fix: the check screen blanked on reload
+
+**Symptom:** a white page in the Simulator. The server was fine (200s), the
+browser rendered fine; only that tab was dead, and `?obreset=1` brought it back.
+That combination means stored state, not the build.
+
+**Cause, and it was mine.** The last edit of the redesign rewrote `drawFound()`
+by replacing everything from `function drawFound() {` up to the comment above
+`checkRow` — and `const MUST` and `canUpload()` lived in that gap. The uses
+survived, the definitions did not, so `drawCheck()` threw
+`ReferenceError: MUST is not defined`, `render()` never ran and `#ob-root`
+stayed empty. **White, not an error**, because nothing catches a throw at mount.
+
+**Why the tests missed it.** After that edit I verified screen 5, which is what
+the edit was about, and never re-opened screen 6. Navigating to screen 6 would
+have caught it on the first tap. The lesson is the obvious one: an edit made by
+replacing a *range* can delete what sits between the two ends, so what to re-test
+is the range, not the intent.
+
+Fixed by restoring both definitions. Then, because one bad stored screen should
+not be able to white out the app, **every screen was replayed from a restored
+session** — each `screen` value mounted in an iframe and checked for a throw and
+for empty output. All eleven render; an unknown value falls back to sign-up.
+
+One thing that test surfaced: a session stored before the Staff screen was
+removed still points at `"staff"`, which fell through `draw()`'s switch to
+`drawSignup()` — showing the sign-up form to someone who already has an account.
+`restore()` now maps that stored screen to `check`, where staff lives.
+
+Verified on the iPhone 16 Pro Simulator: run to Data check, reload in place, and
+it restores to *Data check · 779 records from the sample data*, which is the
+exact reload that blanked.
+
+### 17 September 2026 — Staff is removed entirely
+
+**Product owner:** remove the add-staff feature completely.
+
+The previous entry took away screen 7 but kept staff as a row on *Data check*,
+opening the person editor in a sheet. The feature is now gone: no row, no sheets,
+no roles, no `state.staff`.
+
+Which is the right shape for that screen anyway. *Data check* is a manifest of
+**what a channel handed over**, and staff was the one entry in it that no channel
+ever returns — it was a list this device kept, sitting in a column of imported
+record counts and always reading `1` because the account owner seeded it.
+
+Removed: the `Staff` row and its entry in `ALL_KINDS` (now simply `FINDINGS`),
+the staff key in `counts()`, the `checkRow` special case that kept the row
+tappable after it had a count, the staff branch of `openAddSheet()`,
+`openStaffListSheet()`, `openStaffSheet()`, `initials()`, `ROLES`, the staff
+icon, `state.staff` with its save and restore, and the CSS that only those sheets
+used (`.ob-people`, `.ob-person*`, `.ob-avatar`, `.ob-select`, `.ob-choices.is-roles`,
+`.ob-link.is-add`, `.s07-sub`). Nothing outside `onboarding.js` read any of it —
+checked before cutting.
+
+`restore()` still maps a stored `"staff"` screen to `check`, because sessions
+saved before any of this still point at it.
+
+Verified on the iPhone 16 Pro Simulator: *Can add later* ends at Expenses with no
+Staff row, *You're all set!* reads **11 things are ready** (the eleven
+collections, staff no longer among them), and the flow runs to `FB-ORD-0001`.
+Every screen was replayed from a restored session again — all render, none
+throws, an unknown screen falls back to sign-up.
+
+**On the deletion method.** The regression in the previous entry came from an
+edit that replaced a *range* and silently took out what sat between its ends.
+This one cut by content markers with assertions on both edges and on what the
+excised block did and did not contain; the first attempt used line numbers,
+tripped its own guard on drifted lines, and deleted nothing.
+
+### 17 September 2026 — Upload a file for any gap, through the reader that already exists
+
+**Product owner:** each gap should offer *use sample data* **or** *upload files
+and extract from there*, looping back through the file pipeline and returning to
+Data check with the data updated. Reuse the existing flow; wire it precisely.
+
+Before this, *Add expenses* offered only the sample, because `canUpload()` said
+no: `dataset.js` could read a file as **orders, customers, products, invoices**
+(`FILE_TYPES`) or **invoices, payments, costs** (`EVIDENCE_TYPES`), and nothing
+else. The rest of the manifest had no reader at all.
+
+**Extended, not replaced.** The pipeline is the one that was already there —
+`readFile()` → `locate()` → `extract()` → merge → `toEngine()` → `draw()`:
+
+- `LEDGER_TYPES` adds **credit notes, quotes, purchase orders, bills, expenses
+  and suppliers**, with their own `SPECS` and the column names they arrive
+  under (`Supplier Name`, `Bill Number`, `PO Number`, `Expense Head`, …).
+- They are deliberately **kept out of `FILE_TYPES`**. `classify()` guesses an
+  unlabelled file's kind by walking that list, and a bills sheet and a
+  purchase-order sheet are the same four columns — guessing between them would
+  be wrong more often than right. These are read only when the kind is named,
+  which on this screen it always is: the row asked for it.
+- One `DOCS` table drives a single `extract()` branch for all of them, rather
+  than six near-identical ones. Each is a date, the party it is with, and a
+  total, plus whatever else the sheet carries.
+- **The party is linked, not invented twice.** A bill naming *Spice Traders*
+  finds that supplier if it is already there; a supplier nobody has becomes one,
+  marked `derived`, from that file. Verified: uploading two bills into a dataset
+  with no suppliers produced 2 bills and the 2 suppliers they name, with zero
+  dangling vendor references.
+- **Core kinds now merge through `fromFiles()` too.** A products or orders file
+  added onto a Zoho dataset used to go through a name-only merge that could not
+  shape an order at all. It now reads that one file with `fromFiles()` — the same
+  function screen 2 uses, so the customer and product linking is identical — and
+  merges the result, re-prefixing the ids first because `fromFiles()` numbers
+  from `cu1`/`pr1` every time and a second file would have collided.
+- Failure copy names the columns that kind actually needs, per kind, instead of
+  telling someone adding expenses to supply a *Customer Name*.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator, driving real CSVs through
+the screen's own file input: *Add expenses* offers **Upload a file** and **Use
+sample data**; a five-row expenses CSV yields 3 records and skips the two bad
+rows (`unreadable_date`, `missing_value`); the sheet closes, the screen is Data
+check again and Expenses reads 3. Bills then took Suppliers 0 → 2 and Bills → 2.
+Every record carries `from: { kind: "file", fileId, row }`. Every screen was
+replayed from a restored session again — all render, none throws.
+
+### 17 September 2026 — An added file gets the import screen, not a spinner
+
+**Product owner:** after the upload there should be a processing screen, then the
+outcome on Data check.
+
+The upload read the file behind a small locked sheet with a spinner — the same
+weight of feedback as a dropdown opening, for work that parses a spreadsheet,
+matches its parties and rewrites the reorder engine's input. It also said nothing
+about what it was doing.
+
+It now runs on **screen 4, the import screen a channel already uses** — not a
+second one built for the occasion. `beginImport(add)` carries what is being
+added, and the screen speaks about that file rather than a channel:
+
+| | Channel import | One added file |
+| --- | --- | --- |
+| Heading | *Importing your data…* | *Reading your file…* |
+| Under it | This may take a few minutes. | This stays on your phone. |
+| Steps | Connecting to Zoho · Fetching · Processing · Organizing · Finalizing | Opening august-expenses.csv · Reading the rows · Matching to your data · Adding your expenses · Finishing up |
+| Hero | the channel's mark | the files mark |
+| Ends at | Data found | **back on Data check** |
+
+- The progress bar reads `chrome("check")` during an added file's import, so it
+  **stays on the check step** instead of walking back to step 2.
+- Back during it returns to Data check, not to *Where is your data?* —
+  `stopImport()` knows which kind of import it stopped.
+- A file that cannot be read fails on the same screen and lands back on Data
+  check with *We couldn't read nonsense.csv · Its first row needs column names,
+  such as Supplier Name* — per kind — and a single **Close**. The channel
+  import's *Choose another way* is not offered, because from here the way is the
+  row you came from.
+
+Verified at 402×714 with `?obslow`, driving real CSVs through the screen's own
+input: the processing screen shows the file's own five steps with the two done
+and the third spinning, then lands on Data check with Expenses at 3 and the total
+moved from 738 to 741. The bad-file path returns to Data check behind its sheet.
+Every screen replayed from a restored session — all render, none throws — and the
+flow was re-run to Data check on the iPhone 16 Pro Simulator.
+
+### 17 September 2026 — Add-a-gap takes a set of files, not one
+
+**Product owner:** the upload should let you select and upload multiple files.
+
+Screen 2's *Files / Documents* row has always taken a set — `multiple` on the
+input, and `startFileImport()` loops them. The check screen's upload did not: one
+input without `multiple`, and a handler that read `this.files[0]` and ignored the
+rest silently. Picking four files added one.
+
+`addFileAs(file, kind)` is now `addFilesAs(files, kind)` and keeps screen 2's
+bargain: **read one at a time, keep what reads, say what did not.** A spreadsheet
+nobody can parse should not throw away the three beside it that were fine.
+
+- Every file is read as the kind whose row asked for it; each becomes its own
+  part, carrying its own name, so a record's `from.fileId` still points at the
+  file it came from.
+- If **none** read, it fails as before, naming the file or saying *these 3 files*.
+- If **some** read, the rest are merged and the ones that did not are named on
+  the screen that shows what did: *We couldn't read notes.csv — It had no
+  expenses we could find. Everything else was read and is counted here.*
+- The processing screen counts them: *Reading your files…* over *Opening 2
+  files*, singular when there is one.
+- Merging is per part, so a name appearing in two files lands once — the ledger
+  merge dedupes on the collection, not within a file.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator, driving real sets through
+the screen's own input: three expenses files (two good, one nonsense) gave **5
+expenses across 2 file ids**, both months present, every record `kind: "file"`,
+and the third named in a sheet on Data check. Two supplier files sharing
+*Coastal Foods* gave **3 suppliers, not 4**. The multi-file processing screen
+reads *Reading your files… · Opening 2 files · Adding your suppliers*.
+
+### 17 September 2026 — Screen 8 asks, rather than assuming
+
+**Product owner:** ask whether they want to create their first order or look at
+their business control tower, where they see what FoodBridge found in their data.
+For now that button goes to the dashboard; the control tower comes later and the
+navigation changes then.
+
+Screen 8 had one way on — *Create first order* — and an informational card
+saying how many things were ready. Someone who has just watched FoodBridge read
+their whole business may well want to see what it found before they order
+anything, and the screen never offered it.
+
+- The card's count moved into the subtitle: **11 things are ready. What would you
+  like to do first?** — the question the screen now actually asks.
+- Two choices, weighted the same, each with a line saying what it is:
+  **Create your first order** (*We've drafted one from your order history* — the
+  predictor has, so the line is true) and **Open your control tower** (*See what
+  FoodBridge found in your business*).
+- The footer CTA is gone with the single path. The choices are the actions.
+
+**The control tower does not exist yet, so that choice hands off to the
+dashboard** — `handoff("dashboard")`, the same route screen 11 uses. When the
+page is built, the one line at the end of `drawReady()` changes and nothing else.
+
+**Worth knowing before that page is built:** the dashboard it lands on is the
+existing module with its own seeded figures — *QA store*, ₹187,070.70 all-time —
+not the dataset this onboarding just imported. So the placeholder does not yet
+show the user their own findings, which is the whole promise of the row. The
+control tower will need the Dataset wired into it, not just a page.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: both rows render with
+their chevrons; *Create your first order* goes to screen 9 with the drafted
+order for Guwahati Dairy; *Open your control tower* lands on
+`index.html#/dashboard`, titled *Dashboard — FoodBridge*, and it renders. Every
+screen replayed from a restored session — all render, none throws.
+
+### 17 September 2026 — Screen 8's two ways on look like buttons
+
+**Product owner:** the two choices are not visually clear as things to click.
+
+They were right, and the cause was mine: I dressed the fork in the data
+manifest's clothes — white card, hairline border, small grey chevron. On screens
+5 and 6 those clothes mean *this is a record and a count*. Wearing them here made
+two actions read as two more rows of information. The chevron was the only hint
+and it was 13px of grey.
+
+They are buttons now, and the affordance is not in doubt:
+
+- **Create your first order** — the filled green CTA every other screen's primary
+  action uses.
+- **Open your control tower** — `.ob-cta.is-alt`, white with a green border and
+  green text. Deliberately *not* the existing `is-ghost`, whose grey reads as a
+  way out (Close, Cancel); this is a second way **on** and carries the colour to
+  say so.
+- What each one does moved **underneath** the button rather than inside it, so
+  the thing you press is a plain, unmistakable button and the explanation is
+  still there: *We've drafted one from your order history* · *See what FoodBridge
+  found in your business*.
+
+The hierarchy is deliberate. Two filled buttons of the same colour shout equally
+and decide nothing; two outlined ones offer no primary. Filled plus green-
+outlined reads as a real choice with a recommended first step, which is what this
+screen is.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: both render as buttons,
+*Create your first order* reaches screen 9 with the drafted order, *Open your
+control tower* lands on `index.html#/dashboard`.
+
+### 17 September 2026 — Create Order is Stock Audit's Create Order
+
+**Product owner:** the Create Order flow here should be exactly the one from
+Customer Management → Stock Audit. Refer to it and clone it. Two calls taken the
+same day, both asked and answered: **create the sales order but do not sync it to
+Zoho** — staged, updated and confirmed exactly as Stock Audit does, created in
+FoodBridge in the background, then on to this cut's *Order created* screen; and
+**drop the audit-only parts**.
+
+Screen 9 was onboarding's own: a customer card, an Add Items list, a total, one
+*Create order* button. It is now that screen's, structure and behaviour:
+
+| | |
+| --- | --- |
+| Working | *Preparing order…* under an indeterminate bar, while the engine runs |
+| Head | the customer, `N products · M units`, and a bar that fills as lines get quantities |
+| Body | product search opening the same dropdown, **Recommended** over the engine's lines, `qc-card` rows with the `pd-stepper` |
+| Remove | asks **in the row** — the stepper gives way to *Remove?* with ✓ / ✗ |
+| Foot | `+ Add Product` beside `Confirm Order`, which becomes *Confirm order? N products · M units* ✓ / ✗ — the same two-tap commit, in place |
+| Then | *Creating order…*, and screen 10 |
+
+- A product added by hand **starts at zero** and is the user's to set, as it does
+  there; the engine's own lines arrive at their recommended quantity.
+- Quantities are set **in place**, never through a re-render — the caret is not
+  lost mid-type. Only the head and the footer are refreshed.
+- Changing the customer **starts that customer's order**, so a new customer gets
+  their own recommendation rather than the last one's lines.
+- Leaving abandons the draft, as `exitOrderSheet()` does.
+
+**What is not cloned, and why.**
+
+- **No `FB_ZOHO.createSalesOrder()`.** Confirm creates the order in FoodBridge
+  and hands to screen 10. This flow can be driven by the sample channel, and a
+  real sales order in the live PMF org for a demonstration customer is not
+  something onboarding may raise. The two-tap confirm, the disabled *Creating
+  order…* state and the record are all still there; only the bridge call is not.
+- **No stock audit.** That screen is built on a completed shelf count — it feeds
+  the recommendation and the per-line stock. Onboarding never has one, so
+  `generatePredictiveOrder` is called with `latestCompletedAudit: null` and falls
+  back to order history, and the basis reads *From N orders* instead of the `i`
+  chip that would have explained a count that was never taken. No stock column is
+  drawn rather than drawn empty.
+- **No order-pick screen.** The customer is already chosen by the time this cut
+  reaches screen 9; the head's name opens the picker.
+
+**The CSS is a copy, and copies drift.** The screen's own 142 rules are lifted
+from `stock-audit.css` into
+[`order-stockaudit.css`](modules/foodbridge-onboarding/screens/order-stockaudit.css),
+scoped under `.ob-so` — that sheet names things `.info`, `.sub`, `.meta`,
+`.primary`, `.no`, `.yes`, generic enough to land on half this page if let loose,
+so its palette is redefined inside the scope too. `stock-audit.css` is mirrored
+across four cuts and **a change there will not reach here**; that is written at
+the top of the file.
+
+One bug caught in the extraction and worth recording: the first pass rebuilt the
+rules line by line, which silently dropped every selector part before the last on
+any multi-line selector — `.qc-row .ask, .qc-row .ci-btn { display: none }` came
+across as the `.ci-btn` half alone, so *Remove?* showed on every row. Selectors
+are collapsed before scoping now.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: the build screen renders
+with 9 recommended lines · 37 units; search for "chilli" opens the dropdown with
+14 matches; adding one puts it on top at quantity 0; the trash turns the row
+amber, hides the stepper and asks *Remove?*, and ✓ takes the list from 10 to 9;
+*Confirm Order* becomes *Confirm order? 9 products · 37 units*, and ✓ creates
+`FB-ORD-0001` for Guwahati Dairy, 37 items, on screen 10. No bridge call is made.
+
+### 17 September 2026 — The flow ends at Order created
+
+**Product owner:** make *Go to dashboard* the control tower, with the navigation.
+Delete the *Welcome to FoodBridge* screen.
+
+- Screen 10's action is now **Open your control tower** — the same label and the
+  same `handoff("dashboard")` screen 8 uses, so the one destination has one name.
+  It used to read *Go to dashboard* and go to screen 11, which then offered *Go
+  to FoodBridge* and did the handoff: two taps and two names for one exit.
+- **Screen 11 is gone.** `drawWelcome()`, its route, its two icons (`track`,
+  `grow`) and its styles (`.ob-feats3`, `.ob-f3*`) are removed. `HERO_STORE`
+  stays — the Order Drafts screen uses it for its empty state.
+- `restore()` maps a stored `"welcome"` to `created`, as it does `"staff"` to
+  `check`, so a session parked on the removed screen lands where the flow now
+  ends rather than falling through to the sign-up form.
+
+**The flow is nine screens**, against the board's eleven. Both departures are the
+product owner's, on the record here and in `README.md`.
+
+Verified at 402×714 and on the iPhone 16 Pro Simulator: the order confirms to
+*Order created · FB-ORD-0002 · Guwahati Dairy · 37 items* and its button lands on
+`index.html#/dashboard`. Every screen replayed from a restored session — all
+render, none throws, and `"welcome"` resolves to Order created (which redirects
+to the order screen when there is no order yet, as it always has).

@@ -39,6 +39,8 @@
   "use strict";
 
   const FILE_TYPES = ["orders", "customers", "products", "invoices"];
+  /* Read only when the kind is named -- never auto-detected. See classify(). */
+  const LEDGER_TYPES = ["creditNotes", "estimates", "purchaseOrders", "bills", "expenses", "suppliers"];
   /* S03's "Add later" items read two more kinds of paper. They are not offered
      on S02, whose type sheet stays the four above. */
   const EVIDENCE_TYPES = ["invoices", "payments", "costs"];
@@ -83,6 +85,13 @@
     payDate:    ["Payment Date", "Date", "Received Date", "Receipt Date"],
     paid:       ["Amount Received", "Amount", "Payment Amount", "Paid Amount", "Total"],
     cost:       ["Purchase Rate", "Purchase Price", "Cost Price", "Cost", "Unit Cost", "Buying Price", "Landing Cost"],
+    vendor:     ["Vendor Name", "Vendor", "Supplier Name", "Supplier", "Party Name", "Party", "Seller", "Company Name"],
+    docNumber:  ["Number", "Voucher No", "Voucher Number", "Reference", "Reference Number", "Ref No", "Document Number"],
+    poNumber:   ["Purchase Order Number", "PO Number", "PO No", "Purchaseorder Number", "Order Number"],
+    billNumber: ["Bill Number", "Bill No", "Bill#", "Invoice Number", "Invoice No"],
+    cnNumber:   ["Credit Note Number", "CreditNote Number", "Credit Note No", "CN No"],
+    qtNumber:   ["Quote Number", "Estimate Number", "Quotation Number", "Quote No", "Estimate No"],
+    account:    ["Account", "Account Name", "Expense Account", "Expense Head", "Head", "Category", "Expense Category"],
   };
 
   const SPECS = {
@@ -93,6 +102,23 @@
     invoices:  { need: ["invDate", "customer", "total"], want: ["invNumber", "balance", "dueDate", "status"] },
     payments:  { need: ["payDate", "customer", "paid"], want: [] },
     costs:     { need: ["itemName", "cost"], want: ["sku", "productId"] },
+    /* The ledger documents. All but expenses and suppliers are the same shape:
+       a date, the party it is with, and a total. */
+    creditNotes:    { need: ["invDate", "customer", "total"], want: ["cnNumber", "docNumber", "balance", "status"] },
+    estimates:      { need: ["invDate", "customer", "total"], want: ["qtNumber", "docNumber", "status"] },
+    purchaseOrders: { need: ["invDate", "vendor", "total"],   want: ["poNumber", "docNumber", "status"] },
+    bills:          { need: ["invDate", "vendor", "total"],   want: ["billNumber", "docNumber", "balance", "dueDate", "status"] },
+    expenses:       { need: ["invDate", "total"],             want: ["account", "docNumber", "status"] },
+    suppliers:      { need: ["vendor"],                       want: ["customerId"] },
+  };
+
+  /* type → which party column names it, and which number column is its own. */
+  const DOCS = {
+    creditNotes:    { party: "customer", field: "customerId", number: "cnNumber" },
+    estimates:      { party: "customer", field: "customerId", number: "qtNumber" },
+    purchaseOrders: { party: "vendor",   field: "vendorId",   number: "poNumber" },
+    bills:          { party: "vendor",   field: "vendorId",   number: "billNumber" },
+    expenses:       { party: null,       field: null,         number: "docNumber" },
   };
 
   /* Find the header row: the first of the opening rows that carries every
@@ -250,6 +276,29 @@
         if (!date) { skips.add("unreadable_date"); continue; }
         if (amount === null) { skips.add("unreadable_amount"); continue; }
         records.push({ date: date, customer: customer, amount: amount, row: line });
+      } else if (DOCS[type]) {
+        const d = DOCS[type];
+        const date = parseDate(cell(row, "invDate"));
+        const party = d.party ? text(row, d.party) : "";
+        const total = num(cell(row, "total"));
+        if ((d.party && !party) || cell(row, "total") === "") { skips.add("missing_value"); continue; }
+        if (!date) { skips.add("unreadable_date"); continue; }
+        if (total === null) { skips.add("unreadable_amount"); continue; }
+        const doc = { date: date, total: total, row: line };
+        if (d.party) doc.party = party;
+        const no = text(row, d.number) || text(row, "docNumber");
+        if (no) doc.number = no;
+        const bal = at.balance === undefined ? null : num(cell(row, "balance"));
+        if (bal !== null) doc.balance = bal;
+        const due = parseDate(cell(row, "dueDate"));
+        if (due) doc.dueDate = due;
+        if (text(row, "status")) doc.status = text(row, "status");
+        if (text(row, "account")) doc.account = text(row, "account");
+        records.push(doc);
+      } else if (type === "suppliers") {
+        const name = text(row, "vendor");
+        if (!name) { skips.add("missing_value"); continue; }
+        records.push({ name: name, extId: text(row, "customerId") || undefined, row: line });
       } else if (type === "costs") {
         const name = text(row, "itemName");
         const cost = num(cell(row, "cost"));
@@ -504,9 +553,10 @@
      hold several). */
   async function readFile(file, type) {
     const auto = type == null;
-    const tags = Array.isArray(type) ? type.filter(function (t) { return FILE_TYPES.indexOf(t) !== -1 || EVIDENCE_TYPES.indexOf(t) !== -1; }) : null;
+    const known = function (t) { return FILE_TYPES.indexOf(t) !== -1 || EVIDENCE_TYPES.indexOf(t) !== -1 || LEDGER_TYPES.indexOf(t) !== -1; };
+    const tags = Array.isArray(type) ? type.filter(known) : null;
     if (tags && !tags.length) return { ok: false, reason: "no_records" };
-    if (!auto && !tags && FILE_TYPES.indexOf(type) === -1 && EVIDENCE_TYPES.indexOf(type) === -1) return { ok: false, reason: "no_records" };
+    if (!auto && !tags && !known(type)) return { ok: false, reason: "no_records" };
     const name = String(file && file.name || "").toLowerCase();
     const ext = (/\.([a-z0-9]+)$/.exec(name) || [])[1] || "";
     if (file.size > MAX_BYTES) return { ok: false, reason: "too_large" };
@@ -705,6 +755,27 @@
   };
   const xcontact = function (r) { return r.Contact && r.Contact.ContactID; };
   const APPS = {
+    /* The explore-only channel (S02, 17 Sep 2026). Its records are the
+       demonstration tenant's, so they get their OWN kind and prefix: an
+       unregistered app falls back to "zoho" below, which would stamp every
+       sample record as though it had been read from the user's Zoho Books.
+       It carries no evidence modules -- nothing here was read from an account. */
+    sample: {
+      label: "Sample data", prefix: "s",
+      /* Built by sample-business.js, so every module keys on a plain `id`. */
+      idOf: { invoices: "id", customerpayments: "id", creditnotes: "id", estimates: "id",
+              purchaseorders: "id", bills: "id", expenses: "id", vendors: "id" },
+      shapes: {
+        invoices: function (r, h) { return { customerId: h.customer(r.customerId), number: r.number, date: r.date, dueDate: r.dueDate, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        customerpayments: function (r, h) { return { customerId: h.customer(r.customerId), date: r.date, amount: h.money(r.amount), mode: r.mode }; },
+        creditnotes: function (r, h) { return { customerId: h.customer(r.customerId), date: r.date, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        estimates: function (r, h) { return { customerId: h.customer(r.customerId), date: r.date, total: h.money(r.total), status: r.status }; },
+        purchaseorders: function (r, h) { return { vendorId: h.vendor(r.vendorId), date: r.date, total: h.money(r.total), status: r.status }; },
+        bills: function (r, h) { return { vendorId: h.vendor(r.vendorId), date: r.date, dueDate: r.dueDate, total: h.money(r.total), balance: h.money(r.balance), status: r.status }; },
+        expenses: function (r, h) { return { date: r.date, total: h.money(r.total), account: r.account, status: r.status }; },
+        vendors: function (r) { return { name: r.name }; },
+      },
+    },
     zoho: {
       label: "Your Zoho Books", prefix: "z",
       idOf: { invoices: "invoice_id", customerpayments: "payment_id", creditnotes: "creditnote_id",
@@ -1047,7 +1118,7 @@
   }
 
   const fromZoho = fromApp;   // the name the first provider gave it
-  const API = { FILE_TYPES, EVIDENCE_TYPES, APPS, addEvidence, MAX_BYTES, readFile, classify, parseCsv, parseXlsx, extract, parseDate, fromFiles, fromApp, fromZoho, toEngine };
+  const API = { FILE_TYPES, EVIDENCE_TYPES, LEDGER_TYPES, APPS, addEvidence, MAX_BYTES, readFile, classify, parseCsv, parseXlsx, extract, parseDate, fromFiles, fromApp, fromZoho, toEngine };
   root.FB_DATASET = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

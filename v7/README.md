@@ -33,12 +33,38 @@ when demoing.
 
 ## The flow
 
-The eleven screens of the product owner's onboarding board,
+The product owner's onboarding board,
 [`ux/target/onboarding-target.jpg`](ux/target/onboarding-target.jpg), in its
 order: Sign Up → Where is your data? → Connect your account → Importing →
-Data found → Data check → Staff → Ready → Create order → Order created → You're
-ready. The image is the UI; what sits behind each screen, and what is real, is in
+Data found → Data check → Ready → Create order → Order created.
+The image is the UI; what sits behind each screen, and what is real, is in
 the last entry of [`VERSION.md`](VERSION.md).
+
+**Nine screens, not the board's eleven.** Two were removed on 17 September 2026:
+*Staff*, and the feature with it — nothing in this cut collects people or roles —
+and *You're ready*, the wordmark screen that followed *Order created*. The flow
+now ends at *Order created*, whose action opens the control tower. Both are
+deliberate departures from the image — see `VERSION.md`.
+
+**Create Order is Customer Management → Stock Audit's Create Order**, cloned:
+its head, its search, its recommended lines and steppers, its in-row remove and
+its two-tap confirm. It creates the order in FoodBridge and does **not** sync to
+Zoho.
+
+*Where is your data?* offers a fourth live channel, **Sample data**, added after
+the board: it skips *Connect your account* and runs the demonstration tenant's
+records through the same import, so someone who only came to look is not stopped
+on that screen. It is its own source throughout — nothing labels it as read from
+a connected account — and after screen 2 the flow does not mark it. The tenant's
+export stops at customers, products and orders, so the other collections —
+suppliers, invoices, payments, credit notes, quotes, purchase orders, bills,
+expenses — are **derived from it** by
+[`sample-business.js`](modules/foodbridge-onboarding/screens/sample-business.js),
+deterministically and with its pricing rule written down. *Data found* then lists
+every collection the channel returned, whichever channel it was, and *Data check*
+sorts them into **must have** (sales orders, products, customers — what the
+reorder engine reads) and **can add later** (everything else), offering a file or
+the sample business on any row that is empty. Continue is never disabled.
 
 Real: the Zoho Books sign-in and read (through the bridge), Excel/CSV read in the
 browser, the reorder engine. Held in this browser only: the account, the staff
