@@ -71,7 +71,8 @@ test("the sign-in asks Xero for read scopes only, no offline access, and signs t
   const st = signState(cfg.sealCfg, { r: "http://localhost:8017/#/onboarding", n: "abcdefghijklmnop", p: "xero" }, ENV);
   const u = new URL(authorizeUrl(cfg, st));
   assert.equal(u.pathname, "/identity/connect/authorize");
-  assert.equal(u.searchParams.get("scope"), "accounting.contacts.read accounting.settings.read accounting.transactions.read");
+  assert.equal(u.searchParams.get("scope"), "accounting.contacts.read accounting.settings.read accounting.invoices.read accounting.payments.read",
+    "the granular scopes: a Web app made after March 2026 has no accounting.transactions.read");
   assert.ok(!/offline_access/.test(u.searchParams.get("scope")));
   assert.equal(u.searchParams.get("redirect_uri"), "http://localhost:8787/api/xero/callback");
   assert.equal(verifyState(cfg.sealCfg, u.searchParams.get("state"), ENV).p, "xero");

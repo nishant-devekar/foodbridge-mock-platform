@@ -41,10 +41,13 @@ export function config(env = process.env) {
   };
 }
 
-/* Read scopes only. contacts: customers and suppliers; settings: items and the
-   organisation; transactions: invoices, payments, credit notes, quotes and
-   purchase orders. No offline_access: nothing to keep, nothing to leak. */
-export const XERO_SCOPES = ["accounting.contacts.read", "accounting.settings.read", "accounting.transactions.read"].join(" ");
+/* Read scopes only, the GRANULAR ones: every Web app since March 2026 gets
+   these and not the broad accounting.transactions.read. contacts: customers
+   and suppliers; settings: items and the organisation; invoices: invoices,
+   credit notes, quotes and purchase orders; payments: payments. No
+   offline_access: nothing to keep, nothing to leak. */
+export const XERO_SCOPES = ["accounting.contacts.read", "accounting.settings.read",
+                            "accounting.invoices.read", "accounting.payments.read"].join(" ");
 
 export const ORDER_WINDOW_DAYS = 730;
 const PAGE = 100;                                   // Xero's page size
