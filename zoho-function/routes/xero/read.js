@@ -1,5 +1,5 @@
 /* POST /api/xero/read { c, org, what, page?, ids? } — one chunk of the read (see api/zoho/read.js). */
-import { cors, json, readBody } from "../_http.js";
+import { cors, json, readBody } from "../../api/_http.js";
 import { config, connection, readChunk, ReadError, note } from "../../xero.js";
 
 const TENANT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

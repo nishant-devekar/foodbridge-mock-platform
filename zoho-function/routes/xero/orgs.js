@@ -1,5 +1,5 @@
 /* POST /api/xero/orgs { c } → { organizations:[{id,name}] } — the Xero organisations this sign-in can see. */
-import { cors, json, readBody } from "../_http.js";
+import { cors, json, readBody } from "../../api/_http.js";
 import { config, connection, organisations, ReadError, note } from "../../xero.js";
 
 export default async function handler(req, res) {

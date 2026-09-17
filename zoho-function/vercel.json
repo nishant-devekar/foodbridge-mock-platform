@@ -1,4 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/zoho/:action", "destination": "/api/zoho?action=:action" },
+    { "source": "/api/xero/:action", "destination": "/api/xero?action=:action" }
+  ]
 }

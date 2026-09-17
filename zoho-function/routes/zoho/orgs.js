@@ -1,7 +1,7 @@
 /* POST /api/zoho/orgs { c } → { organizations:[{id,name}] }
    The Zoho Books businesses this sign-in can see. */
 
-import { cors, json, readBody } from "../_http.js";
+import { cors, json, readBody } from "../../api/_http.js";
 import { config } from "../../zoho.js";
 import { unseal, organisations, ReadError } from "../../onboarding.js";
 import { note } from "../../onboarding.js";

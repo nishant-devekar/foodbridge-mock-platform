@@ -1,5 +1,5 @@
 /* GET /api/xero/ready — can "Connect Xero" start at all? (see api/zoho/ready.js) */
-import { cors, json } from "../_http.js";
+import { cors, json } from "../../api/_http.js";
 import { config } from "../../xero.js";
 
 export default function handler(req, res) {

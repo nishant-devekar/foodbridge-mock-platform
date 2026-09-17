@@ -7,7 +7,7 @@
      200 { ready:true }
      503 { ready:false, reason:"not_configured" } */
 
-import { cors, json } from "../_http.js";
+import { cors, json } from "../../api/_http.js";
 import { config } from "../../zoho.js";
 
 export default function handler(req, res) {
