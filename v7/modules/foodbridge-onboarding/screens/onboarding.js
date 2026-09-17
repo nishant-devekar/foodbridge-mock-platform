@@ -215,6 +215,9 @@
   const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const STORE_KEY = "fb.v7.flow";
   const ACCOUNT_KEY = "fb.v7.account";
+  /* A guest is a session, not an account: its own key, in sessionStorage, so
+     looking around never overwrites the account already on this device. */
+  const GUEST_KEY = "fb.v7.guest";
   const ORDERS_KEY = "fb.v7.orders";
   const OAUTH_KEY = "fb.v7.zoho.pending";
   const PROGRESS = { source: 1, connect: 2, import: 2, found: 3, check: 3, ready: 3 };
@@ -249,10 +252,12 @@
       v.dataReady = withoutRaw(v.dataReady); v.parts = [];
       ls.set(STORE_KEY, v, sessionStorage);
     }
-    if (state.account) ls.set(ACCOUNT_KEY, state.account);
+    if (state.account) ls.set(state.account.guest ? GUEST_KEY : ACCOUNT_KEY, state.account, state.account.guest ? sessionStorage : undefined);
   }
   function restore() {
-    state.account = ls.get(ACCOUNT_KEY);
+    /* A guest session belongs to this tab and wins there; the account on the
+       device is untouched, and comes back the moment they log in. */
+    state.account = ls.get(GUEST_KEY, sessionStorage) || ls.get(ACCOUNT_KEY);
     if (!state.account) return;
     const v = ls.get(STORE_KEY, sessionStorage);
     if (!v) { state.screen = "source"; return; }
@@ -562,7 +567,7 @@
     const wrap = function (k, html) { return '<div class="ob-fwrap">' + html + '<p class="ob-hint" id="h-' + k + '" aria-live="polite"></p></div>'; };
     render(
       chrome("signup", { wordmark: true }) +
-      '<main class="ob-main">' +
+      '<main class="ob-main is-s01">' +
         '<h1 class="ob-h1 is-center s01-h">Create your account</h1>' +
         '<p class="ob-sub is-center s01-sub">Let’s get your business on FoodBridge</p>' +
         '<form class="ob-fields" id="signup" novalidate>' +
@@ -577,8 +582,14 @@
         '<footer class="ob-foot is-inline">' +
           '<button class="ob-cta" id="b-create" aria-describedby="create-note">Create account</button>' +
           '<p class="ob-sr" id="create-note">Enter your full name and phone number to continue.</p>' +
-          '<p class="ob-terms">By continuing, you agree to our<br><button class="ob-tlink" id="b-terms">Terms of Use</button> &amp; <button class="ob-tlink" id="b-privacy">Privacy Policy</button></p>' +
+          /* The foot of this screen reads top to bottom as: the two ways on for
+             a new person, then the way back for someone who has been here
+             before, then the legal line. Loudest first, quietest last, and the
+             two ways ON sit together as one choice rather than as two lines
+             separated by a paragraph about Terms. */
+          '<p class="ob-guest-line">or <button class="ob-tlink is-g" id="b-guest">Continue as guest</button></p>' +
           '<p class="ob-login">Already have an account? <button class="ob-tlink is-g" id="b-login">Log in</button></p>' +
+          '<p class="ob-terms">By continuing, you agree to our<br><button class="ob-tlink" id="b-terms">Terms of Use</button> &amp; <button class="ob-tlink" id="b-privacy">Privacy Policy</button></p>' +
         "</footer>" +
       "</main>"
     );
@@ -641,10 +652,28 @@
     $("#b-terms").addEventListener("click", function () { openDocSheet("Terms of Use"); });
     $("#b-privacy").addEventListener("click", function () { openDocSheet("Privacy Policy"); });
     $("#b-login").addEventListener("click", openLogin);
+    $("#b-guest").addEventListener("click", function () { startGuest(); });
+  }
+
+  /* Nothing is asked for, and nothing already on this device is touched.
+     Where it lands depends on which screen asked: from sign-up, a guest is a
+     new person, so they start the flow at S02. From the Log in sheet they are
+     someone trying to get into the app, so they land in it — `to: "dashboard"`. */
+  function startGuest(o) {
+    o = o || {};
+    state.account = { guest: true, name: "", business: "", mobile: "", gstin: "", gstVerified: false, gst: null,
+                      createdAt: new Date().toISOString() };
+    state.dataReady = null; state.parts = []; state.order = null; state.created = null;
+    state.sheet = null;
+    if (o.to === "dashboard") { state.screen = "source"; save(); return handoff("dashboard"); }
+    go("source");
   }
 
   function createAccount() {
     const f = state.form;
+    /* A guest who signs up keeps what they already imported: the account is
+       new, the work behind it is not. */
+    const wasGuest = !!(state.account && state.account.guest);
     state.account = {
       name: f.name.trim().replace(/\s+/g, " "), business: String(f.business || "").trim().replace(/\s+/g, " "),
       mobile: "+91 " + cleanPhone(f.mobile), gstin: gstValue(), gstVerified: gstVerified(),
@@ -652,7 +681,8 @@
       createdAt: new Date().toISOString(),
     };
     // The person signing up is the first member of the team, as screen 7 shows.
-    state.dataReady = null; state.parts = []; state.order = null; state.created = null;
+    if (!wasGuest) { state.dataReady = null; state.parts = []; state.order = null; state.created = null; }
+    ls.del(GUEST_KEY, sessionStorage);
     go("source");
   }
 
@@ -672,7 +702,8 @@
       body: '<div class="ob-fields is-sheet">' +
           field("lphone", "Phone number", ICON.phone, "", { type: "tel", mode: "numeric", auto: "tel-national", enter: "go", max: 14, prefix: "+91" }) +
         '</div><p class="ob-err" id="l-err" hidden></p>',
-      actions: '<button class="ob-cta" id="s-login">Log in</button>',
+      actions: '<button class="ob-cta" id="s-login">Log in</button>' +
+        '<p class="ob-guest-line">or <button class="ob-tlink is-g" id="s-guest">Continue as guest</button></p>',
       bind: function () {
         $("#s-login").addEventListener("click", function () {
           const acc = ls.get(ACCOUNT_KEY);
@@ -682,11 +713,19 @@
             e.textContent = typed.length !== 10 ? "Enter your 10-digit mobile number." : "No account with this number on this device. Create one instead.";
             return;
           }
+          /* Logging in ends the guest session, so restore() reads the account
+             rather than the guest sitting in front of it. */
+          ls.del(GUEST_KEY, sessionStorage);
           restore();
           state.sheet = null;
           if (state.screen === "signup") state.screen = "source";
-          save(); draw();
+          /* Someone logging in is coming back to the app, not to onboarding:
+             their flow state is saved first, so opening onboarding again picks
+             up where they left it. */
+          save();
+          handoff("dashboard");
         });
+        $("#s-guest").addEventListener("click", function () { startGuest({ to: "dashboard" }); });
       },
     });
   }
@@ -2104,7 +2143,7 @@
        at once, so the return from a sign-in never replays it. */
     if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]obreset/.test(location.search)) {
       [ACCOUNT_KEY, ORDERS_KEY].forEach(function (k) { ls.del(k); });
-      [STORE_KEY, OAUTH_KEY].forEach(function (k) { ls.del(k, sessionStorage); });
+      [STORE_KEY, OAUTH_KEY, GUEST_KEY].forEach(function (k) { ls.del(k, sessionStorage); });
       const u = new URL(location.href); u.searchParams.delete("obreset");
       history.replaceState(null, "", u.pathname + u.search + u.hash);
     }

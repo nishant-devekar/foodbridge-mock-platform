@@ -1829,3 +1829,41 @@ Verified at 402×714 and on the iPhone 16 Pro Simulator: the order confirms to
 `index.html#/dashboard`. Every screen replayed from a restored session — all
 render, none throws, and `"welcome"` resolves to Order created (which redirects
 to the order screen when there is no order yet, as it always has).
+
+### 18 September 2026 — Continue as guest, and the foot of screen 1
+
+**Product owner:** nobody should have to hand over a name and a number before
+they can see what FoodBridge does — a small option, not a redesign.
+
+**Screen 1** carries one line under *Create account*: **or Continue as guest**,
+and the **Log in** sheet carries the same line under its button.
+
+**A guest is a session, not an account.** An account object with `guest: true`,
+no name and no number, held in `sessionStorage` under `fb.v7.guest` — its own
+key, so looking around on a shared phone never overwrites the account already
+in `fb.v7.account`. `restore()` prefers a live guest session, so a tab that is
+exploring stays exploring and the account comes back the moment somebody logs
+in (which deletes the guest session first). Every screen after sign-up treats a
+guest as an account, because to them it is one. `createAccount()` now clears the
+imported data only for someone who was *not* already a guest: a guest who signs
+up keeps what they set up.
+
+**Where each way in lands.** From sign-up, a guest is a new person, so they
+start the flow at S02. From the Log in sheet both buttons go to the app —
+*Log in* saves the restored flow state and then `handoff("dashboard")`, so
+reopening onboarding still resumes where that account left off, and *Continue as
+guest* goes straight there.
+
+**The foot of screen 1 was four centred lines at one weight**, with the Terms
+sentence sitting between two actions. It now reads loudest to quietest: the
+button with the guest line tucked under it (one choice), the returning user's
+*Log in* line apart and a step quieter, then the legal line last — smallest,
+muted, under a hairline, taking the leftover height so it rests on the bottom of
+the screen instead of ending in mid air. On a screen too short for that the
+`auto` margin collapses and the login line's own margin holds the gap (checked
+at 375×560).
+
+Verified at 375×812 on the running v7: both guest links start a session and land
+where they should, logging in with the stored number reaches the dashboard, a
+wrong number still errors inside the sheet, and starting a guest left
+`fb.v7.account` untouched. No console errors.

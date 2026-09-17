@@ -697,10 +697,31 @@ button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor:
 .ob-eye { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; margin-right: -.9rem; padding: 0; border: 0; background: none; color: #3a3e45; cursor: pointer; }
 .ob-eye > svg { width: 1.15rem; height: 1.15rem; }
 .ob-err { margin: .7rem .45rem 0; font-size: .76rem; line-height: 1.15rem; color: var(--red); }
-.ob-terms { margin: .75rem 0 0; text-align: center; font-size: .76rem; line-height: 1.2rem; color: #5b606a; }
+/* Last and quietest, under a hairline: the legal line is not an action, and on
+   this screen it used to sit between two of them. It takes the leftover height
+   so it rests on the bottom of the screen — the foot of screen 1 ended in mid
+   air, with the empty half of the screen below it. On a screen too short for
+   that (the keyboard open), `auto` collapses and the padding holds. */
+.ob-terms { margin: 1.5rem 0 0; padding-top: 1.15rem; border-top: 1px solid var(--line-2); text-align: center; font-size: .74rem; line-height: 1.15rem; color: var(--muted); }
+/* The inline footer carries the bottom padding here, so main does not pay it
+   twice and leave the legal line floating two gaps above the edge. */
+.ob-main.is-s01 { display: flex; flex-direction: column; padding-bottom: 0; }
+.ob-main.is-s01 > .ob-foot { display: flex; flex-direction: column; flex: 1 1 auto; }
+.ob-main.is-s01 .ob-terms { margin-top: auto; }
+/* auto collapses to nothing on a short screen, so the gap above the rule is
+   the login line's own margin, which no leftover height can take away. */
+.ob-main.is-s01 .ob-login { margin-bottom: 1.3rem; }
 .ob-tlink { padding: .2rem 0; border: 0; background: none; cursor: pointer; font-family: var(--font); font-size: inherit; color: #2e7d53; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #9fcdb3; }
 .ob-tlink.is-g { color: var(--g); font-weight: 600; text-decoration: none; margin-left: 1rem; min-height: 44px; }
-.ob-login { margin: 1.1rem 0 0; text-align: center; font-size: .86rem; font-weight: 500; color: var(--ink-2); }
+/* The returning user's line: a different task from the two above it, so it
+   stands apart from them and sits a step quieter. */
+.ob-login { margin: 1.6rem 0 0; text-align: center; font-size: .82rem; font-weight: 500; color: var(--sub); }
+/* The guest link: the other way past screen 1, and out of the Log in sheet.
+   It sits right under the button it is an alternative to — close enough to read
+   as the second half of one choice, with `or` carrying the fork. */
+.ob-guest-line { margin: .7rem 0 0; text-align: center; font-size: .82rem; line-height: 1.2rem; color: var(--muted); }
+.ob-guest-line .ob-tlink { margin-left: .1rem; min-height: 44px; }
+.ob-sheet-f .ob-guest-line { margin-top: .5rem; }
 .ob-fields.is-sheet { margin: .2rem 0 0; }
 .ob-busy { display: flex; align-items: center; gap: .6rem; }
 
