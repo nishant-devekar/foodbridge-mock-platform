@@ -163,7 +163,7 @@
           "_why": "The destination onboarding hands prepared drafts to. Same module as onboarding under ?view=drafts, so it reads the record the flow wrote rather than a second copy of it.",
           "id": "order-drafts",
           "name": "Order Drafts",
-          "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts",
+          "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts&v=20260917F15",
           "clipLeft": 0,
           "fullBleed": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -352,7 +352,7 @@
     {
       "id": "onboarding",
       "name": "New user onboarding",
-      "url": "modules/foodbridge-onboarding/screens/onboarding.html",
+      "url": "modules/foodbridge-onboarding/screens/onboarding.html?v=20260917F15",
       "clipLeft": 0,
       "fullBleed": true,
       "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

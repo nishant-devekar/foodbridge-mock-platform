@@ -1,7 +1,9 @@
 # FoodBridge mock platform — Version 7
 
-**Opened 16 September 2026.** New-user onboarding: five primary screens and nine
-contextual sheets. **A working cut — this is where onboarding work lands now.**
+**Opened 16 September 2026.** New-user onboarding. **Since 17 September 2026 it
+is the eleven screens of the product owner's onboarding board**
+(`ux/target/onboarding-target.jpg`) — see the last entry in the log. **A working
+cut — this is where onboarding work lands now.**
 
 Its starting bytes came from `exagon-ai/foodbridge-pmf`, `versions/v5`, release
 `5.2`, commit `ae311d3`. That is where it *came from*, not where it lives.
@@ -983,3 +985,161 @@ developer.xero.com) with `https://zoho-function-nu.vercel.app/api/xero/callback`
 as a redirect URI and its client id and secret in the bridge's environment —
 `deploy.sh` pushes them. Until then the live page's Xero row says *We couldn't
 reach Xero* (`/api/xero/ready` → `not_configured`), which is the truth.
+
+### 17 September 2026 — the UI flip: the image's eleven screens are the product
+
+**Product owner:** the attached onboarding board is the absolute UI source of
+truth — its screens, its sequence, its copy. Existing code, integrations and
+data are implementation resources, not UX constraints. Nothing absent from the
+image stays in the flow; nothing in it is dropped for want of a capability.
+
+**The flow is now exactly the board** (`ux/target/onboarding-target.jpg`):
+
+| # | Image screen | What sits behind it |
+| --- | --- | --- |
+| 1 | Sign Up | A local account: name, business, mobile, email, password (SHA-256, never stored plain), in `localStorage`. **There is no auth backend in this cut** — Terms and Privacy open a sheet saying they are not published yet; Log in checks the account on this device. |
+| 2 | Where is your data? | Tally · Zoho · Vyapar · Other · Files / Documents · I don't have any data |
+| 3 | Connect your `<X>` account | **Zoho:** the real OAuth sign-in and read through the bridge (unchanged). **Tally, Vyapar:** neither has a hosted API, so *Connect with Tally* opens the picker for their export files, read in the browser by `dataset.js`. Other and Files open the picker straight from screen 2. |
+| 4 | Importing your data | Five steps, each advanced by real work: connected → the read → `fromApp`/`fromFiles` → `toEngine` → saved. Back stops the read and keeps nothing. |
+| 5 | Data found | Real counts: products, customers, suppliers (Zoho vendors), staff. A kind with nothing is not drawn as 0. A file that could not be read is said in a sheet. |
+| 6 | Data check | Every kind, ✓ with its count or ! Missing. Missing products or customers can be added from a file right on the row. Skipped when nothing is missing. |
+| 7 | Quick setup (Staff) | The account holder as Admin, plus anyone added (sheet: name, role). Kept in this browser. |
+| 8 | Ready to order | How many of the four are really ready. |
+| 9 | Create order | Prefilled by `FB_PREDICT` for the shop most overdue; else that shop's last order. Real catalogue search; a price only where the source has one (Zoho item rate, or the user's own order-line amount) — otherwise no rupee figure and the total reads —. |
+| 10 | Order created | FB-ORD-000N, held in this browser (`fb.v7.orders`). Not written to Zoho: the onboarding sign-in is read-only. |
+| 11 | You're ready | Go to FoodBridge → the platform dashboard. |
+
+**Dropped from the flow because the image does not have them:** the GSTIN
+lookup on S01 (the bridge route stays), Connect-an-app / Upload-files as a
+choice, Xero (the bridge and reader stay), the provenance chip and sheet, S03's
+"Add later" evidence rows, S04's insight and "Why this matters", S05's brief,
+shop selection, draft preparation and the drafts sheets. `?view=drafts` (the
+Order Drafts destination in the shell) now lists the orders created here.
+
+**The visual system** (`onboarding.css`, rewritten): every value measured off the
+image. 1rem = 10 image px, with the root font size scaling the image's 220px
+column to the device (capped at 402px), so proportions hold at any width. Inter,
+the image's typeface, from `vendor/` — nothing loads from the network.
+Illustrations (confetti check, cloud read, clipboard, shop) and the Tally, Zoho
+and Vyapar marks are drawn as SVG to the image, not sliced.
+
+**How parity was checked:** every screen rendered in the iPhone 16 Pro Simulator
+(iOS 26.5, Safari), screenshotted with `simctl`, scaled to the image's 220px
+column and overlaid on the matching card (target red, render cyan) with a mean
+luminance diff. Final pass, full flow from a new account: 1 11.7 (empty) · 2
+8.8–17.9 · 3 19.0 · 4 10.6 · 5 25.2 · 6 22.9 · 7 9.9 · 8 10.3 · 10 13.5 · 11 15.6.
+What remains, and why it is not closable here:
+- **The image's content is example data.** 1,248 products, "Shree Kirana
+  Store", ₹1,960.00 — the render shows the real read, so rows, names and
+  counts differ by design.
+- **The image's cards are not one size.** Top-row cards are 418px tall, bottom-row
+  392px; Safari on the iPhone 16 Pro gives the page 714pt = 391 image px. So the
+  bottom CTA on screens 3, 5 and 6 sits ~27px higher than drawn; screens 7–11
+  overlay exactly.
+- **Screen 9 is drawn 362px wide** (the others 220). On a phone its lines put the
+  stepper and total under the product name; a real name would otherwise break one
+  word per line. Not pixel-comparable; structure and components match.
+- **Editable text is 16px**, not the image's 7.75 image px (≈14px): iOS zooms the
+  page on focus below 16px.
+
+**Found and fixed on the device while doing this:**
+- `100dvh` made every short screen 22pt taller than what Safari shows → `100svh`.
+- Returning from the sign-in to an unversioned `onboarding.html` loaded Safari's
+  stale cached copy — the old UI. The shell's onboarding URLs in `modules.json`
+  now carry `?v=`, and `index.html`'s token was bumped with them.
+- The keyboard offset added 44pt for Safari's accessory bar that iOS 26.5
+  already excludes, leaving a gap under every sheet → 0.
+- After sign-up Safari kept the page panned from the keyboard, opening screen 2
+  7px under the status bar → `go()` blurs and scrolls to top.
+- Chromium formats "Sept" where Safari formats "Sep" → month names pinned.
+
+**Dev-only hooks, localhost only:** `?fbmock=` (as before), `?obslow` (holds
+screen 4's steps long enough to photograph), `?obreset` (start as a new user;
+removes itself from the URL), `?obdebug` (prints the viewport the device gives).
+
+**Verified.** Simulator: the whole Zoho path through the stand-in (sign-up →
+consent round trip → import → found → check → staff sheet ×2 → ready → order
+prefilled by the engine → created → welcome → dashboard). Browser, with the
+**real** file reader (stand-ins off) and the test fixtures: validation errors,
+hashed account, log in (wrong and right password), no-data path, files with an
+ambiguous file asked about and an unreadable one reported, role change,
+create-order search/add/stepper, back and forward keeping the order, refresh
+mid-order restoring it, order stored; Zoho unreachable, denied, and a forged
+return with the wrong nonce refused. No console errors. Desktop: the phone
+column on a surface, standalone and inside the shell. Tests: dataset 22/22,
+bridge 75/75.
+
+**Not verified:** a real Zoho sign-in (needs the account owner; the redirect-URI
+blocker in the entry above still applies to the deployed bridge), and real Tally
+or Vyapar export files (no samples in the repo; the reader is the same one the
+fixtures exercise). `flows/` and `ux/FLOW-MAP.md` describe the previous flow and
+are now history, not the spec.
+
+### 17 September 2026 — Sign Up: four fields, GST verify back
+
+**Product owner:** screen 1 has only Full name, Phone number, Business name and
+GST number with Verify. Name and phone are required; the rest optional.
+
+- Email and password are gone. The local account is keyed by phone number, and
+  *Log in* asks for the phone number on this device.
+- **GST number** runs the real lookup again — the bridge's `/api/gstin`, the
+  credential server-side. Verify sits where the image drew the password's eye;
+  it enables at 15 characters. Only the control and the result repaint, so the
+  keyboard stays up while typing. A verdict belongs to the exact number asked
+  about. Found (legal name, trade name, status), not found, invalid format and
+  couldn't-reach each have their own result; none of them blocks Create account.
+- Verified on the iPhone 16 Pro Simulator against the local bridge: required
+  errors on name and phone only; the standard sample number returned "No
+  business registered under this GST number" from the live register.
+
+### 17 September 2026 — Sign Up: the button waits for what's required; errors that help
+
+**Product owner:** Create account stays disabled until the required details are
+in; take care of errors and help so the screen feels smooth.
+
+- **Order:** Full name → Phone number → Business name → GST number.
+- **Create account** is grey until the name and the phone number are right. A
+  tap on it is not a dead end: the missing fields turn red with a small shake,
+  each says what to do, and the cursor lands in the first one.
+- **Nothing is red while someone is still typing a field for the first time.**
+  A field is judged when they leave it or try to continue; after that it
+  re-judges on every keystroke, so a hint goes the moment the value is right. A
+  quiet green tick shows on each required field once it is right.
+- **Hints say what to do:** *Enter your full name* · *Use letters only* · *Enter
+  your 10-digit mobile number* · *Mobile numbers start with 6, 7, 8 or 9* ·
+  *Enter all 10 digits — 3 more to go* · *A GST number has 15 characters — 7 so
+  far. Leave it blank if you don't have one.* · *This isn't a valid GST number.
+  It looks like 27AAPFU0939F1ZV.* Business and GST fields show a grey
+  "Optional" help line while focused and empty.
+- **Typing is cleaned, never refused:** the phone keeps digits only behind a fixed
+  +91, and a pasted +91, dash, space or leading 0 is dropped (caret kept). The
+  GST number is uppercased to letters and digits.
+- **GST:** Verify enables only on a correctly formed number. An optional GST
+  number that is half-typed blocks Create account with its hint, rather than
+  saving a wrong number. "Found" offers *Use as business name* when that field
+  is empty.
+- **Phone already used on this device:** the hint says so with *Log in instead*.
+- Keyboard: Next moves field to field; Go on the GST number verifies it when it
+  is ready, otherwise tries to continue.
+
+Verified: every rule scripted in the browser; on the iPhone 16 Pro Simulator the
+tap on the disabled button, the hints, ticks and the button turning green.
+
+### 17 September 2026 — Where is your data: Zoho and Xero live; Tally and Vyapar coming soon
+
+**Product owner:** keep Tally and Vyapar, disabled, as Coming soon; Zoho and Xero
+are the active channels; remove Other and "I don't have any data".
+
+- Screen 2 is now **Zoho · Xero · Files / Documents** (live), then **Tally ·
+  Vyapar** as greyed rows with a *Coming soon* pill — not buttons, nothing
+  happens on a tap.
+- **Xero** is back as a channel, on the same screens as Zoho: *Connect your Xero
+  account* → the real OAuth sign-in through the bridge (`/api/xero/…`) → import →
+  counts. Its mark is `logos/xero.svg`. The sign-in, organisation choice, read
+  and every failure sentence now name the app they are about.
+- **Other** and **I don't have any data** are gone, with their paths (the
+  no-data route to Data check, the Tally/Vyapar export pickers).
+- Verified on the iPhone 16 Pro Simulator: the new list, and Xero through the
+  stand-in from Connect to Data found (86 products · 40 customers). A real Xero
+  sign-in still needs the Xero app's client id and secret in the bridge
+  environment (see the Xero entry above).

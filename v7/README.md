@@ -24,7 +24,7 @@ Or `./serve.sh` from this folder, or the `foodbridge-v7` config in
 [`.claude/launch.json`](../.claude/launch.json). Then open
 <http://localhost:8007/> — a bare URL opens onboarding, not the dashboard.
 
-**Use a phone viewport.** 375×812 is what it was designed and reviewed against.
+**Use a phone viewport.** It is validated on the iPhone 16 Pro Simulator (402pt); `?obreset` on localhost starts as a new user.
 
 **State persists per browser.** The flow keeps progress in `sessionStorage`, so a
 second run continues where the first stopped. Clear site data — or use a fresh
@@ -33,13 +33,17 @@ when demoing.
 
 ## The flow
 
-`Business profile → where your data is → what we received → your business → the
-opportunity`, ending in 16 prepared draft reorders. Five screens, nine sheets.
+The eleven screens of the product owner's onboarding board,
+[`ux/target/onboarding-target.jpg`](ux/target/onboarding-target.jpg), in its
+order: Sign Up → Where is your data? → Connect your account → Importing →
+Data found → Data check → Staff → Ready → Create order → Order created → You're
+ready. The image is the UI; what sits behind each screen, and what is real, is in
+the last entry of [`VERSION.md`](VERSION.md).
 
-Everything behind it is **simulated** — the connection, the extraction, the GST
-lookup, the draft preparation. Nothing is sent to a shop and nothing is written to
-an accounting system, and the product says so where it matters rather than in a
-footnote. The order history it reasons from is real, and so is the reorder engine.
+Real: the Zoho Books sign-in and read (through the bridge), Excel/CSV read in the
+browser, the reorder engine. Held in this browser only: the account, the staff
+list and the orders created — this cut has no backend for them, and nothing is
+written to Zoho.
 
 ## Before you change it
 

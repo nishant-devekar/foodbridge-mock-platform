@@ -2,68 +2,50 @@
 <!--
   FOODBRIDGE v7 — NEW USER ONBOARDING
 
-  Five primary screens and nine contextual sheets, plus ONE destination: the
-  drafts the flow prepares are held at #/sales-orders/order-drafts, which is
-  this same page under ?view=drafts. The canonical UX is ux/FLOW-MAP.md; the
-  four rules it was built under are in VERSION.md and argued in context/.
+  The eleven screens of ux/target/onboarding-target.jpg, in its order. The image
+  is the UI; the capabilities behind each screen are listed at the top of
+  onboarding.js and in ../../../VERSION.md (17 Sep 2026, the UI flip).
 
-  Reached at #/onboarding — STANDALONE and FULL-BLEED. The user is ALREADY
-  AUTHENTICATED when they arrive: no signup, no password, no terms.
+  LOAD ORDER MATTERS:
+    icons.js, integration-config.js   the bridge to call (?fbapi= points it)
+    predictive-order.js   window.FB_PREDICT — prefills Create order
+    dataset.js            window.FB_DATASET — files and Zoho records → Dataset
+    evidence.js           window.FB_EVIDENCE — which shop is overdue
+    readers.js            window.FB_READERS — the real Zoho and file readers, and
+                          the guard deciding whether dev stand-ins may load
+    [dev only]            order-history.js + seed.inline.js + readers-mock.js,
+                          written in ONLY on localhost with ?fbmock=…
+    onboarding.js         the screens
 
-  S02 BRINGS IN THE USER'S OWN DATA, and nothing else.
-  Two real paths end in one hand-off (DataReady, see dataset.js):
-    Connect an app   Zoho Books: a real sign-in and a read-only read, through
-                     the bridge. "Connected" only after a genuine return.
-    Upload files     Excel and CSV, read in this browser. Each file says what
-                     it holds from its own columns (a workbook can hold several
-                     kinds); FoodBridge asks only when a file cannot. A result
-                     per file, in business words.
-  S03 onward sees only that hand-off. There is no demonstration business in
-  the flow, and no global data for it to fall back to.
-
-  LOAD ORDER MATTERS and is not incidental:
-    icons.js            window.FB_ICONS
-    integration-config.js window.FB_INTEGRATION — which bridge to call. Same
-                        resolver the Stock Audit screen uses, so ?fbapi= points
-                        both at one place.
-    predictive-order.js window.FB_PREDICT — the back-tested reorder engine
-    dataset.js          window.FB_DATASET — files and Zoho records → Dataset
-    evidence.js         window.FB_EVIDENCE — what the Dataset can support
-    readers.js          window.FB_READERS — the real Zoho and file readers,
-                        and the guard that decides whether dev stand-ins may
-                        load at all
-    [dev only]          order-history.js + seed.inline.js + readers-mock.js,
-                        written in ONLY when readers.js allows it: localhost
-                        and ?fbmock=… . Never on a published host.
-    onboarding.js       the screens, the sheets, the drafts destination
-  See ../../../VERSION.md.
+  Linked with ?v= from assets/modules.json: Safari otherwise serves a stale copy
+  of this page on the way back from the Zoho sign-in.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Welcome to FoodBridge</title>
-<link rel="stylesheet" href="onboarding.css?v=20260917X01">
+<link rel="stylesheet" href="onboarding.css?v=20260917F15">
 </head>
 <body>
   <div class="ob-app"><div id="ob-root"></div></div>
 
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260917X01"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260917X01"></script>
-  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260917X01"></script>
-  <script src="dataset.js?v=20260917X01"></script>
-  <script src="evidence.js?v=20260917X01"></script>
-  <script src="readers.js?v=20260917X01"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260917F15"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260917F15"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260917F15"></script>
+  <script src="dataset.js?v=20260917F15"></script>
+  <script src="evidence.js?v=20260917F15"></script>
+  <script src="readers.js?v=20260917F15"></script>
   <script>
     /* Development stand-ins, and the demonstration records they serve. Written
        in only when readers.js's guard is satisfied; see readers.js. */
     if (window.FB_READERS && window.FB_READERS.mock.active) {
-      document.write('<script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260917X01"><\/script>' +
-                     '<script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260917X01"><\/script>' +
-                     '<script src="readers-mock.js?v=20260917X01"><\/script>');
+      document.write('<script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260917F15"><\/script>' +
+                     '<script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20260917F15"><\/script>' +
+                     '<script src="readers-mock.js?v=20260917F15"><\/script>');
     }
   </script>
-  <script src="onboarding.js?v=20260917X01"></script>
+  <script src="onboarding.js?v=20260917F15"></script>
   <script>window.FB_ONBOARDING.mount();</script>
 </body>
 </html>

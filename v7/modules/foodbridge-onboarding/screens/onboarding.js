@@ -1,65 +1,35 @@
 /* ==========================================================================
-   ONBOARDING — five locked screens, nine contextual sheets, one small router.
+   ONBOARDING — the image's eleven screens, in the image's order.
 
-   Draws O-001's locked UX under the Production UX Contract recorded as D-018.
-   ux/FLOW-MAP.md is canonical; nothing here adds to it. The four rules the
-   flow was built under are in ../../../VERSION.md, argued in ../../../context/.
+   17 Sep 2026, the UI flip. The product owner's onboarding board
+   (ux/target/onboarding-target.jpg) is the product UI: its screens, its
+   sequence, its copy. What this cut already had — the Zoho sign-in and read
+   through the bridge, the in-browser Excel/CSV reader, the dataset
+   normaliser, the reorder engine — is the capability layer behind it, never a
+   screen of its own.
 
-     F01 Business profile          S01
-     S02-A How do you want to bring…   S02   Connect an app · Upload files
-     S02-C Connect an app                      Zoho Books | Xero → CONSENT SHEET → the app
-     S02-S Reading your <app>                  SYSTEM — real progress, Stop
-     S02-F Add your business files             each file says what it holds; a result per file
-           DataReady                           the one hand-off to S03 (dataset.js)
-     F08 What we received          S03   CONDITIONAL, two shapes
-     F09 try again?                      FAILURE — a cause and a way out
-     F10 enough to say anything?         the floor, re-evaluated after each read
-     F11 add evidence?                   ADD-EVIDENCE SHEET
-     F12 Your business             S04   one dominant message, one action
-     F13 start here, or not now?         a decision, on the screen they are on
-     F14 into FoodBridge                 SYSTEM — the handoff
-     F15 The opportunity           S05   brief -> choose -> prepared
-     F16 which shops?                    SHOP SHEET for detail
-     F17 repeat a last order?            a fact, offered to the stale seven
-     F18 prepare the drafts              SYSTEM — cancellable
-     F19 prepare these drafts?           CONFIRM SHEET
-     F20 Drafts prepared           S05
-     F21 review them now?                DRAFTS SHEET
+      1  Sign Up                  name + phone (required), business + GST number
+                                  (optional, a real lookup via /api/gstin); a local
+                                  account (there is no auth backend)
+      2  Where is your data?      Zoho · Xero · Files / Documents live;
+                                  Tally · Vyapar shown as Coming soon
+      3  Connect your <X> account Zoho or Xero: a real OAuth sign-in through the bridge
+                                  Tally, Vyapar: their export files, read here
+      4  Importing your data      the real read, step by step
+      5  Data found               real counts from what was read
+      6  Data check               what was not found; skipped when nothing is
+      7  Quick setup (Staff)      the team, kept in this browser
+      8  Ready to order           how many of the four are ready
+      9  Create order             a real customer and real products, prefilled
+                                  from the reorder engine where it can predict
+     10  Order created            the order FoodBridge holds
+     11  You're ready             into FoodBridge
 
-   ── THE CONTRACT, AND WHERE IT LIVES IN THIS FILE ────────────────────────
-     C1  initiation      openSheet() before any read; runOp() only from a
-                         named gesture inside it
-     C2  progress        runOp() steps carry real record counts as they finish
-     C3  cancellation    runOp({onCancel}) — every operation, no exceptions
-     C4  failure         fail() — a cause and two ways out, never a dead end
-     C5  retry           fail()'s "Try again" re-runs the SAME op from scratch
-     C6  provenance      provenanceChip() on every screen after S02, naming the
-                         user's own source; a new source replaces, after asking
-     C7  persistence     save()/restore() — DataReady, read files, CONFIRMED drafts
-     C8  navigation      goBack() closes a sheet before it leaves a screen,
-                         and asks before discarding unconfirmed work
-     C9  completion      drawS05Prepared() reports held / sent / written
-     C10 placement       primary screens carry state, decision, action. Every
-                         explanation in this file is inside a sheet.
-
-   ── WHAT IS REAL ─────────────────────────────────────────────────────────
-     Zoho Books, Xero     a real sign-in and a read-only read, through the
-                          bridge (zoho-function/onboarding.js, xero.js)
-     Excel and CSV files  read in this browser by dataset.js; not uploaded
-     window.FB_PREDICT    the back-tested reorder engine
-     window.FB_EVIDENCE   the evidence layer
-     window.FB_ICONS      the product's lucide icon set
-
-   S03 onward sees ONLY the Dataset S02 handed over, through engine(). There is
-   no demonstration business in this flow and no global it can fall back to.
-   Development stand-ins for both readers exist (readers-mock.js) and are
-   reachable only on localhost with ?fbmock=…; see readers.js.
-
-   Drafts are real in the browser: prepared, held, editable, and reachable
-   afterwards at #/sales-orders/order-drafts. Sent to nobody, written nowhere.
-
-   Receivables, collections, overdue value, capital tied and margin need
-   evidence this flow does not read, and are ABSENT — not zeroed, not greyed.
+   REAL: Zoho Books sign-in and read (zoho-function/onboarding.js), Excel and
+   CSV read in this browser (dataset.js), FB_PREDICT. Dev stand-ins for both
+   readers exist only on localhost with ?fbmock=… (readers.js guards it).
+   HELD IN THIS BROWSER, and said nowhere to be anything else: the account,
+   the staff list and the orders created — this cut has no backend for them.
    ========================================================================== */
 
 (function () {
@@ -69,3013 +39,1474 @@
   const $$ = (sel, root) => Array.prototype.slice.call((root || document).querySelectorAll(sel));
   const esc = (s) => String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const RD = function () { return window.FB_READERS; };
 
-  /* The product's own icon set, plus a few drawn to the same lucide
-     conventions it documents — 24x24, stroke 2, round caps, no fill. */
-  const I = window.FB_ICONS || {};
-  const lu = (d, size) =>
+  /* ── icons: lucide geometry, 24 grid ─────────────────────────────────── */
+  const lu = (d, size, sw) =>
     '<svg xmlns="http://www.w3.org/2000/svg" width="' + (size || 20) + '" height="' + (size || 20) +
-    '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-    'stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>";
-
+    '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) + '" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
   const ICON = {
-    building: lu('<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/>'),
-    user: lu('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
-    phone: lu('<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>'),
-    mail: lu('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>'),
-    badge: lu('<path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/>'),
-    chev: lu('<path d="m9 18 6-6-6-6"/>', 18),
     back: lu('<path d="m15 18-6-6 6-6"/>', 22),
-    close: lu('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 20),
-    check: lu('<path d="M20 6 9 17l-5-5"/>', 18),
-    checkBig: lu('<path d="M20 6 9 17l-5-5"/>', 30),
-    plug: lu('<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>'),
-    shield: lu('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/>', 18),
-    lock: lu('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', 18),
-    flask: lu('<path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/>', 20),
-    /* One mark per source, so the list reads as real choices rather than four
-       rows of the same glyph. UI tints and generic marks — no third-party
-       logo is reproduced. */
-    db: lu('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>', 22),
-    cloud: lu('<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>', 22),
-    store: lu('<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/>', 22),
-    doc: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M10 13h4"/><path d="M10 17h4"/>', 22),
-    files: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/>'),
-    upload: lu('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>', 16),
-    camera: lu('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/>', 16),
-    uploadBig: lu('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>', 22),
+    arrowLeft: lu('<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>', 22),
+    chev: lu('<path d="m9 18 6-6-6-6"/>', 18),
     chevDown: lu('<path d="m6 9 6 6 6-6"/>', 16),
-    plusCircle: lu('<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>', 18),
-    alert: lu('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>', 18),
-    clock: lu('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 18),
-    repeat: lu('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>', 18),
-    box: I.Package ? null : lu('<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>'),
+    close: lu('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 20),
+    check: lu('<path d="M20 6 9 17l-5-5"/>', 18, 2.4),
+    tickSm: lu('<path d="M20 6 9 17l-5-5"/>', 14, 3.2),
+    user: lu('<circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/>', 20, 1.6),
+    doc: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/>', 20, 1.6),
+    docDash: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M10 15h4"/>', 20, 1.6),
+    phone: lu('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>', 20, 1.6),
+    mail: lu('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>', 20, 1.6),
+    lock: lu('<rect width="16" height="11" x="4" y="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><path d="M12 15v2"/>', 20, 1.6),
+    eye: lu('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', 20, 1.6),
+    eyeOff: lu('<path d="M9.9 4.24A9 9 0 0 1 12 4c6.5 0 10 8 10 8a18 18 0 0 1-2.16 3.19"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>', 20, 1.6),
+    folder: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.3l2 2h8.7A1.5 1.5 0 0 1 21 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5Z" fill="#dfe3ea" stroke="#5b6270" stroke-width="1.5"/><path d="M3 10h18" stroke="#5b6270" stroke-width="1.5"/></svg>',
+    pkg: lu('<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/>'),
+    users: lu('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    person: lu('<circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1Z"/>'),
+    staff: lu('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>'),
+    alertCircle: lu('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 18),
+    info: lu('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>', 18),
+    search: lu('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 18),
+    minus: lu('<path d="M5 12h14"/>', 16),
+    plus: lu('<path d="M5 12h14"/><path d="M12 5v14"/>', 16, 2.4),
+    trash: lu('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 16),
+    shieldCheck: lu('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>', 18),
+    lockFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Zm2 0h6V7a3 3 0 0 0-6 0Z"/><circle cx="12" cy="16" r="1.6" fill="#fff"/></svg>',
+    control: lu('<path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="m9 11 3 3L22 4"/>', 18),
+    /* Screen 3's marks are solid: a shield, a lock, a turning arrow. */
+    shieldFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z" fill="currentColor"/><path d="m8.5 12.2 2.4 2.4 4.6-4.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    controlFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 12A8.5 8.5 0 1 1 15 4.05" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path d="M13.5 1.6 18.4 4l-3 4.4z" fill="currentColor"/><path d="m8.6 12.3 2.4 2.4 4.4-4.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    orders: lu('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 12h6"/><path d="M9 16h6"/>', 22),
+    track: lu('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l4-5 3 3 3-4"/>', 22),
+    grow: lu('<path d="M3 20h18"/><path d="M6 16v-3"/><path d="M11 16v-6"/><path d="M16 16v-9"/><path d="m14 5 4-2 1 4"/>', 22),
   };
-  const iconProducts = I.Package || ICON.box;
-  const iconCustomers = I.Users || ICON.user;
-  const iconOrders = I.ShoppingCart || ICON.files;
-  const iconChart = I.LineChart || ICON.badge;
 
-  /* Onboarding is Steps 1-3. S04 and S05 are activation and carry no counter
-     (D-018) — a progress bar that never completes is a promise we break. */
-  const STEPS = { S01: 0, S02: 1, S03: 2 };
-  const STORE_KEY = "fb.v7.onboarding";
+  /* ── brand marks, drawn at the size screens 2 and 3 show them ────────── */
+  const MARK = {
+    tally: function (w) {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 30" width="' + w + '" height="' + Math.round(w * 30 / 64) + '" aria-label="Tally" role="img">' +
+        '<text x="3" y="21" font-family="Georgia, \'Times New Roman\', serif" font-style="italic" font-weight="700" font-size="22" letter-spacing="-.5" fill="#1a1a1a">Tally</text>' +
+        '<path d="M4 25.5c14-3.2 34-4 56-2.2" fill="none" stroke="#1a1a1a" stroke-width="2.3" stroke-linecap="round"/>' +
+        '<path d="M5 26.6c14-2.6 33-3.2 54-1.6" fill="none" stroke="#c62828" stroke-width="1" stroke-linecap="round"/></svg>';
+    },
+    zoho: function (w) {
+      const tile = function (x, col, ch, rot) {
+        return '<g transform="rotate(' + rot + " " + (x + 7) + ' 12)"><rect x="' + x + '" y="5" width="14" height="14" rx="2" fill="' + col + '"/>' +
+          '<text x="' + (x + 7) + '" y="16.3" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="11" fill="#fff">' + ch + "</text></g>";
+      };
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 24" width="' + w + '" height="' + Math.round(w * 24 / 64) + '" aria-label="Zoho" role="img">' +
+        tile(1, "#e42527", "Z", -8) + tile(17, "#089949", "O", 6) + tile(33, "#226db4", "H", -6) + tile(49, "#f9b21d", "O", 7) + "</svg>";
+    },
+    /* Vyapar's red and orange V, drawn to the image rather than its favicon's disc. */
+    /* Xero's own mark (logos/xero.svg, Simple Icons). */
+    xero: function (w) {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + (w >= 40 ? "0 0 64 30" : "17 0 30 30") + '" width="' + w + '" height="' + (w >= 40 ? Math.round(w * 30 / 64) : w) + '" aria-label="Xero" role="img">' +
+        '<g transform="translate(17 0) scale(1.25)"><path fill="#13B5EA" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.585 14.655c-1.485 0-2.69-1.206-2.69-2.689 0-1.485 1.207-2.691 2.69-2.691 1.485 0 2.69 1.207 2.69 2.691s-1.207 2.689-2.69 2.689zM7.53 14.644c-.099 0-.192-.041-.267-.116l-2.043-2.04-2.052 2.047c-.069.068-.16.108-.258.108-.202 0-.368-.166-.368-.368 0-.099.04-.191.111-.263l2.04-2.05-2.038-2.047c-.075-.069-.113-.162-.113-.261 0-.203.166-.366.368-.366.098 0 .188.037.258.105l2.055 2.048 2.048-2.045c.069-.071.162-.108.26-.108.211 0 .375.165.375.366 0 .098-.029.188-.104.258l-2.056 2.055 2.055 2.051c.068.069.104.16.104.258 0 .202-.165.368-.365.368h-.01zm8.017-4.591c-.796.101-.882.476-.882 1.404v2.787c0 .202-.165.366-.366.366-.203 0-.367-.165-.368-.366v-4.53c0-.204.16-.366.362-.366.166 0 .316.125.346.289.27-.209.6-.317.93-.317h.105c.195 0 .359.165.359.368 0 .201-.164.352-.375.359 0 0-.09 0-.164.008l.053-.002zm-3.091 2.205H8.625c0 .019.003.037.006.057.02.105.045.211.083.31.194.531.765 1.275 1.829 1.29.33-.003.631-.086.9-.229.21-.12.391-.271.525-.428.045-.058.09-.112.12-.168.18-.229.405-.186.54-.083.164.135.18.391.045.57l-.016.016c-.21.27-.435.495-.689.66-.255.164-.525.284-.811.345-.33.09-.645.104-.975.06-1.095-.135-2.01-.93-2.28-2.01-.06-.21-.09-.42-.09-.645 0-.855.421-1.695 1.125-2.205.885-.615 2.085-.66 3-.075.63.405 1.035 1.021 1.185 1.771.075.419-.21.794-.734.81l.068-.046zm6.129-2.223c-1.064 0-1.931.865-1.931 1.931 0 1.064.866 1.931 1.931 1.931s1.931-.867 1.931-1.931c0-1.065-.866-1.933-1.931-1.933v.002zm0 2.595c-.367 0-.666-.297-.666-.666 0-.367.3-.665.666-.665.367 0 .667.299.667.665 0 .369-.3.667-.667.666zm-8.04-2.603c-.91 0-1.672.623-1.886 1.466v.03h3.776c-.203-.855-.973-1.494-1.891-1.494v-.002z"/></g></svg>';
+    },
+    vyapar: function (w) {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="21 2 24 27" width="' + w + '" height="' + Math.round(w * 27 / 24) + '" aria-label="Vyapar" role="img">' +
+        '<path d="M22 3h22l-3.5 7H29.5l5.5 5-8 13z" fill="#ee2a2f"/><path d="M22 3h22l-3.5 7H26z" fill="#f7941d"/><path d="M26 10h14.5l-6 6z" fill="#c3161c" opacity=".55"/></svg>';
+    },
+  };
+
+  /* ── the image's illustrations, as SVG ───────────────────────────────── */
+  const CONFETTI = [
+    [22, 30, "#3b82f6", "x"], [58, 14, "#4f46e5", "d"], [96, 12, "#f59e0b", "d"], [87, 26, "#16a34a", "d"],
+    [39, 42, "#f59e0b", "c"], [117, 40, "#3b82f6", "c"], [14, 58, "#16a34a", "d"], [33, 66, "#f97316", "t"],
+    [106, 58, "#f59e0b", "d"], [124, 72, "#16a34a", "d"], [26, 86, "#3b82f6", "s"], [101, 83, "#f59e0b", "d"],
+    [41, 96, "#f97316", "d"], [79, 101, "#6366f1", "d"], [115, 88, "#3b82f6", "d"], [92, 42, "#f97316", "c"],
+  ];
+  function confetti(list, dy) {
+    return list.map(function (c) {
+      const x = c[0], y = c[1] + dy, col = c[2];
+      if (c[3] === "x") return '<path d="M' + (x - 2.5) + " " + (y - 2.5) + "l5 5M" + (x + 2.5) + " " + (y - 2.5) + 'l-5 5" stroke="' + col + '" stroke-width="1.8" stroke-linecap="round"/>';
+      if (c[3] === "c") return '<path d="M' + (x - 2.6) + " " + y + 'a2.6 2.6 0 1 1 3.4 2.4" fill="none" stroke="' + col + '" stroke-width="1.6" stroke-linecap="round"/>';
+      if (c[3] === "t") return '<path d="M' + x + " " + (y - 2.4) + 'l2.4 4h-4.8z" fill="' + col + '"/>';
+      if (c[3] === "s") return '<rect x="' + (x - 2) + '" y="' + (y - 2) + '" width="4" height="4" rx=".8" transform="rotate(35 ' + x + " " + y + ')" fill="' + col + '"/>';
+      return '<circle cx="' + x + '" cy="' + y + '" r="1.5" fill="' + col + '"/>';
+    }).join("");
+  }
+  function heroCheck(cls) {
+    /* The image scatters its confetti wider than the check: 150 by 90 around a
+       45px disc. */
+    const spread = CONFETTI.map(function (c) { return [65 + (c[0] - 65) * 1.3, 37 + (c[1] - 18 - 37) * 1.25, c[2], c[3]]; });
+    return '<div class="ob-hero is-check' + (cls ? " " + cls : "") + '" aria-hidden="true"><svg viewBox="-10 -8 150 90" xmlns="http://www.w3.org/2000/svg">' +
+      confetti(spread, 0) +
+      '<circle cx="65" cy="37" r="22.5" fill="#138c40"/>' +
+      '<path d="M55.5 37.5l6.5 6.5 13-13" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    "</svg></div>";
+  }
+  function heroCloud(markSvg) {
+    const tile = function (x, y, stroke, glyph) {
+      return '<rect x="' + x + '" y="' + y + '" width="26" height="26" rx="6" fill="#fff" stroke="' + stroke + '" stroke-width="1"/>' + glyph;
+    };
+    return '<div class="ob-hero is-cloud" aria-hidden="true"><svg viewBox="0 0 170 103" xmlns="http://www.w3.org/2000/svg">' +
+      '<defs><filter id="obsh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1" stdDeviation="1.4" flood-color="#0f172a" flood-opacity=".08"/></filter></defs>' +
+      '<circle cx="62" cy="6" r="1.4" fill="#e5e7eb"/><circle cx="118" cy="12" r="1.4" fill="#e5e7eb"/>' +
+      '<path d="M63 57h-2.5a12 12 0 0 1-1.4-23.9A20 20 0 0 1 97 25.5a14 14 0 0 1 14.5 17A8 8 0 0 1 109 57Z" fill="#fff" stroke="#d6d9de" stroke-width="1.2"/>' +
+      '<path d="M78 58c-2 8-8 11-14 14M83 58c0 7 3 12 1 17M92 58c3 6 8 9 14 12M88 58c1 6 5 9 6 16" fill="none" stroke="#d9dce1" stroke-width="1.1" stroke-linecap="round"/>' +
+      '<g transform="translate(70 31) scale(.5)">' + markSvg + "</g>" +
+      '<path d="M58 42H34" stroke="#8ec9a0" stroke-width="1.1"/><path d="M38 38.5 34 42l4 3.5" fill="none" stroke="#8ec9a0" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M111 42h24" stroke="#8ec9a0" stroke-width="1.1"/><path d="M131 38.5l4 3.5-4 3.5" fill="none" stroke="#8ec9a0" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<g filter="url(#obsh)">' +
+      tile(6, 29, "#f7caca", '<rect x="12" y="35" width="14" height="14" rx="1.5" fill="#dc2626"/><rect x="14.5" y="37.5" width="4" height="4" fill="#fff"/><path d="M20.5 38h3M20.5 40.5h3M14.5 44h9M14.5 46.5h6" stroke="#fff" stroke-width="1.2"/>') +
+      tile(138, 29, "#f8d7b5", '<path d="M144 38.5a1.5 1.5 0 0 1 1.5-1.5h4l1.8 2h7.2a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-13a1.5 1.5 0 0 1-1.5-1.5z" fill="#f59e0b"/><path d="M144 42h16" stroke="#d97706" stroke-width=".8"/>') +
+      tile(29, 67, "#c9dcf7", '<circle cx="42" cy="76.5" r="4.2" fill="none" stroke="#2563eb" stroke-width="2"/><path d="M34.8 88c.6-4.3 3.4-6.6 7.2-6.6s6.6 2.3 7.2 6.6z" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>') +
+      tile(115, 67, "#f8d7b5", '<rect x="121.5" y="72" width="13" height="16" rx="1" fill="#f97316"/><path d="M124 75.5h2M129.5 75.5h2M124 79h2M129.5 79h2M124 82.5h2M129.5 82.5h2" stroke="#fff" stroke-width="1.3"/>') +
+      "</g></svg></div>";
+  }
+  const HERO_CLIP =
+    '<div class="ob-hero is-clip" aria-hidden="true"><svg viewBox="0 0 106 104" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="52" cy="46" r="40" fill="#f1f3f8"/><ellipse cx="50" cy="93" rx="46" ry="3.2" fill="#e8eaf2"/>' +
+      '<path d="M8 8.5l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z M91 3l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z M4 74l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z M99 74l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z" fill="#e4e7f0"/>' +
+      '<rect x="18" y="10" width="62" height="82" rx="4" fill="#fff" stroke="#c9cff0" stroke-width="3.2"/>' +
+      '<rect x="36" y="5.5" width="26" height="9" rx="2.2" fill="#3b4258"/><circle cx="49" cy="4.5" r="3.4" fill="#3b4258"/><circle cx="49" cy="4.5" r="1.3" fill="#fff"/>' +
+      '<path d="M29 29l3.2 3.2L38 25.6" fill="none" stroke="#1d4ed8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M29 43.5l3.2 3.2L38 40M29 58l3.2 3.2L38 54.5M29 72.5l3.2 3.2L38 69" fill="none" stroke="#c6cbeb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M44 29h23M44 43.5h23M44 58h19M44 72.5h11" stroke="#cfd4ee" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<circle cx="80" cy="74" r="20" fill="#16913f"/><path d="M71.5 74.5l6 6 11.5-11.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' +
+    "</svg></div>";
+  const HERO_STORE =
+    '<div class="ob-hero is-store" aria-hidden="true"><svg viewBox="0 0 170 102" xmlns="http://www.w3.org/2000/svg">' +
+      confetti([[12, 8, "#3b82f6", "c"], [34, 18, "#a16207", "d"], [58, 26, "#3b82f6", "d"], [92, 26, "#16a34a", "d"], [131, 17, "#3b82f6", "d"],
+        [154, 9, "#f59e0b", "s"], [10, 34, "#3b82f6", "s"], [27, 44, "#3b82f6", "c"], [150, 30, "#3b82f6", "c"], [128, 36, "#f97316", "s"],
+        [20, 60, "#f59e0b", "s"], [140, 60, "#f59e0b", "c"], [11, 81, "#f59e0b", "s"], [52, 70, "#3b82f6", "d"], [128, 72, "#6366f1", "d"],
+        [155, 80, "#f59e0b", "c"], [150, 98, "#3b82f6", "d"]], 0) +
+      '<ellipse cx="86" cy="100" rx="56" ry="2.6" fill="#e3e6f1"/>' +
+      '<rect x="53" y="44" width="70" height="56" rx="3" fill="#c7cdf3"/><rect x="67" y="67" width="41" height="33" rx="2" fill="#3f4a78"/>' +
+      '<path d="M59 30h58l9 18H50z" fill="#8a96dd"/><path d="M66 30h44l4 18H62z" fill="#f4f5fb"/>' +
+      '<path d="M50 48h76v4a7 7 0 0 1-7 7 7 7 0 0 1-7-7 7 7 0 0 1-7 7 7 7 0 0 1-7-7 7 7 0 0 1-7 7 7 7 0 0 1-7-7 7 7 0 0 1-7 7 7 7 0 0 1-7-7 7 7 0 0 1-7 7 7 7 0 0 1-7-7z" fill="#dfe3f8"/>' +
+      '<path d="M50 48h12v4a6 6 0 0 1-12 0zM114 48h12v4a6 6 0 0 1-12 0z" fill="#6f7cd0"/>' +
+      '<rect x="37" y="79" width="22" height="21" rx="1.5" fill="#e9a352"/><rect x="42" y="68" width="14" height="12" rx="1.5" fill="#f0b566"/>' +
+      '<path d="M48 79v6M46.5 68v4" stroke="#c98533" stroke-width="1.4"/>' +
+      '<circle cx="118" cy="88" r="12.5" fill="#f59e0b" stroke="#fff" stroke-width="2.4"/>' +
+      '<path d="M112.5 88.5l3.8 3.8 7-7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    "</svg></div>";
+
+  /* ── sources, as screen 2 lists them ─────────────────────────────────── */
+  /* mode "app": a real sign-in through the bridge. mode "files": the app's own
+     export, read in this browser — neither Tally nor Vyapar offers a hosted
+     API, so their exports are the honest way in. */
+  const SOURCES = {
+    tally: { name: "Tally", mode: "files", mark: MARK.tally },
+    zoho: { name: "Zoho", mode: "app", app: "zoho", mark: MARK.zoho },
+    xero: { name: "Xero", mode: "app", app: "xero", mark: MARK.xero },
+    vyapar: { name: "Vyapar", mode: "files", mark: MARK.vyapar },
+    files: { name: "your files", mode: "files" },
+  };
+  const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const ROLES = ["Admin", "Sales", "Delivery", "Warehouse", "Accounts"];
+  const STORE_KEY = "fb.v7.flow";
+  const ACCOUNT_KEY = "fb.v7.account";
+  const ORDERS_KEY = "fb.v7.orders";
+  const OAUTH_KEY = "fb.v7.zoho.pending";
+  const PROGRESS = { source: 1, connect: 2, import: 2, found: 3, check: 3, staff: 3, ready: 3 };
 
   const state = {
-    screen: "S01",
-    view: "flow",          // "flow" | "drafts"  — the drafts destination
-    profile: { business: "", gstin: "" },
-    /* GSTIN verification is bound to a VALUE, never to a moment. `gstVerifiedFor`
-       is the exact string the provider was asked about and `gstResult` is what it
-       answered. Edit the field and the badge goes, because that string has not
-       been verified; edit it back and the answer returns from here without a
-       second lookup. `gstPhase` is only ever transient UI. */
-    gstVerifiedFor: "",
-    gstResult: null,       // { found, legalName?, tradeName?, status? }
-    gstPhase: "idle",      // idle | verifying | invalid | notfound | failed
-    gstSeq: 0,             // guards against a slow reply for an edited value
-    dataReady: null,       // S02's ONE hand-off: {provenance, readAt, dataset, notes}
-    engine: null,          // the engines' view of dataReady, derived, never stored
-    s02: "A",              // "A" how · "C" connect an app · "F" upload files
-    conn: idleConn(),      // the app sign-in and read in progress (Zoho Books or Xero), never persisted
-    files: [],             // [{id, name, type, status, reason, file, result}]
-    filesRun: null,        // the file read in progress
-    later: { files: [], run: null },  // S03 "Add later": files and photos chosen, and the read in progress
-    model: null,
-    opp: null,
-    parked: false,         // "Not now" — the opportunity is kept, not dropped
-    stage: "brief",        // S05: brief | choose | prepared
-    picked: {},            // shop id -> selected. NOTHING is pre-selected
-    repeats: {},           // stale shop id -> repeat their last order
-    drafts: null,          // CONFIRMED drafts. Persisted (C7)
-    undo: null,            // {drafts, label} — one step back from a discard
-    showAll: false,
-    showAllStale: false,
-    sheet: null,           // the open sheet, or null
-    op: null,              // the running operation, or null
+    screen: "signup",
+    view: "flow",
+    form: { name: "", business: "", mobile: "", gstin: "" },
+    errors: {},
+    account: null,
+    source: null,
+    conn: { phase: "idle", handle: null, org: null },
+    read: null,              // { done: steps finished, run: {stopped} }
+    dataReady: null,
+    parts: [],               // file parts, kept so an added file re-reads with them
+    staff: [],               // [{id, name, role}]
+    staffDone: false,
+    order: null,             // { customerId, customerName, lines: [{productId, name, qty, price, unit}], filter }
+    created: null,
+    sheet: null,
   };
 
-  /* The source, in the user's words. Only ever a real source: this flow has
-     no demonstration mode for a label to describe. */
-  function provenanceLabel() {
-    const dr = state.dataReady;
-    if (!dr) return "";
-    const extra = (dr.provenance.additions || []).length;
-    const more = extra ? " + " + extra + (extra === 1 ? " file" : " files") : "";
-    if (APPS[dr.provenance.kind]) return "Your " + APPS[dr.provenance.kind].name + " \u00b7 " + dr.provenance.org.name + more;
-    return "Your uploaded files" + more;
-  }
-
-  /* ------------------------------------------------------- C7 persistence */
-
-  /* Mode and CONFIRMED drafts only. An unconfirmed selection is deliberately
-     not persisted: resurrecting a choice somebody abandoned is the reload
-     behaving as if they had agreed to it. */
-  /* The whole Zoho records can be larger than the browser will keep for a tab.
-     When they are, the tab keeps the normalised Dataset without them rather
-     than keeping nothing -- the page itself still holds everything it read. */
-  function withoutRaw(dr) {
-    if (!dr) return dr;
-    return JSON.parse(JSON.stringify(dr, function (k, v) { return k === "raw" ? undefined : v; }));
-  }
-
+  /* ── storage ─────────────────────────────────────────────────────────── */
+  const ls = {
+    get: function (k, s) { try { const v = (s || localStorage).getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+    set: function (k, v, s) { try { (s || localStorage).setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    del: function (k, s) { try { (s || localStorage).removeItem(k); } catch (e) { /* blocked */ } },
+  };
+  function withoutRaw(dr) { return dr ? JSON.parse(JSON.stringify(dr, function (k, v) { return k === "raw" ? undefined : v; })) : dr; }
   function save() {
-    try { writeStore(state.dataReady); }
-    catch (e) {
-      try { writeStore(withoutRaw(state.dataReady)); } catch (e2) { /* storage blocked: the flow still works */ }
+    const v = { screen: state.screen, source: state.source, dataReady: state.dataReady, parts: state.parts,
+                staff: state.staff, staffDone: state.staffDone, order: state.order, created: state.created };
+    if (!ls.set(STORE_KEY, v, sessionStorage)) {
+      v.dataReady = withoutRaw(v.dataReady); v.parts = [];
+      ls.set(STORE_KEY, v, sessionStorage);
     }
+    if (state.account) ls.set(ACCOUNT_KEY, Object.assign({}, state.account, { staff: state.staff }));
   }
-
-  function writeStore(dataReady) {
-    {
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({
-        screen: state.screen,
-        s02: state.s02,
-        dataReady: dataReady,
-        /* Files the user READ, or tried to, survive a reload with their result.
-           Files only chosen do not: the browser cannot hand the file back, and
-           resurrecting an unconfirmed choice is the reload deciding for them. */
-        files: state.files.filter(function (f) { return f.status !== "new"; }).map(function (f) {
-          const busy = f.status === "waiting" || f.status === "reading";
-          return { id: f.id, name: f.name, tags: f.tags || null, choices: f.choices || null,
-                   status: busy ? "failed" : f.status, reason: busy ? "interrupted" : f.reason,
-                   result: f.status === "read" ? f.result : null };
-        }),
-        profile: state.profile,
-        gstVerifiedFor: state.gstVerifiedFor,
-        gstResult: state.gstResult,
-        parked: state.parked,
-        drafts: state.drafts,
-      }));
-    }
-  }
-
-  /* The drafts destination and the flow are two views of ONE record. Anything
-     that changes drafts writes through here so the other view is never stale. */
-  function readStore() {
-    try {
-      const raw = sessionStorage.getItem(STORE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-  }
-
   function restore() {
-    const v = readStore();
-    if (!v) return false;
-
-    /* What the user TYPED survives a reload whether or not they got further. */
-    state.profile = v.profile || state.profile;
-    state.gstVerifiedFor = v.gstVerifiedFor || "";
-    state.gstResult = v.gstResult || null;
-    state.s02 = v.s02 || "A";
-    state.files = (v.files || []).map(function (f) {
-      // a tab from before files said what they hold kept { records } under one type
-      if (f.type && !f.tags) { f.tags = [f.type]; delete f.type; }
-      if (f.result && f.result.records && !f.result.found) f.result = { found: [{ type: f.tags[0], records: f.result.records, skipped: f.result.skipped || [] }] };
-      // a read file that lost its records cannot be used; say so, keep it replaceable
-      if (f.status === "read" && !(f.result && f.result.found && f.result.found.length)) return Object.assign(f, { status: "failed", reason: "missing" });
-      return Object.assign(f, { file: null });
-    });
-    state.dataReady = v.dataReady || null;
-    state.parked = !!v.parked;
-
-    if (!state.dataReady) {
-      if (v.screen === "S02") { state.screen = "S02"; return true; }
-      return false;
-    }
-    if (v.drafts && v.drafts.list && v.drafts.list.length) {
-      state.drafts = v.drafts;
-      state.opp = buildOpportunity();
-      state.stage = "prepared";
-      state.screen = "S05";
-    } else if (v.screen === "S02" || v.screen === "S03" || v.screen === "S04") {
-      state.screen = v.screen;
-    } else {
-      state.model = buildModel();
-      state.screen = state.model.floor.met ? "S04" : "S03";
-    }
-    return true;
+    state.account = ls.get(ACCOUNT_KEY);
+    if (!state.account) return;
+    state.staff = state.account.staff || [{ id: "s1", name: state.account.name, role: "Admin" }];
+    const v = ls.get(STORE_KEY, sessionStorage);
+    if (!v) { state.screen = "source"; return; }
+    Object.assign(state, { source: v.source, dataReady: v.dataReady, parts: v.parts || [], staff: v.staff || state.staff,
+                           staffDone: !!v.staffDone, order: v.order, created: v.created });
+    // A read cannot survive a reload; it starts again from where it was started.
+    state.screen = v.screen === "import" ? (v.source === "files" ? "source" : "connect") : (v.screen || "source");
+    if (state.screen === "connect" && !(SOURCES[state.source] && SOURCES[state.source].mode === "app")) state.screen = "source";
+    if (state.screen === "signup") state.screen = "source";
   }
 
-  function forget() {
-    try { sessionStorage.removeItem(STORE_KEY); } catch (e) { /* as above */ }
-  }
-
-  /* ---------------------------------------------------------------- data */
-
-  /* The engines see the Dataset S02 handed over, and nothing else. Before a
-     hand-off there is nothing at all, which is what stops S03 and S04 from
-     showing anything a stray call could produce. */
-  const EMPTY_ENGINE = { seed: { products: [], b2b: [] }, history: {}, presence: { invoices: false, stockQuantities: false } };
-  function engine() {
-    if (!state.dataReady) return EMPTY_ENGINE;
-    return state.engine || (state.engine = window.FB_DATASET.toEngine(state.dataReady.dataset));
-  }
-
-  function buildModel() {
-    const e = engine();
-    return window.FB_EVIDENCE.build({ seed: e.seed, history: e.history, presence: e.presence, predict: window.FB_PREDICT });
-  }
-
-  function buildOpportunity() {
-    const e = engine();
-    return window.FB_EVIDENCE.missedOrders({ seed: e.seed, history: e.history, predict: window.FB_PREDICT });
-  }
-
-  /* S04's supporting rows are decided by the evidence, never fixed in the
-     markup. A signal with a count of zero is not drawn: there is nothing to
-     act on, and a "0" reads as a broken row rather than as good news. */
-  /* S04's supporting rows are decided by the evidence, never fixed in the
-     markup.
-
-     NN13 — "N shops ready for a reorder" is GONE. It was a second shop count
-     (32) beside the headline's (23), worded almost identically, derived
-     differently, and it supported no decision the screen was asking for. What
-     remains is a different dimension, not a rival count: stock, which bears
-     directly on whether a reorder can actually be filled. */
-  function supportingSignals(m) {
-    const s = m.signals || {};
-    const out = [];
-    if (s.stock_position && s.stock_position.outOfStock > 0) {
-      out.push({ id: "stock_position", icon: iconProducts,
-        /* The denominator is only the products whose stock the source supplied;
-           when some were not, the label says so rather than implying the
-           whole catalogue was counted. */
-        label: s.stock_position.outOfStock + " of " + s.stock_position.catalogue +
-               (s.stock_position.untracked ? " tracked" : "") + " products are out of stock",
-        n: s.stock_position.outOfStock, of: s.stock_position.catalogue });
-    }
-    return out;
-  }
-
-  /* ------------------------------------------------------------ plumbing */
-
-  /* A re-render is not a navigation. Opening a sheet, ticking a shop and
-     editing a quantity all go through render(), and scrolling the page to the
-     top on each of those threw the user back to the first of sixteen shops
-     every time they tapped one to look at it. The page only returns to the top
-     when the SCREEN actually changes. */
+  /* ── plumbing ────────────────────────────────────────────────────────── */
   let lastPlace = null;
   function render(html) {
-    const place = state.view + "/" + state.screen + "/" + (state.screen === "S05" ? state.stage : "");
-    const moved = place !== lastPlace;
+    const place = state.view + "/" + state.screen;
     const keep = window.scrollY;
     $("#ob-root").innerHTML = html + sheetHtml();
-    if (moved) { lastPlace = place; window.scrollTo(0, 0); }
-    else if (window.scrollY !== keep) { window.scrollTo(0, keep); }
-    bindSheet();
-    /* Chrome controls are bound in ONE place. Binding them per screen is how
-       the provenance chip ended up inert on every screen that forgot to. */
+    if (place !== lastPlace) { lastPlace = place; window.scrollTo(0, 0); }
+    else if (window.scrollY !== keep) window.scrollTo(0, keep);
     const back = $("#b-back");
     if (back) back.addEventListener("click", goBack);
-    const prov = $("#b-prov");
-    if (prov) prov.addEventListener("click", openProvenanceSheet);
+    bindSheet();
     applyScrollLock();
   }
-
-  /* Every move between screens is remembered, so a reload on S04 comes back to
-     S04 -- not to S02, which is where the data was last handed over. */
-  function go(screen) { state.screen = screen; if (state.dataReady) save(); draw(); }
-
-  /* C6 — provenance, on every screen after S02, and never ambiguous. It names
-     the user's own source and is a button, because "whose data am I looking
-     at?" has an answer, and that answer belongs in a sheet. */
-  function provenanceChip() {
-    const label = provenanceLabel();
-    if (!label) return "";
-    const kind = state.dataReady.provenance.kind;
-    return '<button class="ob-prov" id="b-prov">' + (APPS[kind] ? ICON.cloud : ICON.files) +
-           "<span>" + esc(label) + "</span></button>";
+  /* A new screen closes the keyboard first: iOS Safari otherwise keeps the page
+     panned where the field was, and the next screen opens shifted under the
+     status bar. */
+  function go(screen) {
+    const a = document.activeElement;
+    if (a && a !== document.body && a.blur) a.blur();
+    state.screen = screen; state.sheet = null; save(); draw();
+    window.scrollTo(0, 0);
   }
 
-  function readAtText(iso) {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + ", " +
-           d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
-  }
-
-  /* SHEET — what the chip means. */
-  function openProvenanceSheet() {
-    const dr = state.dataReady;
-    if (!dr) return;
-    const TL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
-    openSheet({
-      title: "Where this data comes from",
-      body: (APPS[dr.provenance.kind]
-        ? '<p class="ob-sheet-p">Read from your ' + esc(APPS[dr.provenance.kind].name) + ' \u00b7 ' + esc(dr.provenance.org.name) +
-            " on " + esc(readAtText(dr.readAt)) + ".</p>" +
-          '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT DIDN'T CHANGE</p>" +
-          '<ul class="ob-sheet-ul"><li>FoodBridge only read.</li><li>Nothing in ' + esc(APPS[dr.provenance.kind].name) + ' was changed.</li></ul>'
-        : '<p class="ob-sheet-p">Read from the files you added on ' + esc(readAtText(dr.readAt)) + ".</p>" +
-          '<div class="ob-reclist">' + dr.provenance.files.map(function (f) {
-            const kinds = (f.types || (f.type ? [f.type] : [])).map(function (t) { return TL[t] || t; }).join(" \u00b7 ");
-            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(f.name) + "</span>" +
-                   '<span class="ob-rec-b">' + esc(kinds) + "</span></div>";
-          }).join("") + "</div>") +
-        /* Added on S03 after the original read: each named, with how it came in. */
-        ((dr.provenance.additions || []).length
-          ? '<p class="ob-sheet-eyebrow">' + ICON.plusCircle + "ADDED AFTERWARDS</p>" +
-            '<div class="ob-reclist">' + dr.provenance.additions.map(function (f) {
-              return '<div class="ob-rec"><span class="ob-rec-a">' + esc(f.name) + "</span>" +
-                     '<span class="ob-rec-b">' + esc((LATER_TYPE_LABEL[f.type] || f.type) + (f.via === "photo" ? " \u00b7 photo" : "")) + "</span></div>";
-            }).join("") + "</div>"
-          : ""),
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>' +
-               '<button class="ob-skip" id="s-leave">Use different data</button>',
-      bind: function () {
-        $("#s-close").addEventListener("click", closeSheet);
-        $("#s-leave").addEventListener("click", function () {
-          state.sheet = null;
-          /* From the drafts destination this has to go back to the flow, not
-             re-render the destination it was opened from. */
-          if (state.view === "drafts") { state.s02 = "A"; state.screen = "S02"; save(); handoff("onboarding"); return; }
-          goS02("A");
-        });
-      },
-    });
-  }
-
-  function chrome(screen, opts) {
-    const o = opts || {};
-    const i = STEPS[screen];
-    /* S01 asks the user to describe their own business. Which source the flow
-       later read, or that it is demonstration data, is not true yet and is not
-       this screen's subject — so the chip is suppressed here unconditionally,
-       not merely absent on a first pass. Navigating BACK to S01 used to bring
-       it with you. */
-    const chip = screen === "S01" || screen === "S02" ? "" : provenanceChip();
-    let steps = "";
-    if (i !== undefined) {
-      let bars = "";
-      for (let k = 0; k < 3; k++) bars += '<i class="' + (k <= i ? "on" : "") + '"></i>';
-      /* The counter is scoped to SETUP. S04 and S05 are activation and carry
-         none: a bar that says "3 of 3" and is followed by two more screens is
-         a promise the flow breaks. Naming the phase keeps it honest. */
-      steps = '<span class="ob-brand-sep"></span><span class="ob-brand-step">Setup &#183; ' + (i + 1) + " of 3</span>";
-      steps += '</header><div class="ob-prog">' + bars + "</div>";
-    } else {
-      steps = "</header>";
+  function chrome(screen, o) {
+    o = o || {};
+    if (o.wordmark) return '<p class="ob-wordmark">Food<em>Bridge</em></p>';
+    if (o.title) {
+      return '<header class="ob-top is-titled"><button class="ob-back" id="b-back" aria-label="Back">' + ICON.back + "</button>" +
+        '<h1 class="ob-top-t">' + esc(o.title) + "</h1></header>";
     }
-    return '<header class="ob-brand">' +
-             '<span class="ob-word">Food<em>Bridge</em></span>' + steps +
-           (o.back || chip
-             ? '<div class="ob-navrow">' +
-               (o.back ? '<button class="ob-back" id="b-back" aria-label="Back">' + ICON.back + "</button>" : "<span></span>") +
-               chip + "</div>"
-             : "");
+    const i = PROGRESS[screen] || 0;
+    let bars = "";
+    for (let k = 0; k < 4; k++) bars += '<i class="' + (k < i ? "on" : "") + '"></i>';
+    return '<header class="ob-top"><button class="ob-back" id="b-back" aria-label="Back">' + ICON.arrowLeft + "</button>" +
+      '<div class="ob-prog" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="' + i + '">' + bars + "</div></header>";
   }
 
-  /* F14 — into FoodBridge. The handoff is to a destination that already
-     exists; onboarding does not reimplement the field tool. */
   function handoff(route) {
-    try {
-      if (window.top && window.top !== window.self) { window.top.location.hash = "#/" + route; return; }
-    } catch (e) { /* cross-origin parent: fall through */ }
+    try { if (window.top && window.top !== window.self) { window.top.location.hash = "#/" + route; return; } } catch (e) { /* cross-origin */ }
     window.location.href = "../../../index.html#/" + route;
   }
 
-  /* ----------------------------------------------------------- C10 sheets */
+  const plural = function (n, one, many) { return n.toLocaleString("en-IN") + " " + (n === 1 ? one : many); };
 
-  /* ONE sheet component, nine uses. A sheet is opened from a decision the
-     user is already making, returns to where it was opened from, and closes
-     on back, on Escape and on the backdrop. It is never a screen: the screen
-     underneath keeps its state and is not re-rendered. */
+  /* ── sheets: overlays on the screen they were opened from ────────────── */
   function openSheet(spec) { state.sheet = spec; draw(); }
-
-  function closeSheet() {
-    if (state.sheet && state.sheet.onClose) state.sheet.onClose();
-    state.sheet = null;
-    draw();
-  }
-
-  /* A sheet covers the screen, so the screen must stop scrolling under it.
-     Without this, dragging anywhere on the scrim scrolls the page behind —
-     the sheet stays put and the thing it was opened from slides away. The
-     scroll offset is held on the body so nothing jumps when it is released. */
-  let lockedAt = 0;
-  function applyScrollLock() {
-    const want = !!state.sheet;
-    const on = document.body.classList.contains("ob-locked");
-    if (want === on) return;
-    if (want) {
-      lockedAt = window.scrollY;
-      document.body.style.top = -lockedAt + "px";
-      document.body.classList.add("ob-locked");
-    } else {
-      document.body.classList.remove("ob-locked");
-      document.body.style.top = "";
-      window.scrollTo(0, lockedAt);
-    }
-  }
-
+  function closeSheet() { const s = state.sheet; state.sheet = null; if (s && s.onClose) s.onClose(); draw(); }
   function sheetHtml() {
     const s = state.sheet;
     if (!s) return "";
     return '<div class="ob-scrim" id="ob-scrim"></div>' +
       '<section class="ob-sheet" role="dialog" aria-modal="true" aria-label="' + esc(s.title) + '">' +
         '<div class="ob-sheet-grip"></div>' +
-        '<header class="ob-sheet-h">' +
-          "<h2>" + esc(s.title) + "</h2>" +
-          (s.count != null ? '<span class="ob-sheet-n">' + esc(s.count) + "</span>" : "") +
-          '<button class="ob-sheet-x" id="ob-sheet-x" aria-label="Close">' + ICON.close + "</button>" +
-        "</header>" +
+        '<header class="ob-sheet-h"><h2>' + esc(s.title) + "</h2>" +
+          (s.locked ? "" : '<button class="ob-sheet-x" id="ob-sheet-x" aria-label="Close">' + ICON.close + "</button>") + "</header>" +
         '<div class="ob-sheet-b">' + s.body + "</div>" +
         (s.actions ? '<footer class="ob-sheet-f">' + s.actions + "</footer>" : "") +
       "</section>";
   }
-
   function bindSheet() {
     if (!state.sheet) return;
     const x = $("#ob-sheet-x"), sc = $("#ob-scrim");
     if (x) x.addEventListener("click", closeSheet);
-    if (sc) sc.addEventListener("click", closeSheet);
+    if (sc && !state.sheet.locked) sc.addEventListener("click", closeSheet);
     if (state.sheet.bind) state.sheet.bind();
   }
+  let lockedAt = 0;
+  function applyScrollLock() {
+    const want = !!state.sheet, on = document.body.classList.contains("ob-locked");
+    if (want === on) return;
+    if (want) { lockedAt = window.scrollY; document.body.style.top = -lockedAt + "px"; document.body.classList.add("ob-locked"); }
+    else { document.body.classList.remove("ob-locked"); document.body.style.top = ""; window.scrollTo(0, lockedAt); }
+  }
 
-  /* C8 — back closes a sheet before it leaves a screen. */
   function goBack() {
-    if (state.sheet) { closeSheet(); return; }
-    if (state.view === "drafts") return;
-    if (state.screen === "S02") {
-      if (state.conn.phase === "reading") { stopAppRead(); return; }
-      if (state.s02 === "C") { state.conn = idleConn(); goS02("A"); return; }
-      if (state.s02 === "F") { leaveFiles(); return; }
-      go("S01");
-      return;
-    }
-    if (state.screen === "S03") { if (state.later.run) { stopLaterRead(); return; } goS02("A"); return; }
-    if (state.screen === "S04") { go("S03"); return; }
-    if (state.screen === "S05") {
-      if (state.stage === "choose") { confirmLeaveSelection(function () { state.stage = "brief"; draw(); }); return; }
-      if (state.stage === "prepared") { state.screen = "S04"; draw(); return; }
-      go("S04");
+    if (state.sheet) { if (!state.sheet.locked) closeSheet(); return; }
+    switch (state.screen) {
+      case "source": return go("signup");
+      case "connect": return go("source");
+      case "import": return stopImport();
+      case "found": return go("source");
+      case "check": return go(state.dataReady ? "found" : "source");
+      case "staff": return go(state.dataReady && !missingKinds().filter(function (k) { return k !== "staff"; }).length && state.staffDone ? "found" : "check");
+      case "ready": return go("staff");
+      case "order": return go("ready");
+      default: return;
     }
   }
 
-  function confirmLeaveSelection(then) {
-    if (!pickedCount() && !repeatCount()) { then(); return; }
-    openSheet({
-      title: "Discard your selection?",
-      body: '<p class="ob-sheet-p">' + (pickedCount() + repeatCount()) +
-            " shops are selected and no drafts have been prepared yet.</p>",
-      actions: '<button class="ob-cta is-warn" id="s-drop">Discard</button>' +
-               '<button class="ob-skip" id="s-keep">Keep choosing</button>',
-      bind: function () {
-        $("#s-drop").addEventListener("click", function () {
-          state.picked = {}; state.repeats = {}; state.sheet = null; then();
-        });
-        $("#s-keep").addEventListener("click", closeSheet);
-      },
-    });
+  /* ════════════════════════════════════════════════════════════════════
+     1 · SIGN UP
+     ════════════════════════════════════════════════════════════════════ */
+  function field(id, label, icon, value, o) {
+    o = o || {};
+    return '<div class="ob-field' + (state.errors[id] ? " is-bad" : "") + '" data-f="' + id + '">' + icon +
+      '<span class="ob-field-main"><label for="f-' + id + '">' + esc(label) + "</label>" +
+        '<span class="ob-field-row">' + (o.prefix ? '<span class="ob-prefix" aria-hidden="true">' + esc(o.prefix) + "</span>" : "") +
+        '<input id="f-' + id + '" name="' + id + '" value="' + esc(value) + '"' +
+          ' type="' + (o.type || "text") + '"' + (o.mode ? ' inputmode="' + o.mode + '"' : "") +
+          (o.auto ? ' autocomplete="' + o.auto + '"' : "") + ' autocorrect="off" spellcheck="false"' +
+          ' autocapitalize="' + (o.caps || "none") + '" enterkeyhint="' + (o.enter || "next") + '"' +
+          (o.max ? ' maxlength="' + o.max + '"' : "") + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : "") +
+          (o.hint ? ' aria-describedby="h-' + id + '"' : "") + "></span></span>" +
+      (o.end || "") + "</div>";
   }
 
-  /* ------------------------------------------ C1-C5 the operation runner */
+  /* ── Sign Up · the rules, and how they are told ────────────────────────────
+     17 Sep 2026, product owner: Create account stays disabled until the two
+     required fields are right; errors and help should feel effortless.
 
-  /* Every consequential operation in this flow goes through here, and there
-     is no other path to one. It cannot start without a caller, it shows what
-     it is doing from real counts as each step finishes, it can be stopped at
-     any point, and stopping it keeps nothing. */
-  function runOp(spec) {
-    state.op = { spec: spec, i: 0, timer: null, done: [], cancelled: false };
-    state.sheet = null;
-    drawOp();
-    tick();
-  }
-
-  function tick() {
-    const op = state.op;
-    if (!op || op.cancelled) return;
-    const steps = op.spec.steps;
-    if (op.i > 0) op.done.push(steps[op.i - 1]);
-    if (op.i >= steps.length) {
-      state.op = null;
-      op.spec.onDone();
-      return;
-    }
-    op.i += 1;
-    drawOp();
-    op.timer = setTimeout(tick, 850);
-  }
-
-  function cancelOp() {
-    const op = state.op;
-    if (!op) return;
-    op.cancelled = true;
-    if (op.timer) clearTimeout(op.timer);
-    state.op = null;
-    /* Nothing is kept. An operation stopped halfway has produced nothing the
-       user agreed to, so it produces nothing at all. */
-    op.spec.onCancel();
-  }
-
-  function drawOp() {
-    const op = state.op;
-    if (!op) return;
-    const steps = op.spec.steps;
-    render(
-      chrome(state.screen) +
-      '<main class="ob-main ob-main-op">' +
-        '<h1 class="ob-h1">' + esc(op.spec.title) + "</h1>" +
-        '<div class="ob-proc">' +
-          steps.map(function (st, i) {
-            const done = i < op.i - 1, active = i === op.i - 1;
-            return '<div class="ob-pstep ' + (done ? "is-done" : active ? "is-active" : "") + '">' +
-              '<span class="ob-pdot">' + (done ? ICON.check : active ? '<span class="ob-spin"></span>' : "") + "</span>" +
-              '<span class="ob-pt">' + esc(st.label) + "</span>" +
-              /* C2 — what it FOUND, from real record counts, the moment it
-                 finishes. A step that completes with nothing to show says so
-                 rather than leaving a tick to imply a result. */
-              (done ? '<span class="ob-pv">' + esc(st.found || "nothing") + "</span>" : "") +
-            "</div>";
-          }).join("") +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-skip" id="b-cancel">Cancel</button></footer>'
-    );
-    $("#b-cancel").addEventListener("click", cancelOp);
-  }
-
-  /* C4 — a failure is a state with a cause and a way out. Both of this flow's
-     failures (documents, and add-evidence) now report INSIDE the sheet the
-     user opened, so the screen they were on is never destroyed by one. There
-     is no longer a full-screen failure state, and nothing falls through into
-     a success screen. See documentsFailed() and openGapSheet().               */
-
-  /* ------------------------------------------------------------- S01 */
-
-  /* One row inside a grouped field set. The label sits above the value so a
-     filled field still says what it is — which is also why only GSTIN
-     carries a placeholder: its format is the one thing a label cannot say. */
-  function row(id, label, icon, value, extra) {
-    const e = extra || {};
-    return '<div class="ob-fr' + (e.ok ? " is-ok" : "") + '">' + icon +
-      '<span class="ob-fr-main"><label for="' + id + '">' + esc(label) + "</label>" +
-      '<input id="' + id + '" value="' + esc(value) + '" placeholder="' + esc(e.ph || "") + '"' +
-        (e.type ? ' inputmode="' + e.type + '"' : "") +
-        (e.locked ? " disabled" : "") +
-        (e.max ? ' maxlength="' + e.max + '"' : "") +
-        /* Never autocorrect what the user is telling us their business is
-           called. iOS turned "Miha Foods" into "Mina Foods" on the way in,
-           and nothing downstream could know it had been changed. */
-        ' autocorrect="off" spellcheck="false"' +
-        ' autocapitalize="' + (e.caps ? "characters" : "words") + '"' +
-        (e.enter ? ' enterkeyhint="' + e.enter + '"' : "") + "></span>" +
-      (e.trail || "") +
-    "</div>";
-  }
-
-  /* ── S01 · GSTIN verification ─────────────────────────────────────────────
-     The Verify action is a REAL external lookup through this repo's own bridge.
-     The browser never holds the provider credential and never calls the
-     provider: it asks `/api/gstin`, which authenticates server-side and returns
-     only what the register actually said.
-
-     The local grammar test below exists for ONE reason — so a malformed number
-     can be reported as malformed without spending a paid lookup on it, and so
-     "your number is wrong" stays a different sentence from "we could not
-     check". Passing it is never reported as verification. */
+     How it behaves:
+     - Nothing is red while someone is still typing a field for the first time.
+       A field is judged when they leave it, or when they try to continue.
+     - Once a field has been judged, it re-judges on every keystroke, so a
+       hint disappears the moment the value is right.
+     - Each hint sits under its own field, says what to do (not what went
+       wrong), and is read out (aria-live).
+     - Typing is cleaned as it happens: the phone number keeps digits only and
+       drops a pasted +91 or leading 0; the GST number is uppercased and keeps
+       letters and digits only. Nothing a person types is rejected silently.
+     - Tapping the disabled button is not a dead end: it points at what is
+       missing, with a nudge, and puts the cursor there. */
+  const SIGNUP_FIELDS = ["name", "mobile", "business", "gstin"];
+  const REQUIRED = ["name", "mobile"];
+  const touched = {};
   const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  const phoneKey = function (v) { return String(v || "").replace(/\D/g, "").slice(-10); };
 
-  function gstValue() { return state.profile.gstin.trim().toUpperCase(); }
-
-  /* Verified ⟺ the CURRENT value is the one the provider was asked about and
-     the answer was yes. Nothing else can produce this. */
-  function gstVerified() {
-    const g = gstValue();
-    return !!g && g === state.gstVerifiedFor && !!state.gstResult && state.gstResult.found === true;
+  function cleanPhone(v) {
+    let d = String(v || "").replace(/\D/g, "");
+    if (d.length > 10 && d.indexOf("91") === 0) d = d.slice(2);
+    if (d.length > 10 && d.charAt(0) === "0") d = d.slice(1);
+    if (d.length === 11 && d.charAt(0) === "0") d = d.slice(1);
+    return d.slice(0, 10);
   }
-  function gstActive() {
-    return !!state.gstResult && String(state.gstResult.status || "").toLowerCase() === "active";
-  }
+  function cleanGst(v) { return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 15); }
 
-  /* A verdict belongs to ONE value. A failure while looking up a different
-     number must not evict a good answer already held for this one, or the user
-     pays for a second lookup just because they typo'd in between. */
-  function forgetVerdictFor(g) {
-    if (state.gstVerifiedFor === g) {
-      state.gstVerifiedFor = "";
-      state.gstResult = null;
+  /* The message for a field, or "" when it is fine. `final` is true when the
+     person is trying to continue, so a half-typed optional field counts. */
+  function fieldProblem(k, final) {
+    const v = String(state.form[k] || "").trim();
+    if (k === "name") {
+      if (!v) return "Enter your full name";
+      if (!/^[\p{L}][\p{L}\p{M} .'\-]*$/u.test(v)) return "Use letters only — no numbers or symbols";
+      if (v.replace(/[^\p{L}]/gu, "").length < 2) return "Enter your full name";
+      return "";
     }
-  }
-
-  function apiBase() {
-    const cfg = window.FB_INTEGRATION || {};
-    return String(cfg.apiBaseUrl || "").replace(/\/+$/, "");
-  }
-
-  /* SYSTEM · the lookup. Cancellable only in the sense that a reply for a value
-     the user has since edited is discarded — `gstSeq` is the guard. */
-  function verifyGstin() {
-    const g = gstValue();
-    if (state.gstPhase === "verifying") return;          // one in flight, no queue
-
-    if (!GSTIN_RE.test(g)) {                              // local gate, no network
-      state.gstPhase = "invalid";
-      forgetVerdictFor(g);
-      return drawS01();
+    if (k === "mobile") {
+      if (!v) return "Enter your 10-digit mobile number";
+      if (!/^[6-9]/.test(v)) return "Mobile numbers start with 6, 7, 8 or 9";
+      if (v.length < 10) return "Enter all 10 digits — " + (10 - v.length) + " more to go";
+      const acc = ls.get(ACCOUNT_KEY);
+      if (acc && phoneKey(acc.mobile) === v) return "dup";
+      return "";
     }
-
-    const seq = ++state.gstSeq;
-    state.gstPhase = "verifying";
-    drawS01({ keepFocus: "f-gstin" });
-
-    const cfg = window.FB_INTEGRATION || {};
-    const url = apiBase() + "/api/gstin?gstin=" + encodeURIComponent(g);
-
-    fetch(url, { headers: cfg.apiKey ? { "X-FB-Key": cfg.apiKey } : {} })
-      .then(function (r) {
-        return r.json()
-          .catch(function () { return {}; })        // a 404 page is not JSON
-          .then(function (b) { return { ok: r.ok, status: r.status, body: b }; });
-      })
-      .then(function (out) {
-        if (seq !== state.gstSeq || gstValue() !== g) return;   // value moved on
-        const b = out.body || {};
-        if (out.ok && b.found === true) {
-          state.gstResult = b;
-          state.gstVerifiedFor = g;
-          state.gstPhase = "idle";
-        } else if (out.ok && b.found === false) {
-          forgetVerdictFor(g);
-          state.gstPhase = "notfound";
-        } else if (b.error === "invalid_gstin") {
-          forgetVerdictFor(g);
-          state.gstPhase = "invalid";
-        } else {
-          /* Every other reply — auth rejected, provider down, timeout, and the
-             bridge's own not_configured — is a failure to CHECK. It is never
-             reported as a verdict about the number.
-
-             The user sees one honest sentence, because to them the three are
-             the same thing. A developer needs to tell them apart, so the real
-             reason goes to the console rather than onto the screen. */
-          forgetVerdictFor(g);
-          state.gstPhase = "failed";
-          whyUnchecked(b.error || ("http_" + (out.status || "?")), b.message, url);
-        }
-        save();
-        drawS01();
-      })
-      .catch(function (err) {
-        if (seq !== state.gstSeq || gstValue() !== g) return;
-        forgetVerdictFor(g);
-        state.gstPhase = "failed";
-        /* Unreachable — almost always that the bridge is not running, which is
-           invisible from the screen and expensive to work out from a trace. */
-        whyUnchecked("unreachable", err && err.message, url);
-        save();
-        drawS01();
-      });
-  }
-
-  /* Why the check did not happen — for whoever is building this, not for the
-     person filling the form. Named causes, and the one-line fix for the two
-     that are almost always it. */
-  function whyUnchecked(reason, detail, url) {
-    const fix = {
-      unreachable:
-        "The bridge is not answering. Start it:  cd zoho-function && npm run dev\n" +
-        "  Or point this page at another one with  ?fbapi=<base-url>",
-      not_configured:
-        "The bridge is running but holds no GST credential.\n" +
-        "  Set GST_API_KEY and GST_API_SECRET in zoho-function/.env",
-      upstream_auth:
-        "The GST provider rejected the credential. Check GST_API_KEY / GST_API_SECRET.",
-      http_404:
-        "The bridge answered but has no /api/gstin — probably an older deploy.",
-    }[reason];
-    console.error(
-      "[FoodBridge] GSTIN not checked — " + reason +
-      (detail ? ": " + detail : "") + "\n  asked: " + url +
-      (fix ? "\n  " + fix : "")
-    );
-  }
-
-  /* The block under the card. One at a time, and only ever the fields the
-     provider actually returned. */
-  function gstResultBlock() {
-    if (gstVerified()) {
-      const r = state.gstResult;
-      return '<div class="ob-gst ' + (gstActive() ? "is-ok" : "is-warn") + '" role="status" aria-live="polite">' +
-        '<p class="ob-gst-h">' + ICON.check + "Business found</p>" +
-        (r.legalName ? '<p class="ob-gst-legal">' + esc(r.legalName) + "</p>" : "") +
-        (r.tradeName ? '<p class="ob-gst-r">Trade name: ' + esc(r.tradeName) + "</p>" : "") +
-        (r.status ? '<p class="ob-gst-r">Status: ' + esc(r.status) + "</p>" : "") +
-        (r.status && !gstActive()
-          ? '<p class="ob-gst-note">This GSTIN is not currently active.</p>' : "") +
-      "</div>";
-    }
-    if (state.gstPhase === "notfound") {
-      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
-        '<p class="ob-gst-h">' + ICON.alert + "No business registered under this GSTIN</p>" +
-        '<p class="ob-gst-r">Check the number, or continue without it.</p>' +
-        '<button class="ob-gst-retry" id="b-gst-retry">Try again</button></div>';
-    }
-    if (state.gstPhase === "invalid") {
-      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
-        '<p class="ob-gst-h">' + ICON.alert + "That is not a valid GSTIN format</p>" +
-        '<p class="ob-gst-r">A GSTIN is 15 characters: 2 digits, 5 letters, ' +
-          "4 digits, then 4 more.</p></div>";
-    }
-    if (state.gstPhase === "failed") {
-      return '<div class="ob-gst is-warn" role="status" aria-live="polite">' +
-        '<p class="ob-gst-h">' + ICON.alert + "Couldn't reach the GST service</p>" +
-        '<p class="ob-gst-r">Nothing is wrong with your GSTIN — we just couldn\'t ' +
-          "check it. You can continue without it.</p>" +
-        '<button class="ob-gst-retry" id="b-gst-retry">Try again</button></div>';
+    if (k === "gstin") {
+      if (!v) return "";
+      if (v.length < 15) return final || touched.gstin ? "A GST number has 15 characters — " + v.length + " so far. Leave it blank if you don’t have one." : "";
+      if (!GSTIN_RE.test(v)) return "This isn’t a valid GST number. It looks like 27AAPFU0939F1ZV.";
+      return "";
     }
     return "";
   }
+  function requiredOk() { return REQUIRED.every(function (k) { return !fieldProblem(k, true); }); }
 
-  function drawS01(opts) {
-    const o = opts || {};
-    const p = state.profile;
-    const ok = gstVerified();
-    const g = p.gstin.trim();
-    const busy = state.gstPhase === "verifying";
+  /* ── GST number · a REAL lookup through the bridge's /api/gstin ────────────
+     The browser never holds the provider credential. A verdict belongs to the
+     exact number asked about. The lookup never blocks Create account. */
+  const gst = { phase: "idle", verifiedFor: "", result: null, seq: 0 };   // idle|verifying|invalid|notfound|failed
+  function gstValue() { return cleanGst(state.form.gstin); }
+  function gstVerified() { const g = gstValue(); return !!g && g === gst.verifiedFor && !!gst.result && gst.result.found === true; }
+  function gstActive() { return !!gst.result && String(gst.result.status || "").toLowerCase() === "active"; }
 
-    const trail = ok
-      ? '<span class="ob-fr-ok">' + ICON.check + "</span>"
-      : busy
-        ? '<span class="ob-verify is-busy" aria-live="polite">' +
-            '<span class="ob-spin"></span>Verifying…</span>'
-        : '<button class="ob-verify" id="b-verify"' + (g.length === 15 ? "" : " disabled") +
-            ">Verify</button>";
-
-    render(
-      chrome("S01") +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">Tell FoodBridge about your business</h1>' +
-
-        /* MUST-HAVE ONLY. Two fields, because the business is what this screen
-           is about. No provenance, no sample state, no contact rows, and no
-           sentence explaining what any of it is for. */
-        '<section class="ob-section">' +
-          '<div class="ob-fs">' +
-            row("f-business", "Business name", ICON.building, p.business, { enter: "next" }) +
-            row("f-gstin", "GSTIN (optional)", ICON.badge, p.gstin,
-                { caps: true, ok: ok, ph: "15-character GSTIN", trail: trail,
-                  enter: "done", max: 15 }) +
-          "</div>" +
-          gstResultBlock() +
-        "</section>" +
-      "</main>" +
-      /* Continue is gated on the business name and nothing else. No GSTIN
-         outcome — verified, not found, malformed, unreachable or untried —
-         can block it. */
-      '<footer class="ob-foot"><button class="ob-cta" id="b-continue"' +
-        (p.business.trim() ? "" : " disabled") + ">" +
-        (p.business.trim() ? "Continue" : "Enter your business name") + "</button></footer>"
-    );
-
-    ["business", "gstin"].forEach(function (k) {
-      const el = $("#f-" + k);
-      if (!el) return;
-      el.addEventListener("input", function () {
-        const before = state.profile[k];
-        state.profile[k] = el.value;
-        if (k === "gstin") {
-          /* Any change abandons the previous verdict for display purposes.
-             `gstVerifiedFor`/`gstResult` are NOT cleared, so editing back to
-             the verified value restores it without another lookup. */
-          state.gstPhase = "idle";
-          state.gstSeq += 1;
-          save();
-          const caret = el.selectionStart;
-          drawS01();
-          const again = $("#f-gstin");
-          if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
-          return;
-        }
-        save();
-        if (!before.trim() !== !el.value.trim()) {     // the CTA changes state
-          const caret = el.selectionStart;
-          drawS01();
-          const again = $("#f-business");
-          if (again) { again.focus(); try { again.setSelectionRange(caret, caret); } catch (e) {} }
-        }
-      });
-      if (k === "gstin") {
-        el.addEventListener("keydown", function (e) {
-          if (e.key === "Enter" && el.value.trim().length === 15) { e.preventDefault(); verifyGstin(); }
-        });
-      }
-    });
-
-    const vb = $("#b-verify");
-    if (vb) vb.addEventListener("click", verifyGstin);
-    const rb = $("#b-gst-retry");
-    if (rb) rb.addEventListener("click", verifyGstin);
-
-    /* The keyboard must not close because the screen re-rendered underneath
-       it — the field keeps focus across the idle → verifying redraw. */
-    if (o.keepFocus) {
-      const f = $("#" + o.keepFocus);
-      if (f) { const n = f.value.length; f.focus(); try { f.setSelectionRange(n, n); } catch (e) {} }
+  function gstEnd() {
+    if (gstVerified()) return '<span class="ob-field-end" aria-label="Verified">' + ICON.shieldCheck + "</span>";
+    if (gst.phase === "verifying") return '<span class="ob-verify is-busy" aria-live="polite"><span class="ob-spin"></span>Verifying</span>';
+    const ready = GSTIN_RE.test(gstValue());
+    return '<button type="button" class="ob-verify" id="b-verify"' + (ready ? "" : " disabled") + ">Verify</button>";
+  }
+  function gstBlock() {
+    const box = function (cls, icon, body) {
+      return '<div class="ob-callout' + cls + '" role="status" aria-live="polite">' + icon + '<div class="ob-cl-main">' + body + "</div></div>";
+    };
+    if (gstVerified()) {
+      const r = gst.result;
+      return box(gstActive() ? "" : " is-warn", ICON.shieldCheck,
+        "<p><b>Business found</b></p>" +
+        (r.legalName ? '<p class="ob-cl-legal">' + esc(r.legalName) + "</p>" : "") +
+        (r.tradeName ? "<p>Trade name: " + esc(r.tradeName) + "</p>" : "") +
+        (r.status ? "<p>Status: " + esc(r.status) + "</p>" : "") +
+        (r.status && !gstActive() ? "<p><b>This GST number is not currently active.</b></p>" : "") +
+        (r.legalName && !String(state.form.business || "").trim()
+          ? '<button type="button" class="ob-cl-act" id="b-use-legal">Use as business name</button>' : ""));
     }
+    if (gst.phase === "invalid") return box(" is-warn", ICON.alertCircle, "<p><b>The GST register doesn’t recognise this number</b></p><p>Check each character, or leave it blank for now.</p>");
+    if (gst.phase === "notfound") return box(" is-warn", ICON.alertCircle, "<p><b>No business registered under this GST number</b></p><p>Check the number, or continue without it.</p>");
+    if (gst.phase === "failed") return box(" is-warn", ICON.alertCircle, "<p><b>Couldn’t reach the GST service</b></p><p>Nothing is wrong with your number — we just couldn’t check it. You can continue and verify later.</p>" +
+      '<button type="button" class="ob-cl-act" id="b-gst-retry">Try again</button>');
+    return "";
+  }
 
-    const c = $("#b-continue");
-    if (c) c.addEventListener("click", function () {
-      if (!state.profile.business.trim()) return;
-      save();
-      go("S02");
+  /* Paint one field's state in place: its border, its end mark and its hint.
+     No re-render, so focus, caret and the keyboard never move. */
+  function paintField(k, opts) {
+    const o = opts || {};
+    const box = $('[data-f="' + k + '"]'), hint = $("#h-" + k);
+    if (!box || !hint) return;
+    const problem = touched[k] || o.final ? fieldProblem(k, o.final) : "";
+    const bad = !!problem;
+    box.classList.toggle("is-bad", bad);
+    if (o.nudge && bad) { box.classList.remove("is-shake"); void box.offsetWidth; box.classList.add("is-shake"); }
+    const input = $("#f-" + k);
+    if (input) input.setAttribute("aria-invalid", bad ? "true" : "false");
+    let html = "", cls = "";
+    if (problem === "dup") {
+      cls = "is-bad";
+      html = ICON.alertCircle + '<span>This number already has an account on this device. <button type="button" class="ob-hint-act" id="b-hint-login">Log in instead</button></span>';
+    } else if (bad) {
+      cls = "is-bad"; html = ICON.alertCircle + "<span>" + esc(problem) + "</span>";
+    } else if (o.focused && k === "gstin" && !gstValue()) {
+      cls = "is-help"; html = "<span>Optional. 15 characters, like 27AAPFU0939F1ZV.</span>";
+    } else if (o.focused && k === "business" && !String(state.form.business || "").trim()) {
+      cls = "is-help"; html = "<span>Optional. As it appears on your bills.</span>";
+    }
+    hint.className = "ob-hint" + (cls ? " " + cls : "");
+    if (hint.getAttribute("data-html") !== html) { hint.innerHTML = html; hint.setAttribute("data-html", html); }
+    const dl = $("#b-hint-login"); if (dl) dl.addEventListener("click", openLogin);
+    if (k === "name" || k === "mobile") {
+      const ok = $("#ok-" + k);
+      if (ok) ok.classList.toggle("is-on", !fieldProblem(k, true));
+    }
+  }
+  function paintGst() {
+    const end = $("#gst-end"), blk = $("#gst-block"), fieldEl = $("#f-gstin");
+    if (!end || !blk) return;
+    end.innerHTML = gstEnd();
+    blk.innerHTML = gstBlock();
+    if (fieldEl) fieldEl.closest(".ob-field").classList.toggle("is-ok", gstVerified());
+    const vb = $("#b-verify"); if (vb) vb.addEventListener("click", verifyGst);
+    const rb = $("#b-gst-retry"); if (rb) rb.addEventListener("click", verifyGst);
+    const ul = $("#b-use-legal");
+    if (ul) ul.addEventListener("click", function () {
+      state.form.business = gst.result.legalName; const bi = $("#f-business"); if (bi) bi.value = state.form.business;
+      paintField("business"); paintGst();
     });
   }
-
-  /* ------------------------------------------------------------- S02 */
-
-  /* S02 answers ONE question — how do you want to bring your business data in —
-     and ends in ONE hand-off, DataReady (see dataset.js). Two real paths, one
-     decision per surface:
-
-       S02-A  choose how            Connect an app · Upload files
-       S02-C  Connect an app        Zoho Books · Xero · My app isn't listed
-       S02-S  Reading your <app>       (Customers · Products · Orders, Stop)
-       S02-F  Add your business files   (each file says what it holds; a
-                                        result per file, in business words)
-
-     Every read starts from a named gesture. Nothing says "connected" before a
-     genuine return from Zoho. A failed file never costs the files that read.
-     A new source replaces the old data as a whole, after asking. */
-
-  const RD = function () { return window.FB_READERS; };
-  const OAUTH_KEY = "fb.v7.zoho.pending";     // { n, app, at } — the sign-in this tab is waiting on
-
-  const TYPE_LABEL = { orders: "Orders", customers: "Customers", products: "Products", invoices: "Invoices" };
-  const TYPE_HELP = {
-    orders: "Sales orders or order history",
-    customers: "The shops and buyers you sell to",
-    products: "Your items or price list",
-    invoices: "Bills you've sent to customers",
-  };
-  const TYPE_NEEDS = {
-    orders: "An orders file needs a date, a customer, a product and a quantity on each line.",
-    customers: "A customers file needs a name for each customer.",
-    products: "A products file needs a name for each product.",
-    invoices: "An invoices file needs a date, a customer and an amount for each invoice.",
-  };
-  const FILE_PROBLEM = {
-    unsupported: "FoodBridge can't read this kind of file. Use Excel or CSV.",
-    damaged: "This file is empty or damaged.",
-    protected: "This file is password-protected. Remove the password and add it again.",
-    too_large: "This file is too large. The limit is 20 MB.",
-    interrupted: "Reading this file didn't finish.",
-    missing: "Add this file again to read it.",
-  };
-  const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-  /* The apps a user can connect. Each is the same channel on the bridge
-     (/api/<id>/ready, start, orgs, read) and the same screens here; what
-     differs is the name, the mark, what it reads, and what it calls a
-     business. `reads` is what the consent sheet promises, in the user's
-     words, and must match what the bridge actually asks for. */
-  const APPS = {
-    zoho: {
-      name: "Zoho Books", short: "Zoho", logo: "zoho.svg", wide: true,
-      reads: "Customers &#183; Products &#183; Orders &#183; Invoices &#183; Payments &#183; Credit notes &#183; Estimates &#183; Vendors &#183; Purchase orders &#183; Bills &#183; Expenses",
-      noorg: "This Zoho account doesn't have a Zoho Books business.",
-    },
-    xero: {
-      name: "Xero", short: "Xero", logo: "xero.svg", wide: false,
-      /* Xero has no sales orders: its invoices are read as the orders. */
-      reads: "Customers &#183; Products &#183; Invoices, as your orders &#183; Payments &#183; Credit notes &#183; Quotes &#183; Suppliers &#183; Purchase orders &#183; Bills",
-      noorg: "This Xero login doesn't have an organisation FoodBridge can read.",
-    },
-  };
-  const NOT_CONNECTED = function (why, app) {
-    const n = APPS[app].short;
-    return {
-      denied: "You didn't allow access in " + n + ", so nothing was read.",
-      failed: n + " couldn't finish signing you in. Nothing was read.",
-      unreachable: "We couldn't reach " + n + " just now. Nothing was read.",
-    }[why];
-  };
-  const READ_FAILED = function (reason, app) {
-    const n = APPS[app].short;
-    return {
-      unavailable: n + " stopped responding. Nothing was kept.",
-      timeout: n + " stopped responding. Nothing was kept.",
-      busy: n + " is busy right now. Nothing was kept. Try again in a few minutes.",
-      daily_limit: n + " has reached today's limit for reading this account. Nothing was kept. Try again tomorrow.",
-      expired: "Your " + n + " sign-in expired before we finished. Nothing was kept.",
-      forbidden: "This " + n + " login can't see your orders. Try again with the account owner's login.",
-      noorg: APPS[app].noorg,
-    }[reason];
-  };
-
-  const plural = function (n, one, many) { return n + " " + (n === 1 ? one : many); };
-
-  function drawS02() {
-    if (state.conn.phase === "reading") return drawAppReading();
-    if (state.s02 === "C") return drawS02C();
-    if (state.s02 === "F") return drawS02F();
-    return drawS02A();
+  function paintCta() {
+    const b = $("#b-create");
+    if (!b) return;
+    const ok = requiredOk();
+    b.classList.toggle("is-disabled", !ok);
+    b.setAttribute("aria-disabled", ok ? "false" : "true");
   }
 
-  function goS02(sub) { state.s02 = sub; state.screen = "S02"; save(); draw(); }
-
-  /* ── S02-A · how ─────────────────────────────────────────────────────── */
-
-  /* The two ways in wear real marks, as the apps on S02-C do: Connect an app
-     shows the apps themselves; Upload files a spreadsheet document. */
-  const MARK_CONNECT = '<span class="ob-mark ob-mark-logo ob-mark-cluster" aria-hidden="true">' +
-    ["zoho.svg", "vyapar.png", "quickbooks.svg", "xero.svg"].map(function (f) {
-      return '<img src="logos/' + f + '" alt="" width="18" height="18">';
-    }).join("") + "</span>";
-  const MARK_UPLOAD = '<span class="ob-mark ob-mark-logo" aria-hidden="true"><img class="ob-logo is-big" src="logos/spreadsheet.svg" alt="" width="40" height="40"></span>';
-
-  function pathRow(id, mark, title, sub, on) {
-    return '<button class="ob-source ob-path' + (on ? " is-on" : "") + '" data-path="' + id + '">' +
-      mark +
-      '<span class="ob-path-main"><span class="ob-source-t">' + esc(title) + "</span>" +
-        '<span class="ob-path-s">' + sub + "</span></span>" +
-      '<span class="ob-chev">' + ICON.chev + "</span></button>";
+  function verifyGst() {
+    const g = gstValue();
+    if (gst.phase === "verifying") return;
+    if (!GSTIN_RE.test(g)) { touched.gstin = true; return paintField("gstin", { nudge: true }); }
+    const seq = ++gst.seq;
+    gst.phase = "verifying"; paintGst();
+    const cfg = window.FB_INTEGRATION || {};
+    const url = String(cfg.apiBaseUrl || "").replace(/\/+$/, "") + "/api/gstin?gstin=" + encodeURIComponent(g);
+    fetch(url, { headers: cfg.apiKey ? { "X-FB-Key": cfg.apiKey } : {} })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, status: r.status, body: b }; }); })
+      .then(function (out) {
+        if (seq !== gst.seq || gstValue() !== g) return;          // the number moved on
+        const b = out.body || {};
+        if (out.ok && b.found === true) { gst.result = b; gst.verifiedFor = g; gst.phase = "idle"; }
+        else if (out.ok && b.found === false) { gst.phase = "notfound"; }
+        else if (b.error === "invalid_gstin") { gst.phase = "invalid"; }
+        else {
+          gst.phase = "failed";
+          console.error("[FoodBridge] GST number not checked — " + (b.error || "http_" + out.status) + (b.message ? ": " + b.message : "") + "\n  asked: " + url);
+        }
+        paintGst();
+      })
+      .catch(function (err) {
+        if (seq !== gst.seq || gstValue() !== g) return;
+        gst.phase = "failed";
+        console.error("[FoodBridge] GST number not checked — unreachable" + (err && err.message ? ": " + err.message : "") +
+          "\n  asked: " + url + "\n  Start the bridge: cd zoho-function && npm run dev, or point the page at one with ?fbapi=<base-url>");
+        paintGst();
+      });
   }
 
-  function drawS02A() {
-    const dr = state.dataReady;
-    const kind = dr && dr.provenance.kind;
-    const doneSub = function (text) { return '<span class="ob-path-ok">' + ICON.check + esc(text) + "</span>"; };
+  function drawSignup() {
+    const f = state.form;
+    const okMark = function (k) { return '<span class="ob-okmark" id="ok-' + k + '" aria-hidden="true">' + ICON.check + "</span>"; };
+    const wrap = function (k, html) { return '<div class="ob-fwrap">' + html + '<p class="ob-hint" id="h-' + k + '" aria-live="polite"></p></div>'; };
     render(
-      chrome("S02", { back: true }) +
+      chrome("signup", { wordmark: true }) +
       '<main class="ob-main">' +
-        '<h1 class="ob-h1">How do you want to bring your business data into FoodBridge?</h1>' +
-        '<div class="ob-sources">' +
-          pathRow("connect", MARK_CONNECT, "Connect an app",
-            APPS[kind] ? doneSub("Your " + APPS[kind].name + " · " + dr.provenance.org.name)
-                       : esc("Link the system you already use to manage your business"), !!APPS[kind]) +
-          pathRow("upload", MARK_UPLOAD, "Upload files",
-            kind === "files" ? doneSub(plural(dr.provenance.files.length, "file", "files") + " read")
-                             : esc("Add orders, customers, products or invoices"), kind === "files") +
-        "</div>" +
-      "</main>" +
-      (dr ? '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>' : "")
-    );
-    $$("[data-path]").forEach(function (b) {
-      b.addEventListener("click", function () { goS02(b.dataset.path === "connect" ? "C" : "F"); });
-    });
-    const c = $("#b-continue");
-    if (c) c.addEventListener("click", function () { go("S03"); });
-  }
-
-  /* Starting a read that would REPLACE data the user already has asks first.
-     The old data stays in use until the new read has actually produced
-     something, so a failed or stopped replacement costs nothing. */
-  function confirmReplaceThen(nextKind, then) {
-    const dr = state.dataReady;
-    const drafts = state.drafts && state.drafts.list ? state.drafts.list.length : 0;
-    if (!dr || (nextKind === "files" && dr.provenance.kind === "files" && !drafts)) return then();
-    openSheet({
-      title: "Replace your current data?",
-      body:
-        '<p class="ob-sheet-p">FoodBridge will use ' +
-          (APPS[nextKind] ? "your " + APPS[nextKind].name : "your uploaded files") + " instead. " +
-          (APPS[dr.provenance.kind] ? "The " + APPS[dr.provenance.kind].name + " account isn't changed." : "Your files aren't changed.") +
-        "</p>" +
-        (drafts ? '<p class="ob-sheet-p">The ' + plural(drafts, "draft", "drafts") + " you prepared will be discarded.</p>" : ""),
-      actions: '<button class="ob-cta" id="s-replace">Replace</button>' +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        $("#s-replace").addEventListener("click", function () { state.sheet = null; then(); });
-        $("#s-cancel").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  /* The ONE place DataReady is emitted. Everything derived from the previous
-     data goes with it: S03 onward must never mix two sources. */
-  function emitDataReady(ready) {
-    state.dataReady = ready;
-    state.engine = null;
-    state.model = null; state.opp = null; state.drafts = null;
-    state.picked = {}; state.repeats = {}; state.stage = "brief";
-    state.parked = false; state.undo = null; state.draftEdit = null;
-    state.showAll = false; state.showAllStale = false;
-    state.sheet = null;
-    if (APPS[ready.provenance.kind]) state.files = [];
-    state.s02 = "A";
-    save();
-    go("S03");
-  }
-
-  /* ── S02-C · Connect an app ──────────────────────────────────────────── */
-
-  /* Each app's own mark (see logos/SOURCES.md). Decorative: the name beside it
-     is what a screen reader announces. */
-  const logo = function (file, wide) { return '<img class="ob-logo' + (wide ? " is-wide" : "") + '" src="logos/' + file + '" alt="" width="32" height="32">'; };
-  const LIVE_APPS = ["zoho", "xero"];
-  const SOON_APPS = [
-    { label: "Tally", icon: logo("tally.png", true) },
-    { label: "Vyapar", icon: logo("vyapar.png") },
-    { label: "QuickBooks Online", icon: logo("quickbooks.svg") },
-  ];
-
-  function drawS02C() {
-    const connected = state.conn.phase === "connected";
-    render(
-      chrome("S02", { back: true }) +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">Connect an app</h1>' +
-        '<div class="ob-sources">' +
-          LIVE_APPS.map(function (id) {
-            const a = APPS[id];
-            const on = connected && state.conn.app === id;
-            return '<button class="ob-source ob-path" data-app="' + id + '"' + (connected ? " disabled" : "") + ">" +
-              '<span class="ob-mark ob-mark-logo">' + logo(a.logo, a.wide) + "</span>" +
-              '<span class="ob-path-main"><span class="ob-source-t">' + esc(a.name) + "</span>" +
-                '<span class="ob-path-s">' +
-                  /* Only a genuine return from the app gets here. */
-                  (on ? '<span class="ob-path-ok">' + ICON.check + esc(a.name) + " connected</span>"
-                      : "Connect your " + esc(a.name) + " account") +
-                "</span></span>" +
-              '<span class="ob-chev">' + (on ? '<span class="ob-spin"></span>' : ICON.chev) + "</span></button>";
-          }).join("") +
-          /* Added 17 Sep 2026 at the product owner's request. They are not
-             buttons: nothing happens on a tap, and each says plainly that it
-             is not available yet, so an unbuilt source never looks usable. */
-          SOON_APPS.map(function (a) {
-            return '<div class="ob-source ob-path is-soon" aria-disabled="true">' +
-              '<span class="ob-mark ob-mark-logo">' + a.icon + "</span>" +
-              '<span class="ob-path-main"><span class="ob-source-t">' + esc(a.label) + "</span></span>" +
-              '<span class="ob-soon">Coming soon</span></div>';
-          }).join("") +
-        "</div>" +
-        '<button class="ob-textlink" id="b-notlisted">My app isn\'t listed</button>' +
+        '<h1 class="ob-h1 is-center s01-h">Create your account</h1>' +
+        '<p class="ob-sub is-center s01-sub">Let’s get your business on FoodBridge</p>' +
+        '<form class="ob-fields" id="signup" novalidate>' +
+          wrap("name", field("name", "Full name", ICON.user, f.name, { auto: "name", caps: "words", max: 60, hint: true, end: okMark("name") })) +
+          wrap("mobile", field("mobile", "Phone number", ICON.phone, f.mobile, { type: "tel", mode: "numeric", auto: "tel-national", max: 14, prefix: "+91", hint: true, end: okMark("mobile") })) +
+          wrap("business", field("business", "Business name (optional)", ICON.doc, f.business, { auto: "organization", caps: "words", max: 80, hint: true })) +
+          wrap("gstin", field("gstin", "GST number (optional)", ICON.shieldCheck, f.gstin || "", { caps: "characters", max: 15, enter: "go", hint: true,
+            end: '<span id="gst-end" class="ob-gst-end">' + gstEnd() + "</span>" })) +
+          '<button type="submit" hidden></button>' +
+        "</form>" +
+        '<div id="gst-block">' + gstBlock() + "</div>" +
+        '<footer class="ob-foot is-inline">' +
+          '<button class="ob-cta" id="b-create" aria-describedby="create-note">Create account</button>' +
+          '<p class="ob-sr" id="create-note">Enter your full name and phone number to continue.</p>' +
+          '<p class="ob-terms">By continuing, you agree to our<br><button class="ob-tlink" id="b-terms">Terms of Use</button> &amp; <button class="ob-tlink" id="b-privacy">Privacy Policy</button></p>' +
+          '<p class="ob-login">Already have an account? <button class="ob-tlink is-g" id="b-login">Log in</button></p>' +
+        "</footer>" +
       "</main>"
     );
-    $$("[data-app]").forEach(function (b) {
-      b.addEventListener("click", function () { if (!connected) openAppConsent(b.dataset.app, false); });
+
+    const order = SIGNUP_FIELDS;
+    order.forEach(function (k, i) {
+      const el = $("#f-" + k);
+      el.addEventListener("input", function () {
+        if (k === "mobile" || k === "gstin") {
+          const before = el.value, pos = el.selectionStart || before.length;
+          const clean = k === "mobile" ? cleanPhone(before) : cleanGst(before);
+          if (clean !== before) {
+            const keptBefore = k === "mobile" ? cleanPhone(before.slice(0, pos)).length : cleanGst(before.slice(0, pos)).length;
+            el.value = clean;
+            try { el.setSelectionRange(keptBefore, keptBefore); } catch (e) {}
+          }
+        }
+        f[k] = el.value;
+        if (k === "gstin") {
+          gst.phase = "idle"; gst.seq += 1;                         // any edit abandons a lookup in flight
+          if (gstValue().length === 15) touched.gstin = true;        // a full-length number is judged at once
+          paintGst();
+        }
+        paintField(k, { focused: true });
+        paintCta();
+      });
+      el.addEventListener("focus", function () { paintField(k, { focused: true }); });
+      el.addEventListener("blur", function () {
+        f[k] = el.value.trim() === "" ? "" : el.value;
+        if (String(f[k]).trim()) touched[k] = true;
+        else if (REQUIRED.indexOf(k) !== -1 && touched[k] === undefined) touched[k] = false;   // left empty, not yet judged
+        paintField(k);
+      });
+      el.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        if (k === "gstin" && GSTIN_RE.test(gstValue()) && !gstVerified()) return verifyGst();
+        const next = order[i + 1] && $("#f-" + order[i + 1]);
+        if (next && k !== "gstin") next.focus(); else submit();
+      });
     });
-    $("#b-notlisted").addEventListener("click", openNotListed);
+    order.forEach(function (k) { paintField(k); });
+    paintGst();
+    paintCta();
+
+    const submit = function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      /* The disabled button still answers a tap: it shows what is missing. */
+      const problems = SIGNUP_FIELDS.filter(function (k) { return !!fieldProblem(k, true); });
+      if (problems.length) {
+        problems.forEach(function (k) { touched[k] = true; paintField(k, { final: true, nudge: true }); });
+        const first = $("#f-" + problems[0]);
+        if (first) first.focus({ preventScroll: false });
+        return;
+      }
+      createAccount();
+    };
+    $("#signup").addEventListener("submit", submit);
+    $("#b-create").addEventListener("click", submit);
+    $("#b-terms").addEventListener("click", function () { openDocSheet("Terms of Use"); });
+    $("#b-privacy").addEventListener("click", function () { openDocSheet("Privacy Policy"); });
+    $("#b-login").addEventListener("click", openLogin);
   }
 
-  function openNotListed() {
+  function createAccount() {
+    const f = state.form;
+    state.account = {
+      name: f.name.trim().replace(/\s+/g, " "), business: String(f.business || "").trim().replace(/\s+/g, " "),
+      mobile: "+91 " + cleanPhone(f.mobile), gstin: gstValue(), gstVerified: gstVerified(),
+      gst: gstVerified() ? { legalName: gst.result.legalName || null, tradeName: gst.result.tradeName || null, status: gst.result.status || null } : null,
+      createdAt: new Date().toISOString(),
+    };
+    // The person signing up is the first member of the team, as screen 7 shows.
+    state.staff = [{ id: "s1", name: state.account.name, role: "Admin" }];
+    state.staffDone = false; state.dataReady = null; state.parts = []; state.order = null; state.created = null;
+    go("source");
+  }
+
+  function openDocSheet(title) {
     openSheet({
-      title: "Can't find your app?",
-      body: '<p class="ob-sheet-p">FoodBridge connects to Zoho Books and Xero today. You can still bring your data in ' +
-            "by uploading files exported from your app.</p>",
-      actions: '<button class="ob-cta" id="s-upload">Upload files instead</button>' +
-               '<button class="ob-skip" id="s-close">Close</button>',
+      title: title,
+      body: '<p class="ob-sheet-p">FoodBridge’s ' + esc(title) + " is not published in this preview yet. Your account details stay in this browser and are not sent anywhere.</p>",
+      actions: '<button class="ob-cta is-ghost" id="s-close">Close</button>',
+      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
+    });
+  }
+
+  /* Log in on this device by phone number — the account this cut keeps is local. */
+  function openLogin() {
+    openSheet({
+      title: "Log in",
+      body: '<div class="ob-fields is-sheet">' +
+          field("lphone", "Phone number", ICON.phone, "", { type: "tel", mode: "numeric", auto: "tel-national", enter: "go", max: 14, prefix: "+91" }) +
+        '</div><p class="ob-err" id="l-err" hidden></p>',
+      actions: '<button class="ob-cta" id="s-login">Log in</button>',
       bind: function () {
-        $("#s-upload").addEventListener("click", function () { state.sheet = null; goS02("F"); });
-        $("#s-close").addEventListener("click", closeSheet);
+        $("#s-login").addEventListener("click", function () {
+          const acc = ls.get(ACCOUNT_KEY);
+          const typed = phoneKey($("#f-lphone").value);
+          if (!acc || typed.length !== 10 || phoneKey(acc.mobile) !== typed) {
+            const e = $("#l-err"); e.hidden = false;
+            e.textContent = typed.length !== 10 ? "Enter your 10-digit mobile number." : "No account with this number on this device. Create one instead.";
+            return;
+          }
+          restore();
+          state.sheet = null;
+          if (state.screen === "signup") state.screen = "source";
+          save(); draw();
+        });
       },
     });
   }
 
-  /* C1 — the tap opened this; nothing has been read or started. */
-  function openAppConsent(app, busy) {
-    const a = APPS[app];
-    openSheet({
-      title: "Connect " + a.name,
-      busy: busy,
-      body:
-        '<p class="ob-sheet-p">You\'ll sign in to ' + esc(a.short) + ' and allow FoodBridge to read your business records.</p>' +
-        '<p class="ob-sheet-eyebrow">' + ICON.shield + "WHAT WE'LL READ</p>" +
-        /* Updated 17 Sep 2026 by the product owner's decision to read every
-           module the app will show: the sheet names all of it. */
-        '<p class="ob-sheet-p">' + a.reads + "</p>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT WON'T CHANGE</p>" +
-        '<ul class="ob-sheet-ul"><li>FoodBridge only reads.</li><li>Nothing in ' + esc(a.name) + ' is changed.</li></ul>',
-      actions: busy
-        ? '<button class="ob-cta ob-cta-busy" disabled><span class="ob-spin"></span>Opening ' + esc(a.short) + '…</button>'
-        : '<button class="ob-cta" id="s-go">Continue to ' + esc(a.short) + '</button>' +
-          '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        if (busy) return;
-        $("#s-go").addEventListener("click", function () { confirmReplaceThen(app, function () { startAppSignIn(app); }); });
-        $("#s-cancel").addEventListener("click", closeSheet);
-      },
+  /* ════════════════════════════════════════════════════════════════════
+     2 · WHERE IS YOUR DATA?
+     ════════════════════════════════════════════════════════════════════ */
+  /* 17 Sep 2026, product owner: Zoho and Xero are the live channels, with
+     Files / Documents; Tally and Vyapar stay on the list as Coming soon —
+     present, plainly not usable, never a button. Other and "I don't have any
+     data" are gone. */
+  function srcRow(id, mark, title, sub, soon) {
+    const inner = '<span class="ob-row-logo' + (id === "zoho" ? " is-wide" : "") + '">' + mark + "</span>" +
+      '<span class="ob-row-main"><span class="ob-row-t">' + title + "</span>" + (sub ? '<span class="ob-row-s">' + sub + "</span>" : "") + "</span>" +
+      (soon ? '<span class="ob-row-soon">Coming soon</span>' : '<span class="ob-row-chev">' + ICON.chev + "</span>");
+    if (soon) return '<div class="ob-row is-soon" aria-disabled="true">' + inner + "</div>";
+    if (id === "files") {
+      return '<label class="ob-row" data-src="' + id + '">' + inner + '<input type="file" id="i-' + id + '" accept="' + ACCEPT + '" multiple hidden></label>';
+    }
+    return '<button class="ob-row" data-src="' + id + '">' + inner + "</button>";
+  }
+  function drawSource() {
+    render(
+      chrome("source") +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1 s02-h">Where is your<br>business data today?</h1>' +
+        '<p class="ob-sub s02-sub">This helps us set up FoodBridge for you<br>in the fastest way.</p>' +
+        '<div class="ob-list is-src">' +
+          srcRow("zoho", MARK.zoho(36), "Zoho") +
+          srcRow("xero", MARK.xero(24), "Xero") +
+          srcRow("files", ICON.doc, "Files / Documents", "Upload invoices, challans,<br>POs, Excel, CSV etc.") +
+          srcRow("tally", MARK.tally(34), "Tally", "", true) +
+          srcRow("vyapar", MARK.vyapar(24), "Vyapar", "", true) +
+        "</div>" +
+      "</main>"
+    );
+    $$("button[data-src]").forEach(function (b) {
+      b.addEventListener("click", function () { state.source = b.dataset.src; go("connect"); });
+    });
+    $("#i-files").addEventListener("change", function () {
+      const files = Array.prototype.slice.call(this.files || []);
+      this.value = "";
+      if (files.length) { state.source = "files"; startFileImport(files); }
     });
   }
 
-  function clearPending() { try { sessionStorage.removeItem(OAUTH_KEY); } catch (e) { /* storage blocked */ } }
+  /* ════════════════════════════════════════════════════════════════════
+     3 · CONNECT YOUR <X> ACCOUNT
+     ════════════════════════════════════════════════════════════════════ */
+  function drawConnect() {
+    const s = SOURCES[state.source] && SOURCES[state.source].mode === "app" ? SOURCES[state.source] : SOURCES.zoho;
+    const busy = state.conn.phase === "opening";
+    const cta = s.mode === "app"
+      ? '<button class="ob-cta" id="b-connect"' + (busy ? " disabled" : "") + ">" + (busy ? '<span class="ob-spin"></span>Opening ' + esc(s.name) + "…" : "Connect with " + esc(s.name)) + "</button>"
+      : '<label class="ob-cta" id="b-connect">Connect with ' + esc(s.name) + '<input type="file" id="i-connect" accept="' + ACCEPT + '" multiple hidden></label>';
+    render(
+      chrome("connect") +
+      '<main class="ob-main">' +
+        '<div class="ob-hero is-logo" aria-hidden="true">' + s.mark(state.source === "vyapar" ? 52 : 108) + "</div>" +
+        '<h1 class="ob-h1 is-center is-m">Connect your ' + esc(s.name) + " account</h1>" +
+        '<p class="ob-sub is-center">We will securely import your data.</p>' +
+        '<div class="ob-feats">' +
+          '<div class="ob-feat">' + ICON.shieldFill + "<span>Auto import customers, products,<br>suppliers &amp; more</span></div>" +
+          '<div class="ob-feat">' + ICON.lockFill + "<span>Secure &amp; read-only access</span></div>" +
+          '<div class="ob-feat is-last">' + ICON.controlFill + "<span>You’re in control</span></div>" +
+        "</div>" +
+      "</main>" +
+      '<footer class="ob-foot is-connect">' + cta +
+        '<p class="ob-foot-note">We never make any changes in your ' + esc(s.name) + " data.</p>" +
+      "</footer>"
+    );
+    if (s.mode === "app") {
+      if (!busy) $("#b-connect").addEventListener("click", function () { startAppSignIn(s.app); });
+    } else {
+      $("#i-connect").addEventListener("change", function () {
+        const files = Array.prototype.slice.call(this.files || []);
+        this.value = "";
+        if (files.length) startFileImport(files);
+      });
+    }
+  }
 
-  /* Leaves FoodBridge for Zoho, in the same tab. The nonce is how the return
-     proves it belongs to a sign-in THIS tab started. */
+  /* ── Zoho: leave for the app in the same tab; the nonce proves the return ── */
   function startAppSignIn(app) {
     const nonce = RD().newNonce();
-    try { sessionStorage.setItem(OAUTH_KEY, JSON.stringify({ n: nonce, app: app, at: Date.now() })); } catch (e) { /* see below */ }
-    state.conn = idleConn(app);
-    state.screen = "S02"; state.s02 = "C";
-    save();
-    openAppConsent(app, true);
+    ls.set(OAUTH_KEY, { n: nonce, app: app, at: Date.now() }, sessionStorage);
+    state.conn = { phase: "opening" };
+    save(); draw();
     RD().apps[app].auth.begin(nonce, RD().returnUrl()).catch(function () {
-      clearPending();
-      openNotConnected("unreachable", app);
+      ls.del(OAUTH_KEY, sessionStorage);
+      state.conn = { phase: "idle" };
+      importFailed("We couldn\u2019t reach " + appName(app) + " just now. Nothing was read.");
     });
   }
 
-  function idleConn(app) { return { app: app || null, phase: "idle", handle: null, org: null, run: null, progress: null }; }
-  /* The app the connection in progress, or the data in use, belongs to. */
-  function connApp() { return state.conn.app || (state.dataReady && APPS[state.dataReady.provenance.kind] ? state.dataReady.provenance.kind : "zoho"); }
-  function A() { return APPS[connApp()]; }
+  const appName = function (app) { return (SOURCES[app] && SOURCES[app].name) || "the app"; };
 
-  /* Runs once, on load. Three ways to arrive here after leaving for Zoho:
-     a result in the URL, nothing at all (the user pressed Back), or a result
-     this tab never asked for. Only the first, with a matching nonce and a
-     handle, is ever called connected. */
   function handleAppReturn() {
     const ret = RD().takeReturn();
-    let pending = null;
-    try { pending = JSON.parse(sessionStorage.getItem(OAUTH_KEY) || "null"); } catch (e) { pending = null; }
+    const pending = ls.get(OAUTH_KEY, sessionStorage);
     if (!ret && !pending) return;
-    clearPending();
-    const app = APPS[ret ? ret.app : pending && pending.app] ? (ret ? ret.app : pending.app) : "zoho";
-    state.screen = "S02"; state.s02 = "C";
-    state.conn = idleConn(app);
-    if (!ret) return;                                     // Back from the app: quietly here
-    // A result this tab never asked for, or for a different app than it asked
-    // for, is not a connection.
-    if (!pending || ret.n !== pending.n || (pending.app && pending.app !== ret.app)) { state.sheet = notConnectedSheet("failed", app); return; }
-    if (ret.result === "denied") { state.sheet = notConnectedSheet("denied", app); return; }
-    if (ret.result !== "connected" || !ret.c) { state.sheet = notConnectedSheet("failed", app); return; }
-    state.conn.handle = ret.c;
-    state.conn.phase = "connected";
+    ls.del(OAUTH_KEY, sessionStorage);
+    if (!state.account) return;
+    const app = ret && SOURCES[ret.app] ? ret.app : pending && SOURCES[pending.app] ? pending.app : "zoho";
+    const n = appName(app);
+    state.source = app; state.screen = "connect";
+    state.conn = { phase: "idle" };
+    if (!ret) return;                                  // Back from the app: quietly on screen 3
+    // A result this tab never asked for, or for a different app, is not a connection.
+    if (!pending || ret.n !== pending.n || ret.app !== pending.app) return importFailed(n + " couldn\u2019t finish signing you in. Nothing was read.");
+    if (ret.result === "denied") return importFailed("You didn\u2019t allow access in " + n + ", so nothing was read.");
+    if (ret.result !== "connected" || !ret.c) return importFailed(n + " couldn\u2019t finish signing you in. Nothing was read.");
+    state.conn = { phase: "connected", handle: ret.c, app: app };
+    beginImport();
     discoverOrganisations();
   }
-
-  function notConnectedSheet(why, app) {
-    return {
-      title: APPS[app].name + " wasn't connected",
-      body: '<p class="ob-sheet-p">' + esc(NOT_CONNECTED(why, app) || NOT_CONNECTED("failed", app)) + "</p>",
-      actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
-               '<button class="ob-skip" id="s-upload">Upload files instead</button>',
-      bind: function () {
-        $("#s-retry").addEventListener("click", function () { state.sheet = null; startAppSignIn(app); });
-        $("#s-upload").addEventListener("click", function () { state.sheet = null; goS02("F"); });
-      },
-    };
-  }
-  function openNotConnected(why, app) { state.conn = idleConn(app); state.s02 = "C"; openSheet(notConnectedSheet(why, app)); }
 
   function discoverOrganisations() {
     const handle = state.conn.handle, app = state.conn.app;
     RD().apps[app].reader.organisations(handle).then(function (orgs) {
-      if (state.conn.handle !== handle || state.conn.phase !== "connected") return;
-      if (!orgs.length) { state.conn = idleConn(app); return openReadFailed("noorg", null); }
-      if (orgs.length === 1) return startAppRead(orgs[0]);
-      openChooseOrg(orgs);
-    }, function (err) {
-      if (state.conn.handle !== handle) return;
-      state.conn.phase = "idle";
-      openReadFailed((err && err.reason) || "unavailable", null);
-    });
-  }
-
-  /* A decision, so NOTHING is selected until the user selects it. */
-  function openChooseOrg(orgs) {
-    let picked = -1;
-    openSheet({
-      title: "Which business should FoodBridge read?",
-      body: '<div class="ob-choices" role="radiogroup">' +
-        orgs.map(function (o, i) {
-          return '<button class="ob-choice" role="radio" aria-checked="false" data-org="' + i + '">' +
-            '<span class="ob-radio"></span><span class="ob-choice-t">' + esc(o.name) + "</span></button>";
-        }).join("") + "</div>",
-      actions: '<button class="ob-cta" id="s-read" disabled>Read this business</button>' +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      onClose: function () { state.conn = idleConn(state.conn.app); },
-      bind: function () {
-        $$("[data-org]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            picked = Number(b.dataset.org);
-            $$("[data-org]").forEach(function (x) {
-              const on = Number(x.dataset.org) === picked;
-              x.classList.toggle("is-on", on);
-              x.setAttribute("aria-checked", on ? "true" : "false");
-            });
-            $("#s-read").disabled = false;
-          });
-        });
-        $("#s-read").addEventListener("click", function () {
-          if (picked < 0) return;
-          state.sheet = null;
-          startAppRead(orgs[picked]);
-        });
-        $("#s-cancel").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  function startAppRead(org) {
-    const app = state.conn.app;
-    const run = { stopped: false };
-    state.conn.phase = "reading";
-    state.conn.org = org;
-    state.conn.run = run;
-    state.conn.progress = { customers: "reading", products: "waiting", orders: "waiting", others: "waiting", done: 0, total: null };
-    state.sheet = null;
-    state.screen = "S02";
-    draw();
-    RD().apps[app].reader.read(state.conn.handle, org, {
-      shouldStop: function () { return run.stopped; },
-      onProgress: function (p) {
-        if (run.stopped || state.conn.run !== run) return;
-        state.conn.progress = p;
-        if (state.screen === "S02" && !state.sheet) drawAppReading();
-      },
-    }).then(function (raw) {
-      if (run.stopped || state.conn.run !== run || !raw) return;
-      state.conn = idleConn();                // the handle is not kept past the read
-      raw.app = app;
-      emitDataReady(window.FB_DATASET.fromApp(raw));
-    }, function (err) {
-      if (run.stopped || state.conn.run !== run) return;
-      state.conn.phase = "idle";
-      state.conn.run = null;
-      state.conn.progress = null;
-      openReadFailed((err && err.reason) || "unavailable", org);
-    });
-  }
-
-  /* Stop keeps NOTHING. A half-read account labelled "Your Zoho Books" would
-     misrepresent the user's own books. */
-  function stopAppRead() {
-    if (state.conn.run) state.conn.run.stopped = true;
-    state.conn = idleConn(state.conn.app);
-    state.s02 = "C";
-    draw();
-  }
-
-  function drawAppReading() {
-    const p = state.conn.progress || {};
-    const a = A();
-    /* The fourth step exists because the read now takes in more than the three
-       the screen was designed with; progress must not sit on a ticked "Orders"
-       while invoices and purchases are still being read. */
-    const steps = [["customers", "Customers"], ["products", "Products"], ["orders", state.conn.app === "xero" ? "Invoices, as orders" : "Orders"],
-                   ["others", state.conn.app === "xero" ? "Payments, quotes and purchases" : "Invoices, payments and purchases"]];
-    render(
-      chrome("S02", { back: true }) +
-      '<main class="ob-main ob-main-op">' +
-        '<h1 class="ob-h1">Reading your ' + esc(a.name) + '</h1>' +
-        '<p class="ob-sub">' + esc(state.conn.org ? state.conn.org.name : "") + "</p>" +
-        '<div class="ob-proc">' +
-          steps.map(function (s) {
-            const st = p[s[0]];
-            const done = st === "done", active = st === "reading";
-            const count = s[0] === "orders" && active && p.total != null
-              ? '<span class="ob-pv">' + p.done.toLocaleString() + " of " + p.total.toLocaleString() + "</span>" : "";
-            return '<div class="ob-pstep ' + (done ? "is-done" : active ? "is-active" : "") + '">' +
-              '<span class="ob-pdot">' + (done ? ICON.check : active ? '<span class="ob-spin"></span>' : "") + "</span>" +
-              '<span class="ob-pt">' + s[1] + "</span>" + count + "</div>";
-          }).join("") +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-skip" id="b-stop">Stop</button></footer>'
-    );
-    $("#b-stop").addEventListener("click", stopAppRead);
-  }
-
-  function openReadFailed(reason, org) {
-    state.screen = "S02"; state.s02 = "C";
-    const app = state.conn.app || "zoho";
-    const signInAgain = !org || reason === "expired" || reason === "forbidden" || reason === "noorg" || !state.conn.handle;
-    openSheet({
-      title: "We couldn't finish reading your " + APPS[app].name,
-      body: '<p class="ob-sheet-p">' + esc(READ_FAILED(reason, app) || READ_FAILED("unavailable", app)) + "</p>",
-      actions: '<button class="ob-cta" id="s-retry">Try again</button>' +
-               '<button class="ob-skip" id="s-upload">Upload files instead</button>',
-      onClose: function () { state.conn = idleConn(app); },
-      bind: function () {
-        $("#s-retry").addEventListener("click", function () {
-          state.sheet = null;
-          // C5 — the SAME read, from the start. A sign-in that can no longer
-          // read goes back through the app instead.
-          if (signInAgain) startAppSignIn(app); else startAppRead(org);
-        });
-        $("#s-upload").addEventListener("click", function () { state.sheet = null; state.conn = idleConn(app); goS02("F"); });
-      },
-    });
-  }
-
-  /* ── S02-F · Upload files ───────────────────────────────────────────── */
-
-  /* The same shape as Connect an app: choose → Read → FoodBridge reads what it
-     can → S03. The user picks files and taps Read; that tap is the consent, and
-     nothing is opened before it. What each file holds is read from its own
-     columns (dataset.js classify) — never from its name — so there is no
-     labelling step, and a workbook with a customers sheet, an items sheet and
-     an orders sheet gives all three. FoodBridge asks only when a file cannot
-     say what it is (a bare "Name" column: products or customers), narrowed to
-     those answers, after the read. The row of a file that read is the harvest:
-     what came out of it, in the user's words — and it is where the user TAGS
-     the file. A file carries any number of tags (an invoice export is
-     invoices, and orders, and every customer and product on its lines); a tag
-     is read from the file, and a tag that gives nothing is said, not dropped. */
-
-  let fileSeq = 0;
-  function newFileId() { fileSeq += 1; return "f" + Date.now().toString(36) + fileSeq; }
-
-  function addFiles(list) {
-    Array.prototype.forEach.call(list || [], function (file) {
-      state.files.push({ id: newFileId(), name: file.name, tags: null, status: "new", reason: null, choices: null, file: file, result: null });
-    });
-    draw();
-  }
-
-  function fileInput(id, multiple) {
-    return '<input type="file" id="' + id + '" accept="' + ACCEPT + '"' + (multiple ? " multiple" : "") + " hidden>";
-  }
-
-  /* "Orders · 517 · Products · 86 · Customers · 40": everything a file gives,
-     with its count — the count S03 will show, not the number of rows. An orders
-     sheet is one row per line, one customer's lines on one day are ONE order,
-     and the lines NAME customers and products; so the file is put through the
-     same fromFiles() and engine view S03's numbers come from, and a kind the
-     lines name is listed beside the kinds that were read. A tag that gave
-     nothing is listed as "none". */
-  function foundCounts(f) {
-    const found = (f.result && f.result.found) || [];
-    if (!found.length) return [];
-    if (!f.result.counts) {
-      const parts = found.map(function (p) { return { id: f.id, name: f.name, type: p.type, records: p.records, skipped: p.skipped }; });
-      const ds = window.FB_DATASET.fromFiles(parts).dataset;
-      const hist = window.FB_DATASET.toEngine(ds).history;   // the last 24 months, as S03 counts
-      const orders = Object.keys(hist).reduce(function (n, id) { return n + hist[id].orders.length; }, 0);
-      const read = {};
-      found.forEach(function (p) { read[p.type] = true; });
-      const counts = [];
-      window.FB_DATASET.FILE_TYPES.forEach(function (t) {
-        const n = t === "orders" ? orders : ds[t] && ds[t].present ? ds[t].records.length : 0;
-        if (read[t]) counts.push({ type: t, n: n });
-        else if (n) counts.push({ type: t, n: n, named: true });   // on the lines of what was read
-      });
-      (f.result.none || []).forEach(function (t) { counts.push({ type: t, none: true }); });
-      f.result.counts = counts;
-    }
-    return f.result.counts;
-  }
-  function foundHtml(f, tail) {
-    const items = foundCounts(f).map(function (c) {
-      if (c.none) return '<span class="ob-found-none">' + esc(TYPE_LABEL[c.type]) + " \u00b7 none</span>";
-      return esc(TYPE_LABEL[c.type] + " \u00b7 " + c.n.toLocaleString());
-    });
-    // The caret stays with the last tag when the line wraps.
-    if (tail && items.length) items.push('<span class="ob-nowrap">' + items.pop() + tail + "</span>");
-    return items.join("  \u00b7  ");
-  }
-  const tagsText = function (tags) { return (tags || []).map(function (t) { return TYPE_LABEL[t]; }).join(" \u00b7 "); };
-
-  function fileRow(f, reading) {
-    let bot = "";
-    if (f.status === "waiting") bot = '<span class="ob-fstat">Waiting</span>';
-    else if (f.status === "reading") bot = '<span class="ob-fstat is-busy"><span class="ob-spin"></span>Reading</span>';
-    else if (f.status === "read") {
-      // The harvest is also where the file is tagged: tap it to add a kind.
-      bot = reading
-        ? '<span class="ob-found">' + ICON.check + foundHtml(f) + "</span>"
-        : '<button class="ob-found is-btn" data-tags="' + f.id + '" aria-label="Tags for ' + esc(f.name) + '">' + ICON.check +
-            foundHtml(f, '<span class="ob-caret">' + ICON.chevDown + "</span>") + "</button>";
-    } else if (f.status === "failed" && f.reason === "ambiguous") {
-      bot = '<span class="ob-fstat is-ask"><button class="ob-flink" data-why="' + f.id + '">Products or customers?</button></span>';
-    } else if (f.status === "failed") {
-      bot = '<span class="ob-fstat is-bad"><button class="ob-flink" data-why="' + f.id + '">Couldn\'t read</button>' +
-        (reading ? "" : ' &#183; <label class="ob-flink">Replace' + fileInput("r-" + f.id, false) + "</label>") + "</span>";
-    } else if (f.tags && f.tags.length) {
-      // Tagged by the user, not read yet: read as these.
-      bot = '<button class="ob-typechip" data-tags="' + f.id + '">' + esc(tagsText(f.tags)) + '<span class="ob-caret">' + ICON.chevDown + "</span></button>";
-    }
-    return '<div class="ob-file' + (f.status === "failed" && f.reason !== "ambiguous" ? " is-failed" : "") + '">' +
-      '<div class="ob-file-top"><span class="ob-file-n">' + esc(f.name) + "</span>" +
-        (reading ? "" : '<button class="ob-file-x" data-rm="' + f.id + '" aria-label="Remove ' + esc(f.name) + '">' + ICON.close + "</button>") +
-      "</div>" +
-      (bot ? '<div class="ob-file-bot">' + bot + "</div>" : "") +
-    "</div>";
-  }
-
-  function drawS02F() {
-    const files = state.files;
-    const reading = !!state.filesRun;
-    const fresh = files.filter(function (f) { return f.status === "new"; });
-    const read = files.filter(function (f) { return f.status === "read"; });
-    const asking = files.filter(function (f) { return f.status === "failed" && f.reason === "ambiguous"; });
-    let h1, sub = "", foot = "";
-
-    if (reading) {
-      h1 = "Reading your files";
-      foot = '<button class="ob-skip" id="b-stopfiles">Stop</button>';
-    } else if (!files.length) {
-      // Nothing yet: the screen is the four things a file can be, each a way
-      // in (see drawS02FEmpty). No footer, so nothing sits below a void.
-      return drawS02FEmpty();
-    } else if (fresh.length) {
-      h1 = "Add your business files";
-      foot = '<button class="ob-cta" id="b-readfiles">Read ' + plural(fresh.length, "file", "files") + "</button>";
-    } else if (read.length) {
-      h1 = read.length === files.length ? "We read your files" : "We read " + read.length + " of " + files.length + " files";
-      foot = '<button class="ob-cta" id="b-usefiles">Continue with ' + plural(read.length, "file", "files") + "</button>";
-    } else if (asking.length === files.length) {
-      h1 = "What's in these files?";
-    } else {
-      h1 = "We couldn't read these files";
-      foot = '<button class="ob-skip" id="b-connect">Connect an app instead</button>';
-    }
-
-    render(
-      chrome("S02", { back: true }) +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">' + esc(h1) + "</h1>" +
-        (sub ? '<p class="ob-sub">' + esc(sub) + "</p>" : "") +
-        (files.length
-          ? '<div class="ob-files">' + files.map(function (f) { return fileRow(f, reading); }).join("") + "</div>" +
-            (reading ? "" : '<label class="ob-addmore">' + ICON.plusCircle + "Add more files" + fileInput("i-more", true) + "</label>")
-          : "") +
-      "</main>" +
-      (foot ? '<footer class="ob-foot">' + foot + "</footer>" : "")
-    );
-
-    ["i-add", "i-more"].forEach(function (id) {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener("change", function () { const l = this.files; addFiles(l); this.value = ""; });
-    });
-    $$("[data-rm]").forEach(function (b) {
-      b.addEventListener("click", function () { removeFile(b.dataset.rm); });
-    });
-    $$("[data-why]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        const f = fileById(b.dataset.why);
-        // The row already asked the question; the tap lands on the answers.
-        if (f && f.reason === "ambiguous") openTypeSheet(f, f.choices); else openFileProblem(f);
-      });
-    });
-    $$("[data-tags]").forEach(function (b) {
-      b.addEventListener("click", function () { openTagSheet(fileById(b.dataset.tags)); });
-    });
-    files.forEach(function (f) {
-      const r = document.getElementById("r-" + f.id);
-      if (r) r.addEventListener("change", function () { if (this.files[0]) replaceFile(f, this.files[0]); this.value = ""; });
-    });
-    const rf = $("#b-readfiles");
-    if (rf) rf.addEventListener("click", function () { confirmReplaceThen("files", runFileRead); });
-    const uf = $("#b-usefiles");
-    if (uf) uf.addEventListener("click", continueWithFiles);
-    const sf = $("#b-stopfiles");
-    if (sf) sf.addEventListener("click", stopFileRead);
-    const cf = $("#b-connect");
-    if (cf) cf.addEventListener("click", function () { goS02("C"); });
-  }
-
-  /* S02-F with nothing added. The same shape as Connect an app: the question,
-     then rows to tap — one per kind a file can hold, each opening the picker.
-     The rows are the answer to "which file do I go and get?"; they are not
-     labels, and a file chosen through any of them still says for itself what
-     it holds. One quiet line names the formats and where they come from. */
-  const FILE_KINDS = [
-    { type: "orders",    icon: iconOrders,    tint: "t-indigo" },
-    { type: "customers", icon: iconCustomers, tint: "t-blue" },
-    { type: "products",  icon: iconProducts,  tint: "t-green" },
-    { type: "invoices",  icon: ICON.doc,      tint: "t-rose" },
-  ];
-  function drawS02FEmpty() {
-    render(
-      chrome("S02", { back: true }) +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">Add your business files</h1>' +
-        '<div class="ob-sources">' +
-          FILE_KINDS.map(function (k) {
-            return '<label class="ob-source ob-path ob-pick">' +
-              '<span class="ob-mark ' + k.tint + '">' + k.icon + "</span>" +
-              '<span class="ob-path-main"><span class="ob-source-t">' + TYPE_LABEL[k.type] + "</span>" +
-                '<span class="ob-path-s">' + esc(TYPE_HELP[k.type]) + "</span></span>" +
-              '<span class="ob-chev">' + ICON.upload + "</span>" +
-              fileInput("i-add-" + k.type, true) + "</label>";
-          }).join("") +
-        "</div>" +
-        '<p class="ob-quiet-s">Excel or CSV, exported from Tally, Zoho, Vyapar or any spreadsheet. One file can hold more than one of these.</p>' +
-      "</main>"
-    );
-    FILE_KINDS.forEach(function (k) {
-      const el = document.getElementById("i-add-" + k.type);
-      el.addEventListener("change", function () { const l = this.files; addFiles(l); this.value = ""; });
-    });
-  }
-
-  function fileById(id) { return state.files.filter(function (f) { return f.id === id; })[0]; }
-
-  function removeFile(id) {
-    state.files = state.files.filter(function (f) { return f.id !== id; });
-    save();
-    draw();
-  }
-
-  /* The user's tags, if any, are kept: the replacement is read as those. A
-     file that had said for itself starts over and says again. */
-  function replaceFile(f, file) {
-    f.file = file; f.name = file.name; f.status = "new"; f.reason = null; f.choices = null; f.result = null;
-    state.sheet = null;
-    save();
-    draw();
-  }
-
-  /* Only where FoodBridge could not tell. Customer words, and nothing chosen
-     for them; `choices` narrows the list to what the file could be. Saying
-     what a file is makes it unread — it has to be read as what it now is. */
-  function openTypeSheet(f, choices) {
-    if (!f) return;
-    const list = choices && choices.length ? choices : ["orders", "customers", "products", "invoices"];
-    openSheet({
-      title: "What's in " + f.name + "?",
-      body: '<div class="ob-choices">' +
-        list.map(function (t) {
-          return '<button class="ob-choice ob-choice-2' + (f.tags && f.tags.indexOf(t) !== -1 ? " is-on" : "") + '" data-pick="' + t + '">' +
-            '<span class="ob-choice-main"><span class="ob-choice-t">' + TYPE_LABEL[t] + "</span>" +
-            '<span class="ob-choice-s">' + esc(TYPE_HELP[t]) + "</span></span></button>";
-        }).join("") + "</div>",
-      bind: function () {
-        $$("[data-pick]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            retag(f, [b.dataset.pick]);
-            state.sheet = null;
-            save();
-            draw();
-          });
-        });
-      },
-    });
-  }
-
-  /* Tags changed: the file has to be read again, as what it now is. */
-  function retag(f, tags) {
-    f.tags = tags && tags.length ? tags : null;
-    f.result = null; f.reason = null; f.choices = null;
-    f.status = f.file ? "new" : "failed";
-    if (!f.file) f.reason = "missing";
-  }
-
-  /* The tags on one file. Ticked is what will be read from it: after a read,
-     the kinds that were; a kind the lines merely name is said so and left
-     unticked, because ticking it reads it as its own list. Nothing ticked
-     hands the file back to its own columns. */
-  function openTagSheet(f) {
-    if (!f) return;
-    const counts = f.status === "read" ? foundCounts(f) : [];
-    const read = {}, named = {};
-    counts.forEach(function (c) { if (c.none) return; if (c.named) named[c.type] = c.n; else read[c.type] = true; });
-    const on = {};
-    (f.tags || (f.status === "read" ? Object.keys(read) : [])).forEach(function (t) { on[t] = true; });
-    const KINDS = window.FB_DATASET.FILE_TYPES;
-    const draw2 = function () {
-      $$("[data-tag]").forEach(function (b) {
-        const t = b.dataset.tag;
-        b.classList.toggle("is-on", !!on[t]);
-        b.setAttribute("aria-checked", !!on[t]);
-      });
-    };
-    openSheet({
-      title: "What's in " + f.name + "?",
-      body: '<div class="ob-choices" role="group">' +
-        KINDS.map(function (t) {
-          const sub = named[t] ? "Named on the lines \u00b7 " + named[t].toLocaleString() + " \u00b7 tick to read as a list" : TYPE_HELP[t];
-          return '<button class="ob-choice ob-choice-tag' + (on[t] ? " is-on" : "") + '" role="checkbox" aria-checked="' + !!on[t] + '" data-tag="' + t + '">' +
-            '<span class="ob-tick">' + ICON.check + "</span>" +
-            '<span class="ob-choice-main"><span class="ob-choice-t">' + TYPE_LABEL[t] + "</span>" +
-            '<span class="ob-choice-s">' + esc(sub) + "</span></span></button>";
-        }).join("") + "</div>",
-      actions: '<button class="ob-cta" id="s-tagdone">Done</button>',
-      bind: function () {
-        $$("[data-tag]").forEach(function (b) {
-          b.addEventListener("click", function () { on[b.dataset.tag] = !on[b.dataset.tag]; draw2(); });
-        });
-        $("#s-tagdone").addEventListener("click", function () {
-          const tags = KINDS.filter(function (t) { return on[t]; });
-          const before = f.tags || (f.status === "read" ? Object.keys(read) : []);
-          const same = tags.length === before.length && tags.every(function (t) { return before.indexOf(t) !== -1; });
-          if (!same) retag(f, tags);
-          state.sheet = null;
-          save();
-          draw();
-        });
-      },
-    });
-  }
-
-  function openFileProblem(f) {
-    if (!f) return;
-    const tagged = f.tags && f.tags.length ? f.tags : null;
-    const label = tagged ? tagged.map(function (t) { return TYPE_LABEL[t].toLowerCase(); }).join(" or ") : "records";
-    let why, actions;
-    if (f.reason === "no_records" && !tagged) {
-      why = '<p class="ob-sheet-p">We couldn\'t find orders, customers, products or invoices in this file.</p>' +
-            '<p class="ob-sheet-p">Its first rows need column names, such as Order Date, Customer Name, Item Name and Quantity.</p>';
-      actions = '<label class="ob-cta ob-cta-label">Replace file' + fileInput("s-replace", false) + "</label>" +
-                '<button class="ob-skip" id="s-type">Say what it contains</button>' +
-                '<button class="ob-skip is-warn" id="s-remove">Remove</button>';
-    } else {
-      why = f.reason === "no_records"
-        ? '<p class="ob-sheet-p">We couldn\'t find any ' + esc(label) + " in this file.</p>" +
-          tagged.map(function (t) { return '<p class="ob-sheet-p">' + esc(TYPE_NEEDS[t] || "") + "</p>"; }).join("")
-        : '<p class="ob-sheet-p">' + esc(FILE_PROBLEM[f.reason] || FILE_PROBLEM.damaged) + "</p>";
-      actions = '<label class="ob-cta ob-cta-label">Replace file' + fileInput("s-replace", false) + "</label>" +
-                (tagged ? '<button class="ob-skip" id="s-type">Change tags</button>' : "") +
-                '<button class="ob-skip is-warn" id="s-remove">Remove</button>';
-    }
-    openSheet({
-      title: f.name,
-      body: why,
-      actions: actions,
-      bind: function () {
-        const rep = $("#s-replace");
-        if (rep) rep.addEventListener("change", function () { if (this.files[0]) replaceFile(f, this.files[0]); });
-        const ty = $("#s-type");
-        if (ty) ty.addEventListener("click", function () { openTagSheet(f); });
-        $("#s-remove").addEventListener("click", function () { state.sheet = null; removeFile(f.id); });
-      },
-    });
-  }
-
-  /* F — the read. One file at a time, each with its own result. A file that
-     fails is marked and kept for replacing; the ones that read are untouched
-     by it. A file the user has tagged is read as those kinds; every other
-     file says for itself what it holds. */
-  async function runFileRead() {
-    const run = { stopped: false };
-    state.filesRun = run;
-    const queue = state.files.filter(function (f) { return f.status === "new"; });
-    queue.forEach(function (f) { f.status = "waiting"; });
-    draw();
-    for (let i = 0; i < queue.length; i++) {
-      const f = queue[i];
-      if (state.filesRun !== run) return;
-      if (state.files.indexOf(f) === -1) continue;
-      f.status = "reading";
-      draw();
-      let out;
-      try {
-        out = f.file ? await RD().files.read(f.file, f.tags && f.tags.length ? f.tags : null, { shouldStop: function () { return run.stopped; } })
-                     : { ok: false, reason: "missing" };
-      } catch (e) { out = { ok: false, reason: "damaged" }; }
-      if (state.filesRun !== run) return;             // stopped while this one was reading
-      if (out && out.ok) {
-        f.status = "read"; f.reason = null; f.choices = null;
-        f.result = { found: out.found, none: out.none || [] };
-        foundCounts(f);
-      } else {
-        f.status = "failed"; f.reason = (out && out.reason) || "damaged"; f.choices = (out && out.choices) || null;
-      }
-      save();
-      draw();
-    }
-    state.filesRun = null;
-    const anyFailed = state.files.some(function (f) { return f.status === "failed"; });
-    const anyNew = state.files.some(function (f) { return f.status === "new"; });
-    const anyRead = state.files.some(function (f) { return f.status === "read"; });
-    // A tag the user put on that gave nothing is worth a look before going on.
-    const anyNone = state.files.some(function (f) { return f.status === "read" && f.result && f.result.none && f.result.none.length; });
-    if (anyRead && !anyFailed && !anyNew && !anyNone) return continueWithFiles();
-    save();
-    draw();
-  }
-
-  /* Stop keeps every file that already read; the rest go back to unread. */
-  function stopFileRead() {
-    const run = state.filesRun;
-    if (run) run.stopped = true;
-    state.filesRun = null;
-    state.files.forEach(function (f) { if (f.status === "waiting" || f.status === "reading") f.status = "new"; });
-    save();
-    draw();
-  }
-
-  function continueWithFiles() {
-    const parts = [];
-    state.files.forEach(function (f) {
-      if (f.status !== "read" || !f.result) return;
-      (f.result.found || []).forEach(function (p) {
-        parts.push({ id: f.id, name: f.name, type: p.type, records: p.records, skipped: p.skipped });
-      });
-    });
-    if (!parts.length) return draw();
-    emitDataReady(window.FB_DATASET.fromFiles(parts));
-  }
-
-  /* C8 — files chosen but not yet read are unconfirmed work. */
-  function leaveFiles() {
-    if (state.filesRun) return stopFileRead();
-    const unread = state.files.filter(function (f) { return f.status === "new"; });
-    if (!unread.length) return goS02("A");
-    openSheet({
-      title: "Discard these files?",
-      body: '<p class="ob-sheet-p">Nothing has been read from them yet.</p>',
-      actions: '<button class="ob-cta is-warn" id="s-discard">Discard</button>' +
-               '<button class="ob-skip" id="s-keep">Keep adding</button>',
-      bind: function () {
-        $("#s-discard").addEventListener("click", function () {
-          state.sheet = null;
-          state.files = state.files.filter(function (f) { return f.status !== "new"; });
-          goS02("A");
-        });
-        $("#s-keep").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  /* ------------------------------------------------------------- S03 */
-
-  function drawS03() {
-    const m = state.model || (state.model = buildModel());
-    return m.floor.met ? drawS03Above(m) : drawS03Below(m);
-  }
-
-  /* S03-A — above the floor. Three figures, each of which opens its own
-     records. Provenance is NOT here: it lives in the sheet, beside the rows
-     it describes. */
-  function drawS03Above(m) {
-    const cells = [];
-    if (m.evidence.sales.present)
-      cells.push({ k: "orders", n: m.evidence.sales.orders.toLocaleString(), l: "Orders", ic: iconOrders });
-    if (m.context.products.present)
-      cells.push({ k: "products", n: m.context.products.count.toLocaleString(), l: "Products", ic: iconProducts });
-    if (m.context.customers.present)
-      cells.push({ k: "customers", n: m.context.customers.count.toLocaleString(), l: "Customers", ic: iconCustomers });
-
-    render(
-      chrome("S03", { back: true }) +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">Here\'s what we received</h1>' +
-
-        '<div class="ob-ev">' +
-          cells.map(function (c) {
-            return '<button class="ob-ev-cell" data-insp="' + c.k + '">' + c.ic +
-              '<span class="ob-ev-n">' + esc(c.n) + "</span>" +
-              '<span class="ob-ev-l">' + esc(c.l) + "</span>" +
-              '<span class="ob-ev-chev">' + ICON.chev + "</span></button>";
-          }).join("") +
-        "</div>" +
-
-        (m.unlocks.length
-          ? '<section class="ob-section">' +
-              '<p class="ob-eyebrow">ADD LATER TO SEE MORE</p>' +
-              '<div class="ob-optional">' + m.unlocks.map(function (u, i) { return laterRow(u, i, m); }).join("") + "</div>" +
-            "</section>"
-          : "") +
-      "</main>" +
-      laterFooter()
-    );
-
-    $$("[data-insp]").forEach(function (b) {
-      b.addEventListener("click", function () { openInspectSheet(b.dataset.insp); });
-    });
-    bindLaterRows(m.unlocks);
-    bindLaterFooter();
-  }
-
-  /* An item the user can clear right here: tap it, add files (or photos,
-     where the bridge reads them), then read them all at once from the footer.
-     One renderer for both shapes of S03, so the missing and the optional are
-     cleared by the same gesture. */
-  function laterRow(u, i, m) {
-    const st = laterStatus(u, m);
-    return '<button class="ob-orow ob-orow-btn" data-later="' + i + '">' + ICON.plusCircle +
-      '<span class="ob-orow-main"><span class="ob-orow-t">' + esc(u.label) + "</span>" +
-      '<span class="ob-orow-s' + (st.bad ? " is-bad" : st.ready ? " is-ready" : "") + '">' + esc(st.text) + "</span></span>" +
-      '<span class="ob-addlink">' + (st.staged ? "Change" : "Add") + "</span></button>";
-  }
-  function bindLaterRows(items) {
-    $$("[data-later]").forEach(function (b) {
-      b.addEventListener("click", function () { openLaterSheet(items[Number(b.dataset.later)]); });
-    });
-  }
-
-  /* SHEET 4 — inspect. Enough real rows to recognise your own business, the
-     total, and where it came from. A sheet, not a browser. */
-  function openInspectSheet(kind) {
-    const EV = window.FB_EVIDENCE;
-    const e = engine();
-    const r = EV.sampleRecords({ seed: e.seed, history: e.history, kind: kind, limit: 5 });
-    const pv = EV.provenance({ seed: e.seed, history: e.history });
-    const title = kind.charAt(0).toUpperCase() + kind.slice(1);
-
-    openSheet({
-      title: title,
-      count: r.total.toLocaleString(),
-      body:
-        '<p class="ob-sheet-eyebrow">A FEW OF THEM</p>' +
-        '<div class="ob-reclist">' +
-          r.rows.map(function (x) {
-            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(x.a) + "</span>" +
-                   '<span class="ob-rec-b">' + esc(x.b) + "</span></div>";
-          }).join("") +
-        "</div>" +
-        '<p class="ob-sheet-eyebrow">WHERE THIS CAME FROM</p>' +
-        '<div class="ob-prov-lines">' +
-          /* The source S02 actually read, in the chip's words. */
-          "<p>" + esc(provenanceLabel()) + "</p>" +
-          (kind === "orders" && pv.from ? "<p>" + esc(pv.from) + " &#8211; " + esc(pv.to) + "</p>" : "") +
-          /* Scope belongs to the ORDERS, not to a product catalogue. Printing
-             it under all three is how a date range ended up describing 86
-             pickles. */
-          (kind === "orders"
-            ? "<p>" + pv.shopsWithHistory + " of your " + pv.totalCustomers + " shops</p>"
-            : "<p>" + r.total.toLocaleString() + " " + esc(r.unit) + " in total</p>") +
-        "</div>",
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
-      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
-    });
-  }
-
-  /* ── S03 · "Add later" and "What is missing", cleared right here ───────
-     Product owner's request, 17 Sep 2026: each item opens a sheet where the
-     user adds files or photos for it; they can do the next item the same way;
-     then ONE "Read" reads all of them and adds what it finds to the data S02
-     handed over (combined, never replacing -- every record names its file).
-     The same day: what the floor is MISSING (S03-B) is cleared by the same
-     rows, sheet and Read, so crossing the floor never means leaving S03.
-
-     Nothing is read when a file is chosen. A file that cannot be read stays
-     on its item with the reason, to be replaced; the ones that read are added. */
-
-  const LATER_ITEMS = {
-    /* Below the floor (S03-B): what the floor is missing, cleared the same way.
-       Spreadsheets only — the bridge reads photographs of invoices, payments
-       and price lists, not of order books. */
-    orders: {
-      ask: "Add your sales orders or order history.",
-      types: ["orders"], photo: false,
-      has: function (m) { return { orders: m.evidence.sales.present }; },
-    },
-    products: {
-      ask: "Add your items or price list.",
-      types: ["products"], photo: false,
-      has: function (m) { return { products: m.context.products.present }; },
-    },
-    invoices_and_payments: {
-      ask: "Add the bills you've sent to customers and the payments you've received.",
-      types: ["invoices", "payments"],
-      has: function (m) { return { invoices: m.evidence.invoices.present, payments: m.evidence.payments.present }; },
-    },
-    cost_price: {
-      ask: "Add a price list or purchase bills that show what you pay for each product.",
-      types: ["costs"],
-      has: function (m) { return { costs: m.stock.cost }; },
-    },
-  };
-  const LATER_TYPE_LABEL = { orders: "Orders", products: "Products", invoices: "Invoices", payments: "Payments", costs: "Cost prices" };
-  const LATER_NEEDS = {
-    orders: TYPE_NEEDS.orders,
-    products: TYPE_NEEDS.products,
-    invoices: "An invoices file needs a date, a customer and an amount for each invoice.",
-    payments: "A payments file needs a date, a customer and an amount for each payment.",
-    costs: "A cost price file needs a product name and what you pay for it.",
-  };
-  const LATER_PROBLEM = {
-    photo_not_set_up: "Reading photos isn't set up yet.",
-    photo_no_rows: "We couldn't read any rows in this photo. Try a clearer, straighter photo.",
-    photo_unavailable: "Reading this photo didn't finish.",
-  };
-  const LATER_ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*";
-
-  function laterFiles(key) { return state.later.files.filter(function (f) { return f.item === key; }); }
-
-  function laterStatus(u, m) {
-    const files = laterFiles(u.evidence);
-    const bad = files.filter(function (f) { return f.status === "failed"; }).length;
-    const ready = files.filter(function (f) { return f.status === "new"; }).length;
-    if (bad) return { staged: true, bad: true, text: plural(bad, "file", "files") + " couldn't be read" + (ready ? " · " + ready + " ready" : "") };
-    if (ready) return { staged: true, ready: true, text: plural(ready, "file", "files") + " ready to read" };
-    const item = LATER_ITEMS[u.evidence];
-    if (item && item.types.length > 1) {
-      const has = item.has(m);
-      const got = item.types.filter(function (t) { return has[t]; });
-      if (got.length) {
-        const missing = item.types.filter(function (t) { return !has[t]; });
-        return { text: got.map(function (t) { return LATER_TYPE_LABEL[t]; }).join(", ") + " added · add " +
-                       missing.map(function (t) { return LATER_TYPE_LABEL[t].toLowerCase(); }).join(" and ") + " to finish" };
-      }
-    }
-    return { text: "Would unlock " + u.short };
-  }
-
-  function laterFooter() {
-    const fresh = state.later.files.filter(function (f) { return f.status === "new"; });
-    if (!fresh.length) return '<footer class="ob-foot"><button class="ob-cta" id="b-continue">See what this means</button></footer>';
-    const untyped = fresh.some(function (f) { return !f.type; });
-    return '<footer class="ob-foot">' +
-      (untyped
-        ? '<button class="ob-cta" disabled>Choose what each file contains</button>'
-        : '<button class="ob-cta" id="b-readlater">Read ' + plural(fresh.length, "file", "files") + "</button>") +
-      '<button class="ob-skip" id="b-continue">Continue without them</button></footer>';
-  }
-
-  function bindLaterFooter() {
-    const c = $("#b-continue");
-    if (c) c.addEventListener("click", function () { go("S04"); });
-    const r = $("#b-readlater");
-    if (r) r.addEventListener("click", runLaterRead);
-  }
-
-  function addLaterFiles(key, list, photo) {
-    const item = LATER_ITEMS[key];
-    Array.prototype.forEach.call(list || [], function (file) {
-      state.later.files.push({
-        id: newFileId(), item: key, name: file.name || (photo ? "Photo" : "File"), file: file,
-        type: item.types.length === 1 ? item.types[0] : null,   // the item names it; nothing is guessed
-        status: "new", reason: null, via: photo || RD().files.isPhoto(file) ? "photo" : "file",
-      });
-    });
-  }
-
-  function laterProblem(f) {
-    if (f.reason === "no_records") return "We couldn't find any " + LATER_TYPE_LABEL[f.type].toLowerCase() + " in this file. " + (LATER_NEEDS[f.type] || "");
-    return LATER_PROBLEM[f.reason] || FILE_PROBLEM[f.reason] || FILE_PROBLEM.damaged;
-  }
-
-  /* The sheet for one item. It is re-opened (redrawn) after every change. */
-  function openLaterSheet(u) {
-    const key = u.evidence;
-    const item = LATER_ITEMS[key];
-    if (!item) return;
-    const m = state.model || (state.model = buildModel());
-    const has = item.has(m);
-    const files = laterFiles(key);
-    const multi = item.types.length > 1;
-
-    const fileRowHtml = function (f) {
-      const chips = multi
-        ? '<span class="ob-seg" role="radiogroup" aria-label="What\'s in ' + esc(f.name) + '">' +
-            item.types.map(function (t) {
-              return '<button class="ob-seg-b' + (f.type === t ? " is-on" : "") + '" role="radio" aria-checked="' + (f.type === t) +
-                '" data-ltype="' + f.id + ":" + t + '">' + LATER_TYPE_LABEL[t] + "</button>";
-            }).join("") + "</span>"
-        : '<span class="ob-typechip is-static">' + LATER_TYPE_LABEL[f.type] + "</span>";
-      return '<div class="ob-file' + (f.status === "failed" ? " is-failed" : "") + '">' +
-        '<div class="ob-file-top">' + (f.via === "photo" ? ICON.camera : ICON.files) +
-          '<span class="ob-file-n">' + esc(f.name) + "</span>" +
-          '<button class="ob-file-x" data-lrm="' + f.id + '" aria-label="Remove ' + esc(f.name) + '">' + ICON.close + "</button></div>" +
-        '<div class="ob-file-bot">' + chips + "</div>" +
-        (f.status === "failed"
-          ? '<p class="ob-file-why">' + esc(laterProblem(f)) + ' <label class="ob-flink">Replace' +
-              '<input type="file" data-lrep="' + f.id + '" accept="' + LATER_ACCEPT + '" hidden></label></p>'
-          : "") +
-      "</div>";
-    };
-
-    openSheet({
-      title: u.label,
-      body:
-        '<p class="ob-sheet-p">' + esc(item.ask) + "</p>" +
-        (multi
-          ? '<div class="ob-have">' + item.types.map(function (t) {
-              return '<span class="ob-have-i' + (has[t] ? " is-on" : "") + '">' + (has[t] ? ICON.check : "") +
-                LATER_TYPE_LABEL[t] + (has[t] ? " added" : "") + "</span>";
-            }).join("") + "</div>"
-          : "") +
-        '<div class="ob-addbtns">' +
-          '<label class="ob-chip key">' + ICON.upload + "Choose files" +
-            '<input type="file" id="l-files" accept="' + (item.photo === false ? ACCEPT : LATER_ACCEPT) + '" multiple hidden></label>' +
-          (item.photo === false ? "" :
-            '<label class="ob-chip">' + ICON.camera + "Take photo" +
-              '<input type="file" id="l-photo" accept="image/*" capture="environment" hidden></label>') +
-        "</div>" +
-        (files.length ? '<div class="ob-files ob-files-sheet">' + files.map(fileRowHtml).join("") + "</div>" : "") +
-        (item.photo === false
-          ? '<p class="ob-quiet-s">Excel or CSV, read on this phone. Nothing is read until you tap Read.</p>'
-          : '<p class="ob-quiet-s">Excel, CSV or a clear photo. Spreadsheets are read on this phone; photos are sent to FoodBridge to be read. ' +
-            "Nothing is read until you tap Read.</p>"),
-      actions: '<button class="ob-cta" id="l-done">Done</button>',
-      bind: function () {
-        const again = function () { openLaterSheet(u); };
-        $("#l-files").addEventListener("change", function () { addLaterFiles(key, this.files, false); this.value = ""; again(); });
-        const ph = $("#l-photo");
-        if (ph) ph.addEventListener("change", function () { addLaterFiles(key, this.files, true); this.value = ""; again(); });
-        $$("[data-ltype]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            const parts = b.dataset.ltype.split(":");
-            const f = state.later.files.filter(function (x) { return x.id === parts[0]; })[0];
-            if (f) { f.type = parts[1]; if (f.status === "failed") { f.status = "new"; f.reason = null; } }
-            again();
-          });
-        });
-        $$("[data-lrm]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            state.later.files = state.later.files.filter(function (x) { return x.id !== b.dataset.lrm; });
-            again();
-          });
-        });
-        $$("[data-lrep]").forEach(function (inp) {
-          inp.addEventListener("change", function () {
-            const f = state.later.files.filter(function (x) { return x.id === inp.dataset.lrep; })[0];
-            if (f && this.files[0]) {
-              f.file = this.files[0]; f.name = this.files[0].name || f.name; f.status = "new"; f.reason = null;
-              f.via = RD().files.isPhoto(this.files[0]) ? "photo" : "file";
-            }
-            again();
-          });
-        });
-        $("#l-done").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  async function runLaterRead() {
-    const run = { stopped: false, parts: [] };
-    state.later.run = run;
-    state.sheet = null;
-    const queue = state.later.files.filter(function (f) { return f.status === "new" && f.type; });
-    queue.forEach(function (f) { f.status = "waiting"; });
-    draw();
-    for (let i = 0; i < queue.length; i++) {
-      const f = queue[i];
-      if (state.later.run !== run) return;
-      f.status = "reading";
-      draw();
-      let out;
-      try { out = await RD().files.read(f.file, f.type); } catch (e) { out = { ok: false, reason: "damaged" }; }
-      if (state.later.run !== run) return;
-      if (out && out.ok) {
-        f.status = "read";
-        run.parts.push({ id: f.id, name: f.name, type: f.type, via: f.via, records: out.records, skipped: out.skipped || [] });
-      } else {
-        f.status = "failed";
-        f.reason = (out && out.reason) || "damaged";
-      }
-      draw();
-    }
-    finishLaterRead(run);
-  }
-
-  /* What read is added; what did not stays on its item with the reason. */
-  function finishLaterRead(run) {
-    state.later.run = null;
-    state.later.files = state.later.files.filter(function (f) { return f.status !== "read"; });
-    state.later.files.forEach(function (f) { if (f.status === "waiting" || f.status === "reading") f.status = "new"; });
-    if (run.parts.length) {
-      state.dataReady = window.FB_DATASET.addEvidence(state.dataReady, run.parts);
-      state.engine = null;
-      state.model = null;
-      save();
-    }
-    state.screen = "S03";
-    draw();
-  }
-
-  function stopLaterRead() {
-    const run = state.later.run;
-    if (!run) return;
-    run.stopped = true;
-    finishLaterRead(run);          // keeps every file that already read
-  }
-
-  function drawLaterReading() {
-    const files = state.later.files.filter(function (f) { return f.status !== "new" && f.status !== "failed" || state.later.run; });
-    render(
-      chrome("S03", { back: true }) +
-      '<main class="ob-main ob-main-op">' +
-        '<h1 class="ob-h1">Reading your files</h1>' +
-        '<div class="ob-files">' +
-          files.filter(function (f) { return ["waiting", "reading", "read", "failed"].indexOf(f.status) !== -1; }).map(function (f) {
-            const status = f.status === "waiting" ? '<span class="ob-fstat">Waiting</span>'
-              : f.status === "reading" ? '<span class="ob-fstat is-busy"><span class="ob-spin"></span>Reading</span>'
-              : f.status === "read" ? '<span class="ob-fstat is-ok" aria-label="Read">' + ICON.check + "</span>"
-              : '<span class="ob-fstat is-bad">Couldn\'t read</span>';
-            return '<div class="ob-file"><div class="ob-file-top">' + (f.via === "photo" ? ICON.camera : ICON.files) +
-              '<span class="ob-file-n">' + esc(f.name) + "</span></div>" +
-              '<div class="ob-file-bot"><span class="ob-typechip is-static">' + esc(LATER_TYPE_LABEL[f.type] || "") + "</span>" + status + "</div></div>";
-          }).join("") +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot"><button class="ob-skip" id="b-stoplater">Stop</button></footer>'
-    );
-    $("#b-stoplater").addEventListener("click", stopLaterRead);
-  }
-
-  /* S03-B — below the floor. NN11: this was a closed loop — "Connect" returned
-     to S02, which returned here, and both Upload paths failed for every file.
-     It now names what is missing and what that would unlock, and it always
-     carries a way forward: back to S02 to bring in more. */
-  /* S03-B — below the floor. NN11: this was a closed loop — "Connect" returned
-     to S02, which returned here, and both Upload paths failed for every file.
-     It names what is missing and what that would unlock, and each item is
-     cleared RIGHT HERE, by the same rows, sheet and Read as S03-A's "Add
-     later": add the file, read it, and the floor is checked again in place.
-     There is no Continue below the floor. */
-  function drawS03Below(m) {
-    const fromFiles = !!(state.dataReady && state.dataReady.provenance.kind === "files");
-    const missing = [
-      { evidence: "orders", label: "Sales or orders", short: "which shops have stopped ordering, and what to reorder for them" },
-      { evidence: "products", label: "Your products", short: "what is on the shelf and what is out of stock" },
-    ].filter(function (u) {
-      return u.evidence === "orders" ? !(m && m.evidence && m.evidence.sales.present)
-                                     : !(m && m.context && m.context.products.present);
-    });
-    const fresh = state.later.files.filter(function (f) { return f.status === "new"; });
-
-    render(
-      chrome("S03", { back: true }) +
-      '<main class="ob-main">' +
-        '<h1 class="ob-h1">We need a little more</h1>' +
-        '<section class="ob-section">' +
-          '<p class="ob-eyebrow">WHAT IS MISSING</p>' +
-          '<div class="ob-optional">' + missing.map(function (u, i) { return laterRow(u, i, m); }).join("") + "</div>" +
-        "</section>" +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        (fresh.length ? '<button class="ob-cta" id="b-readlater">Read ' + plural(fresh.length, "file", "files") + "</button>" : "") +
-        (fromFiles
-          ? '<button class="ob-skip" id="b-other">Connect an app instead</button>'
-          : '<button class="ob-skip" id="b-other">Choose a different source</button>') +
-      "</footer>"
-    );
-    bindLaterRows(missing);
-    const r = $("#b-readlater");
-    if (r) r.addEventListener("click", runLaterRead);
-    $("#b-other").addEventListener("click", function () { goS02(fromFiles ? "C" : "A"); });
-  }
-
-  /* ------------------------------------------------------------- S04 */
-
-  function drawS04() {
-    const m = state.model || (state.model = buildModel());
-    const cad = (m.signals && m.signals.order_cadence) || { overdue: 0 };
-    const rest = supportingSignals(m);
-
-    render(
-      chrome("S04", { back: true }) +
-      '<main class="ob-main">' +
-        '<p class="ob-eyebrow">WHAT WE NOTICED</p>' +
-        (cad.overdue > 0
-          ? '<h1 class="ob-lead-h">' + cad.overdue + " shops are past their usual order date</h1>" +
-            '<button class="ob-why" id="b-why">Why this matters' + ICON.chev + "</button>"
-          : '<p class="ob-quiet">Nothing needs your attention today.</p>') +
-        (rest.length
-          ? '<div class="ob-support">' + rest.map(function (x) {
-              return '<button class="ob-srow" data-sig="' + esc(x.id) + '">' +
-                '<span class="ob-srow-ic">' + x.icon + "</span>" +
-                '<span class="ob-srow-t">' + esc(x.label) + "</span>" +
-                '<span class="ob-chev">' + ICON.chev + "</span></button>";
-            }).join("") + "</div>"
-          : "") +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        /* NN14 — "Start here" named nothing. This names the thing it opens. */
-        (cad.overdue > 0
-          ? '<button class="ob-cta" id="b-start">Show me the ' + cad.overdue + " shops</button>"
-          : "") +
-        '<button class="ob-skip" id="b-skip">Not now</button>' +
-      "</footer>"
-    );
-
-    const why = $("#b-why");
-    if (why) why.addEventListener("click", function () { openWhySheet(m, cad); });
-    /* NN3 — a supporting insight opens a SHEET. It used to call handoff(),
-       which navigated the whole window into another module, abandoned
-       onboarding, dropped the demonstration marker and left no way back. */
-    $$("[data-sig]").forEach(function (b) {
-      b.addEventListener("click", function () { openStockSheet(m); });
-    });
-    const st = $("#b-start");
-    if (st) st.addEventListener("click", openOpportunity);
-    $("#b-skip").addEventListener("click", parkOpportunity);
-  }
-
-  /* SHEET — the supporting insight, in place. It says what it is FOR, which is
-     the reason it survived NN13: stock is what decides whether a reorder can
-     actually be filled. */
-  function openStockSheet(m) {
-    const sp = (m.signals && m.signals.stock_position) || { outOfStock: 0, catalogue: 0 };
-    const products = (engine().seed.products || []).filter(function (p) {
-      return p.systemStock === 0;
-    });
-    openSheet({
-      title: "Out of stock",
-      count: sp.outOfStock,
-      body:
-        '<p class="ob-sheet-p">' + sp.outOfStock + " of your " + sp.catalogue +
-          (sp.untracked ? " tracked" : "") + " products show no stock. A reorder can still be prepared for them \u2014 " +
-          "this is what to expect to be short of when you come to fill it.</p>" +
-        '<p class="ob-sheet-eyebrow">A FEW OF THEM</p>' +
-        '<div class="ob-reclist">' +
-          products.slice(0, 8).map(function (p) {
-            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(p.name) + "</span>" +
-                   '<span class="ob-rec-b">0 in stock</span></div>';
-          }).join("") +
-        "</div>",
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
-      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
-    });
-  }
-
-  /* NN4 — "Not now" is REVERSIBLE. It used to call handoff("dashboard"), which
-     left onboarding for a screen with no way back and no trace of any of this.
-     The opportunity is parked on a record that survives a reload and is
-     reachable from the drafts destination, and the user is told where it went
-     before they go anywhere. */
-  function parkOpportunity() {
-    const o = state.opp || (state.opp = buildOpportunity());
-    openSheet({
-      title: "Leave this for now?",
-      body:
-        '<p class="ob-sheet-eyebrow">WHAT HAPPENS</p>' +
-        '<ul class="ob-sheet-ul">' +
-          "<li>" + o.total + " shops stopped ordering \u2014 we keep the list</li>" +
-          "<li>Nothing is sent, prepared or written</li>" +
-          "<li>You can pick it up from Order Drafts whenever you want</li>" +
-        "</ul>" +
-        "",
-      actions: '<button class="ob-cta" id="s-park">Leave it for now</button>' +
-               '<button class="ob-skip" id="s-stay">Keep going</button>',
-      bind: function () {
-        $("#s-park").addEventListener("click", function () {
-          state.sheet = null;
-          state.parked = true;
-          save();
-          state.view = "drafts";
-          drawDraftsHome();
-        });
-        $("#s-stay").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  /* SHEET 6 — why this matters. Everything S04 refuses to carry: what we
-     looked at, how we read it, and what we found. "Usual" is per shop, and
-     this is the only place that says how the date was arrived at. */
-  function openWhySheet(m, cad) {
-    const o = state.opp || (state.opp = buildOpportunity());
-    const longest = o.shops.length ? o.shops[0].daysOverdue : 0;
-    openSheet({
-      title: "Why this matters",
-      body:
-        '<p class="ob-sheet-eyebrow">WHAT WE LOOKED AT</p>' +
-        '<p class="ob-sheet-p">' + esc(m.coverageSentence) + "</p>" +
-        '<p class="ob-sheet-eyebrow">HOW WE READ IT</p>' +
-        '<p class="ob-sheet-p">Every shop has its own buying rhythm. We worked out how ' +
-          "often each one usually orders, and compared it against its own rhythm — " +
-          "never against an average.</p>" +
-        '<p class="ob-sheet-eyebrow">WHAT WE FOUND</p>' +
-        '<div class="ob-kv">' +
-          '<div class="ob-kv-r"><span>Shops past their usual date</span><b>' + cad.overdue + "</b></div>" +
-          '<div class="ob-kv-r"><span>Longest overdue</span><b>' + longest + " days</b></div>" +
-          '<div class="ob-kv-r"><span>We can prepare a reorder for</span><b>' + o.withSuggestion + "</b></div>" +
-        "</div>",
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
-      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
-    });
-  }
-
-  /* ------------------------------------------------------------- S05 */
-
-  function openOpportunity() {
-    state.opp = buildOpportunity();
-    state.picked = {};          // NOTHING is pre-selected (D-018)
-    state.repeats = {};
-    state.showAll = false;
-    state.stage = state.drafts ? "prepared" : "brief";
-    go("S05");
-  }
-
-  function recommended() { return (state.opp.shops || []).filter(function (s) { return !!s.suggestion; }); }
-  function stale() { return (state.opp.shops || []).filter(function (s) { return !s.suggestion; }); }
-  function pickedCount() { return Object.keys(state.picked).filter(function (k) { return state.picked[k]; }).length; }
-  function repeatCount() { return Object.keys(state.repeats).filter(function (k) { return state.repeats[k]; }).length; }
-
-  /* Product names in this catalogue carry pack size and MRP. A shop's row
-     needs the thing, not the label off the jar. */
-  function shortName(nm) {
-    return String(nm)
-      .replace(/\(.*?\)/g, " ")
-      .replace(/\b(OLD|NEW)?\s*MRP\b.*$/i, " ")
-      .replace(/[.,/-]+\s*$/, "")
-      .replace(/\s{2,}/g, " ")
-      .toLowerCase().trim();
-  }
-  function shortList(names) {
-    return names.map(shortName).filter(Boolean).slice(0, 3).join(", ");
-  }
-
-  function drawS05() {
-    if (state.stage === "prepared") return drawS05Prepared();
-    if (state.stage === "choose") return drawS05Choose();
-    return drawS05Brief();
-  }
-
-  /* F15 — the BRIEF. S05 opens on what was found, never on a selection task:
-     a list of twenty-three checkboxes is a job, and a job is not an
-     explanation of why you are looking at one. */
-  function drawS05Brief() {
-    const o = state.opp;
-    const rec = recommended().length, st = stale().length;
-    render(
-      chrome("S05", { back: true }) +
-      '<main class="ob-main">' +
-        '<p class="ob-eyebrow">THE OPPORTUNITY</p>' +
-        '<h1 class="ob-lead-h">' + o.total + " shops stopped ordering</h1>" +
-        /* NN12 — both rows are real buttons. They named two groups and opened
-           neither; the seven that "need your eye" were the ones a user was
-           most likely to reach for. */
-        '<div class="ob-brief">' +
-          '<button class="ob-brief-r" id="b-rec"><b>' + rec + "</b>" +
-            "<span>we can prepare a reorder for</span>" +
-            '<span class="ob-chev">' + ICON.chev + "</span></button>" +
-          '<button class="ob-brief-r" id="b-stale"><b>' + st + "</b>" +
-            "<span>need your eye \u2014 quiet too long to predict</span>" +
-            '<span class="ob-chev">' + ICON.chev + "</span></button>" +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        '<button class="ob-cta" id="b-choose">See the ' + rec + "</button>" +
-        '<button class="ob-skip" id="b-skip">Not now</button>' +
-      "</footer>"
-    );
-    function open(showStale) {
-      state.stage = "choose";
-      state.showAllStale = showStale;
-      state.focus = showStale ? "stale" : null;
-      draw();
-    }
-    $("#b-rec").addEventListener("click", function () { open(false); });
-    $("#b-stale").addEventListener("click", function () { open(true); });
-    $("#b-choose").addEventListener("click", function () { open(false); });
-    $("#b-skip").addEventListener("click", parkOpportunity);
-  }
-
-  /* F16/F17 — choosing. NOTHING arrives selected: a recommendation that
-     selects itself has become a choice the user never made. */
-  function drawS05Choose() {
-    const rec = recommended(), st = stale();
-    const shown = state.showAll ? rec : rec.slice(0, 5);
-    const hidden = rec.length - shown.length;
-    const staleShown = state.showAllStale ? st : st.slice(0, 3);
-    const staleHidden = st.length - staleShown.length;
-    const n = pickedCount(), r = repeatCount();
-    const total = n + r;
-    const allOn = n === rec.length;
-
-    render(
-      chrome("S05", { back: true }) +
-      '<main class="ob-main">' +
-        undoBar() +
-        '<div class="ob-selbar">' +
-          '<span class="ob-selbar-n">' + total + " selected</span>" +
-          '<button class="ob-selbar-a" id="b-all">' +
-            (total ? "Clear all" : "Select all " + rec.length) + "</button>" +
-        "</div>" +
-
-        '<p class="ob-eyebrow">WE CAN PREPARE A REORDER</p>' +
-        '<div class="ob-shops">' +
-          shown.map(function (sh) {
-            return '<div class="ob-shop' + (state.picked[sh.id] ? " is-on" : "") + '">' +
-              '<button class="ob-shop-pick" data-shop="' + esc(sh.id) + '" aria-pressed="' +
-                (state.picked[sh.id] ? "true" : "false") + '">' +
-                '<span class="ob-box">' + ICON.check + "</span></button>" +
-              '<button class="ob-shop-open" data-detail="' + esc(sh.id) + '">' +
-                '<span class="ob-shop-n">' + esc(sh.name) + "</span>" +
-                '<span class="ob-shop-why">' + sh.daysOverdue + " days overdue · usually every " +
-                  sh.cycleDays + " days</span>" +
-                '<span class="ob-sugg">' + sh.suggestion.count + " lines suggested</span>" +
-              "</button>" +
-              '<span class="ob-chev">' + ICON.chev + "</span>" +
-            "</div>";
-          }).join("") +
-        "</div>" +
-        (hidden > 0 ? '<button class="ob-morebtn" id="b-more">Show ' + hidden + " more</button>" : "") +
-
-        (st.length
-          ? '<p class="ob-eyebrow" id="ob-stale-h">NEED YOUR EYE</p>' +
-            '<div class="ob-shops">' +
-              staleShown.map(function (sh) {
-                return '<div class="ob-shop is-stale' + (state.repeats[sh.id] ? " is-on" : "") + '">' +
-                  '<button class="ob-shop-pick" data-repeat="' + esc(sh.id) + '" aria-pressed="' +
-                    (state.repeats[sh.id] ? "true" : "false") + '">' +
-                    '<span class="ob-box">' + ICON.check + "</span></button>" +
-                  '<button class="ob-shop-open" data-detail="' + esc(sh.id) + '">' +
-                    '<span class="ob-shop-n">' + esc(sh.name) + "</span>" +
-                    '<span class="ob-shop-why">' + sh.daysOverdue + " days overdue</span>" +
-                    /* A FACT about the past, never a prediction, and it says
-                       which it is right on the row. */
-                    '<span class="ob-repeat">' + ICON.repeat + "Repeat their last order</span>" +
-                  "</button>" +
-                  '<span class="ob-chev">' + ICON.chev + "</span>" +
-                "</div>";
-              }).join("") +
-            "</div>" +
-            (staleHidden > 0
-              ? '<button class="ob-morebtn" id="b-morestale">Show ' + staleHidden + " more</button>"
-              : "")
-          : "") +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        '<button class="ob-cta" id="b-prep"' + (total ? "" : " disabled") + ">" +
-          (total ? "Prepare " + total + (total === 1 ? " draft" : " drafts") : "Select shops to prepare drafts") +
-        "</button>" +
-      "</footer>"
-    );
-
-    bindUndo();
-    $$("[data-shop]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        state.picked[b.dataset.shop] = !state.picked[b.dataset.shop];
-        draw();
-      });
-    });
-    $$("[data-repeat]").forEach(function (b) {
-      b.addEventListener("click", function () {
-        state.repeats[b.dataset.repeat] = !state.repeats[b.dataset.repeat];
-        draw();
-      });
-    });
-    $$("[data-detail]").forEach(function (b) {
-      b.addEventListener("click", function () { openShopSheet(b.dataset.detail); });
-    });
-    const more = $("#b-more");
-    if (more) more.addEventListener("click", function () { state.showAll = true; draw(); });
-    if (state.focus === "stale") {
-      state.focus = null;
-      const h = $("#ob-stale-h");
-      if (h) h.scrollIntoView({ block: "start" });
-    }
-    /* Select all / Clear all acts on the RECOMMENDED list only, which is what
-       its own label says. The stale shops are a different decision — repeating
-       a past order is a fact, not a prediction — and sweeping them in here
-       would make that choice on the user's behalf. */
-    const all = $("#b-all");
-    if (all) all.addEventListener("click", function () {
-      if (total) {
-        /* "Clear all" clears ALL of it. It used to clear only the recommended
-           group, so a shop picked from "need your eye" survived a clear and
-           the footer went on offering to prepare a draft for it. */
-        state.picked = {};
-        state.repeats = {};
-      } else {
-        rec.forEach(function (sh) { state.picked[sh.id] = true; });
-      }
-      draw();
-    });
-    const ms = $("#b-morestale");
-    if (ms) ms.addEventListener("click", function () { state.showAllStale = true; draw(); });
-    const p = $("#b-prep");
-    if (p) p.addEventListener("click", openConfirmSheet);
-  }
-
-  /* SHEET 7 — one shop. What it usually buys, when it last ordered, and the
-     lines we would propose. `suggestedQty` is shown as FoodBridge's figure. */
-  function openShopSheet(id) {
-    const sh = state.opp.shops.filter(function (s) { return s.id === id; })[0];
-    if (!sh) return;
-    const EV = window.FB_EVIDENCE;
-    const lines = sh.suggestion ? sh.suggestion.lines : (sh.lastOrder ? sh.lastOrder.lines : []);
-    openSheet({
-      title: sh.name,
-      body:
-        '<div class="ob-kv">' +
-          '<div class="ob-kv-r"><span>Usually orders every</span><b>' + sh.cycleDays + " days</b></div>" +
-          '<div class="ob-kv-r"><span>Days overdue</span><b>' + sh.daysOverdue + "</b></div>" +
-          '<div class="ob-kv-r"><span>Last ordered</span><b>' +
-            esc(sh.lastOrder ? EV.fmtDate(sh.lastOrder.at) : "—") + "</b></div>" +
-          '<div class="ob-kv-r"><span>Orders on record</span><b>' + sh.orderCount + "</b></div>" +
-        "</div>" +
-        '<p class="ob-sheet-eyebrow">' +
-          (sh.suggestion ? "WHAT WE'D PROPOSE" : "WHAT THEY LAST ORDERED") + "</p>" +
-        (sh.suggestion
-          ? ""
-          : '<p class="ob-sheet-p">This shop has been quiet too long for its pattern to ' +
-            "count as current, so we propose nothing. These are the lines from its last " +
-            "order, exactly as they were.</p>") +
-        '<div class="ob-reclist">' +
-          lines.slice(0, 8).map(function (l) {
-            /* The FULL name, pack size and all. Two lines of this catalogue
-               collapse to the same words once the bracket is stripped, and a
-               100 gm pouch is not a pet jar. */
-            return '<div class="ob-rec"><span class="ob-rec-a">' + esc(l.name) + "</span>" +
-                   '<span class="ob-rec-b">' +
-                   (sh.suggestion ? l.suggestedQty + " suggested" : l.qty + " ordered") +
-                   "</span></div>";
-          }).join("") +
-        "</div>" +
-        (sh.usualProducts.length
-          ? '<p class="ob-sheet-eyebrow">USUALLY BUYS</p>' +
-            '<p class="ob-sheet-p">' + esc(shortList(sh.usualProducts)) + "</p>"
-          : ""),
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>',
-      bind: function () { $("#s-close").addEventListener("click", closeSheet); },
-    });
-  }
-
-  /* SHEET 8 — F19, confirm. It names exactly what changes and, just as
-     importantly, exactly what does not. */
-  function openConfirmSheet() {
-    const n = pickedCount(), r = repeatCount(), total = n + r;
-    openSheet({
-      title: "Prepare " + total + (total === 1 ? " draft" : " drafts") + "?",
-      body:
-        '<p class="ob-sheet-eyebrow">WHAT HAPPENS</p>' +
-        '<ul class="ob-sheet-ul">' +
-          (n ? "<li>" + n + " draft" + (n === 1 ? "" : "s") + " built from what we'd propose</li>" : "") +
-          (r ? "<li>" + r + " draft" + (r === 1 ? "" : "s") + " repeating a last order, exactly as it was</li>" : "") +
-          "<li>Every draft is held for your review</li>" +
-        "</ul>" +
-        '<p class="ob-sheet-eyebrow">WHAT DOES NOT HAPPEN</p>' +
-        '<ul class="ob-sheet-ul"><li>Nothing is sent to any shop</li>' +
-          "<li>Nothing is written to your accounting system</li></ul>",
-      actions: '<button class="ob-cta" id="s-go">Prepare ' + total +
-                 (total === 1 ? " draft" : " drafts") + "</button>" +
-               '<button class="ob-skip" id="s-cancel">Cancel</button>',
-      bind: function () {
-        $("#s-go").addEventListener("click", prepareDrafts);
-        $("#s-cancel").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  /* F18 — preparing. An operation like any other: started by name, shows real
-     counts, and cancellable. Cancelling leaves the SELECTION intact, because
-     the selection was never what the operation produced. */
-  function prepareDrafts() {
-    const rec = recommended().filter(function (s) { return state.picked[s.id]; });
-    const rep = stale().filter(function (s) { return state.repeats[s.id]; });
-    let lineCount = 0;
-    rec.forEach(function (s) { lineCount += s.suggestion.lines.length; });
-    rep.forEach(function (s) { lineCount += (s.lastOrder ? s.lastOrder.lines.length : 0); });
-
-    runOp({
-      title: "Preparing your drafts",
-      steps: [
-        { label: "Building the lines", found: lineCount + " lines" },
-        { label: "Checking against each shop's history",
-          found: (rec.length + rep.length) + " shops" },
-        { label: "Holding them for review", found: "held" },
-      ],
-      onCancel: function () { state.stage = "choose"; draw(); },
-      onDone: function () {
-        /* The draft contract: suggestedQty is immutable and qty starts equal
-           to it, so an edit can never destroy the record of what FoodBridge
-           actually proposed. `basis` says which of the two kinds this is. */
-        const list = [];
-        rec.forEach(function (s) {
-          list.push({ shopId: s.id, name: s.name, basis: "recommended",
-            lines: s.suggestion.lines.map(function (l) {
-              return { name: l.name, suggestedQty: l.suggestedQty, qty: l.suggestedQty,
-                       boughtOn: l.boughtOn, ofOrders: l.ofOrders };
-            }) });
-        });
-        rep.forEach(function (s) {
-          list.push({ shopId: s.id, name: s.name, basis: "repeat_last_order",
-            lastOrderAt: s.lastOrder ? s.lastOrder.at : null,
-            lines: (s.lastOrder ? s.lastOrder.lines : []).map(function (l) {
-              return { name: l.name, suggestedQty: null, qty: l.qty };
-            }) });
-        });
-        state.drafts = { list: list, sent: 0, written: 0 };
-        state.undo = null;
-        state.draftEdit = null;
-        state.stage = "prepared";
-        save();                                   // C7 — confirmed, so persisted
-        draw();
-      },
-    });
-  }
-
-  /* ------------------------------------------------- draft helpers (NN7) */
-
-  function draftEdits(dr) {
-    return dr.lines.filter(function (l) {
-      return l.suggestedQty != null && l.qty !== l.suggestedQty;
-    }).length + (dr.added || 0) + (dr.removed || 0);
-  }
-  function draftLineCount(dr) { return dr.lines.length; }
-  function draftsTotalLines(d) {
-    return d.list.reduce(function (n, dr) { return n + dr.lines.length; }, 0);
-  }
-  function draftsTotalEdits(d) {
-    return d.list.reduce(function (n, dr) { return n + draftEdits(dr); }, 0);
-  }
-
-  /* F20 — C9. It reports what actually happened, and the two zeroes are the
-     whole point: this preview prepared drafts and did nothing else. */
-  function drawS05Prepared() {
-    const d = state.drafts;
-    const n = d.list.length;
-    const edits = draftsTotalEdits(d);
-    render(
-      chrome("S05", { back: true }) +
-      '<main class="ob-main">' +
-        '<div class="ob-done">' +
-          '<div class="ob-done-ring">' + ICON.checkBig + "</div>" +
-          '<h1 class="ob-done-h">' + n + (n === 1 ? " draft prepared" : " drafts prepared") + "</h1>" +
-          '<div class="ob-done-list">' +
-            '<div class="ob-done-row"><span>Held for your review</span><b>' + n + "</b></div>" +
-            (edits ? '<div class="ob-done-row"><span>Edited by you</span><b>' + edits + "</b></div>" : "") +
-            '<div class="ob-done-row"><span>Sent to shops</span><b>' + d.sent + "</b></div>" +
-            '<div class="ob-done-row"><span>Written to your accounts</span><b>' + d.written + "</b></div>" +
-          "</div>" +
-        "</div>" +
-      "</main>" +
-      '<footer class="ob-foot">' +
-        '<button class="ob-cta" id="b-review">Review ' + n + (n === 1 ? " draft" : " drafts") + "</button>" +
-        /* NN14 — "Go to FoodBridge" went to a customer search that had no
-           relationship to any of this. This names the destination and that
-           destination actually holds the drafts. */
-        '<button class="ob-skip" id="b-go">Open Order Drafts</button>' +
-      "</footer>"
-    );
-    $("#b-review").addEventListener("click", function () { openDraftsListSheet(); });
-    $("#b-go").addEventListener("click", function () { handoff("sales-orders/order-drafts"); });
-  }
-
-  /* SHEET 9 — F21, the drafts LIST. One row per draft, not 146 number boxes in
-     a single scroll. Opening one is a separate, focused sheet. */
-  function openDraftsListSheet() {
-    const d = state.drafts;
-    if (!d || !d.list.length) return;
-    openSheet({
-      title: "Your drafts",
-      count: d.list.length,
-      body:
-        '<div class="ob-dlist">' +
-          d.list.map(function (dr, i) {
-            const e = draftEdits(dr);
-            return '<button class="ob-drow" data-draft="' + i + '">' +
-              '<span class="ob-drow-main">' +
-                '<span class="ob-drow-n">' + esc(dr.name) + "</span>" +
-                '<span class="ob-drow-s">' + draftLineCount(dr) + " lines &#183; " +
-                  (dr.basis === "recommended" ? "suggested" : "repeat of last order") + "</span>" +
-              "</span>" +
-              (e ? '<span class="ob-drow-e">Edited</span>' : "") +
-              '<span class="ob-chev">' + ICON.chev + "</span></button>";
-          }).join("") +
-        "</div>",
-      actions: '<button class="ob-cta ob-ghost" id="s-close">Close</button>' +
-               '<button class="ob-skip is-warn" id="s-discard">Discard all drafts</button>',
-      bind: function () {
-        $$("[data-draft]").forEach(function (b) {
-          b.addEventListener("click", function () { openDraftEditor(Number(b.dataset.draft)); });
-        });
-        $("#s-close").addEventListener("click", closeSheet);
-        $("#s-discard").addEventListener("click", confirmDiscardAll);
-      },
-    });
-  }
-
-  /* SHEET — ONE draft. NN7: full product identity including pack size, the
-     suggested figure beside the edited one, per-line removal, a way to add a
-     product that was missed, and an explicit Save. Edits are held on a working
-     copy so Cancel means cancel. */
-  function openDraftEditor(i) {
-    const src = state.drafts.list[i];
-    if (!state.draftEdit || state.draftEdit.i !== i) {
-      state.draftEdit = {
-        i: i,
-        lines: src.lines.map(function (l) { return { name: l.name, suggestedQty: l.suggestedQty,
-                                                     qty: l.qty, added: !!l.added }; }),
-        adding: false, filter: "", dirty: false, removed: 0,
-      };
-    }
-    const ed = state.draftEdit;
-
-    if (ed.adding) return openDraftAddPicker(src);
-
-    openSheet({
-      title: src.name,
-      count: ed.lines.length,
-      body:
-        '<p class="ob-sheet-p ob-draft-basis">' +
-          (src.basis === "recommended"
-            ? "Built from what this shop usually buys. The suggested figure stays beside every line you change."
-            : "A repeat of this shop's last order, exactly as it was.") + "</p>" +
-        (ed.lines.length
-          ? '<div class="ob-draft-lines">' +
-              ed.lines.map(function (l, li) {
-                const changed = l.suggestedQty != null && l.qty !== l.suggestedQty;
-                return '<div class="ob-dl' + (changed || l.added ? " is-edited" : "") + '">' +
-                  '<span class="ob-dl-n">' + esc(l.name) + "</span>" +
-                  '<span class="ob-dl-s">' +
-                    (l.added ? "added by you"
-                             : l.suggestedQty != null ? l.suggestedQty + " suggested" : "last ordered") +
-                    (changed ? ' <em class="ob-dl-chg">changed</em>' : "") +
-                  "</span>" +
-                  '<input class="ob-dl-q" type="number" inputmode="numeric" pattern="[0-9]*" ' +
-                    'min="0" max="9999" value="' + l.qty +
-                    '" data-l="' + li + '" aria-label="Quantity for ' + esc(l.name) + '">' +
-                  '<button class="ob-dl-x" data-rm="' + li + '" aria-label="Remove ' + esc(l.name) + '">' +
-                    ICON.close + "</button>" +
-                "</div>";
-              }).join("") +
-            "</div>"
-          : '<p class="ob-sheet-p">Every line has been removed. Saving now leaves this draft empty, ' +
-            "so it will be discarded instead.</p>") +
-        '<button class="ob-addline" id="s-add">' + ICON.plusCircle + "Add a product</button>",
-      actions: '<button class="ob-cta" id="s-save">' +
-                 (ed.dirty ? "Save changes" : "Done") + "</button>" +
-               '<button class="ob-skip" id="s-cancel">' + (ed.dirty ? "Cancel" : "Back to drafts") + "</button>",
-      bind: function () {
-        $$(".ob-dl-q").forEach(function (inp) {
-          /* Tapping a quantity means replacing it, not appending to it. Without
-             this, tapping "8" and typing 42 leaves 428 — the caret lands where
-             the thumb did. Selecting on focus makes the first keystroke the
-             new value, which is what a number field on a phone should do. */
-          inp.addEventListener("focus", function () {
-            setTimeout(function () { try { inp.select(); } catch (e) {} }, 0);
-          });
-          inp.addEventListener("change", function () {
-            const q = Math.min(9999, Math.max(0, parseInt(inp.value, 10) || 0));
-            inp.value = q;
-            ed.lines[Number(inp.dataset.l)].qty = q;
-            ed.dirty = true;
-            openDraftEditor(i);
-          });
-        });
-        $$("[data-rm]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            ed.lines.splice(Number(b.dataset.rm), 1);
-            /* Counted as it happens. Deriving it from the line total afterwards
-               reports 0 when a line is also added, which is how one removal and
-               one addition cancelled each other out. */
-            ed.removed += 1;
-            ed.dirty = true;
-            openDraftEditor(i);
-          });
-        });
-        $("#s-add").addEventListener("click", function () { ed.adding = true; openDraftEditor(i); });
-        $("#s-save").addEventListener("click", function () { saveDraftEdit(); });
-        $("#s-cancel").addEventListener("click", function () {
-          if (!ed.dirty) { state.draftEdit = null; return openDraftsListSheet(); }
-          confirmDropEdit();
-        });
-      },
-      onClose: function () { /* the X is handled by confirmDropEdit via goBack */ },
-    });
-  }
-
-  /* The product picker, inside the same sheet rather than stacked on top of
-     it — one sheet at a time is the whole reason a sheet is legible. */
-  function openDraftAddPicker(src) {
-    const ed = state.draftEdit;
-    const have = {};
-    ed.lines.forEach(function (l) { have[l.name] = true; });
-    const all = (engine().seed.products || []).filter(function (p) { return !have[p.name]; });
-    const q = ed.filter.trim().toLowerCase();
-    const hits = (q ? all.filter(function (p) { return p.name.toLowerCase().indexOf(q) >= 0; }) : all).slice(0, 40);
-
-    openSheet({
-      title: "Add a product",
-      body:
-        '<input class="ob-search" id="s-q" type="search" enterkeyhint="search" ' +
-          'autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search ' +
-          all.length + ' products" value="' + esc(ed.filter) + '" aria-label="Search products">' +
-        (hits.length
-          ? '<div class="ob-reclist">' +
-              hits.map(function (p, k) {
-                return '<button class="ob-rec ob-rec-btn" data-add="' + k + '">' +
-                  '<span class="ob-rec-a">' + esc(p.name) + "</span>" +
-                  '<span class="ob-rec-b">' + ICON.plusCircle + "</span></button>";
-              }).join("") +
-            "</div>"
-          : '<p class="ob-sheet-p">No product matches that.</p>'),
-      actions: '<button class="ob-cta ob-ghost" id="s-back">Back to the draft</button>',
-      bind: function () {
-        const qi = $("#s-q");
-        qi.addEventListener("input", function () {
-          ed.filter = qi.value;
-          const pos = qi.selectionStart;
-          openDraftAddPicker(src);
-          const again = $("#s-q");
-          if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {} }
-        });
-        $$("[data-add]").forEach(function (b) {
-          b.addEventListener("click", function () {
-            const pr = hits[Number(b.dataset.add)];
-            ed.lines.push({ name: pr.name, suggestedQty: null, qty: 1, added: true });
-            ed.dirty = true;
-            ed.adding = false;
-            ed.filter = "";
-            openDraftEditor(ed.i);
-          });
-        });
-        $("#s-back").addEventListener("click", function () {
-          ed.adding = false; ed.filter = ""; openDraftEditor(ed.i);
-        });
-      },
-    });
-  }
-
-  /* An explicit Save, and the record of what FoodBridge proposed survives it:
-     `suggestedQty` is copied through untouched so "changed" stays computable
-     for the life of the draft. */
-  function saveDraftEdit() {
-    const ed = state.draftEdit;
-    if (!ed) return;
-    const dr = state.drafts.list[ed.i];
-    dr.lines = ed.lines.map(function (l) {
-      return { name: l.name, suggestedQty: l.suggestedQty, qty: l.qty, added: l.added };
-    });
-    dr.removed = (dr.removed || 0) + ed.removed;
-    dr.added = dr.lines.filter(function (l) { return l.added; }).length;
-
-    if (!dr.lines.length) {
-      /* An empty draft is not a draft. Removing it is a deletion, so it is
-         confirmed like one. */
-      const name = dr.name;
+      if (state.conn.handle !== handle || !state.read) return;
+      if (!orgs.length) return importFailed(app === "xero" ? "This Xero login doesn\u2019t have an organisation FoodBridge can read." : "This Zoho account doesn\u2019t have a Zoho Books business.");
+      if (orgs.length === 1) return readApp(orgs[0]);
+      let picked = -1;
       openSheet({
-        title: "Remove this draft?",
-        body: '<p class="ob-sheet-p">Every line has been removed from ' + esc(name) +
-              ", so there is nothing left to send. The draft will be deleted.</p>",
-        actions: '<button class="ob-cta is-warn" id="s-del">Delete this draft</button>' +
-                 '<button class="ob-skip" id="s-keep">Keep editing</button>',
+        title: "Which business should FoodBridge read?",
+        body: '<div class="ob-choices" role="radiogroup">' + orgs.map(function (o, i) {
+          return '<button class="ob-choice" role="radio" aria-checked="false" data-org="' + i + '"><span class="ob-radio"></span><span class="ob-choice-t">' + esc(o.name) + "</span></button>";
+        }).join("") + "</div>",
+        actions: '<button class="ob-cta" id="s-read" disabled>Continue</button>',
+        onClose: function () { stopImport(); },
         bind: function () {
-          $("#s-del").addEventListener("click", function () {
-            state.undo = { drafts: JSON.parse(JSON.stringify(state.drafts)),
-                           label: "1 draft deleted" };
-            state.drafts.list.splice(ed.i, 1);
-            state.draftEdit = null;
-            if (!state.drafts.list.length) { state.drafts = null; state.stage = "choose"; }
-            save();
-            state.sheet = null;
-            draw();
+          $$("[data-org]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              picked = Number(b.dataset.org);
+              $$("[data-org]").forEach(function (x) { const on = Number(x.dataset.org) === picked; x.classList.toggle("is-on", on); x.setAttribute("aria-checked", on); });
+              $("#s-read").disabled = false;
+            });
           });
-          $("#s-keep").addEventListener("click", function () { openDraftEditor(ed.i); });
+          $("#s-read").addEventListener("click", function () { if (picked >= 0) { state.sheet = null; readApp(orgs[picked]); } });
         },
       });
-      return;
+    }, function (err) { if (state.read) importFailed(readFailedText(err && err.reason, app)); });
+  }
+
+  function readFailedText(reason, app) {
+    const n = appName(app);
+    return {
+      busy: n + " is busy right now. Nothing was kept. Try again in a few minutes.",
+      daily_limit: n + " has reached today\u2019s limit for reading this account. Nothing was kept. Try again tomorrow.",
+      expired: "Your " + n + " sign-in expired before we finished. Nothing was kept.",
+      forbidden: "This " + n + " login can\u2019t see your orders. Try again with the account owner\u2019s login.",
+    }[reason] || n + " stopped responding. Nothing was kept.";
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     4 · IMPORTING YOUR DATA — five steps, each advanced by real work
+     ════════════════════════════════════════════════════════════════════ */
+  function beginImport() {
+    state.read = { done: 0, run: { stopped: false } };
+    state.screen = "import";
+    state.sheet = null;
+    draw();
+  }
+  function step(n) { if (state.read && n > state.read.done) { state.read.done = n; if (state.screen === "import" && !state.sheet) drawImport(); } }
+  /* ?obslow on localhost holds each step long enough to photograph screen 4. */
+  const SLOW = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /obslow/.test(location.search + (function () { try { return window.top.location.search; } catch (e) { return ""; } })());
+  const pause = function () { return new Promise(function (r) { setTimeout(r, SLOW ? 2500 : 260); }); };
+
+  function readApp(org) {
+    const run = state.read.run;
+    state.conn.org = org;
+    step(1);                                            // connected, and the business chosen
+    const app = state.conn.app;
+    RD().apps[app].reader.read(state.conn.handle, org, {
+      shouldStop: function () { return run.stopped; },
+      onProgress: function (p) { if (!run.stopped && (p.others === "reading" || p.others === "done")) step(2); },
+    }).then(async function (raw) {
+      if (run.stopped || !raw) return;
+      raw.app = app;
+      step(2); await pause();
+      const ready = window.FB_DATASET.fromApp(raw);
+      step(3); await pause();
+      window.FB_DATASET.toEngine(ready.dataset);
+      step(4); await pause();
+      if (!run.stopped) finishImport(ready, []);
+    }, function (err) {
+      if (!run.stopped) importFailed(readFailedText(err && err.reason, app));
+    });
+  }
+
+  async function startFileImport(files) {
+    beginImport();
+    const run = state.read.run;
+    const parts = [], failed = [];
+    const take = function (i, found) {
+      (found || []).forEach(function (p) { parts.push({ id: "f" + i + p.type, name: files[i].name, type: p.type, records: p.records, skipped: p.skipped }); });
+    };
+    step(1);                                            // the files are open
+    for (let i = 0; i < files.length; i++) {
+      if (run.stopped) return;
+      let out;
+      try { out = await RD().files.read(files[i], null, { shouldStop: function () { return run.stopped; } }); }
+      catch (e) { out = { ok: false, reason: "damaged" }; }
+      if (run.stopped) return;
+      if (out && out.ok) take(i, out.found);
+      else if (out && out.reason === "ambiguous") {
+        const t = await askKind(files[i].name, out.choices);
+        if (run.stopped) return;
+        let again = null;
+        if (t) { try { again = await RD().files.read(files[i], [t]); } catch (e) { again = null; } }
+        if (again && again.ok) take(i, again.found); else failed.push(files[i].name);
+      } else failed.push(files[i].name);
     }
-    state.draftEdit = null;
+    step(2); await pause();
+    if (run.stopped) return;
+    if (!parts.length) {
+      return importFailed(failed.length === 1
+        ? "We couldn’t find orders, customers or products in " + failed[0] + ". Its first rows need column names, such as Customer Name, Item Name and Quantity."
+        : "We couldn’t find orders, customers or products in these files.");
+    }
+    const ready = window.FB_DATASET.fromFiles(parts);
+    step(3); await pause();
+    window.FB_DATASET.toEngine(ready.dataset);
+    step(4); await pause();
+    if (run.stopped) return;
+    if (failed.length) ready.notes = Object.assign({}, ready.notes, { unreadFiles: failed });
+    finishImport(ready, parts);
+  }
+
+  /* A file whose one name column could be either. Asked, never guessed. */
+  function askKind(name, choices) {
+    const list = choices && choices.length ? choices : ["products", "customers"];
+    return new Promise(function (resolve) {
+      let answered = false;
+      openSheet({
+        title: "What’s in " + name + "?",
+        body: '<div class="ob-choices">' + list.map(function (t) {
+          return '<button class="ob-choice" data-kind="' + t + '"><span class="ob-choice-main"><span class="ob-choice-t">' + t.charAt(0).toUpperCase() + t.slice(1) + "</span></span></button>";
+        }).join("") + "</div>",
+        onClose: function () { if (!answered) resolve(null); },
+        bind: function () {
+          $$("[data-kind]").forEach(function (b) {
+            b.addEventListener("click", function () { answered = true; state.sheet = null; draw(); resolve(b.dataset.kind); });
+          });
+        },
+      });
+    });
+  }
+
+  function finishImport(ready, parts) {
+    step(5);
+    setTimeout(function () {
+      if (!state.read || state.read.run.stopped) return;
+      state.read = null;
+      state.conn = { phase: "idle" };
+      state.dataReady = ready;
+      state.parts = parts;
+      state.order = null;
+      go("found");
+      /* A file that could not be read is said, on the screen that shows what
+         did read — never dropped quietly. */
+      const unread = (ready.notes && ready.notes.unreadFiles) || [];
+      if (unread.length) {
+        openSheet({
+          title: "We couldn\u2019t read " + (unread.length === 1 ? unread[0] : unread.length + " files"),
+          body: '<p class="ob-sheet-p">' + (unread.length === 1 ? "It" : esc(unread.join(", ")) + " each") +
+            " had no orders, customers or products we could find. Everything else was read and is shown here.</p>",
+          actions: '<button class="ob-cta" id="s-ok">Continue</button>',
+          bind: function () { $("#s-ok").addEventListener("click", closeSheet); },
+        });
+      }
+    }, 320);
+  }
+
+  function stopImport() {
+    if (state.read) state.read.run.stopped = true;
+    state.read = null;
+    state.conn = { phase: "idle" };
+    go(state.source === "files" ? "source" : "connect");
+  }
+
+  function importFailed(text) {
+    if (state.read) state.read.run.stopped = true;
+    state.read = null;
+    state.conn = { phase: "idle" };
+    state.screen = state.source === "files" ? "source" : "connect";
     save();
-    openDraftsListSheet();
-  }
-
-  function confirmDropEdit() {
-    const ed = state.draftEdit;
     openSheet({
-      title: "Discard your changes?",
-      body: '<p class="ob-sheet-p">The quantities and lines you changed on this draft will ' +
-            "go back to what they were. The draft itself is kept.</p>",
-      actions: '<button class="ob-cta is-warn" id="s-drop">Discard changes</button>' +
-               '<button class="ob-skip" id="s-keep">Keep editing</button>',
+      title: "We couldn’t import your data",
+      body: '<p class="ob-sheet-p">' + esc(text) + "</p>",
+      actions: '<button class="ob-cta" id="s-retry">Try again</button><button class="ob-link" id="s-other">Choose another way</button>',
       bind: function () {
-        $("#s-drop").addEventListener("click", function () {
-          state.draftEdit = null; openDraftsListSheet();
-        });
-        $("#s-keep").addEventListener("click", function () { openDraftEditor(ed.i); });
+        $("#s-retry").addEventListener("click", closeSheet);
+        $("#s-other").addEventListener("click", function () { go("source"); });
       },
     });
   }
 
-  /* NN6 — deleting every draft was one unconfirmed tap on a button sitting
-     directly under Close. It now states the exact consequence and is undoable. */
-  function confirmDiscardAll() {
-    const d = state.drafts;
-    const n = d.list.length, lines = draftsTotalLines(d), edits = draftsTotalEdits(d);
-    openSheet({
-      title: "Discard all " + n + " drafts?",
-      body:
-        '<p class="ob-sheet-eyebrow">' + ICON.alert + "WHAT YOU LOSE</p>" +
-        '<ul class="ob-sheet-ul">' +
-          "<li>" + n + " draft" + (n === 1 ? "" : "s") + " covering " + lines + " lines</li>" +
-          (edits ? "<li>" + edits + " quantit" + (edits === 1 ? "y" : "ies") + " you changed yourself</li>" : "") +
-        "</ul>" +
-        '<p class="ob-sheet-eyebrow">' + ICON.lock + "WHAT STAYS</p>" +
-        '<ul class="ob-sheet-ul"><li>The ' + (state.opp ? state.opp.total : 0) +
-          " shops that stopped ordering &#8212; you can prepare drafts again</li>" +
-          "<li>Nothing was sent, so nothing is recalled</li></ul>",
-      actions: '<button class="ob-cta is-warn" id="s-drop">Discard ' + n + " drafts</button>" +
-               '<button class="ob-skip" id="s-keep">Keep them</button>',
-      bind: function () {
-        $("#s-drop").addEventListener("click", function () {
-          state.undo = { drafts: JSON.parse(JSON.stringify(state.drafts)),
-                         label: n + (n === 1 ? " draft" : " drafts") + " discarded" };
-          state.drafts = null;
-          state.draftEdit = null;
-          state.stage = "choose";
-          save();
-          state.sheet = null;
-          draw();
-        });
-        $("#s-keep").addEventListener("click", closeSheet);
-      },
-    });
-  }
-
-  function undoBar() {
-    if (!state.undo) return "";
-    return '<div class="ob-undo"><span>' + esc(state.undo.label) + "</span>" +
-           '<button id="b-undo">Undo</button></div>';
-  }
-  function bindUndo() {
-    const b = $("#b-undo");
-    if (b) b.addEventListener("click", function () {
-      state.drafts = state.undo.drafts;
-      state.undo = null;
-      state.stage = "prepared";
-      save();
-      draw();
-    });
-  }
-
-  /* ------------------------------------------ the drafts destination (NN5) */
-
-  /* A real place the drafts live, reachable from the sidebar as Sales Orders →
-     Order Drafts and at #/sales-orders/order-drafts. It reads the same record
-     the flow writes, so a draft prepared in onboarding is here on the next
-     load, after a refresh, and in a fresh tab of the same session.
-
-     It is the same module and the same draft sheets — not a second
-     implementation that could disagree with the first. */
-  function drawDraftsHome() {
-    const d = state.drafts;
-    const biz = (state.profile.business || "").trim();
-    const parked = state.parked && !d;
-
+  function drawImport() {
+    const s = SOURCES[state.source] || SOURCES.files;
+    const r = state.read || { done: 0 };
+    const labels = [s.mark ? "Connecting to " + s.name : "Opening your files", "Fetching data", "Processing data", "Organizing data", "Finalizing setup"];
+    const dot = function (on) { return '<span class="ob-ck-dot' + (on ? " is-on" : "") + '">' + (on ? ICON.tickSm : "") + "</span>"; };
     render(
-      '<header class="ob-brand"><span class="ob-word">Food<em>Bridge</em></span></header>' +
-      (provenanceChip() ? '<div class="ob-navrow"><span></span>' + provenanceChip() + "</div>" : "") +
+      chrome("import") +
       '<main class="ob-main">' +
-        '<p class="ob-eyebrow">ORDER DRAFTS' + (biz ? " &#183; " + esc(biz.toUpperCase()) : "") + "</p>" +
-        undoBar() +
-        (d && d.list.length
-          ? '<h1 class="ob-h1">' + d.list.length +
-              (d.list.length === 1 ? " draft held for review" : " drafts held for review") + "</h1>" +
-            '<div class="ob-done-list ob-ledger">' +
-              '<div class="ob-done-row"><span>Lines in total</span><b>' + draftsTotalLines(d) + "</b></div>" +
-              '<div class="ob-done-row"><span>Edited by you</span><b>' + draftsTotalEdits(d) + "</b></div>" +
-              '<div class="ob-done-row"><span>Sent to shops</span><b>' + d.sent + "</b></div>" +
-              '<div class="ob-done-row"><span>Written to your accounts</span><b>' + d.written + "</b></div>" +
-            "</div>" +
-            '<div class="ob-dlist">' +
-              d.list.map(function (dr, i) {
-                const e = draftEdits(dr);
-                return '<button class="ob-drow" data-draft="' + i + '">' +
-                  '<span class="ob-drow-main">' +
-                    '<span class="ob-drow-n">' + esc(dr.name) + "</span>" +
-                    '<span class="ob-drow-s">' + draftLineCount(dr) + " lines &#183; " +
-                      (dr.basis === "recommended" ? "suggested" : "repeat of last order") + "</span>" +
-                  "</span>" +
-                  (e ? '<span class="ob-drow-e">Edited</span>' : "") +
-                  '<span class="ob-chev">' + ICON.chev + "</span></button>";
-              }).join("") +
-            "</div>"
-          : parked
-            ? '<h1 class="ob-h1">You left this for later</h1>' +
-              '<div class="ob-park">' + ICON.clock +
-                "<p>" + (state.opp ? state.opp.total : 0) + " shops stopped ordering. " +
-                "Nothing has been prepared or sent.</p></div>"
-            : '<h1 class="ob-h1">No drafts yet</h1>' +
-              '<p class="ob-quiet">Drafts you prepare are held here for review. ' +
-              "Nothing is sent to a shop and nothing is written to your accounts.</p>") +
+        heroCloud(s.mark ? s.mark(64) : '<text x="32" y="20" text-anchor="middle" font-family="Inter, sans-serif" font-weight="700" font-size="16" fill="#2b2f35">Files</text>') +
+        '<h1 class="ob-h1 is-center is-m s04-h">Importing your data...</h1>' +
+        '<p class="ob-sub is-center">This may take a few minutes.</p>' +
+        '<div class="ob-checks" role="status" aria-live="polite">' + labels.map(function (l, i) {
+          const done = i < r.done, active = i === r.done;
+          return '<div class="ob-ck ' + (done ? "is-done" : active ? "is-active" : "is-wait") + '">' + dot(done) +
+            '<span class="ob-ck-t">' + esc(l) + "</span>" +
+            '<span class="ob-ck-end">' + (done ? dot(true) : active ? '<span class="ob-spin"></span>' : dot(false)) + "</span></div>";
+        }).join("") + "</div>" +
+      "</main>"
+    );
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     5 · DATA FOUND   6 · DATA CHECK
+     ════════════════════════════════════════════════════════════════════ */
+  const KINDS = [
+    { k: "products", l: "Products", icon: ICON.pkg },
+    { k: "customers", l: "Customers", icon: ICON.users },
+    { k: "suppliers", l: "Suppliers", icon: ICON.person },
+    { k: "staff", l: "Staff", icon: ICON.staff },
+  ];
+  function counts() {
+    const d = (state.dataReady && state.dataReady.dataset) || {};
+    const n = function (c) { return c && c.present && c.records ? c.records.length : 0; };
+    return { products: n(d.products), customers: n(d.customers), suppliers: n(d.vendors),
+             staff: state.staffDone ? state.staff.length : 0 };
+  }
+  function missingKinds() { const c = counts(); return KINDS.map(function (x) { return x.k; }).filter(function (k) { return !c[k]; }); }
+
+  function drawFound() {
+    const c = counts();
+    const found = KINDS.filter(function (x) { return c[x.k]; });
+    render(
+      chrome("found") +
+      '<main class="ob-main">' +
+        heroCheck() +
+        '<h1 class="ob-h1 is-center is-m">Great! We found this data</h1>' +
+        '<p class="ob-sub is-center">Review and continue.</p>' +
+        '<div class="ob-list">' + found.map(function (x) {
+          return '<div class="ob-row"><span class="ob-row-ic">' + x.icon + "</span>" +
+            '<span class="ob-row-main"><span class="ob-row-t">' + x.l + "</span></span>" +
+            '<span class="ob-row-n">' + c[x.k].toLocaleString("en-IN") + "</span></div>";
+        }).join("") + "</div>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
+    );
+    $("#b-continue").addEventListener("click", function () { go(missingKinds().length ? "check" : "staff"); });
+  }
+
+  function drawCheck() {
+    const c = counts();
+    const miss = missingKinds();
+    const s = SOURCES[state.source] || SOURCES.files;
+    const where = " in your " + (s.mark ? s.name : "files");
+    const words = { products: "product", customers: "customer", suppliers: "supplier", staff: "staff" };
+    const list = miss.map(function (k) { return words[k]; });
+    const named = list.length > 1 ? list.slice(0, -1).join(", ") + " and " + list[list.length - 1] : list[0];
+    /* The action names the first thing that can be added right here: staff on
+       the next screen, products or customers from a file. Suppliers have no
+       way in yet, so they never make the action. */
+    const addable = miss.filter(function (k) { return k !== "suppliers"; });
+    const add = addable.indexOf("staff") !== -1 ? "staff" : addable[0];
+    render(
+      chrome("check") +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1 is-center s06-h">Almost there!</h1>' +
+        '<p class="ob-sub is-center">We just need a few more things.</p>' +
+        '<div class="ob-list">' + KINDS.map(function (x) {
+          const ok = !!c[x.k];
+          const pick = !ok && (x.k === "products" || x.k === "customers");
+          const tag = pick ? "label" : "div";
+          return "<" + tag + ' class="ob-row is-check">' +
+            '<span class="ob-row-ic' + (ok ? "" : " is-bad") + '">' + (ok ? x.icon : ICON.alertCircle) + "</span>" +
+            '<span class="ob-row-main"><span class="ob-row-t">' + x.l + "</span></span>" +
+            (ok ? '<span class="ob-row-tick">' + ICON.check + '</span><span class="ob-row-n">' + c[x.k].toLocaleString("en-IN") + "</span>"
+                : '<span class="ob-row-tick is-bad">!</span><span class="ob-row-miss">Missing</span>') +
+            (pick ? '<input type="file" data-add="' + x.k + '" accept="' + ACCEPT + '" hidden>' : "") +
+            "</" + tag + ">";
+        }).join("") + "</div>" +
+        '<div class="ob-callout">' + ICON.info + "<p>We couldn’t find " + esc(named) + " data" + esc(where) + ". Please add it to continue.</p></div>" +
       "</main>" +
       '<footer class="ob-foot">' +
-        (d && d.list.length
-          ? '<button class="ob-cta" id="b-review">Review ' + d.list.length +
-              (d.list.length === 1 ? " draft" : " drafts") + "</button>" +
-            '<button class="ob-skip is-warn" id="b-discard">Discard all drafts</button>'
-          : '<button class="ob-cta" id="b-resume">' +
-              (parked ? "Pick it up" : "Start onboarding") + "</button>") +
+        (add === "staff" || !add
+          ? '<button class="ob-cta" id="b-add">' + (add ? "Add staff" : "Continue") + "</button>"
+          : '<label class="ob-cta">Add ' + esc(words[add]) + 's<input type="file" data-add="' + add + '" accept="' + ACCEPT + '" hidden></label>') +
+        '<button class="ob-link" id="b-later">I’ll do this later</button>' +
       "</footer>"
     );
-
-    const prov = $("#b-prov");
-    if (prov) prov.addEventListener("click", openProvenanceSheet);
-    bindUndo();
-    $$("[data-draft]").forEach(function (b) {
-      b.addEventListener("click", function () { openDraftEditor(Number(b.dataset.draft)); });
+    const b = $("#b-add");
+    if (b) b.addEventListener("click", function () { go(add ? "staff" : "ready"); });
+    $("#b-later").addEventListener("click", function () { go("ready"); });
+    $$("input[data-add]").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        const file = this.files && this.files[0];
+        this.value = "";
+        if (file) addFileAs(file, inp.dataset.add);
+      });
     });
-    const rv = $("#b-review");
-    if (rv) rv.addEventListener("click", function () { openDraftsListSheet(); });
-    const dc = $("#b-discard");
-    if (dc) dc.addEventListener("click", confirmDiscardAll);
-    const rs = $("#b-resume");
-    if (rs) rs.addEventListener("click", function () { handoff("onboarding"); });
   }
 
-  /* ---------------------------------------------------------------- run */
+  /* A products or customers file added from the check, read AS that kind and
+     joined to what is already there. */
+  async function addFileAs(file, kind) {
+    openSheet({ title: "Reading " + file.name, locked: true, body: '<p class="ob-sheet-p ob-busy"><span class="ob-spin"></span>Reading on this phone…</p>' });
+    let out;
+    try { out = await RD().files.read(file, [kind]); } catch (e) { out = { ok: false }; }
+    const got = out && out.ok ? (out.found || []).filter(function (p) { return p.type === kind && p.records && p.records.length; }) : [];
+    state.sheet = null;
+    if (!got.length) {
+      return openSheet({
+        title: "We couldn’t read " + file.name,
+        body: '<p class="ob-sheet-p">We couldn’t find any ' + kind + " in this file. Its first row needs a name column, such as " + (kind === "products" ? "Item Name" : "Customer Name") + ".</p>",
+        actions: '<button class="ob-cta is-ghost" id="s-close">Close</button>',
+        bind: function () { $("#s-close").addEventListener("click", closeSheet); },
+      });
+    }
+    const added = got.map(function (p, i) { return { id: "a" + Date.now() + i, name: file.name, type: p.type, records: p.records, skipped: p.skipped }; });
+    if (!state.dataReady || state.dataReady.provenance.kind === "files") {
+      state.parts = state.parts.concat(added);
+      state.dataReady = window.FB_DATASET.fromFiles(state.parts);
+    } else {
+      const ds = state.dataReady.dataset;
+      const col = ds[kind] && ds[kind].present ? ds[kind] : (ds[kind] = { present: true, records: [] });
+      const have = {};
+      col.records.forEach(function (r) { have[String(r.name).toLowerCase()] = true; });
+      added[0].records.forEach(function (r, i) {
+        if (have[String(r.name).toLowerCase()]) return;
+        const rec = { id: "af" + Date.now() + i, name: r.name, from: { kind: "file", fileId: added[0].id, row: r.row } };
+        if (r.sku) rec.sku = r.sku;
+        if (r.unit) rec.unit = r.unit;
+        col.records.push(rec);
+      });
+    }
+    state.order = null;
+    save(); draw();
+  }
 
+  /* ════════════════════════════════════════════════════════════════════
+     7 · QUICK SETUP (STAFF)
+     ════════════════════════════════════════════════════════════════════ */
+  function initials(name) {
+    const w = String(name || "").replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
+    return ((w[0] || "?").charAt(0) + (w[1] ? w[1].charAt(0) : "")).toUpperCase();
+  }
+  function drawStaff() {
+    render(
+      chrome("staff") +
+      '<main class="ob-main">' +
+        '<h1 class="ob-h1">Add your staff</h1>' +
+        '<p class="ob-sub s07-sub">This helps you manage access<br>and responsibilities.</p>' +
+        '<div class="ob-people">' + state.staff.map(function (p, i) {
+          return '<div class="ob-person">' +
+            '<button class="ob-person-open" data-edit="' + i + '"><span class="ob-avatar t' + (i % 5) + '">' + esc(initials(p.name)) + "</span>" +
+              '<span class="ob-person-main"><span class="ob-person-n">' + esc(p.name) + "</span></span></button>" +
+            '<label class="ob-select"><span>' + esc(p.role) + "</span>" + ICON.chevDown +
+              '<select data-role="' + i + '" aria-label="Role for ' + esc(p.name) + '">' +
+                ROLES.map(function (r) { return "<option" + (r === p.role ? " selected" : "") + ">" + r + "</option>"; }).join("") +
+              "</select></label>" +
+          "</div>";
+        }).join("") + "</div>" +
+        '<button class="ob-link is-add" id="b-addstaff">' + ICON.plus + "Add another staff</button>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-continue">Continue</button></footer>'
+    );
+    $$("select[data-role]").forEach(function (sel) {
+      sel.addEventListener("change", function () { state.staff[Number(sel.dataset.role)].role = sel.value; save(); drawStaff(); });
+    });
+    $$("[data-edit]").forEach(function (b) { b.addEventListener("click", function () { openStaffSheet(Number(b.dataset.edit)); }); });
+    $("#b-addstaff").addEventListener("click", function () { openStaffSheet(-1); });
+    $("#b-continue").addEventListener("click", function () { state.staffDone = true; go("ready"); });
+  }
+
+  function openStaffSheet(i) {
+    const p = i >= 0 ? state.staff[i] : { name: "", role: "Sales" };
+    let role = p.role;
+    openSheet({
+      title: i >= 0 ? "Edit staff" : "Add staff",
+      body: '<div class="ob-fields is-sheet">' + field("sname", "Name", ICON.user, p.name, { caps: "words", auto: "off", enter: "done" }) + "</div>" +
+        '<div class="ob-choices is-roles" role="radiogroup" aria-label="Role">' + ROLES.map(function (r) {
+          return '<button class="ob-choice' + (r === p.role ? " is-on" : "") + '" role="radio" aria-checked="' + (r === p.role) + '" data-r="' + r + '"><span class="ob-radio"></span><span class="ob-choice-t">' + r + "</span></button>";
+        }).join("") + "</div>",
+      actions: '<button class="ob-cta" id="s-save">' + (i >= 0 ? "Save" : "Add staff") + "</button>" +
+        (i > 0 ? '<button class="ob-link is-warn" id="s-rm">Remove</button>' : ""),
+      bind: function () {
+        $$("[data-r]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            role = b.dataset.r;
+            $$("[data-r]").forEach(function (x) { x.classList.toggle("is-on", x === b); x.setAttribute("aria-checked", x === b); });
+          });
+        });
+        const inp = $("#f-sname");
+        $("#s-save").addEventListener("click", function () {
+          const name = inp.value.trim();
+          if (name.length < 2) { inp.closest(".ob-field").classList.add("is-bad"); inp.focus(); return; }
+          if (i >= 0) Object.assign(state.staff[i], { name: name, role: role });
+          else state.staff.push({ id: "s" + Date.now(), name: name, role: role });
+          state.sheet = null; save(); draw();
+        });
+        const rm = $("#s-rm");
+        if (rm) rm.addEventListener("click", function () { state.staff.splice(i, 1); state.sheet = null; save(); draw(); });
+      },
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     8 · READY TO ORDER
+     ════════════════════════════════════════════════════════════════════ */
+  function drawReady() {
+    const c = counts();
+    const ready = KINDS.filter(function (x) { return c[x.k]; }).length;
+    const dot = '<span class="ob-ck-dot is-on">' + ICON.tickSm + "</span>";
+    render(
+      chrome("ready") +
+      '<main class="ob-main">' +
+        HERO_CLIP +
+        '<h1 class="ob-h1 is-center">You’re all set!</h1>' +
+        '<p class="ob-sub is-center s08-sub">Your setup is ready. Create your<br>first order to get started.</p>' +
+        '<div class="ob-card">' +
+          '<div class="ob-card-row">' + dot + "<span>" + (ready === 1 ? "1 thing is ready" : ready + " things are ready") + "</span></div>" +
+          '<div class="ob-card-row">' + dot + "<span>You can always change this later</span></div>" +
+        "</div>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-order">Create first order</button></footer>'
+    );
+    $("#b-order").addEventListener("click", function () { go("order"); });
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     9 · CREATE ORDER
+     ════════════════════════════════════════════════════════════════════ */
+  function catalogue() {
+    const d = (state.dataReady && state.dataReady.dataset) || {};
+    const recs = function (c) { return (c && c.present && c.records) || []; };
+    return { products: recs(d.products), customers: recs(d.customers), orders: recs(d.orders) };
+  }
+  /* A price only where the source has one: Zoho's item rate, or what a line in
+     the user's own orders was charged. Never invented. */
+  function priceOf(productId) {
+    const cat = catalogue();
+    const p = cat.products.filter(function (x) { return x.id === productId; })[0];
+    if (p && p.raw) {
+      const r = Number(p.raw.rate != null ? p.raw.rate : p.raw.sales_rate);
+      if (isFinite(r) && r > 0) return r;
+    }
+    for (let i = cat.orders.length - 1; i >= 0; i--) {
+      const l = (cat.orders[i].lines || []).filter(function (x) { return x.productId === productId && x.amount > 0 && x.qty > 0; })[0];
+      if (l) return Math.round((l.amount / l.qty) * 100) / 100;
+    }
+    return null;
+  }
+  const money = function (n) { return "₹" + Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  function lineOf(productId, name, qty) {
+    const p = catalogue().products.filter(function (x) { return x.id === productId; })[0];
+    return { productId: productId, name: name || (p && p.name) || productId, qty: Math.max(1, qty || 1), price: priceOf(productId), unit: (p && p.unit) || "" };
+  }
+  function engineView() { return window.FB_DATASET.toEngine(state.dataReady.dataset); }
+
+  /* The customer the reorder engine is surest has an order due, with what it
+     would propose; else the shop that ordered last, with what it ordered. */
+  function prefillOrder() {
+    const cat = catalogue();
+    const order = { customerId: null, customerName: "", lines: [], filter: "" };
+    if (!cat.customers.length) return order;
+    try {
+      const e = engineView();
+      const opp = window.FB_EVIDENCE.missedOrders({ seed: e.seed, history: e.history, predict: window.FB_PREDICT });
+      const withS = opp.shops.filter(function (s) { return s.suggestion; })[0];
+      if (withS) {
+        order.customerId = withS.id; order.customerName = withS.name;
+        order.lines = withS.suggestion.lines.slice(0, 6).map(function (l) { return lineOf(l.productId, l.name, l.suggestedQty); });
+        return order;
+      }
+      const recent = Object.keys(e.history).map(function (id) { return { id: id, o: e.history[id].orders[0] }; })
+        .filter(function (x) { return x.o; }).sort(function (a, b) { return a.o.at < b.o.at ? 1 : -1; })[0];
+      if (recent) {
+        const c = cat.customers.filter(function (x) { return x.id === recent.id; })[0];
+        order.customerId = recent.id; order.customerName = c ? c.name : recent.id;
+        order.lines = recent.o.lines.slice(0, 6).map(function (l) { return lineOf(l.productId, null, l.qty); });
+        return order;
+      }
+    } catch (err) { /* no history: fall through */ }
+    order.customerId = cat.customers[0].id; order.customerName = cat.customers[0].name;
+    return order;
+  }
+
+  function drawOrder() {
+    if (!state.order) { state.order = prefillOrder(); save(); }
+    const o = state.order;
+    const cat = catalogue();
+    const q = (o.filter || "").trim().toLowerCase();
+    const have = {};
+    o.lines.forEach(function (l) { have[l.productId] = true; });
+    const hits = q ? cat.products.filter(function (p) { return !have[p.id] && (p.name.toLowerCase().indexOf(q) !== -1 || String(p.sku || "").toLowerCase().indexOf(q) !== -1); }).slice(0, 8) : [];
+    const items = o.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+    const priced = o.lines.length > 0 && o.lines.every(function (l) { return l.price != null; });
+    const total = o.lines.reduce(function (n, l) { return n + (l.price || 0) * l.qty; }, 0);
+    const canCreate = !!o.customerName && o.lines.length > 0;
+
+    render(
+      chrome("order", { title: "Create Order" }) +
+      '<main class="ob-main is-order">' +
+        '<div class="ob-ocard is-cust">' +
+          '<div class="ob-ocard-main"><p class="ob-ocard-l">Customer</p><p class="ob-ocard-v">' + (o.customerName ? esc(o.customerName) : '<span class="is-ph">Choose a customer</span>') + "</p></div>" +
+          '<button class="ob-ocard-a" id="e-cust">View</button>' +
+        "</div>" +
+        '<div class="ob-ocard is-items has-total">' +
+          '<p class="ob-ocard-l">Add Items</p>' +
+          '<label class="ob-osearch">' + ICON.search +
+            '<input id="e-q" type="search" enterkeyhint="search" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search products by name / code" value="' + esc(o.filter || "") + '"></label>' +
+          (q ? '<div class="ob-ohits">' +
+              hits.map(function (p, k) { return '<button class="ob-ohit" data-hit="' + k + '"><span>' + esc(p.name) + "</span>" + ICON.plus + "</button>"; }).join("") +
+              (!hits.length ? '<button class="ob-ohit" data-new="1"><span>Add “' + esc(o.filter.trim()) + "” as a new item</span>" + ICON.plus + "</button>" : "") +
+            "</div>" : "") +
+          o.lines.map(function (l, i) {
+            return '<div class="ob-oline">' +
+              '<span class="ob-othumb">' + ICON.pkg + "</span>" +
+              '<div class="ob-oline-main"><p class="ob-oline-n">' + esc(l.name) + "</p>" +
+                (l.price != null ? '<p class="ob-oline-s">' + money(l.price) + (l.unit ? " / " + esc(l.unit) : "") + "</p>" : (l.unit ? '<p class="ob-oline-s">' + esc(l.unit) + "</p>" : "")) + "</div>" +
+              '<div class="ob-step">' +
+                (l.qty <= 1 ? '<button class="is-rm" data-rm="' + i + '" aria-label="Remove ' + esc(l.name) + '">' + ICON.trash + "</button>"
+                            : '<button data-dec="' + i + '" aria-label="One fewer ' + esc(l.name) + '">' + ICON.minus + "</button>") +
+                '<input type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="9999" value="' + l.qty + '" data-q="' + i + '" aria-label="Quantity for ' + esc(l.name) + '">' +
+                '<button data-inc="' + i + '" aria-label="One more ' + esc(l.name) + '">' + ICON.plus + "</button>" +
+              "</div>" +
+              (l.price != null ? '<span class="ob-oline-t">' + money(l.price * l.qty) + "</span>" : '<span class="ob-oline-t"></span>') +
+            "</div>";
+          }).join("") +
+          '<button class="ob-oadd" id="e-add">' + ICON.plus + "Add more items</button>" +
+        "</div>" +
+        '<div class="ob-ototal"><span>Total (' + items + (items === 1 ? " item" : " items") + ")</span><b>" + (priced ? money(total) : "—") + "</b></div>" +
+      "</main>" +
+      '<footer class="ob-foot is-order"><button class="ob-cta" id="e-create"' + (canCreate ? "" : " disabled") + ">Create order</button></footer>"
+    );
+
+    const setQty = function (i, v) { o.lines[i].qty = Math.max(1, Math.min(9999, v)); save(); drawOrder(); };
+    $$("[data-inc]").forEach(function (b) { b.addEventListener("click", function () { const i = Number(b.dataset.inc); setQty(i, o.lines[i].qty + 1); }); });
+    $$("[data-dec]").forEach(function (b) { b.addEventListener("click", function () { const i = Number(b.dataset.dec); setQty(i, o.lines[i].qty - 1); }); });
+    $$("[data-rm]").forEach(function (b) { b.addEventListener("click", function () { o.lines.splice(Number(b.dataset.rm), 1); save(); drawOrder(); }); });
+    $$("[data-q]").forEach(function (inp) {
+      inp.addEventListener("focus", function () { setTimeout(function () { try { inp.select(); } catch (e) {} }, 0); });
+      inp.addEventListener("change", function () { setQty(Number(inp.dataset.q), parseInt(inp.value, 10) || 1); });
+    });
+    const qi = $("#e-q");
+    qi.addEventListener("input", function () {
+      o.filter = qi.value;
+      const pos = qi.selectionStart;
+      drawOrder();
+      const again = $("#e-q"); again.focus(); try { again.setSelectionRange(pos, pos); } catch (e) {}
+    });
+    $$("[data-hit]").forEach(function (b) {
+      b.addEventListener("click", function () { const p = hits[Number(b.dataset.hit)]; o.lines.push(lineOf(p.id, p.name, 1)); o.filter = ""; save(); drawOrder(); });
+    });
+    const nw = $("[data-new]");
+    if (nw) nw.addEventListener("click", function () {
+      o.lines.push({ productId: "new:" + o.filter.trim().toLowerCase(), name: o.filter.trim(), qty: 1, price: null, unit: "" });
+      o.filter = ""; save(); drawOrder();
+    });
+    $("#e-add").addEventListener("click", function () { $("#e-q").focus(); });
+    $("#e-cust").addEventListener("click", openCustomerSheet);
+    const cr = $("#e-create");
+    if (cr && canCreate) cr.addEventListener("click", createOrder);
+  }
+
+  function openCustomerSheet() {
+    const cat = catalogue();
+    let filter = "";
+    const list = function () {
+      const q = filter.trim().toLowerCase();
+      const hits = cat.customers.filter(function (c) { return !q || c.name.toLowerCase().indexOf(q) !== -1; }).slice(0, 40);
+      return hits.map(function (c) {
+        return '<button class="ob-rec" data-cust="' + esc(c.id) + '"><span class="ob-rec-a">' + esc(c.name) + "</span>" +
+          (c.id === state.order.customerId ? '<span class="ob-rec-b">' + ICON.check + "</span>" : "") + "</button>";
+      }).join("") + (q && !hits.some(function (c) { return c.name.toLowerCase() === q; })
+        ? '<button class="ob-rec" data-newcust="1"><span class="ob-rec-a">Add “' + esc(filter.trim()) + "” as a new customer</span>" + '<span class="ob-rec-b">' + ICON.plus + "</span></button>" : "");
+    };
+    openSheet({
+      title: "Customer",
+      body: '<label class="ob-osearch is-sheet">' + ICON.search + '<input id="c-q" type="search" autocorrect="off" autocapitalize="words" placeholder="Search ' + cat.customers.length + ' customers"></label>' +
+        '<div class="ob-reclist" id="c-list">' + list() + "</div>",
+      bind: function () {
+        const bindList = function () {
+          $$("[data-cust]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              const c = cat.customers.filter(function (x) { return x.id === b.dataset.cust; })[0];
+              if (c.id !== state.order.customerId) {
+                state.order.customerId = c.id; state.order.customerName = c.name;
+                // What this customer last ordered, as a start; nothing if it never has.
+                try {
+                  const h = engineView().history[c.id];
+                  const last = h && h.orders[0];
+                  state.order.lines = last ? last.lines.slice(0, 6).map(function (l) { return lineOf(l.productId, null, l.qty); }) : [];
+                } catch (err) { state.order.lines = []; }
+              }
+              state.sheet = null; save(); draw();
+            });
+          });
+          const nc = $("[data-newcust]");
+          if (nc) nc.addEventListener("click", function () {
+            state.order.customerId = "new:" + filter.trim().toLowerCase(); state.order.customerName = filter.trim();
+            state.sheet = null; save(); draw();
+          });
+        };
+        bindList();
+        const inp = $("#c-q");
+        inp.addEventListener("input", function () { filter = inp.value; $("#c-list").innerHTML = list(); bindList(); });
+      },
+    });
+  }
+
+  function createOrder() {
+    const o = state.order;
+    const orders = ls.get(ORDERS_KEY) || [];
+    const priced = o.lines.every(function (l) { return l.price != null; });
+    const rec = {
+      no: "FB-ORD-" + String(orders.length + 1).padStart(4, "0"),
+      customerId: o.customerId, customer: o.customerName, lines: o.lines,
+      amount: priced ? o.lines.reduce(function (n, l) { return n + l.price * l.qty; }, 0) : null,
+      items: o.lines.reduce(function (n, l) { return n + l.qty; }, 0),
+      date: new Date().toISOString(), business: state.account && state.account.business,
+    };
+    orders.push(rec);
+    ls.set(ORDERS_KEY, orders);
+    state.created = rec;
+    state.order = null;
+    go("created");
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     10 · ORDER CREATED   11 · YOU'RE READY
+     ════════════════════════════════════════════════════════════════════ */
+  /* "26 May 2024", as the image writes it, on every engine: Chromium's en-GB
+     says "Sept" where Safari says "Sep". */
+  function shortDate(iso) {
+    const d = new Date(iso);
+    return d.getDate() + " " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()] + " " + d.getFullYear();
+  }
+  function orderCard(r) {
+    return '<div class="ob-card is-kv">' +
+      '<p class="ob-card-h">Order Details</p>' +
+      '<div class="ob-kvr"><span>Order No.</span><b>' + esc(r.no) + "</b></div>" +
+      '<div class="ob-kvr"><span>Customer</span><b>' + esc(r.customer) + "</b></div>" +
+      '<div class="ob-kvr"><span>Order Amount</span><b>' + (r.amount != null ? money(r.amount) : plural(r.items, "item", "items")) + "</b></div>" +
+      '<div class="ob-kvr"><span>Date</span><b>' + shortDate(r.date) + "</b></div>" +
+    "</div>";
+  }
+  function drawCreated() {
+    const r = state.created;
+    if (!r) return go("order");
+    render(
+      '<div class="ob-top is-bare"></div>' +
+      '<main class="ob-main">' +
+        heroCheck("is-top") +
+        '<h1 class="ob-h1 is-center s10-h">Order created!</h1>' +
+        '<p class="ob-sub is-center">Your first order has been created<br>successfully.</p>' +
+        orderCard(r) +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-dash">Go to dashboard</button></footer>'
+    );
+    $("#b-dash").addEventListener("click", function () { go("welcome"); });
+  }
+
+  function drawWelcome() {
+    render(
+      chrome("welcome", { wordmark: true }) +
+      '<main class="ob-main">' +
+        HERO_STORE +
+        '<h1 class="ob-h1 is-center">Welcome to FoodBridge!</h1>' +
+        '<p class="ob-sub is-center">You’re ready to grow your business<br>smarter and faster.</p>' +
+        '<div class="ob-feats3">' +
+          '<div class="ob-f3"><span class="ob-f3-c is-blue">' + ICON.orders + "</span><span>Manage orders</span></div>" +
+          '<div class="ob-f3"><span class="ob-f3-c is-purple">' + ICON.track + "</span><span>Track business</span></div>" +
+          '<div class="ob-f3"><span class="ob-f3-c is-green">' + ICON.grow + "</span><span>Grow profits</span></div>" +
+        "</div>" +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-go">Go to FoodBridge</button></footer>'
+    );
+    $("#b-go").addEventListener("click", function () { save(); handoff("dashboard"); });
+  }
+
+  /* The Order Drafts destination (?view=drafts): the orders created here. */
+  function drawOrdersHome() {
+    const orders = (ls.get(ORDERS_KEY) || []).slice().reverse();
+    render(
+      chrome(null, { wordmark: true }) +
+      '<main class="ob-main">' +
+        (orders.length
+          ? '<h1 class="ob-h1 is-center s11-h">' + plural(orders.length, "order", "orders") + "</h1>" +
+            '<p class="ob-sub is-center">Created in FoodBridge on this device.</p>' +
+            orders.map(orderCard).join("")
+          : HERO_STORE + '<h1 class="ob-h1 is-center">No orders yet</h1><p class="ob-sub is-center">Orders you create are listed here.</p>') +
+      "</main>" +
+      '<footer class="ob-foot"><button class="ob-cta" id="b-start">' + (orders.length ? "Back to onboarding" : "Start onboarding") + "</button></footer>"
+    );
+    $("#b-start").addEventListener("click", function () { handoff("onboarding"); });
+  }
+
+  /* ── run ─────────────────────────────────────────────────────────────── */
   function draw() {
-    if (state.view === "drafts") return drawDraftsHome();
-    if (state.op) return drawOp();
-    if (state.screen === "S01") return drawS01();
-    if (state.screen === "S02") return drawS02();
-    if (state.screen === "S03") return state.later.run ? drawLaterReading() : drawS03();
-    if (state.screen === "S05") return drawS05();
-    return drawS04();
+    if (state.view === "drafts") return drawOrdersHome();
+    if (!state.account) state.screen = "signup";
+    switch (state.screen) {
+      case "source": return drawSource();
+      case "connect": return drawConnect();
+      case "import": return drawImport();
+      case "found": return drawFound();
+      case "check": return drawCheck();
+      case "staff": return drawStaff();
+      case "ready": return drawReady();
+      case "order": return drawOrder();
+      case "created": return drawCreated();
+      case "welcome": return drawWelcome();
+      default: return drawSignup();
+    }
   }
 
-  /* ── the keyboard ────────────────────────────────────────────────────────
-     iOS does not shrink the layout viewport when the keyboard opens, so a
-     footer stuck to `bottom: 0` sits underneath it and the primary action
-     disappears exactly when the user has finished typing. The visual viewport
-     does know, so the keyboard's height is published as a custom property and
-     the footer and the open sheet lift by it.
-
-     Nothing here changes what is on screen — only where the bottom of the
-     screen currently is. */
+  /* iOS never shrinks the layout viewport for the keyboard: publish how much it
+     covers so the sticky footer and an open sheet sit above it. */
   function trackKeyboard() {
     const vv = window.visualViewport;
     if (!vv) return;
     let raf = 0;
-    /* Safari puts a form accessory bar (the ^ v Done strip) between the page
-       and the keyboard, and reports it as neither. Measured at 44pt on every
-       iPhone size here. Only iOS Safari draws one, so only iOS pays for it. */
-    const ACCESSORY = CSS.supports("-webkit-touch-callout", "none") ? 44 : 0;
+    /* Measured on iOS 26.5: the visual viewport already excludes Safari's form
+       accessory bar, so nothing is added for it (adding 44 left a gap). */
+    const ACCESSORY = 0;
     const apply = function () {
       raf = 0;
-      /* How much of the LAYOUT viewport sits below the bottom edge of the
-         VISUAL viewport — which is where the keyboard starts. iOS shrinks the
-         layout viewport too, so measuring against innerHeight alone
-         under-reports it by whatever the layout already gave up. */
       const hidden = window.innerHeight - (vv.offsetTop + vv.height);
       const open = hidden > 1;
-      const covered = open ? Math.max(0, hidden) + ACCESSORY : 0;
-      document.documentElement.style.setProperty("--ob-kb", Math.round(covered) + "px");
+      document.documentElement.style.setProperty("--ob-kb", Math.round(open ? Math.max(0, hidden) + ACCESSORY : 0) + "px");
       document.documentElement.classList.toggle("ob-kb-open", open);
     };
     const schedule = function () { if (!raf) raf = requestAnimationFrame(apply); };
@@ -3083,64 +1514,53 @@
     vv.addEventListener("scroll", schedule);
     apply();
   }
-
-  /* Bring the focused field into the space the keyboard leaves. Safari does
-     this for its own idea of the viewport and gets it wrong inside a sheet
-     that scrolls on its own, which is where every quantity field lives. */
   function keepFocusVisible(e) {
     const el = e.target;
-    if (!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
+    if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
     setTimeout(function () {
       const r = el.getBoundingClientRect();
       const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ob-kb")) || 0;
-      const floor = window.innerHeight - kb - 16;
-      if (r.bottom > floor || r.top < 8) {
-        el.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-    }, 320);                                   // after the keyboard animation
+      if (r.bottom > window.innerHeight - kb - 16 || r.top < 8) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 320);
   }
 
   function mount() {
-    if (!window.FB_EVIDENCE) throw new Error("evidence.js must load before onboarding.js");
+    /* ?obreset on localhost: start as a brand-new user. Removed from the address
+       at once, so the return from a sign-in never replays it. */
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]obreset/.test(location.search)) {
+      [ACCOUNT_KEY, ORDERS_KEY].forEach(function (k) { ls.del(k); });
+      [STORE_KEY, OAUTH_KEY].forEach(function (k) { ls.del(k, sessionStorage); });
+      const u = new URL(location.href); u.searchParams.delete("obreset");
+      history.replaceState(null, "", u.pathname + u.search + u.hash);
+    }
     trackKeyboard();
     document.addEventListener("focusin", keepFocusVisible);
-    restore();                                   // C7 — a reload lands where it left
-    handleAppReturn();                           // back from the app, however it went
-    /* Back from Zoho can restore this page from the browser's cache instead of
-       reloading it. iOS Safari brings the platform shell back with its iframe
-       unresponsive to touch (verified on the Simulator: the screen draws, no tap
-       lands), so a cached restore is turned into a real load. mount() then finds
-       the unfinished sign-in with no result and lands quietly on Connect an app. */
+    restore();
+    handleAppReturn();
+    /* Back from Zoho can restore this page from the browser cache with its frame
+       dead to touch on iOS Safari; a cached restore mid sign-in is reloaded. */
     [window, RD().topWin()].forEach(function (w) {
       try {
         w.addEventListener("pageshow", function (e) {
           if (!e.persisted) return;
-          let pending = null;
-          try { pending = sessionStorage.getItem(OAUTH_KEY); } catch (x) { pending = null; }
-          if (!pending && !(state.sheet && state.sheet.busy)) return;
+          if (!ls.get(OAUTH_KEY, sessionStorage) && state.conn.phase !== "opening") return;
           RD().topWin().location.reload();
         });
       } catch (x) { /* a window we may not listen to */ }
     });
-    /* The drafts destination is the SAME module under a different view, so the
-       drafts it shows are the drafts the flow wrote — not a second copy that
-       could drift from the first. */
-    if (new URLSearchParams(location.search).get("view") === "drafts") {
-      state.view = "drafts";
-      if (state.dataReady && !state.opp) { try { state.opp = buildOpportunity(); } catch (e) {} }
-    }
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && state.sheet) closeSheet();
-    });
+    if (new URLSearchParams(location.search).get("view") === "drafts") state.view = "drafts";
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state.sheet && !state.sheet.locked) closeSheet(); });
     draw();
+    /* ?obdebug on localhost: the viewport this device actually gives the page. */
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /obdebug/.test(location.search)) {
+      const d = document.createElement("div");
+      d.style.cssText = "position:fixed;left:4px;bottom:calc(4px + env(safe-area-inset-bottom));z-index:99;font:11px monospace;background:#000;color:#0f0;padding:3px";
+      const probe = document.createElement("div");
+      probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-bottom);width:1px;visibility:hidden";
+      document.body.appendChild(probe); document.body.appendChild(d);
+      d.textContent = "inner " + innerWidth + "x" + innerHeight + " vv " + Math.round(visualViewport.height) + " sab " + probe.offsetHeight + " dvh-root " + $("#ob-root").offsetHeight;
+    }
   }
 
-  window.FB_ONBOARDING = {
-    mount, buildModel, buildOpportunity, supportingSignals, openOpportunity,
-    runOp, cancelOp, openSheet, closeSheet, goBack, draw, save, restore, forget, state,
-    drawDraftsHome, openDraftsListSheet, openDraftEditor, confirmDiscardAll,
-    gstVerified, gstActive, verifyGstin, parkOpportunity, emitDataReady, engine,
-    draftEdits, draftsTotalLines, draftsTotalEdits,
-  };
-  if (typeof module !== "undefined" && module.exports) module.exports = window.FB_ONBOARDING;
+  window.FB_ONBOARDING = { mount: mount, state: state, draw: draw, go: go, save: save, counts: counts, prefillOrder: prefillOrder };
 })();

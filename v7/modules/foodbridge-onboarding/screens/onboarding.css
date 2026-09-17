@@ -1,63 +1,74 @@
 /* ==========================================================================
-   ONBOARDING — the visual layer. v5, drawing O-001's locked UX
-   (lock e14f20ea96ee5c51).
+   ONBOARDING — the visual layer. v7, 17 Sep 2026: the UI flip.
 
-   The locked sketches settled information architecture, content, states and
-   behaviour. They are not the visual design. This file is the product's own
-   language: the tokens, radii and soft slate shadows that styles.css and
-   stock-audit.css already document, lucide icon geometry from icons.js, and
-   system-ui type per tailwind.config.js. Restated rather than linked, because
-   a module that reaches into another module's stylesheet breaks the moment
-   that module is edited for its own reasons.
+   The target is ONE image — the eleven-screen onboarding board the product
+   owner supplied (ux/target/onboarding-target.jpg). It is the visual source of
+   truth: layout, type scale, spacing, colour, radii, icon scale, illustration.
+   The approved UX (ux/FLOW-MAP.md, VERSION.md) stays the behavioural source of
+   truth; every screen below is an existing UX state wearing the image's
+   treatment, never a screen the image implies but the flow does not have.
 
-   MOBILE-FIRST: the locked UX was designed and reviewed at 390px, and this
-   holds down to 355px. Desktop is the same single column given room and set
-   on a surface — never a second column, never extra content (D-012).
+   THE UNIT. Every measurement was taken off the image, where one phone screen
+   is 220px wide. 1rem = 10 image px, and the root font size scales the image's
+   220px column to the device (capped at 402px, the iPhone 16 Pro, which is
+   what the flow is validated on). So `1.38rem` reads "13.8 image px", and
+   proportions hold at every width instead of drifting at 375 or 430.
+   The single exception is an editable field's text: iOS zooms the page on
+   focus below 16px, so inputs are max(16px, their image size).
 
-   Under D-018 the primary screens carry state, decision and action only, and
-   NINE CONTEXTUAL SHEETS carry everything else. One sheet component does all
-   nine: it rises from the bottom on a phone, is centred on desktop, and is
-   never styled to look like a screen — the surface underneath stays visible,
-   which is what tells somebody they are looking deeper rather than moving on.
+   Measured tokens (image px → rem):
+     brand green  #0e8a3c  CTA, progress, ticks, links
+     title        13.8 / 17 bold      compact title 11.5 / 15 bold
+     subtitle     8.4 / 13 regular #4b5058
+     row          34 tall, 5.5 gap, radius 5.5, label 8.55 semibold
+     CTA          26 tall, radius 4.5, 9.2 semibold, 15 gutter
+     progress     4 segments, 3.8 tall, x 42→197
    ========================================================================== */
 
-:root {
-  --brand: #16a34a;
-  --brand-d: #15803d;
-  --brand-dd: #14532d;
-  --brand-50: #f0fdf4;
-  --brand-100: #dcfce7;
-  --brand-200: #bbf7d0;
-
-  --ink: #0f172a;
-  --ink-2: #334155;
-  --muted: #64748b;
-  --muted-2: #94a3b8;
-  --line: #e7ebef;
-  --line-2: #f1f5f9;
-  --surface: #f6f8f7;
-  --card: #ffffff;
-
-  --amber-bg: #fffbeb;
-  --amber-line: #fde68a;
-  --amber-tx: #b45309;
-
-  --font: system-ui, sans-serif, Arial, Helvetica;
-  --r: 14px;
-  --r-lg: 18px;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, .04);
-  --shadow-lift: 0 18px 40px -16px rgba(15, 23, 42, .22);
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(../../../vendor/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+:root {
+  --g: #0e8a3c;
+  --g-d: #0b7534;
+  --g-dd: #095f2b;
+  --g-50: #e8f5ec;
+  --g-100: #d0e6d7;
+  --g-tint: #f3faf5;
+
+  --ink: #0d0f12;
+  --ink-2: #2b2f35;
+  --sub: #4b5058;
+  --muted: #6b7079;
+  --muted-2: #9ca1a9;
+  --line: #e6e8eb;
+  --line-2: #f0f1f3;
+  --prog: #e2e3e7;
+  --card: #ffffff;
+  --surface: #f4f5f7;
+
+  --red: #e03a3e;
+  --red-bg: #fdf1f1;
+  --red-line: #f4d3d4;
+  --amber: #a15c07;
+  --amber-bg: #fdf7ea;
+  --amber-line: #f1e0b8;
+
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --shadow-row: 0 .05rem .15rem rgba(16, 24, 40, .035);
+  --ob-kb: 0px;
+}
+
+/* 1rem = 10 image px. */
+html { font-size: calc(min(100vw, 402px) / 22); }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-/* Held by applyScrollLock() while a sheet is open. `position: fixed` is the
-   only thing iOS Safari reliably honours; the offset is restored on release
-   so the page does not jump back to the top. */
-body.ob-locked {
-  position: fixed; left: 0; right: 0; width: 100%;
-  overflow: hidden; overscroll-behavior: none;
-}
 
 html, body {
   margin: 0; padding: 0;
@@ -65,1018 +76,778 @@ html, body {
   color: var(--ink);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
-  /* Stops Safari inflating text on its own, which would silently break the
-     16px floor the inputs rely on and is a second, quieter route to a zoomed
-     page. It does NOT block the user's own pinch zoom: the viewport meta sets
-     no maximum-scale and no user-scalable=no, so accessibility zoom stays. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
+/* Held by applyScrollLock() while a sheet is open. */
+body.ob-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
+
+button { font-family: var(--font); }
+
 .ob-app {
-  max-width: 460px; margin: 0 auto; background: var(--card);
+  max-width: 402px; margin: 0 auto; background: var(--card);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
-/* The FLEX COLUMN lives on #ob-root, which is what the router replaces. */
-#ob-root { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+/* svh: the viewport with Safari's toolbar showing. dvh measured 22pt taller than
+   what iOS 26 Safari shows, which made every short screen scroll. */
+#ob-root { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
 
-/* ── chrome ──────────────────────────────────────────────────────────── */
-/* The status bar and the Dynamic Island sit above this. In Safari the browser
-   chrome usually covers it, but a focus-zoom scroll (and standalone/PWA
-   display) put the wordmark straight under the clock. */
-.ob-brand {
-  display: flex; align-items: center; gap: 11px;
-  padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 13px;
+/* ── chrome ───────────────────────────────────────────────────────────────
+   Back arrow at x 17→29, the four-segment progress at x 42→197, both centred
+   25 image px below the top of the screen. The status bar sits above that. */
+.ob-top {
+  position: relative; flex: 0 0 auto;
+  height: calc(3.4rem + env(safe-area-inset-top, 0px));
 }
-.ob-word { font-size: 17px; font-weight: 700; letter-spacing: -.022em; }
-.ob-word em { font-style: normal; color: var(--brand); }
-.ob-brand-sep { width: 1px; height: 15px; background: var(--line); }
-.ob-brand-step { font-size: 12px; color: var(--muted-2); font-weight: 550; }
-
-.ob-prog { display: flex; gap: 5px; padding: 0 20px 18px; }
-.ob-prog i { flex: 1; height: 3px; border-radius: 99px; background: var(--line); transition: background .35s ease; }
-.ob-prog i.on { background: var(--brand); }
-
-.ob-navrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 20px; min-height: 34px; }
 .ob-back {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; margin: 0 0 2px -7px;
-  border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 50%;
+  position: absolute; left: 1.1rem; top: calc(1.3rem + env(safe-area-inset-top, 0px));
+  display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem; min-width: 44px; min-height: 44px; margin: -.2rem 0 0 -.2rem;
+  padding: 0; border: 0; background: none; color: #25282e; cursor: pointer; border-radius: 50%;
 }
+.ob-back > svg { width: 1.35rem; height: 1.35rem; }
 .ob-back:active { background: var(--line-2); }
+.ob-prog {
+  position: absolute; left: 4.2rem; right: 2.3rem;
+  top: calc(2.31rem + env(safe-area-inset-top, 0px));
+  display: flex; gap: .28rem;
+}
+.ob-prog i { flex: 1; height: .38rem; border-radius: 99px; background: var(--prog); transition: background .35s ease; }
+.ob-prog i.on { background: var(--g); }
 
-.ob-main { flex: 1 1 auto; padding: 6px 20px 26px; }
-.ob-h1 { margin: 0; font-size: 25px; line-height: 1.24; font-weight: 650; letter-spacing: -.026em; }
-.ob-eyebrow { margin: 0 0 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--muted-2); }
-.ob-section { margin-top: 24px; }
+/* The titled bar (Create Order): a chevron and a centred title. */
+.ob-top.is-titled .ob-back { left: 1.2rem; }
+.ob-top-t {
+  position: absolute; left: 4.5rem; right: 4.5rem; top: calc(1.6rem + env(safe-area-inset-top, 0px));
+  margin: 0; text-align: center; font-size: 1.04rem; line-height: 1.4rem; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
-/* ── S01 · grouped field sets ────────────────────────────────────────────
-   Five identical boxes made the user read every one to find the shape of
-   the form. Grouped, the screen says at a glance: this is your business,
-   this is how we reach you. */
-.ob-fs {
-  border: 1px solid var(--line); border-radius: var(--r);
-  box-shadow: var(--shadow-card); overflow: hidden; background: var(--card);
+/* The wordmark: Food in ink, Bridge in green, centred. */
+.ob-wordmark {
+  flex: 0 0 auto; margin: 0; padding-top: calc(1.82rem + env(safe-area-inset-top, 0px));
+  text-align: center; font-size: 1.58rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; color: var(--ink);
 }
-.ob-fr { display: flex; align-items: center; gap: 12px; padding: 9px 15px; min-height: 62px; }
-.ob-fr + .ob-fr { border-top: 1px solid var(--line-2); }
-.ob-fr > svg { flex: 0 0 auto; color: var(--muted-2); }
-.ob-fr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.ob-fr label { font-size: 10.5px; font-weight: 650; letter-spacing: .04em; color: var(--muted-2); text-transform: uppercase; }
-.ob-fr input {
-  width: 100%; border: 0; outline: none; background: none; padding: 3px 0 0;
-  font-family: var(--font); color: var(--ink);
-  /* 16px is not a style choice. iOS Safari zooms the page on focus for any
-     editable field below it and never zooms back out, which left the layout
-     panned sideways for the rest of the session. Every editable field in this
-     flow is at or above the threshold. */
-  font-size: 16px;
-}
-/* Matches the input, so the text does not resize the moment typing starts. */
-.ob-fr input::placeholder { color: var(--muted-2); font-size: 16px; }
-.ob-fr:focus-within { background: #fbfefc; }
-.ob-fr:focus-within > svg { color: var(--brand); }
-.ob-fr.is-ok { background: var(--brand-50); }
-.ob-fr.is-ok > svg, .ob-fr.is-ok .ob-fr-ok { color: var(--brand); }
-.ob-fr.is-ok input { color: var(--ink-2); }
-.ob-fr-ok { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 650; color: var(--brand-d); }
-.ob-verify {
-  flex: 0 0 auto; min-height: 38px; padding: 0 16px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 650; color: var(--brand-d);
-  background: var(--brand-50); border: 1px solid var(--brand-100); border-radius: 10px; cursor: pointer;
-}
-.ob-verify:disabled { color: var(--muted-2); background: var(--line-2); border-color: var(--line); cursor: default; }
+.ob-wordmark em { font-style: normal; color: var(--g); }
+.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { padding-top: calc(2.52rem + env(safe-area-inset-top, 0px)); }
 
-/* ── S02 · source choices ────────────────────────────────────────────────
-   Each source gets its own mark and tint so the list reads as real choices
-   rather than four rows of the same thing. Tints are UI, not logos: no
-   third-party brand mark is reproduced. */
-.ob-sources { display: flex; flex-direction: column; gap: 9px; margin-top: 20px; }
-.ob-source {
-  display: flex; align-items: center; gap: 14px; width: 100%;
-  padding: 15px 16px; text-align: left; cursor: pointer; font-family: var(--font);
-  background: var(--card); border: 1px solid var(--line);
-  border-radius: 16px; box-shadow: var(--shadow-card);
-  transition: border-color .15s ease, box-shadow .15s ease, transform .07s ease;
-}
-/* Only where a pointer can hover: on a phone the tap that opened the screen
-   leaves the row under it drawn as hovered. */
-@media (hover: hover) {
-  .ob-source:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
-}
-.ob-source:active { transform: scale(.99); }
-.ob-mark { flex: 0 0 auto; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; }
-.ob-mark.t-indigo { background: #eef2ff; color: #4338ca; }
-.ob-mark.t-rose   { background: #fff1f2; color: #be123c; }
-.ob-mark.t-blue   { background: #eff6ff; color: #1d4ed8; }
-.ob-mark.t-green  { background: var(--brand-50); color: var(--brand-d); }
-.ob-source-t { flex: 1 1 auto; font-size: 16px; font-weight: 600; color: var(--ink); }
-.ob-chev { flex: 0 0 auto; color: var(--muted-2); }
+.ob-main { flex: 1 1 auto; padding: 0 1.5rem 2rem; }
 
-/* ── the read · an intentional process, not four status rows ───────────── */
-.ob-proc { position: relative; margin-top: 26px; }
-.ob-proc::before {
-  content: ""; position: absolute; left: 14px; top: 20px; bottom: 20px;
-  width: 2px; background: var(--line);
+/* ── type ──────────────────────────────────────────────────────────────── */
+.ob-h1 {
+  margin: 2.09rem .5rem 0; font-size: 1.38rem; line-height: 1.7rem; font-weight: 700;
+  letter-spacing: -.012em; color: var(--ink);
 }
-.ob-pstep { position: relative; display: flex; align-items: center; gap: 15px; padding: 11px 0; }
-.ob-pdot {
-  position: relative; z-index: 1; flex: 0 0 auto;
-  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
-  background: var(--card); border: 2px solid var(--line); color: var(--muted-2);
-  transition: background .3s ease, border-color .3s ease, color .3s ease;
+.ob-h1.is-center { text-align: center; margin-left: 0; margin-right: 0; }
+.ob-h1.is-m { font-size: 1.15rem; line-height: 1.5rem; }
+.ob-sub {
+  margin: .55rem .5rem 0; font-size: .84rem; line-height: 1.3rem; font-weight: 400; color: var(--sub);
 }
-.ob-pt { font-size: 14.5px; color: var(--muted-2); transition: color .3s ease; }
-.ob-pstep.is-active .ob-pdot { border-color: var(--brand); color: var(--brand); }
-.ob-pstep.is-active .ob-pt { color: var(--ink); font-weight: 600; }
-.ob-pstep.is-done .ob-pdot { background: var(--brand); border-color: var(--brand); color: #fff; }
-.ob-pstep.is-done .ob-pt { color: var(--ink-2); }
+.ob-sub.is-center { text-align: center; margin-left: 1rem; margin-right: 1rem; }
+button.ob-sub { display: block; width: calc(100% - 2rem); padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--font); }
+button.ob-sub.is-left { width: calc(100% - 1rem); text-align: left; }
+.ob-sub .ob-sub-more { color: var(--g); font-weight: 600; white-space: nowrap; }
+
+/* ── lists of rows (screens 2, 5, 6) ───────────────────────────────────── */
+.ob-list { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.3rem; }
+.ob-row {
+  display: flex; align-items: center; gap: 1.1rem; width: 100%;
+  min-height: 3.45rem; padding: .7rem 1.25rem .7rem 1.2rem;
+  text-align: left; font-family: var(--font); color: var(--ink);
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem;
+  box-shadow: var(--shadow-row);
+}
+button.ob-row, label.ob-row { cursor: pointer; }
+button.ob-row:active, label.ob-row:active { background: #fafbfa; }
+@media (hover: hover) { button.ob-row:hover, label.ob-row:hover { border-color: #d6dad9; } }
+.ob-row[disabled], .ob-row.is-soon { cursor: default; }
+.ob-row-ic { flex: 0 0 auto; display: grid; place-items: center; width: 1.3rem; color: var(--g); }
+.ob-row-ic > svg { width: 1.3rem; height: 1.3rem; }
+.ob-row-ic.is-bad { color: var(--red); }
+.ob-row-ic.is-muted { color: var(--muted-2); }
+.ob-row-logo { flex: 0 0 auto; display: grid; place-items: center; width: 2rem; height: 2rem; }
+.ob-row-logo img { display: block; max-width: 2rem; max-height: 1.8rem; object-fit: contain; }
+.ob-row-logo.is-cluster { grid-template-columns: 1fr 1fr; gap: .12rem; }
+.ob-row-logo.is-cluster img { width: .92rem; height: .92rem; }
+.ob-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.ob-row-t { font-size: .855rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); }
+.ob-row-s { font-size: .74rem; line-height: 1.12rem; font-weight: 400; color: var(--muted); }
+.ob-row-s.is-ok { color: var(--g); font-weight: 600; }
+.ob-row-s.is-bad { color: var(--red); font-weight: 600; }
+.ob-row-n { flex: 0 0 auto; font-size: .83rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-row-tick { flex: 0 0 auto; display: grid; place-items: center; width: 1.3rem; color: var(--g); margin-right: 1.4rem; }
+.ob-row-tick > svg { width: 1.05rem; height: 1.05rem; }
+.ob-row-tick.is-bad { color: var(--red); font-size: 1.05rem; font-weight: 800; }
+.ob-row-miss { flex: 0 0 auto; font-size: .78rem; font-weight: 500; color: var(--red); }
+.ob-row-add { flex: 0 0 auto; font-size: .83rem; font-weight: 600; color: var(--g); }
+.ob-row-chev { flex: 0 0 auto; display: grid; place-items: center; color: #5b6068; margin-left: -.3rem; }
+.ob-row-chev > svg { width: 1rem; height: 1rem; }
+.ob-row-soon {
+  flex: 0 0 auto; padding: .22rem .6rem; border-radius: 99px;
+  font-size: .66rem; font-weight: 600; color: var(--muted); background: var(--line-2);
+}
+.ob-row.is-soon { background: #fbfbfc; box-shadow: none; }
+.ob-row.is-soon .ob-row-t { color: var(--muted); }
+.ob-row.is-soon .ob-row-logo img { opacity: .6; filter: grayscale(.3); }
+.ob-row.is-on { border-color: var(--g-100); background: var(--g-tint); }
+.ob-row.is-failed { border-color: var(--red-line); }
+.ob-row .ob-spin { color: var(--g); }
+
+/* A label inside a list, as "Add Items" / "Order Details" are labelled. */
+.ob-sec { margin: 1.6rem .5rem -.5rem; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-list + .ob-sec { margin-top: 1.7rem; }
+
+/* ── the green link (screen 6 "I'll do this later", screen 7 "+ Add another") */
+.ob-link {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  width: 100%; min-height: 44px; margin: .3rem 0 0; padding: 0 1rem;
+  font-family: var(--font); font-size: .94rem; font-weight: 600; color: var(--g);
+  background: none; border: 0; cursor: pointer; text-align: center;
+}
+.ob-link > svg { width: 1.05rem; height: 1.05rem; }
+.ob-link:active { opacity: .6; }
+.ob-link.is-warn { color: var(--red); }
+.ob-link.is-quiet { color: var(--muted); font-weight: 500; }
+.ob-link.is-sm { font-size: .84rem; }
+label.ob-link { position: relative; }
+.ob-link.is-inlist { margin-top: 1.25rem; }
+
+/* ── callout (screen 6) ─────────────────────────────────────────────────── */
+.ob-callout {
+  display: flex; align-items: flex-start; gap: .95rem;
+  margin-top: 1.2rem; padding: .95rem 1.2rem 1rem 1.15rem;
+  background: var(--g-50); border: 1px solid var(--g-100); border-radius: .5rem;
+  font-size: .8rem; line-height: 1.3rem; color: #3b5646;
+}
+.ob-callout > svg { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: .12rem; color: var(--g); }
+.ob-callout p { margin: 0; }
+.ob-callout b { color: var(--ink); font-weight: 600; }
+.ob-callout.is-warn { background: var(--amber-bg); border-color: var(--amber-line); color: #6b4a12; }
+.ob-callout.is-warn > svg { color: var(--amber); }
+.ob-callout.is-bad { background: var(--red-bg); border-color: var(--red-line); color: #7a2a2c; }
+.ob-callout.is-bad > svg { color: var(--red); }
+.ob-callout .ob-cl-main { flex: 1 1 auto; min-width: 0; }
+.ob-callout .ob-cl-act {
+  display: inline-block; min-height: 32px; margin-top: .2rem; padding: .3rem 0 0;
+  font-family: var(--font); font-size: .8rem; font-weight: 600; color: inherit;
+  background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.ob-callout .ob-cl-legal { margin: .1rem 0 .1rem; font-size: .86rem; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+
+/* ── footer, CTA ────────────────────────────────────────────────────────── */
+.ob-foot {
+  position: sticky; bottom: 0; z-index: 5; flex: 0 0 auto;
+  padding: 1rem 1.45rem calc(1.75rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--card) 1rem);
+}
+.ob-foot.is-inline { position: static; background: none; padding: 1.1rem .1rem 2rem; }
+/* screen 1: wordmark → title → subtitle → fields, measured */
+.s01-h { margin-top: 1.55rem; font-size: 1.33rem; }
+.ob-sub.s01-sub { margin-top: .28rem; font-size: .76rem; line-height: 1.1rem; }
+.s01-sub + .ob-fields { margin-top: 1.3rem; }
+.ob-cta {
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  width: 100%; min-height: 2.6rem; padding: 0 1rem;
+  font-family: var(--font); font-size: .92rem; font-weight: 600; color: #fff; text-align: center;
+  background: var(--g); border: 0; border-radius: .45rem; cursor: pointer;
+  box-shadow: 0 .1rem .25rem rgba(14, 138, 60, .22);
+  transition: background .15s ease;
+}
+@media (hover: hover) { .ob-cta:hover { background: var(--g-d); } }
+.ob-cta:active { background: var(--g-dd); }
+.ob-cta:disabled { background: #e3e5e8; color: #9ca1a9; box-shadow: none; cursor: default; }
+.ob-cta.is-warn { background: var(--red); box-shadow: none; }
+.ob-cta.is-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); box-shadow: none; }
+.ob-cta .ob-spin { color: rgba(255,255,255,.85); }
+.ob-cta:disabled .ob-spin { color: var(--muted-2); }
+label.ob-cta { position: relative; }
+.ob-foot-note { margin: 1.1rem 0 0; text-align: center; font-size: .74rem; line-height: 1.1rem; color: var(--muted); }
+
 .ob-spin {
-  width: 13px; height: 13px; border-radius: 50%;
+  display: inline-block; flex: 0 0 auto;
+  width: .9rem; height: .9rem; border-radius: 50%;
   border: 2px solid currentColor; border-right-color: transparent;
   animation: ob-spin .7s linear infinite;
 }
 @keyframes ob-spin { to { transform: rotate(360deg); } }
 
-/* ── S03 · evidence understood, then what is optional ──────────────────── */
-.ob-ev { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.ob-ev-cell {
-  position: relative; display: block; width: 100%; text-align: left;
-  padding: 14px 12px; cursor: pointer; font-family: var(--font);
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
-  box-shadow: var(--shadow-card); transition: border-color .18s ease, box-shadow .18s ease;
-}
-.ob-ev-cell:hover { border-color: var(--brand-200); box-shadow: 0 4px 14px -6px rgba(15,23,42,.14); }
-.ob-ev-cell:active { transform: scale(.99); }
-.ob-ev-chev { position: absolute; top: 12px; right: 8px; color: var(--line); }
-.ob-ev-cell > svg { color: var(--brand-d); }
-.ob-ev-n {
-  display: block; margin-top: 9px; font-size: 22px; font-weight: 700;
-  letter-spacing: -.02em; color: var(--brand-dd); font-variant-numeric: tabular-nums;
-}
-.ob-ev-l { display: block; margin-top: 1px; font-size: 12px; color: var(--ink-2); }
+/* ── hero marks: the confetti check (screens 5, 10) and the illustrations ── */
+.ob-hero { position: relative; display: block; margin: 0 auto; }
+.ob-hero svg { display: block; width: 100%; height: 100%; }
+/* Offsets measured off the image: each mark's top, then the title's line box. */
+.ob-hero.is-check { width: 13rem; height: 7.4rem; margin-top: 3.6rem; }
+.ob-hero.is-check.is-top { margin-top: -.2rem; }
+.ob-hero.is-cloud { width: 17rem; height: 10.3rem; margin-top: 3.4rem; }
+.ob-hero.is-clip { width: 10.6rem; height: 10.4rem; margin-top: 2.9rem; }
+.ob-hero.is-store { width: 17rem; height: 10.2rem; margin-top: 1.4rem; }
+.ob-hero.is-logo { width: 7rem; height: 3.6rem; margin-top: 3.8rem; display: grid; place-items: center; }
+.ob-hero.is-logo img { max-width: 7rem; max-height: 3.4rem; object-fit: contain; }
+.ob-hero + .ob-h1 { margin-top: 2.1rem; }
+.ob-hero.is-check + .ob-h1 { margin-top: 1.5rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: .7rem; }
+.ob-hero.is-logo + .ob-h1 { margin-top: 2.2rem; }
+.ob-hero.is-clip + .ob-h1 { margin-top: 1.9rem; }
+.ob-hero.is-store + .ob-h1 { margin-top: 3.1rem; }
+.ob-h1.s03b-h { margin-top: 3.48rem; }
+.ob-person-s .is-repeat { color: var(--amber); font-weight: 500; }
+.ob-wordmark + .ob-main > .ob-h1.s11-h:first-child, .ob-wordmark + .ob-main > .ob-undo + .ob-h1 { margin-top: 1.6rem; }
+.ob-h1.is-center + .ob-list { margin-top: 2.05rem; }
+.ob-sub.is-center + .ob-list { margin-top: 2.05rem; }
 
-/* subordinate by construction: no card, no border, muted ground */
-.ob-optional { margin-top: 26px; padding: 4px 16px 6px; background: var(--surface); border-radius: var(--r); }
-.ob-orow { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
-.ob-orow + .ob-orow { border-top: 1px solid var(--line); }
-.ob-orow > svg { flex: 0 0 auto; color: var(--muted-2); }
-.ob-orow-main { flex: 1 1 auto; min-width: 0; }
-.ob-orow-t { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
-.ob-orow-s { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
-.ob-addlink {
-  flex: 0 0 auto; padding: 6px 12px; font-family: var(--font);
-  font-size: 13px; font-weight: 650; color: var(--brand-d);
-  background: none; border: 0; cursor: pointer; border-radius: 8px;
-}
-.ob-addlink:hover { background: var(--brand-50); }
+/* ── consent features (screen 3) ───────────────────────────────────────── */
+.ob-feats { display: flex; flex-direction: column; gap: 1.55rem; margin: 3.9rem .7rem 0; }
+.ob-feat { display: flex; align-items: flex-start; gap: 1.2rem; font-size: .81rem; line-height: 1.2rem; color: var(--ink-2); }
+.ob-feat > svg { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; color: var(--g); margin-top: .08rem; }
 
-/* below the floor */
-.ob-need { padding: 17px; margin-bottom: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-card); }
-.ob-need-h { display: flex; align-items: center; gap: 12px; }
-.ob-need-h b { font-size: 15.5px; font-weight: 650; }
-.ob-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* ── checklist (screen 4) ──────────────────────────────────────────────── */
+.ob-checks { margin: 2.5rem .45rem 0; }
+.ob-ck { display: flex; align-items: center; gap: .85rem; min-height: 2.42rem; font-size: .81rem; color: var(--ink-2); }
+.ob-ck-dot {
+  flex: 0 0 auto; display: grid; place-items: center; width: .98rem; height: .98rem; border-radius: 50%;
+  border: 1.5px solid #d9dbdf; background: var(--card); color: #fff;
+}
+.ob-ck-dot > svg { width: .64rem; height: .64rem; stroke-width: 3.2; }
+.ob-ck.is-done .ob-ck-dot { background: var(--g); border-color: var(--g); }
+.ob-ck-t { flex: 1 1 auto; min-width: 0; }
+.ob-ck.is-wait .ob-ck-t { color: var(--sub); }
+.ob-ck-v { flex: 0 0 auto; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-ck-end { flex: 0 0 auto; display: grid; place-items: center; width: .98rem; height: .98rem; }
+.ob-ck-end .ob-spin { width: .9rem; height: .9rem; border-width: 1.5px; color: #4b5058; border-right-color: transparent; border-top-color: #d9dbdf; }
+
+/* ── bordered cards (screens 8, 10) ────────────────────────────────────── */
+.ob-card {
+  margin-top: 1.4rem; padding: .35rem 1.1rem; background: var(--card);
+  border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-card-row {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 2.9rem;
+  padding: 0; font-family: var(--font); font-size: .805rem; color: var(--ink-2);
+  background: none; border: 0; text-align: left;
+}
+button.ob-card-row { cursor: pointer; }
+button.ob-card-row:active { opacity: .6; }
+.ob-card-row > .ob-ck-dot { background: var(--g); border-color: var(--g); }
+.ob-card-row > .ob-card-ic { flex: 0 0 auto; display: grid; place-items: center; width: .98rem; color: var(--g); }
+.ob-card-row > .ob-card-ic > svg { width: 1.05rem; height: 1.05rem; }
+.ob-card-row .ob-card-t { flex: 1 1 auto; min-width: 0; }
+.ob-card-row .ob-row-chev > svg { width: .9rem; height: .9rem; }
+.ob-card.is-kv { padding: 1.2rem 1.1rem .75rem; }
+.ob-card-h { margin: 0 0 .35rem; font-size: .805rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-kvr { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2rem; font-size: .755rem; color: var(--sub); }
+.ob-kvr b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── S01 fields (screen 1) ─────────────────────────────────────────────── */
+.ob-fields { display: flex; flex-direction: column; gap: .8rem; margin: 2.4rem .45rem 0; }
+.ob-field {
+  display: flex; align-items: center; gap: 1rem; min-height: 3.35rem; padding: 0 1rem 0 1rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .5rem; box-shadow: var(--shadow-row);
+}
+.ob-field:focus-within { border-color: #b9d8c3; }
+.ob-field > svg { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; color: #2f333a; stroke-width: 1.8; }
+.ob-field-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-self: stretch; padding: .45rem 0; }
+.ob-field label { font-size: .66rem; line-height: .9rem; color: var(--muted); cursor: text; }
+.ob-field input {
+  width: 100%; min-height: 1.5rem; padding: .15rem 0 0; border: 0; outline: none; background: none;
+  font-family: var(--font); font-weight: 500; color: var(--ink);
+  /* iOS zooms on focus below 16px. The image sets this at 7.75 image px. */
+  font-size: max(16px, .775rem);
+}
+.ob-field input::placeholder { color: var(--muted-2); font-weight: 400; }
+.ob-field input:disabled { color: var(--ink-2); -webkit-text-fill-color: var(--ink-2); opacity: 1; }
+.ob-field.is-ok { border-color: var(--g-100); }
+.ob-field-end { flex: 0 0 auto; display: flex; align-items: center; color: var(--g); }
+.ob-field-end > svg { width: 1.15rem; height: 1.15rem; }
+.ob-verify {
+  flex: 0 0 auto; min-height: 44px; margin-right: -.6rem; padding: 0 .6rem;
+  font-family: var(--font); font-size: .84rem; font-weight: 600; color: var(--g);
+  background: none; border: 0; cursor: pointer;
+}
+.ob-verify:disabled { color: var(--muted-2); cursor: default; }
+.ob-verify.is-busy { display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); cursor: default; }
+.ob-fields + .ob-callout { margin: .9rem .45rem 0; }
+#f-gstin { text-transform: uppercase; }
+#f-gstin::placeholder { text-transform: none; }
+
+/* ── S05 choose (screen 7) ─────────────────────────────────────────────── */
+.ob-selbar { display: flex; align-items: center; justify-content: space-between; margin: 1.2rem .5rem -.4rem; min-height: 44px; }
+.ob-selbar-n { font-size: .8rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-selbar-a { min-height: 44px; padding: 0; font-family: var(--font); font-size: .8rem; font-weight: 600; color: var(--g); background: none; border: 0; cursor: pointer; }
+.ob-people { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.3rem; }
+.ob-person {
+  display: flex; align-items: center; gap: .85rem; min-height: 4.2rem; padding: .7rem .5rem .7rem .8rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-person.is-on { border-color: var(--g-100); background: var(--g-tint); }
+.ob-person-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .85rem; padding: 0; background: none; border: 0; text-align: left; cursor: pointer; font-family: var(--font); }
+.ob-avatar {
+  flex: 0 0 auto; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  font-size: .72rem; font-weight: 600; color: #2b2f35; background: #dcdde0;
+}
+.ob-avatar.t1 { background: #fde2e1; color: #b3261e; }
+.ob-avatar.t2 { background: #d9efe8; color: #0f5c4a; }
+.ob-avatar.t3 { background: #e5e9fb; color: #3446a8; }
+.ob-avatar.t4 { background: #fcefd9; color: #9a5b06; }
+.ob-person-main { min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.ob-person-n { font-size: .8rem; line-height: 1.1rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-person-s { font-size: .68rem; line-height: 1rem; color: var(--muted); }
+.ob-person-s.is-repeat { color: var(--amber); font-weight: 500; }
+.ob-pick {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .5rem;
+  min-width: 6rem; min-height: 2.3rem; padding: 0 .65rem 0 .75rem;
+  font-family: var(--font); font-size: .75rem; font-weight: 500; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .35rem; cursor: pointer;
+}
+.ob-pick > svg { width: .85rem; height: .85rem; color: var(--muted); }
+.ob-pick[aria-pressed="true"] { color: #fff; background: var(--g); border-color: var(--g); }
+.ob-pick[aria-pressed="true"] > svg { color: #fff; }
+.ob-person.is-stale .ob-pick[aria-pressed="true"] { background: var(--amber); border-color: var(--amber); }
+
+/* ── Create Order (screen 9) — the draft, edited ───────────────────────── */
+.ob-main.is-order { padding-top: .4rem; }
+.ob-ocard {
+  margin-top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-ocard.is-cust { display: flex; align-items: center; gap: 1rem; min-height: 5rem; padding: .9rem 1.2rem; }
+.ob-ocard-main { flex: 1 1 auto; min-width: 0; }
+.ob-ocard-l { margin: 0; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-ocard-v { margin: .25rem 0 0; font-size: .8rem; line-height: 1.2rem; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-ocard-a { flex: 0 0 auto; min-height: 44px; padding: 0 .1rem; font-family: var(--font); font-size: .84rem; font-weight: 500; color: var(--g); background: none; border: 0; cursor: pointer; }
+.ob-ocard.is-items { padding: 1.2rem 1.2rem .6rem; }
+.ob-osearch {
+  display: flex; align-items: center; gap: .8rem; margin-top: .95rem; min-height: 2.75rem; padding: 0 1rem;
+  border: 1px solid var(--line); border-radius: .45rem; background: var(--card);
+}
+.ob-osearch > svg { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; color: #3a3e45; }
+.ob-osearch input {
+  flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: none; padding: 0;
+  font-family: var(--font); font-size: max(16px, .8rem); color: var(--ink);
+}
+.ob-osearch input::placeholder { color: var(--muted); }
+.ob-ohits { margin: .4rem 0 .2rem; border: 1px solid var(--line); border-radius: .45rem; overflow: hidden; }
+.ob-ohit {
+  display: flex; align-items: center; gap: .8rem; width: 100%; min-height: 44px; padding: .5rem .9rem;
+  font-family: var(--font); font-size: .8rem; color: var(--ink); text-align: left;
+  background: var(--card); border: 0; border-top: 1px solid var(--line-2); cursor: pointer;
+}
+.ob-ohit:first-child { border-top: 0; }
+.ob-ohit > span { flex: 1 1 auto; min-width: 0; }
+.ob-ohit > svg { flex: 0 0 auto; width: 1rem; height: 1rem; color: var(--g); }
+.ob-ohit-none { margin: .7rem 0 .2rem; font-size: .8rem; color: var(--muted); }
+.ob-oline { display: grid; grid-template-columns: 2.35rem minmax(0, 1fr) auto; align-items: center; column-gap: 1rem; row-gap: .5rem; padding: 1.05rem 0; border-top: 1px solid var(--line-2); }
+.ob-oline:first-of-type { border-top: 0; }
+.ob-othumb { width: 2.35rem; height: 2.35rem; display: grid; place-items: center; border-radius: .4rem; border: 1px solid var(--line-2); background: #f7faf8; color: var(--g); }
+.ob-othumb > svg { width: 1.15rem; height: 1.15rem; }
+.ob-oline-main { min-width: 0; }
+.ob-oline-n { margin: 0; font-size: .81rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ob-oline-s { margin: .2rem 0 0; font-size: .78rem; line-height: 1.1rem; color: var(--muted); }
+.ob-oline-s em { font-style: normal; font-weight: 600; color: var(--amber); }
+.ob-step {
+  grid-column: 3; display: inline-grid; grid-template-columns: 2.1rem 2.9rem 2.1rem; align-items: center;
+  height: 2.2rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--card); overflow: hidden;
+}
+.ob-step button {
+  height: 100%; min-height: 44px; margin: -6px 0; padding: 0; border: 0; background: none; cursor: pointer;
+  display: grid; place-items: center; color: #3a3e45;
+}
+.ob-step button > svg { width: .9rem; height: .9rem; }
+.ob-step button.is-rm { color: var(--red); }
+.ob-step input {
+  width: 100%; height: 100%; border: 0; border-left: 1px solid var(--line-2); border-right: 1px solid var(--line-2);
+  text-align: center; outline: none; background: none; padding: 0;
+  font-family: var(--font); font-size: max(16px, .8rem); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.ob-step input::-webkit-outer-spin-button, .ob-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ob-oadd { display: inline-flex; align-items: center; gap: .6rem; min-height: 44px; margin: .2rem 0 0; padding: 0; font-family: var(--font); font-size: .8rem; font-weight: 500; color: var(--g); background: none; border: 0; cursor: pointer; }
+.ob-oadd > svg { width: .95rem; height: .95rem; }
+.ob-ototal {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin-top: 0; min-height: 4.2rem; padding: 0 1.2rem;
+  border: 1px solid var(--line); border-top: 0; border-radius: 0 0 .55rem .55rem; background: var(--card);
+  font-size: .845rem; color: var(--ink-2);
+}
+.ob-ocard.is-items.has-total { border-radius: .55rem .55rem 0 0; }
+.ob-ototal b { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-oempty { margin: 1rem 0 .4rem; font-size: .8rem; line-height: 1.25rem; color: var(--muted); }
+
+/* ── the sheet ─────────────────────────────────────────────────────────── */
+.ob-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(13, 15, 18, .36); animation: ob-fade .18s ease; }
+.ob-sheet {
+  position: fixed; z-index: 41; left: 0; right: 0; bottom: var(--ob-kb);
+  display: flex; flex-direction: column;
+  max-height: calc(88dvh - var(--ob-kb));
+  background: var(--card); border-radius: 1.1rem 1.1rem 0 0;
+  box-shadow: 0 -1rem 2.5rem -1rem rgba(13, 15, 18, .28);
+  animation: ob-rise .26s cubic-bezier(.22, 1, .36, 1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: bottom .18s ease, max-height .18s ease;
+}
+@keyframes ob-fade { from { opacity: 0; } }
+@keyframes ob-rise { from { transform: translateY(14px); opacity: .6; } }
+.ob-sheet-grip { width: 2.2rem; height: .25rem; border-radius: 99px; background: #dfe1e5; margin: .6rem auto 0; }
+.ob-sheet-h { display: flex; align-items: center; gap: .8rem; padding: .9rem 1.5rem .5rem; }
+.ob-sheet-h h2 { margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.04rem; line-height: 1.4rem; font-weight: 600; color: var(--ink); }
+.ob-sheet-n { font-size: 1.04rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-sheet-x {
+  position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 2rem; height: 2rem;
+  border-radius: 50%; border: 0; background: var(--line-2); color: var(--sub); cursor: pointer;
+}
+.ob-sheet-x > svg { width: 1rem; height: 1rem; }
+.ob-sheet-x::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.ob-sheet-b { flex: 1 1 auto; overflow-y: auto; padding: .3rem 1.5rem 1.2rem; -webkit-overflow-scrolling: touch; }
+.ob-sheet-f { flex: 0 0 auto; padding: .9rem 1.45rem 1.2rem; border-top: 1px solid var(--line-2); }
+.ob-sheet-f .ob-link { margin-top: .35rem; }
+.ob-sheet-p { margin: 0 0 .6rem; font-size: .84rem; line-height: 1.3rem; color: var(--sub); }
+.ob-sheet-sec { margin: 1.2rem 0 .5rem; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-sheet-b > .ob-sheet-sec:first-child { margin-top: .3rem; }
+.ob-sheet-ul { margin: 0; padding: 0; list-style: none; }
+.ob-sheet-ul li { position: relative; padding: .2rem 0 .2rem 1.6rem; font-size: .81rem; line-height: 1.25rem; color: var(--ink-2); }
+.ob-sheet-ul li::before {
+  content: ""; position: absolute; left: .15rem; top: .45rem; width: .75rem; height: .75rem; border-radius: 50%;
+  background: var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 62% no-repeat;
+}
+.ob-sheet-ul.is-no li::before { background: var(--line) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7079' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 58% no-repeat; }
+.ob-sheet-b .ob-list { margin-top: .4rem; gap: .45rem; }
+.ob-sheet-b .ob-row { min-height: 3rem; padding: .55rem 1rem; gap: .8rem; }
+.ob-sheet-b .ob-card { margin-top: .4rem; }
+.ob-sheet-b .ob-card.is-kv { padding: .5rem 1.1rem; }
+.ob-sheet-b .ob-callout { margin-top: .4rem; }
+
+/* choices in a sheet: an organisation, or what a file contains */
+.ob-choices { display: flex; flex-direction: column; gap: .45rem; margin-top: .3rem; }
+.ob-choice {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 3.1rem;
+  padding: .6rem 1rem; text-align: left; cursor: pointer; font-family: var(--font);
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem;
+}
+.ob-choice.is-on { border-color: var(--g); background: var(--g-tint); }
+.ob-radio { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; border-radius: 50%; border: 1.5px solid #c9ccd1; background: var(--card); }
+.ob-choice.is-on .ob-radio { border-color: var(--g); box-shadow: inset 0 0 0 .22rem var(--card); background: var(--g); }
+.ob-tick { flex: 0 0 auto; display: grid; place-items: center; width: 1.05rem; height: 1.05rem; border-radius: .25rem; border: 1.5px solid #c9ccd1; background: var(--card); color: transparent; }
+.ob-tick > svg { width: .75rem; height: .75rem; }
+.ob-choice.is-on .ob-tick { border-color: var(--g); background: var(--g); color: #fff; }
+.ob-choice-main { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.ob-choice-t { font-size: .855rem; font-weight: 600; color: var(--ink); }
+.ob-choice-s { font-size: .74rem; color: var(--muted); }
+
+/* files inside a sheet (S03 "add later") */
+.ob-addbtns { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 .3rem; }
 .ob-chip {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 14px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink-2);
-  background: var(--card); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  position: relative; display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: 0 .9rem;
+  font-family: var(--font); font-size: .8rem; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .45rem; cursor: pointer;
 }
-.ob-chip:hover { border-color: var(--muted-2); }
-.ob-chip.key { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
+.ob-chip > svg { width: .95rem; height: .95rem; }
+.ob-chip.key { color: var(--g); border-color: var(--g-100); background: var(--g-tint); }
+.ob-have { display: flex; flex-wrap: wrap; gap: .35rem; margin: .5rem 0 .1rem; }
+.ob-have-i { display: inline-flex; align-items: center; gap: .25rem; padding: .2rem .6rem; border-radius: 99px; font-size: .7rem; font-weight: 600; color: var(--muted); background: var(--line-2); }
+.ob-have-i.is-on { color: var(--g); background: var(--g-50); }
+.ob-have-i > svg { width: .75rem; height: .75rem; }
+.ob-quiet-s { margin: .8rem 0 0; font-size: .74rem; line-height: 1.1rem; color: var(--muted); }
+.ob-seg { display: inline-flex; padding: .12rem; border-radius: .45rem; background: var(--line-2); }
+.ob-seg-b { min-height: 34px; padding: 0 .7rem; border: 0; border-radius: .35rem; background: none; cursor: pointer; font-family: var(--font); font-size: .74rem; font-weight: 600; color: var(--muted); }
+.ob-seg-b.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(13,15,18,.12); }
+.ob-rmx { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; margin: -.6rem -.8rem -.6rem 0; padding: 0; border: 0; background: none; color: var(--muted-2); cursor: pointer; }
+.ob-rmx > svg { width: .95rem; height: .95rem; }
+.ob-flink { font: inherit; color: inherit; background: none; border: 0; padding: .2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.ob-row-s .ob-flink { font-weight: 600; }
+.ob-row .ob-rowbtn { position: relative; z-index: 1; }
 
-/* ── S04 · one dominant insight, then supporting opportunities ─────────── */
-.ob-lead-h { margin: 0; font-size: 31px; line-height: 1.14; font-weight: 700; letter-spacing: -.035em; }
-
-/* Supporting signals are rows, not cards: a card here competes with the
-   insight above it, and only one thing on this screen is primary. */
-.ob-support { margin-top: 26px; border-top: 1px solid var(--line); }
-.ob-srow {
-  display: flex; align-items: center; gap: 13px; width: 100%;
-  padding: 15px 2px; text-align: left; cursor: pointer; font-family: var(--font);
-  background: none; border: 0; border-bottom: 1px solid var(--line);
+/* ── records and facts inside sheets, in the row and card language ─────── */
+.ob-reclist { display: flex; flex-direction: column; gap: .45rem; margin-top: .4rem; }
+.ob-rec {
+  display: flex; align-items: center; justify-content: space-between; gap: .9rem; min-height: 3rem; padding: .55rem 1rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
 }
-.ob-srow:hover .ob-srow-t { color: var(--brand-d); }
-.ob-srow-ic { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--line-2); color: var(--muted); }
-.ob-srow-t { display: block; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-
-.ob-quiet { margin-top: 20px; font-size: 15px; color: var(--muted); }
-
-/* ── footer ──────────────────────────────────────────────────────────── */
-.ob-foot {
-  position: sticky; bottom: 0;
-  padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--card) 24%);
+.ob-rec-a { flex: 1 1 auto; min-width: 0; font-size: .8rem; line-height: 1.15rem; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.ob-rec-b { flex: 0 0 auto; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; display: inline-flex; }
+.ob-rec-b > svg { width: 1rem; height: 1rem; color: var(--g); }
+button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor: pointer; }
+.ob-prov-lines p { margin: 0 0 .25rem; font-size: .8rem; line-height: 1.2rem; color: var(--sub); }
+.ob-kv { margin-top: .4rem; padding: .35rem 1.1rem; border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row); }
+.ob-kv-r { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2.3rem; font-size: .78rem; color: var(--sub); }
+.ob-kv-r + .ob-kv-r { border-top: 1px solid var(--line-2); }
+.ob-kv-r b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ob-dlist { display: flex; flex-direction: column; gap: .5rem; margin-top: .4rem; }
+.ob-drow {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 3.45rem; padding: .6rem 1.1rem .6rem 1.2rem;
+  font-family: var(--font); text-align: left; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
 }
-.ob-cta {
-  display: block; width: 100%; min-height: 54px;
-  font-family: var(--font); font-size: 16px; font-weight: 650; color: #fff;
-  background: var(--brand); border: 0; border-radius: var(--r); cursor: pointer;
-  box-shadow: 0 8px 18px -8px rgba(22,163,74,.6);
-  transition: background .15s ease;
+.ob-drow:active { background: #fafbfa; }
+.ob-drow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.ob-drow-n { font-size: .83rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-drow-s { font-size: .72rem; color: var(--muted); }
+.ob-drow-e { flex: 0 0 auto; padding: .15rem .5rem; border-radius: 99px; font-size: .62rem; font-weight: 700; color: var(--amber); background: var(--amber-bg); }
+.ob-drow .ob-chev, .ob-drow .ob-row-chev { color: #5b6068; display: grid; }
+.ob-drow .ob-chev > svg { width: 1rem; height: 1rem; }
+.ob-undo {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin: 1.2rem 0 0; padding: .6rem .6rem .6rem 1.1rem; border-radius: .5rem;
+  background: var(--ink); color: #fff; font-size: .8rem;
 }
-.ob-cta:hover { background: var(--brand-d); }
-.ob-cta:active { background: var(--brand-dd); }
-.ob-cta:disabled { background: var(--line); color: var(--muted-2); box-shadow: none; cursor: default; }
-/* Unmistakably secondary: a text link, not a button. */
-.ob-skip {
-  display: block; margin: 12px auto 0; padding: 6px 10px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 550; color: var(--muted-2);
-  background: none; border: 0; cursor: pointer; text-decoration: underline;
-  text-underline-offset: 3px; text-decoration-color: var(--line);
-}
-.ob-skip:hover { color: var(--muted); }
+.ob-undo button { min-height: 40px; padding: 0 .6rem; background: none; border: 0; font-family: var(--font); font-size: .8rem; font-weight: 700; color: #fff; text-decoration: underline; cursor: pointer; }
 
-/* ── narrow phones ───────────────────────────────────────────────────── */
-@media (max-width: 374px) {
-  .ob-main, .ob-brand, .ob-prog, .ob-navrow, .ob-foot { padding-left: 16px; padding-right: 16px; }
-  .ob-h1 { font-size: 23px; }
-  .ob-lead-h { font-size: 27px; }
-  .ob-ev-cell { padding: 12px 10px; }
-  .ob-ev-n { font-size: 19px; }
-  .ob-ev-l { font-size: 11px; }
+/* ── keyboard ─────────────────────────────────────────────────────────── */
+.ob-kb-open .ob-foot:not(.is-inline) {
+  position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 402px; bottom: var(--ob-kb);
+  padding-bottom: .9rem; background: var(--card); border-top: 1px solid var(--line-2);
 }
+.ob-kb-open .ob-main { padding-bottom: 6rem; }
+.ob-kb-open .ob-sheet { padding-bottom: 0; }
 
-/* ── desktop: the same column, on a surface, with room ───────────────── */
+/* ── desktop: the same phone column, on a surface ─────────────────────── */
 @media (min-width: 768px) {
+  html { font-size: calc(402px / 22); }
   body { background: var(--surface); }
   .ob-app {
-    max-width: 480px; margin: 44px auto;
-    border: 1px solid var(--line); border-radius: 26px;
-    box-shadow: var(--shadow-lift); overflow: hidden;
+    margin: 40px auto; border: 1px solid var(--line); border-radius: 26px;
+    box-shadow: 0 18px 40px -16px rgba(13, 15, 18, .2); overflow: clip;
   }
-  #ob-root { min-height: 600px; }
-  .ob-brand { padding-top: 22px; }
-  .ob-main, .ob-brand, .ob-prog, .ob-navrow, .ob-foot { padding-left: 30px; padding-right: 30px; }
-  .ob-foot { position: static; padding-bottom: 28px; }
+  #ob-root { min-height: min(820px, calc(100vh - 82px)); }
+  .ob-sheet {
+    left: 50%; right: auto; top: 50%; bottom: auto;
+    width: 402px; max-height: 76vh; transform: translate(-50%, -50%);
+    border-radius: 1.1rem; animation: ob-pop .2s cubic-bezier(.22, 1, .36, 1);
+  }
+  @keyframes ob-pop { from { transform: translate(-50%, -48%) scale(.98); opacity: .5; } }
+  .ob-sheet-grip { display: none; }
+  .ob-sheet-h { padding-top: 1.3rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
+/* ══ The image's own components, 17 Sep 2026 (second pass: the image's flow) ══ */
 
-/* ── the operation, and the failure it can end in ──────────────────────
-   C2: a finished step says what it FOUND, from a real count. C4: a failure
-   is a state with a cause and two ways out, drawn as a state and not as a
-   toast that disappears before it is read.
-   ====================================================================== */
-.ob-main-op { padding-top: 14px; }
-.ob-pv {
-  margin-left: auto; padding-left: 12px;
-  font-size: 12.5px; color: var(--muted-2); font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+/* 1 · Sign Up */
+.ob-field.is-bad { border-color: #f1b5b7; }
+.ob-eye { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; margin-right: -.9rem; padding: 0; border: 0; background: none; color: #3a3e45; cursor: pointer; }
+.ob-eye > svg { width: 1.15rem; height: 1.15rem; }
+.ob-err { margin: .7rem .45rem 0; font-size: .76rem; line-height: 1.15rem; color: var(--red); }
+.ob-terms { margin: .75rem 0 0; text-align: center; font-size: .76rem; line-height: 1.2rem; color: #5b606a; }
+.ob-tlink { padding: .2rem 0; border: 0; background: none; cursor: pointer; font-family: var(--font); font-size: inherit; color: #2e7d53; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #9fcdb3; }
+.ob-tlink.is-g { color: var(--g); font-weight: 600; text-decoration: none; margin-left: 1rem; min-height: 44px; }
+.ob-login { margin: 1.1rem 0 0; text-align: center; font-size: .86rem; font-weight: 500; color: var(--ink-2); }
+.ob-fields.is-sheet { margin: .2rem 0 0; }
+.ob-busy { display: flex; align-items: center; gap: .6rem; }
+
+/* 2 · Where is your data? — its rows sit 17px in, labels at 42 */
+.ob-h1.s02-h { margin-top: 2.09rem; }
+.ob-sub.s02-sub { margin-top: .5rem; font-size: .8rem; line-height: 1.2rem; }
+.ob-list.is-src { margin: 1.32rem .25rem 0; gap: .5rem; }
+.ob-list.is-src .ob-row { min-height: 3.5rem; gap: 1rem; padding: .6rem 1.1rem .6rem 1.2rem; }
+.ob-row-logo svg { width: 1.8rem; height: auto; display: block; }
+.ob-row-logo > img { width: 1.9rem; height: 1.9rem; }
+.ob-row-logo.is-wide { width: 3.3rem; margin-right: -.6rem; }
+.ob-row-logo.is-wide svg { width: 3.3rem; }
+.ob-list.is-src .ob-row-s { font-size: .72rem; line-height: 1.15rem; }
+
+/* 3 · Connect your account */
+.ob-hero.is-logo svg { width: 5.7rem; height: auto; }
+.ob-hero.is-logo img { width: 3rem; height: 3rem; }
+.ob-hero.is-logo + .ob-h1 + .ob-sub { margin-top: .66rem; }
+.ob-feats { margin-top: 2.85rem; margin-left: .8rem; }
+.ob-foot.is-connect { padding-bottom: calc(3.1rem + env(safe-area-inset-bottom, 0px)); }
+.ob-foot.is-connect .ob-foot-note { margin-top: .9rem; }
+
+/* 4 · Importing */
+.ob-checks { margin-top: 1.55rem; }
+.ob-ck-dot.is-on { background: var(--g); border-color: var(--g); }
+
+/* 6 · Data check — the tick sits in one column whatever the count */
+.ob-row.is-check { position: relative; }
+.ob-row.is-check .ob-row-tick { position: absolute; left: 12.05rem; margin: 0; }
+.ob-h1.s06-h { margin-top: 3.48rem; font-size: 1.345rem; }
+.ob-list + .ob-callout { margin-top: 1.3rem; }
+label.ob-row.is-check { cursor: pointer; }
+
+/* 7 · Staff */
+.ob-sub.s07-sub { line-height: 1.4rem; }
+.ob-people { gap: .65rem; margin-top: 1.25rem; }
+.ob-person { min-height: 4.1rem; padding: .5rem .3rem .5rem .9rem; }
+.ob-person-open { gap: .8rem; }
+.ob-person-n { font-weight: 500; }
+.ob-select {
+  position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .4rem;
+  min-width: 5.9rem; height: 2.3rem; padding: 0 .6rem 0 .8rem;
+  font-size: .75rem; font-weight: 500; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .35rem;
 }
-.ob-pstep.is-done .ob-pv { color: var(--brand-d); }
+.ob-select > svg { width: .85rem; height: .85rem; color: #3a3e45; }
+.ob-select select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
+.ob-link.is-add { margin-top: .75rem; }
+.ob-choices.is-roles { margin-top: .8rem; }
 
-.ob-fail { padding-top: 34px; text-align: center; }
-.ob-fail > svg { color: var(--amber-tx); }
-.ob-fail .ob-h1 { margin-top: 16px; }
-.ob-fail-c { margin: 12px auto 0; max-width: 30ch; font-size: 14px; line-height: 1.55; color: var(--muted); }
+/* 8 · Ready */
+.ob-sub.s08-sub { line-height: 1.3rem; }
+.ob-card { padding: .57rem 1rem .33rem; }
+.ob-card-row { gap: .8rem; font-size: .805rem; }
+.ob-card-row > .ob-ck-dot { width: 1.05rem; height: 1.05rem; }
 
-/* ── C6 · provenance, and it is never ambiguous ────────────────────────
-   Amber for a sample, and the marker is a BUTTON there because leaving the
-   sample is a real action the user must be able to reach. Connected data is
-   quiet and not actionable: there is nothing to leave.
-   ====================================================================== */
-.ob-prov {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px 5px 9px; border-radius: 99px;
-  font-family: var(--font); font-size: 11.5px; font-weight: 650; letter-spacing: .01em;
-}
-.ob-prov > svg { width: 15px; height: 15px; }
-/* ONE provenance treatment: the user's own source, named quietly. It is a
-   button because "whose data is this?" has an answer, in a sheet. */
-.ob-prov {
-  color: var(--ink-2); background: var(--line-2);
-  border: 1px solid var(--line); cursor: pointer;
-  max-width: 100%; overflow: hidden;
-}
-.ob-prov > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ob-prov > svg { flex: 0 0 auto; color: var(--muted); }
+/* 9 · Create Order */
+.ob-top-t { top: calc(1.71rem + env(safe-area-inset-top, 0px)); }
+.ob-main.is-order { padding-top: 0; }
+.ob-main.is-order > .ob-ocard.is-cust { margin-top: 1rem; min-height: 5.1rem; padding: .7rem 1.2rem; }
+.ob-ocard-v .is-ph { color: var(--muted); }
+.ob-ocard.is-items { margin-top: .45rem; }
+.ob-osearch { margin-top: .6rem; }
+.ob-osearch.is-sheet { margin: .2rem 0 .6rem; }
+.ob-oline { grid-template-columns: 2.35rem minmax(0, 1fr) auto auto; column-gap: .8rem; padding: .95rem 0; }
+.ob-oline-t { grid-column: 4; min-width: 3.9rem; text-align: right; font-size: .78rem; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-step { grid-column: 3; grid-template-columns: 2rem 2.3rem 2rem; height: 2.2rem; border-radius: .7rem; }
+.ob-foot.is-order { padding-top: .8rem; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
 
-.ob-provdemo {
-  display: flex; align-items: center; gap: 9px;
-  margin: 14px 0 4px; padding: 11px 14px; border-radius: var(--r);
-  color: var(--amber-tx); background: var(--amber-bg);
-  border: 1px dashed var(--amber-line);
-  font-size: 11.5px; font-weight: 700; letter-spacing: .07em;
-}
+/* 10 · Order created */
+.ob-top.is-bare { height: calc(3.4rem + env(safe-area-inset-top, 0px)); }
+.ob-h1.s10-h { margin-top: .69rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.63rem; }
+.ob-kvr b { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-card.is-kv + .ob-card.is-kv { margin-top: .8rem; }
 
-/* ── C10 · the sheet. One component, nine uses ─────────────────────────
-   It rises from the bottom and leaves the screen visible behind it, because
-   a sheet that fills the viewport has become a screen and the user has lost
-   the decision they were in the middle of.
-   ====================================================================== */
-.ob-scrim {
-  position: fixed; inset: 0; z-index: 40;
-  background: rgba(15, 23, 42, .34);
-  animation: ob-fade .18s ease;
-}
-.ob-sheet {
-  position: fixed; z-index: 41; left: 0; right: 0; bottom: 0;
-  display: flex; flex-direction: column;
-  max-height: 88vh; max-height: 88dvh;
-  background: var(--card);
-  border-radius: 22px 22px 0 0;
-  box-shadow: 0 -20px 50px -18px rgba(15, 23, 42, .3);
-  animation: ob-rise .26s cubic-bezier(.22, 1, .36, 1);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-@keyframes ob-fade { from { opacity: 0; } }
-@keyframes ob-rise { from { transform: translateY(14px); opacity: .6; } }
+/* 11 · You're ready */
+.ob-wordmark + .ob-main > .ob-hero.is-store:first-child { margin-top: .68rem; }
+.ob-feats3 { display: grid; grid-template-columns: repeat(3, 1fr); margin: 1.83rem .1rem 0; }
+.ob-f3 { display: flex; flex-direction: column; align-items: center; gap: .9rem; font-size: .73rem; font-weight: 500; color: var(--ink-2); text-align: center; }
+.ob-f3-c { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: 50%; }
+.ob-f3-c > svg { width: 1.7rem; height: 1.7rem; }
+.ob-f3-c.is-blue { background: #e8f0fd; color: #2563eb; }
+.ob-f3-c.is-purple { background: #efedfc; color: #6d4fd6; }
+.ob-f3-c.is-green { background: #e9f6ee; color: var(--g); }
 
-.ob-sheet-grip { width: 42px; height: 4px; border-radius: 99px; background: var(--line); margin: 9px auto 0; }
-.ob-sheet-h { display: flex; align-items: center; gap: 10px; padding: 14px 20px 10px; }
-.ob-sheet-h h2 { margin: 0; flex: 1 1 auto; font-size: 19px; font-weight: 650; letter-spacing: -.024em; }
-.ob-sheet-n { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-.ob-sheet-x {
-  flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px;
-  border-radius: 10px; border: 0; background: var(--line-2); color: var(--muted);
-  cursor: pointer;
-}
-.ob-sheet-x:hover { background: var(--line); color: var(--ink-2); }
-.ob-sheet-b { flex: 1 1 auto; overflow-y: auto; padding: 4px 20px 18px; -webkit-overflow-scrolling: touch; }
-.ob-sheet-f { flex: 0 0 auto; padding: 12px 20px 18px; border-top: 1px solid var(--line-2); }
-
-.ob-sheet-eyebrow {
-  display: flex; align-items: center; gap: 7px;
-  margin: 20px 0 9px; font-size: 10.5px; font-weight: 700;
-  letter-spacing: .08em; color: var(--muted-2);
-}
-.ob-sheet-eyebrow > svg { width: 15px; height: 15px; }
-.ob-sheet-b > .ob-sheet-eyebrow:first-child { margin-top: 6px; }
-.ob-sheet-p { margin: 0 0 4px; font-size: 14px; line-height: 1.58; color: var(--ink-2); }
-.ob-sheet-ul { margin: 0; padding-left: 18px; }
-.ob-sheet-ul li { font-size: 14px; line-height: 1.72; color: var(--ink-2); }
-
-.ob-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); box-shadow: none; }
-.ob-ghost:hover { background: var(--line-2); }
-.ob-cta.is-warn { background: #b91c1c; }
-.ob-cta.is-warn:hover { background: #991b1b; }
-.ob-skip.is-warn { color: #b91c1c; }
-
-/* Records, and the provenance that belongs beside them rather than on S03 */
-.ob-reclist { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
-.ob-rec { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; }
-.ob-rec + .ob-rec { border-top: 1px solid var(--line-2); }
-.ob-rec-a { flex: 1 1 auto; min-width: 0; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ob-rec-b { flex: 0 0 auto; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ob-prov-lines p { margin: 0 0 3px; font-size: 13px; color: var(--muted); }
-
-.ob-kv { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
-.ob-kv-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; font-size: 13px; color: var(--muted); }
-.ob-kv-r + .ob-kv-r { border-top: 1px solid var(--line-2); }
-.ob-kv-r b { font-size: 14.5px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-.ob-filepick { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
-.ob-filepick .ob-chip { cursor: pointer; }
-.ob-chosen { margin-top: 4px; }
-.ob-chosen-r { display: flex; align-items: center; gap: 9px; padding: 9px 0; font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--line-2); }
-.ob-chosen-r > svg { flex: 0 0 auto; color: var(--muted-2); }
-.ob-chosen-r span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ── S04 · one dominant message, one action ────────────────────────────
-   The only thing between the headline and the action is the way into the
-   reasoning — and the reasoning itself is not here.
-   ====================================================================== */
-.ob-why {
-  display: inline-flex; align-items: center; gap: 2px;
-  margin-top: 18px; padding: 0; cursor: pointer; font-family: var(--font);
-  background: none; border: 0;
-  font-size: 14.5px; font-weight: 650; color: var(--ink);
-}
-.ob-why > svg { color: var(--muted-2); }
-.ob-why:hover { color: var(--brand-d); }
-.ob-why:hover > svg { color: var(--brand-d); }
-.ob-srow-t { flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-.ob-quiet-s { margin: 12px 0 0; font-size: 12.5px; color: var(--muted-2); }
-
-/* ── S05 · brief, then choose, then prepared ───────────────────────────
-   The brief exists because a list of twenty-three checkboxes is a job, and a
-   job is not an explanation of why you are looking at one.
-   ====================================================================== */
-.ob-brief { margin-top: 26px; border-top: 1px solid var(--line); }
-.ob-brief-r { display: flex; align-items: baseline; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line-2); }
-.ob-brief-r b {
-  flex: 0 0 auto; min-width: 42px;
-  font-size: 27px; font-weight: 700; letter-spacing: -.03em;
-  color: var(--ink); font-variant-numeric: tabular-nums;
-}
-.ob-brief-r span { font-size: 14px; line-height: 1.45; color: var(--muted); }
-
-.ob-selbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 12px 0 14px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
-}
-.ob-selbar-n { font-size: 14px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
-.ob-selbar-a {
-  padding: 7px 13px; cursor: pointer; font-family: var(--font);
-  font-size: 13px; font-weight: 650; color: var(--brand-d);
-  background: var(--brand-50); border: 1px solid var(--brand-100); border-radius: 99px;
-}
-.ob-selbar-a:hover { background: var(--brand-100); }
-
-.ob-shops { margin: 4px 0 0; display: flex; flex-direction: column; gap: 9px; }
-.ob-shop {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 13px 13px 13px 11px;
-  background: var(--card); border: 1px solid var(--line);
-  border-radius: 16px; box-shadow: var(--shadow-card);
-  transition: border-color .16s ease, background .16s ease;
-}
-.ob-shop.is-on { border-color: var(--brand-200); background: #fbfefc; }
-.ob-shop-pick { flex: 0 0 auto; padding: 2px; background: none; border: 0; cursor: pointer; }
-.ob-box {
-  display: grid; place-items: center; width: 23px; height: 23px;
-  border-radius: 7px; border: 1.5px solid var(--line);
-  background: var(--card); color: transparent;
-}
-.ob-shop.is-on .ob-box { background: var(--brand); border-color: var(--brand); color: #fff; }
-.ob-shop.is-stale.is-on .ob-box { background: var(--amber-tx); border-color: var(--amber-tx); }
-.ob-shop-open {
-  flex: 1 1 auto; min-width: 0; padding: 0; text-align: left;
-  background: none; border: 0; cursor: pointer; font-family: var(--font);
-}
-.ob-shop-n { display: block; font-size: 14.5px; font-weight: 650; color: var(--ink); }
-.ob-shop-why { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
-.ob-sugg {
-  display: inline-block; margin-top: 7px; padding: 3px 9px; border-radius: 99px;
-  font-size: 11.5px; font-weight: 650;
-  color: var(--brand-d); background: var(--brand-50);
-}
-/* A FACT about the past, and it is tinted differently from a prediction so
-   the two can never be read as the same kind of thing. */
-.ob-repeat {
-  display: inline-flex; align-items: center; gap: 5px;
-  margin-top: 7px; padding: 3px 9px 3px 7px; border-radius: 99px;
-  font-size: 11.5px; font-weight: 650;
-  color: var(--amber-tx); background: var(--amber-bg);
-}
-.ob-repeat > svg { width: 14px; height: 14px; }
-.ob-shop .ob-chev { align-self: center; }
-
-.ob-morebtn {
-  display: block; width: 100%; margin-top: 12px; padding: 12px;
-  cursor: pointer; font-family: var(--font);
-  font-size: 13.5px; font-weight: 650; color: var(--ink-2);
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
-}
-.ob-morebtn:hover { background: var(--line-2); }
-
-.ob-done { padding-top: 30px; text-align: center; }
-.ob-done-ring {
-  display: grid; place-items: center; width: 66px; height: 66px; margin: 0 auto;
-  border-radius: 50%; color: #fff; background: var(--brand);
-  box-shadow: 0 12px 26px -12px rgba(22, 163, 74, .8);
-}
-.ob-done-h { margin: 20px 0 0; font-size: 24px; font-weight: 650; letter-spacing: -.025em; }
-.ob-done-list { margin-top: 26px; text-align: left; border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow-card); }
-.ob-done-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; font-size: 13.5px; color: var(--muted); }
-.ob-done-row + .ob-done-row { border-top: 1px solid var(--line-2); }
-.ob-done-row b { font-size: 14.5px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-/* The draft, in the sheet that reviews it. `suggestedQty` sits beside the
-   editable quantity and never moves — it is the only record of what
-   FoodBridge actually proposed. */
-.ob-draft + .ob-draft { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-.ob-draft-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
-.ob-draft-h b { font-size: 14.5px; font-weight: 650; }
-.ob-draft-b {
-  flex: 0 0 auto; padding: 3px 9px; border-radius: 99px;
-  font-size: 11px; font-weight: 700; letter-spacing: .04em;
-  color: var(--muted); background: var(--line-2);
-}
-.ob-draft-lines { border: 1px solid var(--line); border-radius: var(--r); padding: 0 12px; }
-.ob-draft-lines .ob-dl:first-child { border-top: 0; }
-/* The draft LINE is laid out in the correction-pass block below. It used to
-   be a single ellipsised row, which is how two different pack sizes of the
-   same pickle became the same line of text. */
-.ob-dl-q {
-  width: 62px; padding: 9px 8px; text-align: center;
-  font-family: var(--font); font-size: 16px; font-weight: 650; color: var(--ink);
-  background: var(--card); border: 1px solid var(--line); border-radius: 9px;
-  font-variant-numeric: tabular-nums;
-}
-.ob-dl-q:focus { outline: none; border-color: var(--brand); background: var(--brand-50); }
-
-/* ── narrow phones ───────────────────────────────────────────────────── */
-@media (max-width: 374px) {
-  .ob-sheet-h, .ob-sheet-b, .ob-sheet-f { padding-left: 16px; padding-right: 16px; }
-  .ob-brief-r b { font-size: 24px; min-width: 36px; }
-  .ob-dl-q { width: 52px; }
-}
-
-/* ── desktop: the sheet is centred, not stuck to the bottom ──────────── */
-@media (min-width: 768px) {
-  .ob-sheet {
-    left: 50%; bottom: auto; top: 50%; right: auto;
-    width: 440px; max-height: 76vh;
-    transform: translate(-50%, -50%);
-    border-radius: 22px;
-    box-shadow: var(--shadow-lift);
-    animation: ob-pop .2s cubic-bezier(.22, 1, .36, 1);
-  }
-  @keyframes ob-pop { from { transform: translate(-50%, -48%) scale(.98); opacity: .5; } }
-  .ob-sheet-grip { display: none; }
-  .ob-sheet-h { padding-top: 20px; }
-  .ob-sheet-h, .ob-sheet-b, .ob-sheet-f { padding-left: 26px; padding-right: 26px; }
-}
-
-
-/* ======================================================================
-   P0 CORRECTION PASS — the draft workflow, the drafts destination, and the
-   states that had no styling because they had no implementation.
-   ====================================================================== */
-
-/* S01 — the one field-level error this form can produce. */
-.ob-fielderr {
-  display: flex; align-items: center; gap: 7px;
-  margin: 9px 2px 0; font-size: 12.5px; color: var(--warn-tx, #b4232a);
-}
-.ob-fielderr > svg { flex: 0 0 auto; width: 15px; height: 15px; }
-
-/* S05 brief — both rows are buttons now, so they need a target and a chevron. */
-button.ob-brief-r {
-  width: 100%; text-align: left; background: none; border: 0;
-  font: inherit; color: inherit; cursor: pointer;
-  padding-right: 4px;
-}
-button.ob-brief-r .ob-chev { margin-left: auto; color: var(--muted-2); display: inline-flex; }
-button.ob-brief-r:active { opacity: .6; }
-
-/* The draft list — one row per draft, which is what replaced 146 number
-   boxes in a single scroll. */
-.ob-dlist { display: flex; flex-direction: column; margin-top: 4px; }
-.ob-drow {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 13px 2px; background: none; border: 0; border-top: 1px solid var(--line-2);
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
-}
-.ob-drow:first-child { border-top: 0; }
-.ob-drow:active { opacity: .6; }
-.ob-drow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.ob-drow-n {
-  font-size: 14px; font-weight: 640; color: var(--ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.ob-drow-s { font-size: 12px; color: var(--muted); }
-.ob-drow-e {
-  flex: 0 0 auto; padding: 3px 8px; border-radius: 99px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
-  color: var(--amber-tx); background: var(--amber-bg);
-}
-
-/* The single-draft editor. A changed line has to be visible AS changed —
-   the suggested figure stays beside it and never moves. */
-.ob-draft-basis { margin-bottom: 14px; }
-.ob-dl { display: grid; grid-template-columns: 1fr auto auto; align-items: center;
-         gap: 6px 10px; padding: 11px 0; border-top: 1px solid var(--line-2); }
-.ob-dl-n {
-  grid-column: 1 / 2; grid-row: 1;
-  font-size: 13.5px; line-height: 1.35; color: var(--ink);
-  white-space: normal; text-overflow: clip; overflow: visible; overflow-wrap: anywhere;
-}
-.ob-dl-s { grid-column: 1 / 2; grid-row: 2; font-size: 11.5px; color: var(--muted-2); }
-.ob-dl-q { grid-column: 2 / 3; grid-row: 1 / 3; }
-.ob-dl-x {
-  grid-column: 3 / 4; grid-row: 1 / 3;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px;
-  background: none; color: var(--muted-2); cursor: pointer;
-}
-.ob-dl-x:hover, .ob-dl-x:active { color: var(--warn-tx, #b4232a); background: var(--line-2); }
-.ob-dl.is-edited .ob-dl-n { font-weight: 640; }
-.ob-dl-chg { font-style: normal; font-weight: 700; color: var(--amber-tx); }
-
-.ob-addline {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin-top: 14px; padding: 12px;
-  border: 1px dashed var(--line); border-radius: var(--r);
-  background: none; font: inherit; font-size: 13.5px; font-weight: 600;
-  color: var(--brand, #159a4e); cursor: pointer;
-}
-.ob-addline:active { opacity: .6; }
-
-.ob-search {
-  width: 100%; margin: 4px 0 12px; padding: 11px 13px;
-  border: 1px solid var(--line); border-radius: var(--r);
-  font: inherit; font-size: 16px; color: var(--ink); background: var(--bg, #fff);
-}
-.ob-rec-btn { width: 100%; background: none; border: 0; border-top: 1px solid var(--line-2);
-              font: inherit; text-align: left; cursor: pointer; }
-.ob-rec-btn:active { opacity: .6; }
-.ob-rec-btn .ob-rec-b { color: var(--brand, #159a4e); display: inline-flex; }
-
-/* Undo — the other half of a confirmed destructive action. */
-.ob-undo {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin: 0 0 16px; padding: 11px 14px; border-radius: var(--r);
-  background: var(--ink); color: #fff; font-size: 13px;
-}
-.ob-undo button {
-  background: none; border: 0; padding: 4px 2px; font: inherit;
-  font-weight: 700; color: #fff; text-decoration: underline; cursor: pointer;
-}
-
-/* The drafts destination. */
-.ob-ledger { margin: 18px 0 22px; }
-.ob-park {
-  display: flex; align-items: flex-start; gap: 11px;
-  margin-top: 16px; padding: 14px; border-radius: var(--r);
-  background: var(--line-2); color: var(--muted);
-}
-.ob-park > svg { flex: 0 0 auto; color: var(--muted-2); }
-.ob-park p { margin: 0; font-size: 13.5px; line-height: 1.5; }
-
-/* Desktop — the flow is designed at 375 but the shell can hand it any width,
-   and a 900px column of phone UI is not a desktop layout. */
-@media (min-width: 720px) {
-  .ob-app { max-width: 560px; margin: 0 auto; }
-}
-
-/* S02 — the source already in use, and the way back to what it produced. */
-.ob-source.is-on { border-color: var(--brand); background: var(--brand-50); }
-.ob-source-on {
-  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
-  font-size: 11px; font-weight: 700; color: var(--brand);
-}
-.ob-source-on > svg { width: 14px; height: 14px; }
-.ob-source-on + .ob-chev { margin-left: 8px; }
-
-/* A chosen file can be un-chosen. Picking the wrong one used to mean
-   cancelling the whole sheet and starting again. */
-.ob-chosen-r { justify-content: flex-start; }
-.ob-chosen-r > span { flex: 1 1 auto; min-width: 0; }
-.ob-chosen-x {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; margin-left: 4px; padding: 0;
-  border: 0; border-radius: 8px; background: none; color: var(--muted-2); cursor: pointer;
-}
-.ob-chosen-x:hover, .ob-chosen-x:active { color: var(--warn-tx, #b4232a); background: var(--line-2); }
-
-/* ======================================================================
-   MOBILE PASS — hit targets.
-
-   Every control below measured under 44px on a phone. The rule is to grow
-   the TOUCH area without growing the visual weight: a 44px checkbox drawn
-   at 44px would shout louder than the shop name beside it, and a "Why this
-   matters" link set in a 44px slab stops reading as a link. So the small,
-   deliberately quiet controls keep their drawn size and gain an invisible
-   expander; the ones whose size was simply mean grow properly.
-   ====================================================================== */
-
-/* — chrome — */
-.ob-back { width: 44px; height: 44px; margin-left: -12px; }
-.ob-prov { position: relative; }
-.ob-prov::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 50%;
-  height: 44px; transform: translateY(-50%);
-}
-
-/* — S01 — */
-.ob-verify { min-height: 44px; padding: 0 18px; }
-
-/* — S02 — */
-.ob-samplerow { min-height: 52px; padding: 15px 4px 8px; }
-
-/* — S03 — */
-.ob-addlink { min-height: 44px; padding: 6px 12px; }
-
-/* — S04 — a quiet link that must still be tappable. */
-.ob-why { position: relative; }
-.ob-why::after {
-  content: ""; position: absolute; left: -8px; right: -8px; top: 50%;
-  height: 44px; transform: translateY(-50%);
-}
-
-/* — S05 selection — the checkbox is tapped more than anything else here. */
-.ob-shop-pick { width: 44px; min-height: 44px; align-self: stretch; }
-.ob-selbar-a { min-height: 44px; padding: 0 4px; }
-.ob-morebtn { min-height: 44px; }
-
-/* — sheets — */
-.ob-sheet-x { width: 40px; height: 40px; }
-.ob-sheet-x::after {
-  content: ""; position: absolute; left: 50%; top: 50%;
-  width: 44px; height: 44px; transform: translate(-50%, -50%);
-}
-.ob-sheet-x { position: relative; }
-.ob-chip { min-height: 44px; }
-
-/* Secondary actions — Cancel, Not now, Try other files, Discard all drafts.
-   Underlined text is the right weight for them; 28px of height is not. */
-.ob-skip { min-height: 44px; padding: 6px 14px; }
-
-/* — files — */
-.ob-chosen-r { min-height: 48px; }
-.ob-chosen-x { width: 44px; height: 44px; }
-
-/* — draft editing — the remove control sits beside the quantity field, and a
-   thumb that misses one must not hit the other. Separated, and the row is
-   given the height to make both comfortable. */
-.ob-dl { padding: 13px 0; gap: 6px 12px; }
-.ob-dl-q { min-height: 44px; }
-.ob-dl-x { width: 44px; height: 44px; margin-left: 2px; }
-
-/* One-thumb reach: the primary action is already bottom-anchored, and the
-   destructive one is never the nearest thing to the thumb. */
-.ob-sheet-f .ob-skip.is-warn { margin-top: 8px; }
-
-/* S01 rows: the input was 21px of tappable height inside a 62px row, so two
-   thirds of what looks like a text field did nothing. The label already
-   carries `for`, so it focuses the input; the input is given the rest of the
-   row. Between them the whole row is live, which is what it looks like. */
-.ob-fr-main { align-self: stretch; justify-content: center; padding: 6px 0; }
-.ob-fr label { padding-bottom: 2px; cursor: text; }
-.ob-fr input { flex: 1 1 auto; min-height: 30px; padding: 2px 0 0; }
-
-/* ── the keyboard ───────────────────────────────────────────────────────
-   --ob-kb is how much of the layout viewport the on-screen keyboard covers,
-   published by trackKeyboard(). iOS never shrinks the layout viewport, so
-   without this the sticky footer and the sheet footer both sit under the
-   keyboard and the primary action vanishes while the user is typing. */
-:root { --ob-kb: 0px; }
-
-/* `sticky` cannot help here: on a short screen the footer never reaches its
-   sticky threshold, so it simply sits at the bottom of the flow — underneath
-   the keyboard. While the keyboard is up it is pinned to the viewport instead,
-   lifted by exactly what the keyboard covers. */
-.ob-kb-open .ob-foot {
-  position: fixed; z-index: 30;
-  left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 460px;
-  bottom: var(--ob-kb);
-  background: var(--card);
-  border-top: 1px solid var(--line-2);
-}
-.ob-kb-open .ob-main { padding-bottom: 96px; }
-
-/* An open sheet is bottom-anchored too, and its footer holds Save. */
-.ob-sheet {
-  bottom: var(--ob-kb);
-  max-height: calc(88dvh - var(--ob-kb));
-  transition: bottom .18s ease, max-height .18s ease;
-}
-
-/* While the keyboard is up the safe-area padding is doubling up with it. */
-.ob-kb-open .ob-foot { padding-bottom: 12px; }
-.ob-kb-open .ob-sheet { padding-bottom: 0; }
-
-/* S03 gap rows at phone width: the label, its consequence and the action were
-   fighting for one line, so every row wrapped three deep. The action drops
-   under the text instead — same elements, same words, room to read them. */
-/* (Replaced 17 Sep 2026: wrapping pushed the icon onto a line of its own and
-   left the action indented to nothing. The grid below fixes both.) */
-
-/* ── S01 · GSTIN verification result ─────────────────────────────────────
-   One block under the field set. It reports what the GST register actually
-   returned, and nothing it did not: a row with no value upstream is not
-   drawn, rather than drawn empty. */
-.ob-gst {
-  margin-top: 12px; padding: 13px 15px;
-  border: 1px solid var(--line); border-radius: var(--r);
-  background: var(--card);
-}
-.ob-gst.is-ok { border-color: var(--brand-100); background: var(--brand-50); }
-.ob-gst.is-warn { border-color: var(--amber-line); background: var(--amber-bg); }
-
-.ob-gst-h {
-  display: flex; align-items: center; gap: 7px; margin: 0 0 6px;
-  font-size: 13px; font-weight: 700; letter-spacing: .01em;
-}
-.ob-gst.is-ok .ob-gst-h { color: var(--brand-d); }
-.ob-gst.is-warn .ob-gst-h { color: var(--amber-tx); }
-.ob-gst-h > svg { flex: 0 0 auto; width: 16px; height: 16px; }
-
-/* The registry's legal name. Shown BESIDE the name the user typed, never
-   written into the field over it. */
-.ob-gst-legal {
-  margin: 0 0 3px; font-size: 15px; font-weight: 650; line-height: 1.35;
-  color: var(--ink); overflow-wrap: anywhere;
-}
-.ob-gst-r { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
-.ob-gst-note { margin: 7px 0 0; font-size: 13px; font-weight: 650; color: var(--amber-tx); }
-
-.ob-gst-retry {
-  min-height: 44px; margin-top: 6px; padding: 0 2px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 650;
-  color: var(--amber-tx); background: none; border: 0; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px;
-}
-
-/* Verifying occupies the Verify button's exact box, so nothing under the
-   thumb moves when the state changes. */
-.ob-verify.is-busy {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 44px; padding: 0 14px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 650;
-  color: var(--muted); background: var(--line-2);
-  border: 1px solid var(--line); border-radius: 10px;
-}
-.ob-verify.is-busy .ob-spin { width: 14px; height: 14px; }
-
-/* A GSTIN is an uppercase identifier. autocapitalize handles typing, but paste
-   and autofill do not go through it — so what is displayed is normalised to
-   what was actually sent to the register. Visual only; the caret is unaffected
-   and the stored value is uppercased by gstValue(). */
+/* 2 · second pass against the overlay */
+.ob-list.is-src .ob-row { gap: .75rem; }
+.ob-list.is-src .ob-row-logo { width: 2.25rem; }
+.ob-list.is-src .ob-row-logo svg { width: 2.2rem; }
+.ob-list.is-src .ob-row-logo.is-wide { width: 3.3rem; margin-right: -.35rem; }
+.ob-list.is-src .ob-row-logo.is-wide svg { width: 3.3rem; }
+.ob-list.is-src .ob-row-logo > svg[stroke] { width: 1.3rem; color: #5b6270; stroke-width: 1.5; }
+.ob-list.is-src .ob-row-logo.is-folder svg { width: 1.45rem; }
+.ob-row-chev { color: #6b7079; }
+.ob-h1.s02-h { font-size: 1.41rem; }
+.ob-list.is-src .ob-row { padding-left: .95rem; }
+.ob-list.is-src .ob-row-logo { width: 2.5rem; justify-items: start; }
+.ob-list.is-src .ob-row-logo > svg:not([stroke]):not([role]) { width: 1.25rem; }
+.ob-list.is-src .ob-row-logo > svg[aria-label="Vyapar"] { width: 1.3rem; }
+.ob-hero.is-logo svg[aria-label="Vyapar"] { width: 2.8rem; }
+.ob-feat.is-last { margin-top: .35rem; }
+.ob-foot.is-connect { padding-bottom: calc(1.9rem + env(safe-area-inset-bottom, 0px)); }
+/* 5, 10 · the wider confetti keeps the disc where it was */
+.ob-hero.is-check { width: 15rem; height: 9rem; margin-top: 2.8rem; }
+.ob-hero.is-check + .ob-h1 { margin-top: .7rem; }
+.ob-hero.is-check.is-top { margin-top: -1rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: -.11rem; }
+/* 6 · second pass against the overlay */
+.s06-h + .ob-sub { margin-top: .68rem; }
+.s06-h + .ob-sub + .ob-list { margin-top: 2.2rem; }
+.ob-row.is-check { padding-left: .85rem; padding-right: .85rem; gap: .75rem; }
+/* 5 · the same row, measured on screen 5 */
+.ob-hero.is-check ~ .ob-list .ob-row { padding-left: 1.05rem; padding-right: 1rem; }
+/* 7 · second pass against the overlay */
+.ob-sub.s07-sub { line-height: 1.45rem; }
+.s07-sub + .ob-people { margin-top: 1.4rem; gap: .6rem; }
+.ob-person { min-height: 4.2rem; }
+.ob-person-n { font-size: .82rem; }
+.ob-avatar { width: 2.5rem; height: 2.5rem; font-size: .76rem; }
+.ob-people + .ob-link.is-add { margin-top: 1.4rem; }
+.ob-sub.s08-sub { font-size: .875rem; line-height: 1.35rem; margin-left: .2rem; margin-right: .2rem; }
+/* 9 · the image draws Create Order on a card 362px wide; a phone is 220. The
+   same components, with the stepper and the line total on the row under the
+   name so a real product name is not broken one word per line. */
+.ob-oline { grid-template-columns: 2.35rem minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: .55rem; }
+.ob-oline > .ob-othumb { grid-column: 1; grid-row: 1; align-self: start; }
+.ob-oline > .ob-oline-main { grid-column: 2 / 4; grid-row: 1; }
+.ob-oline > .ob-step { grid-column: 2; grid-row: 2; justify-self: start; }
+.ob-oline > .ob-oline-t { grid-column: 3; grid-row: 2; align-self: center; }
+.ob-oline-n { overflow-wrap: normal; word-break: normal; }
+.ob-osearch { gap: .55rem; padding: 0 .7rem; }
+.ob-osearch > svg { width: 1rem; height: 1rem; }
+.ob-osearch input::placeholder { font-size: 15px; }
+/* 10 · second pass against the overlay (the image draws this card 236 wide) */
+.ob-hero.is-check.is-top { margin-top: -1.3rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: -.45rem; }
+.s10-h + .ob-sub { margin-top: .3rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.25rem; }
+.ob-card.is-kv .ob-kvr { min-height: 1.9rem; }
+/* 11 · second pass against the overlay (the image draws this card 235 wide) */
+.ob-hero.is-store + .ob-h1 { margin-top: 2.3rem; }
+.ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .35rem; }
+.ob-feats3 { margin-top: 1.3rem; }
+.ob-f3 { gap: .75rem; }
+.s04-h + .ob-sub + .ob-checks { margin-top: 1.9rem; margin-left: .55rem; margin-right: .5rem; }
+/* 10 · corrected against the like-for-like overlay (centre 220 of the 236 card) */
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: .15rem; }
+.s10-h + .ob-sub { margin-top: .5rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.65rem; }
+.ob-card.is-kv .ob-kvr { min-height: 2rem; }
+/* 11 · corrected against the like-for-like overlay (centre 220 of the 235 card) */
+.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { font-size: 1.5rem; padding-top: calc(2.35rem + env(safe-area-inset-top, 0px)); }
+.ob-hero.is-store { width: 18.5rem; height: 11.1rem; }
+.ob-hero.is-store + .ob-h1 { margin-top: 2.2rem; }
+.ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .6rem; }
+.ob-feats3 { margin-top: 2rem; }
+.ob-f3-c { width: 4.3rem; height: 4.3rem; }
+.ob-f3 { gap: .95rem; }
+/* 1 · four fields (17 Sep 2026): the GST number's Verify sits where the image's eye does */
+.ob-gst-end { flex: 0 0 auto; display: flex; align-items: center; }
+.ob-verify.is-busy .ob-spin { width: .8rem; height: .8rem; }
 #f-gstin { text-transform: uppercase; }
-#f-gstin::placeholder { text-transform: none; }
+#gst-block:empty { display: none; }
+#gst-block > .ob-callout { margin: .9rem .45rem 0; }
 
-/* ══ S02 · how the data comes in ═══════════════════════════════════════════
-   Two paths on S02-A, one app on S02-C, a list of files on S02-F. Everything
-   explanatory lives in sheets; these are the rows the decisions are made on.
-   ══════════════════════════════════════════════════════════════════════════ */
-.ob-sub { margin: 8px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+/* ══ 1 · Sign Up: gated button, inline help and errors (17 Sep 2026) ══════ */
+.ob-fwrap { display: flex; flex-direction: column; }
+.ob-field-row { display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.ob-field-row > input { flex: 1 1 auto; min-width: 0; }
+.ob-prefix { flex: 0 0 auto; padding-top: .15rem; font-size: max(16px, .775rem); font-weight: 500; color: var(--muted); }
+.ob-field input::placeholder { color: var(--muted-2); }
 
-.ob-path { align-items: center; }
-/* A source row that is a file picker: the label is the button */
-.ob-pick { -webkit-tap-highlight-color: transparent; }
-.ob-pick .ob-chev > svg { width: 20px; height: 20px; }
-.ob-pick .ob-chev { color: var(--brand-d); }
-.ob-path-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.ob-path-s { font-size: 13.5px; line-height: 1.4; color: var(--muted); }
-.ob-path-ok { display: inline-flex; align-items: flex-start; gap: 5px; color: var(--brand-d); font-weight: 600; }
-.ob-path-ok > svg { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 1px; }
-.ob-source[disabled] { cursor: default; transform: none; }
-.ob-source .ob-chev .ob-spin { display: block; color: var(--brand); }
-
-.ob-textlink {
-  display: block; margin: 18px auto 0; padding: 8px 10px;
-  font-family: var(--font); font-size: 14px; font-weight: 550; color: var(--muted);
-  background: none; border: 0; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line);
+/* A field is only ever red after it has been judged; the border does the
+   talking, the hint says what to do. */
+.ob-field { transition: border-color .18s ease, background-color .18s ease; }
+.ob-field.is-bad { border-color: #eca3a6; background: #fffafa; }
+.ob-field.is-bad > svg { color: var(--red); }
+.ob-field.is-bad:focus-within { border-color: var(--red); }
+.ob-field.is-shake { animation: ob-shake .32s cubic-bezier(.36, .07, .19, .97); }
+@keyframes ob-shake {
+  20% { transform: translateX(-3px); } 40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); } 80% { transform: translateX(1px); }
 }
 
-/* A <label> that looks like the primary button: the only way to open a file
-   picker that iOS Safari honours on every version is a real tap on a label. */
-.ob-cta-label { display: flex; align-items: center; justify-content: center; text-align: center; }
-.ob-cta-busy { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.ob-cta-busy .ob-spin { color: var(--muted-2); }
-
-.ob-files { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
-.ob-file {
-  padding: 12px 12px 12px 14px; background: var(--card);
-  border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-card);
+.ob-hint {
+  display: flex; align-items: flex-start; gap: .4rem;
+  max-height: 0; opacity: 0; overflow: hidden; margin: 0 .2rem;
+  font-size: .74rem; line-height: 1.12rem; color: var(--muted);
+  transition: max-height .2s ease, opacity .2s ease, margin .2s ease;
 }
-.ob-file.is-failed { border-color: #fecaca; }
-.ob-file-top { display: flex; align-items: center; gap: 8px; min-height: 28px; }
-.ob-file-n {
-  flex: 1 1 auto; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.ob-file-x {
-  flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -4px -4px 0;
-  padding: 0; border: 0; border-radius: 9px; background: none; color: var(--muted-2); cursor: pointer;
-}
-.ob-file-x > svg { width: 17px; height: 17px; }
-.ob-file-bot { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 34px; }
-
-.ob-typechip {
-  display: inline-flex; align-items: center; gap: 4px; min-height: 34px; max-width: 100%;
-  padding: 6px 10px 6px 12px; border-radius: 10px;
-  font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink-2);
-  background: var(--line-2); border: 1px solid var(--line); cursor: pointer;
-}
-.ob-typechip.is-empty { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
-.ob-typechip.is-static { cursor: default; background: none; border-color: transparent; padding-left: 0; color: var(--muted); }
-.ob-caret { display: inline-grid; color: var(--muted-2); }
-.ob-typechip.is-empty .ob-caret { color: var(--brand-d); }
-
-.ob-fstat {
-  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-  font-size: 13px; font-weight: 550; color: var(--muted-2);
-}
-.ob-fstat.is-busy { color: var(--ink-2); }
-.ob-fstat.is-busy .ob-spin { width: 12px; height: 12px; color: var(--brand); }
-.ob-fstat.is-ok { color: #fff; background: var(--brand); width: 26px; height: 26px; border-radius: 50%; justify-content: center; }
-.ob-fstat.is-ok > svg { width: 15px; height: 15px; }
-.ob-fstat.is-bad { color: #b91c1c; }
-.ob-fstat.is-ask { margin-left: 0; color: var(--brand-d); }
-.ob-fstat.is-ask .ob-flink { text-decoration-color: var(--brand-100); }
-/* What a file gave: the harvest, one kind and count at a time. */
-.ob-found {
-  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
-  font-size: 13.5px; font-weight: 600; color: var(--brand-d);
-}
-.ob-found > svg { flex: 0 0 auto; width: 15px; height: 15px; }
-.ob-found.is-btn {
-  display: block; line-height: 1.5; padding: 4px 0; margin: -4px 0; border: 0; background: none; text-align: left;
-  font-family: var(--font); cursor: pointer;
-}
-.ob-found.is-btn > svg, .ob-found.is-btn .ob-caret { display: inline-block; vertical-align: -3px; }
-.ob-found.is-btn > svg { margin-right: 6px; }
-.ob-found.is-btn .ob-caret { margin-left: 3px; white-space: nowrap; }
-.ob-found.is-btn .ob-caret > svg { width: 14px; height: 14px; }
-.ob-found-none { color: #b91c1c; }
-.ob-nowrap { white-space: nowrap; }
-/* Tags: a tick per kind, any number on */
-.ob-tick {
-  flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px;
-  border: 2px solid var(--muted-2); background: var(--card); color: transparent;
-}
-.ob-tick > svg { width: 14px; height: 14px; }
-.ob-choice.is-on .ob-tick { border-color: var(--brand); background: var(--brand); color: #fff; }
-.ob-flink {
-  font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #fecaca;
+.ob-hint.is-bad, .ob-hint.is-help { max-height: 4rem; opacity: 1; margin-top: .4rem; }
+.ob-hint.is-bad { color: #c72d31; }
+.ob-hint > svg { flex: 0 0 auto; width: .85rem; height: .85rem; margin-top: .12rem; }
+.ob-hint-act {
+  padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--g); text-decoration: underline; text-underline-offset: 2px;
 }
 
-.ob-addmore {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 2px;
-  font-size: 14px; font-weight: 600; color: var(--brand-d); cursor: pointer;
-}
-.ob-addmore > svg { width: 18px; height: 18px; }
+/* A quiet tick once a required field is right. */
+.ob-okmark { flex: 0 0 auto; display: grid; place-items: center; color: var(--g); opacity: 0; transform: scale(.6); transition: opacity .18s ease, transform .18s ease; }
+.ob-okmark > svg { width: 1rem; height: 1rem; }
+.ob-okmark.is-on { opacity: 1; transform: none; }
 
-/* Sheet choices: an organisation, or what a file contains. */
-.ob-choices { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.ob-choice {
-  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px;
-  padding: 12px 14px; text-align: left; cursor: pointer; font-family: var(--font);
-  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-}
-.ob-choice.is-on { border-color: var(--brand); background: var(--brand-50); }
-.ob-radio {
-  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid var(--muted-2); background: var(--card);
-}
-.ob-choice.is-on .ob-radio { border-color: var(--brand); box-shadow: inset 0 0 0 4px var(--card); background: var(--brand); }
-.ob-choice-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ob-choice-t { font-size: 15px; font-weight: 600; color: var(--ink); }
-.ob-choice-s { font-size: 13px; color: var(--muted); }
+/* Disabled until the required fields are right — but it still answers a tap,
+   by pointing at what is missing. */
+.ob-cta.is-disabled { background: #e3e5e8; color: #9ca1a9; box-shadow: none; cursor: default; }
+.ob-cta.is-disabled:active { background: #dcdee2; }
+.ob-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Connect an app — sources that are not built yet. Present, plainly not usable. */
-.ob-source.is-soon { cursor: default; box-shadow: none; background: var(--line-2); }
-.ob-source.is-soon:hover { border-color: var(--line); box-shadow: none; }
-.ob-source.is-soon:active { transform: none; }
-.ob-source.is-soon .ob-source-t { color: var(--muted); }
-.ob-mark.t-muted { background: var(--card); color: var(--muted-2); }
-.ob-soon {
-  flex: 0 0 auto; padding: 4px 9px; border-radius: 99px;
-  font-size: 11.5px; font-weight: 650; color: var(--muted); background: var(--card);
-  border: 1px solid var(--line); white-space: nowrap;
-}
-
-/* Brand marks: a white tile so every logo sits on the same ground. */
-.ob-mark.ob-mark-logo { background: #fff; border: 1px solid var(--line); }
-.ob-logo { display: block; width: 32px; height: 32px; object-fit: contain; }
-/* Wordmarks are wide and short; give them the tile's width rather than its height. */
-.ob-logo.is-wide { width: 38px; height: 32px; }
-.ob-logo.is-big { width: 40px; height: 40px; }
-/* Four app marks in one tile: the category, at a glance */
-.ob-mark-cluster {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 4px; place-items: center;
-}
-.ob-mark-cluster > img { display: block; width: 17px; height: 17px; object-fit: contain; border-radius: 3px; }
-.ob-source.is-soon .ob-logo { opacity: .55; filter: grayscale(.35); }
-
-/* ══ S03 · visual pass, 17 Sep 2026 ═══════════════════════════════════════
-   The heading sat on top of the figures, the gap rows stacked their icon above
-   the text, the action floated at an arbitrary indent, and the card chevrons
-   were drawn in the border colour. One grid per row: icon in its own column,
-   text and action aligned to one edge. */
-.ob-h1 + .ob-ev { margin-top: 18px; }
-.ob-ev-chev { color: var(--muted-2); top: 14px; right: 10px; }
-.ob-ev-chev svg { width: 16px; height: 16px; }
-.ob-ev-l { color: var(--muted); }
-
-.ob-section { margin-top: 30px; }
-.ob-section > .ob-eyebrow { margin-bottom: 10px; }
-.ob-section > .ob-optional { margin-top: 0; }
-.ob-optional { padding: 2px 16px; }
-
-.ob-orow {
-  display: grid; grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 12px; row-gap: 2px; align-items: start; padding: 14px 0;
-}
-.ob-orow > svg, .ob-orow > .ob-mark { grid-column: 1; grid-row: 1 / span 2; }
-.ob-orow > svg { width: 20px; height: 20px; margin-top: 1px; }
-.ob-orow-main { grid-column: 2; }
-.ob-orow-t { font-size: 14.5px; color: var(--ink); }
-.ob-orow-s { font-size: 13px; line-height: 1.4; margin-top: 2px; }
-.ob-orow > .ob-addlink {
-  grid-column: 2; justify-self: start; min-height: 36px;
-  margin: 2px 0 -6px; padding: 6px 0; font-size: 13.5px;
-}
-.ob-orow > .ob-addlink:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
-.ob-orow > .ob-mark + .ob-orow-main { align-self: center; }
-
-/* ══ S03 · "Add later" items, cleared in place ══════════════════════════ */
-.ob-orow-btn { width: 100%; text-align: left; font-family: var(--font); background: none; border: 0; cursor: pointer; }
-.ob-orow + .ob-orow-btn, .ob-orow-btn + .ob-orow-btn { border-top: 1px solid var(--line); }
-.ob-orow-btn > .ob-addlink { grid-column: 2; justify-self: start; margin: 4px 0 -4px; padding: 4px 0; min-height: 0; }
-.ob-orow-s.is-ready { color: var(--brand-d); font-weight: 600; }
-.ob-orow-s.is-bad { color: #b91c1c; font-weight: 600; }
-.ob-addbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
-.ob-addbtns .ob-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 14px; font-size: 14px; }
-.ob-have { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
-.ob-have-i { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 99px;
-  font-size: 12.5px; font-weight: 600; color: var(--muted); background: var(--line-2); border: 1px solid var(--line); }
-.ob-have-i.is-on { color: var(--brand-d); background: var(--brand-50); border-color: var(--brand-100); }
-.ob-have-i > svg { width: 13px; height: 13px; }
-.ob-files-sheet { margin-top: 12px; }
-.ob-file-top > svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--muted-2); }
-.ob-file-why { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: #b91c1c; }
-.ob-seg { display: inline-flex; padding: 2px; border-radius: 10px; background: var(--line-2); border: 1px solid var(--line); }
-.ob-seg-b { min-height: 32px; padding: 5px 12px; border: 0; border-radius: 8px; background: none; cursor: pointer;
-  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--muted); }
-.ob-seg-b.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+@media (prefers-reduced-motion: reduce) { .ob-field.is-shake { animation: none; } }
+/* 2 · Xero live beside Zoho; Tally and Vyapar listed as Coming soon (17 Sep 2026) */
+.ob-list.is-src .ob-row-logo > svg[aria-label="Xero"] { width: 1.65rem; height: 1.65rem; }
+.ob-hero.is-logo svg[aria-label="Xero"] { width: 3.4rem; height: 3.4rem; }
+.ob-list.is-src .ob-row.is-soon { background: #fafbfb; border-color: var(--line-2); box-shadow: none; }
+.ob-list.is-src .ob-row.is-soon .ob-row-t { color: var(--muted-2); }
+.ob-list.is-src .ob-row.is-soon .ob-row-logo > * { opacity: .45; filter: grayscale(1); }
+.ob-list.is-src .ob-row.is-soon .ob-row-soon { margin-right: -.2rem; }
+.ob-hero.is-logo svg[aria-label="Xero"] { width: 4.4rem; height: 4.4rem; }
