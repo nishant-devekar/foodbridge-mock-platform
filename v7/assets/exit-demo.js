@@ -42,6 +42,16 @@
   var LOG_KEY = "fb.v7.feedback.log";       // everything ever given on THIS device
   var WHO_KEY = "fb.v7.account";           // what onboarding wrote, if this browser has been through it
 
+  /* TWO WAYS TO THE SAME CHAT, and the difference is a screen of WhatsApp's.
+     `wa.me` is a web PAGE: handed an https link, a browser renders it, and it
+     answers with "Open app / Download it now" — a second tap between the demo
+     and the chat. It has to, because a scripted navigation never gets the
+     universal-link handling that would pass the address to the app instead.
+     The app's own scheme is not a page at all: the OS hands it straight to
+     WhatsApp, already open on the FoodBridge thread. */
+  var waApp = function () {
+    return "whatsapp://send?phone=" + WA_NUMBER + "&text=" + encodeURIComponent(WA_TEXT);
+  };
   var waLink = function () {
     return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent(WA_TEXT);
   };
@@ -76,12 +86,38 @@
   function goWhatsApp() {
     /* The IVR is not ours to frame: open it at the top, which is also what a
        phone needs for the WhatsApp app itself to take over. */
-    try {
-      var w = (window.top && window.top !== window.self) ? window.top : window;
-      w.location.href = waLink();
-      return;
-    } catch (e) { /* fall through */ }
-    window.location.href = waLink();
+    var w = window;
+    try { if (window.top && window.top !== window.self) w = window.top; } catch (e) { /* a parent we may not touch */ }
+    var go = function (url) {
+      try { w.location.href = url; } catch (e) { window.location.href = url; }
+    };
+
+    /* The scheme is tried first and nothing confirms it worked — there is no
+       such answer to be had. What IS observable is this document going away:
+       when WhatsApp comes to the front the page is hidden or unloaded within a
+       moment. Still here after that, and no app took it, so `wa.me` is the
+       honest second choice — it is also the only one that helps someone
+       without WhatsApp installed, which is the case the scheme cannot serve.
+
+       Only leaving counts as leaving. `blur` looks like the same signal and is
+       not: it fires when the window merely loses focus — a tap on browser
+       chrome, an OS prompt, a click into another pane — and treating that as
+       success strands someone on the demo with nothing happening at all. The
+       two mistakes are not the same size. Falling back when the app DID open
+       costs a wa.me page loading in a tab nobody is looking at; not falling
+       back costs the handoff entirely. So this listens only for the page
+       actually going away, and errs toward navigating. */
+    var settled = false;
+    var settle = function () { settled = true; };
+    document.addEventListener("visibilitychange", function () { if (document.hidden) settle(); });
+    window.addEventListener("pagehide", settle);
+
+    setTimeout(function () {
+      if (settled) return;
+      go(waLink());
+    }, 1400);
+
+    go(waApp());
   }
 
   /* ── The log ─────────────────────────────────────────────────────────────
@@ -408,6 +444,6 @@
     flush();
   }
 
-  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, waLink: waLink, apiBase: apiBase,
-                     log: logged, pending: queued };
+  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, waLink: waLink, waApp: waApp,
+                     apiBase: apiBase, log: logged, pending: queued };
 })();
