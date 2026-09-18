@@ -1972,7 +1972,16 @@ operator's page listing all three entries. 6 new tests pass; the one failing
 test in the suite (`extract.test.js`) is pre-existing and wants
 `npm install @anthropic-ai/sdk`.
 
-**Not yet true, and worth saying:** the deployed bridge has no feedback store
-configured, so live entries will queue in each visitor's browser until
-`FB_FEEDBACK_KV_URL` and `FB_FEEDBACK_KV_TOKEN` are added to
-`zoho-function/.env` and `deploy.sh` is run.
+**Not yet true, and worth saying:** the deployed bridge is an older build. It
+has no `/api/feedback` route at all — the live page gets a 404 — and no store
+configured behind it. Live entries therefore queue in each visitor's browser
+until somebody adds `FB_FEEDBACK_KV_URL` and `FB_FEEDBACK_KV_TOKEN` to
+`zoho-function/.env` and runs `deploy.sh`; pushing this repo publishes the
+PAGES, never the function.
+
+That 404 found a flaw worth recording. The retry rule had been "drop any 4xx,
+it can never succeed" — which is true of a malformed payload and false of a
+route that is not deployed yet, so the very case this queue exists for would
+have thrown feedback away. It now drops **only 400 and 422**, the two answers
+that judge the entry itself; everything else is about the deployment and stays
+queued.

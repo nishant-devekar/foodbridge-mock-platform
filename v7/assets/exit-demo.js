@@ -97,9 +97,12 @@
       body: JSON.stringify(entry),
     }).then(function (r) {
       if (r.ok) { dequeue(entry); return true; }
-      /* 4xx is ours to fix and will never succeed on a retry; drop it rather
-         than carrying it forever. 5xx is the server's, and stays queued. */
-      if (r.status >= 400 && r.status < 500 && r.status !== 429) dequeue(entry);
+      /* Drop ONLY what the server has judged about this entry — a malformed
+         payload never becomes valid on a retry. Everything else is about the
+         deployment, not the entry: a bridge that 404s because the route is not
+         deployed yet is exactly the case where keeping it matters, and treating
+         that as "unfixable" would throw away real feedback. */
+      if (r.status === 400 || r.status === 422) dequeue(entry);
       return false;
     }, function () { return false; });   // offline: it stays queued
   }
