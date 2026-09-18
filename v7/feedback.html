@@ -27,6 +27,8 @@
     .pill { padding: 5px 11px; border-radius: 99px; background: #fff; border: 1px solid #e6e8eb; font-size: 12px; font-weight: 600; }
     .pill.ok { color: #0e8a3c; border-color: #cfe8d8; background: #f3faf5; }
     .pill.no { color: #b23c3c; border-color: #f0d2d2; background: #fdf3f3; }
+    #export { margin-left: auto; display: flex; gap: 8px; }
+    #export button.refresh { margin-left: 0; }
     button.refresh { margin-left: auto; padding: 7px 13px; border: 1px solid #e6e8eb; border-radius: 9px;
                      background: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
     .card { background: #fff; border: 1px solid #e6e8eb; border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
@@ -36,6 +38,9 @@
     .meta { margin-left: auto; text-align: right; font-size: 11.5px; color: #6b7079; }
     .comment { margin: 9px 0 0; white-space: pre-wrap; }
     .none { padding: 34px 16px; text-align: center; color: #6b7079; }
+    .note { margin: 0 0 12px; padding: 10px 13px; border: 1px solid #f0e2c8; background: #fdf8ef;
+            border-radius: 10px; font-size: 12.5px; color: #6b5c3f; line-height: 1.5; }
+    .note[hidden] { display: none; }
     code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
   </style>
 </head>
@@ -50,8 +55,10 @@
     <div class="bar">
       <span class="pill" id="store">checking the bridge…</span>
       <span class="pill" id="count"></span>
+      <span id="export"></span>
       <button class="refresh" id="refresh">Refresh</button>
     </div>
+    <p class="note" id="note" hidden></p>
     <div id="list"><p class="none">Loading…</p></div>
   </div>
 
@@ -76,9 +83,97 @@
         " " + d.getFullYear() + ", " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
     }
 
+    /* This device's own record, written by v7/assets/exit-demo.js on the same
+       origin. It is the whole answer while no store is deployed, and a useful
+       cross-check once one is: what THIS browser gave, delivered or not. */
+    function localEntries() {
+      var read = function (k) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : []; } catch (e) { return []; } };
+      var log = read("fb.v7.feedback.log"), pending = read("fb.v7.feedback.queue");
+      var undelivered = {};
+      pending.forEach(function (e) { undelivered[e.local] = true; });
+      return log.slice().reverse().map(function (e) {
+        return {
+          at: e.at, rating: e.rating, comment: e.comment, name: e.name,
+          phone: e.phone ? "+91 " + String(e.phone).replace(/\D/g, "").slice(-10) : "",
+          screen: e.screen, pending: !!undelivered[e.local],
+        };
+      });
+    }
+
+    function exportRows(rows) {
+      var box = document.getElementById("export");
+      if (!rows.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<button class="refresh" id="copy">Copy JSON</button> ' +
+        '<button class="refresh" id="csv">Download CSV</button>';
+      document.getElementById("copy").addEventListener("click", function () {
+        navigator.clipboard.writeText(JSON.stringify(rows, null, 2)).then(function () {
+          document.getElementById("copy").textContent = "Copied";
+        });
+      });
+      document.getElementById("csv").addEventListener("click", function () {
+        var head = ["at", "rating", "name", "phone", "screen", "comment"];
+        var q = function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+        var csv = head.join(",") + "\n" + rows.map(function (r) {
+          return head.map(function (h) { return q(r[h]); }).join(",");
+        }).join("\n");
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+        a.download = "foodbridge-demo-feedback.csv";
+        a.click();
+      });
+    }
+
+    function draw(rows, localOnly) {
+      var list = document.getElementById("list"), count = document.getElementById("count");
+      count.className = "pill";
+      count.textContent = rows.length + (rows.length === 1 ? " entry" : " entries") + (localOnly ? " · this device" : "");
+      exportRows(rows);
+      if (!rows.length) {
+        list.innerHTML = '<p class="none">No feedback yet.</p>';
+        return;
+      }
+      list.innerHTML = rows.map(function (e) {
+        return '<article class="card"><div class="top">' +
+          '<span class="em">' + (FACES[e.rating] || "•") + "</span>" +
+          '<span class="who">' + (esc(e.name) || "Anonymous") +
+            (e.phone ? ' <span style="font-weight:400;color:#6b7079">· ' + esc(e.phone) + "</span>" : "") +
+            (e.pending ? ' <span class="pill no" style="margin-left:6px">not sent yet</span>' : "") + "</span>" +
+          '<span class="meta">' + esc(when(e.at)) +
+            /* An entry the browser held onto is filed under the day it was
+               given; say so, or the gap looks like a bug in the clock. */
+            (e.received ? '<br><span style="color:#8a7550">delivered ' + esc(when(e.received)) + "</span>" : "") +
+            "<br>" + esc(e.screen || "") + "</span>" +
+          "</div>" +
+          (e.comment ? '<p class="comment">' + esc(e.comment) + "</p>" : "") +
+          "</article>";
+      }).join("");
+    }
+
+    /* Why the fallback always explains itself: a browser cannot read the status
+       of a cross-origin response that carries no CORS header, and the bridge's
+       404 carries none — so a missing route arrives here indistinguishable from
+       a dead network. The pill says what was observed, the note says what it
+       most likely means and what closes it. */
+    function fallback(why) {
+      var store = document.getElementById("store"), note = document.getElementById("note");
+      var rows = localEntries();
+      store.className = "pill no";
+      store.textContent = why;
+      note.hidden = false;
+      note.innerHTML = "<strong>Showing this device only.</strong> The bridge at <code>" + esc(base()) +
+        "</code> is not serving <code>/api/feedback</code> (" + esc(why) + "), so feedback given on other " +
+        "devices is still queued in those browsers. Put <code>FB_FEEDBACK_KV_URL</code> and " +
+        "<code>FB_FEEDBACK_KV_TOKEN</code> in <code>zoho-function/.env</code> and run <code>./deploy.sh</code>" +
+        " — everything queued delivers itself as soon as the route answers.";
+      draw(rows, true);
+      if (!rows.length) {
+        document.getElementById("list").innerHTML =
+          '<p class="none">Nothing given on this device yet.</p>';
+      }
+    }
+
     function load() {
-      var store = document.getElementById("store"), count = document.getElementById("count"),
-          list = document.getElementById("list");
+      var store = document.getElementById("store"), list = document.getElementById("list");
       list.innerHTML = '<p class="none">Loading…</p>';
       fetch(base() + "/api/feedback?limit=500", { headers: { "X-FB-Key": KEY } })
         .then(function (r) { return r.json().catch(function () { return {}; })
@@ -86,41 +181,19 @@
         .then(function (out) {
           var b = out.body || {};
           if (!out.ok) {
-            store.className = "pill no";
-            store.textContent = b.error === "not_configured"
-              ? "no store configured on this bridge"
-              : "bridge said " + (b.error || out.status);
-            count.textContent = "";
-            list.innerHTML = '<p class="none">' +
-              (b.error === "not_configured"
-                ? "Set <code>FB_FEEDBACK_KV_URL</code> and <code>FB_FEEDBACK_KV_TOKEN</code> on the bridge, " +
-                  "or run it locally with <code>npm run dev</code> to write <code>feedback.jsonl</code>.<br>" +
-                  "Nothing is lost meanwhile: each browser keeps its own entries queued and sends them once a store exists."
-                : esc(b.message || "Could not read the feedback store.")) + "</p>";
-            return;
+            /* No route (an older deployment) or no store: this device's own
+               log is the honest answer, and it is better than an error page. */
+            if (out.status === 404 || b.error === "not_configured") {
+              return fallback(out.status === 404 ? "bridge has no feedback route yet" : "no store configured on the bridge");
+            }
+            return fallback("bridge said " + (b.error || out.status));
           }
-          var rows = b.entries || [];
           store.className = "pill ok";
           store.textContent = "store: " + (b.store || "?");
-          count.className = "pill";
-          count.textContent = rows.length + (rows.length === 1 ? " entry" : " entries");
-          if (!rows.length) { list.innerHTML = '<p class="none">No feedback yet.</p>'; return; }
-          list.innerHTML = rows.map(function (e) {
-            return '<article class="card"><div class="top">' +
-              '<span class="em">' + (FACES[e.rating] || "•") + "</span>" +
-              '<span class="who">' + (esc(e.name) || "Anonymous") +
-                (e.phone ? ' <span style="font-weight:400;color:#6b7079">· ' + esc(e.phone) + "</span>" : "") + "</span>" +
-              '<span class="meta">' + esc(when(e.at)) + "<br>" + esc(e.screen || "") + "</span>" +
-              "</div>" +
-              (e.comment ? '<p class="comment">' + esc(e.comment) + "</p>" : "") +
-              "</article>";
-          }).join("");
+          document.getElementById("note").hidden = true;
+          draw(b.entries || [], false);
         })
-        .catch(function () {
-          store.className = "pill no";
-          store.textContent = "could not reach the bridge";
-          list.innerHTML = '<p class="none">The bridge at <code>' + esc(base()) + "</code> did not answer.</p>";
-        });
+        .catch(function () { fallback("could not reach the bridge"); });
     }
     document.getElementById("refresh").addEventListener("click", load);
     load();

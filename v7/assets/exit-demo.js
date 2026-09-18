@@ -38,7 +38,8 @@
   var DEFAULT_BASE = "https://zoho-function-nu.vercel.app";
   var LOCAL_BASE = "http://localhost:8787";
   var API_KEY = "tFcdYY4RepvrSmvdLsmG3jls3_1J2epW";   // same shared key the other screens carry
-  var QUEUE_KEY = "fb.v7.feedback.queue";
+  var QUEUE_KEY = "fb.v7.feedback.queue";   // not yet delivered
+  var LOG_KEY = "fb.v7.feedback.log";       // everything ever given on THIS device
   var WHO_KEY = "fb.v7.account";           // what onboarding wrote, if this browser has been through it
 
   var waLink = function () {
@@ -81,6 +82,19 @@
       return;
     } catch (e) { /* fall through */ }
     window.location.href = waLink();
+  }
+
+  /* ── The log ─────────────────────────────────────────────────────────────
+     The queue empties as entries are delivered, which would leave the operator
+     of a demo with nothing to read while no store is configured — the exact
+     situation this cut is in. So every submission is ALSO written to a log
+     that delivery never empties, and /v7/feedback.html falls back to it. Same
+     origin as the screens, so the page can read what the modules wrote. */
+  function logged() { var l = ls.json(LOG_KEY); return Array.isArray(l) ? l : []; }
+  function record(entry) {
+    var l = logged();
+    l.push(entry);
+    ls.set(LOG_KEY, JSON.stringify(l.slice(-500)));
   }
 
   /* ── The queue ───────────────────────────────────────────────────────── */
@@ -345,8 +359,11 @@
       version: "v7",
     };
 
-    /* Queued BEFORE the request: from here on the entry survives a dead
+    /* Kept BEFORE the request, twice: the queue is what still owes delivery,
+       the log is what was said. From here on the entry survives a dead
        network, a closed tab and an unconfigured bridge. */
+    entry.at = new Date().toISOString();
+    record(entry);
     enqueue(entry);
     send(entry);
 
@@ -391,5 +408,6 @@
     flush();
   }
 
-  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, waLink: waLink, apiBase: apiBase };
+  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, waLink: waLink, apiBase: apiBase,
+                     log: logged, pending: queued };
 })();
