@@ -2138,6 +2138,37 @@
     }, 320);
   }
 
+  /* Reads `signup=1` from this page's own query and from the platform hash
+     above it — #/onboarding?signup=1 — and clears it from whichever carried
+     it, so the flag acts exactly once. */
+  function takeSignupFlag() {
+    let found = false;
+    try {
+      const own = new URL(location.href);
+      if (own.searchParams.get("signup")) {
+        found = true;
+        own.searchParams.delete("signup");
+        history.replaceState(null, "", own.pathname + own.search + own.hash);
+      }
+    } catch (e) { /* nothing readable here */ }
+    try {
+      const top = RD().topWin();
+      const h = String(top.location.hash || "");
+      const q = h.indexOf("?");
+      if (q !== -1) {
+        const params = new URLSearchParams(h.slice(q + 1));
+        if (params.get("signup")) {
+          found = true;
+          params.delete("signup");
+          const rest = params.toString();
+          top.history.replaceState(null, "", top.location.pathname + top.location.search +
+            h.slice(0, q) + (rest ? "?" + rest : ""));
+        }
+      }
+    } catch (e) { /* a window we may not touch */ }
+    return found;
+  }
+
   function mount() {
     /* ?obreset on localhost: start as a brand-new user. Removed from the address
        at once, so the return from a sign-in never replays it. */
@@ -2150,6 +2181,17 @@
     trackKeyboard();
     document.addEventListener("focusin", keepFocusVisible);
     restore();
+    /* "Become a part of FoodBridge", at the end of a demo, means the sign-up
+       screen — not whatever account this browser was left holding. The flag
+       arrives on the PLATFORM's hash (#/onboarding?signup=1), because that is
+       the address the end-of-demo sheet can set from inside another module's
+       iframe; it is read once and wiped, so a reload is not a second reset. */
+    if (takeSignupFlag()) {
+      [ACCOUNT_KEY, ORDERS_KEY].forEach(function (k) { ls.del(k); });
+      [STORE_KEY, OAUTH_KEY, GUEST_KEY].forEach(function (k) { ls.del(k, sessionStorage); });
+      state.account = null; state.dataReady = null; state.parts = [];
+      state.order = null; state.created = null; state.screen = "signup";
+    }
     handleAppReturn();
     /* Back from Zoho can restore this page from the browser cache with its frame
        dead to touch on iOS Safari; a cached restore mid sign-in is reloaded. */

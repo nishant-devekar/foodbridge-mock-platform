@@ -419,7 +419,19 @@
     // module header, so a collapse must not strand a module whose header can't
     // toggle it back.
     state.sidebarCollapsed = false;
-    if (state.rootEl) { state.rootEl.classList.toggle("fb-fullbleed", fullBleed); state.rootEl.classList.remove("fb-module-overlay"); state.rootEl.classList.remove("fb-sidebar-collapsed"); }
+    /* `deviceFrame`: a module that is a PHONE app, not a desktop screen —
+       Delivery Management is the route rep's field app. Stretched across a
+       1280px window it reads as a broken web page. On desktop the platform
+       draws it inside a phone, centred on its own canvas, and keeps the
+       sidebar; below lg nothing changes and the app has the screen to itself,
+       which is what `fullBleed` is still there for. All of it is CSS on
+       .fb-deviceframe — the module's own files are untouched, which matters
+       because this one is a byte-for-byte copy of `v5`'s. */
+    if (state.rootEl) {
+      state.rootEl.classList.toggle("fb-fullbleed", fullBleed);
+      state.rootEl.classList.toggle("fb-deviceframe", !!leaf.deviceFrame);
+      state.rootEl.classList.remove("fb-module-overlay"); state.rootEl.classList.remove("fb-sidebar-collapsed");
+    }
     applySidebar();
     viewport.style.setProperty("--fb-clip-left", (fullBleed ? 0 : leaf.clipLeft || 0) + "px");
     viewport.style.setProperty("--fb-clip-left-m", (fullBleed ? 0 : leaf.clipLeftMobile != null ? leaf.clipLeftMobile : 0) + "px");

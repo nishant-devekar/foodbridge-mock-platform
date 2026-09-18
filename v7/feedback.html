@@ -1,0 +1,129 @@
+<!doctype html>
+<!--
+  DEMO FEEDBACK — what people said at the end of the demo, read back.
+
+  The operator's side of v7/assets/exit-demo.js. It reads
+  GET /api/feedback from the bridge, with the same shared key the other
+  screens carry, and draws what comes back. Nothing is stored here.
+
+  Open it directly: /v7/feedback.html — deliberately NOT a platform
+  destination, because it is for whoever ran the demo, not for whoever is
+  being shown it. Point it at another bridge with ?fbapi=<base-url>.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo feedback — FoodBridge v7</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; background: #f4f5f7; color: #0d0f12;
+           font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { padding: 22px 20px 14px; background: #fff; border-bottom: 1px solid #e6e8eb; }
+    h1 { margin: 0; font-size: 19px; }
+    .sub { margin: 4px 0 0; font-size: 12.5px; color: #6b7079; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px 14px 60px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .pill { padding: 5px 11px; border-radius: 99px; background: #fff; border: 1px solid #e6e8eb; font-size: 12px; font-weight: 600; }
+    .pill.ok { color: #0e8a3c; border-color: #cfe8d8; background: #f3faf5; }
+    .pill.no { color: #b23c3c; border-color: #f0d2d2; background: #fdf3f3; }
+    button.refresh { margin-left: auto; padding: 7px 13px; border: 1px solid #e6e8eb; border-radius: 9px;
+                     background: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .card { background: #fff; border: 1px solid #e6e8eb; border-radius: 12px; padding: 13px 15px; margin-bottom: 10px; }
+    .top { display: flex; align-items: center; gap: 10px; }
+    .em { font-size: 21px; }
+    .who { font-weight: 600; }
+    .meta { margin-left: auto; text-align: right; font-size: 11.5px; color: #6b7079; }
+    .comment { margin: 9px 0 0; white-space: pre-wrap; }
+    .none { padding: 34px 16px; text-align: center; color: #6b7079; }
+    code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="padding:0">
+      <h1>Demo feedback</h1>
+      <p class="sub">What people said when they tapped EXIT DEMO. Newest first.</p>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="bar">
+      <span class="pill" id="store">checking the bridge…</span>
+      <span class="pill" id="count"></span>
+      <button class="refresh" id="refresh">Refresh</button>
+    </div>
+    <div id="list"><p class="none">Loading…</p></div>
+  </div>
+
+  <script>
+    var DEFAULT_BASE = "https://zoho-function-nu.vercel.app";
+    var LOCAL_BASE = "http://localhost:8787";
+    var KEY = "tFcdYY4RepvrSmvdLsmG3jls3_1J2epW";
+    var FACES = { 1: "😡", 2: "🙁", 3: "😐", 4: "🙂", 5: "🤩" };
+
+    function base() {
+      var q = new URLSearchParams(location.search).get("fbapi");
+      if (q) return q.replace(/\/+$/, "");
+      return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? LOCAL_BASE : DEFAULT_BASE;
+    }
+    var esc = function (s) {
+      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    };
+    function when(iso) {
+      var d = new Date(iso);
+      if (isNaN(d)) return "";
+      return d.getDate() + " " + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()] +
+        " " + d.getFullYear() + ", " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+
+    function load() {
+      var store = document.getElementById("store"), count = document.getElementById("count"),
+          list = document.getElementById("list");
+      list.innerHTML = '<p class="none">Loading…</p>';
+      fetch(base() + "/api/feedback?limit=500", { headers: { "X-FB-Key": KEY } })
+        .then(function (r) { return r.json().catch(function () { return {}; })
+          .then(function (b) { return { ok: r.ok, status: r.status, body: b }; }); })
+        .then(function (out) {
+          var b = out.body || {};
+          if (!out.ok) {
+            store.className = "pill no";
+            store.textContent = b.error === "not_configured"
+              ? "no store configured on this bridge"
+              : "bridge said " + (b.error || out.status);
+            count.textContent = "";
+            list.innerHTML = '<p class="none">' +
+              (b.error === "not_configured"
+                ? "Set <code>FB_FEEDBACK_KV_URL</code> and <code>FB_FEEDBACK_KV_TOKEN</code> on the bridge, " +
+                  "or run it locally with <code>npm run dev</code> to write <code>feedback.jsonl</code>.<br>" +
+                  "Nothing is lost meanwhile: each browser keeps its own entries queued and sends them once a store exists."
+                : esc(b.message || "Could not read the feedback store.")) + "</p>";
+            return;
+          }
+          var rows = b.entries || [];
+          store.className = "pill ok";
+          store.textContent = "store: " + (b.store || "?");
+          count.className = "pill";
+          count.textContent = rows.length + (rows.length === 1 ? " entry" : " entries");
+          if (!rows.length) { list.innerHTML = '<p class="none">No feedback yet.</p>'; return; }
+          list.innerHTML = rows.map(function (e) {
+            return '<article class="card"><div class="top">' +
+              '<span class="em">' + (FACES[e.rating] || "•") + "</span>" +
+              '<span class="who">' + (esc(e.name) || "Anonymous") +
+                (e.phone ? ' <span style="font-weight:400;color:#6b7079">· ' + esc(e.phone) + "</span>" : "") + "</span>" +
+              '<span class="meta">' + esc(when(e.at)) + "<br>" + esc(e.screen || "") + "</span>" +
+              "</div>" +
+              (e.comment ? '<p class="comment">' + esc(e.comment) + "</p>" : "") +
+              "</article>";
+          }).join("");
+        })
+        .catch(function () {
+          store.className = "pill no";
+          store.textContent = "could not reach the bridge";
+          list.innerHTML = '<p class="none">The bridge at <code>' + esc(base()) + "</code> did not answer.</p>";
+        });
+    }
+    document.getElementById("refresh").addEventListener("click", load);
+    load();
+  </script>
+</body>
+</html>

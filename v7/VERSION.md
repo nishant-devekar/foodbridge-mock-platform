@@ -1909,3 +1909,70 @@ load under their own titles, and **Delivery Management is the ported app** —
 Borivali North opens the stop list with *₹7,920 collected this route*, Ravi
 General Store *Collected*, Meena Kirana *Partial payment*. No console errors.
 Every URL in `modules.json` resolves on disk.
+
+### 18 September 2026 — the end of the demo is a journey, not a dead end
+
+**Product owner**, with a drawing: every EXIT DEMO should open the same three
+ways on — *Give feedback*, *Become a part of FoodBridge*, *Back to WhatsApp
+menu* — feedback saved against a name and a number and readable later, and the
+WhatsApp IVR at **+91 99880 87779** as the place a demo returns to.
+
+**What was refined before it was built**
+
+- **The sheet is dismissible.** A scrim tap, the ✕ or Escape puts someone back
+  on the screen they were reading. The way out must not become a trap.
+- **One tap is the whole form.** A rating is the only required answer — five
+  faces, Bad to Great — because a rating everyone gives beats a paragraph
+  nobody writes. Comment, name and number are optional, and name and number are
+  **prefilled** from `fb.v7.account` when this browser has been through
+  onboarding, so a returning user taps Send and is done.
+- **Sending never blocks leaving.** The hand-off to WhatsApp happens whether or
+  not the POST has come back. Waiting on our server is our problem, not theirs.
+- **A wrong-looking number is said, not swallowed** — 10 digits or blank.
+
+**Nothing is lost, ever.** The entry is written to a queue in `localStorage`
+*before* the request leaves, and removed only on a 2xx. A dead network, a
+closed tab, a bridge that is down or has no store configured — all of them
+delay feedback rather than dropping it; the queue is flushed on the next load
+of any screen carrying the footer. Proven by test: with the bridge stopped, a
+submitted entry sat in the queue, and came back up it arrived on the next page
+load without anyone touching it. A 4xx is the one thing dropped, because it can
+never succeed on a retry.
+
+**Where it goes.** `POST /api/feedback` on the bridge, which stores to Upstash
+Redis over REST when `FB_FEEDBACK_KV_URL` and `FB_FEEDBACK_KV_TOKEN` are set,
+and to `zoho-function/feedback.jsonl` on a writable filesystem otherwise —
+which is what makes `npm run dev` a complete loop. Unconfigured answers
+`503 not_configured` rather than pretending. `/api/health` reports the live
+store. **`/v7/feedback.html` is the operator's view**: newest first, with the
+face, the name, the number, the screen they were on and what they wrote.
+
+**One asset, not five copies.** `v7/assets/exit-demo.js` draws the footer bar
+AND the sheet, and every screen that wants them is now two lines:
+`FB_EXIT.mount({ z, tabs })`. The four screens that had an inline footer
+(Finished Goods Inventory, Raw Material Inventory, Customer Receivables,
+Supplier Payables) lost ~90 duplicated lines each. Delivery Management mounts
+no bar — it has its own — and its EXIT DEMO tab calls `FB_EXIT.open()`, so the
+sheet is identical everywhere while the bar stays each screen's own business.
+Raw Material Inventory passes its **Receive Stock** control through as an extra
+tab.
+
+**Become a part of FoodBridge** lands on the sign-up screen, not on whatever
+account the browser was left holding: the sheet routes to
+`#/onboarding?signup=1`, and onboarding's `takeSignupFlag()` reads that flag off
+the platform hash, clears the account, orders and session keys, and starts at
+S01. The flag is wiped as it is read, so a reload is not a second reset.
+
+Verified on the running cut at 375×812: the sheet on Raw Material Inventory and
+on Delivery Management; the form prefilled from this browser's account; a real
+submission landing in `feedback.jsonl` with rating, name, number, screen and
+comment; the offline queue described above; *Become a part of FoodBridge*
+arriving at **Create your account** with `fb.v7.account` cleared; and the
+operator's page listing all three entries. 6 new tests pass; the one failing
+test in the suite (`extract.test.js`) is pre-existing and wants
+`npm install @anthropic-ai/sdk`.
+
+**Not yet true, and worth saying:** the deployed bridge has no feedback store
+configured, so live entries will queue in each visitor's browser until
+`FB_FEEDBACK_KV_URL` and `FB_FEEDBACK_KV_TOKEN` are added to
+`zoho-function/.env` and `deploy.sh` is run.

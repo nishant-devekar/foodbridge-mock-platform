@@ -59,20 +59,36 @@
 <body>
   <div id="root"></div>
 
-  <!-- Discovery-only affordance. Not part of the live UI. Append ?bare=1 to the
-       URL to remove it for a clean pixel comparison. -->
-  <a id="back-pill" href="../../index.html"
-     style="position:fixed;left:12px;bottom:12px;z-index:99999;font:500 11px system-ui,sans-serif;
-            background:rgba(31,41,55,.88);color:#e5e7eb;padding:5px 10px;border-radius:9999px;
-            text-decoration:none;backdrop-filter:blur(4px)">&#8592; screens</a>
-
+  <!-- This module draws its own mobile Receive Stock bar; the control is a tab
+       in the demo footer now, so the bar and the 4rem spacer under it go. -->
+  <style>
+    @media (max-width: 1023.98px) {
+      #root div.fixed.bottom-0:has([data-receivestock]),
+      #root div.fixed.bottom-0:has([data-receivestock]) + div { display: none !important; }
+    }
+  </style>
+  <!-- The end-of-demo footer and the three ways out behind it. One shared
+       asset for every screen that carries it: v7/assets/exit-demo.js. -->
+  <script src="../../../../assets/exit-demo.js?v=20260918E2"></script>
+  <script>
+    window.FB_EXIT.mount({
+      /* Above the page, below this module's own overlays. */
+      z: 39,
+        tabs: [{
+          /* Receive Stock was this module's own mobile sticky bar; it is a tab
+             in the demo footer now. The click is forwarded to the module's own
+             control so the AddBatchDrawer opens through the module's wiring,
+             which is re-bound on every render. */
+          label: "Receive Stock", green: true,
+          icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px" aria-hidden="true"><path d="M16 16h6"/><path d="M19 13v6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+          onClick: function () { var b = document.querySelector("#root [data-receivestock]"); if (b) b.click(); }
+        }],
+    });
+  </script>
   <script src="../../assets/icons.js"></script>
   <script src="../../assets/mock-shell.js"></script>
   <script src="../../assets/mock-inventory.js"></script>
   <script>
-    if (new URLSearchParams(location.search).has("bare")) {
-      document.getElementById("back-pill").remove();
-    }
     window.MockInventory.mount({ tab: "live", route: "/raw-material-inventory", catalogueType: "RAW-MATERIAL", tabs: window.MockInventory.TABS_RM });
   </script>
 </body>

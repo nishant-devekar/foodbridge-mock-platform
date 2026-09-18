@@ -38,6 +38,15 @@
   </section>
   <section id="paymentDrawer" class="drawer hide" role="dialog" aria-modal="true" aria-labelledby="paymentTitle"></section>
   <div id="toast" class="toast hide" role="status"></div>
+  <!-- The end-of-demo footer and the three ways out behind it. One shared
+       asset for every screen that carries it: v7/assets/exit-demo.js. -->
+  <script src="../../../assets/exit-demo.js?v=20260918E2"></script>
+  <script>
+    window.FB_EXIT.mount({
+      /* Above the page, below this module's own overlays. */
+      z: 28,
+    });
+  </script>
   <script>window.LEDGER_CONFIG = { kind: 'customer', seed: '../seed-data/seed.json' };</script>
   <script src="assets/ledger.js"></script>
 </body>

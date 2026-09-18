@@ -362,7 +362,11 @@
     { key: "routes",   icon: "🗺️", label: "Routes" },
     { key: "followup", icon: "📋",  label: "Follow-up" },
     { key: "reports",  icon: "📊",  label: "Reports" },
-    { key: "back",     icon: null,  label: "Back" },
+    /* "EXIT DEMO", not "Back" (18 Sep 2026, product owner): in the platform
+       this app is a demo someone is being walked through, and the last tab is
+       the way out of it. Its action is unchanged — history back, or home when
+       there is nothing to go back to. */
+    { key: "back",     icon: null,  label: "EXIT DEMO" },
   ];
 
   function TabBar(active) {
@@ -373,7 +377,7 @@
           ? '<div style="font-size:20px">' + t.icon + "</div>"
           : '<svg viewBox="0 0 24 24" fill="none" stroke="' + (on ? BRAND : "#9ca3af") + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>';
         return '<button type="button" class="rd-tab"' + act("tab", t.key) + ' style="' + sty({ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", padding: "4px 8px", border: "none", background: "transparent" }) + '">' +
-          icon + '<div style="' + sty({ fontSize: 10, fontWeight: 600, color: on ? BRAND : "#9ca3af" }) + '">' + t.label + "</div></button>";
+          icon + '<div style="' + sty({ fontSize: 10, fontWeight: 600, color: on ? BRAND : "#9ca3af", whiteSpace: "nowrap" }) + '">' + t.label + "</div></button>";
       }).join("") + "</div>";
   }
 

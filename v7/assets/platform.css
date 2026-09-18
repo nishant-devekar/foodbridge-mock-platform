@@ -82,6 +82,43 @@
   display: none !important;
 }
 
+/* ── Device-framed modules ─────────────────────────────────────────────────
+   A module flagged `deviceFrame` is a PHONE app — Delivery Management is the
+   route rep's field app, and stretched across a desktop window it reads as a
+   broken web page rather than as what it is. On desktop the platform draws it
+   inside a phone on its own canvas, exactly as Stock Audit frames itself:
+   400x860, a 12px bezel, radius 46. Below lg none of this applies and the
+   module still has the whole screen, which is what its `fullBleed` is for.
+
+   The frame is the IFRAME itself, so everything the app puts on screen —
+   sheets, toasts, anything `position: fixed` — is contained by construction:
+   an iframe is its own viewport. That is the difference from framing a module
+   in its own stylesheet, where fixed overlays escape to the browser window
+   and have to be pinned back by script. */
+@media (min-width: 1024px) {
+  /* A framed module is an admin screen again, so the nav comes back. `block`
+     is the sidebar's own desktop value (`hidden lg:block`). */
+  .fb-fullbleed.fb-deviceframe [data-desktop-sidebar] {
+    display: block !important;
+  }
+  .fb-deviceframe .fb-viewport {
+    background: #dbe1e8;
+  }
+  .fb-deviceframe .fb-viewport iframe {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 860px;
+    max-height: calc(100% - 64px);
+    background: #fff;
+    border: 12px solid #1c1c1e;
+    border-radius: 46px;
+    box-shadow: 0 30px 60px -14px rgba(15, 23, 42, .4), 0 0 0 2px #3a3a3c;
+    overflow: hidden;
+  }
+}
+
 /* ── Mobile: the platform's single QA-store header ──────────────────────────
    Below lg the module collapses its own chrome, so the platform supplies the
    whole header. It is absolutely positioned over the top of the viewport so it

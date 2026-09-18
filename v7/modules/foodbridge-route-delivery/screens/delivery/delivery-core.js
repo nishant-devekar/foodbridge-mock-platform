@@ -191,7 +191,10 @@
   action("tab", function (which) {
     if (which === "home") go("");
     else if (which === "reports") go("/reports");
-    else if (which === "back") back();
+    /* EXIT DEMO. The end-of-demo sheet is the way out everywhere in this cut;
+       if the shared asset is missing — this folder opened on its own — the
+       app's own back is still there rather than a dead tab. */
+    else if (which === "back") { if (window.FB_EXIT) window.FB_EXIT.open(); else back(); }
     else toast(which === "routes" ? "Routes tab — not in this prototype" : "Follow-up tab — not in this prototype");
   });
 

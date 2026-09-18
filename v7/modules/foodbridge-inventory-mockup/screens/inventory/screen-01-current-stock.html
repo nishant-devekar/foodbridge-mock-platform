@@ -59,20 +59,19 @@
 <body>
   <div id="root"></div>
 
-  <!-- Discovery-only affordance. Not part of the live UI. Append ?bare=1 to the
-       URL to remove it for a clean pixel comparison. -->
-  <a id="back-pill" href="../../index.html"
-     style="position:fixed;left:12px;bottom:12px;z-index:99999;font:500 11px system-ui,sans-serif;
-            background:rgba(31,41,55,.88);color:#e5e7eb;padding:5px 10px;border-radius:9999px;
-            text-decoration:none;backdrop-filter:blur(4px)">&#8592; screens</a>
-
+  <!-- The end-of-demo footer and the three ways out behind it. One shared
+       asset for every screen that carries it: v7/assets/exit-demo.js. -->
+  <script src="../../../../assets/exit-demo.js?v=20260918E2"></script>
+  <script>
+    window.FB_EXIT.mount({
+      /* Above the page, below this module's own overlays. */
+      z: 39,
+    });
+  </script>
   <script src="../../assets/icons.js"></script>
   <script src="../../assets/mock-shell.js"></script>
   <script src="../../assets/mock-inventory.js"></script>
   <script>
-    if (new URLSearchParams(location.search).has("bare")) {
-      document.getElementById("back-pill").remove();
-    }
     window.MockInventory.mount({ tab: "live" });
   </script>
 </body>

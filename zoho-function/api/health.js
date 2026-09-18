@@ -4,6 +4,7 @@
 import { config, missingConfig, SCOPES } from "../zoho.js";
 import { ZOHO_CUSTOMER_MAP, ZOHO_ITEM_MAP } from "../mappings.js";
 import { gstConfig, missingGstConfig } from "../gst.js";
+import { feedbackStore } from "../feedback.js";
 import { cors, json } from "./_http.js";
 
 export default function handler(req, res) {
@@ -27,6 +28,14 @@ export default function handler(req, res) {
       configured: missingGstConfig(gstConfig()).length === 0,
       missing: missingGstConfig(gstConfig()),
       baseUrl: gstConfig().baseUrl,
+    },
+    /* Demo feedback is stored by this bridge too. "none" means a browser's
+       entries stay queued in that browser rather than reaching anyone — which
+       is worth being able to see without submitting a form to find out. */
+    feedback: {
+      store: feedbackStore(),
+      configured: feedbackStore() !== "none",
+      missing: feedbackStore() === "none" ? ["FB_FEEDBACK_KV_URL", "FB_FEEDBACK_KV_TOKEN"] : [],
     },
   });
 }

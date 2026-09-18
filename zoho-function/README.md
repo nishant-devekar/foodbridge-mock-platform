@@ -303,3 +303,34 @@ check, which is the honest state: it never falls back to a format test.
 `.env`, `.env.*` and `.vercel` are gitignored. No credential is committed, sent
 to the browser, logged, or written into the static app. The browser knows one
 thing: the function's URL.
+
+---
+
+## Demo feedback
+
+The v7 demo ends with a sheet offering three ways on (`v7/assets/exit-demo.js`).
+One is **Give feedback**, and this bridge is where those answers land.
+
+| | |
+| --- | --- |
+| `POST /api/feedback` | `{rating 1-5, comment?, name?, phone?, screen?}` → `{ok, id, at}`. Open, like the page that calls it. |
+| `GET /api/feedback?limit=200` | newest first; behind `X-FB-Key` when `FB_API_KEY` is set |
+| `/v7/feedback.html` | reads that endpoint and draws it — the operator's view |
+
+**Where it is stored**, in order of preference:
+
+1. **Upstash Redis** over its REST API, when `FB_FEEDBACK_KV_URL` and
+   `FB_FEEDBACK_KV_TOKEN` are set. HTTP, so it works on Vercel with no socket
+   and no dependency. `deploy.sh` pushes every value in `.env`, so adding the
+   two lines there is the whole deployment step.
+2. **`feedback.jsonl` next to this README**, when the filesystem is writable —
+   true for `npm run dev`, false on Vercel. This is what makes a local run a
+   complete loop: submit the form, read the file.
+3. **Neither**, which answers `503 not_configured`. The browser then keeps the
+   entry in its own queue and retries it on the next page load, so an
+   unconfigured deployment DELAYS feedback rather than losing it. `/api/health`
+   reports which store is live under `feedback.store`, so this can be checked
+   before anyone types a paragraph into the form.
+
+Nothing here ever reports a save that did not happen — the page drops its local
+copy only on a 2xx.
