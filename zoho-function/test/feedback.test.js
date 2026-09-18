@@ -48,6 +48,23 @@ test("an entry with no name or number is still valid — a rating alone is the p
   assert.equal(e.comment, "");
 });
 
+test("a queued entry keeps the time it was GIVEN, and notes when it arrived", () => {
+  const said = new Date(Date.now() - 3 * 864e5).toISOString();   // delivered three days late
+  const e = cleanEntry({ rating: 4, at: said });
+  assert.equal(e.at, said, "the hour someone actually spoke is what the operator reads");
+  assert.ok(Date.parse(e.received) > Date.parse(e.at), "arrival is kept alongside, not instead");
+});
+
+test("a browser clock that is wrong cannot backdate or postdate an entry", () => {
+  for (const bad of [new Date(Date.now() + 864e5).toISOString(),   // tomorrow
+                     new Date(Date.now() - 400 * 864e5).toISOString(),  // last year
+                     "not a date", "", null]) {
+    const e = cleanEntry({ rating: 4, at: bad });
+    assert.ok(Math.abs(Date.parse(e.at) - Date.now()) < 5000, "falls back to arrival time");
+    assert.equal(e.received, undefined, "and does not claim a delay it cannot show");
+  }
+});
+
 test("long text is truncated rather than refused", () => {
   const e = cleanEntry({ rating: 3, comment: "x".repeat(5000), name: "y".repeat(500) });
   assert.equal(e.comment.length, 1200);

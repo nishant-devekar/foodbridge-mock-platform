@@ -76,9 +76,22 @@ export function cleanEntry(body) {
 
   if (!(rating >= 1 && rating <= 5)) throw new FeedbackError("bad_rating", 400, "Rating must be 1 to 5.");
 
+  /* WHEN IT WAS SAID, not when it arrived. An entry the browser could not
+     deliver — no route yet, no network — is sent on the next visit, which may
+     be days later; stamping arrival time would file it under the wrong day and
+     lose the order people gave it in. The browser's clock is not trusted
+     blindly: it is taken only when it parses and falls inside a sane window,
+     and `received` keeps the arrival time whenever the two differ. */
+  const now = Date.now();
+  const said = Date.parse(b.at);
+  const trusted = Number.isFinite(said) && said <= now + 5 * 60e3 && said > now - 180 * 864e5;
+  const at = new Date(trusted ? said : now).toISOString();
+  const received = new Date(now).toISOString();
+
   return {
     id: "FB-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
-    at: new Date().toISOString(),
+    at: at,
+    ...(at === received ? {} : { received: received }),
     rating: Math.round(rating),
     comment: str(b.comment, 1200),
     name: str(b.name, 80),
