@@ -187,10 +187,10 @@
         {
           "id": "delivery-management",
           "name": "Delivery Management",
-          "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/delivery-management/screens/delivery/index.html",
+          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260918D1",
           "clipLeft": 0,
           "fullBleed": true,
-          "owner": "kdansari02/foodbridge-module-distribution-logistics"
+          "owner": "nishant-devekar/foodbridge-mock-platform"
         },
         {
           "id": "logistic-returns",

@@ -1867,3 +1867,45 @@ Verified at 375×812 on the running v7: both guest links start a session and lan
 where they should, logging in with the stored number reaches the dashboard, a
 wrong number still errors inside the sheet, and starting a guest left
 `fb.v7.account` untouched. No console errors.
+
+### 18 September 2026 — Distribution & Logistics comes from `v5`, codebase and all
+
+**Product owner:** `v5`'s Distribution & Logistics is mature and finished. Drop
+what `v7` has and bring `v5`'s over — the whole codebase, wired, not just the
+links.
+
+**What `v7` had.** Its Delivery Management pointed at the old crawl,
+`foodbridge-module-distribution-logistics/discovery/paths/delivery-management/
+screens/delivery/index.html` — the screen `v5` itself marks **(retired)**.
+Route Planning, Logistic Returns and Live Delivery Tracking were already `v5`'s
+bytes apart from their `?v=` cache tags.
+
+**What came over.** Both module folders, copied whole and verified byte-identical
+to `v5` before re-stamping:
+
+| | |
+| --- | --- |
+| `modules/foodbridge-route-delivery/` | **new to `v7`** — 22 files, 816 KB. The real `/route-delivery` app from `storefront-frontend`, ported to run with no network: 23 screens, its own models, services, validation and an in-memory seed |
+| `modules/foodbridge-module-distribution-logistics/` | replaced with `v5`'s 33 files — Route Planning, Logistic Returns, Live Delivery Tracking, and the retired delivery path `v5` still ships |
+
+**Wired, not just re-pointed.** `assets/modules.json` moves the
+`delivery-management` destination to
+`modules/foodbridge-route-delivery/screens/delivery/index.html`, with `owner`
+following the file to `nishant-devekar/foodbridge-mock-platform` — the port is
+authored here, not crawled from the module team. `clipLeft: 0` and
+`fullBleed: true` stay: this app draws its own chrome, where the other three
+render their own sidebar for the shell to clip at 250.
+
+Every `?v=` tag in both folders is re-stamped `20260918D1`, the `v7` convention,
+so a browser holding the old copy fetches these.
+
+`v7/modules/` now holds **14 folders**, against 13 in both `v5` and `v6` — this
+cut carries `foodbridge-onboarding` as well.
+
+Verified on the running cut at 375×812, all four destinations by route and from
+the sidebar: Route Planning, Logistic Returns and Live Delivery Tracking each
+load under their own titles, and **Delivery Management is the ported app** —
+*Rahul Verma · 5 All Deliveries · ₹1,03,800 target*, and *Continue →* on
+Borivali North opens the stop list with *₹7,920 collected this route*, Ravi
+General Store *Collected*, Meena Kirana *Partial payment*. No console errors.
+Every URL in `modules.json` resolves on disk.
