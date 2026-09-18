@@ -296,7 +296,11 @@
       '<div class="fbx-list">' +
         row("fbx-feedback", "", ICON.form, "Give feedback", "30 seconds — one tap and you're done") +
         row("fbx-join", "is-go", ICON.join, "Become a part of FoodBridge", "Create your account and set up your business") +
-        row("fbx-wa", "is-wa", ICON.wa, "Back to WhatsApp menu", "Return to the FoodBridge menu on WhatsApp") +
+        /* "Back to WhatsApp menu" was a third row here and is hidden as of
+           18 Sep 2026. The way back to WhatsApp is not gone — giving feedback
+           ends there, and so does "Skip — just take me back". It is the icon
+           and the `.is-wa` style's only caller, and both are kept for its
+           return rather than deleted. */
       "</div>"
     );
     sheet.querySelector("#fbx-feedback").addEventListener("click", openForm);
@@ -308,7 +312,6 @@
         window.location.href = "../../../index.html#/onboarding?signup=1";
       }
     });
-    sheet.querySelector("#fbx-wa").addEventListener("click", function () { close(); goWhatsApp(); });
   }
 
   function row(id, cls, icon, title, sub) {
