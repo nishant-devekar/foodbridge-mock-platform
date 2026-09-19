@@ -224,6 +224,7 @@
 
   const state = {
     screen: "signup",
+    sawOffer: false,          // arrived via ?start=new, so Back has somewhere to go
     view: "flow",
     form: { name: "", business: "", mobile: "", gstin: "" },
     errors: {},
@@ -314,8 +315,24 @@
       '<div class="ob-prog" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="' + i + '">' + bars + "</div></header>";
   }
 
+  /* The window that owns the platform's hash is NOT always `window.top`: the
+     IVR simulator frames the platform, so `top` is the simulator and a route
+     set there goes nowhere. Climb until a frame answers to FBPlatform. */
+  function platformWin() {
+    var w = window;
+    for (var up = 0; up < 4; up++) {
+      var next;
+      try { next = w.parent; } catch (e) { return null; }
+      if (!next || next === w) return null;
+      w = next;
+      try { if (w.FBPlatform) return w; } catch (e) { /* keep climbing */ }
+    }
+    return null;
+  }
+
   function handoff(route) {
-    try { if (window.top && window.top !== window.self) { window.top.location.hash = "#/" + route; return; } } catch (e) { /* cross-origin */ }
+    var pw = platformWin();
+    if (pw) { try { pw.location.hash = "#/" + route; return; } catch (e) { /* fall through */ } }
     window.location.href = "../../../index.html#/" + route;
   }
 
@@ -354,6 +371,10 @@
   function goBack() {
     if (state.sheet) { if (!state.sheet.locked) closeSheet(); return; }
     switch (state.screen) {
+      /* Only when the offer is where they actually came from. Someone who
+         opened the web directly has never seen it, and sending them to a
+         question they were not asked is worse than no back button. */
+      case "signup": return state.sawOffer ? go("offer") : undefined;
       case "source": return go("signup");
       case "connect": return go("source");
       case "import": return stopImport();
@@ -363,6 +384,50 @@
       case "order": state.order = null; return go("ready");
       default: return;
     }
+  }
+
+  /* Buttons, not rows: what each one does is said underneath it, so the thing
+     you press still looks like a thing you press. Shared by the offer screen
+     and by "You're all set". */
+  const pick = function (id, title, sub, alt) {
+    return '<button class="ob-cta' + (alt ? " is-alt" : "") + '" id="' + id + '">' + title + "</button>" +
+      '<p class="ob-pick-s">' + sub + "</p>";
+  };
+
+  /* ════════════════════════════════════════════════════════════════════
+     0 · THE OFFER — the first thing a new arrival from WhatsApp sees.
+
+     It is the consent question, and it is phrased as an OFFER rather than a
+     request. "Can we contact you?" asked cold, before anything of value has
+     been shown, is answered no by most people — and then exploring stops
+     being a choice and becomes the default path by accident. "Shall I set up
+     your business?" is the same tap and the same two outcomes, but it asks
+     about what they get rather than what we take. Agreeing to have a business
+     set up on this number IS the permission, recorded when it is given.
+
+     There is no code to type. WhatsApp has already verified the number before
+     the user taps anything; an OTP would prove nothing a tap does not, and
+     would cost the browsers we most want to learn from.
+     ════════════════════════════════════════════════════════════════════ */
+  function drawOffer() {
+    render(
+      chrome("offer", { wordmark: true }) +
+      '<main class="ob-main is-s01">' +
+        '<h1 class="ob-h1 is-center s01-h">Shall I set up your business?</h1>' +
+        '<p class="ob-sub is-center s01-sub">I can bring your customers, products and orders ' +
+          "across from Tally, Zoho or a spreadsheet — you won\u2019t have to type them in.</p>" +
+        '<div class="ob-pick" style="margin-top:2.4rem">' +
+          /* Weight matters here. `is-alt` is the outlined style, so the solid
+             button must be YES — making "Not now" the loud one would push
+             people into exploring by visual default rather than by choice,
+             and quietly turn the browse path into the main funnel. */
+          pick("b-yes", "Yes, set it up", "Takes a couple of minutes") +
+          pick("b-later", "Not now \u2014 show me around", "Have a look first. Nothing to undo.", true) +
+        "</div>" +
+      "</main>"
+    );
+    $("#b-yes").addEventListener("click", function () { go("signup"); });
+    $("#b-later").addEventListener("click", function () { startGuest(); });
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -587,7 +652,13 @@
              before, then the legal line. Loudest first, quietest last, and the
              two ways ON sit together as one choice rather than as two lines
              separated by a paragraph about Terms. */
-          '<p class="ob-guest-line">or <button class="ob-tlink is-g" id="b-guest">Continue as guest</button></p>' +
+          /* 20 Sep 2026: "or Continue as guest" named what the system thought
+             the person was. The unified flow has no guests — someone is setting
+             up, or having a look around — so the line says what happens, in the
+             same words the chat and the Explore screen use. "Not ready yet?"
+             because most people here already chose "Yes, set it up" in
+             WhatsApp; this is their way out if the form puts them off. */
+          '<p class="ob-guest-line">Not ready yet? <button class="ob-tlink is-g" id="b-guest">Have a look around first</button></p>' +
           '<p class="ob-login">Already have an account? <button class="ob-tlink is-g" id="b-login">Log in</button></p>' +
           '<p class="ob-terms">By continuing, you agree to our<br><button class="ob-tlink" id="b-terms">Terms of Use</button> &amp; <button class="ob-tlink" id="b-privacy">Privacy Policy</button></p>' +
         "</footer>" +
@@ -656,17 +727,25 @@
   }
 
   /* Nothing is asked for, and nothing already on this device is touched.
-     Where it lands depends on which screen asked: from sign-up, a guest is a
-     new person, so they start the flow at S02. From the Log in sheet they are
-     someone trying to get into the app, so they land in it — `to: "dashboard"`. */
-  function startGuest(o) {
-    o = o || {};
+
+     19 Sep 2026 — a guest now lands on EXPLORE, not on S02.
+
+     Sending someone who has just declined setup to "Where is your business
+     data today?" asked them the exact question they declined, and cost about
+     seven taps of import ceremony before any feature appeared. Explore and
+     set-up were the same flow; only this account object separated them.
+     `#/explore` is six doors into screens that already exist.
+
+     20 Sep 2026 — the Log in sheet no longer offers this, so there is one
+     caller and one destination. */
+  function startGuest() {
     state.account = { guest: true, name: "", business: "", mobile: "", gstin: "", gstVerified: false, gst: null,
                       createdAt: new Date().toISOString() };
     state.dataReady = null; state.parts = []; state.order = null; state.created = null;
     state.sheet = null;
-    if (o.to === "dashboard") { state.screen = "source"; save(); return handoff("dashboard"); }
-    go("source");
+    state.screen = "source";            // where they resume if they come back to set up
+    save();
+    return handoff("explore");
   }
 
   function createAccount() {
@@ -702,15 +781,28 @@
       body: '<div class="ob-fields is-sheet">' +
           field("lphone", "Phone number", ICON.phone, "", { type: "tel", mode: "numeric", auto: "tel-national", enter: "go", max: 14, prefix: "+91" }) +
         '</div><p class="ob-err" id="l-err" hidden></p>',
-      actions: '<button class="ob-cta" id="s-login">Log in</button>' +
-        '<p class="ob-guest-line">or <button class="ob-tlink is-g" id="s-guest">Continue as guest</button></p>',
+      /* No guest option here. Whoever opens Log in has an account; a guest
+         door in this sheet was a third way in, and it opened someone else's
+         dashboard. The real dead end is a number we cannot find — that one
+         now leads somewhere (see below). */
+      actions: '<button class="ob-cta" id="s-login">Log in</button>',
       bind: function () {
         $("#s-login").addEventListener("click", function () {
           const acc = ls.get(ACCOUNT_KEY);
           const typed = phoneKey($("#f-lphone").value);
           if (!acc || typed.length !== 10 || phoneKey(acc.mobile) !== typed) {
             const e = $("#l-err"); e.hidden = false;
-            e.textContent = typed.length !== 10 ? "Enter your 10-digit mobile number." : "No account with this number on this device. Create one instead.";
+            if (typed.length !== 10) { e.textContent = "Enter your 10-digit mobile number."; return; }
+            /* "Create one instead" used to be plain text — the answer, with no
+               way to act on it. It is a tap now, and the number they just typed
+               comes with them, so it is not asked for twice. */
+            e.innerHTML = 'No account with this number on this device. ' +
+              '<button class="ob-tlink is-g" id="s-create" type="button">Create one instead</button>';
+            $("#s-create").addEventListener("click", function () {
+              state.form.mobile = typed;
+              state.sheet = null;
+              go("signup");
+            });
             return;
           }
           /* Logging in ends the guest session, so restore() reads the account
@@ -723,9 +815,10 @@
              their flow state is saved first, so opening onboarding again picks
              up where they left it. */
           save();
-          handoff("dashboard");
+          /* The unified flow sends a returning owner straight to what needs
+             them — the control tower, not the old dashboard. */
+          handoff("control-tower");
         });
-        $("#s-guest").addEventListener("click", function () { startGuest({ to: "dashboard" }); });
       },
     });
   }
@@ -1641,12 +1734,6 @@
   function drawReady() {
     const c = counts();
     const ready = ALL_KINDS.filter(function (x) { return c[x.k]; }).length;
-    /* Buttons, not rows: what each one does is said underneath it, so the
-       thing you press still looks like a thing you press. */
-    const pick = function (id, title, sub, alt) {
-      return '<button class="ob-cta' + (alt ? " is-alt" : "") + '" id="' + id + '">' + title + "</button>" +
-        '<p class="ob-pick-s">' + sub + "</p>";
-    };
     render(
       chrome("ready") +
       '<main class="ob-main">' +
@@ -1661,7 +1748,7 @@
       "</main>"
     );
     $("#b-order").addEventListener("click", function () { go("order"); });
-    $("#b-tower").addEventListener("click", function () { save(); handoff("dashboard"); });
+    $("#b-tower").addEventListener("click", function () { save(); handoff("control-tower"); });
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -2068,9 +2155,10 @@
       "</main>" +
       '<footer class="ob-foot"><button class="ob-cta" id="b-dash">Open your control tower</button></footer>'
     );
-    /* The same destination screen 8 offers, under the same name. The control
-       tower is not built yet; this hands off to the dashboard until it is. */
-    $("#b-dash").addEventListener("click", function () { save(); handoff("dashboard"); });
+    /* The same destination screen 8 offers, under the same name — and since
+       19 Sep 2026 it is a real screen rather than a promise pointed at the
+       dashboard. See screens/control-tower.html. */
+    $("#b-dash").addEventListener("click", function () { save(); handoff("control-tower"); });
   }
 
   /* The Order Drafts destination (?view=drafts): the orders created here. */
@@ -2093,8 +2181,13 @@
   /* ── run ─────────────────────────────────────────────────────────────── */
   function draw() {
     if (state.view === "drafts") return drawOrdersHome();
-    if (!state.account) state.screen = "signup";
+    /* Nobody without an account may land deeper in the flow. The OFFER is the
+       one screen that is legitimately pre-account — it is what a new arrival
+       from WhatsApp meets before deciding whether to have one — so it is
+       exempt, and everything else still falls back to sign-up. */
+    if (!state.account && state.screen !== "offer") state.screen = "signup";
     switch (state.screen) {
+      case "offer": return drawOffer();
       case "source": return drawSource();
       case "connect": return drawConnect();
       case "import": return drawImport();
@@ -2141,33 +2234,48 @@
   /* Reads `signup=1` from this page's own query and from the platform hash
      above it — #/onboarding?signup=1 — and clears it from whichever carried
      it, so the flag acts exactly once. */
-  function takeSignupFlag() {
+  function takeFlag(key, want) {
     let found = false;
+    const hit = function (v) { return want ? v === want : !!v; };
     try {
       const own = new URL(location.href);
-      if (own.searchParams.get("signup")) {
+      if (hit(own.searchParams.get(key))) {
         found = true;
-        own.searchParams.delete("signup");
+        own.searchParams.delete(key);
         history.replaceState(null, "", own.pathname + own.search + own.hash);
       }
     } catch (e) { /* nothing readable here */ }
-    try {
-      const top = RD().topWin();
-      const h = String(top.location.hash || "");
-      const q = h.indexOf("?");
-      if (q !== -1) {
+    /* The platform's hash is the frame ABOVE this one, which is not always
+       `window.top`: the IVR simulator frames the platform, so from in here
+       `top` is the simulator and the flag would never be seen. Walk out one
+       frame at a time and take it from whichever level is carrying it. */
+    var w = window;
+    for (var up = 0; up < 4; up++) {
+      var next;
+      try { next = w.parent; } catch (e) { break; }
+      if (!next || next === w) break;
+      w = next;
+      try {
+        const h = String(w.location.hash || "");
+        const q = h.indexOf("?");
+        if (q === -1) continue;
         const params = new URLSearchParams(h.slice(q + 1));
-        if (params.get("signup")) {
-          found = true;
-          params.delete("signup");
-          const rest = params.toString();
-          top.history.replaceState(null, "", top.location.pathname + top.location.search +
-            h.slice(0, q) + (rest ? "?" + rest : ""));
-        }
-      }
-    } catch (e) { /* a window we may not touch */ }
+        if (!hit(params.get(key))) continue;
+        found = true;
+        params.delete(key);
+        const rest = params.toString();
+        w.history.replaceState(null, "", w.location.pathname + w.location.search +
+          h.slice(0, q) + (rest ? "?" + rest : ""));
+        break;
+      } catch (e) { /* a window we may not touch — keep climbing */ }
+    }
     return found;
   }
+  function takeSignupFlag() { return takeFlag("signup"); }
+  /* `?start=new` is what the WhatsApp row "I'm new here" carries. It opens on
+     the OFFER rather than the account form, because the first thing a new
+     arrival should meet is a choice, not a set of fields. */
+  function takeStartNew() { return takeFlag("start", "new"); }
 
   function mount() {
     /* ?obreset on localhost: start as a brand-new user. Removed from the address
@@ -2191,6 +2299,13 @@
       [STORE_KEY, OAUTH_KEY, GUEST_KEY].forEach(function (k) { ls.del(k, sessionStorage); });
       state.account = null; state.dataReady = null; state.parts = [];
       state.order = null; state.created = null; state.screen = "signup";
+    }
+    /* A brand-new arrival from WhatsApp. Only ever shown to someone with no
+       account on this device — a returning user who taps the wrong row should
+       not be asked to set up a business they already have. */
+    if (takeStartNew() && !state.account) {
+      state.sawOffer = true;
+      state.screen = "offer";
     }
     handleAppReturn();
     /* Back from Zoho can restore this page from the browser cache with its frame
