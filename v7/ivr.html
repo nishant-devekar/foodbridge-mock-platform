@@ -1,0 +1,354 @@
+<!doctype html>
+<!--
+  WHATSAPP IVR — the simulator.
+
+  It reads assets/ivr-flow.json, the same object that is pasted into
+  `whatsappIvrFlow`, and applies the same rules ivrOrchestrator.js applies:
+
+    · nested menus (cafex-backend ec20bd3c) — `nodes`, `next`, __BACK__/__HOME__,
+      position held as a stack, a button counting only in the menu it belongs to
+    · 3 or fewer buttons draw reply BUTTONS; 4 or more draw a single-section list
+    · titles truncate at 20 (reply) / 24 (list row), descriptions at 72
+    · a button with `url` sends it as-is;  one without mints a per-user link
+    · {userName} / {tenantName} / {title} substitute into BODIES, never the url
+    · a link or support tap keeps the user where they are in the tree
+
+  So the whole journey — chat, tap, land in v7 — can be walked on one laptop
+  with no Meta account, no tunnel and no backend. <BASE> is replaced with this
+  server's own origin.
+
+  It is a MIRROR, not the thing itself: it proves the config, not the delivery.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FoodBridge on WhatsApp — simulator</title>
+<style>
+  :root {
+    --wa-bg: #0b141a; --wa-panel: #111b21; --wa-head: #202c33;
+    --wa-in: #202c33; --wa-out: #005c4b; --wa-txt: #e9edef; --wa-sub: #8696a0;
+    --wa-line: #2a3942; --wa-green: #00a884; --wa-btn: #1d2f38;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a0f13; font-family: var(--font); color: var(--wa-txt); }
+
+  .wrap { display: grid; grid-template-columns: 420px 1fr; height: 100dvh; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } .stage { display: none; } }
+
+  /* ── the phone ─────────────────────────────────────────────────────── */
+  .phone { display: flex; flex-direction: column; background: var(--wa-bg); border-right: 1px solid #000; min-width: 0; }
+  .bar { background: var(--wa-head); padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex: none; }
+  .ava { width: 38px; height: 38px; border-radius: 50%; background: var(--wa-green); display: grid; place-items: center; font-weight: 700; color: #06231c; flex: none; }
+  .who { min-width: 0; }
+  .who b { display: block; font-size: 15px; }
+  .who span { display: block; font-size: 12px; color: var(--wa-sub); }
+
+  .thread { flex: 1; overflow-y: auto; padding: 16px 14px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+  .msg { max-width: 86%; padding: 8px 10px; border-radius: 8px; font-size: 14.5px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.in  { background: var(--wa-in);  align-self: flex-start; border-top-left-radius: 2px; }
+  .msg.out { background: var(--wa-out); align-self: flex-end;  border-top-right-radius: 2px; }
+  .msg b { font-weight: 600; }
+  .time { font-size: 10.5px; color: var(--wa-sub); margin-top: 3px; text-align: right; }
+
+  /* reply buttons — what WhatsApp draws at 3 rows or fewer */
+  .replies { align-self: flex-start; max-width: 86%; width: 86%; display: flex; flex-direction: column; gap: 2px; margin-top: -4px; }
+  .reply {
+    background: var(--wa-btn); color: #53bdeb; border: 0; border-top: 1px solid var(--wa-line);
+    padding: 11px 10px; font: inherit; font-size: 14px; cursor: pointer; width: 100%;
+  }
+  .reply:first-child { border-top: 0; border-radius: 0 0 0 0; }
+  .reply:hover { background: #243a45; }
+
+  /* the CTA-url message */
+  .cta { border-top: 1px solid var(--wa-line); margin-top: 8px; padding-top: 8px; text-align: center; }
+  .cta button { background: none; border: 0; color: #53bdeb; font: inherit; font-size: 14px; cursor: pointer; padding: 4px; }
+
+  .compose { flex: none; background: var(--wa-head); padding: 10px 12px; display: flex; gap: 8px; }
+  .compose input { flex: 1; background: var(--wa-in); border: 0; border-radius: 20px; padding: 10px 14px; color: var(--wa-txt); font: inherit; font-size: 14px; outline: none; }
+  .compose button { background: var(--wa-green); border: 0; border-radius: 50%; width: 40px; height: 40px; color: #06231c; font-size: 17px; cursor: pointer; flex: none; }
+
+  /* ── the stage ─────────────────────────────────────────────────────── */
+  .stage { background: #11171b; display: flex; flex-direction: column; min-width: 0; }
+  .stage-bar { padding: 10px 16px; border-bottom: 1px solid #1e272c; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+  .stage-bar p { margin: 0; font-size: 12px; color: var(--wa-sub); font-family: ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stage-bar button { background: none; border: 1px solid #2a3942; color: var(--wa-sub); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  .stage iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+  .empty { flex: 1; display: grid; place-items: center; color: var(--wa-sub); font-size: 13px; padding: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="phone">
+    <div class="bar">
+      <div class="ava">FB</div>
+      <div class="who"><b>FoodBridge</b><span>+91 99880 87779 · business account</span></div>
+    </div>
+    <div class="thread" id="thread"></div>
+    <form class="compose" id="compose">
+      <input id="input" placeholder="Message" autocomplete="off">
+      <button type="submit" aria-label="Send">➤</button>
+    </form>
+  </section>
+
+  <section class="stage">
+    <div class="stage-bar">
+      <p id="stage-url">Nothing open yet — tap a row in the chat.</p>
+      <button id="stage-reset" type="button">Start over</button>
+    </div>
+    <div class="empty" id="stage-empty">The link a row sends opens here, exactly as it would on a phone.</div>
+    <iframe id="stage-frame" title="FoodBridge" hidden></iframe>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── What this mirrors ────────────────────────────────────────────────
+     cafex-backend/whatsapp/services/ivrOrchestrator.js as of ec20bd3c
+     ("nested IVR menus of unlimited depth, config-driven"):
+
+       · position is a stack of node keys (session.context.menuStack);
+         the root menu is the flow itself, and an empty stack
+       · a button counts only if it is in the menu the user is CURRENTLY in —
+         tapping a button on an older message falls through to "unknown"
+       · `next` is checked before url / SUPPORT / smart link
+       · __BACK__ pops one level, __HOME__ empties the stack; both only work
+         in a node that lists them, and neither is injected
+       · a link or support tap keeps the user in their node
+       · the support confirmation returns them to the root, as text only
+       · unknown input re-shows the current node, prefixed with
+         unknownMessage — except on first contact, and never after navigation
+       · a node's greeting / menuButtonLabel fall back to the root's
+       · depth capped at 20; a `next` to a missing node stays put        */
+
+  var FLOW = null;
+  var NODES = {};
+  var stack = [];                 // session.context.menuStack
+  var step = "MAIN_MENU";         // session.currentStep
+  var newSession = true;          // first message of a session: no unknown prefix
+  var MAX_DEPTH = 20;
+  var USER = { userName: "there", tenantName: "FoodBridge" };
+
+  var thread = document.getElementById("thread");
+  var frame = document.getElementById("stage-frame");
+  var stageUrl = document.getElementById("stage-url");
+  var stageEmpty = document.getElementById("stage-empty");
+
+  var esc = function (s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  };
+  function fmt(s) {
+    return esc(s).replace(/\*([^*\n]+)\*/g, "<b>$1</b>").replace(/_([^_\n]+)_/g, "<i>$1</i>");
+  }
+  function tpl(s, vars) {
+    return String(s || "").replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; });
+  }
+  function now() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function bubble(text, dir, extraHtml) {
+    var el = document.createElement("div");
+    el.className = "msg " + dir;
+    el.innerHTML = fmt(text) + (extraHtml || "") + '<div class="time">' + now() + "</div>";
+    thread.appendChild(el);
+    thread.scrollTop = thread.scrollHeight;
+    return el;
+  }
+
+  /* ── where the user is ─────────────────────────────────────────────── */
+  function nodeAt(st) { return st.length ? NODES[st[st.length - 1]] : FLOW; }
+  function crumb() {
+    return ["Main menu"].concat(stack).join("  ›  ");
+  }
+  function showCrumb() {
+    if (stageEmpty.hidden) return;            // a page is open: leave its URL showing
+    stageUrl.textContent = "In the chat: " + crumb();
+  }
+
+  /* ── buildMenuReply ────────────────────────────────────────────────── */
+  function renderMenu(node, body) {
+    var buttons = node.buttons || [];
+    bubble(body, "in");
+    var box = document.createElement("div");
+    box.className = "replies";
+    buttons.forEach(function (b) {
+      var el = document.createElement("button");
+      el.className = "reply";
+      el.type = "button";
+      if (buttons.length <= 3) {
+        el.textContent = b.title.substring(0, 20);                     // reply button
+      } else {
+        el.innerHTML = "<b>" + esc(b.title.substring(0, 24)) + "</b>" +  // list row
+          (b.description ? '<br><span style="color:#8696a0;font-size:12.5px">' +
+            esc(b.description.substring(0, 72)) + "</span>" : "");
+      }
+      /* Tapping sends the button's id, and the chat shows its title. Any
+         button in the thread can be tapped — the orchestrator decides whether
+         it still counts. */
+      el.addEventListener("click", function () { receive(b.id, b.title); });
+      box.appendChild(el);
+    });
+    if (buttons.length > 3) {
+      var lbl = document.createElement("div");
+      lbl.style.cssText = "font-size:11.5px;color:#8696a0;padding:4px 10px 0";
+      lbl.textContent = "☰ " + (node.menuButtonLabel || FLOW.menuButtonLabel || "Choose Option").substring(0, 20);
+      box.insertBefore(lbl, box.firstChild);
+    }
+    thread.appendChild(box);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  /* ── the orchestrator's handle(), one inbound message at a time ─────── */
+  function receive(input, shownAs) {
+    bubble(shownAs != null ? shownAs : input, "out");
+    setTimeout(function () { handle(String(input).trim()); }, 350);
+  }
+
+  function handle(input) {
+    var first = newSession;
+    newSession = false;
+
+    if (step === "AWAITING_SUPPORT_TEXT") {
+      bubble(tpl(FLOW.supportConfirmation, USER), "in");
+      step = "MAIN_MENU";
+      stack = [];                                   // back to the root
+      showCrumb();
+      return;
+    }
+
+    var node = nodeAt(stack);
+    var matched = (node.buttons || []).filter(function (b) { return b.id === input; })[0];
+    var navigated = false;
+
+    if (matched) {
+      if (matched.id === "__HOME__") { stack = []; navigated = true; }
+      else if (matched.id === "__BACK__") { stack = stack.slice(0, -1); navigated = true; }
+      else if (matched.next) {
+        navigated = true;
+        if (!NODES[matched.next]) warn("`" + matched.id + "` points at a node that does not exist: " + matched.next);
+        else if (stack.length >= MAX_DEPTH) warn("menu depth limit (20) reached");
+        else stack = stack.concat([matched.next]);
+      }
+      if (navigated) node = nodeAt(stack);
+    }
+
+    if (matched && !navigated) {
+      if (matched.id === "SUPPORT") {
+        bubble(tpl(FLOW.supportPrompt, USER), "in");
+        step = "AWAITING_SUPPORT_TEXT";             // stack kept
+        showCrumb();
+        return;
+      }
+      var vars = Object.assign({ title: matched.title }, USER);
+      if (matched.url) {
+        sendCta(tpl(FLOW.staticLinkMessage, vars), matched.url, false);
+      } else {
+        /* A smart link is minted per user by shortCodeService. It needs a
+           resolved user — which a caller the backend does not recognise never
+           has, so on the real number this branch would answer with
+           smartLinkUnavailableMessage. */
+        bubble(tpl(FLOW.smartLinkUnavailableMessage, USER), "in");
+      }
+      showCrumb();
+      return;                                       // stack kept
+    }
+
+    var body = tpl(node.greeting || FLOW.greeting, USER);
+    if (input && step === "MAIN_MENU" && !navigated && !first) {
+      body = tpl(FLOW.unknownMessage, USER) + "\n\n" + body;
+    }
+    renderMenu(node, body);
+    showCrumb();
+  }
+
+  function sendCta(body, url) {
+    var label = (FLOW.smartLinkButtonLabel || "Open Link").substring(0, 20);
+    var el = bubble(body, "in", '<div class="cta"><button type="button">🔗 ' + esc(label) + "</button></div>");
+    el.querySelector(".cta button").addEventListener("click", function () { open(url); });
+  }
+
+  function open(url) {
+    var real = url.replace("<BASE>", base());
+    /* LOCALHOST ONLY: a browser holding an older index.html also holds an
+       older modules.json and onboarding.js, so an edit appears not to have
+       landed. Production URLs stay exactly as configured. */
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      real = real.replace("#", "?fb=" + Date.now() + "#");
+    }
+    /* At phone width the stage is hidden, and on a real phone a WhatsApp
+       link opens in the browser — so do that, and keep the chat where it is. */
+    var stage = document.querySelector(".stage");
+    if (!stage || getComputedStyle(stage).display === "none") {
+      window.open(real, "_blank");
+      return;
+    }
+    stageEmpty.hidden = true;
+    frame.hidden = false;
+    frame.src = real;
+    stageUrl.textContent = real.replace(base(), "").replace(/\?fb=\d+/, "");
+  }
+
+  function base() { return location.origin + location.pathname.replace(/\/ivr\.html$/, ""); }
+
+  function warn(msg) { bubble("⚠️ Config: " + msg, "in"); }
+
+  /* ── lint the config the way it would fail on the real number ──────── */
+  function lint() {
+    var problems = [];
+    var menus = [["the root menu", FLOW, true]].concat(
+      Object.keys(NODES).map(function (k) { return ["node " + k, NODES[k], false]; }));
+    menus.forEach(function (m) {
+      var name = m[0], node = m[1], isRoot = m[2], b = node.buttons || [];
+      if (b.length > 10) problems.push(name + " has " + b.length + " buttons — Meta rejects more than 10 and the menu never arrives");
+      var ids = {};
+      b.forEach(function (x) {
+        if (ids[x.id]) problems.push(name + ": duplicate id " + x.id);
+        ids[x.id] = 1;
+        if (x.next && !NODES[x.next]) problems.push(name + ": " + x.id + " → missing node " + x.next);
+        var max = b.length <= 3 ? 20 : 24;
+        if (x.title.length > max) problems.push(name + ": \"" + x.title + "\" is cut to " + max + " characters");
+        if ((x.description || "").length > 72) problems.push(name + ": a description for " + x.id + " is cut to 72");
+      });
+      if (!isRoot && !ids.__BACK__ && !ids.__HOME__) {
+        problems.push(name + " has no Back or Main menu button — a user who opens it is held there until the session times out");
+      }
+    });
+    problems.forEach(warn);
+  }
+
+  /* ── free text ─────────────────────────────────────────────────────── */
+  document.getElementById("compose").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var input = document.getElementById("input");
+    var text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    receive(text);
+  });
+
+  document.getElementById("stage-reset").addEventListener("click", function () {
+    try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+    location.reload();
+  });
+
+  /* ── boot: the user says hello, as they would on a real phone ──────── */
+  fetch("assets/ivr-flow.json?v=" + Date.now())
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      delete j._comment;
+      FLOW = j;
+      NODES = j.nodes && typeof j.nodes === "object" ? j.nodes : {};
+      lint();
+      setTimeout(function () { receive("Hi"); }, 300);
+    })
+    .catch(function (e) { bubble("Could not read assets/ivr-flow.json — " + e.message, "in"); });
+})();
+</script>
+</body>
+</html>
