@@ -1985,3 +1985,400 @@ route that is not deployed yet, so the very case this queue exists for would
 have thrown feedback away. It now drops **only 400 and 422**, the two answers
 that judge the entry itself; everything else is about the deployment and stays
 queued.
+
+### 19 September 2026 — the unified flow: two doors, and a way out of everywhere
+
+**Product owner:** the WhatsApp IVR asks one thing — new, or existing — and
+everything after it happens in v7. A new arrival is offered setup on their
+number; whoever declines gets to look around properly rather than being sent
+back into the import flow. Every screen exits the same way, and the exit ends
+in the chat.
+
+**What the walk-through found first.** Run on the live cut at 375×812 as a new
+user, before anything was written:
+
+| | |
+| --- | --- |
+| **Explore landed in setup** | *Continue as guest* opened *“Where is your business data today?”* — the exact question the user had just declined — then ~7 taps of import ceremony before any feature. Explore and set-up were the same flow; only the account object separated them |
+| **Most of the platform had no way out** | `EXIT DEMO` sat on 5 of 26 destinations. Onboarding had none. The dashboard had none — finish onboarding and you were stranded |
+| **Identity broke at the handover** | Onboarding collects a name and business; the shell showed a hardcoded *Mahesh · QA store*. You typed your name and landed in someone else’s shop |
+| **The control tower was promised and missing** | `drawCreated()`’s button already read *Open your control tower*, with a comment conceding it handed off to the dashboard |
+
+**The new screens.**
+
+`screens/explore.html` — six doors into screens that already exist, each saying
+what you will see before you spend a tap on it. **This is the one that makes the
+agreed flow true**: declining setup now costs three taps to a real feature
+instead of seven taps of setup. *Set up my business* sits at the foot of it at
+footer weight, always there and never shouting; the persuasive moment belongs at
+the end of a feature, not on a menu row.
+
+`screens/control-tower.html` — the owner’s home, ranked from the tenant’s own
+532 orders. Not a dashboard: it shows the few things worth acting on, each
+naming the screen that proves it, and says so plainly when there is nothing.
+Acting or dismissing is remembered, so the next load ranks differently.
+
+**The offer screen**, `drawOffer()` in onboarding — what `?start=new` opens on.
+It is the consent question, phrased as an **offer** rather than a request:
+*“Shall I set up your business on this number?”* Asked cold, *“can we contact
+you?”* is answered no by most people, and explore then stops being a choice and
+becomes the default path by accident. Agreeing to have a business set up on a
+number **is** the permission, recorded when it is given. There is no code to
+type — WhatsApp verified the number before the user tapped anything, so an OTP
+would prove nothing a tap does not and would cost exactly the browsers we most
+want to learn from.
+
+**The data layer.** `assets/context.js` is one read model over the tenant and a
+**reader, not a second business layer**: `orderingStatusFor()` is delegated to
+`FB_EVIDENCE` rather than reimplemented, so D-016’s two implementations do not
+become three. `assets/nudges.js` detects and ranks deterministically — no model
+in the loop — and the cadence-not-cash rule (D-015) is **enforced rather than
+remembered**: `assertNoMoney()` throws on localhost if any nudge promises a
+rupee figure this tenant’s records cannot support.
+
+**Three defects the build itself surfaced**, each caught by running it:
+
+- **Thin and out-of-stock counted the same 25 products.** `low` was `<= 5`,
+  which includes zero, so two nudges described one problem — twice the apparent
+  trouble and half the trust in both. They are disjoint now, and “thin” is
+  correctly empty for this tenant.
+- **The offer screen drew *Not now* as the primary button.** `is-alt` is the
+  outlined style, and the flags were the wrong way round — which would have
+  pushed people into exploring by visual default, the precise funnel accident
+  the offer wording exists to avoid.
+- **The lead card showed three shops it could not help with.** The list sorts by
+  days overdue and the most overdue are exactly the ones too stale to predict
+  from (D-017), so slicing the top three put three *no recent history* rows
+  directly under a sentence promising twenty we could act on. It shows the
+  actionable ones now and counts the stale ones separately.
+
+**A nesting bug, fixed in three places.** `takeSignupFlag()` and both
+`handoff()`s reached for `window.top`. That is the platform only when the
+platform is the top document — and `ivr.html` frames it, so from inside a module
+`top` was the simulator and neither the flag nor the route ever arrived. All
+three now climb the frame chain: the flag is taken from whichever ancestor
+carries it, and a route is set on the first ancestor that answers to
+`FBPlatform`.
+
+**The exit is a contract now, not a menu.** One row — *Give feedback* — and both
+it and *Skip* end in the chat. **Become a part of FoodBridge is gone from it**:
+it routed into onboarding, which put a whole flow between the exit and the chat.
+Signing up is a door at the front now (*I’m new here* in WhatsApp, and the
+standing offer on every explore screen), which is where that decision belongs.
+The icons and styles for the removed rows are kept rather than deleted.
+
+**And the exit is on every destination.** The shell mounts it once in
+`index.html` rather than each screen mounting its own. Raw Material Inventory
+still draws its own, because it passes a **Receive Stock** tab through the bar
+and suppressing the bar would take the control with it — so whoever is framed
+wins, and `deferToFramedExitBar()` stands the shell’s bar down for that one
+route. The other four in-module mounts only fire when opened standalone.
+
+**The shell shows whose business it is.** `identity()` prefers the account
+onboarding wrote over the seed, for the sidebar store name, the mobile header
+and the QR modal. A guest still sees the seed, because a guest has no name and
+nothing is invented.
+
+**The IVR, as configuration.** `assets/ivr-flow.json` is the object to paste
+into `whatsappIvrFlow`; `ivr.html` is a simulator that reads the same file and
+mirrors `ivrOrchestrator.js` — two states, reply buttons at ≤3 rows and a list
+above, truncation at 20/24/72, static `url` sent verbatim, smart links minted
+per user, every reply returning to `MAIN_MENU`. **Nothing in cafex-backend is
+modified.** Three rows: *I’m new here* (static link to `?start=new`), *I have an
+account* (`AUTO_LOGIN`, already per-user and already authenticated), and *Talk
+to a person*.
+
+Verified end to end through the simulator at 375×812: *I’m new here* → the
+offer; *Not now* → explore; a feature → Customer Receivables in three taps;
+*Yes* → account → sample import → data found → data check → **Good afternoon,
+Shreyas · Devekar Traders — I checked 532 orders across 40 customers**, with the
+sidebar carrying the same name; the exit sheet showing one row on every
+destination. No console errors.
+
+**Not fixed, and worth saying.** A static link carries no identity —
+`{userName}` substitutes into message bodies, never into `url` — so a brand-new
+visitor still types their number once on sign-up. A returning visitor’s is
+carried by `AUTO_LOGIN`. Closing that gap means a new `smartCodeEventEnum` event
+on the backend, and it is not worth paying for before the flow is proven.
+
+**Still simulated, and it must be said out loud in a session:** the IVR here is
+a mirror of the config, not the delivery; Tally and Vyapar connections reveal
+records this repository already holds; accounts and orders live in the browser
+only. **Still absent on purpose:** receivables, overdue value, capital tied and
+margin — this tenant’s export has orders but no invoices or payments, so the
+control tower draws none of them and says why.
+
+### 20 September 2026 — the questions go back into the chat
+
+**Product owner:** the IVR built on 19 September was too flat — three buttons,
+each a link, with the questions asked in v7. That is not the agreed flow. The
+agreed flow asks its questions **in WhatsApp**: new or existing; then *shall I
+set up your business on this number?* or *do you run a store, or buy from one?*;
+and only the end of each branch is a link into v7.
+
+**Why it was flat, and what changed underneath.** On 19 September the
+orchestrator was a two-state machine — `MAIN_MENU` and `AWAITING_SUPPORT_TEXT`,
+every button returning to the first — so a second question in the chat was not
+possible without backend work, and the questions were moved into v7 instead.
+That was a real constraint, but moving them should have been put to the product
+owner as a choice rather than made quietly. It is no longer a constraint:
+**cafex-backend `ec20bd3c` added nested menus, driven by config alone** — a
+`nodes` registry, `next` on a button to open one, `__BACK__` / `__HOME__` to
+navigate, the position held in `session.context.menuStack`.
+
+**`assets/ivr-flow.json` is the agreed tree now,** on that schema:
+
+```
+Hi ─┬─ I'm new here ──── Shall I set up your business on this number?
+    │                        ├─ Yes, set it up  → link: sign up
+    │                        └─ Not now ─────── pick a feature → link
+    ├─ I have an account ─ Do you run a store, or buy from one?
+    │                        ├─ I run a store   → link: what needs you today
+    │                        └─ I buy from one ── my orders · shop · a problem
+    └─ Talk to a person
+```
+
+Every menu is within Meta's ten rows and every node carries a way back — the
+backend does not inject one, and a node without `__BACK__` or `__HOME__` holds
+a user until the session times out.
+
+**Every leaf is a static `url`.** A caller the backend does not recognise always
+gets the top-level flow, and a smart link needs a resolved user, so a smart link
+anywhere in this tree would answer with *smartLinkUnavailableMessage*.
+
+**It goes in the demo tenant's `orgConfig`, never `globalConfig`.** It carries
+no `roles`, and `orgConfig.whatsappIvrFlow` replaces the global flow wholesale —
+pasted globally it would replace every tenant's production commerce menus.
+
+**Two copy decisions forced by how the orchestrator behaves:**
+
+- `unknownMessage` is *“Here's the menu again 👇”*, not *“I didn't catch that”*.
+  The exit sends **Hi** back into the chat, and with nested menus the session is
+  usually still inside a node — so *Hi* is “unknown input” there, and the old
+  copy scolded someone for coming back from the demo. The neutral line serves
+  both cases, and they land on the menu they left.
+- `{userName}` appears only in the greeting. An unrecognised caller's name is
+  the fallback *“there”* — right in *“Hello there!”*, and it made the support
+  reply read *“Got it, there.”*
+
+**v7 adapts in one place.** The storefront already opens its own
+`#purchases` / `#shop` / `#help` tab from its fragment, but the shell never
+passed one through, so *My orders* would have landed on the shop's front page.
+`withView()` in `platform.js` now hands `#/retails-overview?view=purchases` to
+the framed module as `#purchases`; a leaf URL that already has a fragment is
+left alone.
+
+**What the 19 September screens become.** The v7 offer screen (`?start=new`) and
+`screens/explore.html` are no longer on the WhatsApp path — the chat asks the
+question and lists the features itself. Both stay, as the web path: someone who
+opens v7 directly still gets *Continue as guest* → explore, and a shared
+`?start=new` link still gets the offer. *Yes, set it up* links to
+`#/onboarding?signup=1`, so v7 does not ask a question the chat already asked.
+
+**`ivr.html` mirrors the nested orchestrator** — the stack, current-menu-only
+matching (a tap on an older message's button falls through to the current menu,
+as it does on the real number), link and support taps keeping the user in place,
+the support confirmation returning to the root as text only. It opens by sending
+**Hi**, lints the config on load (over ten buttons, a `next` to a missing node, a
+node with no way back, titles past their limits), and at phone width opens links
+in a new tab the way a real phone opens a browser.
+
+Verified through the simulator: every branch navigates and backs out one level
+at a time; *My orders* opens the storefront on **Purchases** and *Shop and
+offers* on **Shop**; *Yes, set it up* opens **Create your account**; *I run a
+store* opens **What needs you today**; *Shelf audit* opens Stock Audit; coming
+back from a demo mid-tree shows the menu the user left; support ends at the
+root. No lint warnings.
+
+### 20 September 2026 — "I run a store" opens the business menu
+
+**Product owner, with a drawing:** an owner is not sent straight to a page. They
+get **Business Options** in the chat — FoodBridge Recommends, Manage orders,
+Check collections, View inventory, Create purchase request, Speak to support —
+and **FoodBridge Recommends** lists what needs attention, each item a link into
+the store, with *Open in FoodBridge* for the whole picture.
+
+Two new nodes in `assets/ivr-flow.json`, `BUSINESS` and `RECOMMENDS`; the
+`FB_OWNER` button now carries `next: "BUSINESS"` instead of a link. Seven and six
+rows, both lists, both with a way back.
+
+**Recommends names what needs attention, and carries no counts.** The drawing
+reads *5 orders delayed · ₹1,24,000 pending collections · low stock: 3 products
+· tomorrow's route ready*. Two parts of that cannot be carried over honestly:
+
+- **A count in config is not live.** `whatsappIvrFlow` is a string in Mongo;
+  the orchestrator substitutes `{userName}`, `{tenantName}` and `{title}` and
+  nothing else. A count pasted today is wrong within the week — and it would sit
+  in the chat beside a control tower that computes the same count fresh, so the
+  two disagree in front of whoever is watching.
+- **The rupee figure is one this tenant cannot support.** Its export has orders,
+  no invoices or payments (D-015), and the control tower says so on screen.
+
+So the rows say *what* — shops not ordering as usual, out of stock, tomorrow's
+route — and the link shows *how much*, from the records, on the day. Live counts
+in the chat are real work, not config: a dynamic node in the orchestrator, or
+the 07:15 message as an approved template. *Delayed orders* is also left out: no
+signal in v7 computes it.
+
+`staticLinkMessage` lost its *“Here's”*: with verb titles it read *“Here's
+Manage orders”*. It now leads with the title in bold.
+
+Verified in the simulator: *I have an account → I run a store* shows Business
+Options; *FoodBridge Recommends* shows its four items and the way back; *Back*
+returns to Business Options; each row sends its link. No lint warnings.
+
+**Correction, same day.** The entries above say this config “carries no
+`roles`” and should go in the demo tenant's `orgConfig`. Both rest on a partial
+copy of the live object. **The live `whatsappIvrFlow` has a `roles` block** —
+WHOLESALER_ADMIN, WHOLESALER_AGENT, RETAILER_PRIMARY, PRIVATE_USER — and pasting
+`assets/ivr-flow.json` over the whole object would have deleted every registered
+user's menu. The file is the **top level only**: replace those keys, add
+`staticLinkMessage` and `nodes`, and leave `roles` as it is. Checked by building
+each role's effective flow the way `loadFlowConfig()` does, before and after: the
+only keys that differ are `nodes` and `staticLinkMessage`, and no role can reach
+either, because every role button is a smart link or support.
+
+### 20 September 2026 — no more guests: setting up, or having a look around
+
+**Product owner:** *Continue as guest* belongs to the old model. The unified
+flow has no guests — a person is setting up, or having a look around — and the
+word appears nowhere else, not in the chat and not on the Explore screen.
+
+**Four changes.**
+
+1. **Sign-up: *or Continue as guest* → *Not ready yet? Have a look around
+   first*.** It already opened Explore; the wording named what the system
+   thought the person was, rather than what happens. *Not ready yet?* because
+   most people on this screen already chose *Yes, set it up* in WhatsApp, and
+   this is their way out if the form puts them off. *Have a look around* is the
+   chat's and the Explore screen's own phrase.
+2. **Log in: the guest option is gone, and the dead end leads somewhere.** A
+   guest door in the Log in sheet was a third way in, and it opened someone
+   else's dashboard. The real dead end is a number we cannot find: its message
+   ended *“Create one instead.”* as plain text. **Create one instead** is a tap
+   now, and switches to sign-up with the number already filled in.
+   `startGuest()` has one caller and one destination as a result.
+3. **Logging in lands on the control tower**, not the old dashboard — a
+   returning owner goes straight to what needs them.
+4. **Anyone without a real account sees a demo store, not test data.** The
+   header used to show *QA store* and *Mahesh · Admin* — the seed, which reads as
+   a test account in front of anyone. `identity()` now has exactly two answers:
+   a real account (its name and business, as Owner), or **Sample Distributors ·
+   Demo store** — the name the sample-data channel already uses. That covers a
+   guest session **and no session at all**, which matters more than it looks:
+   the WhatsApp *pick a feature* links open a feature directly, without ever
+   passing through v7's Explore screen, so those visitors have no guest session.
+   The seed's own brand and user are never shown now.
+
+**A bug the walk-through found.** The shell drew the identity once, at mount.
+Signing up, logging in and finishing onboarding all happen inside the frame
+without reloading the shell — so the header went on saying *Demo store* above a
+control tower that said *Good morning, Shreyas*. It was stale before change 4
+too, showing *QA store*; change 4 only made it visible. `refreshIdentity()`
+redraws the header and sidebar from storage on every navigation.
+
+The internal names — `startGuest`, `fb.v7.guest` — are unchanged: invisible to
+anyone using the product, and renaming them would orphan sessions already saved
+in browsers.
+
+Verified without reloading the page between steps: the new sign-up line opens
+Explore under *Sample Distributors · Demo store*; a feature opened from a
+WhatsApp link with no session shows the same; Log in has no guest option; an
+unknown number offers **Create one instead**, which lands on sign-up with the
+number filled in; a known number lands on the control tower with the header
+changing to the account's business and name; and the full sign-up path —
+*Asha Kulkarni, Kulkarni Foods*, sample data, through to the tower — ends with
+header, greeting and sub-line all naming the same business.
+
+### 20 September 2026 — the exit sheet stops claiming the demo was finished
+
+**Product owner:** *“🏁 You've completed the demo”* is something we do not know.
+EXIT DEMO sits on every destination now, so most taps come from the middle of a
+look around — and a chequered flag over someone who gave up after two screens is
+the demo talking to itself.
+
+- The sheet opens **“👋 Before you go — How's it going? One tap is all we need.”**
+- The feedback form's own header, *“How was the demo?”*, made the same claim; it
+  is **“How's it going?”**
+- **“Skip — just take me back”** is **“Skip — back to WhatsApp.”** Since the exit
+  sheet gained a ✕, there were two different backs on one sheet: ✕ returns to
+  the screen behind, skip leaves for the chat. Only one of them said which.
+
+The file's own diagram said *You've completed the demo* too, and now matches.
+Nothing else in the sheet changes: the rating is still the only required answer,
+sending still never blocks leaving, and the queue is untouched.
+
+Verified from the middle of a look around on the Explore screen: the sheet reads
+*Before you go*, the form reads *How's it going?*, and the way out is *Skip —
+back to WhatsApp*.
+
+### 20 September 2026 — no exit bar on the onboarding screens
+
+**Product owner:** the EXIT DEMO footer should not be on the onboarding flow.
+
+Since the shell began mounting the bar for every destination, it appeared over
+sign-up, *Where is your data?*, the import, the checks and the first order —
+somebody setting their business up, being offered a way to leave and rate a
+demo half way through. It argues against the thing they are in the middle of.
+
+**`noExitBar` in `modules.json`,** honoured by `deferToFramedExitBar()`, which
+already decided who draws the bar. Onboarding is the only destination carrying
+it. Putting it in the config rather than in the shell's logic keeps the rule
+where destinations are described.
+
+**Nobody is trapped by it.** The flow has its own Back on every screen after
+sign-up, *Not ready yet? Have a look around first* on the first one, and the
+bar returns the moment onboarding hands off — to the control tower at the end,
+or to Explore.
+
+**And the attribute alone did not hide it.** `#fbx-foot{…display:flex…}` is an
+ID selector, so it out-specifies the browser's own `[hidden]{display:none}`:
+the shell set `hidden`, the element reported `hidden === true`, and the bar
+stayed on screen. `#fbx-foot[hidden]{display:none}` now sits with the rule it
+has to beat. Both callers depended on this — the destination that asks for no
+bar, and the one that draws its own — so the defer path was never working
+either; the shell's bar was simply drawn underneath.
+
+**The first check was wrong in the same way the code was.** It asserted
+`b.hidden`, which was true, instead of asking whether anything was drawn.
+Re-verified on computed `display`, the element's own box, and a screenshot:
+nothing on *Create your account*, `body` padding back to `0px`; 58px of bar on
+Explore with the padding restored; and on Raw Material Inventory the shell's
+bar stays down while the module's own — *Receive Stock* and EXIT DEMO — is the
+one drawn.
+
+### 20 September 2026 — Explore loses two paragraphs, and the scrolling is fixed
+
+**Product owner:** drop *“Real screens, running on a real distributor's
+records…”* under the heading and *“Every figure you see is worked out from two
+years…”* under the cards, and sort out the scrolling on that page.
+
+Both gone. The six cards now say what the screen is, and the list fits a phone
+without scrolling at all.
+
+**Three separate faults were making it scroll.**
+
+1. **No room for the bars.** Two things float over the foot of these screens —
+   the shell's EXIT DEMO bar, 58px and fixed, and Explore's own sticky *Set up
+   my business* bar above it — and neither is in the document's flow when the
+   platform frames it. The last card and the paragraph under it sat beneath
+   them. `body:not(.fbx-has-foot) .app{padding-bottom:58px}` reserves the room,
+   and only when the shell draws the bar: opened standalone, `exit-demo.js`
+   mounts into the page and pads the body itself, and claiming it twice would
+   leave 58px of dead space.
+2. **The shell was 58px taller than the window.** `FB_EXIT.mount()` pads the
+   body so a flowing document's last line clears the bar. The shell is not
+   that — its content is a full-height iframe, so the padding shrank nothing
+   and simply gave the whole app a stray scroll over a white strip. `mount()`
+   takes `pad: false`, and the shell passes it. **`deferToFramedExitBar()` was
+   putting the class straight back on every navigation**, which is why the
+   first attempt appeared to do nothing; that line is gone.
+3. **A 5px overflow.** `.tail`, a spacer that predates the clearance above,
+   left the framed page five pixels taller than the viewport — enough to make
+   a page that visibly fits twitch under a finger. Removed from both screens
+   and from the stylesheet.
+
+Verified at 375×812: the shell does not scroll, the framed page overflows by
+**0px**, the last card clears the sticky bar and the sticky bar clears EXIT
+DEMO. The control tower, which shares the stylesheet and had the same missing
+clearance, now ends clear of the bar too.
