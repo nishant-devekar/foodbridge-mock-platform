@@ -71,6 +71,10 @@
        asset for every screen that carries it: v7/assets/exit-demo.js. -->
   <script src="../../../../assets/exit-demo.js?v=20260918E3"></script>
   <script>
+    /* This screen mounts its OWN bar even when framed, because it passes a
+       Receive Stock tab through it — suppressing the bar would take the
+       control with it. The shell notices a framed bar and stands its own
+       down; see assets/platform.js. */
     window.FB_EXIT.mount({
       /* Above the page, below this module's own overlays. */
       z: 39,

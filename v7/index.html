@@ -49,7 +49,7 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="assets/platform.css?v=20260918F58" />
+  <link rel="stylesheet" href="assets/platform.css?v=20260920C1" />
 </head>
 <body>
   <div id="root"></div>
@@ -65,12 +65,23 @@
   <!-- QR encoder, vendored (no network at view time), MIT — davidshimjs/qrcodejs.
        Powers the sidebar-footer "Store QR Code" that deep-links to the storefront. -->
   <script src="assets/qrcode.min.js"></script>
-  <script src="assets/platform.js?v=20260918F58"></script>
+  <script src="assets/platform.js?v=20260920C1"></script>
+  <!-- The way out, mounted ONCE for the whole platform rather than by each
+       module. It used to sit on five destinations of twenty-six, so finishing
+       onboarding or opening the dashboard left a user with no route back to
+       the chat. A module that mounts its own is skipped (see exit-demo.js);
+       screens opened standalone mount their own, because there is no shell
+       above them to do it. -->
+  <script src="assets/exit-demo.js?v=20260920C1"></script>
   <script>
     // ?config=<path> swaps the nav config. Local development uses it to point every
     // destination at a checkout on disk instead of the team's live Pages site —
     // see tools/dev.py. Absent, the published assets/modules.json is used.
     var fbConfig = new URLSearchParams(location.search).get("config") || undefined;
+    /* No body padding here: the shell's content is a full-height frame, so the
+       58px would only make this page taller than the window and give the whole
+       app a stray scroll. Framed screens keep their own clearance. */
+    if (window.FB_EXIT) window.FB_EXIT.mount({ z: 40, pad: false });
     window.FBPlatform.mount(document.getElementById("root"), fbConfig).catch(function (err) {
       document.getElementById("root").innerHTML =
         '<p style="font:14px system-ui;padding:24px;color:#b91c1c">' +

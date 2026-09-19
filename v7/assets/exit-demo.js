@@ -1,13 +1,24 @@
 /* ==========================================================================
    EXIT DEMO — the footer bar, and the three ways out of the demo behind it.
 
-   THE FLOW, as the product owner drew it (End of Demo Journey):
+   THE FLOW, as it stands (19 Sep 2026):
 
-       EXIT DEMO ─▶ ┌ You've completed the demo ────────────┐
-                    │  Give feedback      → form → WhatsApp │
-                    │  Become part of FB  → onboarding S01  │
-                    │  Back to WhatsApp   → the IVR         │
+       EXIT DEMO ─▶ ┌ Before you go ────────────────────────┐
+                    │  Give feedback → form → WhatsApp      │
+                    │  Skip          →        WhatsApp      │
                     └───────────────────────────────────────┘
+
+   ONE PATH, AND IT ENDS IN THE CHAT. The sheet used to offer "Become a part
+   of FoodBridge", which routed into onboarding — a whole flow between the
+   exit and the chat. Signing up is a door at the FRONT now: "I'm new here"
+   in WhatsApp, and the standing offer on every explore screen. The exit's
+   only job is to close the loop.
+
+   AND IT IS ON EVERY DESTINATION. It used to be mounted by five screens of
+   twenty-six, so finishing onboarding or opening the dashboard left someone
+   stranded. The platform shell mounts it once for all of them; a module that
+   draws its own (Raw Material Inventory, which passes a Receive Stock tab
+   through it) wins, and the shell stands its bar down.
 
    WHAT WAS REFINED, and why:
 
@@ -183,6 +194,12 @@
     "  #fbx-foot{position:fixed;left:0;right:0;bottom:0;z-index:var(--fbx-z,39);box-sizing:border-box;height:58px;padding:0 8px;",
     "    background:#fff;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;gap:30px;",
     "    font-family:system-ui,-apple-system,sans-serif}",
+    /* `hidden` has to out-specify the rule above it. The browser's own
+       [hidden]{display:none} is beaten by an ID selector, so the shell could
+       set the attribute — and did — while the bar stayed on screen. Both
+       callers rely on this: the destination that asks for no bar, and the one
+       that draws its own. */
+    "  #fbx-foot[hidden]{display:none}",
     /* Only a page that HAS the bar pays for it. The sheet is used on its own
        by screens with a footer of their own — Delivery Management — and 58px
        of padding there would be a gap under a full-height app. */
@@ -289,29 +306,30 @@
     injectCss();
     open = true; rating = 0;
     document.addEventListener("keydown", onKey);
+    /* ONE WAY OUT, and it ends in the chat.
+
+       19 Sep 2026 — "Become a part of FoodBridge" is gone from here. It routed
+       into onboarding, which put a whole flow between the exit and the chat;
+       the exit is a contract now, not a menu. Signing up is a door at the
+       FRONT — "I'm new here" in WhatsApp, and the standing offer on every
+       explore screen — which is where that decision belongs.
+
+       So: rate it, or skip. Both end in WhatsApp. The icons and styles for
+       the two removed rows are kept rather than deleted, so restoring either
+       is uncommenting a line. */
     var sheet = shell(
-      '<header class="fbx-head"><div><h2>🏁 You\'ve completed the demo</h2>' +
-        "<p>What would you like to do next?</p></div>" +
+      /* NOT "you've completed the demo". EXIT DEMO is on every destination
+         now, so most taps come from the middle of a look around — nothing here
+         knows whether anyone finished anything, and a chequered flag over
+         someone who gave up after two screens is the demo talking to itself. */
+      '<header class="fbx-head"><div><h2>👋 Before you go</h2>' +
+        "<p>How's it going? One tap is all we need.</p></div>" +
         '<button class="fbx-x" aria-label="Close">✕</button></header>' +
       '<div class="fbx-list">' +
         row("fbx-feedback", "", ICON.form, "Give feedback", "30 seconds — one tap and you're done") +
-        row("fbx-join", "is-go", ICON.join, "Become a part of FoodBridge", "Create your account and set up your business") +
-        /* "Back to WhatsApp menu" was a third row here and is hidden as of
-           18 Sep 2026. The way back to WhatsApp is not gone — giving feedback
-           ends there, and so does "Skip — just take me back". It is the icon
-           and the `.is-wa` style's only caller, and both are kept for its
-           return rather than deleted. */
       "</div>"
     );
     sheet.querySelector("#fbx-feedback").addEventListener("click", openForm);
-    sheet.querySelector("#fbx-join").addEventListener("click", function () {
-      close();
-      /* Onboarding starts at its own first screen — `signup` tells it to begin
-         a new account rather than resume whatever this browser was doing. */
-      if (!goPlatform("onboarding?signup=1")) {
-        window.location.href = "../../../index.html#/onboarding?signup=1";
-      }
-    });
   }
 
   function row(id, cls, icon, title, sub) {
@@ -332,7 +350,7 @@
     var who = known();
     rating = 0;
     var sheet = shell(
-      '<header class="fbx-head"><div><h2>How was the demo?</h2>' +
+      '<header class="fbx-head"><div><h2>How\'s it going?</h2>' +
         "<p>One tap is enough. The rest is optional.</p></div>" +
         '<button class="fbx-x" aria-label="Close">✕</button></header>' +
       '<div class="fbx-form">' +
@@ -352,7 +370,9 @@
         "</div>" +
         '<p class="fbx-err" id="fbx-err" hidden></p>' +
         '<button class="fbx-cta" id="fbx-send" disabled>Send &amp; open WhatsApp</button>' +
-        '<button class="fbx-skip" id="fbx-skip">Skip — just take me back</button>' +
+        /* "just take me back" was ambiguous once the ✕ existed: that one goes
+           back to the screen behind, this one leaves for the chat. */
+        '<button class="fbx-skip" id="fbx-skip">Skip — back to WhatsApp</button>' +
       "</div>"
     );
 
@@ -426,7 +446,15 @@
 
     if (opts.z) document.documentElement.style.setProperty("--fbx-z", String(opts.z));
 
-    document.body.classList.add("fbx-has-foot");
+    /* `pad: false` — the caller has its own room for the bar.
+
+       The padding assumes a document that flows: 58px at the end keeps the
+       last line clear of the bar. The platform shell is not that. Its content
+       is a full-height iframe, so the padding shrinks nothing and simply makes
+       the shell itself 58px taller than the window — the whole app slides up
+       and down over a white strip. Framed screens reserve their own room
+       instead (screens.css). */
+    if (opts.pad !== false) document.body.classList.add("fbx-has-foot");
     var foot = document.createElement("div");
     foot.id = "fbx-foot";
     foot.innerHTML =

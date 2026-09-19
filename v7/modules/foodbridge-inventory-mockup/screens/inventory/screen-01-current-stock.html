@@ -63,7 +63,10 @@
        asset for every screen that carries it: v7/assets/exit-demo.js. -->
   <script src="../../../../assets/exit-demo.js?v=20260918E3"></script>
   <script>
-    window.FB_EXIT.mount({
+    /* The platform shell mounts the exit bar for every destination now.
+       Mount our own only when this screen is opened on its own, or two
+       bars stack at the foot of the page. */
+    if (window.top === window.self) window.FB_EXIT.mount({
       /* Above the page, below this module's own overlays. */
       z: 39,
     });

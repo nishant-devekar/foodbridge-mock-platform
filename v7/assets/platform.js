@@ -80,7 +80,27 @@
     return leaf.urlMobile && mobileMQ.matches ? leaf.urlMobile : leaf.url;
   }
 
-  /* ── Routes ───────────────────────────────────────────────────────────────
+  /* A VIEW INSIDE A DESTINATION, addressed from outside.
+
+     `#/retails-overview?view=purchases` opens the storefront on its Purchases
+     tab. The storefront already honours its own `#purchases` / `#help` /
+     `#shop` fragment; the shell simply hands `view` through as that fragment,
+     because a module reads its OWN location, never the shell's.
+
+     This is what lets a WhatsApp row say "My orders" and mean it — without it
+     every storefront link lands on the shop's front page, and "My orders"
+     becomes a promise the next screen breaks. A leaf URL that already carries
+     a fragment is left alone. */
+  function withView(url) {
+    var h = location.hash || "";
+    var q = h.indexOf("?");
+    if (q === -1) return url;
+    var view = new URLSearchParams(h.slice(q + 1)).get("view");
+    if (!view || !/^[a-z][a-z0-9-]*$/i.test(view) || url.indexOf("#") !== -1) return url;
+    return url + "#" + view;
+  }
+
+  /* ── Routes ───────────────────────────────────────────────────────────────  /* ── Routes ───────────────────────────────────────────────────────────────
      A destination is addressed by its own id for top-level items, and by
      "group/leaf" for nested ones. Ids come from modules.json, so the URL stays
      readable: #/inventory/raw-material-inventory. */
@@ -129,13 +149,50 @@
     return fallback;
   }
 
+  /* WHOSE BUSINESS THIS IS.
+
+     The seed names the store "QA store" and the user "Mahesh · Admin". Fine
+     for a QA walkthrough; wrong in front of anyone else. A person who signed
+     up would finish onboarding and find themselves in somebody else's shop,
+     and a person just looking around would be shown what reads as a test
+     account — the moment a demo stops being believable.
+
+     So there are exactly two identities:
+
+       · A REAL ACCOUNT — the name and business onboarding wrote, as Owner.
+       · ANYONE ELSE — a guest session, or no session at all, which is what a
+         WhatsApp "pick a feature" link opens with. They are looking at a demo
+         store, so it says so: "Sample Distributors", the name the sample-data
+         channel already uses, and "Demo store" where a user's name would go.
+         Real records, shown as a demo — nothing invented, nothing pretended.
+
+     The seed's own brand and user are never shown. */
+  var DEMO_IDENTITY = { store: "Sample Distributors", name: "Demo store", role: "" };
+
+  function identity() {
+    var acct = null;
+    try {
+      var raw = sessionStorage.getItem("fb.v7.guest") || localStorage.getItem("fb.v7.account");
+      if (raw) acct = JSON.parse(raw);
+    } catch (e) { /* unreadable storage is just no account */ }
+
+    if (!acct || acct.guest) return DEMO_IDENTITY;
+    return {
+      /* An account whose owner skipped the optional business name still has a
+         store — theirs, unnamed — not the seed's and not the demo's. */
+      store: acct.business || "Your business",
+      name: acct.name || "",
+      role: "Owner",
+    };
+  }
+
   /* ── Sidebar ─────────────────────────────────────────────────────────────
      SidebarContent.jsx. Class strings are verbatim from the port. */
   /* The business-type picker sits under the store name because that is what it
      is — a property of the tenant, not a filter the user applies to a list. It
      changes what the platform HAS, so it belongs with the tenant's identity. */
   function renderStoreSelector(config) {
-    var name = esc(config.brand && config.brand.name);
+    var name = esc(identity(config).store);
     var list = config.personas || [];
     var cur = list.filter(function (p) { return p.id === state.persona; })[0];
     return (
@@ -143,7 +200,7 @@
       '<div class="flex items-center gap-3 px-1 py-1.5 rounded-md transition-colors cursor-default">' +
       '<a href="#/" class="flex-shrink-0"><img src="' + BAG_ICON + '" alt="Storefront Logo" class="w-7 h-7" /></a>' +
       '<div class="flex flex-col min-w-0 flex-1">' +
-      '<span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight" title="' + name + '">' + name + "</span>" +
+      '<span class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight" data-id-store title="' + name + '">' + name + "</span>" +
       (list.length
         ? '<span class="relative mt-0.5 block">' +
           // autocomplete=off or the browser restores the previous value across a
@@ -283,8 +340,9 @@
   // in-content page heading names the screen (so no duplicate title here). The
   // user block mirrors the desktop header.
   function renderMobileHeader(config) {
-    var u = config.user || {};
-    var name = esc((config.brand && config.brand.name) || "");
+    var me = identity(config);
+    var u = { displayName: me.name, role: me.role };
+    var name = esc(me.store);
     return (
       '<header data-mobile-bar class="fb-mhead">' +
       '<button type="button" data-mobile-toggle class="fb-mhead-burger" aria-label="Open menu">' +
@@ -292,10 +350,10 @@
       "</button>" +
       '<a href="#/" class="fb-mhead-brand" title="' + name + '">' +
       '<img src="' + BAG_ICON + '" alt="Storefront Logo" />' +
-      '<span class="fb-mhead-brand-name">' + name + "</span>" +
+      '<span class="fb-mhead-brand-name" data-id-store>' + name + "</span>" +
       "</a>" +
       '<div class="fb-mhead-user">' +
-      '<span class="fb-mhead-user-txt"><span class="nm">' + esc(u.displayName || "") + '</span><span class="rl">' + esc(u.role || "") + "</span></span>" +
+      '<span class="fb-mhead-user-txt"><span class="nm" data-id-name>' + esc(u.displayName || "") + '</span><span class="rl" data-id-role>' + esc(u.role || "") + "</span></span>" +
       '<span class="fb-mhead-ava">' + icon("user", "w-4 h-4") + "</span>" +
       "</div></header>"
     );
@@ -344,7 +402,7 @@
   function renderQrModal(config) {
     if (!config.storeQr) return "";
     var q = config.storeQr;
-    var brand = esc((config.brand && config.brand.name) || "the store");
+    var brand = esc(identity(config).store || "the store");
     var label = esc(q.label || "Store QR Code");
     return (
       '<div class="fb-modal" data-qr-modal hidden>' +
@@ -379,6 +437,38 @@
   /* ── Module loading ────────────────────────────────────────────────────── */
   var loadTimer = null;
 
+  /* THE WAY OUT, and who draws it.
+
+     The shell mounts one exit bar for every destination — it used to sit on
+     five of twenty-six, so finishing onboarding or opening the dashboard left
+     a user stranded with no route back to the chat.
+
+     One module still draws its own: Raw Material Inventory passes a Receive
+     Stock tab through the bar, and suppressing the bar would take the control
+     with it. Two bars at the same bottom edge would stack, so whoever is
+     framed wins and the shell stands its own down for that destination. */
+  function deferToFramedExitBar(frame, leaf) {
+    var own = document.getElementById("fbx-foot");
+    if (!own) return;
+    var framed = false;
+    try { framed = !!frame.contentDocument.getElementById("fbx-foot"); }
+    catch (e) { framed = false; }          // cross-origin: assume it has none
+
+    /* `noExitBar` in modules.json: a destination that should not carry the way
+       out at all. Onboarding is the one — it is somebody setting their business
+       up, not looking around, and a bar offering to leave and rate the demo
+       argues against the thing they are in the middle of. The flow has its own
+       ways out (its Back, and "Have a look around first" on the first screen),
+       so nobody is trapped, and the bar returns the moment they leave it. */
+    var hide = framed || !!(leaf && leaf.noExitBar);
+    own.hidden = hide;
+    /* No body padding, ever, in the shell — it mounts with `pad: false` and
+       this used to put the class straight back on the next navigation. The
+       shell's content is a full-height frame: 58px of padding shrinks nothing
+       and only makes this page taller than the window, so the whole app gains
+       a stray scroll over a white strip. Framed screens keep their own room. */
+  }
+
   function showError(dest, reason) {
     var box = document.querySelector("[data-error]");
     box.innerHTML =
@@ -397,9 +487,24 @@
     document.querySelector("[data-loading]").hidden = true;
   }
 
+  /* The shell draws who you are once, at mount — but signing up, logging in
+     and finishing onboarding all happen inside the frame, without reloading
+     the shell. Left alone the header went on saying "Demo store" above a
+     control tower that said "Good morning, Shreyas". Every navigation redraws
+     it from storage, which is where those flows write the account. */
+  function refreshIdentity() {
+    var me = identity();
+    Array.prototype.forEach.call(document.querySelectorAll("[data-id-store]"), function (el) {
+      el.textContent = me.store; el.setAttribute("title", me.store);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-id-name]"), function (el) { el.textContent = me.name; });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-id-role]"), function (el) { el.textContent = me.role; });
+  }
+
   function loadModule(key) {
     var dest = state.routes[key];
     if (!dest) return;
+    refreshIdentity();
 
     var frame = document.querySelector("[data-frame]");
     var viewport = document.querySelector("[data-viewport]");
@@ -472,9 +577,10 @@
     frame.onload = function () {
       clearTimeout(loadTimer);
       loading.hidden = true;
+      deferToFramedExitBar(frame, dest.leaf);
     };
 
-    state.currentUrl = pickUrl(dest.leaf);
+    state.currentUrl = withView(pickUrl(dest.leaf));
     /* REPLACE, don't push. Assigning `frame.src` adds an entry to the tab's
        joint session history, so one Back press rewinds the IFRAME while the
        shell's own hash stays where it was — the address bar and the sidebar
