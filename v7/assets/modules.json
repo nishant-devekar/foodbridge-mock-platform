@@ -336,9 +336,11 @@
       "owner": "kdansari02/retails-overview"
     },
     {
+      "_whyNoExitBar": "Setting a business up is not a demo to be rated half way through. The flow carries its own ways out \u2014 its Back, and \"Have a look around first\" on the first screen \u2014 and the bar returns as soon as the flow hands off.",
       "id": "onboarding",
       "name": "New user onboarding",
-      "url": "modules/foodbridge-onboarding/screens/onboarding.html?v=20260918F58",
+      "noExitBar": true,
+      "url": "modules/foodbridge-onboarding/screens/onboarding.html?v=20260920C1",
       "clipLeft": 0,
       "fullBleed": true,
       "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -353,10 +355,28 @@
       "hideBurger": true
     },
     {
+      "_why": "The owner's home, and the destination onboarding has named since the UI flip. Standalone and fullBleed \u2014 the pattern onboarding already proves \u2014 so no clip offset is measured for it (MASTER.md).",
+      "id": "control-tower",
+      "name": "Control Tower",
+      "url": "screens/control-tower.html?v=20260920C1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+    },
+    {
+      "_why": "Where \"show me around\" lands. Before it existed, declining setup opened the import flow \u2014 the very question the user had just declined.",
+      "id": "explore",
+      "name": "Explore",
+      "url": "screens/explore.html?v=20260920C1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+    },
+    {
       "_why": "The destination onboarding hands prepared drafts to. Same module as onboarding under ?view=drafts, so it reads the record the flow wrote rather than a second copy of it. Reachable at #/order-drafts; not a sidebar item, because nobody browses to it — the flow sends you.",
       "id": "order-drafts",
       "name": "Order Drafts",
-      "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts&v=20260918F58",
+      "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts&v=20260920C1",
       "clipLeft": 0,
       "fullBleed": true,
       "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

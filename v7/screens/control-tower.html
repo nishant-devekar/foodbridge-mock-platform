@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  CONTROL TOWER — the owner's home, and the destination the onboarding flow
+  has named since the UI flip ("Open your control tower").
+
+  Ranked from the tenant's own orders by assets/nudges.js, over the one read
+  model in assets/context.js. No rupee figure appears anywhere: this export
+  carries no invoice or payment evidence (D-015), and the screen says so
+  rather than leaving a gap.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What needs you today — FoodBridge</title>
+<link rel="stylesheet" href="screens.css?v=20260920C1">
+</head>
+<body>
+  <div id="ct-root"></div>
+  <script src="../assets/context.js?v=20260920C1"></script>
+  <script src="../assets/nudges.js?v=20260920C1"></script>
+  <script src="control-tower.js?v=20260920C1"></script>
+  <script src="../assets/exit-demo.js?v=20260920C1"></script>
+  <script>
+    window.FBControlTower.mount();
+    /* The shell mounts this for every destination; mount our own only
+       when this screen is opened on its own. */
+    if (window.FB_EXIT && window.top === window.self) window.FB_EXIT.mount({ z: 40 });
+  </script>
+</body>
+</html>

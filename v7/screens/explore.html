@@ -1,0 +1,29 @@
+<!doctype html>
+<!--
+  EXPLORE — the "show me around" landing.
+
+  The screen that makes declining setup lead somewhere. Before it existed,
+  "Continue as guest" opened the import flow; see VERSION.md, 19 Sep 2026.
+
+  Standalone by design: it loads nothing but its own two files, so the
+  platform can frame it full-bleed and it also opens on its own.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Have a look around — FoodBridge</title>
+<link rel="stylesheet" href="screens.css?v=20260920C1">
+</head>
+<body>
+  <div id="x-root"></div>
+  <script src="explore.js?v=20260920C1"></script>
+  <script src="../assets/exit-demo.js?v=20260920C1"></script>
+  <script>
+    window.FBExplore.mount();
+    /* The shell mounts this for every destination; mount our own only
+       when this screen is opened on its own. */
+    if (window.FB_EXIT && window.top === window.self) window.FB_EXIT.mount({ z: 40 });
+  </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+/* ==========================================================================
+   The two screens the unified flow added: Explore, and the Control Tower.
+
+   Tokens are onboarding.css's, copied rather than imported so these screens
+   stay loadable on their own — the platform frames them full-bleed and they
+   must not depend on a stylesheet from a sibling module folder.
+
+   THE SCALE IS ONBOARDING'S, and that matters more than it looks: the root
+   font-size is `min(100vw, 402px) / 22`, so 1rem is ~18px and a heading is
+   1.38rem, not 2.3rem. Sizing these screens on their own would have made the
+   type jump every time a user crossed between onboarding and a feature.
+   Matching is why they read as one product.
+   ========================================================================== */
+
+:root {
+  --g: #0e8a3c;
+  --g-d: #0b7534;
+  --g-50: #e8f5ec;
+  --g-100: #d0e6d7;
+  --g-tint: #f3faf5;
+
+  --ink: #0d0f12;
+  --ink-2: #2b2f35;
+  --sub: #4b5058;
+  --muted: #6b7079;
+  --muted-2: #9ca1a9;
+  --line: #e6e8eb;
+  --line-2: #f0f1f3;
+  --card: #ffffff;
+  --surface: #f4f5f7;
+
+  --amber: #a15c07;
+  --amber-bg: #fdf7ea;
+
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --shadow-row: 0 .05rem .15rem rgba(16, 24, 40, .035);
+}
+
+html { font-size: calc(min(100vw, 402px) / 22); }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: .84rem;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 402px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+.top {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1.5rem 1rem;
+}
+.eyebrow {
+  font-size: .6rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted-2); font-weight: 700;
+}
+.h1 { font-size: 1.38rem; line-height: 1.7rem; font-weight: 700; letter-spacing: -.01em; margin: .5rem 0 0; }
+.sub { font-size: .84rem; line-height: 1.3rem; color: var(--sub); margin: .45rem 0 0; }
+
+/* ── body ───────────────────────────────────────────────────────────────── */
+.main { padding: 1rem 1.5rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; flex: 1; }
+.sec-h {
+  font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; margin: .5rem 0 -.2rem;
+}
+
+/* ── cards ──────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  padding: 1rem;
+  box-shadow: var(--shadow-row);
+}
+/* The lead nudge is the only thing on the screen allowed to raise its voice. */
+.card.is-lead { border-color: var(--g-100); background: var(--g-tint); }
+
+.card-t { font-size: 1rem; font-weight: 700; line-height: 1.3rem; letter-spacing: -.01em; margin: 0; }
+.card-x { font-size: .8rem; line-height: 1.2rem; color: var(--sub); margin: .45rem 0 0; }
+.card-e { font-size: .72rem; line-height: 1.1rem; color: var(--muted); margin: .4rem 0 0; }
+.card-f { display: flex; gap: .5rem; align-items: center; margin-top: .85rem; flex-wrap: wrap; }
+
+/* ── buttons ────────────────────────────────────────────────────────────── */
+.btn {
+  appearance: none; border: 0; font: inherit; cursor: pointer;
+  background: var(--g); color: #fff;
+  font-size: .82rem; font-weight: 600;
+  padding: .6rem 1rem; border-radius: .5rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 2.4rem;
+}
+.btn:active { background: var(--g-d); }
+.btn.is-ghost { background: #fff; color: var(--ink-2); border: 1px solid var(--line); }
+.btn.is-quiet {
+  background: none; color: var(--muted); padding: .6rem .3rem; min-height: 2.4rem;
+  text-decoration: underline; text-underline-offset: .18rem; font-weight: 500;
+}
+.btn:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
+
+/* ── explore: the feature list ──────────────────────────────────────────── */
+.feat {
+  display: flex; align-items: center; gap: .8rem;
+  width: 100%; text-align: left;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: .7rem; padding: .8rem .9rem;
+  font: inherit; color: inherit; cursor: pointer;
+  box-shadow: var(--shadow-row);
+}
+.feat:active { background: var(--g-tint); }
+.feat:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
+.feat-ic {
+  width: 2.2rem; height: 2.2rem; flex: none;
+  border-radius: .55rem; background: var(--g-50); color: var(--g-d);
+  display: grid; place-items: center;
+}
+.feat-ic svg { width: 1.15rem; height: 1.15rem; }
+.feat-b { flex: 1 1 auto; min-width: 0; }
+/* These are spans inside a button — without an explicit block they run
+   together on one line, which is exactly how this first rendered. */
+.feat-t { display: block; font-size: .88rem; font-weight: 650; line-height: 1.15rem; letter-spacing: -.01em; }
+.feat-s { display: block; font-size: .72rem; line-height: 1rem; color: var(--muted); margin-top: .1rem; }
+.feat-c { flex: none; display: grid; place-items: center; color: var(--muted-2); }
+.feat-c svg { width: .95rem; height: .95rem; }
+
+/* ── the standing offer to set up ───────────────────────────────────────── */
+/* Footer weight on purpose. It is always there and it never shouts; the
+   persuasive moment belongs at the end of a feature, not on a menu row. */
+/* Seated ABOVE the exit bar, which is fixed at bottom:0 and 58px tall with a
+   z-index of 40. Both wanted the same strip of screen; measured rather than
+   guessed, because the exit bar is the platform's and this one is the
+   screen's, and neither may hide the other. */
+.standing {
+  position: sticky; bottom: 58px;
+  background: var(--card); border-top: 1px solid var(--line);
+  padding: .7rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .7rem;
+}
+.standing p { margin: 0; font-size: .74rem; color: var(--muted); flex: 0 1 auto; }
+.standing .btn { flex: none; padding: .55rem .85rem; min-height: 2.2rem; font-size: .76rem; }
+
+/* ── numbers strip ──────────────────────────────────────────────────────── */
+.strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: .6rem; padding: .7rem .6rem; }
+.stat-n { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.4rem; }
+.stat-l { font-size: .64rem; line-height: .88rem; color: var(--muted); margin-top: .1rem; }
+
+/* ── shop rows ──────────────────────────────────────────────────────────── */
+.rows { display: flex; flex-direction: column; gap: .45rem; }
+.row {
+  background: var(--card); border: 1px solid var(--line); border-radius: .6rem;
+  padding: .7rem .85rem; display: flex; align-items: center; gap: .7rem;
+}
+.row-b { flex: 1 1 auto; min-width: 0; }
+.row-t { font-size: .82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-s { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+.pill {
+  font-size: .64rem; font-weight: 600; padding: .2rem .5rem; border-radius: 999px;
+  background: var(--g-50); color: var(--g-d); white-space: nowrap; flex: none;
+}
+.pill.is-flat { background: var(--line-2); color: var(--muted); }
+.pill.is-warn { background: var(--amber-bg); color: var(--amber); }
+
+/* ── an honest note about what is absent ────────────────────────────────── */
+.absent {
+  border: 1px dashed var(--line); border-radius: .6rem;
+  padding: .8rem .9rem; background: none;
+  font-size: .74rem; line-height: 1.05rem; color: var(--muted);
+}
+.absent b { color: var(--sub); font-weight: 600; }
+
+.dim { color: var(--muted); font-size: .72rem; line-height: 1rem; }
+
+/* ROOM AT THE BOTTOM, for the bars that float over it.
+
+   Two things cover the foot of these screens: the shell's EXIT DEMO bar,
+   fixed at the bottom of the window and 58px tall, and Explore's own sticky
+   "Set up my business" bar seated just above it. Neither is inside this
+   document's flow when the platform frames it, so without this the last card
+   and anything after it sit underneath them and cannot be scrolled into view.
+
+   Only when the shell draws the bar. Opened standalone, exit-demo.js mounts
+   into this document and adds `body.fbx-has-foot{padding-bottom:58px}` itself
+   — claiming it twice would leave 58px of dead space under the content. */
+body:not(.fbx-has-foot) .app { padding-bottom: 58px; }
+
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
