@@ -280,13 +280,52 @@
   function render(html) {
     const place = state.view + "/" + state.screen;
     const keep = window.scrollY;
-    $("#ob-root").innerHTML = html + sheetHtml();
-    if (place !== lastPlace) { lastPlace = place; window.scrollTo(0, 0); }
-    else if (window.scrollY !== keep) window.scrollTo(0, keep);
+    /* On a bigger screen the card has a fixed height and scrolls inside
+       itself (onboarding.css, "bigger screens"); on a phone #ob-root never
+       scrolls, so its scrollTop stays 0 and these lines do nothing there. */
+    const root = $("#ob-root"), keepIn = root.scrollTop;
+    root.innerHTML = html + sheetHtml();
+    if (place !== lastPlace) { lastPlace = place; window.scrollTo(0, 0); root.scrollTop = 0; }
+    else {
+      if (window.scrollY !== keep) window.scrollTo(0, keep);
+      if (root.scrollTop !== keepIn) root.scrollTop = keepIn;
+    }
     const back = $("#b-back");
     if (back) back.addEventListener("click", goBack);
     bindSheet();
     applyScrollLock();
+    drawRail();
+  }
+
+  /* ── the setup rail (21 Sep 2026) ────────────────────────────────────────
+     A wide screen has room the phone does not: the flow's four stages, and
+     which one you are on, beside the card. The same four the progress bar
+     counts, plus the order the flow ends in. On a phone it is display:none --
+     the phone layout is locked and nothing here reaches it. */
+  const RAIL = ["Create your account", "Connect your records", "Check your data", "Place your first order"];
+  const RAIL_AT = { offer: 0, signup: 0, source: 1, connect: 1, import: 1, found: 2, check: 2, ready: 2, order: 3, created: 4 };
+  function drawRail() {
+    const el = $("#ob-rail");
+    if (!el) return;
+    const on = state.view === "flow";
+    document.body.classList.toggle("has-rail", on);
+    const at = on ? (RAIL_AT[state.screen] || 0) : -1;
+    if (el.getAttribute("data-at") === String(at)) return;
+    el.setAttribute("data-at", String(at));
+    el.innerHTML = !on ? "" :
+      '<div class="ob-rail-in">' +
+        '<p class="ob-rail-brand">' + LOGO + "<span>FoodBridge</span></p>" +
+        '<h2 class="ob-rail-h">' + (at >= 4 ? "You’re set up" : "Set up your business") + "</h2>" +
+        '<p class="ob-rail-s">' + (at >= 4
+          ? "Your records are in and your first order is placed."
+          : "Bring your customers, products and orders across from Zoho, Xero or your files. Takes a couple of minutes.") + "</p>" +
+        '<ol class="ob-rs">' + RAIL.map(function (t, k) {
+          const st = k < at ? "is-done" : k === at ? "is-now" : "";
+          return '<li class="' + st + '"' + (k === at ? ' aria-current="step"' : "") + '><span class="ob-rs-dot">' +
+            (k < at ? ICON.check : String(k + 1)) + '</span><span class="ob-rs-t">' + esc(t) + "</span></li>";
+        }).join("") + "</ol>" +
+        '<p class="ob-rail-foot">' + ICON.lockFill + "<span>Read-only access. We never change your data.</span></p>" +
+      "</div>";
   }
   /* A new screen closes the keyboard first: iOS Safari otherwise keeps the page
      panned where the field was, and the next screen opens shifted under the

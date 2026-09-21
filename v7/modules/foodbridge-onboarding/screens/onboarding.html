@@ -25,10 +25,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Welcome to FoodBridge</title>
-<link rel="stylesheet" href="onboarding.css?v=20260921C8">
+<link rel="stylesheet" href="onboarding.css?v=20260921C9">
 <link rel="stylesheet" href="order-stockaudit.css?v=20260920C1">
 </head>
 <body>
+  <!-- The setup rail: drawn by onboarding.js, shown only on a wide screen
+       (onboarding.css, "bigger screens"). On a phone it is display:none. -->
+  <aside class="ob-rail" id="ob-rail" aria-label="Setup steps"></aside>
   <div class="ob-app"><div id="ob-root"></div></div>
 
   <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260920C1"></script>
@@ -46,7 +49,7 @@
                      '<script src="readers-mock.js?v=20260920C1"><\/script>');
     }
   </script>
-  <script src="onboarding.js?v=20260921C8"></script>
+  <script src="onboarding.js?v=20260921C9"></script>
   <script>window.FB_ONBOARDING.mount();</script>
 </body>
 </html>
