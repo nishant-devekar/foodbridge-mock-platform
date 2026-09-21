@@ -1,5 +1,6 @@
 /* ==========================================================================
-   The two screens the unified flow added: Explore, and the Control Tower.
+   Explore — the screen "show me around" lands on. (The Control Tower had
+   its rules here too until 21 Sep 2026; it now has control-tower.css.)
 
    Tokens are onboarding.css's, copied rather than imported so these screens
    stay loadable on their own — the platform frames them full-bleed and they
@@ -69,30 +70,9 @@ body {
   color: var(--muted-2); font-weight: 700;
 }
 .h1 { font-size: 1.38rem; line-height: 1.7rem; font-weight: 700; letter-spacing: -.01em; margin: .5rem 0 0; }
-.sub { font-size: .84rem; line-height: 1.3rem; color: var(--sub); margin: .45rem 0 0; }
 
 /* ── body ───────────────────────────────────────────────────────────────── */
 .main { padding: 1rem 1.5rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; flex: 1; }
-.sec-h {
-  font-size: .62rem; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--muted); font-weight: 700; margin: .5rem 0 -.2rem;
-}
-
-/* ── cards ──────────────────────────────────────────────────────────────── */
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: .7rem;
-  padding: 1rem;
-  box-shadow: var(--shadow-row);
-}
-/* The lead nudge is the only thing on the screen allowed to raise its voice. */
-.card.is-lead { border-color: var(--g-100); background: var(--g-tint); }
-
-.card-t { font-size: 1rem; font-weight: 700; line-height: 1.3rem; letter-spacing: -.01em; margin: 0; }
-.card-x { font-size: .8rem; line-height: 1.2rem; color: var(--sub); margin: .45rem 0 0; }
-.card-e { font-size: .72rem; line-height: 1.1rem; color: var(--muted); margin: .4rem 0 0; }
-.card-f { display: flex; gap: .5rem; align-items: center; margin-top: .85rem; flex-wrap: wrap; }
 
 /* ── buttons ────────────────────────────────────────────────────────────── */
 .btn {
@@ -105,10 +85,6 @@ body {
 }
 .btn:active { background: var(--g-d); }
 .btn.is-ghost { background: #fff; color: var(--ink-2); border: 1px solid var(--line); }
-.btn.is-quiet {
-  background: none; color: var(--muted); padding: .6rem .3rem; min-height: 2.4rem;
-  text-decoration: underline; text-underline-offset: .18rem; font-weight: 500;
-}
 .btn:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
 
 /* ── explore: the feature list ──────────────────────────────────────────── */
@@ -152,37 +128,8 @@ body {
 .standing p { margin: 0; font-size: .74rem; color: var(--muted); flex: 0 1 auto; }
 .standing .btn { flex: none; padding: .55rem .85rem; min-height: 2.2rem; font-size: .76rem; }
 
-/* ── numbers strip ──────────────────────────────────────────────────────── */
-.strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
-.stat { background: var(--card); border: 1px solid var(--line); border-radius: .6rem; padding: .7rem .6rem; }
-.stat-n { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.4rem; }
-.stat-l { font-size: .64rem; line-height: .88rem; color: var(--muted); margin-top: .1rem; }
-
-/* ── shop rows ──────────────────────────────────────────────────────────── */
+/* ── shop rows (Explore's feature list) ──────────────────────────────────── */
 .rows { display: flex; flex-direction: column; gap: .45rem; }
-.row {
-  background: var(--card); border: 1px solid var(--line); border-radius: .6rem;
-  padding: .7rem .85rem; display: flex; align-items: center; gap: .7rem;
-}
-.row-b { flex: 1 1 auto; min-width: 0; }
-.row-t { font-size: .82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row-s { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
-.pill {
-  font-size: .64rem; font-weight: 600; padding: .2rem .5rem; border-radius: 999px;
-  background: var(--g-50); color: var(--g-d); white-space: nowrap; flex: none;
-}
-.pill.is-flat { background: var(--line-2); color: var(--muted); }
-.pill.is-warn { background: var(--amber-bg); color: var(--amber); }
-
-/* ── an honest note about what is absent ────────────────────────────────── */
-.absent {
-  border: 1px dashed var(--line); border-radius: .6rem;
-  padding: .8rem .9rem; background: none;
-  font-size: .74rem; line-height: 1.05rem; color: var(--muted);
-}
-.absent b { color: var(--sub); font-weight: 600; }
-
-.dim { color: var(--muted); font-size: .72rem; line-height: 1rem; }
 
 /* ROOM AT THE BOTTOM, for the bars that float over it.
 

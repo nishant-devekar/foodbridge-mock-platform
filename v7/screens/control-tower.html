@@ -1,31 +1,39 @@
 <!doctype html>
 <!--
-  CONTROL TOWER — the owner's home, and the destination the onboarding flow
-  has named since the UI flip ("Open your control tower").
+  CONTROL TOWER — the owner's command centre. Rebuilt 21 Sep 2026 from the
+  product owner's Control Tower requirements and UX flow; the earlier nudge
+  screen is gone.
 
-  Ranked from the tenant's own orders by assets/nudges.js, over the one read
-  model in assets/context.js. No rupee figure appears anywhere: this export
-  carries no invoice or payment evidence (D-015), and the screen says so
-  rather than leaving a gap.
+  Signal → Understand → Recommend → Act → Resolve, over the business's own
+  records: ../assets/ct/ (state, signals, store, actions, assistant, tower),
+  read through ../assets/context.js. Audit and traceability:
+  ../context/control-tower/.
+
+  In the platform's sidebar (modules.json nav), framed like Dashboard and the
+  rest: the shell brands the page and, where its sidebar shows, navigates it.
+
+  The footer is the platform's standard one (exit-demo.js): this page's tabs
+  to the left of EXIT DEMO, Create as the green chip. The shell stands its
+  own bar down because this frame carries #fbx-foot.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>What needs you today — FoodBridge</title>
-<link rel="stylesheet" href="screens.css?v=20260920C1">
+<title>Control Tower — FoodBridge</title>
+<link rel="stylesheet" href="control-tower.css?v=20260921CT5">
 </head>
 <body>
-  <div id="ct-root"></div>
-  <script src="../assets/context.js?v=20260920C1"></script>
-  <script src="../assets/nudges.js?v=20260920C1"></script>
-  <script src="control-tower.js?v=20260920C1"></script>
+  <div id="ct" aria-live="polite"></div>
+  <script src="../assets/context.js?v=20260921CT5"></script>
+  <script src="../assets/ct/state.js?v=20260921CT5"></script>
+  <script src="../assets/ct/signals.js?v=20260921CT5"></script>
+  <script src="../assets/ct/store.js?v=20260921CT5"></script>
+  <script src="../assets/ct/actions.js?v=20260921CT5"></script>
+  <script src="../assets/ct/assistant.js?v=20260921CT5"></script>
+  <script src="../assets/ct/tower.js?v=20260921CT5"></script>
+  <script src="control-tower.js?v=20260921CT5"></script>
   <script src="../assets/exit-demo.js?v=20260921D8"></script>
-  <script>
-    window.FBControlTower.mount();
-    /* The shell mounts this for every destination; mount our own only
-       when this screen is opened on its own. */
-    if (window.FB_EXIT && window.top === window.self) window.FB_EXIT.mount({ z: 40 });
-  </script>
+  <script>window.FBControlTower.mount();</script>
 </body>
 </html>

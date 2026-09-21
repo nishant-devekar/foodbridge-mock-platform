@@ -125,7 +125,24 @@
     (config.standalone || []).forEach(function (leaf) {
       routes[leaf.id] = { leaf: leaf, group: null, key: leaf.id };
     });
-    return { routes: routes, order: order };
+    /* A nested destination is also reachable by its own id, and by any
+       `aliases` it lists -- so moving a page into a group does not break the
+       links already pointing at it (#/control-tower from onboarding, the exit
+       sheet and the WhatsApp tree; #/dashboard from before Reports was
+       renamed). Never shadows a real route, and an id two groups share
+       resolves to neither. */
+    var aliases = {}, clash = {};
+    Object.keys(routes).forEach(function (key) {
+      var r = routes[key];
+      if (!r.group) return;
+      [r.leaf.id].concat(r.leaf.aliases || []).forEach(function (a) {
+        if (routes[a]) return;
+        if (aliases[a] && aliases[a] !== key) clash[a] = true;
+        aliases[a] = key;
+      });
+    });
+    Object.keys(clash).forEach(function (a) { delete aliases[a]; });
+    return { routes: routes, order: order, aliases: aliases };
   }
 
   /* Falling back silently was not enough: asking for a hidden route left the
@@ -142,8 +159,16 @@
      before "?", and the result is left in place for the module to read and
      clear — rewriting the hash here would destroy it before the iframe loads. */
   function routeFromHash() {
-    var h = (location.hash || "").replace(/^#\/?/, "").split("?")[0];
+    var raw = (location.hash || "").replace(/^#\/?/, "");
+    var h = raw.split("?")[0];
     if (state.routes[h]) return h;
+    /* An old address for a page that now lives in a group: rewrite it to the
+       page's own route, keeping any one-time result after the "?". */
+    if (state.aliases && state.aliases[h]) {
+      var q = raw.indexOf("?") === -1 ? "" : raw.slice(raw.indexOf("?"));
+      location.replace("#/" + state.aliases[h] + q);
+      return state.aliases[h];
+    }
     var fallback = (state.landing && state.routes[state.landing]) ? state.landing : state.order[0];
     if (h && fallback) location.replace("#/" + fallback);
     return fallback;
@@ -460,7 +485,11 @@
        argues against the thing they are in the middle of. The flow has its own
        ways out (its Back, and "Have a look around first" on the first screen),
        so nobody is trapped, and the bar returns the moment they leave it. */
-    var hide = framed || !!(leaf && leaf.noExitBar);
+    /* `ownExitBar`: the destination draws its own tab bar with EXIT DEMO in
+       it, but not as #fbx-foot, so the check above cannot see it. Delivery
+       Management is the one: its Home · Routes · Follow-up · Reports · EXIT
+       DEMO bar was being covered by this one on a phone. */
+    var hide = framed || !!(leaf && (leaf.noExitBar || leaf.ownExitBar));
     own.hidden = hide;
     /* No body padding, ever, in the shell — it mounts with `pad: false` and
        this used to put the class straight back on the next navigation. The
@@ -709,6 +738,7 @@
     var built = buildRoutes(state.config);
     state.routes = built.routes;
     state.order = built.order;
+    state.aliases = built.aliases;
 
     if (!state.routes[state.current]) {
       var to = state.order[0];
@@ -858,6 +888,7 @@
     var built = buildRoutes(config);
     state.routes = built.routes;
     state.order = built.order;
+    state.aliases = built.aliases;
     state.landing = config.landing || null;
     state.current = routeFromHash();
 

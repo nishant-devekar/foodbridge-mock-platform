@@ -359,8 +359,8 @@
 
   const TABS = [
     { key: "home",     icon: "🏠",  label: "Home" },
-    { key: "routes",   icon: "🗺️", label: "Routes" },
-    { key: "followup", icon: "📋",  label: "Follow-up" },
+    /* Routes and Follow-up are off the bar (21 Sep 2026, product owner): the
+       bar is Home, Reports and the way out. Their screens are untouched. */
     { key: "reports",  icon: "📊",  label: "Reports" },
     /* "EXIT DEMO", not "Back" (18 Sep 2026, product owner): in the platform
        this app is a demo someone is being walked through, and the last tab is
