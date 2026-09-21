@@ -63,6 +63,7 @@
   --font: "Inter", system-ui, -apple-system, sans-serif;
   --shadow-row: 0 .05rem .15rem rgba(16, 24, 40, .035);
   --ob-kb: 0px;
+  --ob-top-h: calc(3.4rem + env(safe-area-inset-top, 0px));   /* the title bar; the card's is taller */
 }
 
 /* 1rem = 10 image px. */
@@ -723,7 +724,7 @@ button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor:
      step by step with the content. Content scrolls inside the card, under the
      header and above the footer, which both stick to the card's own edges.
      Capped at 900px so a very tall monitor does not get a sliver of a card. */
-  :root { --ob-card-h: min(900px, calc(100vh - 96px)); }
+  :root { --ob-card-h: min(900px, calc(100vh - 96px)); --ob-top-h: calc(3.8rem + env(safe-area-inset-top, 0px)); }
   .ob-app {
     width: 100%; max-width: 540px; height: var(--ob-card-h);
     margin: max(48px, calc((100vh - var(--ob-card-h)) / 2)) auto;
@@ -1055,3 +1056,21 @@ button.ob-rec:active { background: #fafbfa; }
 .ob-list.is-start .ob-row-main { flex: 1 1 auto; }
 .ob-list.is-start .ob-row.is-pick { border-color: var(--g-100); background: var(--g-tint); }
 .ob-main.is-ostart .ws-head { margin-top: .5rem; }
+
+/* 21 Sep 2026 — Create Order: what you search with stays in reach (product
+   owner). Pinned under the title bar while the list scrolls, on the phone and
+   on the card alike: the customer search on step 1; who the order is for and
+   the product search on the build step. Nothing moves at rest -- sticky only
+   acts once the list scrolls. z-index 7 sits over the title bar's fade (6)
+   and under the sheets (40). --ob-top-h is the title bar's height, and is
+   declared in :root and redefined for the card (bigger screens). */
+.ob-main.is-ocust .ob-osearch {
+  position: sticky; top: var(--ob-top-h); z-index: 7;
+  /* A white band under the box, so names disappear below it rather than
+     scrolling up against its edge. In the gap above the list at rest. */
+  box-shadow: 0 .6rem 0 var(--card);
+}
+/* The band here is a shadow, not flow-root: containing the search row's 12px
+   margin would stop it collapsing with the list heading's 4px and push every
+   line 4px down at rest. */
+.ob-so-pin { position: sticky; top: var(--ob-top-h); z-index: 7; background: var(--card); box-shadow: 0 12px 0 var(--card); }

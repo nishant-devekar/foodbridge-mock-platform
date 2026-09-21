@@ -2090,6 +2090,9 @@
     render(
       chrome(null, { title: "Create Order" }) +
       '<main class="ob-main ob-so">' +
+        /* Who it is for and the product search stay pinned under the title
+           while the lines scroll (21 Sep 2026, product owner). */
+        '<div class="ob-so-pin">' +
         '<div class="ws-head">' +
           '<button type="button" class="ws-who" id="obWho">' + esc(o.customerName) + "</button>" +
           '<div class="ws-count">' + (t.products ? esc(plural(t.products, "product", "products")) + " · " + esc(plural(t.units, "unit", "units")) : "Nothing to order yet") + "</div>" +
@@ -2097,6 +2100,7 @@
         "</div>" +
         '<div class="sah-search-row"><div class="sah-search">' +
           '<input type="search" id="obQ" autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(OB_STATE.q) + '" placeholder="Search product"></div></div>' +
+        "</div>" +
         '<div id="obBody">' + obBodyHTML() + "</div>" +
       "</main>" +
       '<footer class="sah-foot ws-foot ob-so"><div class="inner" id="obFoot">' + obFootHTML() + "</div></footer>"
