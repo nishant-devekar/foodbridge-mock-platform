@@ -954,3 +954,19 @@ label.ob-row.is-check { cursor: pointer; }
 .ob-list.is-src .ob-row.is-soon .ob-row-logo > * { opacity: .45; filter: grayscale(1); }
 .ob-list.is-src .ob-row.is-soon .ob-row-soon { margin-right: -.2rem; }
 .ob-hero.is-logo svg[aria-label="Xero"] { width: 4.4rem; height: 4.4rem; }
+
+/* 21 Sep 2026 — Create Order in three steps: customer, how to start, build. */
+.ob-main.is-ocust { padding-top: .2rem; }
+.ob-main.is-ocust .ob-reclist { margin-top: .8rem; padding-bottom: 1rem; }
+button.ob-rec { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+button.ob-rec:active { background: #fafbfa; }
+.ob-rec-none { margin: 1.2rem 0; text-align: center; font-size: .8rem; color: var(--muted); }
+.ob-row-tag {
+  flex: 0 0 auto; padding: .2rem .6rem; border-radius: 99px;
+  font-size: .66rem; font-weight: 700; color: var(--g-d); background: var(--g-50);
+}
+.ob-main.is-ostart .ob-ostart-h { margin: 1.6rem .2rem 0; font-size: 1.15rem; line-height: 1.5rem; }
+.ob-list.is-start { margin: 1rem 0 0; gap: .6rem; }
+.ob-list.is-start .ob-row-main { flex: 1 1 auto; }
+.ob-list.is-start .ob-row.is-pick { border-color: var(--g-100); background: var(--g-tint); }
+.ob-main.is-ostart .ws-head { margin-top: .5rem; }

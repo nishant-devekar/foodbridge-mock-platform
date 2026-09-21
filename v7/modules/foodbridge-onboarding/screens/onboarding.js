@@ -72,6 +72,7 @@
     search: lu('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 18),
     minus: lu('<path d="M5 12h14"/>', 16),
     plus: lu('<path d="M5 12h14"/><path d="M12 5v14"/>', 16, 2.4),
+    spark: lu('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>', 18),
     trash: lu('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 16),
     shieldCheck: lu('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>', 18),
     lockFill: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Zm2 0h6V7a3 3 0 0 0-6 0Z"/><circle cx="12" cy="16" r="1.6" fill="#fff"/></svg>',
@@ -381,7 +382,12 @@
       case "found": return go("source");
       case "check": return go(state.dataReady ? "found" : "source");
       case "ready": return go("check");
-      case "order": state.order = null; return go("ready");
+      case "order": {
+        const o = state.order;
+        if (o && o.step === "build") { o.step = "start"; save(); return draw(); }
+        if (o && o.step === "start") { o.step = "customer"; save(); return draw(); }
+        state.order = null; return go("ready");
+      }
       default: return;
     }
   }
@@ -1845,34 +1851,133 @@
              units: active.reduce(function (n, l) { return n + (Number(l.qty) || 0); }, 0) };
   }
 
-  /* Kick off a prediction and land on the build screen. Async only so the
-     working state is actually seen -- the engine is synchronous. */
-  function startOrderFor(customerId, customerName) {
-    state.order = { customerId: customerId, customerName: customerName, lines: [],
-                    prediction: null, loading: true, committing: false };
-    OB_STATE.q = ""; OB_STATE.focused = false; OB_STATE.adding = false; OB_STATE.confirm = false;
+  /* ── Create Order, in three steps (21 Sep 2026, product owner) ──────────
+       1 · customer   who it is for — search, pick. Customers FoodBridge
+                      thinks are due to reorder come first, tagged "Due".
+       2 · start      how to begin: FoodBridge's suggested order (with how
+                      big it is), or from scratch. When FoodBridge has
+                      nothing to suggest (no orders, or none recent enough),
+                      that row is shown, not usable.
+       3 · build      the Stock Audit build screen below — filled with the
+                      suggestion, or empty with the product search open.
+     Back walks one step at a time; tapping the customer's name goes to 1. */
+  function predictFor(customerId) {
+    try {
+      const e = engineView();
+      const hist = (e.history[customerId] && e.history[customerId].orders) || [];
+      return window.FB_PREDICT.generatePredictiveOrder({
+        customerId: customerId,
+        latestCompletedAudit: null,                        // onboarding has none
+        orders: hist,
+        products: e.seed.products,
+        now: new Date(),
+      });
+    } catch (err) { return { ok: false, error: String(err) }; }
+  }
+  function dueCustomers() {
+    try {
+      const e = engineView();
+      const opp = window.FB_EVIDENCE.missedOrders({ seed: e.seed, history: e.history, predict: window.FB_PREDICT });
+      return opp.shops.filter(function (x) { return x.suggestion; }).map(function (x) { return x.id; });
+    } catch (err) { return []; }
+  }
+
+  function chooseCustomer(c) {
+    state.order = { step: "start", customerId: c.id, customerName: c.name, lines: [],
+                    prediction: predictFor(c.id), mode: null, loading: false, committing: false };
+    save(); draw();
+  }
+
+  /* Step 3 from step 2's choice. The engine is synchronous; the short wait is
+     only so "Preparing order…" is actually seen, as before. */
+  function startBuild(mode) {
+    const o = state.order;
+    o.step = "build"; o.mode = mode; o.lines = []; o.committing = false;
+    OB_STATE.q = ""; OB_STATE.focused = false; OB_STATE.adding = mode === "scratch"; OB_STATE.confirm = false;
+    if (mode === "scratch") {
+      save(); draw();
+      setTimeout(function () { const i = $("#obQ"); if (i) i.focus(); }, 0);
+      return;
+    }
+    o.loading = true;
     draw();
     setTimeout(function () {
-      const o = state.order;
-      if (!o || o.customerId !== customerId) return;      // left mid-generation
-      try {
-        const e = engineView();
-        const hist = (e.history[customerId] && e.history[customerId].orders) || [];
-        const res = window.FB_PREDICT.generatePredictiveOrder({
-          customerId: customerId,
-          latestCompletedAudit: null,                      // onboarding has none
-          orders: hist,
-          products: e.seed.products,
-          now: new Date(),
-        });
-        o.prediction = res;
-        o.lines = res.ok ? res.lines.map(function (l) { return lineOf(l.productId, null, l.recommendedQty); }) : [];
-      } catch (err) {
-        o.prediction = null; o.lines = []; o.error = err;
-      }
-      o.loading = false;
+      if (state.order !== o) return;                       // left while preparing
+      const res = o.prediction;
+      o.lines = res && res.ok ? res.lines.map(function (l) { return lineOf(l.productId, null, l.recommendedQty); }) : [];
+      o.loading = false; save();
       if (state.screen === "order") drawOrder();
     }, 650);
+  }
+
+  function drawOrderCustomer() {
+    const cat = catalogue();
+    if (!cat.customers.length) {
+      render(chrome(null, { title: "Create Order" }) + '<main class="ob-main"><p class="ob-sub">No customers to order for.</p></main>');
+      return;
+    }
+    if (!OB_STATE.due) OB_STATE.due = dueCustomers();
+    const due = OB_STATE.due;
+    const list = function () {
+      const q = (OB_STATE.cq || "").trim().toLowerCase();
+      const hits = cat.customers.filter(function (c) { return !q || c.name.toLowerCase().indexOf(q) !== -1; })
+        .sort(function (a, b) {
+          const da = due.indexOf(a.id), db = due.indexOf(b.id);
+          if (da !== -1 || db !== -1) return (da === -1 ? 1e9 : da) - (db === -1 ? 1e9 : db);
+          return a.name.localeCompare(b.name);
+        });
+      return hits.length ? hits.map(function (c) {
+        return '<button type="button" class="ob-rec" data-cust="' + esc(c.id) + '"><span class="ob-rec-a">' + esc(c.name) + "</span>" +
+          (due.indexOf(c.id) !== -1 ? '<span class="ob-row-tag">Due</span>' : "") + "</button>";
+      }).join("") : '<p class="ob-rec-none">No customer found</p>';
+    };
+    render(
+      chrome(null, { title: "Create Order" }) +
+      '<main class="ob-main is-ocust">' +
+        '<label class="ob-osearch">' + ICON.search +
+          '<input id="c-q" type="search" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="words" placeholder="Search customers" value="' + esc(OB_STATE.cq || "") + '"></label>' +
+        '<div class="ob-reclist" id="c-list">' + list() + "</div>" +
+      "</main>"
+    );
+    const bind = function () {
+      $$("[data-cust]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          const c = cat.customers.filter(function (x) { return x.id === b.dataset.cust; })[0];
+          if (c) { OB_STATE.cq = ""; chooseCustomer(c); }
+        });
+      });
+    };
+    bind();
+    const inp = $("#c-q");
+    inp.addEventListener("input", function () { OB_STATE.cq = inp.value; $("#c-list").innerHTML = list(); bind(); });
+  }
+
+  function drawOrderStart() {
+    const o = state.order, p = o.prediction;
+    const ok = !!(p && p.ok && p.lines && p.lines.length);
+    const n = ok ? p.lines.filter(function (l) { return Number(l.recommendedQty) > 0; }).length : 0;
+    render(
+      chrome(null, { title: "Create Order" }) +
+      '<main class="ob-main ob-so is-ostart">' +
+        '<div class="ws-head"><button type="button" class="ws-who" id="obWho">' + esc(o.customerName) + "</button></div>" +
+        '<h1 class="ob-h1 ob-ostart-h">How do you want to start?</h1>' +
+        '<div class="ob-list is-start">' +
+          (ok
+            ? '<button type="button" class="ob-row is-pick" id="b-suggested"><span class="ob-row-ic">' + ICON.spark + "</span>" +
+                '<span class="ob-row-main"><span class="ob-row-t">Suggested order</span></span>' +
+                '<span class="ob-row-tag">' + esc(plural(n, "product", "products")) + "</span></button>"
+            : '<div class="ob-row is-soon" aria-disabled="true"><span class="ob-row-ic is-muted">' + ICON.spark + "</span>" +
+                '<span class="ob-row-main"><span class="ob-row-t">Suggested order</span></span>' +
+                '<span class="ob-row-soon">Nothing to suggest</span></div>') +
+          '<button type="button" class="ob-row" id="b-scratch"><span class="ob-row-ic">' + ICON.plus + "</span>" +
+            '<span class="ob-row-main"><span class="ob-row-t">Start from scratch</span></span>' +
+            '<span class="ob-row-chev">' + ICON.chev + "</span></button>" +
+        "</div>" +
+      "</main>"
+    );
+    const sg = $("#b-suggested"); if (sg) sg.addEventListener("click", function () { startBuild("suggested"); });
+    $("#b-scratch").addEventListener("click", function () { startBuild("scratch"); });
+    $("#obWho").addEventListener("click", function () { o.step = "customer"; save(); draw(); });
   }
 
   const obPreviewing = function () { return !OB_STATE.q.trim() && (OB_STATE.adding || OB_STATE.focused); };
@@ -1922,12 +2027,11 @@
   }
 
   function drawOrder() {
-    if (!state.order) {
-      const pre = prefillOrder();
-      if (!pre.customerId) { render(chrome(null, { title: "Create Order" }) + '<main class="ob-main"><p class="ob-sub">No customers to order for.</p></main>'); return; }
-      return startOrderFor(pre.customerId, pre.customerName);
-    }
+    if (!state.order) { state.order = { step: "customer", lines: [] }; OB_STATE.cq = ""; OB_STATE.due = null; }
     const o = state.order;
+    if (!o.step) o.step = "build";                         // an order saved before the three steps
+    if (o.step === "customer") return drawOrderCustomer();
+    if (o.step === "start") return drawOrderStart();
 
     if (o.loading) {
       render(
@@ -1943,16 +2047,7 @@
       return;
     }
 
-    const cat = catalogue();
-    const q = OB_STATE.q.trim().toLowerCase();
-    const chosen = o.lines.map(function (l) { return l.productId; });
-    const available = cat.products.filter(function (p) { return chosen.indexOf(p.id) === -1; });
-    const results = !obSearching() ? []
-      : q ? available.filter(function (p) { return (p.name + " " + (p.sku || "")).toLowerCase().indexOf(q) !== -1; })
-          : available.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).slice(0, 5);
     const t = orderTotals(o.lines);
-    const recommended = !!(o.prediction && o.prediction.ok);
-
     render(
       chrome(null, { title: "Create Order" }) +
       '<main class="ob-main ob-so">' +
@@ -1963,7 +2058,27 @@
         "</div>" +
         '<div class="sah-search-row"><div class="sah-search">' +
           '<input type="search" id="obQ" autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(OB_STATE.q) + '" placeholder="Search product"></div></div>' +
-        (obSearching()
+        '<div id="obBody">' + obBodyHTML() + "</div>" +
+      "</main>" +
+      '<footer class="sah-foot ws-foot ob-so"><div class="inner" id="obFoot">' + obFootHTML() + "</div></footer>"
+    );
+    wireOrderBuild();
+  }
+
+  /* Everything under the search box: the product picker while searching, the
+     order lines otherwise. The search box itself is never in here -- redrawing
+     it would take the focus (and the keyboard) away mid-tap or mid-word. */
+  function obBodyHTML() {
+    const o = state.order;
+    const cat = catalogue();
+    const q = OB_STATE.q.trim().toLowerCase();
+    const chosen = o.lines.map(function (l) { return l.productId; });
+    const available = cat.products.filter(function (p) { return chosen.indexOf(p.id) === -1; });
+    const results = !obSearching() ? []
+      : q ? available.filter(function (p) { return (p.name + " " + (p.sku || "")).toLowerCase().indexOf(q) !== -1; })
+          : available.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).slice(0, 5);
+    const recommended = o.mode !== "scratch" && !!(o.prediction && o.prediction.ok);
+    return (obSearching()
           ? '<div class="picker-list dropdown">' + (results.length
               ? results.map(function (p) {
                   return '<button type="button" class="picker-row" data-order-add="' + esc(p.id) + '">' +
@@ -1975,13 +2090,18 @@
             (obPreviewing() && available.length > results.length
               ? '<div class="suggest-hint">Showing ' + results.length + " of " + plural(available.length, "product", "products") + " — keep typing to search all</div>"
               : "") + "</div>"
-          : (o.lines.length ? '<div class="section-head-row attached"><h2>' + (recommended ? "Recommended" : "Products") + "</h2>" +
+          : (o.lines.length ? '<div class="section-head-row attached"><h2>' + (recommended ? "FoodBridge suggests" : "Products") + "</h2>" +
                 (recommended ? '<span class="ord-basis-line">From ' + esc(plural((o.prediction.context && o.prediction.context.recentOrderCount) || 0, "order", "orders")) + "</span>" : "") + "</div>" : "") +
-            (o.lines.length ? '<div class="qc-card">' + o.lines.map(obRowHTML).join("") + "</div>" : obEmptyHTML())) +
-      "</main>" +
-      '<footer class="sah-foot ws-foot ob-so"><div class="inner" id="obFoot">' + obFootHTML() + "</div></footer>"
-    );
-    wireOrderBuild();
+            (o.lines.length ? '<div class="qc-card">' + o.lines.map(obRowHTML).join("") + "</div>" : obEmptyHTML()));
+  }
+
+  /* Search state changed: redraw the body and the footer (+ Add Product hides
+     while searching), leaving the search box and its focus alone. */
+  function obRefreshBody() {
+    const b = $("#obBody"); if (!b) return;
+    b.innerHTML = obBodyHTML();
+    wireOrderBody();
+    obRefreshChrome();
   }
 
   function obRefreshChrome() {
@@ -1991,19 +2111,35 @@
     const f = $("#obFoot"); if (f) { f.innerHTML = obFootHTML(); wireOrderFoot(); }
   }
 
+  /* The search box is wired once per screen draw; its events only ever
+     redraw #obBody. Redrawing the whole screen here (as this did) replaced the
+     focused box on every focus and keystroke: the dropdown opened on a box that
+     no longer had the focus, the blur then closed it again -- the flicker --
+     and typing lost the caret after one letter. */
   function wireOrderBuild() {
     const o = state.order;
     const inp = $("#obQ");
     if (inp) {
-      inp.addEventListener("input", function () { OB_STATE.q = inp.value; drawOrder(); });
-      inp.addEventListener("focus", function () { OB_STATE.focused = true; drawOrder(); });
+      inp.addEventListener("input", function () { OB_STATE.q = inp.value; obRefreshBody(); });
+      inp.addEventListener("focus", function () { OB_STATE.focused = true; obRefreshBody(); });
       inp.addEventListener("blur", function () {
         setTimeout(function () {
-          if (state.screen !== "order") return;
-          OB_STATE.focused = false; OB_STATE.adding = false; drawOrder();
+          if (state.screen !== "order" || !inp.isConnected) return;
+          if (document.activeElement === inp) return;    // focus came straight back
+          OB_STATE.focused = false; OB_STATE.adding = false; obRefreshBody();
         }, 140);
       });
     }
+    const who = $("#obWho");
+    if (who) who.addEventListener("click", function () { o.step = "customer"; save(); draw(); });
+    wireOrderBody();
+    wireOrderFoot();
+  }
+
+  /* Re-wired on every body swap, since the body replaces its own markup. */
+  function wireOrderBody() {
+    const o = state.order;
+    const inp = $("#obQ");
     const add = function (p) {
       if (!p) return;
       if (!o.lines.some(function (l) { return l.productId === p.id; })) {
@@ -2012,7 +2148,8 @@
         o.lines.unshift(line);
       }
       OB_STATE.q = ""; OB_STATE.adding = false; OB_STATE.focused = false;
-      save(); drawOrder();
+      if (inp) { inp.value = ""; inp.blur(); }
+      save(); obRefreshBody();
     };
     $$("[data-order-add]").forEach(function (b) {
       b.addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -2053,16 +2190,18 @@
       });
       box.addEventListener("input", function () { set(box.value); });
     });
-
-    const who = $("#obWho");
-    if (who) who.addEventListener("click", openCustomerSheet);
-    wireOrderFoot();
   }
 
   /* Re-wired on every footer swap, since the footer replaces its own markup. */
   function wireOrderFoot() {
     const a = $("#obAdd");
-    if (a) a.addEventListener("click", function () { OB_STATE.adding = true; drawOrder(); setTimeout(function () { const i = $("#obQ"); if (i) i.focus(); }, 0); });
+    /* Focus in the tap itself, not after a redraw: iOS only opens the keyboard
+       for a focus() made inside the user's gesture. */
+    if (a) a.addEventListener("click", function () {
+      OB_STATE.adding = true;
+      const i = $("#obQ"); if (i) i.focus();
+      obRefreshBody();
+    });
     const c = $("#obConfirm");
     if (c) c.addEventListener("click", function () { OB_STATE.confirm = true; obRefreshChrome(); });
     const no = $("#obNo");
@@ -2081,42 +2220,6 @@
 
   function cat_by_id(id) { return catalogue().products.filter(function (p) { return p.id === id; })[0]; }
 
-
-  /* Changing who the order is for starts that customer's order, the way
-     Stock Audit's pick screen does -- a new customer gets their own
-     recommendation, not the last one's lines. */
-  function openCustomerSheet() {
-    const cat = catalogue();
-    let filter = "";
-    const list = function () {
-      const q = filter.trim().toLowerCase();
-      const hits = cat.customers.filter(function (c) { return !q || c.name.toLowerCase().indexOf(q) !== -1; }).slice(0, 40);
-      return hits.map(function (c) {
-        return '<button class="ob-rec" data-cust="' + esc(c.id) + '"><span class="ob-rec-a">' + esc(c.name) + "</span>" +
-          (c.id === state.order.customerId ? '<span class="ob-rec-b">' + ICON.check + "</span>" : "") + "</button>";
-      }).join("");
-    };
-    openSheet({
-      title: "Customer",
-      body: '<label class="ob-osearch is-sheet">' + ICON.search + '<input id="c-q" type="search" autocorrect="off" autocapitalize="words" placeholder="Search ' + cat.customers.length + ' customers"></label>' +
-        '<div class="ob-reclist" id="c-list">' + list() + "</div>",
-      bind: function () {
-        const bindList = function () {
-          $$("[data-cust]").forEach(function (b) {
-            b.addEventListener("click", function () {
-              const c = cat.customers.filter(function (x) { return x.id === b.dataset.cust; })[0];
-              state.sheet = null;
-              if (!c || c.id === state.order.customerId) { draw(); return; }
-              startOrderFor(c.id, c.name);
-            });
-          });
-        };
-        bindList();
-        const inp = $("#c-q");
-        inp.addEventListener("input", function () { filter = inp.value; $("#c-list").innerHTML = list(); bindList(); });
-      },
-    });
-  }
 
   function createOrder() {
     const o = state.order;

@@ -59,9 +59,14 @@
     "count would be right on the day it was pasted and wrong in the room a week",
     "later, beside a control tower that computes it fresh. And the rupee figure is",
     "one this tenant cannot support (D-015). So the chat names what needs",
-    "attention and the link shows how much — the number lives where it is live."
+    "attention and the link shows how much — the number lives where it is live.",
+    "",
+    "FIVE WORDS OR FEWER, EVERYWHERE (20 Sep 2026, product owner). No row carries a",
+    "description and no greeting carries a second line: someone should read a",
+    "message at a glance and know what to tap. The {title} a link message quotes",
+    "is the row just tapped, so it is not counted against the line around it."
   ],
-  "greeting": "Hello *{userName}*! 👋\n\nWelcome to FoodBridge. Are you new here, or do you already have an account?",
+  "greeting": "Hello *{userName}*! 👋 New here?",
   "buttons": [
     {
       "id": "FB_NEW",
@@ -80,7 +85,7 @@
   ],
   "nodes": {
     "NEW_USER": {
-      "greeting": "Welcome 🎉\n\nShall I set up your business on this number? I can bring your customers, products and orders across from Tally, Zoho or a spreadsheet — you won't have to type them in.",
+      "greeting": "Set up your business?",
       "buttons": [
         {
           "id": "FB_SETUP",
@@ -99,65 +104,56 @@
       ]
     },
     "EXPLORE": {
-      "greeting": "Have a look around 👀\n\nPick something to see. It opens on real screens, running on a real distributor's records — nothing to set up, and nothing to undo.",
-      "menuButtonLabel": "Pick a feature",
+      "greeting": "Pick a feature 👀",
+      "menuButtonLabel": "See features",
       "buttons": [
         {
           "id": "FB_X_ROUTE",
           "title": "Today's route",
-          "description": "Stops, deliveries and cash collected, settled at the end",
           "url": "<BASE>/index.html#/distribution-logistics/delivery-management"
         },
         {
           "id": "FB_X_COLLECTIONS",
           "title": "Collections",
-          "description": "What each customer still owes, oldest first",
           "url": "<BASE>/index.html#/finance/customer-receivables"
         },
         {
           "id": "FB_X_INVENTORY",
           "title": "Inventory",
-          "description": "What is on the shelf, and what has run out",
           "url": "<BASE>/index.html#/inventory/finished-goods-inventory"
         },
         {
           "id": "FB_X_ORDERS",
           "title": "Orders",
-          "description": "Everything open, and what is waiting on delivery",
           "url": "<BASE>/index.html#/sales-orders"
         },
         {
           "id": "FB_X_AUDIT",
           "title": "Shelf audit",
-          "description": "Count a customer's shelf and get the reorder suggested",
           "url": "<BASE>/index.html#/customer-management/stock-audit-health"
         },
         {
           "id": "FB_X_PURCHASE",
           "title": "Purchase",
-          "description": "What to buy for tomorrow, and who from",
           "url": "<BASE>/index.html#/procurement/purchase-orders"
         },
         {
           "id": "FB_X_SETUP",
           "title": "Set up my business",
-          "description": "Ready? Bring your own data across in a couple of minutes",
           "url": "<BASE>/index.html#/onboarding?signup=1"
         },
         {
           "id": "__BACK__",
-          "title": "Back",
-          "description": "The previous question"
+          "title": "Back"
         },
         {
           "id": "__HOME__",
-          "title": "Main menu",
-          "description": "Start again from the top"
+          "title": "Main menu"
         }
       ]
     },
     "EXISTING": {
-      "greeting": "Welcome back 👋\n\nDo you run a store, or buy from one?",
+      "greeting": "Welcome back! Which are you?",
       "buttons": [
         {
           "id": "FB_OWNER",
@@ -176,126 +172,109 @@
       ]
     },
     "BUYER": {
-      "greeting": "Your shop, your orders 🛒\n\nWhat would you like to do?",
+      "greeting": "Your orders and shop 🛒",
       "menuButtonLabel": "Choose one",
       "buttons": [
         {
           "id": "FB_B_ORDERS",
           "title": "My orders",
-          "description": "What is on its way, and what has been delivered",
           "url": "<BASE>/index.html#/retails-overview?view=purchases"
         },
         {
           "id": "FB_B_SHOP",
           "title": "Shop and offers",
-          "description": "Order again, and see what is on offer today",
           "url": "<BASE>/index.html#/retails-overview?view=shop"
         },
         {
           "id": "SUPPORT",
-          "title": "Report a problem",
-          "description": "Something wrong with an order? Tell a person"
+          "title": "Report a problem"
         },
         {
           "id": "__BACK__",
-          "title": "Back",
-          "description": "The previous question"
+          "title": "Back"
         }
       ]
     },
     "BUSINESS": {
-      "greeting": "Welcome back to FoodBridge! 👋\n\nSelect an option:",
-      "menuButtonLabel": "Select an option",
+      "greeting": "What do you need?",
+      "menuButtonLabel": "See options",
       "buttons": [
         {
           "id": "FB_RECOMMENDS",
           "title": "FoodBridge Recommends 🔔",
-          "description": "What needs your attention today",
           "next": "RECOMMENDS"
         },
         {
           "id": "FB_O_ORDERS",
           "title": "Manage orders",
-          "description": "Everything open, and what is waiting on delivery",
           "url": "<BASE>/index.html#/sales-orders"
         },
         {
           "id": "FB_O_COLLECT",
           "title": "Check collections",
-          "description": "What each customer still owes, oldest first",
           "url": "<BASE>/index.html#/finance/customer-receivables"
         },
         {
           "id": "FB_O_STOCK",
           "title": "View inventory",
-          "description": "What is on the shelf, and what has run out",
           "url": "<BASE>/index.html#/inventory/finished-goods-inventory"
         },
         {
           "id": "FB_O_PURCHASE",
           "title": "Create purchase request",
-          "description": "What to buy for tomorrow, and who from",
           "url": "<BASE>/index.html#/procurement/purchase-orders"
         },
         {
           "id": "SUPPORT",
-          "title": "Speak to support",
-          "description": "A person, not a menu"
+          "title": "Speak to support"
         },
         {
           "id": "__BACK__",
-          "title": "Back",
-          "description": "The previous question"
+          "title": "Back"
         }
       ]
     },
     "RECOMMENDS": {
-      "greeting": "✨ FoodBridge Recommends\n\nI've checked your business. These need your attention today — tap one to see it:",
-      "menuButtonLabel": "See what needs you",
+      "greeting": "✨ Needs your attention:",
+      "menuButtonLabel": "See them",
       "buttons": [
         {
           "id": "FB_R_CADENCE",
           "title": "Shops not ordering",
-          "description": "Customers past their own ordering cycle, longest overdue first",
           "url": "<BASE>/index.html#/control-tower"
         },
         {
           "id": "FB_R_STOCK",
           "title": "Out of stock",
-          "description": "Products that have run out, before they short a delivery",
           "url": "<BASE>/index.html#/inventory/finished-goods-inventory"
         },
         {
           "id": "FB_R_ROUTE",
           "title": "Tomorrow's route",
-          "description": "Stops and loads for the next delivery run",
           "url": "<BASE>/index.html#/distribution-logistics/delivery-management"
         },
         {
           "id": "FB_R_OPEN",
           "title": "Open in FoodBridge",
-          "description": "Everything that needs you today, on one screen",
           "url": "<BASE>/index.html#/control-tower"
         },
         {
           "id": "__BACK__",
-          "title": "Back",
-          "description": "Business options"
+          "title": "Back"
         },
         {
           "id": "__HOME__",
-          "title": "Main menu",
-          "description": "Start again from the top"
+          "title": "Main menu"
         }
       ]
     }
   },
   "menuButtonLabel": "Choose one",
   "smartLinkButtonLabel": "Open FoodBridge",
-  "staticLinkMessage": "*{title}* 🔗\n\nTap below to open it. When you come back to this chat, the menu you were on is still here.",
-  "smartLinkMessage": "Your *{title}* link is ready 🔗\n\nTap below to open it. It works for *24 hours*.",
-  "supportPrompt": "Happy to help 🤝\n\nTell me what's happened and someone will come back to you.",
-  "supportConfirmation": "✅ Got it. Someone will be in touch shortly.\n\nSend me anything to see the menu again.",
+  "staticLinkMessage": "*{title}* 🔗 Tap below to open.",
+  "smartLinkMessage": "*{title}* 🔗 Tap below to open.",
+  "supportPrompt": "How can we help? 🤝",
+  "supportConfirmation": "✅ Got it. We'll reply soon.",
   "unknownMessage": "Here's the menu again 👇",
-  "smartLinkUnavailableMessage": "⚠️ I couldn't build your link just now. Try again in a moment, or ask for a person."
+  "smartLinkUnavailableMessage": "⚠️ Link failed. Try again."
 }
