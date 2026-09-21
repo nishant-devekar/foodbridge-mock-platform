@@ -1,40 +1,36 @@
 /* ==========================================================================
-   EXIT DEMO — the footer bar, and the three ways out of the demo behind it.
+   EXIT DEMO — the footer bar, and the way out of the demo behind it.
 
-   THE FLOW, as it stands (19 Sep 2026):
+   THE FLOW, as it stands (21 Sep 2026):
 
-       EXIT DEMO ─▶ ┌ Before you go ────────────────────────┐
-                    │  Give feedback → form → WhatsApp      │
-                    │  Skip          →        WhatsApp      │
+       EXIT DEMO ─▶ ┌ 👋 Leaving the demo? ─────────────────┐
+                    │  faces ─(a face)─▶ comment (type/speak)│
+                    │  Set up my account  →  sign-up        │
+                    │  Keep exploring     →  stays here     │
+                    │  ✕  →  back to the screen             │
                     └───────────────────────────────────────┘
 
-   ONE PATH, AND IT ENDS IN THE CHAT. The sheet used to offer "Become a part
-   of FoodBridge", which routed into onboarding — a whole flow between the
-   exit and the chat. Signing up is a door at the FRONT now: "I'm new here"
-   in WhatsApp, and the standing offer on every explore screen. The exit's
-   only job is to close the loop.
+   IT STAYS ON THE PLATFORM. The exit used to end in the WhatsApp chat; it
+   no longer leaves at all (21 Sep 2026, product owner). So "exit demo" means
+   leaving the DEMO — the sample business — for the real thing: setting up
+   their own account (or, with one, opening it). The only other answer is
+   "not yet", and that keeps them where they were.
 
-   AND IT IS ON EVERY DESTINATION. It used to be mounted by five screens of
-   twenty-six, so finishing onboarding or opening the dashboard left someone
-   stranded. The platform shell mounts it once for all of them; a module that
-   draws its own (Raw Material Inventory, which passes a Receive Stock tab
-   through it) wins, and the shell stands its bar down.
+   · One question first: the faces. Everything else appears only once they
+     have answered, so nothing on the sheet is ever greyed out.
+   · The ask follows the answer: after Bad or Meh, "Keep exploring" leads and
+     the question is "What went wrong?" — no sign-up pushed at someone
+     unhappy.
+   · Asked once a visit: rated already, a second EXIT DEMO goes straight to
+     the two ways on.
+   · The sheet is dismissible: the ✕, a scrim tap or Escape goes back.
+   · Feedback is QUEUED FIRST, sent second, and never waited on: it is in
+     localStorage before the request leaves, so a dead network or an
+     unconfigured bridge delays it instead of losing it.
 
-   WHAT WAS REFINED, and why:
-
-   · The sheet is DISMISSIBLE. Tapping the way out must not be a trap; a scrim
-     tap, the X, or Escape returns to the screen they were on.
-   · The form is THREE fields and one tap. A rating is the only required
-     answer, because a rating everyone gives beats a paragraph nobody writes.
-     Name and number are prefilled from the onboarding account when this
-     browser has one, so a returning user just taps Send.
-   · Feedback is QUEUED FIRST, sent second. The entry goes into localStorage
-     before the request leaves, so a dead network, a closed tab or an
-     unconfigured bridge delays it instead of losing it. The queue is flushed
-     on the next load of any screen carrying this footer.
-   · Sending NEVER blocks the exit. The WhatsApp hand-off happens whether or
-     not the POST has come back — the user has already given their answer, and
-     making them wait for our server is our problem, not theirs.
+   AND IT IS ON EVERY DESTINATION. The platform shell mounts it once for all
+   of them; a module that draws its own (Raw Material Inventory, which passes
+   a Receive Stock tab through it) wins, and the shell stands its bar down.
 
    Everything here is one file, no dependencies, no build step, and it draws
    its own styles — the same rules as every other module in this cut.
@@ -44,28 +40,13 @@
   "use strict";
 
   /* ── Where things point ──────────────────────────────────────────────── */
-  var WA_NUMBER = "919988087779";          // FoodBridge WhatsApp IVR
-  var WA_TEXT = "Hi";                      // opens the IVR's menu
   var DEFAULT_BASE = "https://zoho-function-nu.vercel.app";
   var LOCAL_BASE = "http://localhost:8787";
   var API_KEY = "tFcdYY4RepvrSmvdLsmG3jls3_1J2epW";   // same shared key the other screens carry
   var QUEUE_KEY = "fb.v7.feedback.queue";   // not yet delivered
   var LOG_KEY = "fb.v7.feedback.log";       // everything ever given on THIS device
   var WHO_KEY = "fb.v7.account";           // what onboarding wrote, if this browser has been through it
-
-  /* TWO WAYS TO THE SAME CHAT, and the difference is a screen of WhatsApp's.
-     `wa.me` is a web PAGE: handed an https link, a browser renders it, and it
-     answers with "Open app / Download it now" — a second tap between the demo
-     and the chat. It has to, because a scripted navigation never gets the
-     universal-link handling that would pass the address to the app instead.
-     The app's own scheme is not a page at all: the OS hands it straight to
-     WhatsApp, already open on the FoodBridge thread. */
-  var waApp = function () {
-    return "whatsapp://send?phone=" + WA_NUMBER + "&text=" + encodeURIComponent(WA_TEXT);
-  };
-  var waLink = function () {
-    return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent(WA_TEXT);
-  };
+  var RATED_KEY = "fb.v7.rated";           // this visit has answered the faces already (sessionStorage)
 
   function apiBase() {
     var stored = ls.get("fb-api-base");
@@ -85,52 +66,23 @@
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   };
 
-  /* ── Leaving ─────────────────────────────────────────────────────────── */
-  /* In the platform these screens are an iframe, so a route change belongs to
-     the TOP window. Opened on their own they are the whole page. */
-  function goPlatform(route) {
-    try {
-      if (window.top && window.top !== window.self) { window.top.location.hash = "#/" + route; return true; }
-    } catch (e) { /* a parent we may not touch */ }
-    return false;
-  }
-  function goWhatsApp() {
-    /* The IVR is not ours to frame: open it at the top, which is also what a
-       phone needs for the WhatsApp app itself to take over. */
+  /* ── Going somewhere on the platform ─────────────────────────────────── */
+  /* The window that owns the platform's hash is not always `top`: the IVR
+     simulator frames the platform, so `top` is the simulator there. Climb
+     until a frame answers to FBPlatform; fall back to `top`. */
+  function platformWin() {
     var w = window;
-    try { if (window.top && window.top !== window.self) w = window.top; } catch (e) { /* a parent we may not touch */ }
-    var go = function (url) {
-      try { w.location.href = url; } catch (e) { window.location.href = url; }
-    };
-
-    /* The scheme is tried first and nothing confirms it worked — there is no
-       such answer to be had. What IS observable is this document going away:
-       when WhatsApp comes to the front the page is hidden or unloaded within a
-       moment. Still here after that, and no app took it, so `wa.me` is the
-       honest second choice — it is also the only one that helps someone
-       without WhatsApp installed, which is the case the scheme cannot serve.
-
-       Only leaving counts as leaving. `blur` looks like the same signal and is
-       not: it fires when the window merely loses focus — a tap on browser
-       chrome, an OS prompt, a click into another pane — and treating that as
-       success strands someone on the demo with nothing happening at all. The
-       two mistakes are not the same size. Falling back when the app DID open
-       costs a wa.me page loading in a tab nobody is looking at; not falling
-       back costs the handoff entirely. So this listens only for the page
-       actually going away, and errs toward navigating. */
-    var settled = false;
-    var settle = function () { settled = true; };
-    document.addEventListener("visibilitychange", function () { if (document.hidden) settle(); });
-    window.addEventListener("pagehide", settle);
-
-    setTimeout(function () {
-      if (settled) return;
-      go(waLink());
-    }, 1400);
-
-    go(waApp());
+    for (var i = 0; i < 5; i++) {
+      try { if (w.FBPlatform) return w; } catch (e) { /* not ours to read */ }
+      var up; try { up = w.parent; } catch (e) { break; }
+      if (!up || up === w) break;
+      w = up;
+    }
+    try { return window.top; } catch (e) { return window; }
   }
-
+  function goPlatform(route) {
+    try { platformWin().location.hash = "#/" + route; return true; } catch (e) { return false; }
+  }
   /* ── The log ─────────────────────────────────────────────────────────────
      The queue empties as entries are delivered, which would leave the operator
      of a demo with nothing to read while no store is configured — the exact
@@ -177,7 +129,11 @@
   /* ── Who they are, when we already know ──────────────────────────────── */
   function known() {
     var a = ls.json(WHO_KEY) || {};
-    return { name: a.guest ? "" : (a.name || ""), phone: String(a.mobile || "").replace(/\D/g, "").slice(-10) };
+    /* No account yet: the number they came from WhatsApp with, if onboarding
+       has kept it for this tab (fb.ob.waPhone). */
+    var wa = ""; try { wa = sessionStorage.getItem("fb.ob.waPhone") || ""; } catch (e) { /* storage off */ }
+    return { name: a.guest ? "" : (a.name || ""), phone: String(a.mobile || wa).replace(/\D/g, "").slice(-10),
+             account: !a.guest && !!a.name };
   }
 
   /* ── Styles ──────────────────────────────────────────────────────────── */
@@ -220,14 +176,6 @@
     ".fbx-head h2{margin:0;font-size:17px;line-height:22px;font-weight:700}",
     ".fbx-head p{margin:3px 0 0;font-size:12.5px;line-height:17px;color:#5b616b}",
     ".fbx-x{margin-left:auto;flex:0 0 auto;width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:50%;background:#f1f3f5;color:#3a3f47;cursor:pointer;font-size:16px;line-height:1}",
-    ".fbx-list{padding:10px 14px 16px;display:flex;flex-direction:column;gap:8px}",
-    ".fbx-row{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:1px solid #e6e8eb;border-radius:12px;background:#fff;cursor:pointer;text-align:left;font:inherit}",
-    ".fbx-row:active{background:#f7f8fa}",
-    ".fbx-row .fbx-ic{flex:0 0 auto;width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#eef2ff;color:#2540d6}",
-    ".fbx-row.is-go .fbx-ic{background:#e8f5ec;color:#0e8a3c}",
-    ".fbx-row.is-wa .fbx-ic{background:#e7f8ef;color:#1d9e5d}",
-    ".fbx-row b{display:block;font-size:14px;font-weight:600}",
-    ".fbx-row small{display:block;margin-top:1px;font-size:11.5px;color:#6b7079}",
     ".fbx-form{padding:4px 18px 18px}",
     ".fbx-label{margin:12px 0 6px;font-size:12px;font-weight:600;color:#3a3f47}",
     ".fbx-rate{display:flex;gap:6px}",
@@ -238,10 +186,20 @@
     ".fbx-in{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e6e8eb;border-radius:10px;font:inherit;font-size:16px;background:#fff;color:#0d0f12}",
     ".fbx-in:focus{outline:none;border-color:#0e8a3c;box-shadow:0 0 0 3px #e8f5ec}",
     "textarea.fbx-in{min-height:74px;resize:vertical}",
-    ".fbx-two{display:flex;gap:8px}.fbx-two>div{flex:1;min-width:0}",
+    /* Speak instead of type: a mic in the comment box's corner. */
+    ".fbx-talk{position:relative}",
+    ".fbx-talk textarea.fbx-in{padding-right:52px}",
+    ".fbx-mic{position:absolute;right:8px;bottom:10px;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:50%;background:#f1f3f5;color:#3a3f47;cursor:pointer}",
+    ".fbx-mic.is-on{background:#e03a3e;color:#fff;animation:fbx-pulse 1.3s ease-out infinite}",
+    "@keyframes fbx-pulse{0%{box-shadow:0 0 0 0 rgba(224,58,62,.45)}100%{box-shadow:0 0 0 12px rgba(224,58,62,0)}}",
+    "@media (prefers-reduced-motion:reduce){.fbx-mic.is-on{animation:none}}",
     ".fbx-cta{width:100%;min-height:46px;margin-top:16px;border:0;border-radius:11px;background:#0e8a3c;color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer}",
     ".fbx-cta[disabled]{background:#e3e5e8;color:#9ca1a9;cursor:default}",
-    ".fbx-skip{width:100%;min-height:40px;margin-top:8px;border:0;background:none;color:#6b7079;font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}",
+    ".fbx-more{animation:fbx-in .22s ease both}",
+    "@keyframes fbx-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}",
+    "@media (prefers-reduced-motion:reduce){.fbx-more{animation:none}}",
+    ".fbx-cta.is-alt{margin-top:10px;background:#fff;color:#0e8a3c;box-shadow:inset 0 0 0 1.5px #0e8a3c}",
+    ".fbx-cta.is-alt[disabled]{background:#fff;color:#b8bcc3;box-shadow:inset 0 0 0 1.5px #e3e5e8}",
     ".fbx-err{margin:10px 0 0;font-size:12.5px;color:#c0392b}",
     ".fbx-done{padding:22px 18px 26px;text-align:center}",
     ".fbx-done .tick{width:52px;height:52px;margin:0 auto 10px;display:grid;place-items:center;border-radius:50%;background:#e8f5ec;color:#0e8a3c;font-size:26px}",
@@ -259,10 +217,8 @@
 
   /* ── Icons, 24-grid, stroked like the rest of the cut ─────────────────── */
   var ICON = {
+    mic: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>',
-    form: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>',
-    join: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>',
-    wa: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
   };
 
   /* ── The sheet ───────────────────────────────────────────────────────── */
@@ -270,6 +226,7 @@
 
   function close() {
     open = false;
+    stopTalk();
     var s = document.getElementById("fbx-scrim"), h = document.getElementById("fbx-sheet");
     if (s) s.remove();
     if (h) h.remove();
@@ -302,41 +259,63 @@
     return sheet;
   }
 
+  /* 21 Sep 2026 — ONE SHEET. EXIT DEMO opens the form itself under
+     "Leaving the demo?"; the menu in front of it offered a single row and
+     cost a tap for nothing. Send ends in the chat; the ✕, a scrim tap or
+     Escape goes back to the screen. There is no Skip (21 Sep 2026).
+
+     NOT "you've completed the demo". EXIT DEMO is on every destination, so
+     most taps come from the middle of a look around — nothing here knows
+     whether anyone finished anything. */
   function openMenu() {
     injectCss();
-    open = true; rating = 0;
+    open = true;
     document.addEventListener("keydown", onKey);
-    /* ONE WAY OUT, and it ends in the chat.
-
-       19 Sep 2026 — "Become a part of FoodBridge" is gone from here. It routed
-       into onboarding, which put a whole flow between the exit and the chat;
-       the exit is a contract now, not a menu. Signing up is a door at the
-       FRONT — "I'm new here" in WhatsApp, and the standing offer on every
-       explore screen — which is where that decision belongs.
-
-       So: rate it, or skip. Both end in WhatsApp. The icons and styles for
-       the two removed rows are kept rather than deleted, so restoring either
-       is uncommenting a line. */
-    var sheet = shell(
-      /* NOT "you've completed the demo". EXIT DEMO is on every destination
-         now, so most taps come from the middle of a look around — nothing here
-         knows whether anyone finished anything, and a chequered flag over
-         someone who gave up after two screens is the demo talking to itself. */
-      '<header class="fbx-head"><div><h2>👋 Before you go</h2>' +
-        "<p>How's it going? One tap is all we need.</p></div>" +
-        '<button class="fbx-x" aria-label="Close">✕</button></header>' +
-      '<div class="fbx-list">' +
-        row("fbx-feedback", "", ICON.form, "Give feedback", "30 seconds — one tap and you're done") +
-      "</div>"
-    );
-    sheet.querySelector("#fbx-feedback").addEventListener("click", openForm);
+    openForm();
   }
 
-  function row(id, cls, icon, title, sub) {
-    return '<button type="button" class="fbx-row ' + cls + '" id="' + id + '">' +
-      '<span class="fbx-ic">' + icon + "</span>" +
-      "<span><b>" + esc(title) + "</b><small>" + esc(sub) + "</small></span></button>";
+  /* ── Speak instead of type ──────────────────────────────────────────────
+     The browser's own speech-to-text (Web Speech API): words land in the box
+     as they are heard, and stay there to be edited like anything typed. No
+     server of ours is involved. Where the browser has none (Firefox), there
+     is no mic at all rather than one that fails. Indian English by default;
+     what is typed alongside is kept — speech is appended, never replaces. */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var rec = null;
+
+  function startTalk(ta, btn, err) {
+    if (!SR || rec) return;
+    var base = ta.value && !/\s$/.test(ta.value) ? ta.value + " " : ta.value;
+    var heard = "";
+    try { rec = new SR(); } catch (e) { rec = null; return; }
+    rec.lang = "en-IN";
+    rec.interimResults = true;
+    rec.continuous = true;
+    rec.onresult = function (ev) {
+      var fin = "", part = "";
+      for (var i = 0; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) fin += ev.results[i][0].transcript; else part += ev.results[i][0].transcript;
+      }
+      heard = fin;
+      ta.value = (base + fin + part).slice(0, 1200);
+    };
+    rec.onerror = function (ev) {
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        err.hidden = false; err.textContent = "The microphone is blocked — type your answer instead.";
+      } else if (ev.error === "network") {
+        err.hidden = false; err.textContent = "Speech needs a connection — type your answer instead.";
+      }
+    };
+    rec.onend = function () {
+      ta.value = (base + heard).replace(/\s+$/, "").slice(0, 1200);
+      btn.classList.remove("is-on"); btn.setAttribute("aria-pressed", "false"); btn.setAttribute("aria-label", "Speak your answer");
+      rec = null;
+    };
+    err.hidden = true;
+    btn.classList.add("is-on"); btn.setAttribute("aria-pressed", "true"); btn.setAttribute("aria-label", "Stop");
+    try { rec.start(); } catch (e) { rec.onend(); }
   }
+  function stopTalk() { if (rec) { try { rec.stop(); } catch (e) { /* already stopping */ } } }
 
   var FACES = [
     { v: 1, em: "😡", lb: "Bad" },
@@ -346,74 +325,104 @@
     { v: 5, em: "🤩", lb: "Great" },
   ];
 
+  var rated = function () { try { return !!sessionStorage.getItem(RATED_KEY); } catch (e) { return false; } };
+  var markRated = function () { try { sessionStorage.setItem(RATED_KEY, "1"); } catch (e) { /* storage off */ } };
+
+  /* One question at a time, in one sheet: the faces; then, once answered,
+     the comment and the two ways on. See the header for why. */
   function openForm() {
     var who = known();
     rating = 0;
+    var again = rated();
     var sheet = shell(
-      '<header class="fbx-head"><div><h2>How\'s it going?</h2>' +
-        "<p>One tap is enough. The rest is optional.</p></div>" +
+      '<header class="fbx-head"><div><h2>👋 Leaving the demo?</h2></div>' +
         '<button class="fbx-x" aria-label="Close">✕</button></header>' +
       '<div class="fbx-form">' +
+        (again ? "" :
         '<div class="fbx-rate" role="group" aria-label="Rating">' +
           FACES.map(function (f) {
             return '<button type="button" data-r="' + f.v + '" aria-pressed="false" aria-label="' + f.lb + '">' +
               '<span class="em">' + f.em + '</span><span class="lb">' + f.lb + "</span></button>";
           }).join("") +
+        "</div>") +
+        '<div class="fbx-more" id="fbx-more"' + (again ? "" : " hidden") + ">" +
+          (again ? "" :
+          '<p class="fbx-label" id="fbx-ask">What would you change?</p>' +
+          '<div class="fbx-talk">' +
+            '<textarea class="fbx-in" id="fbx-comment" placeholder="' + (SR ? "Type or speak — optional" : "Optional") + '" maxlength="1200"></textarea>' +
+            (SR ? '<button type="button" class="fbx-mic" id="fbx-mic" aria-label="Speak your answer" aria-pressed="false">' + ICON.mic + "</button>" : "") +
+          "</div>" +
+          /* No name or phone fields: who they are comes from what we already
+             hold — the account on this browser, or the WhatsApp number they
+             arrived with. */
+          '<p class="fbx-err" id="fbx-err" hidden></p>') +
+          '<div class="fbx-ways" id="fbx-ways"></div>' +
         "</div>" +
-        '<p class="fbx-label">Anything you would change?</p>' +
-        '<textarea class="fbx-in" id="fbx-comment" placeholder="Optional — what worked, what did not" maxlength="1200"></textarea>' +
-        '<div class="fbx-two">' +
-          '<div><p class="fbx-label">Your name</p>' +
-            '<input class="fbx-in" id="fbx-name" value="' + esc(who.name) + '" maxlength="80" autocomplete="name" placeholder="Name"></div>' +
-          '<div><p class="fbx-label">Phone</p>' +
-            '<input class="fbx-in" id="fbx-phone" value="' + esc(who.phone) + '" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10 digits"></div>' +
-        "</div>" +
-        '<p class="fbx-err" id="fbx-err" hidden></p>' +
-        '<button class="fbx-cta" id="fbx-send" disabled>Send &amp; open WhatsApp</button>' +
-        /* "just take me back" was ambiguous once the ✕ existed: that one goes
-           back to the screen behind, this one leaves for the chat. */
-        '<button class="fbx-skip" id="fbx-skip">Skip — back to WhatsApp</button>' +
       "</div>"
     );
 
-    var send$ = sheet.querySelector("#fbx-send");
+    var more = sheet.querySelector("#fbx-more"), ways = sheet.querySelector("#fbx-ways"), ask = sheet.querySelector("#fbx-ask");
+    /* Someone who already has an account on this browser is taken into it:
+       sign-up starts over, which would lose what they built. */
+    var account = function (primary) {
+      return '<button class="fbx-cta' + (primary ? "" : " is-alt") + '" data-next="' + (who.account ? "account" : "setup") + '">' +
+        (who.account ? "Open my account" : "Set up my account") + "</button>";
+    };
+    var stay = function (primary) {
+      return '<button class="fbx-cta' + (primary ? "" : " is-alt") + '" data-next="stay">Keep exploring</button>';
+    };
+    var paintWays = function () {
+      var low = rating > 0 && rating <= 2;
+      if (ask) ask.textContent = low ? "What went wrong?" : "What would you change?";
+      ways.innerHTML = low ? stay(true) + account(false) : account(true) + stay(false);
+    };
+    if (again) paintWays();
+
     sheet.querySelectorAll(".fbx-rate button").forEach(function (b) {
       b.addEventListener("click", function () {
         rating = Number(b.getAttribute("data-r"));
         sheet.querySelectorAll(".fbx-rate button").forEach(function (o) {
           o.setAttribute("aria-pressed", o === b ? "true" : "false");
         });
-        send$.disabled = false;
+        paintWays();
+        more.hidden = false;
       });
     });
-    sheet.querySelector("#fbx-phone").addEventListener("input", function () {
-      this.value = this.value.replace(/\D/g, "").slice(0, 10);
+    ways.addEventListener("click", function (e) {
+      var t = e.target.closest("[data-next]");
+      if (!t) return;
+      if (again) return go(t.getAttribute("data-next"), who);
+      submit(sheet, t.getAttribute("data-next"));
     });
-    sheet.querySelector("#fbx-skip").addEventListener("click", function () { close(); goWhatsApp(); });
-    send$.addEventListener("click", function () { submit(sheet); });
+    var mic = sheet.querySelector("#fbx-mic");
+    if (mic) mic.addEventListener("click", function () {
+      if (rec) stopTalk(); else startTalk(sheet.querySelector("#fbx-comment"), mic, sheet.querySelector("#fbx-err"));
+    });
   }
 
-  function submit(sheet) {
-    if (sending) return;
-    var err = sheet.querySelector("#fbx-err");
-    var phone = sheet.querySelector("#fbx-phone").value.replace(/\D/g, "");
-    var name = sheet.querySelector("#fbx-name").value.trim();
-    if (!rating) return;
-    /* Name and number are what make a reply possible, so they are asked for —
-       but a wrong-looking number is said plainly rather than swallowed. */
-    if (phone && phone.length !== 10) {
-      err.hidden = false; err.textContent = "That phone number needs 10 digits — or leave it blank.";
-      return;
-    }
-    err.hidden = true;
-    sending = true;
+  /* Where each answer leads. Everything stays on the platform. */
+  function go(next, who) {
+    close();
+    if (next === "stay") return;
+    if (next === "account") { if (!goPlatform("control-tower")) location.href = "/#/control-tower"; return; }
+    /* Sign-up, with what we know carried in. It rides in the hash, so it
+       never reaches a server log, and onboarding wipes it once read. */
+    var q = "onboarding?signup=1" + (who.phone ? "&phone=" + who.phone : "") + (who.name ? "&name=" + encodeURIComponent(who.name) : "");
+    if (!goPlatform(q)) location.href = "/#/" + q;
+  }
 
+  function submit(sheet, next) {
+    if (sending || !rating) return;
+    stopTalk();
+    sending = true;
+    var who = known();
     var entry = {
       local: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       rating: rating,
       comment: sheet.querySelector("#fbx-comment").value,
-      name: name,
-      phone: phone,
+      next: next,
+      name: who.name,
+      phone: who.phone,
       screen: (document.title || "").slice(0, 120),
       version: "v7",
     };
@@ -425,13 +434,13 @@
     record(entry);
     enqueue(entry);
     send(entry);
+    markRated();
 
     shell(
       '<div class="fbx-done"><div class="tick">✓</div>' +
-        "<h3>Thank you — that helps</h3>" +
-        "<p>Taking you back to the FoodBridge menu on WhatsApp…</p></div>"
+        "<h3>" + (next === "setup" ? "Thanks! Setting up your account…" : next === "account" ? "Thanks! Opening your account…" : "Thanks!") + "</h3></div>"
     );
-    setTimeout(function () { sending = false; close(); goWhatsApp(); }, 1100);
+    setTimeout(function () { sending = false; go(next, who); }, next === "stay" ? 900 : 700);
   }
 
   /* ── The footer ──────────────────────────────────────────────────────── */
@@ -475,6 +484,5 @@
     flush();
   }
 
-  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, waLink: waLink, waApp: waApp,
-                     apiBase: apiBase, log: logged, pending: queued };
+  window.FB_EXIT = { mount: mount, open: openMenu, flush: flush, apiBase: apiBase, log: logged, pending: queued };
 })();
