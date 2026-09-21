@@ -463,7 +463,7 @@
        letters and digits only. Nothing a person types is rejected silently.
      - Tapping the disabled button is not a dead end: it points at what is
        missing, with a nudge, and puts the cursor there. */
-  const SIGNUP_FIELDS = ["name", "mobile", "business", "gstin"];
+  const SIGNUP_FIELDS = ["name", "mobile", "gstin"];
   const REQUIRED = ["name", "mobile"];
   const touched = {};
   const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -516,6 +516,11 @@
   function gstVerified() { const g = gstValue(); return !!g && g === gst.verifiedFor && !!gst.result && gst.result.found === true; }
   function gstActive() { return !!gst.result && String(gst.result.status || "").toLowerCase() === "active"; }
 
+  /* The "Get verified" row on the sign-up form: open when anything in it is
+     already filled (Back from step one), or once they open it. */
+  const ui = { verifyOpen: false };
+  function verifyOpen() { return ui.verifyOpen || !!String(state.form.gstin || "").trim() || !!String(state.form.business || "").trim(); }
+
   function gstEnd() {
     if (gstVerified()) return '<span class="ob-field-end" aria-label="Verified">' + ICON.shieldCheck + "</span>";
     if (gst.phase === "verifying") return '<span class="ob-verify is-busy" aria-live="polite"><span class="ob-spin"></span>Verifying</span>';
@@ -533,9 +538,7 @@
         (r.legalName ? '<p class="ob-cl-legal">' + esc(r.legalName) + "</p>" : "") +
         (r.tradeName ? "<p>Trade name: " + esc(r.tradeName) + "</p>" : "") +
         (r.status ? "<p>Status: " + esc(r.status) + "</p>" : "") +
-        (r.status && !gstActive() ? "<p><b>This GST number is not currently active.</b></p>" : "") +
-        (r.legalName && !String(state.form.business || "").trim()
-          ? '<button type="button" class="ob-cl-act" id="b-use-legal">Use as business name</button>' : ""));
+        (r.status && !gstActive() ? "<p><b>This GST number is not currently active.</b></p>" : ""));
     }
     if (gst.phase === "invalid") return box(" is-warn", ICON.alertCircle, "<p><b>The GST register doesn’t recognise this number</b></p><p>Check each character, or leave it blank for now.</p>");
     if (gst.phase === "notfound") return box(" is-warn", ICON.alertCircle, "<p><b>No business registered under this GST number</b></p><p>Check the number, or continue without it.</p>");
@@ -560,9 +563,7 @@
     if (bad) {
       cls = "is-bad"; html = ICON.alertCircle + "<span>" + esc(problem) + "</span>";
     } else if (o.focused && k === "gstin" && !gstValue()) {
-      cls = "is-help"; html = "<span>Optional. 15 characters, like 27AAPFU0939F1ZV.</span>";
-    } else if (o.focused && k === "business" && !String(state.form.business || "").trim()) {
-      cls = "is-help"; html = "<span>Optional. As it appears on your bills.</span>";
+      cls = "is-help"; html = "<span>15 characters, like 27AAPFU0939F1ZV.</span>";
     }
     hint.className = "ob-hint" + (cls ? " " + cls : "");
     if (hint.getAttribute("data-html") !== html) { hint.innerHTML = html; hint.setAttribute("data-html", html); }
@@ -575,15 +576,14 @@
     const end = $("#gst-end"), blk = $("#gst-block"), fieldEl = $("#f-gstin");
     if (!end || !blk) return;
     end.innerHTML = gstEnd();
+    /* The business name IS the verified GST's legal name — shown in the
+       "Business found" card, never a field to type. No GST, no name: the
+       platform says "Your business" until there is one. */
+    if (gstVerified() && gst.result.legalName) state.form.business = gst.result.legalName;
     blk.innerHTML = gstBlock();
     if (fieldEl) fieldEl.closest(".ob-field").classList.toggle("is-ok", gstVerified());
     const vb = $("#b-verify"); if (vb) vb.addEventListener("click", verifyGst);
     const rb = $("#b-gst-retry"); if (rb) rb.addEventListener("click", verifyGst);
-    const ul = $("#b-use-legal");
-    if (ul) ul.addEventListener("click", function () {
-      state.form.business = gst.result.legalName; const bi = $("#f-business"); if (bi) bi.value = state.form.business;
-      paintField("business"); paintGst();
-    });
   }
   function paintCta() {
     const b = $("#b-create");
@@ -636,12 +636,19 @@
         '<form class="ob-fields" id="signup" novalidate>' +
           wrap("name", field("name", "Full name", ICON.user, f.name, { auto: "name", caps: "words", max: 60, hint: true, end: okMark("name") })) +
           wrap("mobile", field("mobile", "Phone number", ICON.phone, f.mobile, { type: "tel", mode: "numeric", auto: "tel-national", max: 14, prefix: "+91", hint: true, end: okMark("mobile") })) +
-          wrap("business", field("business", "Business name (optional)", ICON.doc, f.business, { auto: "organization", caps: "words", max: 80, hint: true })) +
-          wrap("gstin", field("gstin", "GST number (optional)", ICON.shieldCheck, f.gstin || "", { caps: "characters", max: 15, enter: "go", hint: true,
-            end: '<span id="gst-end" class="ob-gst-end">' + gstEnd() + "</span>" })) +
+          /* 21 Sep 2026 — the two optional fields fold into one row, on this
+             page: "Get verified · Optional". Open, it asks for one thing, the
+             GST number; verified, the register's legal name is the business
+             name. No GST: leave it closed — no second path to learn. */
+          '<button type="button" class="ob-getv" id="b-getv" aria-expanded="' + (verifyOpen() ? "true" : "false") + '" aria-controls="ob-vbox">' +
+            ICON.shieldCheck + "<span>Get verified</span>" + '<em class="ob-opt">Optional</em>' + ICON.chevDown + "</button>" +
+          '<div class="ob-vbox" id="ob-vbox"' + (verifyOpen() ? "" : " hidden") + ">" +
+            wrap("gstin", field("gstin", "GST number", ICON.shieldCheck, f.gstin || "", { caps: "characters", max: 15, enter: "go", hint: true,
+              end: '<span id="gst-end" class="ob-gst-end">' + gstEnd() + "</span>" })) +
+            '<div id="gst-block">' + gstBlock() + "</div>" +
+          "</div>" +
           '<button type="submit" hidden></button>' +
         "</form>" +
-        '<div id="gst-block">' + gstBlock() + "</div>" +
         '<footer class="ob-foot is-inline">' +
           '<button class="ob-cta" id="b-create" aria-describedby="create-note">' + (state.account && !state.account.guest ? "Continue" : "Create account") + "</button>" +
           '<p class="ob-sr" id="create-note">Enter your full name and phone number to continue.</p>' +
@@ -670,6 +677,7 @@
         f[k] = el.value;
         if (k === "gstin") {
           gst.phase = "idle"; gst.seq += 1;                         // any edit abandons a lookup in flight
+          state.form.business = "";                                 // the name belonged to the number just changed
           if (gstValue().length === 15) touched.gstin = true;        // a full-length number is judged at once
           paintGst();
         }
@@ -707,6 +715,12 @@
       }
       createAccount();
     };
+    $("#b-getv").addEventListener("click", function () {
+      ui.verifyOpen = !verifyOpen();
+      this.setAttribute("aria-expanded", ui.verifyOpen ? "true" : "false");
+      $("#ob-vbox").hidden = !ui.verifyOpen;
+      if (ui.verifyOpen) { const g = $("#f-gstin"); if (g) g.focus(); }
+    });
     $("#signup").addEventListener("submit", submit);
     $("#b-create").addEventListener("click", submit);
     $("#b-terms").addEventListener("click", function () { openDocSheet("Terms of Use"); });

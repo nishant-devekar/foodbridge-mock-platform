@@ -886,6 +886,19 @@ label.ob-row.is-check { cursor: pointer; }
 .ob-verify.is-busy .ob-spin { width: .8rem; height: .8rem; }
 #f-gstin { text-transform: uppercase; }
 #gst-block:empty { display: none; }
+/* 21 Sep 2026 — "Get verified": the optional fields folded into one row. */
+.ob-getv { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 3.1rem; padding: 0 1rem;
+  border: 1px dashed #d5d9de; border-radius: .5rem; background: none; cursor: pointer;
+  font: inherit; font-size: .88rem; font-weight: 600; color: var(--sub); text-align: left; }
+.ob-getv > svg:first-child { color: var(--g); flex: none; }
+.ob-getv > span { flex: 1; }
+.ob-getv > svg:last-child { color: var(--muted-2); transition: transform .2s; flex: none; }
+.ob-getv .ob-opt { flex: none; padding: .1rem .5rem; border-radius: 1rem; background: var(--surface); font-style: normal; font-size: .7rem; font-weight: 600; color: var(--muted); }
+.ob-getv[aria-expanded="true"] { border-style: solid; border-color: var(--line); }
+.ob-getv[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+.ob-vbox { display: flex; flex-direction: column; gap: .8rem; }
+.ob-vbox[hidden] { display: none; }
+.ob-vbox .ob-callout { margin: 0; }
 #gst-block > .ob-callout { margin: .9rem .45rem 0; }
 
 /* ══ 1 · Sign Up: gated button, inline help and errors (17 Sep 2026) ══════ */
