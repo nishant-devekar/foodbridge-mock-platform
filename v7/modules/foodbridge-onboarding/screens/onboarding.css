@@ -142,7 +142,8 @@ button { font-family: var(--font); }
   flex: 0 0 auto; margin: 0; padding-top: calc(1.82rem + env(safe-area-inset-top, 0px));
   text-align: center; font-size: 1.58rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; color: var(--ink);
 }
-.ob-wordmark em { font-style: normal; color: var(--g); }
+.ob-wordmark { display: flex; justify-content: center; line-height: 0; padding-top: calc(1.2rem + env(safe-area-inset-top, 0px)); }
+.ob-wordmark .ob-logo { width: 1.75rem; height: 1.75rem; border-radius: .45rem; display: block; }
 .ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { padding-top: calc(2.52rem + env(safe-area-inset-top, 0px)); }
 
 .ob-main { flex: 1 1 auto; padding: 0 1.5rem 2rem; }
@@ -300,9 +301,11 @@ label.ob-link { position: relative; }
 }
 .ob-foot.is-inline { position: static; background: none; padding: 1.1rem .1rem 2rem; }
 /* screen 1: wordmark → title → subtitle → fields, measured */
-.s01-h { margin-top: 1.55rem; font-size: 1.33rem; }
+.s01-h { margin-top: 1.55rem; font-size: 1.33rem; display: flex; align-items: center; justify-content: center; gap: .55rem; }
+.s01-h .ob-logo { width: 1.75rem; height: 1.75rem; border-radius: .45rem; flex: none; }
 .ob-sub.s01-sub { margin-top: .28rem; font-size: .76rem; line-height: 1.1rem; }
 .s01-sub + .ob-fields { margin-top: 1.3rem; }
+.s01-h + .ob-fields { margin-top: 1.3rem; }
 .ob-cta {
   display: flex; align-items: center; justify-content: center; gap: .6rem;
   width: 100%; min-height: 2.6rem; padding: 0 1rem;
@@ -330,6 +333,15 @@ label.ob-link { position: relative; }
 .ob-pick .ob-cta { min-height: 3rem; font-size: .95rem; }
 .ob-pick-s { margin: .55rem .7rem 0; text-align: center; font-size: .78rem; line-height: 1.1rem; color: var(--muted); }
 .ob-pick-s + .ob-cta { margin-top: 1.3rem; }
+.ob-pick .ob-cta + .ob-cta { margin-top: .75rem; }
+/* 21 Sep 2026 — "You're all set": the result centred, a touch above the middle; the choices pinned below. */
+.ob-main.is-ready { display: flex; flex-direction: column; justify-content: center; padding-bottom: 3.5rem; }
+.ob-done { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ob-done-tick { width: 3.5rem; height: 3.5rem; border-radius: 50%; box-shadow: 0 0 0 .6rem var(--g-50); animation: ob-done-in .45s cubic-bezier(.2,.8,.2,1.2) both; }
+.ob-done .ob-h1 { margin: 1.6rem 0 0; font-size: 1.45rem; }
+@keyframes ob-done-in { from { transform: scale(.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ob-done-tick { animation: none; } }
+.ob-foot.is-ready .ob-cta + .ob-cta { margin-top: .7rem; }
 .ob-cta .ob-spin { color: rgba(255,255,255,.85); }
 .ob-cta:disabled .ob-spin { color: var(--muted-2); }
 label.ob-cta { position: relative; }
@@ -372,6 +384,9 @@ label.ob-cta { position: relative; }
 .ob-h1.is-dense + .ob-sub { margin-top: .5rem; }
 .ob-h1.is-center.is-dense + .ob-sub + .ob-group { margin-top: 1.15rem; }
 .ob-group.is-found { margin-top: 1.15rem; }
+.ob-h1.is-found-h { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: 1.6rem; }
+.ob-h1.is-found-h .ob-found-tick { width: 1.4rem; height: 1.4rem; flex: none; }
+.ob-h1.is-found-h + .ob-group.is-found { margin-top: 1.3rem; }
 .ob-sub.is-center + .ob-list { margin-top: 2.05rem; }
 
 /* ── consent features (screen 3) ───────────────────────────────────────── */
@@ -721,6 +736,7 @@ button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor:
    as the second half of one choice, with `or` carrying the fork. */
 .ob-guest-line { margin: .7rem 0 0; text-align: center; font-size: .82rem; line-height: 1.2rem; color: var(--muted); }
 .ob-guest-line .ob-tlink { margin-left: .1rem; min-height: 44px; }
+.ob-guest-line.is-src { margin-top: 1.1rem; }
 .ob-sheet-f .ob-guest-line { margin-top: .5rem; }
 .ob-fields.is-sheet { margin: .2rem 0 0; }
 .ob-busy { display: flex; align-items: center; gap: .6rem; }
@@ -751,7 +767,18 @@ button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor:
 /* 6 · Data check — the tick sits in one column whatever the count */
 .ob-row.is-check { position: relative; }
 .ob-row.is-check .ob-row-tick { position: absolute; left: 12.05rem; margin: 0; }
-.ob-h1.s06-h { margin-top: 3.48rem; font-size: 1.345rem; }
+.ob-h1.s06-h { margin-top: 2.09rem; font-size: 1.345rem; }
+/* 21 Sep 2026: Data check opens on a slim completeness bar, not a title. */
+.ob-dq { margin: 2.09rem .2rem 0; }
+.ob-dq-t { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 .45rem; font-size: .72rem; line-height: 1rem; font-weight: 600; color: var(--sub); }
+.ob-dq-t b { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-dq i { display: block; position: relative; height: .25rem; border-radius: 1rem; background: var(--prog); overflow: hidden; }
+.ob-dq i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p); border-radius: inherit; background: var(--g); animation: ob-dq-fill .7s cubic-bezier(.2,.7,.2,1) both; }
+.ob-dq.is-short i::after { background: var(--amber); }
+.ob-dq.is-short .ob-dq-t b { color: var(--amber); }
+@keyframes ob-dq-fill { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .ob-dq i::after { animation: none; } }
+.ob-dq + .ob-sub { margin-top: .9rem; }
 .ob-list + .ob-callout { margin-top: 1.3rem; }
 label.ob-row.is-check { cursor: pointer; }
 
@@ -847,9 +874,10 @@ label.ob-row.is-check { cursor: pointer; }
 .ob-hero.is-check.is-top + .ob-h1 { margin-top: .15rem; }
 .s10-h + .ob-sub { margin-top: .5rem; }
 .s10-h + .ob-sub + .ob-card { margin-top: 1.65rem; }
+.s10-h + .ob-card { margin-top: 1.5rem; }  /* 21 Sep 2026: no line under the title */
 .ob-card.is-kv .ob-kvr { min-height: 2rem; }
 /* 11 · corrected against the like-for-like overlay (centre 220 of the 235 card) */
-.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { font-size: 1.5rem; padding-top: calc(2.35rem + env(safe-area-inset-top, 0px)); }
+.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { padding-top: calc(2.35rem + env(safe-area-inset-top, 0px)); }
 .ob-hero.is-store { width: 18.5rem; height: 11.1rem; }
 .ob-hero.is-store + .ob-h1 { margin-top: 2.2rem; }
 .ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .6rem; }

@@ -170,17 +170,13 @@
       tile(115, 67, "#f8d7b5", '<rect x="121.5" y="72" width="13" height="16" rx="1" fill="#f97316"/><path d="M124 75.5h2M129.5 75.5h2M124 79h2M129.5 79h2M124 82.5h2M129.5 82.5h2" stroke="#fff" stroke-width="1.3"/>') +
       "</g></svg></div>";
   }
-  const HERO_CLIP =
-    '<div class="ob-hero is-clip" aria-hidden="true"><svg viewBox="0 0 106 104" xmlns="http://www.w3.org/2000/svg">' +
-      '<circle cx="52" cy="46" r="40" fill="#f1f3f8"/><ellipse cx="50" cy="93" rx="46" ry="3.2" fill="#e8eaf2"/>' +
-      '<path d="M8 8.5l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z M91 3l1 2.2 2.2 1-2.2 1-1 2.2-1-2.2-2.2-1 2.2-1z M4 74l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z M99 74l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z" fill="#e4e7f0"/>' +
-      '<rect x="18" y="10" width="62" height="82" rx="4" fill="#fff" stroke="#c9cff0" stroke-width="3.2"/>' +
-      '<rect x="36" y="5.5" width="26" height="9" rx="2.2" fill="#3b4258"/><circle cx="49" cy="4.5" r="3.4" fill="#3b4258"/><circle cx="49" cy="4.5" r="1.3" fill="#fff"/>' +
-      '<path d="M29 29l3.2 3.2L38 25.6" fill="none" stroke="#1d4ed8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="M29 43.5l3.2 3.2L38 40M29 58l3.2 3.2L38 54.5M29 72.5l3.2 3.2L38 69" fill="none" stroke="#c6cbeb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<path d="M44 29h23M44 43.5h23M44 58h19M44 72.5h11" stroke="#cfd4ee" stroke-width="2.4" stroke-linecap="round"/>' +
-      '<circle cx="80" cy="74" r="20" fill="#16913f"/><path d="M71.5 74.5l6 6 11.5-11.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' +
-    "</svg></div>";
+  /* The small tick that sits on a title's line (21 Sep 2026) — in place of
+     the large hero images, which took the room each screen needs. */
+  const tick = function (cls) {
+    return '<svg class="' + cls + '" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#138c40"/>' +
+      '<path d="M7 12.4l3.3 3.3L17.2 8.8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  };
+  const TITLE_TICK = tick("ob-found-tick");
   const HERO_STORE =
     '<div class="ob-hero is-store" aria-hidden="true"><svg viewBox="0 0 170 102" xmlns="http://www.w3.org/2000/svg">' +
       confetti([[12, 8, "#3b82f6", "c"], [34, 18, "#a16207", "d"], [58, 26, "#3b82f6", "d"], [92, 26, "#16a34a", "d"], [131, 17, "#3b82f6", "d"],
@@ -301,9 +297,13 @@
     window.scrollTo(0, 0);
   }
 
+  const LOGO = '<img class="ob-logo" src="../../../assets/foodbridge-mark.png?v=20260921A3" alt="FoodBridge" width="28" height="28">';
   function chrome(screen, o) {
     o = o || {};
-    if (o.wordmark) return '<p class="ob-wordmark">Food<em>Bridge</em></p>';
+    /* 21 Sep 2026: the brand is a small mark, not a headline — the real FoodBridge
+       globe (from storefront-frontend/foodbridge-logo.png), no name beside it, so the
+       first thing read on the screen is its title. */
+    if (o.wordmark) return '<p class="ob-wordmark">' + (o.inlineLogo ? "" : LOGO) + "</p>";
     if (o.title) {
       return '<header class="ob-top is-titled"><button class="ob-back" id="b-back" aria-label="Back">' + ICON.back + "</button>" +
         '<h1 class="ob-top-t">' + esc(o.title) + "</h1></header>";
@@ -375,7 +375,7 @@
          opened the web directly has never seen it, and sending them to a
          question they were not asked is worse than no back button. */
       case "signup": return state.sawOffer ? go("offer") : undefined;
-      case "source": return go("signup");
+      case "source": fillFormFromAccount(); return go("signup");
       case "connect": return go("source");
       case "import": return stopImport();
       case "found": return go("source");
@@ -391,7 +391,7 @@
      and by "You're all set". */
   const pick = function (id, title, sub, alt) {
     return '<button class="ob-cta' + (alt ? " is-alt" : "") + '" id="' + id + '">' + title + "</button>" +
-      '<p class="ob-pick-s">' + sub + "</p>";
+      (sub ? '<p class="ob-pick-s">' + sub + "</p>" : "");
   };
 
   /* ════════════════════════════════════════════════════════════════════
@@ -492,8 +492,10 @@
       if (!v) return "Enter your 10-digit mobile number";
       if (!/^[6-9]/.test(v)) return "Mobile numbers start with 6, 7, 8 or 9";
       if (v.length < 10) return "Enter all 10 digits — " + (10 - v.length) + " more to go";
-      const acc = ls.get(ACCOUNT_KEY);
-      if (acc && phoneKey(acc.mobile) === v) return "dup";
+      /* 21 Sep 2026: no "already has an account … Log in instead" here. The
+         only account on this device is the one this person just made, and
+         they reach this form again by pressing Back — to edit it, not to be
+         told to log in. Continuing updates that account. */
       return "";
     }
     if (k === "gstin") {
@@ -555,10 +557,7 @@
     const input = $("#f-" + k);
     if (input) input.setAttribute("aria-invalid", bad ? "true" : "false");
     let html = "", cls = "";
-    if (problem === "dup") {
-      cls = "is-bad";
-      html = ICON.alertCircle + '<span>This number already has an account on this device. <button type="button" class="ob-hint-act" id="b-hint-login">Log in instead</button></span>';
-    } else if (bad) {
+    if (bad) {
       cls = "is-bad"; html = ICON.alertCircle + "<span>" + esc(problem) + "</span>";
     } else if (o.focused && k === "gstin" && !gstValue()) {
       cls = "is-help"; html = "<span>Optional. 15 characters, like 27AAPFU0939F1ZV.</span>";
@@ -567,7 +566,6 @@
     }
     hint.className = "ob-hint" + (cls ? " " + cls : "");
     if (hint.getAttribute("data-html") !== html) { hint.innerHTML = html; hint.setAttribute("data-html", html); }
-    const dl = $("#b-hint-login"); if (dl) dl.addEventListener("click", openLogin);
     if (k === "name" || k === "mobile") {
       const ok = $("#ok-" + k);
       if (ok) ok.classList.toggle("is-on", !fieldProblem(k, true));
@@ -631,10 +629,10 @@
     const okMark = function (k) { return '<span class="ob-okmark" id="ok-' + k + '" aria-hidden="true">' + ICON.check + "</span>"; };
     const wrap = function (k, html) { return '<div class="ob-fwrap">' + html + '<p class="ob-hint" id="h-' + k + '" aria-live="polite"></p></div>'; };
     render(
-      chrome("signup", { wordmark: true }) +
+      /* The mark sits in front of the title here: one line, one read. */
+      chrome("signup", { wordmark: true, inlineLogo: true }) +
       '<main class="ob-main is-s01">' +
-        '<h1 class="ob-h1 is-center s01-h">Create your account</h1>' +
-        '<p class="ob-sub is-center s01-sub">Let’s get your business on FoodBridge</p>' +
+        '<h1 class="ob-h1 is-center s01-h">' + LOGO + "<span>Create your account</span></h1>" +
         '<form class="ob-fields" id="signup" novalidate>' +
           wrap("name", field("name", "Full name", ICON.user, f.name, { auto: "name", caps: "words", max: 60, hint: true, end: okMark("name") })) +
           wrap("mobile", field("mobile", "Phone number", ICON.phone, f.mobile, { type: "tel", mode: "numeric", auto: "tel-national", max: 14, prefix: "+91", hint: true, end: okMark("mobile") })) +
@@ -645,21 +643,12 @@
         "</form>" +
         '<div id="gst-block">' + gstBlock() + "</div>" +
         '<footer class="ob-foot is-inline">' +
-          '<button class="ob-cta" id="b-create" aria-describedby="create-note">Create account</button>' +
+          '<button class="ob-cta" id="b-create" aria-describedby="create-note">' + (state.account && !state.account.guest ? "Continue" : "Create account") + "</button>" +
           '<p class="ob-sr" id="create-note">Enter your full name and phone number to continue.</p>' +
-          /* The foot of this screen reads top to bottom as: the two ways on for
-             a new person, then the way back for someone who has been here
-             before, then the legal line. Loudest first, quietest last, and the
-             two ways ON sit together as one choice rather than as two lines
-             separated by a paragraph about Terms. */
-          /* 20 Sep 2026: "or Continue as guest" named what the system thought
-             the person was. The unified flow has no guests — someone is setting
-             up, or having a look around — so the line says what happens, in the
-             same words the chat and the Explore screen use. "Not ready yet?"
-             because most people here already chose "Yes, set it up" in
-             WhatsApp; this is their way out if the form puts them off. */
-          '<p class="ob-guest-line">Not ready yet? <button class="ob-tlink is-g" id="b-guest">Have a look around first</button></p>' +
-          '<p class="ob-login">Already have an account? <button class="ob-tlink is-g" id="b-login">Log in</button></p>' +
+          /* 21 Sep 2026: the foot is the legal line only. "Have a look around
+             first" and "Log in" came out — people arrive here from WhatsApp having
+             already chosen "Yes, set it up", and the chat is their way back to
+             either of those. */
           '<p class="ob-terms">By continuing, you agree to our<br><button class="ob-tlink" id="b-terms">Terms of Use</button> &amp; <button class="ob-tlink" id="b-privacy">Privacy Policy</button></p>' +
         "</footer>" +
       "</main>"
@@ -722,8 +711,6 @@
     $("#b-create").addEventListener("click", submit);
     $("#b-terms").addEventListener("click", function () { openDocSheet("Terms of Use"); });
     $("#b-privacy").addEventListener("click", function () { openDocSheet("Privacy Policy"); });
-    $("#b-login").addEventListener("click", openLogin);
-    $("#b-guest").addEventListener("click", function () { startGuest(); });
   }
 
   /* Nothing is asked for, and nothing already on this device is touched.
@@ -748,11 +735,22 @@
     return handoff("explore");
   }
 
+  /* Back to the form from step one: show what they entered, ready to edit. */
+  function fillFormFromAccount() {
+    const a = state.account; if (!a || a.guest) return;
+    const f = state.form;
+    if (!f.name) f.name = a.name || "";
+    if (!f.mobile) f.mobile = cleanPhone(a.mobile);
+    if (!f.business) f.business = a.business || "";
+    if (!f.gstin) f.gstin = a.gstin || "";
+  }
+
   function createAccount() {
     const f = state.form;
     /* A guest who signs up keeps what they already imported: the account is
        new, the work behind it is not. */
     const wasGuest = !!(state.account && state.account.guest);
+    const editing = !!(state.account && !state.account.guest);
     state.account = {
       name: f.name.trim().replace(/\s+/g, " "), business: String(f.business || "").trim().replace(/\s+/g, " "),
       mobile: "+91 " + cleanPhone(f.mobile), gstin: gstValue(), gstVerified: gstVerified(),
@@ -760,7 +758,7 @@
       createdAt: new Date().toISOString(),
     };
     // The person signing up is the first member of the team, as screen 7 shows.
-    if (!wasGuest) { state.dataReady = null; state.parts = []; state.order = null; state.created = null; }
+    if (!wasGuest && !editing) { state.dataReady = null; state.parts = []; state.order = null; state.created = null; }
     ls.del(GUEST_KEY, sessionStorage);
     go("source");
   }
@@ -827,9 +825,10 @@
      2 · WHERE IS YOUR DATA?
      ════════════════════════════════════════════════════════════════════ */
   /* 17 Sep 2026, product owner: Zoho and Xero are the live channels, with
-     Files / Documents; Tally and Vyapar stay on the list as Coming soon —
-     present, plainly not usable, never a button. Other and "I don't have any
-     data" are gone. */
+     Files / Documents. Other and "I don't have any data" are gone.
+     21 Sep 2026: the subtitle and the Coming soon rows (Tally, Vyapar) are
+     gone too — only what someone can tap today is on the list — and Sample
+     data moved off the list to a helper line beneath it. */
   function srcRow(id, mark, title, sub, soon) {
     const inner = '<span class="ob-row-logo' + (id === "zoho" ? " is-wide" : "") + '">' + mark + "</span>" +
       '<span class="ob-row-main"><span class="ob-row-t">' + title + "</span>" + (sub ? '<span class="ob-row-s">' + sub + "</span>" : "") + "</span>" +
@@ -844,16 +843,15 @@
     render(
       chrome("source") +
       '<main class="ob-main">' +
-        '<h1 class="ob-h1 s02-h">Where is your<br>business data today?</h1>' +
-        '<p class="ob-sub s02-sub">This helps us set up FoodBridge for you<br>in the fastest way.</p>' +
+        '<h1 class="ob-h1 s02-h">Where are your records?</h1>' +
         '<div class="ob-list is-src">' +
           srcRow("zoho", MARK.zoho(36), "Zoho") +
           srcRow("xero", MARK.xero(24), "Xero") +
           srcRow("files", ICON.doc, "Files / Documents", "Upload invoices, challans,<br>POs, Excel, CSV etc.") +
-          srcRow("sample", ICON.flask, "Sample data", "Explore with a demo business") +
-          srcRow("tally", MARK.tally(34), "Tally", "", true) +
-          srcRow("vyapar", MARK.vyapar(24), "Vyapar", "", true) +
         "</div>" +
+        /* Sample data is not a place records live — it is the way on for
+           someone who has none of the above, so it sits under the list. */
+        '<p class="ob-guest-line is-src">Don’t have these? <button class="ob-tlink is-g" id="b-sample">Try sample data</button></p>' +
       "</main>"
     );
     $$("button[data-src]").forEach(function (b) {
@@ -864,6 +862,7 @@
         go("connect");
       });
     });
+    $("#b-sample").addEventListener("click", function () { state.source = "sample"; startSampleImport(); });
     $("#i-files").addEventListener("change", function () {
       const files = Array.prototype.slice.call(this.files || []);
       this.value = "";
@@ -1310,19 +1309,14 @@
   function drawFound() {
     const c = counts();
     const found = FINDINGS.filter(function (x) { return c[x.k]; });
-    const total = found.reduce(function (t, x) { return t + c[x.k]; }, 0);
-    /* Eleven kinds behind a full-size hero left three rows above the fold, and
-       this screen exists for the list. */
-    const dense = found.length > 4;
     render(
       chrome("found") +
       '<main class="ob-main">' +
-        heroCheck(dense ? "is-dense" : "") +
-        '<h1 class="ob-h1 is-center is-m' + (dense ? " is-dense" : "") + '">Great! We found this data</h1>' +
-        '<p class="ob-sub is-center">' +
-          (total ? total.toLocaleString("en-IN") + " records across " + found.length + " " + (found.length === 1 ? "type" : "types") + ". Review and continue."
-                 : "Review and continue.") +
-        "</p>" +
+        /* 21 Sep 2026: the tick sits on the title's line — the confetti hero
+           took the room this screen needs for its list. */
+        '<h1 class="ob-h1 is-center is-m is-found-h">' +
+          TITLE_TICK +
+          "<span>Great! We found this data</span></h1>" +
         /* The same manifest screen 6 uses: this is the same data, so it reads
            the same way -- one card, hairline rules, counts in a column. */
         '<div class="ob-group is-found">' + found.map(function (x) {
@@ -1413,24 +1407,29 @@
     const must = ALL_KINDS.filter(function (x) { return MUST.indexOf(x.k) !== -1; });
     const later = ALL_KINDS.filter(function (x) { return MUST.indexOf(x.k) === -1; });
     const short = must.filter(function (x) { return !c[x.k]; });
-    const total = ALL_KINDS.reduce(function (t, x) { return t + (c[x.k] || 0); }, 0);
+    /* How much of what FoodBridge can use came across: the share of record
+       types present. Amber while anything it needs to order is missing. */
+    const pct = Math.round(100 * ALL_KINDS.filter(function (x) { return c[x.k]; }).length / ALL_KINDS.length);
 
     render(
       chrome("check") +
       '<main class="ob-main is-check">' +
-        '<h1 class="ob-h1 s06-h">Data check</h1>' +
-        '<p class="ob-sub">' +
-          (short.length
-            /* Every one of these labels is a plural noun -- "sales orders is
-               missing" is wrong however many are short. Only the sentence's
-               first letter is raised; the rest stay lowercase mid-sentence. */
-            ? (function () {
-                const names = short.map(function (x) { return x.l.toLowerCase(); }).join(" and ");
-                return esc(names.charAt(0).toUpperCase() + names.slice(1)) +
-                  " are missing from " + esc(where) + ". FoodBridge needs them to predict and create orders.";
-              })()
-            : total.toLocaleString("en-IN") + " records from " + esc(where) + ". Everything essential is here.") +
-        "</p>" +
+        '<div class="ob-dq' + (short.length ? " is-short" : "") + '" role="progressbar" aria-label="Data ready" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '">' +
+          '<p class="ob-dq-t"><span>Data ready</span><b>' + pct + "%</b></p>" +
+          '<i style="--p:' + pct + '%"></i></div>' +
+        /* 21 Sep 2026: a slim completeness bar in place of the title, and
+           nothing said when everything essential is here — the lists say it.
+           A line appears only to name what is missing. */
+        (short.length
+          /* Every one of these labels is a plural noun -- "sales orders is
+             missing" is wrong however many are short. Only the sentence's
+             first letter is raised; the rest stay lowercase mid-sentence. */
+          ? (function () {
+              const names = short.map(function (x) { return x.l.toLowerCase(); }).join(" and ");
+              return '<p class="ob-sub">' + esc(names.charAt(0).toUpperCase() + names.slice(1)) +
+                " are missing from " + esc(where) + ". FoodBridge needs them to predict and create orders.</p>";
+            })()
+          : "") +
         '<p class="ob-glabel">Must have<span>Needed to order</span></p>' +
         '<div class="ob-group">' + must.map(function (x) { return checkRow(x, c, true); }).join("") + "</div>" +
         '<p class="ob-glabel">Can add later<span>Optional</span></p>' +
@@ -1732,20 +1731,19 @@
      The control tower is not built yet, so that choice hands off to the
      dashboard. When the page exists, only the handoff below changes. */
   function drawReady() {
-    const c = counts();
-    const ready = ALL_KINDS.filter(function (x) { return c[x.k]; }).length;
+    /* 21 Sep 2026: the end of setup, said once. The result sits in the middle
+       of the screen; the two ways on sit at the bottom, where every other
+       step keeps its button — so the eye lands on "done" and the thumb on
+       what's next, with nothing between them to read. */
     render(
       chrome("ready") +
-      '<main class="ob-main">' +
-        HERO_CLIP +
-        '<h1 class="ob-h1 is-center">You’re all set!</h1>' +
-        '<p class="ob-sub is-center s08-sub">' +
-          (ready === 1 ? "1 thing is" : ready + " things are") + " ready. What would you<br>like to do first?</p>" +
-        '<div class="ob-pick">' +
-          pick("b-order", "Create your first order", "We’ve drafted one from your order history") +
-          pick("b-tower", "Open your control tower", "See what FoodBridge found in your business", true) +
-        "</div>" +
-      "</main>"
+      '<main class="ob-main is-ready">' +
+        '<div class="ob-done">' + tick("ob-done-tick") + '<h1 class="ob-h1">You’re all set!</h1></div>' +
+      "</main>" +
+      '<footer class="ob-foot is-ready">' +
+        '<button class="ob-cta" id="b-order">Create your first order</button>' +
+        '<button class="ob-cta is-alt" id="b-tower">Open your control tower</button>' +
+      "</footer>"
     );
     $("#b-order").addEventListener("click", function () { go("order"); });
     $("#b-tower").addEventListener("click", function () { save(); handoff("control-tower"); });
@@ -2150,7 +2148,6 @@
       '<main class="ob-main">' +
         heroCheck("is-top") +
         '<h1 class="ob-h1 is-center s10-h">Order created!</h1>' +
-        '<p class="ob-sub is-center">Your first order has been created<br>successfully.</p>' +
         orderCard(r) +
       "</main>" +
       '<footer class="ob-foot"><button class="ob-cta" id="b-dash">Open your control tower</button></footer>'
@@ -2234,13 +2231,15 @@
   /* Reads `signup=1` from this page's own query and from the platform hash
      above it — #/onboarding?signup=1 — and clears it from whichever carried
      it, so the flag acts exactly once. */
-  function takeFlag(key, want) {
-    let found = false;
+  function takeFlag(key, want) { return takeParam(key, want) != null; }
+  /* The value behind `key`, taken the same way — read once, then wiped. */
+  function takeParam(key, want) {
+    let found = null;
     const hit = function (v) { return want ? v === want : !!v; };
     try {
       const own = new URL(location.href);
       if (hit(own.searchParams.get(key))) {
-        found = true;
+        found = own.searchParams.get(key);
         own.searchParams.delete(key);
         history.replaceState(null, "", own.pathname + own.search + own.hash);
       }
@@ -2261,7 +2260,7 @@
         if (q === -1) continue;
         const params = new URLSearchParams(h.slice(q + 1));
         if (!hit(params.get(key))) continue;
-        found = true;
+        found = params.get(key);
         params.delete(key);
         const rest = params.toString();
         w.history.replaceState(null, "", w.location.pathname + w.location.search +
@@ -2272,6 +2271,17 @@
     return found;
   }
   function takeSignupFlag() { return takeFlag("signup"); }
+  /* `phone` is the number the person is chatting from, put on the link by the
+     WhatsApp IVR (#/onboarding?signup=1&phone=919876543210). It rides in the
+     hash, so it never reaches a server log, and it is wiped once read. */
+  function takePhone() {
+    const d = cleanPhone(takeParam("phone") || "");
+    /* Kept for this tab only, so a reload of the form still shows it. */
+    try {
+      if (/^[6-9]\d{9}$/.test(d)) { sessionStorage.setItem("fb.ob.waPhone", d); return d; }
+      return sessionStorage.getItem("fb.ob.waPhone") || "";
+    } catch (e) { return /^[6-9]\d{9}$/.test(d) ? d : ""; }
+  }
   /* `?start=new` is what the WhatsApp row "I'm new here" carries. It opens on
      the OFFER rather than the account form, because the first thing a new
      arrival should meet is a choice, not a set of fields. */
@@ -2303,6 +2313,13 @@
     /* A brand-new arrival from WhatsApp. Only ever shown to someone with no
        account on this device — a returning user who taps the wrong row should
        not be asked to set up a business they already have. */
+    /* The WhatsApp number fills the phone field; they only need their name. */
+    const waPhone = takePhone();
+    if (waPhone && !state.account && !state.form.mobile) state.form.mobile = waPhone;
+    /* A name, when the way in was the demo's exit ("Submit & set up my
+       account") — typed there, so not asked for twice. Read once, wiped. */
+    const inName = String(takeParam("name") || "").trim().slice(0, 60);
+    if (inName && !state.account && !state.form.name) state.form.name = inName;
     if (takeStartNew() && !state.account) {
       state.sawOffer = true;
       state.screen = "offer";
