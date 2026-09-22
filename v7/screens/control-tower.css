@@ -334,3 +334,25 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   html:not(.ct-framed) .ct-create-top { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; height: 36px; padding: 0 14px; border-radius: 18px;
     background: var(--brand-t); color: var(--brand); font-size: 14px; font-weight: 600; flex: none; }
 }
+
+/* Top bar: the same as Reports on a big screen (owner, 22 Sep 2026) — the
+   page's name on the left, who is signed in on the right; the lever tabs
+   stick under it. Below 1024 px the shell draws the header instead. */
+.ct-top { display: none; }
+.ct-top-t { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -.01em; color: #374151; }
+.ct-top-u { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; }
+.ct-top-ava { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff;
+  background: linear-gradient(135deg, #22C55E, #059669); box-shadow: 0 0 0 2px #BBF7D0, 0 4px 6px -1px rgba(0, 0, 0, .1); }
+.ct-top-ava .i { width: 20px; height: 20px; }
+.ct-top-ava i { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 50%; background: #4ADE80; border: 2px solid #fff; box-sizing: border-box; }
+.ct-top-who { display: flex; flex-direction: column; min-width: 0; }
+.ct-top-who b { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 600; color: #1F2937; }
+.ct-top-who small { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; font-weight: 500; color: #16A34A; }
+.ct-shell-desktop .ct-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
+  height: 56px; box-sizing: border-box; padding: 0 24px; background: #fff; border-bottom: 1px solid #E5E7EB; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.ct-shell-desktop .ct-tabs { top: 56px; }
+@media (min-width: 1024px) {
+  html:not(.ct-framed) .ct-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
+    height: 56px; box-sizing: border-box; padding: 0 24px; background: #fff; border-bottom: 1px solid #E5E7EB; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+  html:not(.ct-framed) .ct-tabs { top: 56px; }
+}

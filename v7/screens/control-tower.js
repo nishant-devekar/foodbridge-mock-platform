@@ -88,6 +88,7 @@
   function mount() {
     L = window.CTLevers;
     applyFrame();
+    mountTop();
     mountFooter();
     skeleton();
     window.FBContext.ready().then(init).catch(function (e) { fatal(e && e.message); });
@@ -163,6 +164,7 @@
     window.scrollTo(0, keep);
     document.documentElement.classList.toggle("ct-has-act", !!$(".ct-actbar"));
     syncFooter();
+    syncTop();
     if (over) { rememberSeen(); ui.dialsShown = true; }
   }
 
@@ -347,6 +349,30 @@
     else if (lv.action && selectedTile(lv) !== "good") a = lv.action;     // no chasing while reading good news
     if (!a) return "";
     return '<div class="ct-actbar"><button class="ct-act' + (a.connect ? " is-connect" : "") + '" data-act>' + esc(a.label) + "</button></div>";
+  }
+
+  /* ── top bar: the same as Reports on a big screen ────────────────────────
+     Every framed module draws its own top bar on desktop — the page's name,
+     and who is signed in — and the shell only draws one below 1024 px. The
+     tower matches Reports (owner, 22 Sep 2026). Who: the same record the
+     shell reads, so the phone header and this bar never disagree. */
+  function who() {
+    const a = window.FBContext && window.FBContext.account();
+    return !a || a.guest ? { name: "Demo store", role: "" } : { name: a.name || "", role: "Owner" };
+  }
+  function mountTop() {
+    const h = document.createElement("header");
+    h.className = "ct-top";
+    h.innerHTML = '<h1 class="ct-top-t">Control Tower</h1>' +
+      '<div class="ct-top-u"><span class="ct-top-ava">' + sv('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') + "<i></i></span>" +
+      '<span class="ct-top-who"><b data-who-name></b><small data-who-role></small></span></div>';
+    document.body.insertBefore(h, $("#ct"));
+    syncTop();
+  }
+  function syncTop() {
+    const w = who(), n = $("[data-who-name]"), r = $("[data-who-role]");
+    if (n) n.textContent = w.name;
+    if (r) { r.textContent = w.role; r.hidden = !w.role; }
   }
 
   /* ── footer: the platform's bar ──────────────────────────────────────── */
