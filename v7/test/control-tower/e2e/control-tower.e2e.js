@@ -38,7 +38,7 @@ async function open(viewport, prep) {
   await p.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   if (prep) await p.evaluate(prep);
   await p.reload({ waitUntil: "networkidle0" });
-  await p.waitForSelector(".ct-tabs .ct-tab");
+  await p.waitForSelector(".ct-dial, .ct-lvbar");
   p.errors = errors;
   return p;
 }
@@ -75,29 +75,56 @@ function withSampleLedger() {
   });
 }
 
-const tabIds = (p) => p.$$eval(".ct-tab", (t) => t.map((x) => x.dataset.tab));
-const openLever = (p, id) => tap(p, '.ct-tab[data-tab="' + id + '"]');
+/* No tabs since 22 Sep 2026: the Overview's cards open a lever, Back returns. */
+const view = (p) => p.$eval(".ct-main", (m) => m.dataset.lever);
+const leverStatus = (p) => p.$eval(".ct-lvword", (w) => w.dataset.s);
+async function openLever(p, id) {
+  if ((await view(p)) !== "overview") await tap(p, "[data-home]");
+  await tap(p, '.ct-dial[data-goto="' + id + '"]');
+}
 
-test("phone · Overview first: a dial per area, the one to start with, and wins", async () => {
+test("phone · Overview first: a dial per lever, and nothing else", async () => {
   const p = await open(PHONE);
-  assert.deepEqual(await tabIds(p), ["overview", "deliveries", "collections", "purchase", "inventory", "order"]);
-  assert.equal(await p.$eval('.ct-tab[aria-selected="true"]', (t) => t.dataset.tab), "overview");
+  assert.equal(await p.$(".ct-tabs"), null, "no tab strip");
+  assert.equal(await view(p), "overview", "the Overview is home");
   assert.equal(await p.$$eval(".ct-dial", (g) => g.length), 5, "one dial per area");
+  assert.equal(await p.$$eval(".ct-main > *", (c) => c.length), 1, "no Wins, no balance card");
   assert.ok(await p.$$eval(".ct-dial", (g) => g.every((d) => /Good|Needs work|Urgent|Not connected/.test(d.textContent))), "each says how it is, in a word");
   await tap(p, '.ct-dial[data-goto="purchase"]');
-  assert.equal(await p.$eval('.ct-tab[aria-selected="true"]', (t) => t.dataset.tab), "purchase");
+  assert.equal(await view(p), "purchase");
+  await tap(p, "[data-home]");
+  assert.equal(await view(p), "overview", "Back returns to the five levers");
+  await tap(p, '.ct-dial[data-goto="order"]');
+  await tap(p, '#fbx-foot [data-x="0"]');
+  assert.equal(await view(p), "overview", "Tower returns to the five levers");
+  assert.deepEqual(p.errors, []);
+});
+
+test("phone · Timeline: the footer's second tab, news newest first, a line opens its lever", async () => {
+  const p = await open(PHONE);
+  await tap(p, '#fbx-foot [data-x="1"]');
+  assert.equal(await text(p, ".ct-upbar h2"), "Business Timeline");
+  assert.equal(await p.$eval('#fbx-foot [data-x="1"]', (b) => b.getAttribute("aria-current")), "page");
+  const n = await p.$$eval(".ct-tli", (b) => b.length);
+  if (n) {
+    const lever = await p.$eval(".ct-tli", (b) => b.dataset.upd);
+    await tap(p, ".ct-tli");
+    assert.notEqual(await view(p), "updates", "a line opens a lever: " + lever);
+  }
+  await tap(p, '#fbx-foot [data-x="0"]');
+  assert.equal(await view(p), "overview", "Tower returns to the five levers");
   assert.deepEqual(p.errors, []);
 });
 
 test("phone · Deliveries opens in Preview; the platform footer", async () => {
   const p = await open(PHONE);
   await openLever(p, "deliveries");
-  assert.equal(await p.$eval('.ct-tab[data-tab="deliveries"] .ct-dot', (d) => d.dataset.s), "preview");
+  assert.equal(await leverStatus(p), "preview");
   assert.match(await text(p, ".ct-main"), /Track all \d+ orders to the door/);
   assert.match(await text(p, ".ct-example"), /Example/);
   assert.equal(await text(p, ".ct-act"), "Record your first delivery");
   const nav = await p.$$eval("#fbx-foot .fbx-tab > span:last-child", (s) => s.map((x) => x.textContent.trim()));
-  assert.deepEqual(nav, ["Tower", "EXIT DEMO"]);
+  assert.deepEqual(nav, ["Tower", "Timeline", "EXIT DEMO"]);
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "no sideways scroll");
   assert.deepEqual(p.errors, []);
 });
@@ -111,7 +138,7 @@ test("phone · the Deliveries preview records the first delivery; a missed one i
   assert.equal(await p.$eval(".ct-sheet [data-go]", (b) => b.disabled), true, "a missed delivery needs its reason");
   await tap(p, '.ct-sheet [data-reason="Shop closed"]');
   await tap(p, ".ct-sheet [data-go]");
-  assert.equal(await p.$eval('.ct-tab[data-tab="deliveries"] .ct-dot', (d) => d.dataset.s), "ugly");
+  assert.equal(await leverStatus(p), "ugly");
   assert.equal(await text(p, ".ct-act"), "Reschedule 1 delivery");
   await tap(p, ".ct-act");
   await tap(p, ".ct-sheet [data-go]");
@@ -148,7 +175,7 @@ test("platform · framed on desktop, the shell's sidebar navigates; no footer", 
   const p = await browser.newPage(); opened.push(p);
   await p.setViewport(DESKTOP);
   await p.goto(BASE + "/?z=1#/control-tower", { waitUntil: "networkidle0" });
-  await p.waitForFunction(() => { const f = document.querySelector("iframe"); const d = f && f.contentDocument; return d && d.querySelector(".ct-tabs .ct-tab"); }, { timeout: 15000 });
+  await p.waitForFunction(() => { const f = document.querySelector("iframe"); const d = f && f.contentDocument; return d && d.querySelector(".ct-dial"); }, { timeout: 15000 });
   const info = await p.evaluate(() => {
     const d = document.querySelector("iframe").contentDocument;
     return { cls: d.documentElement.className, foot: getComputedStyle(d.getElementById("fbx-foot")).display };

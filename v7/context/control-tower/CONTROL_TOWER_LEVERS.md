@@ -27,7 +27,7 @@ It does three jobs for every lever:
 
 ## 2. The five levers
 
-In the owner's order, which is also the order of the tabs:
+In the owner's order, which is also the order of the cards on the Overview:
 
 | # | Lever | The owner's question | Notes § |
 | --- | --- | --- | --- |
@@ -43,9 +43,10 @@ new one is added without changing the others.
 
 ## 3. How the owner uses it
 
-1. **Arrives.** The five levers are fixed tabs in a horizontal row, in the
-   order above. Each tab carries a status dot, so the owner sees which lever
-   needs them before opening anything.
+1. **Arrives.** The five levers are five cards on the Overview, in the
+   order above. Each card says how its lever is (Urgent, Needs work, On
+   track), so the owner sees which lever needs them before opening anything.
+   A card opens its lever; Back, or Tower in the footer, returns to the five.
 2. **Opens a lever.** Every lever reads the same way, top to bottom:
    - **Key KPIs as Good, Bad and Ugly.** *Good* is what went right, *Bad* is
      what is slipping, *Ugly* is what went wrong and needs action now. Each
@@ -63,7 +64,7 @@ new one is added without changing the others.
 aren't connected yet).
 
 **Preview: the full lever before the data arrives** (owner's decision, 22 Sep).
-A lever without its records is never an empty tab. It shows the complete
+A lever without its records is never an empty screen. It shows the complete
 skeleton — every Good, Bad and Ugly KPI, every action, balance and grow line —
 so the owner sees everything they would gain by connecting:
 
@@ -75,7 +76,7 @@ so the owner sees everything they would gain by connecting:
   the owner's.
 - One **Connect** action per lever names exactly which records unlock it.
 
-The tower opens on the first tab, Deliveries, even in preview.
+The tower opens on the Overview, the five cards, even in preview.
 
 ## 4. The levers
 
@@ -339,7 +340,7 @@ touches, only when it is out of line.
 
 ## 7. Phasing
 
-1. The five tabs with status; Collections, Purchase, Inventory and Order with
+1. The five lever cards with status; Collections, Purchase, Inventory and Order with
    Good/Bad/Ugly, actions, balance and grow, from the records available.
    Deliveries in full Preview.
 2. Deliveries captured on every order (status, reason, returns, amount and

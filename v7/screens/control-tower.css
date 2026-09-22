@@ -14,7 +14,7 @@
   --good: #1E7A46; --good-t: #E8F3EC; --bad: #B7791F; --bad-t: #FBF1E0; --ugly: #C0362C; --ugly-t: #FBEAE8;
   --preview: #A3A7AE;
   --c-green: #2F9E5B; --c-yellow: #D4A017; --c-orange: #E07B24; --c-red: #C0362C; --c-fire: #7A1C1C;
-  --r: 16px; --pad: 16px; --foot: 58px; --act: 56px;
+  --r: 16px; --pad: 16px; --foot: 58px; --act: 56px; --top: 0px;
   --safe: env(safe-area-inset-bottom, 0px);
   --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 }
@@ -32,13 +32,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-sk { display: block; border-radius: 6px; background: #ECECE7; margin: 4px 0; animation: ct-pulse 1.2s ease-in-out infinite alternate; }
 @keyframes ct-pulse { to { opacity: .55; } }
 
-/* ── tabs ───────────────────────────────────────────────────────────── */
-.ct-tabs { position: sticky; top: 0; z-index: 20; display: flex; gap: 4px; align-items: center; overflow-x: auto; scrollbar-width: none;
-  padding: 10px var(--pad) 0; background: var(--canvas); border-bottom: 1px solid var(--line); }
-.ct-tabs::-webkit-scrollbar { display: none; }
-.ct-tab { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 44px; padding: 0 12px;
-  font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-.ct-tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--brand); }
+/* ── an open lever: back, its name, how it is (no tabs, 22 Sep 2026) ── */
+.ct-lvhead { position: sticky; top: 0; z-index: 20; background: var(--canvas); border-bottom: 1px solid var(--line); }
+.ct-lvbar { display: flex; align-items: center; gap: 8px; min-height: 56px; box-sizing: border-box; padding: 6px var(--pad) 6px calc(var(--pad) - 8px); }
+/* Inside a lever: Status · Suggestions, two equal halves under the bar. */
+.ct-views { display: flex; padding: 0 var(--pad); }
+.ct-subtab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; margin-bottom: -1px;
+  font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); border-bottom: 2px solid transparent; }
+.ct-subtab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--brand); }
+.ct-subtab:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 6px; }
+.ct-subn { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #ECECE7; color: var(--ink-2);
+  font-size: 12px; line-height: 20px; font-weight: 600; text-align: center; }
+.ct-subtab[aria-selected="true"] .ct-subn { background: var(--brand-t); color: var(--brand); }
+.ct-home { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; color: var(--ink); }
+.ct-home .i { width: 22px; height: 22px; transform: rotate(180deg); }
+.ct-home:hover { background: #ECECE7; }
+.ct-home:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.ct-lvname { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-lvicon { display: grid; color: var(--ink-2); flex: none; }
+.ct-lvicon .i { width: 20px; height: 20px; }
+.ct-lvword { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; flex: none; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-2); }
+.ct-lvword[data-s="ugly"] { color: var(--ugly); }
+.ct-lvword[data-s="bad"] { color: var(--bad); }
+.ct-lvword[data-s="good"] { color: var(--good); }
 .ct-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .ct-dot[data-s="ugly"] { background: var(--ugly); }
 .ct-dot[data-s="bad"] { background: var(--bad); }
@@ -56,6 +73,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
 /* ── main ───────────────────────────────────────────────────────────── */
 .ct-main { padding: 8px var(--pad) calc(var(--foot) + 24px + var(--safe)); }
+/* The Overview's five dials sit in the middle of what the owner sees,
+   between the top (the shell's header, or the tower's own top bar) and the
+   footer (owner, 22 Sep 2026). Top and bottom padding match, so the middle
+   is the true middle. */
+.ct-ov #ct { display: flex; flex-direction: column; min-height: calc(100vh - var(--top)); min-height: calc(100dvh - var(--top)); }
+.ct-ov .ct-main { flex: 1; display: flex; flex-direction: column; justify-content: center; width: 100%; box-sizing: border-box;
+  padding-top: 16px; padding-bottom: calc(var(--foot) + 16px + var(--safe)); }
+.ct-ov .ct-dials { margin-top: 0; }
 .ct-has-act .ct-main { padding-bottom: calc(var(--foot) + var(--act) + 36px + var(--safe)); }
 
 .ct-head { padding: 14px 0 16px; }
@@ -194,17 +219,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-first .ct-go { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
 .ct-sec { margin: 20px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .ct-sec + .ct-list { margin-top: 8px; }
-.ct-wins h3 { color: var(--brand); }
-.ct-wins ul { margin: 0; padding: 0; list-style: none; }
-.ct-wins li + li { border-top: 1px solid var(--line); }
-.ct-wins li button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; font-size: 15px; font-weight: 600; }
-.ct-wins li button > span:not(.ct-spark) { flex: 1; }
-.ct-wins small { font-size: 11px; font-weight: 600; color: var(--brand); background: var(--brand-t); padding: 2px 8px; border-radius: 8px; }
-.ct-wins.is-celebrate { border-color: #BFDCC9; background: linear-gradient(180deg, #F2F9F4, #fff 70%); }
-.ct-wins li.is-fresh button { color: var(--brand); }
-.ct-spark { display: grid; place-items: center; color: #D4A017; animation: ct-spark 1.4s ease-in-out 2; }
-.ct-spark .i { width: 18px; height: 18px; }
-@keyframes ct-spark { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.35) rotate(18deg); } }
 
 /* Preview */
 .ct-promise .ct-head-v { font-size: 28px; line-height: 34px; }
@@ -312,9 +326,49 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
+/* ── Timeline: the business's news, a day at a time (22 Sep 2026) ──────
+   One card per day; a rail through the dots makes it read as a timeline.
+   Each line: the lever's icon in its tone (green good news, red a problem,
+   grey what was done), the time over one bold line with its figure in it. */
+.ct-upbar { padding-left: var(--pad); }
+.ct-day { margin-top: 16px; }
+.ct-day h3 { margin: 0 0 8px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-2); }
+.ct-tl { position: relative; margin: 0; padding: 4px 0; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.ct-tl::before { content: ""; position: absolute; top: 24px; bottom: 24px; left: 27px; width: 2px; background: var(--line); }
+.ct-tli { position: relative; display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 52px; padding: 10px 12px; text-align: left; }
+.ct-tli:hover { background: #FAFAF7; }
+.ct-tli:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: var(--r); }
+.ct-tld { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: #F1F1EC; color: var(--ink-2); box-shadow: 0 0 0 3px var(--surface); }
+.ct-tld .i { width: 17px; height: 17px; }
+.ct-tli[data-tone="good"] .ct-tld { background: var(--good-t); color: var(--good); }
+.ct-tli[data-tone="bad"] .ct-tld { background: var(--ugly-t); color: var(--ugly); }
+.ct-tlb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding-top: 1px; }
+.ct-tlt { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ct-tlx { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ct-tli[data-win] .ct-tlx { color: var(--good); }
+.ct-tli .ct-go { align-self: center; }
+.ct-new { padding: 0 6px; border-radius: 8px; background: var(--brand-t); color: var(--brand); font-size: 11px; line-height: 16px; font-weight: 700; font-style: normal; }
+.ct-tli[data-in] { animation: ct-arrive 1.6s ease-out; }
+@keyframes ct-arrive { from { background: var(--brand-t); } }
+/* New since the owner last read Updates: a dot on its tab (brand green, not
+   red: red means Urgent in the tower). */
+.ct-ftic { position: relative; }
+.ct-fnew { display: none; position: absolute; top: -1px; right: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px #fff; }
+.has-new .ct-fnew { display: block; }
+/* Big screens: Tower · Updates beside the title, the footer being off. */
+.ct-top-nav { display: flex; gap: 4px; margin-left: 12px; }
+.ct-top-nav button { position: relative; height: 32px; padding: 0 12px; border-radius: 16px; font-size: 14px; font-weight: 600; color: #4B5563; }
+.ct-top-nav button:hover { background: #F3F4F6; }
+.ct-top-nav button[aria-current="page"] { background: var(--brand-t); color: var(--brand); }
+.ct-top-nav .ct-fnew { top: 5px; right: 4px; }
+
 /* ── bigger screens: the same template in a centred column ─────────────── */
 @media (min-width: 768px) {
-  .ct-tabs { justify-content: center; }
+  /* The bar spans the page; what is in it lines up with the column. */
+  .ct-lvbar { padding-left: calc(max(var(--pad), 50% - 260px + var(--pad)) - 8px); padding-right: max(var(--pad), 50% - 260px + var(--pad)); }
+  .ct-views { padding: 0 max(var(--pad), 50% - 260px + var(--pad)); }
+  .ct-upbar { padding-left: max(var(--pad), 50% - 260px + var(--pad)); }
   .ct-main, .ct-asof { max-width: 520px; margin-left: auto; margin-right: auto; }
   .ct-asof { padding: 0 var(--pad); }
   .ct-actbar { max-width: 520px; margin: 0 auto; }
@@ -323,14 +377,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   .ct-toast { left: 50%; right: auto; transform: translateX(-50%); min-width: 320px; }
 }
 /* Where the platform shows its sidebar: no footer; Create joins the tabs. */
-.ct-shell-desktop { --foot: 0px; }
+.ct-shell-desktop { --foot: 0px; --top: 56px; }
 .ct-shell-desktop #fbx-foot { display: none !important; }
 .ct-shell-desktop .ct-create-top { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; height: 36px; padding: 0 14px; border-radius: 18px;
   background: var(--brand-t); color: var(--brand); font-size: 14px; font-weight: 600; flex: none; }
 .ct-shell-desktop .ct-create-top .i { width: 18px; height: 18px; }
 @media (min-width: 1024px) {
   html:not(.ct-framed) #fbx-foot { display: none !important; }
-  html:not(.ct-framed) { --foot: 0px; }
+  html:not(.ct-framed) { --foot: 0px; --top: 56px; }
   html:not(.ct-framed) .ct-create-top { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; height: 36px; padding: 0 14px; border-radius: 18px;
     background: var(--brand-t); color: var(--brand); font-size: 14px; font-weight: 600; flex: none; }
 }
@@ -355,9 +409,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-top-who small { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 16px; font-weight: 500; color: #16A34A; }
 .ct-shell-desktop .ct-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
   height: 56px; box-sizing: border-box; padding: 0 24px; background: #fff; border-bottom: 1px solid #E5E7EB; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
-.ct-shell-desktop .ct-tabs { top: 56px; }
+.ct-shell-desktop .ct-lvhead { top: 56px; }
 @media (min-width: 1024px) {
   html:not(.ct-framed) .ct-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between;
     height: 56px; box-sizing: border-box; padding: 0 24px; background: #fff; border-bottom: 1px solid #E5E7EB; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
-  html:not(.ct-framed) .ct-tabs { top: 56px; }
+  html:not(.ct-framed) .ct-lvhead { top: 56px; }
 }

@@ -50,12 +50,15 @@ as ₹1.2 L; a crore and above as ₹1.2 Cr. Never "K", never decimals of a rupe
 
 ## 3. Structure
 
-One screen, five tabs, one template, and the platform's footer. There is no
-home page, menu or settings inside the tower.
+Home is the Overview, five lever cards; a card opens its lever, one
+template for all five, under a back bar; and the platform's footer, whose
+Tower returns to the cards. No tabs, menu or settings inside the tower
+(22 Sep 2026).
 
 ```
 ┌─────────────────────────────────┐
-│ Deliveries● Collections● Purcha…│  ← lever tabs, horizontal scroll, sticky
+│ ‹  🚚 Deliveries        ● Urgent │  ← BACK BAR: to the five cards, sticky
+│   Status   │  Suggestions  2    │  ← two views of the lever, sticky with it
 ├─────────────────────────────────┤
 │ As of 24 Aug                    │  ← only when records aren't today's
 │                                 │
@@ -70,6 +73,7 @@ home page, menu or settings inside the tower.
 │  list for the selected one      │  ← ONE LINE PER ITEM
 │  ─────────────────────────      │
 │                                 │
+│  (Suggestions view:)            │
 │ ⚖ Balance card (if out of line) │  ← only when this lever hurts another
 │ ↗ Grow card (the top one)       │  ← the single biggest opportunity
 │                                 │
@@ -84,23 +88,40 @@ do.** The action is always under the thumb.
 
 ## 4. The template, part by part
 
-### 4.1 Lever tabs
-- Five tabs in the owner's order: Deliveries · Collections · Purchase ·
-  Inventory · Order. Horizontal scroll, sticky at the top, the selected tab
-  scrolled into view.
-- **A status dot before each name:** red (something Ugly) · amber (something
-  Bad) · green (all good) · hollow grey (Preview). The dot always sits beside
-  the word, so colour is never the only signal.
-- Swipe left and right on the content to change tab.
-- **The lever opens on the tile its dot promised** (22 Sep 2026): green → On
-  track, amber → Needs work, red → Urgent. Every way in — the tab, a swipe,
-  an Overview dial, a balance card, a win — lands the same way, and a tile
-  the owner picks holds only while they stay in that lever. A tile with
-  nothing in it can't be landed on, so the next one down is used.
-- The tower opens on Deliveries. It remembers the last tab within a day.
+### 4.1 Overview home, and one lever at a time (no tabs, 22 Sep 2026)
+- **The Overview is home.** Every visit opens on the five lever cards in the
+  owner's order: Deliveries · Collections · Purchase · Inventory · Order. Each
+  card is a dial: its icon says which lever, its colour and word how it is
+  (Urgent · Needs work · On track · Not connected), its ring how full. A link
+  straight to one lever (an alert, `?lever=`) still lands on that lever.
+- **Tapping a card opens that lever** under a sticky bar: **‹ back · the
+  lever's name · its status word** (the card's word, with its dot). The bar
+  sits under the platform's top bar on a big screen.
+- **Back returns to the five cards**, where the owner left them (the cards'
+  scroll is kept). Esc does the same once no sheet is open. **Tower** in the
+  footer always lands on the five cards, closing any sheet.
+- **Two views inside a lever** (owner, 22 Sep 2026), as tabs under the
+  back bar and sticky with it: **Status** (the headline, On track · Needs
+  work · Urgent and the list under them, with the sticky action) and
+  **Suggestions** (Deliveries' Tomorrow's trips, the balance cards, the
+  Grow card; a count beside the name; one line, *"No suggestions right
+  now."*, when there are none). The names are the trade's plain words:
+  "Balance & grow" was the spec's vocabulary, not the owner's; everything
+  in that view is something FoodBridge suggests and the owner decides. The sticky action belongs to
+  Status: it acts on that list. Every way into a lever opens on Status; the
+  view holds while the owner stays in the lever, through live updates. A
+  Preview lever has one page, no views.
+- A balance card opens the lever it names, on Status; Back still returns to
+  the cards, not to the lever before.
+- No tabs and no swiping between levers: with nothing on screen to say where
+  a swipe lands, it would only surprise.
+- **The lever opens on the tile its card promised**: On track → On track,
+  Needs work → Needs work, Urgent → Urgent. Every way in lands the same way,
+  and a tile the owner picks holds only while they stay in that lever. A tile
+  with nothing in it can't be landed on, so the next one down is used.
 
-*Why:* the owner's flow asks for fixed tabs; the dot answers "which lever
-needs me" without opening five tabs.
+*Why:* the owner reads the business on one screen, the five cards, and goes
+into one lever at a time; a tab strip repeated the cards and took a row.
 
 ### 4.2 "As of" line
 - One muted line, *"As of 24 Aug"*, shown **only** when the records are older
@@ -144,7 +165,7 @@ right, each row with a green ✓ and never a risk colour: in Collections, the
 money received this week, long-stuck money first ("Stuck 180 days · now
 paid"), then late payments, then on time. Under it there is no chase
 material: no customer colours, and no sticky action; those belong to Needs
-work and Urgent. Long-stuck money received is also the first Overview win.
+work and Urgent.
 
 ### 4.5 The list
 - One item per line: **name · figure**, a small marker when it helps (a
@@ -160,7 +181,7 @@ means the top row is always the most important.
 - Appears **only when this lever is hurting another.** One card, two figures,
   one move:
   *"You're owed ₹1.2 L · you owe suppliers ₹1.7 L — collect before you buy."*
-- Tap → the other lever's tab.
+- Tap → the other lever (Back returns to the five cards).
 
 *Why:* this is what makes it a control tower, not five reports. When the
 levers are in balance the card is noise, so it isn't there.
@@ -192,11 +213,12 @@ last. In the tower it carries three items:
 
 | Item | Does | Why it is there |
 | --- | --- | --- |
-| **Tower** | Closes any sheet and returns to the top of the current lever | Home base: one tap back from anywhere |
-| **Create** | Opens the Create sheet: the quick actions | Where the business's own records go in |
+| **Tower** | Closes any sheet and returns to the five lever cards, from anywhere (Timeline included) | Home base: one tap back from anywhere |
+| **Timeline** | Opens the Business Timeline, the business's news (§4.11); a green dot when there is news since the last read | "What happened?" is the owner's second question after "what needs me?" |
+| **Create** | *Off for now (owner, 22 Sep 2026)*: opens the Create sheet, the quick actions | Where the business's own records go in |
 | **EXIT DEMO** | The platform's exit | Platform standard, always last |
 
-- **Create sheet:** five rows, one per lever, in tab order, each opening its
+- **Create sheet:** five rows, one per lever, in card order, each opening its
   own short flow:
   **Record a delivery** (delivered · missed · returned · money and empties
   collected) · **Receive payment** · **New purchase order** · **Stock count**
@@ -215,10 +237,10 @@ last. In the tower it carries three items:
 
 *Why:* quick actions need to be reachable from any lever with the thumb, and
 the owner expects the same bar they meet on every other screen. Everything
-else a footer could hold is already done by the tabs and their dots.
+else a footer could hold is already done by the five lever cards.
 
 ### 4.10 Sheets
-All detail opens as a bottom sheet over the tab (the owner never loses their
+All detail opens as a bottom sheet over the lever (the owner never loses their
 place). Three kinds (the Create sheet is in 4.9):
 
 **Item sheet** (a customer, product or delivery): its name, the three or four
@@ -241,6 +263,51 @@ facts that matter for this lever, and one action.
 
 *Why:* seeing, changing and confirming in one place is the whole "FoodBridge
 prepares, the owner confirms" promise.
+
+### 4.11 Timeline — the business's news (owner, 22 Sep 2026)
+
+*"A business timeline, like the owner's business news bulletins; what Wins
+did on the Overview, aligned with a timeline."* The owner's second question,
+after *"what needs me?"*: **"what happened?"** A distributor already reads
+the day this way: the trip closure, the collection register, the Day Book.
+
+- **Name: Timeline** in the footer, **Business Timeline** as the page title
+  (owner's pick, 22 Sep 2026, after "Updates" and "Day Book"): it says the
+  news is in time order and whose it is. Not "Daily report" (the sidebar
+  already has Reports, the dashboard).
+- **Where:** Timeline in the footer (Tower · Timeline · EXIT DEMO); on a big
+  screen, where the footer is off, a Tower | Timeline switch beside the title
+  in the top bar. A green dot on it when there is news since the last read
+  (green, not red: red means Urgent in the tower).
+- **What it is:** curated news, newest first, the last 7 days: today's
+  first with no heading, then **Yesterday · Mon 21 Sep**. Never a raw log: thirty drops a day are one line
+  per trip, not thirty lines.
+- **Each line:** the lever's icon in a circle coloured by what it means
+  (green good news, red a problem, grey what was done), the time over **one
+  bold line with its figure in it**, and ›. A rail runs through the circles.
+  A win (money stuck for months received, a trip delivered in full, a lever
+  turning green) is written in green.
+- **Tap a line:** its lever opens on the tile where it is dealt with (a
+  missed drop → Deliveries, Urgent; a payment → Collections, On track).
+- **New:** what arrived since the last read is tagged *New*; on a first read
+  nothing is (everything would be). A line arriving while the owner reads is
+  highlighted once, never again on a live redraw.
+
+| News | Line | Tone |
+| --- | --- | --- |
+| A trip leaves late | *Van 2's first trip running 1 h 24 min late · loading ran late* | problem |
+| Orders past the van's load | *2 orders didn't fit Van 1 · left for the next trip* | problem |
+| A trip closes | *Van 1's first trip done · 8 of 8 delivered · ₹12,290 collected* | good (a win when all delivered) |
+| A drop goes wrong | *Missed at X · Shop closed* · *Short 2 cases at X* · *X returned 1 case* | problem |
+| Money in | an hour's payments in one line, *₹13,950 received from 6 customers*; a lone one names who paid | good |
+| Money stuck for months | *₹3,180 received from X after 222 days*, always its own line, once per customer | win |
+| What the owner did | *5 payment reminders sent* · *Purchase order PR-0001 raised · 5 products, ₹17,675* · *12 orders created for the next trips* · *Supply stopped for X* · *3 products counted* | done |
+| A lever changes | *Purchase is on track now* (win) · *Deliveries turned Urgent* · *Order needs work now*; a flip and flip back within 15 minutes is not news | — |
+
+Door cash is inside its trip's line. A delivery recorded by hand (no trip)
+is its own line. Nothing dated after now (the sample ledger has some), and
+connecting records is not "news". The model is `assets/ct/timeline.js`
+(pure, tested headless); the lever changes are logged per device.
 
 ## 5. The five levers on screen
 
@@ -345,18 +412,18 @@ when the owner's records or supplier show it)
 
 | State | What the owner sees |
 | --- | --- |
-| **Loading** | The template's shapes in light grey (tabs, headline, three tiles, five rows), never a spinner. Under 1 second on a good network. |
+| **Loading** | The template's shapes in light grey (headline, three tiles, five rows), never a spinner. Under 1 second on a good network. |
 | **All good** | Headline in green words ("All 45 delivered"), Good selected, no action button. A calm screen is the reward. |
 | **Preview** (records not connected) | See 6.1. |
 | **Stale** | The "As of" line. Nothing else changes. |
 | **Offline** | The last loaded screen stays, with "As of 9:40 am". Actions queue with *"Will send when you're online."* |
-| **Error** | One line where the content would be: *"Couldn't load Collections. Retry."* Other tabs keep working. |
+| **Error** | One line where the content would be: *"Couldn't load Collections. Retry."* The other levers keep working. |
 
 ### 6.1 Preview
 
 A lever without its records shows the **whole template**, so the owner sees
 what they get:
-- Tabs: hollow grey dot.
+- Lever cards: hollow grey dot.
 - Headline replaced by the promise, in the owner's numbers where they exist:
   **"Track all 160 orders to the door."**
 - Tiles and rows drawn in full, in light grey, with real labels and
@@ -418,7 +485,8 @@ or shape.
 - Touch targets at least 44 px; the sticky action 56 px, 16 px from the edges,
   clear of the phone's gesture bar.
 - Icons: one outline set, 20 px, 1.75 stroke, used only where they speed
-  recognition (lever tabs don't need them; the sticky action doesn't).
+  recognition (the lever cards and the back bar use them; the sticky
+  action doesn't).
 
 ### 7.4 Motion
 - Tab change: content slides 200 ms, ease-out. Sheet: rises 240 ms.
@@ -444,7 +512,7 @@ it?"* Three passes.
 
 | Element | Why it must be there |
 | --- | --- |
-| Lever tabs with dots | The owner's flow; "which lever needs me" at a glance |
+| Five lever cards, then a back bar | "Which lever needs me" at a glance; one lever at a time |
 | "As of" (only when stale) | Stops an old number being read as today's |
 | Headline number + context | The state of the lever in one read |
 | ⓘ How it's worked out | Trust: the owner can check any number in one tap |
@@ -493,35 +561,28 @@ it?"* Three passes.
 
 ## 10a. Overview (owner, 22 Sep 2026)
 
-A sixth tab, **Overview**, before the five levers; the tower opens on it. It
-shows the whole business through its levers, more visual than numeric:
+The **Overview** is home: the tower opens on it every visit (no tabs,
+22 Sep 2026). It is the five levers and nothing else:
 
-- **No headline:** the dials already say which areas need the owner, and
-  Start here names the first (owner, 22 Sep 2026).
-- **A dial per area**, like a car dashboard, in the tab order so it never
-  shuffles: the area's picture in the middle (truck, ₹, clipboard, box,
-  cart), a ring that fills with its health, one colour (green fine, amber
-  needs work, red urgent), and the name with one status word and "›" under
-  it ("Needs work ›"). Each dial is a tile, so it reads as a button. Tapping
-  it opens the area **on the tile its word names**: On track → On track,
-  Needs work → Needs work, Urgent → Urgent. Three
-  over two on a phone. (A ✓ / ! badge was cut: a third way of saying the
-  colour and the word.)
-- **No Start here line:** removed by the owner (22 Sep 2026); the red dial
-  already says where to start, and opens on its Urgent list.
-  (Built first as a radar chart, then as five text cards; both replaced the
-  same day as too hard to read at a glance for a traditional trader.)
-- **Wins:** up to three proven good things, the owner's results first
-  ("₹10,600 collected this week"), then FoodBridge's work, tagged
-  FoodBridge ("20 usual orders prepared"). A lever that turned green since
-  the owner last looked is celebrated once, with a sparkle: "Purchase is on
-  track now".
-- **Balance:** only the single most important tension; the rest live on each
-  area's own screen.
-- **No live line:** removed by the owner (22 Sep 2026). The demo shows no
-  label of its own; its numbers move on their own every 20 seconds.
-- Wins never repeat a dial: no "X is on track"; only the moment an area
-  turns green ("… is on track now") is news.
+- **A dial per lever**, like a car dashboard, three over two on a phone, in
+  the owner's order so it never shuffles: the lever's picture in the middle
+  (truck, ₹, clipboard, box, cart), a ring that fills with its health, one
+  colour (green fine, amber needs work, red urgent), and the name with one
+  status word and "›" under it. Each dial is a tile, so it reads as a
+  button. Tapping it opens the lever **on the tile its word names**:
+  On track → On track, Needs work → Needs work, Urgent → Urgent.
+- **Dials, not full-width rows:** rows were tried on 22 Sep 2026 to fill
+  the space Wins and the balance card left; the owner preferred the dials'
+  alignment. No figure is added to fill the space.
+- **The dials sit in the middle of the screen** (owner, 22 Sep 2026): the
+  same space above them as below, between the top (the shell's header, or
+  the tower's top bar on a big screen) and the footer. A screen too short to
+  hold them starts them at the top and scrolls, clear of the footer.
+- **No headline, no Start here line, no live line:** the red dials already
+  say where to start. (Built first as a radar chart, then as five text
+  cards; both replaced as too hard to read at a glance.)
+- **No Wins and no balance card** (owner, 22 Sep 2026). Balance lives on
+  each lever's own screen, where the move is.
 
 No sticky action on Overview: every line opens the lever that acts.
 
@@ -568,4 +629,4 @@ Where the build differs from this document, and why:
 | Near expiry (Inventory) | Not tracked; said under ⓘ | No batch or expiry dates in the records |
 | 1200 px: tabs in a left column | Same centred column, sheets as a side panel from 768 px | One layout to keep right first |
 | Tiles: "Good / Bad / Ugly" | **On track / Needs work / Urgent** | The owner's call: common business words, the same three as the Overview dials. Tiles look pressable: a card, a ⌄, a notch from the selected tile to its list; an empty tile is flat and dashed |
-| Footer: Tower · Create · EXIT DEMO | **Tower · EXIT DEMO** | Create removed for now (owner, 22 Sep 2026). "Record your first delivery" still opens the delivery form from the Deliveries preview |
+| Footer: Tower · Create · EXIT DEMO | **Tower · Timeline · EXIT DEMO** | Create removed for now (owner, 22 Sep 2026); Timeline added the same day (§4.11). "Record your first delivery" still opens the delivery form from the Deliveries preview |

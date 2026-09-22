@@ -22,6 +22,7 @@
   const sv = function (d) { return '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; };
   const I = {
     tower: sv('<path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/>'),
+    updates: sv('<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
     plus: sv('<path d="M12 5v14M5 12h14"/>'),
     chev: sv('<path d="m9 18 6-6-6-6"/>'),
     x: sv('<path d="M18 6 6 18M6 6l12 12"/>'),
@@ -36,7 +37,6 @@
     flame: sv('<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.7-2.6 1.5-3.5.2 1.3 1 2 2 2 0-2.5-1-4.5.5-7z"/>'),
     minus: sv('<path d="M5 12h14"/>'),
     check: sv('<path d="M20 6 9 17l-5-5"/>'),
-    sparkle: sv('<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>'),
   };
   const CREATE = [
     { id: "delivery", label: "Record a delivery", icon: I.truck },
@@ -47,6 +47,7 @@
   ];
   const ICON_OF = { deliveries: I.truck, collections: I.rupee, purchase: I.clip, inventory: I.box, order: I.cart };
   const COLOUR = { green: "Green", yellow: "Yellow", orange: "Orange", red: "Red", fire: "Fire" };
+  const WORD = { ugly: "Urgent", bad: "Needs work", good: "On track", preview: "Not connected" };
 
   const esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
   const $ = function (s, r) { return (r || document).querySelector(s); };
@@ -80,9 +81,6 @@
     try { const k = "fb.v7.ct.probe"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return localStorage; }
     catch (e) { return window.CTStore.memory(); }
   }
-  const today = function () { return new Date().toISOString().slice(0, 10); };
-  function rememberTab(t) { try { localStorage.setItem("fb.v7.ct.tab", JSON.stringify({ tab: t, day: today() })); } catch (e) { /* per device only */ } }
-  function lastTab() { try { const v = JSON.parse(localStorage.getItem("fb.v7.ct.tab") || "null"); return v && v.day === today() ? v.tab : null; } catch (e) { return null; } }
 
   /* ── mount ───────────────────────────────────────────────────────────── */
   function mount() {
@@ -111,8 +109,15 @@
     compute();
     ui.demo = !!(window.CTDemo && window.CTDemo.isDemo(readRaw()));
     if (ui.demo) { try { if (window.CTDemo.ensureDay(tower.store, view, Date.now())) compute(); } catch (e) { /* the tower stands without the route */ } }
+    /* Where each lever stands is measured from here, once the tower (and the
+       demo's day) is in place: filling in the day is not news. */
+    ui.ready = true; trackStatus();
     const deep = deepLink();
-    ui.tab = deep.lever || lastTab() || "overview";
+    /* The Overview is home: every visit opens on the five levers; a link
+       straight to one lever still lands there (owner, 22 Sep 2026). */
+    ui.tab = deep.lever || "overview";
+    ui.page = "tower";
+    if (deep.updates) { ui.page = "updates"; ui.newSince = updSeen() || Date.now(); markSeen(); }
     draw();
     if (deep.item) { const r = findRow(deep.item); if (r) openItem(r); }
     wireGlobal();
@@ -120,23 +125,50 @@
   function compute() {
     view = tower.pass();
     model = L.build(view, { demand: window.CTSignals._detectors.demand(view.state) });
+    if (ui.ready) trackStatus();
   }
+
+  /* ── Where each lever stands, over time: the Timeline's "… is on track now".
+     A lever that flips and flips back within 15 minutes is not news: the
+     two changes fold into one, or into nothing. Per device. ────────────── */
+  function scopeKey(k) { return "fb.v7.ct." + k + "." + (tower.store.scope ? tower.store.scope() : "export"); }
+  function readJson(k, d) { try { return JSON.parse(localStorage.getItem(k) || "null") || d; } catch (e) { return d; } }
+  function trackStatus() {
+    const k = scopeKey("statuslog"), s = readJson(k, { last: null, log: [] });
+    const now = Date.now();
+    model.levers.forEach(function (x) {
+      const was = s.last && s.last[x.id];
+      if (!was || was === x.status || was === "preview" || x.status === "preview") return;   // connecting records is not news
+      const prev = s.log.filter(function (e) { return e.lever === x.id; }).pop();
+      if (prev && now - prev.at < 15 * 60000) {
+        s.log.splice(s.log.indexOf(prev), 1);
+        if (prev.from !== x.status) s.log.push({ at: now, lever: x.id, from: prev.from, to: x.status });
+      } else s.log.push({ at: now, lever: x.id, from: was, to: x.status });
+    });
+    s.last = {}; model.levers.forEach(function (x) { s.last[x.id] = x.status; });
+    s.log = s.log.slice(-40);
+    try { localStorage.setItem(k, JSON.stringify(s)); } catch (e) { /* per device only */ }
+    ui.statusLog = s.log;
+  }
+  /* When the owner last read the Timeline: what arrived since is New. */
+  function updSeen() { const v = readJson(scopeKey("updseen"), 0); return typeof v === "number" ? v : 0; }
+  function markSeen() { try { localStorage.setItem(scopeKey("updseen"), JSON.stringify(Date.now())); } catch (e) { /* per device only */ } }
   function lever(id) { return model.levers.filter(function (x) { return x.id === (id || ui.tab); })[0]; }
   function deepLink() {
     const q = new URLSearchParams(location.search);
-    let lv = q.get("lever"), item = q.get("item");
+    let lv = q.get("lever"), item = q.get("item"), vw = q.get("view");
     try {
       const h = (platformWin() || window.top).location.hash || "";
       const i = h.indexOf("?");
-      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); }
+      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); }
     } catch (e) { /* not ours to read */ }
-    return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order"].indexOf(lv) !== -1 ? lv : null, item: item };
+    return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order"].indexOf(lv) !== -1 ? lv : null, item: item,
+             updates: vw === "updates" && !lv };
   }
 
   function skeleton() {
     const b = function (w, h) { return '<i class="ct-sk" style="width:' + w + ";height:" + h + 'px"></i>'; };
-    $("#ct").innerHTML = '<nav class="ct-tabs">' + [1, 2, 3, 4, 5].map(function () { return b("88px", 18); }).join("") + "</nav>" +
-      '<main class="ct-main" aria-busy="true"><section class="ct-head">' + b("70%", 34) + b("45%", 14) + "</section>" +
+    $("#ct").innerHTML = '<main class="ct-main" aria-busy="true"><section class="ct-head">' + b("70%", 34) + b("45%", 14) + "</section>" +
       '<div class="ct-tiles">' + [1, 2, 3].map(function () { return '<div class="ct-tile">' + b("50%", 12) + b("70%", 20) + "</div>"; }).join("") + "</div>" +
       '<div class="ct-list">' + [1, 2, 3, 4, 5].map(function () { return '<div class="ct-row">' + b("60%", 14) + b("20%", 14) + "</div>"; }).join("") + "</div></main>";
   }
@@ -149,23 +181,85 @@
      DRAW — tabs · as of · headline · Good/Bad/Ugly · list · cards · action
      ════════════════════════════════════════════════════════════════════ */
   function draw() {
+    if (ui.page === "updates") return drawUpdates();
     const over = ui.tab === "overview";
     const lv = over ? null : lever();
     const root = $("#ct");
     const keep = window.scrollY;
-    root.innerHTML = tabs() +
+    root.innerHTML = (over ? "" : leverBar(lv)) +
       liveLine() +
       '<main class="ct-main" data-lever="' + (over ? "overview" : lv.id) + '">' + (over ? overviewBody() : lv.status === "preview" ? previewBody(lv) : leverBody(lv)) + "</main>" +
       (over ? "" : actionBar(lv)) +
       (ui.pending ? '<button class="ct-newbar" id="ct-newbar">New updates · tap to update</button>' : "");
-    const cur = $('.ct-tab[aria-selected="true"]');
-    const bar = $(".ct-tabs");
-    if (cur && bar) bar.scrollLeft = Math.max(0, cur.offsetLeft - (bar.clientWidth - cur.offsetWidth) / 2);
     window.scrollTo(0, keep);
     document.documentElement.classList.toggle("ct-has-act", !!$(".ct-actbar"));
+    document.documentElement.classList.toggle("ct-ov", over);
     syncFooter();
     syncTop();
-    if (over) { rememberSeen(); ui.dialsShown = true; }
+    if (over) ui.dialsShown = true;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     TIMELINE — the business's news, newest first (owner, 22 Sep 2026).
+     On screen "Timeline" (footer) and "Business Timeline" (title), the
+     owner's pick; in code it is still "updates".
+     The model is ../assets/ct/timeline.js; this only draws it.
+     ════════════════════════════════════════════════════════════════════ */
+  function timeline() { return window.CTTimeline.build(view, model, { now: Date.now(), statusLog: ui.statusLog || [] }); }
+  function drawUpdates() {
+    const tl = timeline();
+    const since = ui.newSince || 0;
+    ui.updItems = {};
+    /* A line is highlighted once, as it arrives; a live redraw never
+       replays it. */
+    const shown = ui.shown || {};
+    ui.shown = {};
+    const keep = window.scrollY;
+    $("#ct").innerHTML =
+      '<div class="ct-lvhead"><div class="ct-lvbar ct-upbar"><h2 class="ct-lvname"><span class="ct-lvicon">' + I.updates + "</span>Business Timeline</h2></div></div>" +
+      '<main class="ct-main" data-lever="updates">' + (tl.days.length ? tl.days.map(function (d) {
+        /* Today needs no heading (owner, 22 Sep 2026); earlier days keep theirs. */
+        return '<section class="ct-day">' + (d.label === "Today" ? "" : "<h3>" + esc(d.label) + "</h3>") + '<ol class="ct-tl">' + d.items.map(function (it) {
+          ui.updItems[it.key] = it;
+          const fresh = it.at > since;
+          const arrived = fresh && ui.shownOnce && !shown[it.key + "@" + it.at];
+          ui.shown[it.key + "@" + it.at] = 1;
+          return '<li><button class="ct-tli" data-upd="' + esc(it.key) + '" data-tone="' + it.tone + '"' + (it.win ? " data-win" : "") + (fresh ? " data-new" : "") + (arrived ? " data-in" : "") + ">" +
+            '<span class="ct-tld" aria-hidden="true">' + (ICON_OF[it.lever] || "") + "</span>" +
+            '<span class="ct-tlb">' + (it.time || fresh ? '<span class="ct-tlt">' + (it.time ? esc(it.time) : "") + (fresh ? '<em class="ct-new">New</em>' : "") + "</span>" : "") +
+              '<span class="ct-tlx">' + esc(it.text) + "</span></span>" +
+            '<span class="ct-go">' + I.chev + "</span></button></li>";
+        }).join("") + "</ol></section>";
+      }).join("") : '<p class="ct-empty">Nothing has happened in the last 7 days.</p>') + "</main>";
+    ui.shownOnce = true;
+    window.scrollTo(0, keep);
+    document.documentElement.classList.remove("ct-has-act", "ct-ov");
+    syncFooter(tl);
+    syncTop(tl);
+  }
+  /* Tower and the Timeline are the two pages; a sheet never stays across them. */
+  function setPage(p) {
+    if (p === ui.page) return;
+    closeAll();
+    /* New: what arrived since the last read. On a first read everything is
+       new, so nothing is tagged; what arrives while reading is. */
+    if (p === "updates") { ui.newSince = updSeen() || Date.now(); markSeen(); ui.shownOnce = false; } else markSeen();
+    ui.page = p;
+    draw(); window.scrollTo(0, 0);
+  }
+  /* An update opens the lever that acts on it, on its tile. */
+  function openUpdate(key) {
+    const it = ui.updItems && ui.updItems[key]; if (!it) return;
+    markSeen();
+    ui.page = "tower";
+    if (ui.tab !== it.lever) setTab(it.lever); else { ui.sub = "status"; }
+    if (it.tile) ui.tile[it.lever] = it.tile;
+    draw(); window.scrollTo(0, 0);
+  }
+  /* New since the owner last read the Timeline: a dot on its tab. */
+  function unseen(tl) {
+    const since = updSeen();
+    return (tl || timeline()).days.some(function (d) { return d.items.some(function (it) { return it.at > since; }); });
   }
 
   /* Live: the demo business, and the last thing that happened in it. */
@@ -176,14 +270,30 @@
     return model.stale || model.sample ? '<p class="ct-asof">' + [model.stale ? "As of " + esc(L.date(model.asOf)) : null, model.sample ? "Sample data" : null].filter(Boolean).join(" · ") + "</p>" : "";
   }
 
-  function tabs() {
-    return '<nav class="ct-tabs" role="tablist" aria-label="Levers">' +
-      '<button class="ct-tab" role="tab" data-tab="overview" aria-selected="' + (ui.tab === "overview") + '">Overview</button>' +
-      model.levers.map(function (x) {
-      const word = { ugly: "needs action", bad: "slipping", good: "on track", preview: "not connected" }[x.status];
-      return '<button class="ct-tab" role="tab" data-tab="' + x.id + '" aria-selected="' + (x.id === ui.tab) + '" aria-label="' + esc(x.label + ", " + word) + '">' +
-        '<i class="ct-dot" data-s="' + x.status + '"></i>' + esc(x.label) + "</button>";
-    }).join("") + "</nav>";
+  /* An open lever: back to the five levers, the lever's name, and how it is
+     — the word its card on the Overview used (owner, 22 Sep 2026: no tabs). */
+  function leverBar(lv) {
+    const n = lv.status === "preview" ? null : extras(lv).length;
+    return '<div class="ct-lvhead"><nav class="ct-lvbar" aria-label="' + esc(lv.label) + '">' +
+      '<button class="ct-home" data-home aria-label="Back to all levers" title="All levers">' + I.chev + "</button>" +
+      '<h2 class="ct-lvname"><span class="ct-lvicon">' + (ICON_OF[lv.id] || "") + "</span>" + esc(lv.label) + "</h2>" +
+      '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav>" +
+      /* Two tabs inside a lever (owner, 22 Sep 2026): how it stands, and
+         what FoodBridge suggests: the balance, grow and tomorrow cards.
+         Named in the trade's plain words: Status, Suggestions. A Preview
+         has one page. */
+      (n === null ? "" : '<div class="ct-views" role="tablist" aria-label="' + esc(lv.label) + ' views">' +
+        '<button class="ct-subtab" role="tab" data-sub="status" aria-selected="' + (sub() === "status") + '">Status</button>' +
+        '<button class="ct-subtab" role="tab" data-sub="more" aria-selected="' + (sub() === "more") + '">Suggestions' +
+          (n ? '<span class="ct-subn">' + n + "</span>" : "") + "</button></div>") +
+      "</div>";
+  }
+  function sub() { return ui.sub === "more" ? "more" : "status"; }
+  /* Suggestions: the forward-looking cards, in the order they were on the
+     lever's page: tomorrow's trips, balance, grow. */
+  function extras(lv) {
+    return [].concat(lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? [tomorrowCard(lv.tomorrow)] : [],
+      (lv.balance || []).map(balanceCard), lv.grow ? [growCard(lv.grow)] : []);
   }
 
   /* The dot on the tab and the tile the lever opens on say the same thing:
@@ -198,6 +308,10 @@
   }
 
   function leverBody(lv) {
+    if (sub() === "more") {
+      const x = extras(lv);
+      return x.length ? x.join("") : '<p class="ct-empty">No suggestions right now.</p>';
+    }
     const sel = selectedTile(lv);
     let rows = lv.tiles[sel].rows;
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
@@ -206,10 +320,7 @@
     return head(lv) + tiles(lv, sel) +
       (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
       (lv.id === "deliveries" && sel === "good" ? facts(lv.facts) : "") +
-      list(rows, lv, sel) +
-      (lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? tomorrowCard(lv.tomorrow) : "") +
-      lv.balance.map(balanceCard).join("") +
-      (lv.grow ? growCard(lv.grow) : "");
+      list(rows, lv, sel);
   }
 
   function head(lv) {
@@ -282,43 +393,23 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════
-     OVERVIEW — the whole business through its five levers: the shape of
-     its balance, what needs the owner, and what to feel good about.
+     OVERVIEW — home: the whole business through its five levers.
      ════════════════════════════════════════════════════════════════════ */
-  function seenKey() { return "fb.v7.ct.seen." + (tower.store.scope ? tower.store.scope() : "export"); }
-  function seen() { try { return JSON.parse(localStorage.getItem(seenKey()) || "{}"); } catch (e) { return {}; } }
-  function rememberSeen() {
-    const m = {}; model.levers.forEach(function (x) { m[x.id] = x.status; });
-    try { localStorage.setItem(seenKey(), JSON.stringify(m)); } catch (e) { /* a celebration once per device */ }
-  }
+  /* The five levers as dials, three over two, in the owner's order so it
+     never shuffles: the ring's colour and word say how it is, its fill how
+     full. Nothing else (owner, 22 Sep 2026: Wins and the balance card came
+     off; the dials stay, the owner preferred them to full-width rows). */
   function overviewBody() {
-    const o = model.overview;
-    const before = seen();
-    /* A lever that turned green since the owner last looked is celebrated, once. */
-    const turned = model.levers.filter(function (x) { return x.status === "good" && before[x.id] && (before[x.id] === "ugly" || before[x.id] === "bad"); });
-    const wins = turned.map(function (x) { return { lever: x.id, text: x.label + " is on track now", fresh: true }; })
-      .concat(o.wins.filter(function (w) { return !turned.some(function (x) { return w.text === x.label + " is on track"; }); })).slice(0, 3);
-    const WORD = { ugly: "Urgent", bad: "Needs work", good: "On track", preview: "Not connected" };
-    /* No headline: the dials say which areas need the owner, and Start here
-       names the first (owner, 22 Sep 2026). */
-    return '' +
-      /* One glance: a dial per area, in the tab order so it never shuffles.
-         Its picture says which area, its colour how it is, its ring how full. */
-      /* The rings fill once, on the first look; a live update never replays it. */
-      '<div class="ct-dials' + (ui.dialsShown ? "" : " is-first") + '">' + model.levers.map(function (x) {
-        const f = x.health ? Math.max(0.04, x.health.value) : 0;
-        const C = 2 * Math.PI * 40;
-        return '<button class="ct-dial" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(x.label + ", " + WORD[x.status]) + '">' +
-          '<span class="ct-dial-g"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="40"/>' +
-            '<circle class="fg" cx="50" cy="50" r="40" stroke-dasharray="' + (C * f).toFixed(1) + " " + C.toFixed(1) + '"/></svg>' +
-            '<span class="ct-dial-i">' + (ICON_OF[x.id] || "") + "</span></span>" +
-          '<span class="ct-dial-n">' + esc(x.label) + '</span><span class="ct-dial-w">' + WORD[x.status] + I.chev + "</span></button>";
-      }).join("") + "</div>" +
-      (wins.length ? '<section class="ct-card ct-wins' + (turned.length || o.balanced ? " is-celebrate" : "") + '"><h3>' + I.sparkle + "Wins</h3><ul>" + wins.map(function (w) {
-        return '<li class="' + (w.fresh ? "is-fresh" : "") + '"><button data-goto="' + w.lever + '">' + (w.fresh ? '<span class="ct-spark">' + I.sparkle + "</span>" : "") + "<span>" + esc(w.text) + "</span>" +
-          (w.fb ? '<small>FoodBridge</small>' : "") + "</button></li>";
-      }).join("") + "</ul></section>" : "") +
-      o.balances.slice(0, 1).map(balanceCard).join("");
+    /* The rings fill once, on the first look; a live update never replays it. */
+    return '<div class="ct-dials' + (ui.dialsShown ? "" : " is-first") + '">' + model.levers.map(function (x) {
+      const f = x.health ? Math.max(0.04, x.health.value) : 0;
+      const C = 2 * Math.PI * 40;
+      return '<button class="ct-dial" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(x.label + ", " + WORD[x.status]) + '">' +
+        '<span class="ct-dial-g"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="40"/>' +
+          '<circle class="fg" cx="50" cy="50" r="40" stroke-dasharray="' + (C * f).toFixed(1) + " " + C.toFixed(1) + '"/></svg>' +
+          '<span class="ct-dial-i">' + (ICON_OF[x.id] || "") + "</span></span>" +
+        '<span class="ct-dial-n">' + esc(x.label) + '</span><span class="ct-dial-w">' + WORD[x.status] + I.chev + "</span></button>";
+    }).join("") + "</div>";
   }
 
   /* ── Preview: the whole lever, before its records arrive ─────────────── */
@@ -346,7 +437,7 @@
   function actionBar(lv) {
     let a = null;
     if (lv.status === "preview") a = { label: lv.preview.connect.label, connect: true };
-    else if (lv.action && selectedTile(lv) !== "good") a = lv.action;     // no chasing while reading good news
+    else if (lv.action && sub() === "status" && selectedTile(lv) !== "good") a = lv.action;     // it acts on the list: not on Suggestions, not on good news
     if (!a) return "";
     return '<div class="ct-actbar"><button class="ct-act' + (a.connect ? " is-connect" : "") + '" data-act>' + esc(a.label) + "</button></div>";
   }
@@ -368,10 +459,17 @@
        is no sidebar to fold, so no button. */
     const burger = platformWin() ? '<button type="button" class="ct-top-burger" data-burger aria-label="Toggle sidebar" title="Toggle sidebar">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>' : "";
-    h.innerHTML = '<div class="ct-top-l">' + burger + '<h1 class="ct-top-t">Control Tower</h1></div>' +
+    /* On a big screen the footer is off, so Tower · Timeline live here. */
+    h.innerHTML = '<div class="ct-top-l">' + burger + '<h1 class="ct-top-t">Control Tower</h1>' +
+      '<nav class="ct-top-nav" aria-label="Control Tower pages"><button type="button" data-page="tower">Tower</button>' +
+      '<button type="button" data-page="updates">Timeline<i class="ct-fnew" aria-hidden="true"></i></button></nav></div>' +
       '<div class="ct-top-u"><span class="ct-top-ava">' + sv('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') + "<i></i></span>" +
       '<span class="ct-top-who"><b data-who-name></b><small data-who-role></small></span></div>';
     document.body.insertBefore(h, $("#ct"));
+    h.addEventListener("click", function (e) {
+      const p = e.target.closest("[data-page]"); if (!p) return;
+      if (p.dataset.page === "updates") goUpdates(); else goTower();
+    });
     const b = $("[data-burger]", h);
     if (b) b.addEventListener("click", function () {
       const pw = platformWin();
@@ -379,8 +477,13 @@
     });
     syncTop();
   }
-  function syncTop() {
+  function syncTop(tl) {
     const w = who(), n = $("[data-who-name]"), r = $("[data-who-role]");
+    $$(".ct-top-nav [data-page]").forEach(function (b) {
+      const on = b.dataset.page === (ui.page || "tower");
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+      if (b.dataset.page === "updates") b.classList.toggle("has-new", !on && !!tower && unseen(tl));
+    });
     if (n) n.textContent = w.name;
     if (r) { r.textContent = w.role; r.hidden = !w.role; }
   }
@@ -389,12 +492,30 @@
   function mountFooter() {
     if (!window.FB_EXIT) return;
     window.FB_EXIT.mount({ pad: false, z: 39, tabs: [
-      { id: "tower", label: "Tower", icon: '<span class="ct-ftic">' + I.tower + "</span>", onClick: function () { closeAll(); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+      { id: "tower", label: "Tower", icon: '<span class="ct-ftic">' + I.tower + "</span>", onClick: goTower },
+      { id: "updates", label: "Timeline", icon: '<span class="ct-ftic">' + I.updates + '<i class="ct-fnew" aria-hidden="true"></i></span>', onClick: goUpdates },
     ] });
   }
-  function syncFooter() {
-    const b = $('#fbx-foot [data-x="0"]');
-    if (b) b.setAttribute("aria-current", "page");
+  /* Tower is home: the five levers, from anywhere, Updates included. */
+  function goTower() {
+    closeAll();
+    if (ui.page !== "tower") { ui.tab = "overview"; ui.overY = 0; setPage("tower"); return; }
+    if (ui.tab !== "overview") { ui.overY = 0; goHome(); } else window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function goUpdates() {
+    if (ui.page === "updates") { closeAll(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    setPage("updates");
+  }
+  function syncFooter(tl) {
+    const up = ui.page === "updates";
+    const t = $('#fbx-foot [data-x="0"]'), u = $('#fbx-foot [data-x="1"]');
+    if (t) { if (up) t.removeAttribute("aria-current"); else t.setAttribute("aria-current", "page"); }
+    if (u) {
+      if (up) u.setAttribute("aria-current", "page"); else u.removeAttribute("aria-current");
+      const fresh = !up && unseen(tl);
+      u.classList.toggle("has-new", fresh);
+      u.setAttribute("aria-label", "Timeline" + (fresh ? ", new" : ""));
+    }
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -403,7 +524,9 @@
   function onClick(e) {
     const b = e.target.closest("button, [data-goto]"); if (!b || b.disabled) return;
     const d = b.dataset;
-    if (d.tab) { setTab(d.tab); return; }
+    if ("home" in d) { goHome(); return; }
+    if (d.upd) { openUpdate(d.upd); return; }
+    if (d.sub) { if (d.sub !== sub()) { ui.sub = d.sub; draw(); window.scrollTo(0, 0); } return; }
     if (d.tile) { ui.tile[ui.tab] = d.tile; ui.colour = null; draw(); return; }
     /* A colour lives in one tile: Yellow and Orange under Needs work, Red
        and Fire under Urgent. Tapping it opens the tile that holds it. */
@@ -425,23 +548,20 @@
      card — opens on the tile its dot promised; a tile the owner picks holds
      only while they stay in that lever. */
   function setTab(id) {
-    if (id !== ui.tab) delete ui.tile[id];
-    ui.tab = id; ui.colour = null; rememberTab(id);
+    if (id === ui.tab) return;
+    if (ui.tab === "overview") ui.overY = window.scrollY;             // where the owner was among the cards
+    delete ui.tile[id];
+    ui.tab = id; ui.colour = null; ui.sub = "status";
     draw(); window.scrollTo(0, 0);
+  }
+  /* Back to the five levers, where the owner left them. */
+  function goHome() {
+    if (ui.tab === "overview") return;
+    setTab("overview");
+    window.scrollTo(0, ui.overY || 0);
   }
   function wireGlobal() {
     $("#ct").addEventListener("click", onClick);
-    let sx = null, sy = null;
-    $("#ct").addEventListener("touchstart", function (e) { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; }, { passive: true });
-    $("#ct").addEventListener("touchend", function (e) {
-      if (sx === null || isOpen()) return;
-      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-      sx = null;
-      if (Math.abs(dx) < 70 || Math.abs(dy) > 50 || e.target.closest(".ct-tabs, .ct-clabels")) return;
-      const ids = ["overview"].concat(model.levers.map(function (x) { return x.id; }));
-      const i = ids.indexOf(ui.tab) + (dx < 0 ? 1 : -1);
-      if (i >= 0 && i < ids.length) setTab(ids[i]);
-    }, { passive: true });
     window.addEventListener("storage", function (e) {
       if (!e.key || e.key.indexOf("fb.v7.") !== 0) return;
       clearTimeout(ui.st);
@@ -451,7 +571,8 @@
       }, 250);
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && isOpen()) back();
+      if (e.key !== "Escape") return;
+      if (isOpen()) back(); else if (ui.page === "tower") goHome();
     });
     window.addEventListener("resize", function () { applyFrame(); });
     setInterval(function () { if (!isOpen()) { compute(); draw(); } }, 60000);
@@ -1008,7 +1129,7 @@
             /* Money collected at the door is a payment too. */
             if (rec.collected > 0) { try { tower.store.addPayment({ customerId: customerId, amount: rec.collected, mode: "Cash", via: saved.no }); } catch (e) { /* the delivery stands */ } }
             closeAll();
-            ui.tab = "deliveries"; rememberTab("deliveries");
+            if (ui.tab !== "deliveries") setTab("deliveries");
             after(missed ? "Missed delivery saved" : "Delivery saved");
             if (rec.nextOrder) newOrder(customerId);
           });

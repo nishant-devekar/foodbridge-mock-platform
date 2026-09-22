@@ -15,18 +15,16 @@ flowchart TD
   E2([Alert on the phone<br/>'3 deliveries missed']) --> DL
   E3([After onboarding<br/>'Open your control tower']) --> L
 
-  L[Loading<br/>grey shapes of the template] --> T{Which tab?}
+  L[Loading<br/>grey shapes of the template] --> T{A link to one lever?}
   DL[Deep link] --> T
-  T -->|deep link| TX[The linked lever<br/>item sheet open]
-  T -->|same day| TL[Last tab used]
-  T -->|first visit today| TD[Overview<br/>business shape · needs you · wins]
+  T -->|yes| TX[The linked lever<br/>item sheet open]
+  T -->|no, every visit| TD[Overview: five lever dials<br/>nothing else]
 
   TX --> LV
-  TL --> LV
-  TD --> LV
+  TD -->|tap a card| LV
 
   %% Lever screen
-  LV[Lever screen<br/>tabs · headline · Good/Bad/Ugly · list · balance · grow · action]
+  LV[Lever screen<br/>‹ back bar · headline · Good/Bad/Ugly · list · balance · grow · action]
   LV --> S{Lever has its records?}
   S -->|no| PV[Preview<br/>full skeleton · Example figures]
   S -->|yes| LIVE[Live lever]
@@ -36,12 +34,12 @@ flowchart TD
   CN -->|not now| PV
 
   LIVE --> A{What does the owner do?}
-  A -->|scan dots, swipe| TAB[Another lever tab] --> LV
+  A -->|Back · Esc · Tower| TD
   A -->|tap Good / Bad / Ugly| G[List changes to that tile] --> A
   A -->|tap ⓘ| W[How this is worked out] --> A
   A -->|tap a row| IS[Item sheet<br/>customer · product · delivery]
   A -->|Show all| FL[Full list sheet<br/>sorted by ₹, filters] --> IS
-  A -->|tap Balance| BL[Other lever tab<br/>the linked item highlighted] --> LV
+  A -->|tap Balance| BL[The other lever<br/>the linked item highlighted] --> LV
   A -->|tap Grow| GR[Prepared opportunity]
   A -->|sticky action| CF
   A -->|footer: Tower| LV
@@ -90,7 +88,7 @@ is the balance the tower exists to show.
 
 | Entry | Lands on |
 | --- | --- |
-| Open the tower (app or sidebar) | Overview on the first visit of the day; the last tab after that |
+| Open the tower (app or sidebar) | The Overview, the five lever cards, every time |
 | Alert on the phone (*"3 deliveries missed"*, *"₹36,000 to collect on tomorrow's trips"*) | That lever, with the item sheet open |
 | End of onboarding (*"Open your control tower"*) | Deliveries (Preview if not connected) |
 
@@ -100,16 +98,24 @@ back"*) and one at a time for new Ugly items. No alert for Good or Bad.
 
 ## 4. Arrive and choose a lever
 
-1. **Loading:** the template's grey shapes (tabs, headline, three tiles, five
+1. **Loading:** the template's grey shapes (headline, three tiles, five
    rows). No spinner.
-2. **Tabs appear with dots.** The owner scans them: red first.
-3. **Swipe or tap** to change lever. The tab row scrolls to keep the selected
-   tab in view.
-4. **Pull down** to refresh the tab (rarely needed; data updates on its own).
+2. **The five lever cards appear**, each with its word and colour. The owner
+   scans them: Urgent first.
+3. **Tap a card** to open that lever, under a bar: ‹ back · name · status.
+   **Back** (or Esc, or **Tower** in the footer) returns to the five cards,
+   where the owner left them. No tabs, no swiping between levers
+   (22 Sep 2026).
+4. Data updates on its own; nothing to pull.
 
 ## 4a. The footer
 
-The platform's bar on every screen: **Tower · Create · EXIT DEMO**.
+The platform's bar on every screen: **Tower · Timeline · EXIT DEMO** (Create
+is off for now; what it does is kept below).
+
+- **Tower:** closes any sheet and returns to the five lever cards.
+- **Timeline:** the business's news, newest first; tap a line to open its
+  lever where it is dealt with (design §4.11).
 
 - **Tower:** closes any sheet and returns to the top of the current lever.
 - **Create:** opens the Create sheet, one quick action per lever in tab order:
