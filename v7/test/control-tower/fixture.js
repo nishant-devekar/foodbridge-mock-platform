@@ -16,7 +16,6 @@ const CTState = require(path.join(V7, "assets/ct/state.js"));
 const CTSignals = require(path.join(V7, "assets/ct/signals.js"));
 const CTStore = require(path.join(V7, "assets/ct/store.js"));
 const CTActions = require(path.join(V7, "assets/ct/actions.js"));
-const CTAssistant = require(path.join(V7, "assets/ct/assistant.js"));
 const CTTower = require(path.join(V7, "assets/ct/tower.js"));
 
 const SEED = JSON.parse(JSON.stringify(window.SEED));
@@ -74,4 +73,4 @@ function world(o) {
   return { tower, store, storage, clock };
 }
 
-module.exports = { world, CTStore, CTActions, CTAssistant, CTTower, V7, SEED, HISTORY, NOW, api, state, sampleDataReady, CTState, CTSignals, evidence, dataset };
+module.exports = { world, CTStore, CTActions, CTTower, V7, SEED, HISTORY, NOW, api, state, sampleDataReady, CTState, CTSignals, evidence, dataset };

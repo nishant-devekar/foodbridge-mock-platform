@@ -59,7 +59,7 @@ test("an impact with no price says so rather than inventing one", () => {
   const d = S.detect(F.state({ seed }));
   const so = byId(d.signals).stockout;
   assert.equal(so.impact.value, null);
-  assert.equal(so.impact.description, "Impact not yet quantified");
+  assert.equal(so.impact.description, "No value in your records");
 });
 
 test("stockout: a product that sells and drops below two weeks of stock is detected; severity follows demand", () => {

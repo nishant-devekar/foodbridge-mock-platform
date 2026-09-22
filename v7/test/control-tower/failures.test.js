@@ -47,26 +47,14 @@ test("an action on a signal that has since gone is refused as stale", () => {
   assert.equal(w.store.read().purchaseRequests.length, 0);
 });
 
-test("the assistant cannot bypass confirmation, even when it says 'confirmed'", () => {
+test("nothing but the owner can confirm, even when it says 'confirmed'", () => {
   const w = F.world();
   w.tower.pass();
   const pv = w.tower.actions.prepare("stockout");
-  assert.throws(() => w.tower.actions.execute(pv, { confirmed: true, actor: "assistant" }), { name: "AuthorizationError" });
+  assert.throws(() => w.tower.actions.execute(pv, { confirmed: true, actor: "system" }), { name: "AuthorizationError" });
   assert.equal(w.store.read().purchaseRequests.length, 0);
-  const ref = w.store.read().audit.find((a) => a.actor === "assistant");
-  assert.ok(ref && ref.aiAssisted === true && /Refused/.test(ref.outcome), "the attempt is audited as AI");
-});
-
-test("an AI-assisted action confirmed by the owner is marked AI-assisted in the audit", () => {
-  const w = F.world();
-  w.tower.pass();
-  const pv = w.tower.actions.prepare("stockout");
-  const r = w.tower.actions.execute(pv, { confirmed: true, actor: "owner", aiAssisted: true });
-  assert.equal(r.ok, true);
-  const a = w.store.read().audit.find((x) => x.action === "create_purchase_request" && x.ref);
-  assert.equal(a.aiAssisted, true);
-  assert.equal(a.actor, "owner");
-  assert.equal(w.store.read().purchaseRequests[0].aiAssisted, true);
+  const ref = w.store.read().audit.find((a) => a.actor === "system");
+  assert.ok(ref && /Refused/.test(ref.outcome), "the attempt is audited");
 });
 
 test("an empty preview (every quantity zeroed) does nothing and says so", () => {
@@ -77,16 +65,6 @@ test("an empty preview (every quantity zeroed) does nothing and says so", () => 
   const r = w.tower.actions.execute(pv, { confirmed: true });
   assert.equal(r.ok, false);
   assert.equal(r.error.code, "empty");
-});
-
-test("AI unavailable: the assistant says so, and the tower still works", () => {
-  const w = F.world();
-  const v = w.tower.pass();
-  const broken = F.CTAssistant.create({ getContext: () => { throw new Error("model down"); } });
-  const a = broken.ask("What needs my attention?");
-  assert.equal(a.error, true);
-  assert.match(a.blocks[0].text, /won't guess/);
-  assert.ok(v.signals.length, "the signals do not depend on the assistant");
 });
 
 test("missing inventory data: no stock claims, and the rest of the tower stands", () => {

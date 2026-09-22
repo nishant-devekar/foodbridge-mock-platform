@@ -6,8 +6,8 @@
      fb.v7.ct.lifecycle          each signal's state: new → acknowledged →
                                  in_progress → resolved, or dismissed (with a
                                  reason). Keyed by the signal's stable id.
-     fb.v7.ct.audit              every meaningful event: who (owner or
-                                 FoodBridge AI), what, before → after, when,
+     fb.v7.ct.audit              every meaningful event: who (the owner or
+                                 FoodBridge), what, before → after, when,
                                  why, approval, outcome. Append-only.
      fb.v7.ct.purchaseRequests   PR-0001… raised from a signal. This tenant has
                                  no purchase-order store; the requests are read
@@ -16,6 +16,17 @@
                                  connected in this build; they wait here.
      fb.v7.ct.followups          call lists.
      fb.v7.ct.support            human handovers, with their context packaged.
+     fb.v7.ct.deliveries         each delivery recorded at the door (22 Sep
+                                 2026): delivered, missed with a reason,
+                                 returned, money and empties collected, the
+                                 next order taken. Fills the Deliveries lever.
+     fb.v7.ct.payments           money received, recorded in FoodBridge. Read
+                                 back as payments against the oldest invoices.
+     fb.v7.ct.stockCounts        stock counted in FoodBridge. The latest count
+                                 per product replaces the imported figure.
+     fb.v7.ct.holds              customers whose supply is held (Fire).
+     fb.v7.ct.route              today's planned delivery stops (the demo
+                                 business's route; demo.js plans it daily).
 
    And one it does NOT own: orders go to fb.v7.orders, the store onboarding's
    Create Order already writes and Order Drafts reads, in that same shape.
@@ -35,6 +46,11 @@
     outbox: "fb.v7.ct.outbox",
     followups: "fb.v7.ct.followups",
     support: "fb.v7.ct.support",
+    deliveries: "fb.v7.ct.deliveries",
+    payments: "fb.v7.ct.payments",
+    stockCounts: "fb.v7.ct.stockCounts",
+    holds: "fb.v7.ct.holds",
+    route: "fb.v7.ct.route",
     orders: "fb.v7.orders",
   };
   const AUDIT_CAP = 500;
@@ -91,7 +107,7 @@
     function audit(entry) {
       const log = get(K.audit, []);
       const e = Object.assign({ id: "A" + (log.length ? (parseInt(log[log.length - 1].id.slice(1), 10) + 1) : 1),
-                                at: isoNow(), actor: "owner", aiAssisted: false }, entry);
+                                at: isoNow(), actor: "owner" }, entry);
       log.push(e);
       put(K.audit, log.slice(-AUDIT_CAP));
       return e;
@@ -240,11 +256,52 @@
       return recs;
     }
 
+    /* ── the owner's own entries (Create, and the levers' actions) ─────── */
+    function addDeliveries(list) {
+      const all = get(K.deliveries, []);
+      let n = all.length;
+      const recs = list.map(function (d) { n += 1; return Object.assign({ no: "DL-" + String(n).padStart(4, "0"), at: isoNow() }, d); });
+      put(K.deliveries, all.concat(recs));
+      return recs;
+    }
+    /* Missed deliveries go back on the next trip: the record stays, marked. */
+    function rescheduleDeliveries(nos, forDate) {
+      const all = get(K.deliveries, []);
+      const set = {}; nos.forEach(function (x) { set[x] = 1; });
+      let hit = 0;
+      all.forEach(function (d) { if (set[d.no]) { d.rescheduledFor = forDate; d.rescheduledAt = isoNow(); hit += 1; } });
+      put(K.deliveries, all);
+      return hit;
+    }
+    function addPayment(p) {
+      const all = get(K.payments, []);
+      const rec = Object.assign({ no: nextNo(all, "RCPT-"), at: isoNow() }, p);
+      all.push(rec); put(K.payments, all);
+      return rec;
+    }
+    function addStockCounts(lines) {
+      const all = get(K.stockCounts, []);
+      const at = isoNow();
+      const recs = lines.map(function (l) { return Object.assign({ at: at }, l); });
+      put(K.stockCounts, all.concat(recs));
+      return recs;
+    }
+    function setHold(customerId, on) {
+      const h = get(K.holds, {});
+      if (on) h[customerId] = { since: isoNow() }; else delete h[customerId];
+      put(K.holds, h);
+      return h;
+    }
+
+    function setRoute(r) { put(K.route, r); return r; }
+
     function read() {
       return {
         lifecycle: lifecycle(), audit: get(K.audit, []),
         purchaseRequests: get(K.purchaseRequests, []), outbox: get(K.outbox, []),
         followups: get(K.followups, []), support: get(K.support, []), orders: get(K.orders, []),
+        deliveries: get(K.deliveries, []), payments: get(K.payments, []),
+        stockCounts: get(K.stockCounts, []), holds: get(K.holds, {}), route: get(K.route, null),
       };
     }
 
@@ -253,7 +310,9 @@
 
     return { K: K, setScope: setScope, scope: getScope, read: read, reconcile: reconcile, acknowledge: acknowledge, dismiss: dismiss, restore: restore,
              inProgress: inProgress, audit: audit, addPurchaseRequest: addPurchaseRequest, addOutbox: addOutbox,
-             addFollowup: addFollowup, addSupport: addSupport, addOrders: addOrders };
+             addFollowup: addFollowup, addSupport: addSupport, addOrders: addOrders,
+             addDeliveries: addDeliveries, rescheduleDeliveries: rescheduleDeliveries, addPayment: addPayment,
+             addStockCounts: addStockCounts, setHold: setHold, setRoute: setRoute };
   }
 
   const API = { create: create, memory: memory, KEYS: K, StoreError: StoreError };

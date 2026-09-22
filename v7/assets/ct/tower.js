@@ -40,6 +40,7 @@
         purchaseRequests: rec.purchaseRequests,
         outbox: rec.outbox,
       }));
+      applyOwnEntries(st, rec);
       const d = Signals.detect(st);
       const rc = store.reconcile(d.signals);
       last = {
@@ -60,24 +61,46 @@
       return last;
     }
 
+    /* What the owner recorded in FoodBridge counts on the next pass: a
+       stock count replaces the imported figure for that product, and money
+       received pays the customer's oldest open invoices first -- except
+       cash marked forDrop, taken at the door for that day's delivery, which
+       counts as collected but leaves the old invoices as they were. Copies
+       only; the imported records are never changed. */
+    function applyOwnEntries(st, rec) {
+      const latest = {};
+      (rec.stockCounts || []).forEach(function (c) { if (!latest[c.productId] || c.at >= latest[c.productId].at) latest[c.productId] = c; });
+      st.products.forEach(function (p) {
+        if (latest[p.id]) { p.stock = Number(latest[p.id].qty) || 0; p.countedAt = latest[p.id].at; }
+      });
+      const l = st.ledger;
+      if (!l || !l.invoices || !(rec.payments || []).length) return;
+      l.invoices = l.invoices.map(function (i) { return Object.assign({}, i); });
+      l.payments = (l.payments || []).slice();
+      (rec.payments || []).forEach(function (p) {
+        let left = Number(p.amount) || 0;
+        /* How late the oldest invoice this payment cleared was: a payment that
+           brings in long-stuck money is the best news Collections has. */
+        let late = 0;
+        const paidOn = new Date(p.at.slice(0, 10) + "T00:00:00Z").getTime();
+        if (!p.forDrop) l.invoices.filter(function (i) { return i.customerId === p.customerId && i.balance > 0; })
+          .sort(function (a, b) { return (a.dueDate || a.date) < (b.dueDate || b.date) ? -1 : 1; })
+          .forEach(function (i) {
+            if (left <= 0) return;
+            const take = Math.min(left, i.balance); i.balance -= take; left -= take;
+            if (i.dueDate) late = Math.max(late, Math.round((paidOn - new Date(i.dueDate + "T00:00:00Z").getTime()) / 86400000));
+          });
+        l.payments.push({ id: p.no, customerId: p.customerId, date: p.at.slice(0, 10), amount: Number(p.amount) || 0, mode: p.mode, own: true, late: late });
+      });
+    }
+
     const actions = root.CTActions.create({
       store: store, signals: Signals,
       getState: function () { return pass(); },
       business: opts.business,
     });
 
-    function assistant(focus) {
-      return root.CTAssistant.create({
-        signals: Signals,
-        getContext: function () {
-          const v = last || pass();
-          return { signals: v.signals, pulse: v.pulse, freshness: v.freshness, unavailable: v.unavailable,
-                   business: opts.business ? opts.business() : null, focusId: focus ? focus() : null, dataEnd: v.state.dataEnd };
-        },
-      });
-    }
-
-    return { pass: pass, last: function () { return last; }, actions: actions, assistant: assistant, store: store };
+    return { pass: pass, last: function () { return last; }, actions: actions, store: store };
   }
 
   const API = { create: create };

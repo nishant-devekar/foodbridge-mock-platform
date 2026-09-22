@@ -160,7 +160,7 @@
           calc: "For each product: (units sold per day over the last 90 days of records × 30 − stock you have) × the MRP in its name. " +
             priced.length + " of " + act.length + " products carry an MRP" +
             (priced.length < act.length ? "; the other " + (act.length - priced.length) + " are not counted." : ".") }
-      : { type: "revenue", value: null, description: "Impact not yet quantified",
+      : { type: "revenue", value: null, description: "No value in your records",
           calc: "None of these products has a price in your records." };
 
     const lines = act.map(function (d) {
@@ -172,16 +172,16 @@
     const title = monitoring
       ? plural(low.length, "product is", "products are") + " on order"
       : out.length === act.length
-        ? plural(act.length, "product is", "products are") + " out of stock and still selling"
-        : plural(act.length, "product", "products") + " may run out in the next 2 weeks";
+        ? plural(act.length, "product is", "products are") + " out of stock"
+        : plural(act.length, "product", "products") + " may run out in 2 weeks";
 
     return {
       id: "stockout", type: "STOCKOUT_RISK", domain: "inventory", severity: severity,
       title: title,
       summary: monitoring
-        ? "Purchase requests cover them. The shelf stays short until stock arrives."
-        : (out.length ? out.length + " already at zero. " : "") +
-          plural(nBuyers, "shop") + " bought them in the last 90 days.",
+        ? "Short until the stock arrives."
+        : (out.length && out.length < act.length ? out.length + " already at zero. " : "") +
+          plural(nBuyers, "customer") + " bought them in the last 90 days.",
       impact: impact,
       affected: { customers: nBuyers, products: basis.length },
       evidence: [
@@ -192,14 +192,14 @@
       why: monitoring
         ? ["Stock on hand is below two weeks of demand for " + plural(low.length, "product") + ".",
            "Raised purchase requests cover all of them."]
-        : ["Stock on hand is below two weeks of demand for " + plural(act.length, "product") + ".",
-           out.length ? out.length + " of them have none left." : "None has run out yet.",
-           onOrder.length ? onOrder.length + " more are already on order." : "No purchase request covers them yet."],
+        : ["Stock on hand is below two weeks of demand.",
+           out.length === act.length ? null : out.length ? out.length + " of them have none left." : "None has run out yet.",
+           onOrder.length ? onOrder.length + " more are already on order." : "No purchase request covers them yet."].filter(Boolean),
       rows: basis.map(function (d) {
         return { id: d.product.id, kind: "product", title: d.product.name,
                  cells: [d.available <= 0 ? "Out of stock" : fmtCover(d.cover),
                          plural(Math.round(d.daily * 30), "unit") + "/month",
-                         plural(d.buyers.length, "shop")],
+                         plural(d.buyers.length, "customer")],
                  tone: d.available <= 0 ? "bad" : d.cover < T.COVER_URGENT_DAYS ? "warn" : "",
                  note: covered(d) ? "On order: " + d.onOrder + " " + (d.product.unit || "units") : null };
       }),
@@ -214,7 +214,7 @@
         confidence: 20,
         reasons: [
           out.length ? out.length + " already out of stock" : urgent.length ? urgent.length + " have under a week of stock" : null,
-          nBuyers ? plural(nBuyers, "shop") + " buy these products" : null,
+          nBuyers ? plural(nBuyers, "customer") + " buy these products" : null,
         ],
       },
       phase: monitoring ? "monitoring" : null,
@@ -271,12 +271,12 @@
     return {
       id: "order-risk", type: "ORDER_RISK", domain: "orders",
       severity: allOnOrder ? "medium" : "critical",
-      title: plural(risky.length, "order") + (risky.length === 1 ? " can't" : " can't") + " be filled from stock",
-      summary: plural(Object.keys(shortBy).length, "product") + " short across " + plural(Object.keys(custs).length, "shop") + ".",
+      title: plural(risky.length, "order") + " can't be filled from stock",
+      summary: plural(Object.keys(shortBy).length, "product") + " short for " + plural(Object.keys(custs).length, "customer") + ".",
       impact: value > 0
         ? { type: "revenue", value: Math.round(value), description: inr(value) + " of orders waiting",
             calc: "The value of the affected orders: their own amount, or their lines at the MRP in each product's name." }
-        : { type: "revenue", value: null, description: "Impact not yet quantified", calc: "These orders carry no amount and their products no MRP." },
+        : { type: "revenue", value: null, description: "No value in your records", calc: "These orders carry no amount and their products no MRP." },
       affected: { customers: Object.keys(custs).length, products: Object.keys(shortBy).length, orders: risky.length },
       evidence: [{ metric: "Stock", value: stockBasis(state) }, { metric: "Orders", value: "made in FoodBridge since the import" }],
       why: ["Stock on hand, less earlier orders, is less than these orders need.",
@@ -320,20 +320,19 @@
     return {
       id: "reorder-due", type: "CUSTOMER_INACTIVITY", domain: "customers",
       severity: missedCycle.length ? "high" : "medium",
-      title: plural(shops.length, "shop has", "shops have") + " not reordered as usual",
-      summary: "Each is past its own cycle. The longest, " + worst.name + ", is " +
-        plural(worst.daysOverdue, "day") + " past a " + worst.cycleDays + "-day cycle.",
+      title: plural(shops.length, "customer is", "customers are") + " late to reorder",
+      summary: "Most late: " + worst.name + ", " + plural(worst.daysOverdue, "day") + " late on a " + worst.cycleDays + "-day cycle.",
       impact: vals.length
         ? { type: "revenue", value: Math.round(value), description: inr(value) + " in usual orders not placed",
-            calc: "One usual order from each shop: the average value of its own past orders. " +
-              vals.length + " of " + shops.length + " shops have valued orders." }
-        : { type: "revenue", value: null, description: "Impact not yet quantified", calc: "These orders carry no value in your records." },
+            calc: "One usual order from each customer: the average value of their own past orders. " +
+              vals.length + " of " + shops.length + " customers have valued orders." }
+        : { type: "revenue", value: null, description: "No value in your records", calc: "These orders carry no value in your records." },
       affected: { customers: shops.length },
-      evidence: [{ metric: "Cycle", value: "each shop's own median gap between orders" },
+      evidence: [{ metric: "Cycle", value: "each customer's own median gap between orders" },
                  { metric: "Suggested orders", value: "from the reorder engine, back-tested on your history" }],
-      why: [plural(missedCycle.length, "shop has", "shops have") + " missed a whole cycle or more.",
+      why: [plural(missedCycle.length, "customer has", "customers have") + " missed a whole cycle or more.",
             withSug.length + " have enough recent history for a suggested order.",
-            shops.length - withSug.length ? (shops.length - withSug.length) + " have gone quiet too long to predict — call them." : null].filter(Boolean),
+            shops.length - withSug.length ? (shops.length - withSug.length) + " have gone quiet too long to predict. Call them." : null].filter(Boolean),
       rows: shops.map(function (s) {
         const c = cad[s.id] || {};
         return { id: s.id, kind: "customer", title: s.name,
@@ -341,21 +340,21 @@
                          s.cycleDays + "-day cycle",
                          typeof c.avgValue === "number" && c.avgValue > 0 ? inr(c.avgValue) + " usual" : "—"],
                  tone: s.cycleDays && s.daysOverdue > s.cycleDays ? "warn" : "",
-                 note: s.suggestion && s.suggestion.count ? plural(s.suggestion.count, "line") + " suggested" : "No recent history — call" };
+                 note: s.suggestion && s.suggestion.count ? plural(s.suggestion.count, "line") + " suggested" : "No recent history" };
       }),
       recommendation: withSug.length ? {
-        title: "Prepare orders for the " + plural(withSug.length, "shop") + " with a suggestion",
-        description: "Each from what that shop usually buys. You review every line before anything is created.",
+        title: "Prepare orders for " + plural(withSug.length, "customer"),
+        description: "Each from what that customer usually buys. You review every line before anything is created.",
         actionType: "create_orders", cta: "Review orders",
         shops: withSug.map(function (s) { return { customerId: s.id, name: s.name, lines: s.suggestion.lines }; }),
       } : {
-        title: "Call these " + plural(shops.length, "shop"),
+        title: "Call these " + plural(shops.length, "customer"),
         description: "Too long since their last order to suggest one. A call list keeps them from going cold.",
         actionType: "create_followup", cta: "Make a call list",
         customers: shops.map(function (s) { return { customerId: s.id, name: s.name }; }),
       },
       priority: { urgency: Math.min(40, Math.round(worst.daysOverdue / 3)), confidence: 15,
-                  reasons: [missedCycle.length ? plural(missedCycle.length, "shop has", "shops have") + " missed a whole cycle" : null] },
+                  reasons: [missedCycle.length ? plural(missedCycle.length, "customer has", "customers have") + " missed a whole cycle" : null] },
       phase: null,
       members: shops.map(function (s) { return s.id; }),
     };
@@ -371,15 +370,15 @@
     const value = vals.reduce(function (n, v) { return n + v; }, 0);
     return {
       id: "reorder-soon", type: "SALES_OPPORTUNITY", domain: "sales", severity: "opportunity",
-      title: plural(s.length, "shop is", "shops are") + " due to reorder now",
-      summary: "Just past their usual day. A call now keeps them on cycle.",
+      title: plural(s.length, "customer is", "customers are") + " due to reorder",
+      summary: "Just past their usual day.",
       impact: vals.length
         ? { type: "revenue", value: Math.round(value), description: inr(value) + " in usual orders",
-            calc: "One usual order from each shop, at the average value of its own past orders." }
-        : { type: "revenue", value: null, description: "Impact not yet quantified", calc: "No order values in your records." },
+            calc: "One usual order from each customer, at the average value of their own past orders." }
+        : { type: "revenue", value: null, description: "No value in your records", calc: "No order values in your records." },
       affected: { customers: s.length },
-      evidence: [{ metric: "Cycle", value: "each shop's own median gap between orders" }],
-      why: ["Within five days past their own cycle — not yet overdue."],
+      evidence: [{ metric: "Cycle", value: "each customer's own median gap between orders" }],
+      why: ["Up to five days past their own cycle. Not late yet."],
       rows: s.map(function (c) {
         return { id: c.id, kind: "customer", title: c.name,
                  cells: [plural(c.daysOverdue, "day") + " past", c.cycleDays + "-day cycle",
@@ -390,7 +389,7 @@
         actionType: "create_followup", cta: "Make a call list",
         customers: s.map(function (c) { return { customerId: c.id, name: c.name }; }),
       },
-      priority: { urgency: 10, confidence: 15, reasons: ["cheaper to keep a shop on cycle than to win it back"] },
+      priority: { urgency: 10, confidence: 15, reasons: ["cheaper to keep a customer on cycle than to win them back"] },
       phase: null,
       members: s.map(function (c) { return c.id; }),
     };
@@ -427,15 +426,14 @@
     return {
       id: "overdue", type: "PAYMENT_OVERDUE", domain: "cash",
       severity: monitoring ? "medium" : oldest > T.OVERDUE_CRITICAL_DAYS && total >= T.OVERDUE_CRITICAL_VALUE ? "critical" : "high",
-      title: inr(total) + " is overdue from " + plural(list.length, "customer"),
-      summary: (top.length > 1 ? top.length + " customers are " + share + "% of it. " : name(top[0].customerId) + " is " + share + "% of it. ") +
-        "The oldest is " + plural(oldest, "day") + " past due.",
+      title: inr(total) + " overdue from " + plural(list.length, "customer"),
+      summary: (top.length > 1 ? top.length + " customers owe " + share + "% of it. " : name(top[0].customerId) + " owes " + share + "% of it. ") +
+        "Oldest: " + plural(oldest, "day") + " late.",
       impact: { type: "cash", value: Math.round(total), description: inr(total) + " owed to you",
                 calc: "Unpaid balances on invoices past their due date, from " + state.source.label + "." },
       affected: { customers: list.length, invoices: late.length },
       evidence: [{ metric: "Invoices", value: plural(late.length, "invoice") + " past due", sourceRef: state.source.label }],
       why: ["Due dates have passed with balances still open.",
-            top.length + (top.length === 1 ? " customer carries " : " customers carry ") + share + "% of the total.",
             monitoring ? "You reminded them in the last week." : null].filter(Boolean),
       rows: list.map(function (c) {
         return { id: c.customerId, kind: "customer", title: name(c.customerId),
@@ -473,22 +471,22 @@
 
     return {
       id: "slow-stock", type: "DEAD_STOCK", domain: "inventory", severity: "medium",
-      title: plural(slow.length, "product has", "products have") + " not sold in 90 days",
-      summary: pb.length ? plural(pb.length, "shop has", "shops have") + " bought them before." : "No shop in your records has bought them.",
+      title: plural(slow.length, "product", "products") + " unsold for 90 days",
+      summary: pb.length ? plural(pb.length, "customer has", "customers have") + " bought them before." : "No customer has bought them.",
       impact: priced.length
-        ? { type: "inventory", value: Math.round(value), description: inr(value) + " tied up at MRP",
+        ? { type: "inventory", value: Math.round(value), description: inr(value) + " of stock at MRP",
             calc: "Units on hand × the MRP in each product's name. " + priced.length + " of " + slow.length + " carry an MRP." }
-        : { type: "inventory", value: null, description: "Impact not yet quantified", calc: "No price for these products in your records." },
+        : { type: "inventory", value: null, description: "No value in your records", calc: "No price for these products in your records." },
       affected: { products: slow.length, customers: pb.length },
       evidence: [{ metric: "Sales", value: "none in the last " + T.SLOW_DAYS + " days of records" }, { metric: "Stock", value: stockBasis(state) }],
-      why: ["Stock is on the shelf and none of it has moved in 90 days of orders."],
+      why: ["On the shelf, and none sold in 90 days of orders."],
       rows: slow.map(function (d) {
         return { id: d.product.id, kind: "product", title: d.product.name,
                  cells: [d.available + " on hand", d.lastSold ? "Last sold " + fmtDate(d.lastSold) : "Never sold",
                          d.product.mrp ? inr(d.available * d.product.mrp) : "—"] };
       }),
       recommendation: pb.length ? {
-        title: "Offer them to the " + plural(pb.length, "shop") + " that bought them before",
+        title: "Offer them to " + plural(pb.length, "past buyer"),
         description: "A call list of past buyers, with what each used to take.",
         actionType: "create_followup", cta: "Make a call list",
         customers: pb.map(function (id) { return { customerId: id, name: state.customerById[id] || id }; }),
@@ -533,22 +531,22 @@
     return {
       id: "demand-up", type: "SALES_OPPORTUNITY", domain: "sales", severity: "opportunity",
       title: "Demand is up for " + plural(up.length, "product"),
-      summary: short(top.p.name) + ": " + top.a.now + " units in 45 days" +
-        (lift(top) !== null ? ", up " + lift(top) + "%" : ", new") + ", across " + plural(Object.keys(top.a.buyers).length, "shop") + ".",
+      summary: "Top: " + short(top.p.name) + ", " + top.a.now + " units in 45 days" +
+        (lift(top) !== null ? ", up " + lift(top) + "%" : "") + ".",
       impact: priced.length
         ? { type: "revenue", value: Math.round(value), description: inr(value) + " more if it holds",
             calc: "The extra units sold in the last 45 days of records over the 45 before, at the MRP in each name — a potential, not a forecast." }
-        : { type: "revenue", value: null, description: "Impact not yet quantified", calc: "No price for these products in your records." },
+        : { type: "revenue", value: null, description: "No value in your records", calc: "No price for these products in your records." },
       affected: { products: up.length, customers: Object.keys(buyers).length },
       evidence: [{ metric: "Demand", value: "last 45 days of records against the 45 before" }],
-      why: ["Units sold rose by half or more, across at least " + T.DEMAND_MIN_BUYERS + " shops."],
+      why: ["Units sold rose by half or more, across at least " + T.DEMAND_MIN_BUYERS + " customers."],
       rows: up.map(function (x) {
         return { id: x.p.id, kind: "product", title: x.p.name,
-                 cells: [x.a.now + " units", lift(x) !== null ? "+" + lift(x) + "%" : "new", plural(Object.keys(x.a.buyers).length, "shop")] };
+                 cells: [x.a.now + " units", lift(x) !== null ? "+" + lift(x) + "%" : "new", plural(Object.keys(x.a.buyers).length, "customer")] };
       }),
       recommendation: {
-        title: "Offer them to shops that buy but haven't taken these",
-        description: "A call list of your active shops not yet buying the rising products.",
+        title: "Offer them to customers who don't buy them yet",
+        description: "A call list of your active customers not yet buying these products.",
         actionType: "create_followup", cta: "Make a call list",
         customers: state.cadence.filter(function (c) { return c.bucket === "on_track" && !buyers[c.id]; })
           .map(function (c) { return { customerId: c.id, name: c.name }; }),
@@ -618,7 +616,7 @@
     };
     const score = parts.severity + parts.impact + parts.urgency + parts.customers + parts.confidence;
     const reasons = [SEVERITY_LABEL[sig.severity] + (sig.severity === "opportunity" ? "" : " severity")]
-      .concat(sig.impact && typeof sig.impact.value === "number" ? [sig.impact.description] : ["impact not yet quantified"])
+      .concat(sig.impact && typeof sig.impact.value === "number" ? [sig.impact.description] : ["no value in your records"])
       .concat((p.reasons || []).filter(Boolean));
     sig.priority = { score: score, parts: parts, reasons: reasons,
                      urgency: p.urgency || 0, confidence: p.confidence || 0 };
@@ -680,7 +678,7 @@
       const now30 = windowSum(series.points, end, 30), prev30 = windowSum(series.points, end, 30, 30);
       const ch = prev30 ? Math.round((now30 / prev30 - 1) * 100) : null;
       out.push({ id: "sales", label: "Sales", value: inr(now30), available: true,
-                 delta: ch, sub: ch === null ? "no earlier month to compare" : (ch >= 0 ? "+" : "") + ch + "% vs previous 30 days",
+                 delta: ch, sub: ch === null ? "no earlier month to compare" : Math.abs(ch) + "% on the 30 days before",
                  tone: ch === null ? "" : ch >= 0 ? "good" : "bad", period: period, basis: series.basis });
     } else {
       out.push({ id: "sales", label: "Sales", available: false, value: null, sub: "No order values in your records", period: period });
@@ -697,13 +695,13 @@
     const so = sig.stockout;
     out.push({ id: "stock", label: "Stock health", value: dem.length ? Math.round(healthy / dem.length * 100) + "%" : null,
                available: dem.length > 0,
-               sub: so && !so.phase ? so.affected.products + " at risk" : so ? so.affected.products + " on order" : "none at risk",
+               sub: so && !so.phase ? so.affected.products + (/out of stock/.test(so.title) ? " out of stock" : " at risk") : so ? so.affected.products + " on order" : "none at risk",
                tone: so && !so.phase ? (so.severity === "critical" ? "bad" : "warn") : "",
                how: healthy + " of " + dem.length + " selling products have 2+ weeks of stock" });
 
     const rd = sig["reorder-due"];
     out.push({ id: "customers", label: "Customers", value: String(state.customers.length), available: true,
-               sub: rd ? rd.affected.customers + " past their cycle" : "all on cycle", tone: rd ? "warn" : "" });
+               sub: rd ? rd.affected.customers + " late to reorder" : "all on cycle", tone: rd ? "warn" : "" });
 
     const inv = state.ledger && state.ledger.invoices;
     if (inv) {
@@ -711,13 +709,13 @@
       const recv = open.reduce(function (n, i) { return n + i.balance; }, 0);
       const od = sig.overdue;
       out.push({ id: "cash", label: "Receivables", value: inr(recv), available: true,
-                 sub: od ? inr(od.impact.value) + " overdue" : "nothing overdue", tone: od ? "bad" : "",
+                 sub: od ? (inr(od.impact.value) === inr(recv) ? "all overdue" : inr(od.impact.value) + " overdue") : "nothing overdue", tone: od ? "bad" : "",
                  sample: !!state.source.sample });
     } else {
       out.push({ id: "cash", label: "Receivables", value: null, available: false, sub: "No invoices in your records" });
     }
 
-    out.push({ id: "delivery", label: "Delivery", value: null, available: false, sub: "Not connected" });
+    out.push({ id: "delivery", label: "Delivery", value: null, available: false, naLabel: "Not connected", sub: "" });
     return out;
   }
 

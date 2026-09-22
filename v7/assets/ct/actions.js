@@ -12,9 +12,9 @@
                                              and execute() refuses anything
                                              unconfirmed whatever asks for it.
 
-   The assistant only ever PREPARES. It can hand the owner a preview; it can
-   never pass `confirmed: true` on the owner's behalf -- execute() checks the
-   actor, and an unconfirmed C is an AuthorizationError, not a warning.
+   FoodBridge only ever PREPARES. Nothing but the owner can pass
+   `confirmed: true` -- execute() checks the actor, and an unconfirmed C is an
+   AuthorizationError, not a warning.
 
    EVERY OUTCOME IS STATED. Success says what changed; failure says why and
    that nothing was changed. A write is one storage call, so an action is all
@@ -84,7 +84,7 @@
                               unit: p.unit || "", price: p.mrp || null };
                    }) };
         });
-        return Object.assign(base, { shops: shops, note: "Each order is created in FoodBridge, the way Create Order makes one. Nothing is sent to the shop." });
+        return Object.assign(base, { shops: shops, note: "Each order is created in FoodBridge, the way Create Order makes one. Nothing is sent to the customer." });
       }
       if (type === "send_reminders") {
         const who = business() || "us";
@@ -112,7 +112,7 @@
       const h = st.history[customerId];
       const last = h && h.orders && h.orders.filter(function (o) { return o.source !== "foodbridge"; })[0];
       const name = st.customerById[customerId];
-      if (!name) return { ok: false, error: { code: "unknown", message: "That shop isn't in your records." } };
+      if (!name) return { ok: false, error: { code: "unknown", message: "That customer isn't in your records." } };
       return { ok: true, actionType: "create_orders", cls: "C", clsLabel: CLASS.C.label, needsConfirmation: true, verb: REGISTRY.create_orders.verb,
                signalId: null, title: "New order for " + name,
                basis: last ? "Starting from their last order, " + fmt.date(last.at) + "." : "No past order to start from — add lines below.",
@@ -121,7 +121,7 @@
                            const p = st.productById[l.productId] || {};
                            return { productId: l.productId, name: p.name || l.productId, qty: l.qty, suggestedQty: l.qty, unit: p.unit || "", price: p.mrp || null };
                          }) }],
-               note: "Created in FoodBridge, the way Create Order makes one. Nothing is sent to the shop." };
+               note: "Created in FoodBridge, the way Create Order makes one. Nothing is sent to the customer." };
     }
     function preparePurchase() {
       const v = getState();
@@ -170,8 +170,8 @@
       if (needs && (!h.confirmed || actor !== "owner")) {
         const err = AuthorizationError(actor === "owner"
           ? "This needs your confirmation first."
-          : "FoodBridge AI can prepare this, but only you can confirm it.");
-        try { store.audit({ kind: "action", action: preview.actionType, actor: actor, aiAssisted: actor !== "owner",
+          : "FoodBridge can prepare this, but only you can confirm it.");
+        try { store.audit({ kind: "action", action: preview.actionType, actor: actor,
                             signalId: preview.signalId, outcome: "Refused — not confirmed by the owner", approval: "missing" }); } catch (e) { /* the refusal stands */ }
         throw err;
       }
@@ -181,13 +181,12 @@
         const f = find(preview.signalId);
         if (!f.sig) return fail("stale", "This no longer needs attention — your records changed since you opened it. Nothing was changed.");
       }
-      const aiAssisted = !!h.aiAssisted;
       const approval = needs ? "confirmed by the owner" : "not required (" + CLASS[def.cls].label.toLowerCase() + ")";
       try {
         if (h.simulateFailure) throw Object.assign(new Error(h.simulateFailure), { code: "simulated" });
-        return run(preview, { aiAssisted: aiAssisted, approval: approval });
+        return run(preview, { approval: approval });
       } catch (e) {
-        try { store.audit({ kind: "action", action: preview.actionType, signalId: preview.signalId, aiAssisted: aiAssisted,
+        try { store.audit({ kind: "action", action: preview.actionType, signalId: preview.signalId,
                             approval: approval, outcome: "Failed — " + e.message }); } catch (x) { /* nothing more to record with */ }
         return fail(e.code || "failed", e.message + " Nothing was changed.");
       }
@@ -201,10 +200,10 @@
         if (!lines.length) return fail("empty", "Every quantity is zero, so there is nothing to raise. Nothing was changed.");
         const priced = lines.filter(function (l) { return l.mrp; });
         const total = priced.length === lines.length ? priced.reduce(function (n, l) { return n + l.qty * l.mrp; }, 0) : null;
-        const pr = store.addPurchaseRequest({ signalId: p.signalId, lines: lines, valueAtMrp: total, aiAssisted: meta.aiAssisted });
+        const pr = store.addPurchaseRequest({ signalId: p.signalId, lines: lines, valueAtMrp: total });
         const outcome = pr.no + " raised for " + fmt.plural(lines.length, "product") + ", " + lines.reduce(function (n, l) { return n + l.qty; }, 0) + " units";
         if (p.signalId) store.inProgress(p.signalId, pr.no + " raised — waiting for stock", false);
-        const a = store.audit({ kind: "action", action: "create_purchase_request", signalId: p.signalId, aiAssisted: meta.aiAssisted,
+        const a = store.audit({ kind: "action", action: "create_purchase_request", signalId: p.signalId,
                                 approval: meta.approval, before: "no purchase request", after: pr.no, reason: p.title, outcome: outcome,
                                 ref: pr.no });
         return ok(outcome, { purchaseRequest: pr, audit: a },
@@ -219,15 +218,15 @@
           return { customerId: s.customerId, customer: s.name, lines: lines,
                    amount: priced && lines.length ? lines.reduce(function (n, l) { return n + l.price * l.qty; }, 0) : null };
         }).filter(function (o) { return o.lines.length; });
-        if (!orders.length) return fail("empty", "No shop has a line with a quantity, so there is nothing to create. Nothing was changed.");
+        if (!orders.length) return fail("empty", "No customer has a line with a quantity, so there is nothing to create. Nothing was changed.");
         const recs = store.addOrders(orders, business());
         const outcome = fmt.plural(recs.length, "order") + " created: " + recs.map(function (r) { return r.no; }).join(", ");
         if (p.signalId) store.inProgress(p.signalId, fmt.plural(recs.length, "order") + " created", false);
-        const a = store.audit({ kind: "action", action: "create_orders", signalId: p.signalId, aiAssisted: meta.aiAssisted,
-                                approval: meta.approval, before: fmt.plural(recs.length, "shop") + " past their cycle", after: outcome,
+        const a = store.audit({ kind: "action", action: "create_orders", signalId: p.signalId,
+                                approval: meta.approval, before: fmt.plural(recs.length, "customer") + " late to reorder", after: outcome,
                                 reason: p.title, outcome: outcome, ref: recs.map(function (r) { return r.no; }).join(",") });
         return ok(outcome, { orders: recs, audit: a },
-                  ["These shops are back on their cycle from today.", "The orders are in Order Drafts, and count against stock."]);
+                  ["These customers are back on their cycle from today.", "The orders are in Order Drafts, and count against stock."]);
       }
       if (p.actionType === "send_reminders") {
         const msgs = p.messages.filter(function (m) { return m.include && String(m.body || "").trim(); })
@@ -236,7 +235,7 @@
         const recs = store.addOutbox(msgs);
         const outcome = fmt.plural(recs.length, "reminder") + " queued in the outbox";
         if (p.signalId) store.inProgress(p.signalId, outcome + " — waiting for payment", false);
-        const a = store.audit({ kind: "action", action: "send_reminders", signalId: p.signalId, aiAssisted: meta.aiAssisted,
+        const a = store.audit({ kind: "action", action: "send_reminders", signalId: p.signalId,
                                 approval: meta.approval, before: "not reminded", after: outcome, reason: p.title, outcome: outcome,
                                 ref: recs.map(function (r) { return r.id; }).join(",") });
         return ok(outcome, { messages: recs, audit: a },
@@ -246,16 +245,16 @@
         const list = p.customers.filter(function (c) { return c.include; }).map(function (c) { return { customerId: c.customerId, name: c.name }; });
         if (!list.length) return fail("empty", "No one is selected. Nothing was changed.");
         const f = store.addFollowup({ signalId: p.signalId, customers: list, title: p.title });
-        const outcome = f.no + ": " + fmt.plural(list.length, "shop") + " to call";
+        const outcome = f.no + ": " + fmt.plural(list.length, "customer") + " to call";
         if (p.signalId) store.inProgress(p.signalId, outcome, false);
-        const a = store.audit({ kind: "action", action: "create_followup", signalId: p.signalId, aiAssisted: meta.aiAssisted,
+        const a = store.audit({ kind: "action", action: "create_followup", signalId: p.signalId,
                                 approval: meta.approval, after: f.no, reason: p.title, outcome: outcome, ref: f.no });
         return ok(outcome, { followup: f, audit: a }, ["Nothing was sent to anyone."]);
       }
       if (p.actionType === "escalate") {
         const hdl = store.addSupport({ signalId: p.signalId, context: p.context, message: p.message || "" });
         const outcome = hdl.no + " packaged for a FoodBridge expert";
-        const a = store.audit({ kind: "action", action: "escalate", signalId: p.signalId, aiAssisted: meta.aiAssisted,
+        const a = store.audit({ kind: "action", action: "escalate", signalId: p.signalId,
                                 approval: meta.approval, after: hdl.no, reason: p.context && p.context.issue || "Asked for help", outcome: outcome, ref: hdl.no });
         return ok(outcome, { handover: hdl, audit: a },
                   ["They get the issue, the evidence, what FoodBridge found and what you've already done — you won't repeat it.",

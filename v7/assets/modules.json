@@ -64,10 +64,10 @@
       "icon": "layoutGrid",
       "submenus": [
         {
-          "_why": "In the sidebar since 21 Sep 2026 (product owner: \"part of the platform like dashboard and others\"). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws its own title row and its five-tab bar in place of the shell's EXIT DEMO bar (control-tower.js, framed mode). It has no sidebar of its own, so nothing is clipped, and mHeaderH 0 seats its title row (bell, AI, Exit) BELOW the shell's 56px phone bar rather than under it.",
+          "_why": "In the sidebar since 21 Sep 2026; rebuilt 22 Sep 2026 on the five levers (context/control-tower/CONTROL_TOWER_LEVERS.md). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws its lever tabs and the platform footer Tower · Create · EXIT DEMO in place of the shell's EXIT DEMO bar.",
           "id": "control-tower",
           "name": "Control Tower",
-          "url": "screens/control-tower.html?v=20260921CT5",
+          "url": "screens/control-tower.html?v=20260922LY",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

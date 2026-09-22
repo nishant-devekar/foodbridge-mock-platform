@@ -1,20 +1,21 @@
 # Control Tower — requirements traceability
 
-21 Sep 2026 · v7. Status: **Done** · **Partial** (built, with a stated limit) ·
-**Unavailable** (the evidence does not exist for this business; shown as such,
-per D-015) · **Out of scope** (owner's call, or a V1 non-goal).
-
-Files: `assets/ct/{state,signals,store,actions,assistant,tower}.js`,
-`assets/context.js`, `screens/control-tower.{html,js,css}`.
-Tests: `test/control-tower/*.test.js` (headless, 40) and
-`test/control-tower/e2e/control-tower.e2e.js` (browser, 11).
+> **Superseded as the screen's organising idea on 22 Sep 2026** by the five
+> levers: `CONTROL_TOWER_LEVERS.md` (what), `CONTROL_TOWER_DESIGN.md` (how it
+> looks, with build notes in §11) and `CONTROL_TOWER_UX_FLOW.md` (how it
+> moves). The rows below still trace the engine the levers are built on
+> (signals, lifecycle, actions, audit, D-015).
+>
+> Files now: `assets/ct/{state,signals,store,actions,tower,levers}.js`,
+> `screens/control-tower.{html,js,css}`. Tests: `test/control-tower/*.test.js`
+> (headless, 51) and `test/control-tower/e2e/control-tower.e2e.js` (browser, 6).
 
 ## Screen and hierarchy
 
 | Req | Implementation | Test | Status | Limitation |
 | --- | --- | --- | --- | --- |
 | §4 exception-first hierarchy; understand in 10 s | `control-tower.js home()` — greeting states the count, pulse, then ranked Needs Attention | e2e 1 (critical first, opportunities last) | Done | |
-| §5 layout: Pulse → Needs Attention → AI → Business Now | `.ct-layout` areas; desktop 3-column, phone stacked | e2e 1, e2e 8 | Done | |
+| §5 layout: Pulse → Needs Attention → AI → Business Now | `.ct-layout` areas; desktop 3-column, phone stacked | e2e 1, e2e 8 | Done | AI removed by the owner, 21 Sep 2026 |
 | §6 Business Pulse ≤ 7 metrics: sales, orders, inventory, delivery, cash | `signals.js pulse()` — 6 cards incl. customers | signals "windows anchor", e2e 1 | Done | Sales is "30 days of records", never "today" (no order after 24 Aug) |
 | §6.4 Delivery pulse | shown as *Not available*, reason + unlock | e2e 1 | Unavailable | Delivery Management runs on another business's seed |
 | §6.5 Cash pulse | receivables/overdue from the session ledger; *Not available* without one | signals "no ₹0", "sample ledger" | Done / Unavailable | Money exists only when invoices were imported |
@@ -31,7 +32,7 @@ Tests: `test/control-tower/*.test.js` (headless, 40) and
 | §8 order risk | `detectOrderRisk` — FoodBridge orders stock cannot fill | loop "order risk" | Done | Only orders made in FoodBridge: the import carries no open/pending status |
 | §9.1 stockout risk (stock, committed, velocity, open POs) | `detectStockout` + `demand()` | signals "stockout", loop 1 | Done | No supplier lead time in any record; covers 30 days + 7 safety instead |
 | §9.2–9.3 overstock / dead stock | `detectSlowStock` | signals 1 | Done | |
-| §9.4 expiry risk | `unavailable()` → "No batch or expiry dates" | assistant "delivery or expiry" | Unavailable | No batches in the records |
+| §9.4 expiry risk | `unavailable()` → "No batch or expiry dates" | e2e 8 | Unavailable | No batches in the records |
 | §10 procurement: what to buy, how much, from whom | stockout recommendation lines (qty, supplier by category) | loop 1 | Done | Supplier named only with a ledger |
 | §11 supplier intelligence / delays | `unavailable()` | — | Unavailable | POs carry no expected dates |
 | §12 delivery control | `unavailable()` | e2e 9 (Delivery tab) | Unavailable | |
@@ -47,26 +48,27 @@ Tests: `test/control-tower/*.test.js` (headless, 40) and
 
 | Req | Implementation | Test | Status | Limitation |
 | --- | --- | --- | --- | --- |
-| §18 classes A–D; confirmation per class | `actions.js CLASS/REGISTRY/POLICY`, `execute()` | loop 1 (refused unconfirmed), failures "assistant cannot bypass" | Done | Class D: no policy enabled |
+| §18 classes A–D; confirmation per class | `actions.js CLASS/REGISTRY/POLICY`, `execute()` | loop 1 (refused unconfirmed), failures "nothing but the owner can confirm" | Done | Class D: no policy enabled |
 | §19 action card WHAT/WHY/IMPACT/RECOMMENDATION/ACTION | detail drawer + review screen | e2e 2 | Done | |
 | §34C create PO | `create_purchase_request` → `fb.v7.ct.purchaseRequests`, read back as on order | loop 1, e2e 2 | Done | Recorded in FoodBridge; nothing reaches a supplier (said on screen) |
 | §34C send reminder | `send_reminders` → outbox | loop "overdue", e2e 3 | Partial | No WhatsApp sender connected: queued, and the screen says so |
 | orders from signals and from Create | `create_orders` → `fb.v7.orders` (onboarding's shape) | loop "reorder", e2e 8 | Done | |
 | UX §30–31 success / failure with context; nothing changed | `resultScreen()`; all-or-nothing writes | failures "store cannot write", "partial", e2e 6 | Done | |
 | §32 outcome feeds back into the signal | tower re-reads what actions wrote | loop 1 (monitoring), loop "reorder" (shops leave) | Done | |
-| §40 audit: who, human/AI, what, before/after, when, why, approval, outcome | `store.audit()` on every event | loop 1, failures "AI-assisted" | Done | |
-| §20 human-in-the-loop with packaged context | `prepareEscalation` / `escalate` | e2e 7 | Partial | Support desk not connected: the handover waits, and says so |
+| §40 audit: who, what, before/after, when, why, approval, outcome | `store.audit()` on every event | loop 1 | Done | |
+| §20 human-in-the-loop with packaged context | `prepareEscalation` / `escalate` (engine only) | — | Out of scope | "Talk to a person" removed from the screen by the owner, 21 Sep 2026 |
 
 ## FoodBridge AI
 
+Removed end to end by the product owner, 21 Sep 2026: the AI card, asking,
+voice entry, "Ask FoodBridge" on a signal, prepared-by-AI reviews and the
+AI-assisted audit mark. `assistant.js` and its tests are deleted.
+
 | Req | Implementation | Test | Status | Limitation |
 | --- | --- | --- | --- | --- |
-| §17 summarise, explain, recommend, prepare | `assistant.js` intents over the signal engine | assistant ×9 | Done | No language model is called: intent matching + templates. Deterministic truth first (Rule 4) |
-| AI cannot bypass authorisation | proposals only; `execute` refuses non-owner | failures "assistant cannot bypass", e2e 4 | Done | |
-| AI states stale / unavailable data | freshness + unavailable answers | assistant "live", "delivery", "money with no invoices" | Done | |
-| AI unavailable → tower still works | `safeAsk()` | failures "AI unavailable" | Done | |
-| UX §26 voice entry | Web Speech API mic where the browser has it | — (browser-dependent) | Partial | Hidden where unsupported |
-| §32 same engine for WhatsApp / voice | the assistant reads `CTTower`, not its own facts | — | Partial | WhatsApp/voice channels not wired to it in this build |
+| §17 summarise, explain, recommend, prepare | — | — | Out of scope | Owner's call |
+| UX §26 voice entry | — | — | Out of scope | Owner's call |
+| Only the owner confirms (kept from "AI cannot bypass") | `execute` refuses any non-owner actor | failures "nothing but the owner can confirm" | Done | |
 
 ## Real-time, mobile, notifications
 
@@ -91,8 +93,8 @@ Tests: `test/control-tower/*.test.js` (headless, 40) and
 
 Real business data represented ✓ · Pulse ✓ · deterministic, explainable signals ✓ ·
 exception-first ✓ · impact where reliable ✓ · drill-downs ✓ · actions ✓ ·
-authorisation (safety classes) ✓ · audited ✓ · AI explains ✓ · AI prepares ✓ ·
-AI cannot bypass ✓ · freshness ✓ · missing/stale handled ✓ · mobile ✓ ·
+authorisation (safety classes) ✓ · audited ✓ · FoodBridge AI removed (owner) ·
+freshness ✓ · missing/stale handled ✓ · mobile ✓ ·
 unit ✓ · integration ✓ · E2E ✓ (delivery and expiry scenarios assert the
 *unavailable* state — the evidence does not exist) · traceability ✓ ·
 no duplicate source of truth ✓ (orders written to onboarding's own store;

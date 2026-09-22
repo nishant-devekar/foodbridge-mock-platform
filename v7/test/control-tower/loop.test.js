@@ -57,7 +57,6 @@ test("stockout: inventory drops → signal → purchase request prepared → con
   const act = audit.find((a) => a.action === "create_purchase_request" && a.kind === "action" && a.ref);
   assert.ok(act, "the action is audited");
   assert.equal(act.actor, "owner");
-  assert.equal(act.aiAssisted, false);
   assert.equal(act.approval, "confirmed by the owner");
   assert.equal(act.ref, "PR-0001");
   assert.ok(act.before && act.after && act.at && act.reason && act.outcome);
@@ -95,7 +94,7 @@ test("reorder: once every suggested shop has an order, what's left is a call lis
   const s = sig(w.tower.pass(), "reorder-due");
   if (s) {
     assert.equal(s.recommendation.actionType, "create_followup", "no suggestion left — call them");
-    assert.ok(s.rows.every((r) => r.note === "No recent history — call"));
+    assert.ok(s.rows.every((r) => r.note === "No recent history"));
   }
 });
 
