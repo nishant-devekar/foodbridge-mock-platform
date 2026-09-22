@@ -1204,5 +1204,25 @@
     }, push);
   }
 
-  window.FBControlTower = { mount: mount, _ui: ui, _model: function () { return model; }, _view: function () { return view; } };
+  /* What the assistant may use (control-tower-chat.js): read the business,
+     and go where the owner acts. It never changes a record itself: an
+     action opens the lever's own confirm sheet. */
+  function openLever(id, tile) {
+    if (!model || !lever(id)) return;
+    closeAll(); markSeen();
+    ui.page = "tower";
+    if (ui.tab !== id) setTab(id); else ui.sub = "status";
+    if (tile) ui.tile[id] = tile;
+    draw(); window.scrollTo(0, 0);
+  }
+  const api = {
+    ready: function () { return !!model; },
+    model: function () { return model; },
+    timeline: function () { return model ? timeline() : null; },
+    openLever: openLever,
+    act: function (id) { openLever(id); const lv = lever(id); if (lv && lv.action) doAction(); },
+    openTimeline: function () { if (model) goUpdates(); },
+    sheetOpen: function () { return isOpen(); },
+  };
+  window.FBControlTower = { mount: mount, api: api, _ui: ui, _model: function () { return model; }, _view: function () { return view; } };
 })();

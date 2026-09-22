@@ -309,6 +309,51 @@ is its own line. Nothing dated after now (the sample ledger has some), and
 connecting records is not "news". The model is `assets/ct/timeline.js`
 (pure, tested headless); the lever changes are logged per device.
 
+### 4.12 The assistant — a WhatsApp-style chat over the tower (owner, 22 Sep 2026)
+
+*"A floating AI assistant over the Control Tower screens: tap it and a chat
+opens that looks like WhatsApp and a WhatsApp IVR flow."* Built new; it
+borrows nothing from the platform's IVR or the assistant removed on 21 Sep.
+
+- **The button:** the mascot's face (the headset pose) in a 60 px circle,
+  bottom right, with a green "online" dot. It sits above the footer, above a
+  lever's green action button when there is one, and steps aside while a
+  sheet is open. The first time on a device a bubble points at it: *"Ask me
+  about your business 👋"*, once.
+- **The chat looks like WhatsApp:** full screen on a phone, a 390 px panel
+  on a big screen. The green header (‹, the mascot, *FoodBridge Assistant*,
+  *online* / *typing…*); the doodle wallpaper, drawn from the trade (truck,
+  ₹, box, cart); a *Today* chip; white bubbles on the left, the owner's
+  green on the right, with tails, times and ticks that turn blue when read;
+  a white message pill and WhatsApp's round green send.
+- **It works like a WhatsApp Business bot (the IVR):** a welcome with the
+  mascot, then the menu as numbered lines (*reply with a number*) and a
+  **☰ Menu** button that opens WhatsApp's list sheet; up to three reply
+  buttons under an answer; typing works too, in English or the trade's
+  Hinglish (*kitna paisa baaki*, *maal khatam*, *gaadi late*).
+- **What it answers:** 1 What needs me today · 2 Deliveries · 3 Collections
+  · 4 Purchase · 5 Inventory · 6 Orders · 7 Today's news. A lever's answer
+  is the lever's own status, headline and top three items, and its buttons
+  are the lever's prepared action, Open, and Main menu. *What needs me* lists
+  every lever worst first and says where to start. *Today's news* is the
+  Business Timeline's latest five.
+- **Honest:** no model sits behind it and nothing leaves the device; a
+  yellow note in the chat says so, the way WhatsApp states its encryption.
+  It understands by the words in a message; an unclear one gets the mascot's
+  shrug and the menu, never a guess. Proven numbers only.
+- **It never changes anything:** Open takes the owner to the lever, on the
+  tile the answer described; the prepared action (*Reorder 5 fast movers*)
+  opens that lever's own confirm sheet — *"Check it and confirm — nothing
+  goes out until you do."*
+- **The mascot's poses:** headset smiling for the button and the header;
+  presenting for the welcome; a shrug sticker when it didn't understand; arms
+  crossed, proud, when everything is on track.
+- The conversation stays for the session, as a chat does; Esc closes the list
+  sheet, then the chat, and never reaches the tower behind it.
+
+The words are `assets/ct/chat.js` (pure, tested headless); the chat is
+`screens/control-tower-chat.js` and `.css`; the mascot is `assets/ct/mascot/`.
+
 ## 5. The five levers on screen
 
 Only must-have content. Each lever: headline · Good / Bad / Ugly · list ·

@@ -116,6 +116,21 @@ test("phone · Timeline: the footer's second tab, news newest first, a line open
   assert.deepEqual(p.errors, []);
 });
 
+test("phone · the assistant: a floating button, a WhatsApp-style chat, a menu number answered, a lever opened", async () => {
+  const p = await open(PHONE);
+  await p.waitForSelector(".cb-fab");
+  await tap(p, ".cb-fab");
+  await p.waitForFunction(() => document.querySelectorAll(".cb-row").length >= 2, { timeout: 8000 });
+  assert.match(await text(p, ".cb-head"), /FoodBridge Assistant/);
+  await p.type(".cb-input", "3");
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(() => /Collections ·/.test(document.querySelector(".cb-body").textContent), { timeout: 8000 });
+  await tap(p, '.cb-btn[data-btn^="open:collections"]');
+  await p.waitForFunction(() => document.querySelector(".cb-chat").hidden, { timeout: 5000 });
+  assert.equal(await view(p), "collections", "Open took the owner to the lever");
+  assert.deepEqual(p.errors, []);
+});
+
 test("phone · Deliveries opens in Preview; the platform footer", async () => {
   const p = await open(PHONE);
   await openLever(p, "deliveries");
