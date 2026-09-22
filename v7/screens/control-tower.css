@@ -339,6 +339,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
    page's name on the left, who is signed in on the right; the lever tabs
    stick under it. Below 1024 px the shell draws the header instead. */
 .ct-top { display: none; }
+.ct-top-l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ct-top-burger { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: none; color: #4B5563; cursor: pointer; transition: background-color .2s; }
+.ct-top-burger:hover { background: #F3F4F6; }
+.ct-top-burger:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(34, 197, 94, .5); }
+.ct-top-burger svg { width: 20px; height: 20px; }
 .ct-top-t { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -.01em; color: #374151; }
 .ct-top-u { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; }
 .ct-top-ava { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff;

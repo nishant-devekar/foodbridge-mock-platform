@@ -363,10 +363,20 @@
   function mountTop() {
     const h = document.createElement("header");
     h.className = "ct-top";
-    h.innerHTML = '<h1 class="ct-top-t">Control Tower</h1>' +
+    /* The hamburger, where Reports has it: it folds the shell's sidebar away
+       and back (the shell's own "toggle-sidebar" message). Standalone there
+       is no sidebar to fold, so no button. */
+    const burger = platformWin() ? '<button type="button" class="ct-top-burger" data-burger aria-label="Toggle sidebar" title="Toggle sidebar">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>' : "";
+    h.innerHTML = '<div class="ct-top-l">' + burger + '<h1 class="ct-top-t">Control Tower</h1></div>' +
       '<div class="ct-top-u"><span class="ct-top-ava">' + sv('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') + "<i></i></span>" +
       '<span class="ct-top-who"><b data-who-name></b><small data-who-role></small></span></div>';
     document.body.insertBefore(h, $("#ct"));
+    const b = $("[data-burger]", h);
+    if (b) b.addEventListener("click", function () {
+      const pw = platformWin();
+      try { (pw || window.parent).postMessage({ source: "fb-module", type: "toggle-sidebar" }, "*"); } catch (e) { /* no shell to fold */ }
+    });
     syncTop();
   }
   function syncTop() {
