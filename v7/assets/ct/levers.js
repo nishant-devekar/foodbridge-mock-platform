@@ -178,7 +178,7 @@
     const stops = route.map(function (x) {
       return { no: x.no, customerId: x.customerId, customer: c.st.customerById[x.customerId] || x.customerId, amount: x.value,
                slot: x.slot, van: x.van || null, round: x.round || null, driver: x.driver || null,
-               driverPhone: x.driverPhone || null, cases: x.cases || null };
+               driverPhone: x.driverPhone || null, cases: x.cases || null, delayWhy: x.delayWhy || null };
     });
     return (c.st.made || []).concat(stops).filter(function (o) { return !done[o.no]; });
   }
@@ -258,7 +258,7 @@
     const overdueBy = function (o) { return o.slot ? (c.today - new Date(o.slot).getTime()) / 60000 : 0; };
     const running = c.pending.filter(function (o) { return overdueBy(o) > T.LATE_MIN; });
     const pending = c.pending.concat(rescheduled.map(function (d) {
-      return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor, window: d.rescheduledWindow || null };
+      return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor, window: d.rescheduledWindow || null, rec: d };
     }));
 
     /* The row's note says what happened; `next` says the one thing to do
@@ -295,7 +295,8 @@
     const badRows = pending.map(function (o) {
       const running = overdueBy(o) > T.LATE_MIN;
       if (o.rescheduledFor) {
-        return { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
+        /* Opens as the delivery it was: missed, and now rescheduled. */
+        return { id: o.customerId, kind: "delivery", ref: o.rec, title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
                  tag: tagOf("missed", "Nothing to do") };
       }
       const tag = INCIDENTS[o.incident] ? tagOf(o.incident) : running ? tagOf("late", "Call the driver") : null;

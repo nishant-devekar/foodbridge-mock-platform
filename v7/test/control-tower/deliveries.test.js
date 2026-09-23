@@ -108,5 +108,5 @@ test("a missed stop rescheduled for another day leaves today's route; reschedule
   w.store.rescheduleDeliveries([miss.no], todayIso);
   d = build();
   assert.ok(d.tiles.bad.rows.some((r) => r.id === miss.orderNo), "back on today's route");
-  assert.ok(!d.tiles.bad.rows.some((r) => r.id === miss.customerId && /^Rescheduled/.test(r.note) && r.kind === "customer"), "and not twice");
+  assert.ok(!d.tiles.bad.rows.some((r) => r.id === miss.customerId && /^Rescheduled/.test(r.note) && r.kind === "delivery"), "and not twice");
 });

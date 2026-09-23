@@ -942,12 +942,24 @@
     return callBtn("Call " + (driver || v.driver || "the driver") + " · " + van, no, ghost);
   }
 
+  /* A stop still to deliver, in the shape of a delivery record: the route
+     stop (or the order made in FoodBridge) with its slot as when it's due. */
+  function pendingStop(r) {
+    const o = r.ref || {};
+    const made = (view.state.made || []).filter(function (x) { return x.no === r.id; })[0] || null;
+    return { no: o.no || r.id, orderNo: o.no || r.id, customerId: o.customerId || (made && made.customerId), status: "pending",
+             value: typeof o.amount === "number" ? o.amount : typeof o.value === "number" ? o.value : made && made.amount,
+             cases: o.cases || null, van: o.van || null, driver: o.driver || null, driverPhone: o.driverPhone || null,
+             delayWhy: o.delayWhy || null, at: o.slot || (made && made.date) || new Date(view.state.now).toISOString(),
+             lines: (made && made.lines) || o.lines || null };
+  }
   function openItem(r, push) {
     if (!r) return;
     if (r.kind === "customer") return customerSheet(r.id, push, r);
     if (r.kind === "product") return productSheet(r.id, push);
     if (r.kind === "delivery") return deliverySheet(r.ref, push);
-    if (r.kind === "order") return orderSheet(r, push);
+    /* Still to deliver: the same card as a delivery (owner, 23 Sep 2026). */
+    if (r.kind === "order") return deliverySheet(pendingStop(r), push);
   }
   function colourMap() {
     const m = {};
@@ -1058,7 +1070,7 @@
       lines: lines.map(function (l) {
         const id = l.productId || l.itemId;
         const p = (st.productById || {})[id];
-        return { name: p ? p.name : String(id || "Item"), qty: Number(l.qty) || 0, unit: l.unit || (p && p.unit) || "" };
+        return { name: p ? p.name : String(id || "Item"), qty: Number(l.qty) || 0, unit: l.unit || (p && p.unit) || "", mrp: p && typeof p.mrp === "number" ? p.mrp : null };
       }).filter(function (l) { return l.qty > 0; }) };
   }
   /* An item the way the owner reads it: the price notes the catalogue
@@ -1088,8 +1100,18 @@
     const short = Number(dl.shortCases) || 0;
     const returned = Number(dl.returnedCases) || 0;
     const money = Number(dl.collected) || 0;
-    const worth = Number(dl.value) || 0;
+    /* The order's value as recorded; a stop recorded before values were
+       kept (before 23 Sep 2026) is valued from its items at their MRP —
+       and says so, rather than showing no value at all. */
+    const ord = orderLines(dl);
+    const atMrp = ord.lines.every(function (l) { return l.mrp !== null; }) ? ord.lines.reduce(function (n, l) { return n + l.qty * l.mrp; }, 0) : 0;
+    const worth = Number(dl.value) || atMrp;
+    const worthAtMrp = !Number(dl.value) && worth > 0;
     const missed = dl.status === "missed";
+    /* Still to deliver: a stop on today's route, or an order not yet on a van. */
+    const pending = dl.status === "pending";
+    const runLate = pending && dl.at && (view.state.now - new Date(dl.at).getTime()) / 60000 > L.T.LATE_MIN
+      ? Math.round((view.state.now - new Date(dl.at).getTime()) / 60000) : 0;
     const shopSide = ["Shop closed", "Refused", "Payment not ready"].indexOf(dl.reason) !== -1;
     const van = vanOf(dl.van);
     const tag = deliveryTag(dl.no) || (missed ? { type: "missed" } : null);
@@ -1098,23 +1120,35 @@
     /* What happened: the one thing, big, and what else there is to know. */
     const events = missed
       ? [{ text: dl.reason || "Missed", why: MISS_WHY[dl.reason] || null }]
+      : pending
+      ? [runLate ? { text: "Running " + L.mins(runLate) + " late", why: (dl.van ? dl.van + " is past this stop's time." : "Past this stop's time.") + (dl.delayWhy ? " " + dl.delayWhy + "." : "") }
+          : dl.van ? { text: "On its way", why: "On " + dl.van + (dl.driver ? " with " + dl.driver : "") + ", due " + whenOf(dl.at) + "." }
+          : { text: "Booked", why: "Not on a van yet. It goes on the next trip." }]
       : [late ? { text: "Reached " + L.mins(late) + " late", why: dl.lateWhy || null } : null,
          short ? { text: L.plural(short, "case") + " short", why: "Loaded short of what was booked." } : null,
          returned ? { text: L.plural(returned, "case") + " came back", why: null } : null,
          crates ? { text: L.plural(crates, "crate") + " not back", why: bottles ? L.plural(bottles, "bottle") + " still with them." : null } : null,
          !money && worth ? { text: L.rupees(worth) + " went on credit", why: null } : null].filter(Boolean);
-    const clean = !missed && !events.length;
+    const clean = !missed && !pending && !events.length;
     const head = clean ? { text: "Delivered", why: "On time, in full, paid at the door." } : events[0];
     const more = clean ? [] : events.slice(1).map(function (x) { return x.text + (x.why ? " · " + x.why : ""); });
-    if (missed && dl.rescheduledFor) more.push("Back on the trip for " + L.date(dl.rescheduledFor) + ".");
+    const winText = { morning: "morning (8am – 12pm)", afternoon: "afternoon (12pm – 4pm)", evening: "evening (4pm – 8pm)" }[dl.rescheduledWindow] || null;
+    if (missed && dl.rescheduledFor) more.push("Rescheduled for " + L.date(dl.rescheduledFor) + (winText ? ", " + winText : "") + ".");
 
     /* What FoodBridge recommends, and the buttons for it. */
     let todo = null;
     let primary = shop ? { call: shop, label: "Call the shop" } : null;
     if (missed) {
-      if (dl.rescheduledFor) todo = "It is on the trip for " + L.date(dl.rescheduledFor) + ". Nothing else to do.";
+      if (dl.rescheduledFor) todo = "It is on the trip for " + L.date(dl.rescheduledFor) + (winText ? ", " + winText : "") + ". Nothing else to do.";
       else if (shopSide) todo = "Call the customer and confirm when they will take it. Then reschedule for tomorrow's route.";
       else todo = dl.reason === "Van full" ? "It never left the dock. Put it on tomorrow's first round." : "Put it back on a trip.";
+    } else if (pending) {
+      const vp = vanOf(dl.van) || {};
+      const dp = dl.driverPhone || vp.phone;
+      if (runLate && dp) {
+        todo = "Call " + (dl.driver || vp.driver || "the driver") + " and ask where the van is, then tell the shop when to expect it.";
+        primary = { call: dp, label: "Call " + (dl.driver || vp.driver || "the driver") };
+      } else todo = dl.van ? "On the van and on time. Nothing to do yet." : "It goes on the next trip. Nothing to do yet.";
     } else if (crates) {
       todo = "Call the shop and ask them to keep " + L.plural(crates, "crate") + " ready for the next trip.";
     } else if (short) {
@@ -1131,17 +1165,23 @@
     }
 
     const tel = function (p) { return "tel:" + String(p).replace(/[^\d+]/g, ""); };
+    /* The stop's tag, as its row shows it; with none, where it stands. */
+    const pillHtml = function () {
+      return tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>"
+        : pending ? '<span class="ct-dm-pill" data-t="pend">Pending</span>' : '<span class="ct-dm-pill" data-t="good">Delivered</span>';
+    };
+    const whenWord = function () { return missed ? "Missed" : pending ? (runLate ? "Was due" : "Due") : "Delivered"; };
     /* The owner's picture (23 Sep 2026): the shop and its tag; the order;
        then What happened · Impact · FoodBridge recommends, each an icon in
        a soft circle beside a line or two; then the actions. */
     const impact = missed
-      ? (worth ? { value: L.rupees(worth), text: "Order value at risk." } : null)
+      ? (worth ? { value: L.rupees(worth), text: (dl.rescheduledFor ? "Order value to deliver" : "Order value at risk") + (worthAtMrp ? ", at MRP." : ".") } : null)
+      : pending ? (worth ? { value: L.rupees(worth), text: "Order value to deliver" + (worthAtMrp ? ", at MRP." : ".") } : null)
       : money ? { value: L.rupees(money), text: "Collected at the door." + (worth && money < worth ? " " + L.rupees(worth - money) + " on credit." : "") }
       : worth ? { value: L.rupees(worth), text: "Went on credit." } : null;
     /* Order details (owner, 23 Sep 2026): a card on the delivery, and the
        whole order one step in, in the same card — the delivery slides away
        and the order slides in; back slides it home. */
-    const ord = orderLines(dl);
     const address = (st.addressById || {})[dl.customerId] || null;
     const units = ord.lines.reduce(function (n, l) { return n + l.qty; }, 0);
     const hasOrder = !!(dl.orderNo || worth || ord.lines.length || address);
@@ -1177,11 +1217,11 @@
       const facts = [worth ? [L.rupees(worth), "Order value"] : null, ord.cases ? [String(ord.cases), ord.cases === 1 ? "Case" : "Cases"] : null,
         units ? [String(units), units === 1 ? "Unit" : "Units"] : null].filter(Boolean);
       return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo || "Order") + "</h3>" +
-          (tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>" : '<span class="ct-dm-pill" data-t="good">Delivered</span>') +
+          pillHtml() +
           '<p class="ct-dm-sub">' + esc(name) + "</p></section>" +
         (facts.length ? '<div class="ct-dm-facts">' + facts.map(function (f) { return "<div><b>" + esc(f[0]) + "</b><span>" + esc(f[1]) + "</span></div>"; }).join("") + "</div>" : "") +
         /* When and where, each on its own labelled row; the address in full. */
-        '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (missed ? "Was due" : "Delivered") + "</small>" +
+        '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (missed ? "Was due" : pending ? "Due" : "Delivered") + "</small>" +
             esc([whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · ")) + "</p></div>" +
           (address ? '<div><span class="ct-dm-wic">' + I.pin + "</span><p><small>Delivery address</small>" + esc(address) + "</p></div>" : "") + "</div>" +
         '<section class="ct-dm-sec ct-dm-list"><div class="ct-dm-lh"><h4>Items' + (ord.lines.length ? " (" + ord.lines.length + ")" : "") + "</h4>" +
@@ -1267,11 +1307,14 @@
       const notes = ((view.records.notes || {})[dl.no] || []);
       const bits = [head.why].concat(more).filter(Boolean);
       const main = '<section class="ct-dm-top"><h3>' + esc(name) + "</h3>" +
-          (tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>" : '<span class="ct-dm-pill" data-t="good">Delivered</span>') +
-          '<p class="ct-dm-sub">' + esc([(missed ? "Missed " : "Delivered ") + whenOf(dl.at), dl.van].filter(Boolean).join(" · ")) + "</p></section>" +
+          pillHtml() +
+          '<p class="ct-dm-sub">' + esc([whenWord() + " " + whenOf(dl.at), dl.van].filter(Boolean).join(" · ")) + "</p></section>" +
         orderCard() +
         '<section class="ct-dm-sec"><h4>What happened</h4><div class="ct-dm-line">' +
-          '<span class="ct-dm-ic" data-t="' + (clean ? "good" : tagX ? tagX.tone : "ugly") + '">' + (clean ? I.check : '<b aria-hidden="true">!</b>') + "</span>" +
+          /* A tick when it went right, a truck while it is on its way,
+             a "!" in its tag's colour when something went wrong. */
+          '<span class="ct-dm-ic" data-t="' + (clean ? "good" : tagX ? tagX.tone : pending ? "pend" : "ugly") + '">' +
+            (clean ? I.check : pending && !tagX ? I.truck : '<b aria-hidden="true">!</b>') + "</span>" +
           '<div><p class="ct-dm-main">' + esc(head.text) + "</p>" + bits.map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") + "</div></div></section>" +
         (impact ? '<section class="ct-dm-sec"><h4>Impact</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.rupee + "</span>" +
           '<div><p class="ct-dm-main">' + esc(impact.value) + "</p><p>" + esc(impact.text) + "</p></div></div></section>" : "") +
@@ -1642,53 +1685,6 @@
     }, push);
   }
 
-  /* ── an order still to deliver ────────────────────────────────────── */
-  function orderSheet(r, push) {
-    const st = view.state;
-    const o = (st.made || []).filter(function (x) { return x.no === r.id; })[0] || null;
-    const stop = r.ref || null;
-    const id = (o && o.customerId) || (stop && stop.customerId) || null;
-    const phone = id ? (st.phoneById || {})[id] : null;
-    const van = stop && stop.van ? vanOf(stop.van) : null;
-    const due = stop && stop.slot ? new Date(stop.slot).getTime() : null;
-    const lateMin = due ? Math.round((st.now - due) / 60000) : 0;
-    const late = lateMin > L.T.LATE_MIN ? lateMin : 0;
-    const worth = typeof r.value === "number" ? r.value : (o && typeof o.amount === "number" ? o.amount : null);
-    const cases = stop && stop.cases ? stop.cases : null;
-    const items = o ? (o.lines || []).reduce(function (n, l) { return n + (Number(l.qty) || 0); }, 0) : 0;
-
-    const stats = [worth !== null ? { label: "Worth", value: L.rupees(worth) } : null,
-                   cases ? { label: "Cases", value: String(cases) } : null,
-                   !cases && items ? { label: "Items", value: String(items) } : null];
-
-    const tell = [late ? { tone: "bad", text: "Running " + L.mins(late) + " late", why: stop && stop.van ? stop.van + " is past this stop's time." : null } : null,
-                  !stop && o ? { tone: "good", text: "Booked in FoodBridge", why: "Not on a van yet — it goes on the next trip." } : null];
-
-    let todo = null;
-    const acts = [];
-    if (late && stop && (stop.driverPhone || (van && van.phone))) {
-      todo = "Ask the driver where he is, and tell the shop when to expect him.";
-      acts.push(driverBtn(stop.van, stop.driverPhone, stop.driver));
-      if (phone) acts.push(callBtn("Call the shop", phone, true));
-    } else if (id) {
-      todo = stop && stop.van ? "On the van and on time. Nothing to do yet."
-        : "Not on a van yet — it goes on the next trip.";
-      acts.push('<button class="ct-btn is-ghost" data-a="dl">Record delivery</button>');
-      if (phone) acts.push(callBtn("Call the shop", phone, true));
-    }
-
-    sheet(function () {
-      return { title: r.title,
-        sub: stop && stop.van ? ["On " + stop.van, stop.driver, due ? "due " + whenOf(due) : null].filter(Boolean).join(" · ")
-          : "Booked · not on a van yet",
-        body: detail({ stats: stats, tell: tell, todo: todo }),
-        foot: acts.filter(Boolean).join(""),
-        bind: function (el) {
-          const b = $("[data-a=dl]", el.parentNode);
-          if (b) b.addEventListener("click", function () { deliveryDetails(id, o || (stop ? { no: stop.no, customerId: id } : null), true); });
-        } };
-    }, push);
-  }
   /* Empties still with a customer: crates out, less what came back. */
   function emptiesOf(id) {
     const d = (view.records.deliveries || []).filter(function (x) { return x.customerId === id; });
