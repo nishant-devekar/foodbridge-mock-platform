@@ -529,6 +529,9 @@ a.ct-btn { display: grid; align-content: center; justify-items: center; text-dec
 .ct-tag { flex: none; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; white-space: nowrap; }
 .ct-tag[data-t="ugly"] { background: #FDE4E4; color: #C62828; }
 .ct-tag[data-t="bad"] { background: #FDF0D5; color: #B7791F; }
+.ct-tag[data-t="pend"] { background: #FDF3DC; color: #9A6A10; }
+.ct-tag[data-t="good"] { background: #E3F5EA; color: #1E8A45; }
+.ct-ava[data-t="pend"] { background: #FDF3DC; color: #9A6A10; }
 
 /* ── A delivery: a modal popover (owner, 23 Sep 2026) ─────────────────
    Pixel for pixel from the owner's picture, measured at the card's phone

@@ -271,7 +271,9 @@
       if (reason === "Van full") return "Reschedule for tomorrow";
       return "Reschedule the trip";
     };
-    /* One row per item, with at most one tag: what went wrong with it.
+    /* Every row says where it stands (`stand`: delivered, pending, missed —
+       its tile), so a row with nothing wrong still reads like the others.
+       One row per item, with at most one tag: what went wrong with it.
        Missed holds the stops that were not delivered; a drop that went
        late, short, came back or left crates out is still delivered, so it
        sits under On track with its tag. A record the platform has tagged
@@ -290,17 +292,17 @@
     const tagOf = function (type, action) { return { type: type, action: action || INCIDENTS[type].action }; };
     const uglyRows = missed.map(function (d) {
       const tag = tagOf(INCIDENTS[d.incident] ? d.incident : "missed", missNext(d.reason));
-      return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.reason || "Missed", next: tag.action, tag: tag, value: null, ref: d };
+      return { id: d.no, kind: "delivery", stand: "missed", title: name(d.customerId), note: d.reason || "Missed", next: tag.action, tag: tag, value: null, ref: d };
     });
     const badRows = pending.map(function (o) {
       const running = overdueBy(o) > T.LATE_MIN;
       if (o.rescheduledFor) {
         /* Opens as the delivery it was: missed, and now rescheduled. */
-        return { id: o.customerId, kind: "delivery", ref: o.rec, title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
+        return { id: o.customerId, kind: "delivery", stand: "pending", ref: o.rec, title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
                  tag: tagOf("missed", "Nothing to do") };
       }
       const tag = INCIDENTS[o.incident] ? tagOf(o.incident) : running ? tagOf("late", "Call the driver") : null;
-      return { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o, tag: tag,
+      return { id: o.no, kind: "order", stand: "pending", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o, tag: tag,
             /* What the owner can act on, never the order number (owner, 23
                Sep 2026): which van has it, and whether it is behind. */
             note: running ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
@@ -311,8 +313,10 @@
       const f = found(d);
       const pick = INCIDENTS[d.incident] ? (f.filter(function (x) { return x.type === d.incident; })[0] || { type: d.incident, note: INCIDENTS[d.incident].label }) : f[0];
       const tag = pick ? tagOf(pick.type) : null;
-      return { id: d.no, kind: "delivery", title: name(d.customerId), tag: tag,
-               note: pick ? pick.note : d.status === "returned" ? "Delivered, some returned" : "Delivered",
+      const paid = Number(d.collected) || 0;
+      return { id: d.no, kind: "delivery", stand: "delivered", title: name(d.customerId), tag: tag,
+               note: pick ? pick.note : d.status === "returned" ? "Delivered, some returned"
+                 : paid ? "Paid " + rupees(paid) + " at the door" : "On credit",
                next: tag ? tag.action : null, value: Number(d.collected) || 0, ref: d };
     }).sort(function (a, b) { return (b.tag ? 1 : 0) - (a.tag ? 1 : 0) || (b.value || 0) - (a.value || 0); });
 

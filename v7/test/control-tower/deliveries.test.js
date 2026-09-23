@@ -110,3 +110,15 @@ test("a missed stop rescheduled for another day leaves today's route; reschedule
   assert.ok(d.tiles.bad.rows.some((r) => r.id === miss.orderNo), "back on today's route");
   assert.ok(!d.tiles.bad.rows.some((r) => r.id === miss.customerId && /^Rescheduled/.test(r.note) && r.kind === "delivery"), "and not twice");
 });
+
+test("every row says where it stands, so a row with nothing wrong reads like the others", () => {
+  for (const h of [11, 13.5, 16]) {
+    const { d } = day(at(h));
+    const want = { good: "delivered", bad: "pending", ugly: "missed" };
+    for (const k of ["good", "bad", "ugly"]) {
+      assert.ok(d.tiles[k].rows.every((r) => r.stand === want[k]), h + ":00 IST · " + k + " rows stand " + want[k]);
+    }
+    const clean = d.tiles.good.rows.filter((r) => !r.tag);
+    assert.ok(clean.every((r) => /^(Paid ₹.* at the door|On credit|Delivered, some returned)$/.test(r.note)), "a clean drop says how it was paid");
+  }
+});

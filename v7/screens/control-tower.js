@@ -388,14 +388,20 @@
     damaged: sv('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>'),
     crates: sv('<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M3 15h18M9 5v15M15 5v15"/>'),
   };
+  const STAND = { delivered: { label: "Delivered", tone: "good", icon: I.check },
+                  pending: { label: "Pending", tone: "pend", icon: I.truck },
+                  missed: { label: "Missed", tone: "ugly", icon: TAG_ICON.missed } };
   function taggedRowHtml(r, i) {
-    const t = r.tag ? L.INCIDENTS[r.tag.type] : null;
+    /* The pill and its icon: the incident when something went wrong,
+       else where the row stands — so every row under a tile reads the same
+       (owner, 23 Sep 2026). A standing is not an incident: it only says
+       Delivered or Pending. */
+    const t = r.tag ? L.INCIDENTS[r.tag.type] : STAND[r.stand] || null;
     const sub = r.note && r.next && r.next !== r.note ? r.note + " · " + r.next : (r.note || r.next);
     const fig = !t && typeof r.value === "number" && r.value ? L.rupees(r.value) : "";
-    /* No tag: delivered cleanly is a tick; anything else is still on its way. */
-    const mark = t ? TAG_ICON[r.tag.type] || I.bang : r.kind === "delivery" ? I.check : I.truck;
+    const mark = r.tag ? TAG_ICON[r.tag.type] || I.bang : t ? t.icon : I.truck;
     return '<button class="ct-row is-tagged" data-row="' + i + '">' +
-      '<span class="ct-ava" data-t="' + (t ? t.tone : r.kind === "delivery" ? "good" : "none") + '" aria-hidden="true">' + mark + "</span>" +
+      '<span class="ct-ava" data-t="' + (t ? t.tone : "none") + '" aria-hidden="true">' + mark + "</span>" +
       '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
       (t ? '<span class="ct-tag" data-t="' + t.tone + '">' + esc(t.label) + "</span>" : "") +
       (fig ? '<b class="ct-row-v">' + esc(fig) + "</b>" : "") + "</button>";
