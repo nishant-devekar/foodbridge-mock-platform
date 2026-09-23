@@ -164,8 +164,25 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-card p { margin: 0; font-size: 15px; line-height: 21px; font-weight: 500; }
 .ct-move { display: flex; align-items: center; gap: 2px; margin-top: 6px !important; color: var(--brand); font-weight: 600 !important; font-size: 14px !important; }
 .ct-move .i { width: 16px; height: 16px; }
+/* Suggestions, not findings: a nudge to notice on the way past, not a card
+   competing with the urgent list above it. Flat against the page (no
+   border, no white surface, no shadow), smaller throughout — the owner
+   still gets the colour cue and the one-line "do this", just quieter. */
+.ct-balance, .ct-grow { padding: 10px 12px; background: transparent; border: 0; }
+.ct-balance h3, .ct-grow h3 { font-size: 12px; line-height: 16px; margin-bottom: 3px; }
+.ct-balance h3 .i, .ct-grow h3 .i { width: 14px; height: 14px; }
+.ct-balance p, .ct-grow p { font-size: 13px; line-height: 18px; font-weight: 400; color: var(--ink-2); }
+.ct-balance .ct-move, .ct-grow .ct-move { font-size: 12px !important; font-weight: 600 !important; margin-top: 4px !important; }
+.ct-balance .ct-move .i, .ct-grow .ct-move .i { width: 13px; height: 13px; }
 .ct-balance h3 { color: var(--bad); }
 .ct-grow h3 { color: var(--brand); }
+/* The section around them: what marks these two as FoodBridge's own read of
+   the numbers, not more of the list above. A label, not a card — a hairline
+   panel just a shade off the page, quiet enough to stay secondary. */
+.ct-suggest { margin-top: 16px; padding: 10px 12px 12px; border-radius: 14px; background: rgba(17, 20, 24, .025); border: 1px solid var(--line); }
+.ct-suggest-lbl { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); }
+.ct-suggest-lbl .i { width: 14px; height: 14px; }
+.ct-suggest .ct-balance, .ct-suggest .ct-grow { margin-top: 10px; }
 .ct-lines { margin: 0; padding: 0; list-style: none; }
 .ct-lines li { font-size: 15px; line-height: 22px; font-weight: 500; padding: 4px 0; }
 .ct-lines li + li { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; }

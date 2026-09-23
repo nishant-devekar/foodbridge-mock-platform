@@ -211,9 +211,9 @@
           good: tile("On track", "Delivered", "38", 38, [], { example: true }),
           bad: tile("Needs work", "On the road", "4", 4, [], { example: true }),
           ugly: tile("Urgent", "Missed", "3", 3, [
-            { title: "Sharma Stores", note: "Shop closed" },
-            { title: "Gupta Mart", note: "Returned 2 cases" },
-            { title: "Hotel Surya", note: "Short 1 case" },
+            { title: "Sharma Stores", note: "Shop closed", next: "Call to reschedule" },
+            { title: "Gupta Mart", note: "Returned 2 cases", next: "Take back into stock" },
+            { title: "Hotel Surya", note: "Short 1 case", next: "Send on next trip" },
           ], { example: true }),
         },
         facts: [{ label: "Collected", value: "₹48,200" }, { label: "Empties back", value: "112" }, { label: "Next orders", value: "9" }],
@@ -244,22 +244,34 @@
       return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor };
     }));
 
-    const uglyRows = missed.map(function (d) { return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.reason || "Missed", value: null, ref: d }; })
-      .concat(late.map(function (d) { return { id: d.no + ":l", kind: "delivery", title: name(d.customerId), note: "Late " + mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy : ""), ref: d }; }))
-      .concat(returned.map(function (d) { return { id: d.no + ":r", kind: "delivery", title: name(d.customerId), note: "Returned " + plural(Number(d.returnedCases), "case"), ref: d }; }))
-      .concat(short.map(function (d) { return { id: d.no + ":s", kind: "delivery", title: name(d.customerId), note: "Short " + plural(Number(d.shortCases), "case"), ref: d }; }))
+    /* The row's note says what happened; `next` says the one thing to do
+       about it, in a few words — the same split the detail sheet already
+       makes (see control-tower.js, todoHtml), just short enough for a list.
+       Kept a duplicate of the shop-side/Van-full split in deliverySheet's
+       own todo, since levers.js runs under node and never reaches the DOM. */
+    const missNext = function (reason) {
+      if (["Shop closed", "Refused", "Payment not ready"].indexOf(reason) !== -1) return "Call to reschedule";
+      if (reason === "Van full") return "Reschedule for tomorrow";
+      return "Reschedule the trip";
+    };
+    const uglyRows = missed.map(function (d) { return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.reason || "Missed", next: missNext(d.reason), value: null, ref: d }; })
+      .concat(late.map(function (d) { return { id: d.no + ":l", kind: "delivery", title: name(d.customerId), note: "Late " + mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy : ""), next: "Ask why it was late", ref: d }; }))
+      .concat(returned.map(function (d) { return { id: d.no + ":r", kind: "delivery", title: name(d.customerId), note: "Returned " + plural(Number(d.returnedCases), "case"), next: "Take back into stock", ref: d }; }))
+      .concat(short.map(function (d) { return { id: d.no + ":s", kind: "delivery", title: name(d.customerId), note: "Short " + plural(Number(d.shortCases), "case"), next: "Send on next trip", ref: d }; }))
       /* Empties not back are a problem, not a fact: each is the owner's money out. */
       .concat(ofToday.filter(function (d) { const e = d.empties || {}; return (Number(e.cratesOut) || 0) > (Number(e.cratesBack) || 0); }).map(function (d) {
-        const e = d.empties; return { id: d.no + ":e", kind: "delivery", title: name(d.customerId), note: plural(e.cratesOut - e.cratesBack, "crate") + " not back", ref: d };
+        const e = d.empties; return { id: d.no + ":e", kind: "delivery", title: name(d.customerId), note: plural(e.cratesOut - e.cratesBack, "crate") + " not back", next: "Collect on next trip", ref: d };
       }));
     const badRows = pending.map(function (o) {
+      const running = overdueBy(o) > T.LATE_MIN;
       return o.rescheduledFor
-        ? { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor), value: null }
-        : { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: overdueBy(o) > T.LATE_MIN, ref: o,
+        ? { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor), next: "Nothing to do", value: null }
+        : { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o,
             /* What the owner can act on, never the order number (owner, 23
                Sep 2026): which van has it, and whether it is behind. */
-            note: overdueBy(o) > T.LATE_MIN ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
-              : o.van ? "On " + o.van + (o.driver ? " · " + o.driver : "") : "Not on a van yet" };
+            note: running ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
+              : o.van ? "On " + o.van + (o.driver ? " · " + o.driver : "") : "Not on a van yet",
+            next: running ? "Call the driver" : o.van ? "Nothing to do yet" : "Goes on next trip" };
     }).sort(function (a, b) { return (b.running ? 1 : 0) - (a.running ? 1 : 0) || (b.value || 0) - (a.value || 0); });
     const goodRows = delivered.map(function (d) {
       return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.status === "returned" ? "Delivered, some returned" : "Delivered",
@@ -331,9 +343,9 @@
           good: tile("On track", "Collected", "₹32,000", 1, [], { example: true }),
           bad: tile("Needs work", "Late or due soon", "₹18,400", 1, [], { example: true }),
           ugly: tile("Urgent", "Needs chasing", "₹1.2 L", 3, [
-            { title: "Customer A", value: 10600, colour: "fire" },
-            { title: "Customer B", value: 8800, colour: "red" },
-            { title: "Customer C", value: 8700, colour: "red" },
+            { title: "Customer A", value: 10600, colour: "fire", next: "Call — or stop supply" },
+            { title: "Customer B", value: 8800, colour: "red", next: "Call to collect" },
+            { title: "Customer C", value: 8700, colour: "red", next: "Call to collect" },
           ], { example: true }),
         },
         colours: [{ id: "green", n: 16 }, { id: "yellow", n: 9 }, { id: "orange", n: 7 }, { id: "red", n: 5 }, { id: "fire", n: 3 }].map(function (x) { return Object.assign(x, { amount: null, example: true }); }),
@@ -365,7 +377,8 @@
 
     const row = function (x, figure) {
       return { id: x.id, kind: "customer", title: x.name, value: figure, colour: x.colour,
-               note: x.oldest ? plural(x.oldest, "day") : null };
+               note: x.oldest ? plural(x.oldest, "day") : null,
+               next: x.colour === "fire" ? "Call — or stop supply" : "Call to collect" };
     };
     const soonBy = {}, soonIn = {}, lateBy = {};
     soonInv.forEach(function (i) {
@@ -381,6 +394,7 @@
         const x = by[id] || { id: id, name: c.st.customerById[id] || id, colour: null, oldest: 0 };
         const r = row(x, (lateBy[id] || 0) + (soonBy[id] || 0));
         r.note = lateBy[id] ? plural(x.oldest, "day") + " late" : "Due in " + plural(soonIn[id], "day");
+        r.next = lateBy[id] ? "Ask for a payment date" : "Nothing to chase yet";
         return r;
       }).sort(function (a, b) { return b.value - a.value; });
     /* Payments this week, by customer, and how late the money was: long-stuck
@@ -447,9 +461,12 @@
     const need = function (d) { return Math.max(1, Math.ceil(d.daily * 37 - Math.max(d.available, 0) - d.onOrder)); };
     const covered = function (d) { return d.onOrder > 0 && (Math.max(d.available, 0) + d.onOrder) / d.daily >= T.HEALTHY_DAYS; };
     const sup = function (d) { const s = c.st.suppliers.filter(function (x) { return x.category && x.category === d.product.category; })[0]; return s ? s.name : null; };
-    const row = function (d) {
-      return { id: d.product.id, kind: "product", title: d.product.name, note: plural(need(d), "unit") + (sup(d) ? " · " + sup(d) : ""),
-               value: d.product.mrp ? need(d) * d.product.mrp : null };
+    const row = function (urgent) {
+      return function (d) {
+        return { id: d.product.id, kind: "product", title: d.product.name, note: plural(need(d), "unit") + (sup(d) ? " · " + sup(d) : ""),
+                 next: urgent ? "Order today" : "Order this week",
+                 value: d.product.mrp ? need(d) * d.product.mrp : null };
+      };
     };
     const out = selling.filter(function (d) { return d.available <= 0 && !covered(d); });
     const low = selling.filter(function (d) { return d.available > 0 && d.cover < T.HEALTHY_DAYS && !covered(d); });
@@ -458,10 +475,11 @@
 
     const t = {
       good: tile("On track", "Covered", String(good.length), good.length, good.map(function (d) {
-        return { id: d.product.id, kind: "product", title: d.product.name, note: d.onOrder ? "On order" : isFinite(d.cover) ? Math.floor(d.cover) + " days of stock" : "Plenty" };
+        return { id: d.product.id, kind: "product", title: d.product.name,
+                 note: d.onOrder ? "On order" : isFinite(d.cover) ? Math.floor(d.cover) + " days of stock" : "Plenty" };
       })),
-      bad: tile("Needs work", "Buy this week", String(low.length), low.length, low.map(row).sort(byMoney)),
-      ugly: tile("Urgent", "Out", String(out.length), out.length, out.map(row).sort(byMoney)),
+      bad: tile("Needs work", "Buy this week", String(low.length), low.length, low.map(row(false)).sort(byMoney)),
+      ugly: tile("Urgent", "Out", String(out.length), out.length, out.map(row(true)).sort(byMoney)),
     };
     const toBuy = out.concat(low);
     const suppliers = {};
@@ -497,18 +515,20 @@
     const byValue = function (a, b) { return (b.value || 0) - (a.value || 0); };
     const uglyRows = out.map(function (d) {
       return { id: d.product.id, kind: "product", title: d.product.name, note: "Out · " + plural(month(d), "unit") + " a month",
-               value: d.product.mrp ? month(d) * d.product.mrp : null };
+               next: "Order today", value: d.product.mrp ? month(d) * d.product.mrp : null };
     }).sort(byValue).concat(dead.map(function (d) {
-      return { id: d.product.id, kind: "product", title: d.product.name, note: "Dead stock", value: d.product.mrp ? d.available * d.product.mrp : null };
+      return { id: d.product.id, kind: "product", title: d.product.name, note: "Dead stock", next: "Offer to past buyers", value: d.product.mrp ? d.available * d.product.mrp : null };
     }).sort(byValue));
     const deadValue = sum(dead, function (d) { return d.product.mrp ? d.available * d.product.mrp : 0; });
 
     const t = {
       good: tile("On track", "Healthy", String(healthy.length), healthy.length, healthy.map(function (d) {
-        return { id: d.product.id, kind: "product", title: d.product.name, note: isFinite(d.cover) ? Math.floor(d.cover) + " days of stock" : "Plenty" };
+        return { id: d.product.id, kind: "product", title: d.product.name,
+                 note: isFinite(d.cover) ? Math.floor(d.cover) + " days of stock" : "Plenty" };
       })),
       bad: tile("Needs work", "Low", String(low.length), low.length, low.map(function (d) {
-        return { id: d.product.id, kind: "product", title: d.product.name, note: Math.max(0, Math.floor(d.cover)) + " days of stock" };
+        return { id: d.product.id, kind: "product", title: d.product.name, next: "Reorder soon",
+                 note: Math.max(0, Math.floor(d.cover)) + " days of stock" };
       })),
       ugly: tile("Urgent", "Out or dead", String(out.length + dead.length), out.length + dead.length, uglyRows),
     };
@@ -556,12 +576,12 @@
     const late = (rd ? rd.rows : []).filter(function (r) { return !lostSet[r.id]; });
     const cad = {}; c.st.cadence.forEach(function (x) { cad[x.id] = x; });
 
-    const uglyRows = (risk && !risk.phase ? risk.rows.map(function (r) { return { id: r.id, kind: "order", title: r.title, note: "Short of stock" }; }) : [])
-      .concat(lost.map(function (x) { return { id: x.id, kind: "customer", title: x.name, note: "No order in " + plural(x.daysOverdue + x.cycleDays, "day"), value: x.avgValue || null }; }))
+    const uglyRows = (risk && !risk.phase ? risk.rows.map(function (r) { return { id: r.id, kind: "order", title: r.title, note: "Short of stock", next: "Check stock first" }; }) : [])
+      .concat(lost.map(function (x) { return { id: x.id, kind: "customer", title: x.name, note: "No order in " + plural(x.daysOverdue + x.cycleDays, "day"), next: "Call to find out why", value: x.avgValue || null }; }))
       .sort(function (a, b) { return (b.value || 0) - (a.value || 0); });
     const badRows = late.map(function (r) {
       const x = cad[r.id] || {};
-      return { id: r.id, kind: "customer", title: r.title, note: plural(x.daysOverdue || 0, "day") + " late", value: x.avgValue || null };
+      return { id: r.id, kind: "customer", title: r.title, note: plural(x.daysOverdue || 0, "day") + " late", next: "Call to reorder", value: x.avgValue || null };
     }).sort(function (a, b) { return (b.value || 0) - (a.value || 0); });
     const byCust = {};
     o30.forEach(function (o) { byCust[o.customerId] = (byCust[o.customerId] || 0) + (o.value || 0); });

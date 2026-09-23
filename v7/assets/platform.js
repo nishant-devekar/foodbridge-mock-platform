@@ -186,13 +186,15 @@
 
        · A REAL ACCOUNT — the name and business onboarding wrote, as Owner.
        · ANYONE ELSE — a guest session, or no session at all, which is what a
-         WhatsApp "pick a feature" link opens with. They are looking at a demo
-         store, so it says so: "Sample Distributors", the name the sample-data
-         channel already uses, and "Demo store" where a user's name would go.
+         WhatsApp "pick a feature" link opens with. They are looking at a
+         demo, so both fields say so and stay legible on their own: "Demo
+         Store" with a named, readable owner — "Rakesh Kumar · Owner" — so
+         whoever is watching the demo can place what they're looking at at a
+         glance, rather than parsing an empty role next to "Demo store".
          Real records, shown as a demo — nothing invented, nothing pretended.
 
      The seed's own brand and user are never shown. */
-  var DEMO_IDENTITY = { store: "Sample Distributors", name: "Demo store", role: "" };
+  var DEMO_IDENTITY = { store: "Demo Store", name: "Rakesh Kumar", role: "Owner" };
 
   function identity() {
     var acct = null;

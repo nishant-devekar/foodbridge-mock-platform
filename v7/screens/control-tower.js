@@ -36,6 +36,7 @@
     clip: sv('<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
     scale: sv('<path d="M12 3v18M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>'),
     grow: sv('<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>'),
+    bulb: sv('<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.7.6 1 1.4 1 2.3h6c0-.9.3-1.7 1-2.3A7 7 0 0 0 12 2Z"/>'),
     flame: sv('<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.7-2.6 1.5-3.5.2 1.3 1 2 2 2 0-2.5-1-4.5.5-7z"/>'),
     minus: sv('<path d="M5 12h14"/>'),
     check: sv('<path d="M20 6 9 17l-5-5"/>'),
@@ -302,10 +303,15 @@
       '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav></div>";
   }
   /* What FoodBridge suggests, under the list on the same page: tomorrow's
-     trips, the balance cards, the Grow card. */
+     trips (a fact, its own card), then the balance and Grow cards — those
+     two are FoodBridge's read of the numbers, not a record of anything that
+     happened, so they carry a label saying so and sit apart from the list
+     above (owner, 23 Sep 2026: a subtle "FoodBridge suggests" section, not
+     unlabelled cards that could pass for more findings). */
   function extras(lv) {
-    return [].concat(lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? [tomorrowCard(lv.tomorrow)] : [],
-      (lv.balance || []).map(balanceCard), lv.grow ? [growCard(lv.grow)] : []);
+    const tomorrow = lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? [tomorrowCard(lv.tomorrow)] : [];
+    const suggestions = (lv.balance || []).map(balanceCard).concat(lv.grow ? [growCard(lv.grow)] : []);
+    return tomorrow.concat(suggestions.length ? [suggestSection(suggestions)] : []);
   }
 
   /* The dot on the tab and the tile the lever opens on say the same thing:
@@ -376,8 +382,14 @@
     /* A good-news row carries a green tick, never a risk colour. */
     const mark = good ? '<i class="ct-ok" role="img" aria-label="Done">' + I.check + "</i>"
       : r.colour ? '<i class="ct-cdot" data-c="' + r.colour + '" role="img" aria-label="' + COLOUR[r.colour] + '">' + (r.colour === "fire" ? I.flame : "") + "</i>" : "";
+    /* On track just says what happened — it's done, nothing to add. Needs
+       work and Urgent say what happened AND the one step to take, both in
+       a few words (owner, 23 Sep 2026: the list should say what to do, not
+       just what happened, everywhere but the good news). The row truncates
+       with an ellipsis rather than wrap, so this stays one line. */
+    const sub = good ? r.note : r.note && r.next ? r.note + " · " + r.next : (r.next || r.note);
     return '<button class="ct-row' + (r.stuck ? " is-stuck" : "") + '" data-row="' + i + '">' + mark +
-      '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (r.note ? "<small>" + esc(r.note) + "</small>" : "") + "</span>" +
+      '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
       (fig ? '<b class="ct-row-v">' + esc(fig) + "</b>" : "") + '<span class="ct-go">' + I.chev + "</span></button>";
   }
   function list(rows, lv, sel) {
@@ -398,6 +410,9 @@
   }
   function growCard(g) {
     return '<button class="ct-card ct-grow" data-grow><h3>' + I.grow + "Grow</h3><p>" + esc(g.text) + "</p></button>";
+  }
+  function suggestSection(cards) {
+    return '<section class="ct-suggest"><p class="ct-suggest-lbl">' + I.bulb + "FoodBridge suggests</p>" + cards.join("") + "</section>";
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -433,8 +448,9 @@
         }).join("") + "</div>" +
         (lv.colours ? '<div class="ct-clabels">' + lv.colours.map(function (c) { return '<span class="ct-clabel"><i class="ct-cdot" data-c="' + c.id + '">' + (c.id === "fire" ? I.flame : "") + "</i>" + COLOUR[c.id] + " " + c.n + "</span>"; }).join("") + "</div>" : "") +
         (t.ugly.rows.length ? '<div class="ct-list">' + t.ugly.rows.map(function (r) {
+          const sub = r.note && r.next ? r.note + " · " + r.next : (r.next || r.note);
           return '<div class="ct-row">' + (r.colour ? '<i class="ct-cdot" data-c="' + r.colour + '">' + (r.colour === "fire" ? I.flame : "") + "</i>" : "") +
-            '<span class="ct-row-t">' + esc(r.title) + (r.note ? "<small>" + esc(r.note) + "</small>" : "") + "</span>" +
+            '<span class="ct-row-t">' + esc(r.title) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
             (typeof r.value === "number" ? '<b class="ct-row-v">' + L.rupees(r.value) + "</b>" : "") + "</div>";
         }).join("") + "</div>" : "") +
         (lv.facts ? facts(lv.facts) : "") +
@@ -452,7 +468,7 @@
      shell reads, so the phone header and this bar never disagree. */
   function who() {
     const a = window.FBContext && window.FBContext.account();
-    return !a || a.guest ? { name: "Demo store", role: "" } : { name: a.name || "", role: "Owner" };
+    return !a || a.guest ? { name: "Rakesh Kumar", role: "Owner" } : { name: a.name || "", role: "Owner" };
   }
   function mountTop() {
     const h = document.createElement("header");
