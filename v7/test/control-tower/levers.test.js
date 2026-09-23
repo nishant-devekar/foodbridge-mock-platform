@@ -93,19 +93,33 @@ test("Deliveries goes live from its first recorded delivery; missed → Ugly →
   assert.equal(d.tiles.good.count, 1);
   assert.equal(d.facts[0].value, "₹4,200");
   assert.equal(d.facts.length, 1, "a crate not back is a problem, not a fact; next orders live in Grow");
-  assert.ok(d.tiles.ugly.rows.some((r) => r.note === "1 crate not back"), "the crate still out is under Urgent");
+  assert.ok(d.tiles.good.rows.some((r) => r.note === "1 crate not back" && r.tag && r.tag.type === "crates"), "the crate still out is a Crates tag on its delivered row");
 
   const other = levers(w).v.state.customers[1].id;
   const [missed] = w.store.addDeliveries([{ customerId: other, status: "missed", reason: "Shop closed" }]);
   d = by(levers(w).m, "deliveries");
   assert.notEqual(d.status, "good", "half the stops went wrong");
-  assert.ok(d.tiles.ugly.rows.some((r) => r.note === "Shop closed"), "the missed stop is under Urgent");
+  assert.ok(d.tiles.ugly.rows.some((r) => r.note === "Shop closed"), "the missed stop is under Missed");
   assert.equal(d.action.label, "Reschedule 1 delivery");
 
   w.store.rescheduleDeliveries([missed.no], "2026-09-23");
   d = by(levers(w).m, "deliveries");
   assert.ok(!d.tiles.ugly.rows.some((r) => r.note === "Shop closed"), "no longer a problem once rescheduled");
   assert.ok(d.tiles.bad.rows.some((r) => r.id === other && /Rescheduled/.test(r.note)), "back on the next trips");
+});
+
+test("each item carries one incident tag: the platform's own when it set one, else read off the record", () => {
+  const w = F.world();
+  const cust = levers(w).v.state.customers;
+  const [a, b] = w.store.addDeliveries([
+    { customerId: cust[0].id, status: "delivered", lateMin: 50, shortCases: 2 },
+    { customerId: cust[1].id, status: "delivered", lateMin: 50, incident: "damaged" },
+  ]);
+  const rows = by(levers(w).m, "deliveries").tiles.good.rows;
+  const ra = rows.find((r) => r.id === a.no), rb = rows.find((r) => r.id === b.no);
+  assert.deepEqual(ra.tag, { type: "late", action: "Ask why it was late" }, "late before short, one tag only");
+  assert.equal(rb.tag.type, "damaged", "the platform's tag wins");
+  assert.equal(rb.next, "Replace on next trip");
 });
 
 test("empties travel as kits: a crate back with 10 bottles leaves 2 bottles with the customer", () => {

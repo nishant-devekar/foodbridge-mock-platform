@@ -21,6 +21,8 @@ function day(now) {
   return { w, v, d: L.build(v, { demand: S._detectors.demand(v.state) }).levers.find((x) => x.id === "deliveries") };
 }
 const notes = (d) => d.tiles.ugly.rows.map((r) => r.note);
+/* An item's incident tag, on any row of any tile (owner, 23 Sep 2026). */
+const tagged = (d, type) => [].concat(d.tiles.good.rows, d.tiles.bad.rows, d.tiles.ugly.rows).filter((r) => r.tag && r.tag.type === type);
 
 test("the demo day: two vans, two rounds each, a load per round", () => {
   const { v } = day(at(13.5));
@@ -51,7 +53,7 @@ test("the demo day: the afternoon round is booked past the van's load; what does
   const van = over[0].van;
   const load = s.filter((x) => x.van === van && x.round === 2).reduce((n, x) => n + x.cases, 0);
   assert.ok(load > v.records.route.vanCases, "booked past the load");
-  assert.ok(notes(d).includes("Van full"), "shows under Urgent");
+  assert.ok(notes(d).includes("Van full"), "shows under Missed");
 });
 
 test("Deliveries in the demo is Urgent: late, short and missed drops fail on time and in full", () => {
@@ -61,8 +63,9 @@ test("Deliveries in the demo is Urgent: late, short and missed drops fail on tim
     assert.ok(d.health.value < 0.5 && /on time and in full/.test(d.health.what));
   }
   const { d } = day(at(16));
-  assert.ok(notes(d).some((n) => /^Late \d/.test(n)), "late drops listed");
-  assert.ok(notes(d).some((n) => /^Short/.test(n)), "short drops listed");
+  assert.ok(tagged(d, "late").some((r) => /^Late \d/.test(r.note)), "late drops tagged Late");
+  assert.ok(tagged(d, "short").length, "short drops tagged Short");
+  assert.ok(tagged(d, "missed").every((r) => r.tag.action && r.next === r.tag.action), "every tag has its step, and the row says it");
   assert.match(d.headline.context, /\d+ late/);
 });
 
@@ -83,5 +86,27 @@ test("a real delivery with no lateness or shortage recorded counts as on time an
   const v = w.tower.pass();
   const d = L.build(v, { demand: S._detectors.demand(v.state) }).levers.find((x) => x.id === "deliveries");
   assert.equal(d.health.value, 0.8, "4 of 5 on time and in full");
-  assert.ok(notes(d).includes("Late 45 min"));
+  assert.ok(tagged(d, "late").some((r) => r.note === "Late 45 min"), "tagged Late, still delivered");
+  assert.ok(d.tiles.good.rows.some((r) => r.note === "Late 45 min"), "under On track");
+});
+
+test("a missed stop rescheduled for another day leaves today's route; rescheduled for today, it is back on it", () => {
+  const now = at(16);
+  const { w, v } = day(now);
+  const miss = v.records.deliveries.find((d) => d.status === "missed" && d.orderNo);
+  assert.ok(miss, "the demo day has a missed stop");
+  const todayIso = new Date(now).toISOString().slice(0, 10);
+  const later = new Date(now + 2 * 86400e3).toISOString().slice(0, 10);
+  const build = () => { const x = w.tower.pass(); return L.build(x, { demand: S._detectors.demand(x.state) }).levers.find((l) => l.id === "deliveries"); };
+
+  w.store.rescheduleDeliveries([miss.no], later, { rescheduledWindow: "evening" });
+  let d = build();
+  assert.ok(!d.tiles.bad.rows.some((r) => r.id === miss.orderNo), "not due today");
+  assert.ok(d.tiles.bad.rows.some((r) => r.id === miss.customerId && /^Rescheduled · .* · Evening$/.test(r.note)), "listed as rescheduled, with its window");
+  assert.ok(!d.tiles.ugly.rows.some((r) => r.id === miss.no), "no longer missed");
+
+  w.store.rescheduleDeliveries([miss.no], todayIso);
+  d = build();
+  assert.ok(d.tiles.bad.rows.some((r) => r.id === miss.orderNo), "back on today's route");
+  assert.ok(!d.tiles.bad.rows.some((r) => r.id === miss.customerId && /^Rescheduled/.test(r.note) && r.kind === "customer"), "and not twice");
 });

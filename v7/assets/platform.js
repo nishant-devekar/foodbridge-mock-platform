@@ -507,7 +507,9 @@
      framing — is inline; its size comes from the bar's stylesheet, with
      every other icon's. */
   var MASCOT = '<i style="border-radius:50%;background:#fff no-repeat 33% 0/155% url(assets/ct/mascot/hello-128.png);box-shadow:0 0 0 1px rgba(17,20,24,.1)"></i>';
-  var TOWER_ICON = ico('<path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/>');
+  /* An airport control tower, the same shape as the tower's own footer
+     (screens/control-tower.js, I.tower). */
+  var TOWER_ICON = ico('<path d="M12 2v2.5"/><path d="M4.5 4.5h15l-2.5 5h-10z"/><path d="M9.5 4.5 10 9.5M14.5 4.5 14 9.5"/><path d="M9 9.5 8.2 21M15 9.5l.8 11.5"/><path d="M5 21h14"/><path d="M8.8 14.5h6.4"/>');
   /* The same list, the same order and the same words as the tower's own
      footer on that lever (screens/control-tower.js, WORK): the bar reads the
      same on both sides of the trip. No Timeline — the business's news is

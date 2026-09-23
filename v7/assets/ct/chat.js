@@ -142,7 +142,7 @@
     const line = function (x) {
       if (x.status === "preview") return DOT.preview + " *" + x.label + "* — not connected";
       if (x.status === "good") return DOT.good + " *" + x.label + "* — on track";
-      /* Deliveries' Urgent tile only says "Problems"; its headline says what happened. */
+      /* Deliveries' tiles count stops; its headline says what went wrong. */
       if (x.id === "deliveries") return DOT[x.status] + " *" + x.label + "* — " + x.headline.value + (x.headline.context ? " · " + x.headline.context : "");
       const t = x.tiles[tileOf(x)];
       return DOT[x.status] + " *" + x.label + "* — " + t.value + " " + t.word.toLowerCase();

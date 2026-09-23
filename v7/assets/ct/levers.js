@@ -49,6 +49,20 @@
     ROWS: 5,
   };
 
+  /* ── Incidents: what went wrong with one item, as its tag (owner, 23 Sep
+     2026). A tag is not a tile: On track, Pending and Missed say where an
+     item stands; its tag says what happened to it. The platform tags each
+     item once, where the work is recorded; the tower only shows the tag
+     and the one step it asks for. */
+  const INCIDENTS = {
+    missed:   { label: "Missed",   tone: "ugly", action: "Call to reschedule" },
+    late:     { label: "Late",     tone: "bad",  action: "Ask why it was late" },
+    short:    { label: "Short",    tone: "bad",  action: "Send on next trip" },
+    returned: { label: "Returned", tone: "bad",  action: "Take back into stock" },
+    damaged:  { label: "Damaged",  tone: "ugly", action: "Replace on next trip" },
+    crates:   { label: "Crates",   tone: "bad",  action: "Collect on next trip" },
+  };
+
   /* ── Indian money, the way the trade says it ─────────────────────────── */
   function rupees(n) {
     if (typeof n !== "number" || !isFinite(n)) return null;
@@ -152,9 +166,13 @@
   /* FoodBridge orders not yet delivered: the next trips. A missed delivery
      that was rescheduled is back on the list. */
   function pendingOrders(c) {
+    /* A stop is off today's route once it has a record — unless it was
+       missed and rescheduled for today, which puts it back on the route.
+       Rescheduled for another day, it is listed as rescheduled, not due. */
+    const todayIso = new Date(c.today).toISOString().slice(0, 10);
     const done = {};
     (c.rec.deliveries || []).forEach(function (d) {
-      if (d.orderNo && (d.status !== "missed" || !d.rescheduledFor)) done[d.orderNo] = d;
+      if (d.orderNo && !(d.status === "missed" && d.rescheduledFor === todayIso)) done[d.orderNo] = d;
     });
     const route = c.rec.route && c.rec.route.day === new Date(c.today).toISOString().slice(0, 10) ? c.rec.route.stops : [];
     const stops = route.map(function (x) {
@@ -209,11 +227,11 @@
         headline: { value: "38 of 45 delivered", context: "4 on the road · 3 missed", bar: 38 / 45, example: true },
         tiles: {
           good: tile("On track", "Delivered", "38", 38, [], { example: true }),
-          bad: tile("Needs work", "On the road", "4", 4, [], { example: true }),
-          ugly: tile("Urgent", "Missed", "3", 3, [
-            { title: "Sharma Stores", note: "Shop closed", next: "Call to reschedule" },
-            { title: "Gupta Mart", note: "Returned 2 cases", next: "Take back into stock" },
-            { title: "Hotel Surya", note: "Short 1 case", next: "Send on next trip" },
+          bad: tile("Pending", "To deliver", "4", 4, [], { example: true }),
+          ugly: tile("Missed", "Need action", "3", 3, [
+            { title: "Sharma Stores", note: "Shop closed", next: "Call to reschedule", tag: { type: "missed" } },
+            { title: "Gupta Mart", note: "Refused", next: "Call to reschedule", tag: { type: "missed" } },
+            { title: "Hotel Surya", note: "Van full", next: "Reschedule for tomorrow", tag: { type: "missed" } },
           ], { example: true }),
         },
         facts: [{ label: "Collected", value: "₹48,200" }, { label: "Empties back", value: "112" }, { label: "Next orders", value: "9" }],
@@ -227,21 +245,20 @@
     const ofToday = all.filter(function (d) { return String(d.at).slice(0, 10) === todayIso; });
     const delivered = ofToday.filter(function (d) { return d.status === "delivered" || d.status === "returned"; });
     const missed = all.filter(function (d) { return d.status === "missed" && !d.rescheduledFor; });
-    const returned = ofToday.filter(function (d) { return (Number(d.returnedCases) || 0) > 0; });
-    const short = ofToday.filter(function (d) { return (Number(d.shortCases) || 0) > 0; });
     const late = delivered.filter(function (d) { return (Number(d.lateMin) || 0) > T.LATE_MIN; });
     const name = function (id) { return c.st.customerById[id] || id; };
     /* A rescheduled delivery is to deliver until the customer's next
        delivery is recorded. */
     const later = function (d) { return all.some(function (x) { return x.customerId === d.customerId && x.at > d.at && x.status !== "missed"; }); };
-    const rescheduled = all.filter(function (d) { return d.status === "missed" && d.rescheduledFor && !later(d); });
+    /* Rescheduled for today, the stop is back on the route (above), not here. */
+    const rescheduled = all.filter(function (d) { return d.status === "missed" && d.rescheduledFor && d.rescheduledFor !== todayIso && !later(d); });
     /* A stop past its slot and still on the road is already late: the
        customer is waiting. It stays in progress, flagged, and it already
        counts against on time. */
     const overdueBy = function (o) { return o.slot ? (c.today - new Date(o.slot).getTime()) / 60000 : 0; };
     const running = c.pending.filter(function (o) { return overdueBy(o) > T.LATE_MIN; });
     const pending = c.pending.concat(rescheduled.map(function (d) {
-      return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor };
+      return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor, window: d.rescheduledWindow || null };
     }));
 
     /* The row's note says what happened; `next` says the one thing to do
@@ -254,29 +271,49 @@
       if (reason === "Van full") return "Reschedule for tomorrow";
       return "Reschedule the trip";
     };
-    const uglyRows = missed.map(function (d) { return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.reason || "Missed", next: missNext(d.reason), value: null, ref: d }; })
-      .concat(late.map(function (d) { return { id: d.no + ":l", kind: "delivery", title: name(d.customerId), note: "Late " + mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy : ""), next: "Ask why it was late", ref: d }; }))
-      .concat(returned.map(function (d) { return { id: d.no + ":r", kind: "delivery", title: name(d.customerId), note: "Returned " + plural(Number(d.returnedCases), "case"), next: "Take back into stock", ref: d }; }))
-      .concat(short.map(function (d) { return { id: d.no + ":s", kind: "delivery", title: name(d.customerId), note: "Short " + plural(Number(d.shortCases), "case"), next: "Send on next trip", ref: d }; }))
-      /* Empties not back are a problem, not a fact: each is the owner's money out. */
-      .concat(ofToday.filter(function (d) { const e = d.empties || {}; return (Number(e.cratesOut) || 0) > (Number(e.cratesBack) || 0); }).map(function (d) {
-        const e = d.empties; return { id: d.no + ":e", kind: "delivery", title: name(d.customerId), note: plural(e.cratesOut - e.cratesBack, "crate") + " not back", next: "Collect on next trip", ref: d };
-      }));
+    /* One row per item, with at most one tag: what went wrong with it.
+       Missed holds the stops that were not delivered; a drop that went
+       late, short, came back or left crates out is still delivered, so it
+       sits under On track with its tag. A record the platform has tagged
+       (`incident`) keeps that tag; otherwise it is read off the record:
+       late before short before returned before crates. */
+    const lateNote = function (d) { return "Late " + mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy : ""); };
+    const cratesOut = function (d) { const e = d.empties || {}; return Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0)); };
+    const found = function (d) {
+      const t = [];
+      if ((Number(d.lateMin) || 0) > T.LATE_MIN) t.push({ type: "late", note: lateNote(d) });
+      if ((Number(d.shortCases) || 0) > 0) t.push({ type: "short", note: "Short " + plural(Number(d.shortCases), "case") });
+      if ((Number(d.returnedCases) || 0) > 0) t.push({ type: "returned", note: "Returned " + plural(Number(d.returnedCases), "case") });
+      if (cratesOut(d)) t.push({ type: "crates", note: plural(cratesOut(d), "crate") + " not back" });
+      return t;
+    };
+    const tagOf = function (type, action) { return { type: type, action: action || INCIDENTS[type].action }; };
+    const uglyRows = missed.map(function (d) {
+      const tag = tagOf(INCIDENTS[d.incident] ? d.incident : "missed", missNext(d.reason));
+      return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.reason || "Missed", next: tag.action, tag: tag, value: null, ref: d };
+    });
     const badRows = pending.map(function (o) {
       const running = overdueBy(o) > T.LATE_MIN;
-      return o.rescheduledFor
-        ? { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor), next: "Nothing to do", value: null }
-        : { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o,
+      if (o.rescheduledFor) {
+        return { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
+                 tag: tagOf("missed", "Nothing to do") };
+      }
+      const tag = INCIDENTS[o.incident] ? tagOf(o.incident) : running ? tagOf("late", "Call the driver") : null;
+      return { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o, tag: tag,
             /* What the owner can act on, never the order number (owner, 23
                Sep 2026): which van has it, and whether it is behind. */
             note: running ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
               : o.van ? "On " + o.van + (o.driver ? " · " + o.driver : "") : "Not on a van yet",
-            next: running ? "Call the driver" : o.van ? "Nothing to do yet" : "Goes on next trip" };
+            next: tag ? tag.action : o.van ? "Nothing to do yet" : "Goes on next trip" };
     }).sort(function (a, b) { return (b.running ? 1 : 0) - (a.running ? 1 : 0) || (b.value || 0) - (a.value || 0); });
     const goodRows = delivered.map(function (d) {
-      return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.status === "returned" ? "Delivered, some returned" : "Delivered",
-               value: Number(d.collected) || 0, ref: d };
-    }).sort(function (a, b) { return (b.value || 0) - (a.value || 0); });
+      const f = found(d);
+      const pick = INCIDENTS[d.incident] ? (f.filter(function (x) { return x.type === d.incident; })[0] || { type: d.incident, note: INCIDENTS[d.incident].label }) : f[0];
+      const tag = pick ? tagOf(pick.type) : null;
+      return { id: d.no, kind: "delivery", title: name(d.customerId), tag: tag,
+               note: pick ? pick.note : d.status === "returned" ? "Delivered, some returned" : "Delivered",
+               next: tag ? tag.action : null, value: Number(d.collected) || 0, ref: d };
+    }).sort(function (a, b) { return (b.tag ? 1 : 0) - (a.tag ? 1 : 0) || (b.value || 0) - (a.value || 0); });
 
     const collected = sum(delivered, function (d) { return Number(d.collected) || 0; });
     const emptiesOut = sum(ofToday, function (d) { const e = d.empties || {}; return Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0)); });
@@ -285,8 +322,8 @@
 
     const t = {
       good: tile("On track", "Delivered", String(delivered.length), delivered.length, goodRows),
-      bad: tile("Needs work", "To deliver", String(pending.length), pending.length, badRows),
-      ugly: tile("Urgent", "Problems", String(uglyRows.length), uglyRows.length, uglyRows),
+      bad: tile("Pending", "To deliver", String(pending.length), pending.length, badRows),
+      ugly: tile("Missed", "Need action", String(uglyRows.length), uglyRows.length, uglyRows),
     };
 
     /* Tomorrow's trips: only the lines that are not zero. */
@@ -775,7 +812,7 @@
     }
   }
 
-  const API = { build: build, T: T, rupees: rupees, plural: plural, date: date, mins: mins, emptiesLine: emptiesLine };
+  const API = { build: build, T: T, INCIDENTS: INCIDENTS, rupees: rupees, plural: plural, date: date, mins: mins, emptiesLine: emptiesLine };
   root.CTLevers = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

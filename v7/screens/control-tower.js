@@ -21,11 +21,15 @@
   /* ── icons (outline, 24 grid) ─────────────────────────────────────────── */
   const sv = function (d) { return '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; };
   const I = {
-    tower: sv('<path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/>'),
+    /* The Tower tab: an airport control tower, not a house (owner, 23 Sep
+       2026) — antenna, glass cab with its window posts, shaft, base. The
+       same shape as the platform bar's Tower (assets/platform.js). */
+    tower: sv('<path d="M12 2v2.5"/><path d="M4.5 4.5h15l-2.5 5h-10z"/><path d="M9.5 4.5 10 9.5M14.5 4.5 14 9.5"/><path d="M9 9.5 8.2 21M15 9.5l.8 11.5"/><path d="M5 21h14"/><path d="M8.8 14.5h6.4"/>'),
     updates: sv('<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
     plus: sv('<path d="M12 5v14M5 12h14"/>'),
     chev: sv('<path d="m9 18 6-6-6-6"/>'),
     x: sv('<path d="M18 6 6 18M6 6l12 12"/>'),
+    clock: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
     pin: sv('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'),
     phone: sv('<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>'),
     map: sv('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>'),
@@ -34,12 +38,13 @@
     cart: sv('<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
     box: sv('<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12M3.3 7l8.7 5 8.7-5"/>'),
     clip: sv('<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
-    scale: sv('<path d="M12 3v18M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>'),
-    grow: sv('<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>'),
-    bulb: sv('<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.7.6 1 1.4 1 2.3h6c0-.9.3-1.7 1-2.3A7 7 0 0 0 12 2Z"/>'),
     flame: sv('<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.7-2.6 1.5-3.5.2 1.3 1 2 2 2 0-2.5-1-4.5.5-7z"/>'),
     minus: sv('<path d="M5 12h14"/>'),
     check: sv('<path d="M20 6 9 17l-5-5"/>'),
+    arrowL: sv('<path d="M19 12H5M12 19l-7-7 7-7"/>'),
+    mic: sv('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+    phone: sv('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    spark: sv('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
     bang: sv('<path d="M12 7v6M12 17h.01"/>'),
     /* Says a tab opens a menu, not a page; turns over while it is open. */
     caret: '<svg class="ct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
@@ -203,7 +208,6 @@
     document.documentElement.classList.toggle("ct-ov", over);
     syncFooter();
     syncTop();
-    if (over) ui.dialsShown = true;
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -302,17 +306,6 @@
       '<h2 class="ct-lvname"><span class="ct-lvicon">' + (ICON_OF[lv.id] || "") + "</span>" + esc(lv.label) + "</h2>" +
       '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav></div>";
   }
-  /* What FoodBridge suggests, under the list on the same page: tomorrow's
-     trips (a fact, its own card), then the balance and Grow cards — those
-     two are FoodBridge's read of the numbers, not a record of anything that
-     happened, so they carry a label saying so and sit apart from the list
-     above (owner, 23 Sep 2026: a subtle "FoodBridge suggests" section, not
-     unlabelled cards that could pass for more findings). */
-  function extras(lv) {
-    const tomorrow = lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? [tomorrowCard(lv.tomorrow)] : [];
-    const suggestions = (lv.balance || []).map(balanceCard).concat(lv.grow ? [growCard(lv.grow)] : []);
-    return tomorrow.concat(suggestions.length ? [suggestSection(suggestions)] : []);
-  }
 
   /* The dot on the tab and the tile the lever opens on say the same thing:
      on track → On track, slipping → Needs work, needs action → Urgent. The
@@ -333,9 +326,10 @@
     /* On track is good news only: no who-owes colours under it. */
     return head(lv) + tiles(lv, sel) +
       (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
-      (lv.id === "deliveries" && sel === "good" ? facts(lv.facts) : "") +
-      list(rows, lv, sel) +
-      extras(lv).join("");
+      (LIST_TITLE[lv.id] && rows.length ? '<h3 class="ct-ltitle">' + esc(LIST_TITLE[lv.id][sel]) + "</h3>" : "") +
+      /* Nothing under the list (owner, 23 Sep 2026): no "FoodBridge
+         suggests", no "Tomorrow's trips". */
+      list(rows, lv, sel);
   }
 
   function head(lv) {
@@ -377,7 +371,38 @@
     return '<div class="ct-facts">' + fs.map(function (f) { return '<div class="' + (f.bad ? "is-bad" : f.good ? "is-good" : "") + '"><span>' + esc(f.label) + "</span><b>" + esc(f.value) + (f.good ? " " + I.check : "") + "</b></div>"; }).join("") + "</div>";
   }
 
+  /* What the list under each tile is, in the owner's words (23 Sep 2026). */
+  const LIST_TITLE = { deliveries: { ugly: "Deliveries needing attention", bad: "Still to deliver", good: "Delivered today" } };
+
+  /* A row that carries an incident tag (Deliveries, 23 Sep 2026): the
+     tag's own icon in its colour, what happened and the step for it,
+     and the tag where a figure would sit. One tag per item, set by the
+     platform where the work is recorded. */
+  /* Each incident's own mark, so the row says what went wrong at a glance
+     (owner, 23 Sep 2026: the icon follows the tag, not the shop's name). */
+  const TAG_ICON = {
+    missed: sv('<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>'),
+    late: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    short: sv('<path d="M16 16h6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M3.29 7 12 12l8.71-5M12 22V12"/>'),
+    returned: sv('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+    damaged: sv('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>'),
+    crates: sv('<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M3 15h18M9 5v15M15 5v15"/>'),
+  };
+  function taggedRowHtml(r, i) {
+    const t = r.tag ? L.INCIDENTS[r.tag.type] : null;
+    const sub = r.note && r.next && r.next !== r.note ? r.note + " · " + r.next : (r.note || r.next);
+    const fig = !t && typeof r.value === "number" && r.value ? L.rupees(r.value) : "";
+    /* No tag: delivered cleanly is a tick; anything else is still on its way. */
+    const mark = t ? TAG_ICON[r.tag.type] || I.bang : r.kind === "delivery" ? I.check : I.truck;
+    return '<button class="ct-row is-tagged" data-row="' + i + '">' +
+      '<span class="ct-ava" data-t="' + (t ? t.tone : r.kind === "delivery" ? "good" : "none") + '" aria-hidden="true">' + mark + "</span>" +
+      '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
+      (t ? '<span class="ct-tag" data-t="' + t.tone + '">' + esc(t.label) + "</span>" : "") +
+      (fig ? '<b class="ct-row-v">' + esc(fig) + "</b>" : "") + "</button>";
+  }
+
   function rowHtml(r, i, good) {
+    if ("tag" in r) return taggedRowHtml(r, i);
     const fig = typeof r.value === "number" ? L.rupees(r.value) : "";
     /* A good-news row carries a green tick, never a risk colour. */
     const mark = good ? '<i class="ct-ok" role="img" aria-label="Done">' + I.check + "</i>"
@@ -396,43 +421,59 @@
     ui.rows = rows;
     if (!rows.length) return lv.tiles[sel].count ? "" : '<p class="ct-empty">Nothing here.</p>';
     const good = sel === "good";
-    return '<div class="ct-list">' + rows.slice(0, L.T.ROWS).map(function (r, i) { return rowHtml(r, i, good); }).join("") + "</div>" +
+    return '<div class="ct-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' + rows.slice(0, L.T.ROWS).map(function (r, i) { return rowHtml(r, i, good); }).join("") + "</div>" +
       (rows.length > L.T.ROWS ? '<button class="ct-more" data-all>Show all ' + rows.length + "</button>" : "");
-  }
-
-  function tomorrowCard(lines) {
-    return '<section class="ct-card"><h3>' + I.truck + "Tomorrow's trips</h3><ul class=\"ct-lines\">" +
-      lines.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></section>";
-  }
-  function balanceCard(b) {
-    return '<button class="ct-card ct-balance" data-goto="' + b.tab + '"><h3>' + I.scale + esc(b.title) + "</h3>" +
-      "<p>" + esc(b.text) + '</p><p class="ct-move">' + esc(b.move) + I.chev + "</p></button>";
-  }
-  function growCard(g) {
-    return '<button class="ct-card ct-grow" data-grow><h3>' + I.grow + "Grow</h3><p>" + esc(g.text) + "</p></button>";
-  }
-  function suggestSection(cards) {
-    return '<section class="ct-suggest"><p class="ct-suggest-lbl">' + I.bulb + "FoodBridge suggests</p>" + cards.join("") + "</section>";
   }
 
   /* ════════════════════════════════════════════════════════════════════
      OVERVIEW — home: the whole business through its five levers.
      ════════════════════════════════════════════════════════════════════ */
-  /* The five levers as dials, three over two, in the owner's order so it
-     never shuffles: the ring's colour and word say how it is, its fill how
-     full. Nothing else (owner, 22 Sep 2026: Wins and the balance card came
-     off; the dials stay, the owner preferred them to full-width rows). */
+  /* A greeting, how many levers need the owner, then one tinted card per
+     lever, two to a row (owner, 23 Sep 2026: replaces the dials). The tint
+     and the line under the name say how it is; the figures are the
+     lever's own, so a card never disagrees with the page it opens. */
+  const HOME_ORDER = ["deliveries", "collections", "inventory", "order", "purchase"];
+  const HOME_NAME = { order: "Orders" };
+  /* By the owner's clock: night 9 pm–5 am. */
+  function greeting() {
+    const h = new Date().getHours();
+    return h < 5 || h >= 21 ? "Good night" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  }
+  function helloText() {
+    const first = String(who().name || "").trim().split(/\s+/)[0];
+    return greeting() + (first ? ", " + first : "") + "!";
+  }
+  /* The greeting keeps up with the clock while the page stays open: checked
+     each minute, and only its own text changes (owner, 23 Sep 2026). */
+  setInterval(function () {
+    const h = document.querySelector(".ct-hello h1");
+    if (h && h.textContent !== helloText()) h.textContent = helloText();
+  }, 60000);
+  /* The line under a card's name: "On track" when it is, else what needs
+     doing in the lever's own count. Collections colours only its figure. */
+  function cardLine(x) {
+    if (x.status === "preview") return esc(WORD.preview);
+    if (x.status === "good") return esc(WORD.good);
+    const t = x.tiles || {};
+    const n = ((t.ugly && t.ugly.count) || 0) + ((t.bad && t.bad.count) || 0);
+    if (x.id === "collections" && x.owed) return "<b>" + esc(L.rupees(x.owed.outstanding) || "₹0") + "</b> <span>outstanding</span>";
+    if (x.id === "inventory") return esc(L.plural(n, "product") + " at risk");
+    return esc(n + (n === 1 ? " needs" : " need") + " action");
+  }
   function overviewBody() {
-    /* The rings fill once, on the first look; a live update never replays it. */
-    return '<div class="ct-dials' + (ui.dialsShown ? "" : " is-first") + '">' + model.levers.map(function (x) {
-      const f = x.health ? Math.max(0.04, x.health.value) : 0;
-      const C = 2 * Math.PI * 40;
-      return '<button class="ct-dial" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(x.label + ", " + WORD[x.status]) + '">' +
-        '<span class="ct-dial-g"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="40"/>' +
-          '<circle class="fg" cx="50" cy="50" r="40" stroke-dasharray="' + (C * f).toFixed(1) + " " + C.toFixed(1) + '"/></svg>' +
-          '<span class="ct-dial-i">' + (ICON_OF[x.id] || "") + "</span></span>" +
-        '<span class="ct-dial-n">' + esc(x.label) + '</span><span class="ct-dial-w">' + WORD[x.status] + I.chev + "</span></button>";
-    }).join("") + "</div>";
+    const byId = {};
+    model.levers.forEach(function (x) { byId[x.id] = x; });
+    const levers = HOME_ORDER.map(function (id) { return byId[id]; }).filter(Boolean);
+    const areas = levers.filter(function (x) { return x.status === "ugly" || x.status === "bad"; }).length;
+    return '<header class="ct-hello"><h1>' + esc(helloText()) + "</h1>" +
+        "<p>" + (areas ? "Here is what needs your attention today" : "Your business is on track today") + "</p>" +
+      "</header>" +
+      '<div class="ct-cards">' + levers.map(function (x) {
+        const name = HOME_NAME[x.id] || x.label;
+        return '<button class="ct-lcard" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(name + ", " + WORD[x.status]) + '">' +
+          '<span class="ct-lcard-i">' + (ICON_OF[x.id] || "") + "</span>" +
+          '<span class="ct-lcard-t"><span class="ct-lcard-n">' + esc(name) + '</span><span class="ct-lcard-w">' + cardLine(x) + "</span></span></button>";
+      }).join("") + "</div>";
   }
 
   /* ── Preview: the whole lever, before its records arrive ─────────────── */
@@ -454,7 +495,6 @@
             (typeof r.value === "number" ? '<b class="ct-row-v">' + L.rupees(r.value) + "</b>" : "") + "</div>";
         }).join("") + "</div>" : "") +
         (lv.facts ? facts(lv.facts) : "") +
-        (lv.tomorrow ? tomorrowCard(lv.tomorrow) : "") +
       "</div>" +
       /* The one way in, in the flow of the page (owner, 23 Sep 2026: no
          floating action buttons). */
@@ -677,7 +717,6 @@
     if (d.row !== undefined) return openItem(ui.rows[+d.row]);
     if ("all" in d) return openAll();
     if (d.goto) { setTab(d.goto); return; }
-    if ("grow" in d) return doGrow();
     if ("connect" in d) return doAction();
     if ("openCreate" in d) return openCreate();
     if (b.id === "ct-newbar") { ui.pending = false; compute(); draw(); }
@@ -741,6 +780,7 @@
   function sheet(fn, push) { if (!push) ui.stack = []; ui.stack.push(fn); paint(); }
   function back() { ui.stack.pop(); if (ui.stack.length) paint(); else closeAll(); }
   function closeAll() {
+    stopTalk();
     ui.stack = [];
     const l = $("#ct-layer"); if (l) l.innerHTML = "";
     document.body.classList.remove("ct-locked");
@@ -750,6 +790,29 @@
     const s = ui.stack[ui.stack.length - 1]();
     const l = layer();
     document.body.classList.add("ct-locked");
+    if (s.modal) {
+      /* A modal popover (a delivery, 23 Sep 2026): a card in the middle of
+         the screen over a dimmed page, the way a standard modal looks — a
+         close in its corner. Tapping outside closes. Its body is one or
+         more panes side by side in a viewport; the sheet slides between
+         them (its bar can carry a way back, s.barLeft). */
+      l.innerHTML = '<div class="ct-scrim is-modal" data-close></div>' +
+        '<section class="ct-sheet is-modal' + (s.cls ? " " + s.cls : "") + '" role="dialog" aria-modal="true" aria-label="' + esc(s.title) + '">' +
+        '<div class="ct-dm-bar">' + (s.barLeft || "") + '<button class="ct-dm-x" data-close aria-label="Close">' + I.x + "</button></div>" +
+        '<div class="ct-dm-vp">' + s.body + "</div></section>";
+      const fel = $(".ct-sheet", l);
+      l.onclick = function (e) {
+        if (e.target.closest("[data-close]")) return closeAll();
+        if (e.target.closest("[data-back]")) return back();
+      };
+      /* The pane's header sticks at the top and its actions at the bottom;
+         each draws its hairline only when there is content under it. */
+      fel.addEventListener("scroll", function (e) {
+        if (e.target.classList && e.target.classList.contains("ct-dm")) markPane(e.target);
+      }, true);
+      if (s.bind) s.bind(fel);
+      return;
+    }
     l.innerHTML = '<div class="ct-scrim" data-close></div><section class="ct-sheet" role="dialog" aria-modal="true" aria-label="' + esc(s.title) + '">' +
       '<div class="ct-grip"></div><header class="ct-sh">' +
         (ui.stack.length > 1 ? '<button class="ct-back" data-back aria-label="Back">' + I.chev + "</button>" : "") +
@@ -768,6 +831,11 @@
     if (s.bind) s.bind(el);
     const f = el.querySelector("[autofocus]"); if (f && window.matchMedia("(min-width: 768px)").matches) f.focus({ preventScroll: true });
   }
+  function markPane(p) {
+    if (!p) return;
+    p.classList.toggle("is-scrolled", p.scrollTop > 2);
+    p.classList.toggle("has-more", p.scrollTop + p.clientHeight < p.scrollHeight - 2);
+  }
   function toast(msg) {
     let t = $("#ct-toast"); if (t) t.remove();
     t = document.createElement("div"); t.id = "ct-toast"; t.className = "ct-toast"; t.setAttribute("role", "status");
@@ -783,7 +851,7 @@
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
     sheet(function () {
       return { title: lv.tiles[sel].word + " · " + rows.length,
-        body: '<div class="ct-list">' + rows.map(function (r, i) { return rowHtml(r, i, sel === "good"); }).join("") + "</div>",
+        body: '<div class="ct-list' + (rows[0] && "tag" in rows[0] ? " is-tagged" : "") + '">' + rows.map(function (r, i) { return rowHtml(r, i, sel === "good"); }).join("") + "</div>",
         bind: function (el) { el.addEventListener("click", function (e) { const b = e.target.closest("[data-row]"); if (b) openItem(rows[+b.dataset.row], true); }); } };
     });
   }
@@ -917,7 +985,97 @@
     return ms.length ? daysSince(ms[0].createdAt) : null;
   }
 
-  /* ── a stop on today's route ──────────────────────────────────────── */
+  /* ── a stop on today's route: a modal popover (owner, 23 Sep 2026) ────
+     Pixel for pixel from the owner's picture: the shop and its tag; What
+     happened · Impact · Foodbridge recommends, each an icon in a soft
+     circle beside its lines; Call the shop and Reschedule; Add a note.
+     Nothing else on it. */
+  /* ── Speak a note instead of typing it, as in the feedback sheet ───────
+     The browser's own speech-to-text (Web Speech API): words land in the
+     note as they are heard and stay there to be edited like anything typed;
+     speech is added after what is already written, never over it. No server
+     of ours hears it. Where the browser has none (Firefox) there is no mic
+     at all rather than one that fails. Indian English. */
+  const SPEECH = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let talk = null;
+  function startTalk(ta, btn, err) {
+    if (!SPEECH || talk || !ta) return;
+    const base = ta.value && !/\s$/.test(ta.value) ? ta.value + " " : ta.value;
+    const max = Number(ta.getAttribute("maxlength")) || 500;
+    let heard = "";
+    const put = function (v) { ta.value = v.slice(0, max); ta.dispatchEvent(new Event("input", { bubbles: true })); };
+    try { talk = new SPEECH(); } catch (e) { talk = null; return; }
+    talk.lang = "en-IN";
+    talk.interimResults = true;
+    talk.continuous = true;
+    talk.onresult = function (ev) {
+      let fin = "", part = "";
+      for (let i = 0; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) fin += ev.results[i][0].transcript; else part += ev.results[i][0].transcript;
+      }
+      heard = fin;
+      put(base + fin + part);
+    };
+    talk.onerror = function (ev) {
+      if (!err) return;
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") { err.hidden = false; err.textContent = "The microphone is blocked — type your note instead."; }
+      else if (ev.error === "network") { err.hidden = false; err.textContent = "Speech needs a connection — type your note instead."; }
+    };
+    talk.onend = function () {
+      if (ta.isConnected) put((base + heard).replace(/\s+$/, ""));
+      btn.classList.remove("is-on"); btn.setAttribute("aria-pressed", "false"); btn.setAttribute("aria-label", "Speak your note");
+      talk = null;
+    };
+    if (err) err.hidden = true;
+    btn.classList.add("is-on"); btn.setAttribute("aria-pressed", "true"); btn.setAttribute("aria-label", "Stop");
+    try { talk.start(); } catch (e) { talk.onend(); }
+  }
+  function stopTalk() { if (talk) { try { talk.stop(); } catch (e) { /* already stopping */ } } }
+
+  const MISS_WHY = {
+    "Shop closed": "The shop was shut when the van reached it.",
+    "Refused": "Customer not available to take delivery.",
+    "Payment not ready": "The customer had no payment ready at the door.",
+    "Van full": "Booked past what the van could carry; it never left the dock.",
+  };
+  /* The tag the Deliveries list shows for this stop, so the two agree. */
+  function deliveryTag(no) {
+    const lv = lever("deliveries");
+    if (!lv || lv.status === "preview") return null;
+    const r = [].concat(lv.tiles.ugly.rows, lv.tiles.bad.rows, lv.tiles.good.rows).filter(function (x) { return x.ref && x.ref.no === no; })[0];
+    return r ? r.tag : null;
+  }
+  /* What was on the van: the stop's own lines, else the customer's usual
+     order — the demo books each customer's usual order for their day, and
+     says so where the items are listed. */
+  function orderLines(dl) {
+    const st = view.state;
+    const stop = (routeToday() || { stops: [] }).stops.filter(function (x) { return x.no === dl.orderNo; })[0] || {};
+    const own = dl.lines || stop.lines || null;
+    const h = (st.history || {})[dl.customerId];
+    const lines = own || (h && h.orders && h.orders[0] ? h.orders[0].lines : []) || [];
+    return { usual: !own && lines.length > 0, cases: Number(dl.cases || stop.cases) || null,
+      lines: lines.map(function (l) {
+        const id = l.productId || l.itemId;
+        const p = (st.productById || {})[id];
+        return { name: p ? p.name : String(id || "Item"), qty: Number(l.qty) || 0, unit: l.unit || (p && p.unit) || "" };
+      }).filter(function (l) { return l.qty > 0; }) };
+  }
+  /* An item the way the owner reads it: the price notes the catalogue
+     carries in its names ("(OLD MRP 70) NEW MRP 65") taken out, and not
+     shouted — "AMLA PICKLE (pet Jar)" reads "Amla Pickle (pet jar)". */
+  function itemName(n) {
+    const t = String(n || "").replace(/\(\s*old\s+mrp[^)]*\)/ig, "").replace(/,?\s*(new\s+)?mrp\s*[₹rs.\s]*\d+(\.\d+)?/ig, "")
+      .replace(/\s{2,}/g, " ").replace(/[\s,]+$/, "").trim();
+    return t.toLowerCase().replace(/(^|[\s(])([a-z])([a-z]{2,})/g, function (m, pre, a, rest) { return pre + a.toUpperCase() + rest; });
+  }
+  /* "3 pcs", "1 box", "2 kg": the count with the unit it is sold in. */
+  function qtyText(q, unit) {
+    const u = String(unit || "pc").trim().toLowerCase().replace(/\.$/, "");
+    const base = { pc: "pc", pcs: "pc", piece: "pc", pieces: "pc", nos: "pc", no: "pc" }[u] || u;
+    const many = { pc: "pcs", box: "boxes", case: "cases", jar: "jars", bottle: "bottles", pack: "packs", packet: "packets", crate: "crates" }[base];
+    return q + " " + (q === 1 || !many ? base : many);
+  }
   function deliverySheet(dl, push) {
     const st = view.state;
     const name = st.customerById[dl.customerId] || dl.customerId;
@@ -931,59 +1089,384 @@
     const returned = Number(dl.returnedCases) || 0;
     const money = Number(dl.collected) || 0;
     const worth = Number(dl.value) || 0;
-    const cases = Number(dl.cases) || 0;
     const missed = dl.status === "missed";
     const shopSide = ["Shop closed", "Refused", "Payment not ready"].indexOf(dl.reason) !== -1;
     const van = vanOf(dl.van);
+    const tag = deliveryTag(dl.no) || (missed ? { type: "missed" } : null);
+    const tagX = tag ? L.INCIDENTS[tag.type] : null;
 
-    const stats = missed
-      ? [worth ? { label: "Not delivered", value: L.rupees(worth), tone: "bad" } : null]
-      : [{ label: "Collected", value: L.rupees(money) || "₹0", tone: money ? "good" : "bad" },
-         cases ? { label: "Cases", value: short ? (cases - short) + " of " + cases : String(cases), tone: short ? "bad" : null } : null,
-         out ? { label: "Crates back", value: back + " of " + out, tone: crates ? "bad" : "good" } : null];
-
-    const tell = missed
-      ? [{ text: dl.reason || "Missed", why: dl.reason === "Van full" ? "Booked past what the van could carry." : null }]
+    /* What happened: the one thing, big, and what else there is to know. */
+    const events = missed
+      ? [{ text: dl.reason || "Missed", why: MISS_WHY[dl.reason] || null }]
       : [late ? { text: "Reached " + L.mins(late) + " late", why: dl.lateWhy || null } : null,
          short ? { text: L.plural(short, "case") + " short", why: "Loaded short of what was booked." } : null,
          returned ? { text: L.plural(returned, "case") + " came back", why: null } : null,
-         crates ? { text: L.plural(crates, "crate") + " not back", why: bottles ? L.plural(bottles, "bottle") + " still with them" : null } : null,
-         !money && worth ? { text: L.rupees(worth) + " went on credit", why: null } : null];
-    if (!missed && !tell.filter(Boolean).length) tell.push({ text: "On time, in full, paid at the door", tone: "good" });
+         crates ? { text: L.plural(crates, "crate") + " not back", why: bottles ? L.plural(bottles, "bottle") + " still with them." : null } : null,
+         !money && worth ? { text: L.rupees(worth) + " went on credit", why: null } : null].filter(Boolean);
+    const clean = !missed && !events.length;
+    const head = clean ? { text: "Delivered", why: "On time, in full, paid at the door." } : events[0];
+    const more = clean ? [] : events.slice(1).map(function (x) { return x.text + (x.why ? " · " + x.why : ""); });
+    if (missed && dl.rescheduledFor) more.push("Back on the trip for " + L.date(dl.rescheduledFor) + ".");
 
+    /* What FoodBridge recommends, and the buttons for it. */
     let todo = null;
-    const acts = [];
+    let primary = shop ? { call: shop, label: "Call the shop" } : null;
     if (missed) {
-      if (dl.rescheduledFor) todo = "On the trip for " + L.date(dl.rescheduledFor) + ". Nothing else to do.";
-      else if (shopSide && shop) {
-        todo = "Ask when they will take it, then put it on tomorrow's trip.";
-        acts.push(callBtn("Call the shop", shop), '<button class="ct-btn is-ghost" data-a="re">Reschedule</button>');
-      } else {
-        todo = dl.reason === "Van full" ? "It never left the dock. Put it on tomorrow's first round." : "Put it back on a trip.";
-        acts.push('<button class="ct-btn" data-a="re">Reschedule</button>');
-        if (shop) acts.push(callBtn("Call the shop", shop, true));
-      }
+      if (dl.rescheduledFor) todo = "It is on the trip for " + L.date(dl.rescheduledFor) + ". Nothing else to do.";
+      else if (shopSide) todo = "Call the customer and confirm when they will take it. Then reschedule for tomorrow's route.";
+      else todo = dl.reason === "Van full" ? "It never left the dock. Put it on tomorrow's first round." : "Put it back on a trip.";
     } else if (crates) {
-      todo = "Ask them to keep " + L.plural(crates, "crate") + " ready for the next trip.";
-      if (shop) acts.push(callBtn("Call the shop", shop));
+      todo = "Call the shop and ask them to keep " + L.plural(crates, "crate") + " ready for the next trip.";
     } else if (short) {
-      todo = short === 1 ? "Tell them the case that was short follows on the next trip."
-        : "Tell them the " + short + " cases follow on the next trip.";
-      if (shop) acts.push(callBtn("Call the shop", shop));
+      todo = short === 1 ? "Call the shop and tell them the case that was short follows on the next trip."
+        : "Call the shop and tell them the " + short + " cases follow on the next trip.";
     } else if (returned) {
       todo = "Find out why they came back, and take them into stock before they are sold twice.";
-      if (shop) acts.push(callBtn("Call the shop", shop));
     } else if (late && van && van.left) {
-      todo = dl.van + " still has " + L.plural(van.left, "stop") + " to make and is running behind.";
-      acts.push(driverBtn(dl.van, dl.driverPhone, dl.driver));
+      todo = dl.van + " still has " + L.plural(van.left, "stop") + " to make and is running behind. Call the driver.";
+      const dp = dl.driverPhone || van.phone;
+      if (dp) primary = { call: dp, label: "Call " + (dl.driver || van.driver || "the driver") };
+    } else if (late) {
+      todo = "Ask " + (dl.driver || "the driver") + " why it was late" + (dl.lateWhy ? " — " + dl.lateWhy.toLowerCase() + "." : ".");
+    }
+
+    const tel = function (p) { return "tel:" + String(p).replace(/[^\d+]/g, ""); };
+    /* The owner's picture (23 Sep 2026): the shop and its tag; the order;
+       then What happened · Impact · FoodBridge recommends, each an icon in
+       a soft circle beside a line or two; then the actions. */
+    const impact = missed
+      ? (worth ? { value: L.rupees(worth), text: "Order value at risk." } : null)
+      : money ? { value: L.rupees(money), text: "Collected at the door." + (worth && money < worth ? " " + L.rupees(worth - money) + " on credit." : "") }
+      : worth ? { value: L.rupees(worth), text: "Went on credit." } : null;
+    /* Order details (owner, 23 Sep 2026): a card on the delivery, and the
+       whole order one step in, in the same card — the delivery slides away
+       and the order slides in; back slides it home. */
+    const ord = orderLines(dl);
+    const address = (st.addressById || {})[dl.customerId] || null;
+    const units = ord.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+    const hasOrder = !!(dl.orderNo || worth || ord.lines.length || address);
+    /* Where the card is: the delivery (main), its order, rescheduling it,
+       or done. Depth says which way a pane slides. */
+    const dv = { view: "main", mainTop: 0, from: null };
+    const DEPTH = { main: 0, order: 1, resched: 1, done: 2 };
+    const posOf = function (k) { return k === dv.view ? "on" : DEPTH[k] < DEPTH[dv.view] ? "left" : "right"; };
+    const canResched = missed && !dl.rescheduledFor;
+    /* Reschedule (owner, 23 Sep 2026, from their picture): a day from
+       today and the next four, a time window, a note for the team, and
+       whether the customer is told on WhatsApp. Tomorrow morning unless the
+       owner picks otherwise; a window already past today can't be picked. */
+    const WINS = [{ id: "morning", label: "Morning", time: "8am – 12pm", from: 8, to: 12 },
+                  { id: "afternoon", label: "Afternoon", time: "12pm – 4pm", from: 12, to: 16 },
+                  { id: "evening", label: "Evening", time: "4pm – 8pm", from: 16, to: 20 }];
+    const RS_MAX = 200;
+    const rs = { day: 1, win: "morning", note: "", notify: true, done: null, confirming: false };
+    const row = function (k, v, cls) { return v ? '<div><dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</dd></div>" : ""; };
+    function orderCard() {
+      if (!hasOrder) return "";
+      return '<section class="ct-dm-order"><div class="ct-dm-ocard" data-a="order" role="button" tabindex="0" aria-label="Order details, view the whole order">' +
+          "<h4>Order details</h4><dl>" +
+            row("Order No.", dl.orderNo ? esc(dl.orderNo) : "") +
+            row("Order value", worth ? esc(L.rupees(worth)) : "", "is-num") +
+            row("Items", ord.lines.length ? esc(L.plural(ord.lines.length, "item")) + ' <span class="ct-dm-view">(View)</span>' : '<span class="ct-dm-muted">Not recorded</span>') +
+            row("Delivery address", address ? esc(address) : "", "is-clip") +
+          "</dl>" + '<span class="ct-dm-ochev" aria-hidden="true">' + I.chev + "</span></div></section>";
+    }
+    /* The order, one step in: its number and tag, three figures in a light
+       strip, when and where in two quiet lines, then what was on it. */
+    function orderPane() {
+      const facts = [worth ? [L.rupees(worth), "Order value"] : null, ord.cases ? [String(ord.cases), ord.cases === 1 ? "Case" : "Cases"] : null,
+        units ? [String(units), units === 1 ? "Unit" : "Units"] : null].filter(Boolean);
+      return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo || "Order") + "</h3>" +
+          (tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>" : '<span class="ct-dm-pill" data-t="good">Delivered</span>') +
+          '<p class="ct-dm-sub">' + esc(name) + "</p></section>" +
+        (facts.length ? '<div class="ct-dm-facts">' + facts.map(function (f) { return "<div><b>" + esc(f[0]) + "</b><span>" + esc(f[1]) + "</span></div>"; }).join("") + "</div>" : "") +
+        /* When and where, each on its own labelled row; the address in full. */
+        '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (missed ? "Was due" : "Delivered") + "</small>" +
+            esc([whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · ")) + "</p></div>" +
+          (address ? '<div><span class="ct-dm-wic">' + I.pin + "</span><p><small>Delivery address</small>" + esc(address) + "</p></div>" : "") + "</div>" +
+        '<section class="ct-dm-sec ct-dm-list"><div class="ct-dm-lh"><h4>Items' + (ord.lines.length ? " (" + ord.lines.length + ")" : "") + "</h4>" +
+            (ord.usual ? "<small>From their usual order</small>" : "") + "</div>" +
+          (ord.lines.length
+            ? '<ul class="ct-dm-items">' + ord.lines.map(function (l) {
+                return '<li><span class="ct-dm-iname">' + esc(itemName(l.name)) + '</span><span class="ct-dm-qty">' + esc(qtyText(l.qty, l.unit)) + "</span></li>";
+              }).join("") + "</ul>" +
+              '<div class="ct-dm-total"><span>Total</span><b>' + esc(L.plural(units, "unit") + (worth ? " · " + L.rupees(worth) : "")) + "</b></div>"
+            : '<p class="ct-dm-empty">The items on this order weren\'t recorded.</p>') +
+        "</section>";
+    }
+    const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], WDL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    function dayAt(i) { const d = new Date(view.state.now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i); return d; }
+    const isoDay = function (d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    /* A window is open unless it is today and already over. */
+    const winOpen = function (dayIdx, w) { return dayIdx > 0 || new Date(view.state.now).getHours() < w.to; };
+    const dayOpen = function (i) { return WINS.some(function (w) { return winOpen(i, w); }); };
+    function reschedPane() {
+      if (!dayOpen(rs.day)) rs.day = 1;
+      if (!winOpen(rs.day, WINS.filter(function (w) { return w.id === rs.win; })[0])) rs.win = WINS.filter(function (w) { return winOpen(rs.day, w); })[0].id;
+      const days = [0, 1, 2, 3, 4].map(function (i) {
+        const d = dayAt(i);
+        return '<button type="button" class="ct-rs-day" data-day="' + i + '" aria-pressed="' + (i === rs.day) + '"' + (dayOpen(i) ? "" : " disabled") + ">" +
+          "<span>" + WD[d.getDay()] + "</span><b>" + d.getDate() + "</b><small>" + (i === 0 ? "Today" : i === 1 ? "Tomorrow" : "") + "</small></button>";
+      }).join("");
+      const wins = WINS.map(function (w) {
+        return '<button type="button" class="ct-rs-win" data-win="' + w.id + '" aria-pressed="' + (w.id === rs.win) + '"' + (winOpen(rs.day, w) ? "" : " disabled") + ">" +
+          "<b>" + w.label + "</b><span>" + w.time + '</span><i class="ct-rs-ck" aria-hidden="true">' + I.check + "</i></button>";
+      }).join("");
+      return '<div class="ct-rs">' +
+        '<h4 class="ct-rs-h">Select new delivery date</h4><div class="ct-rs-days" role="group" aria-label="New delivery date">' + days + "</div>" +
+        '<h4 class="ct-rs-h is-win">Preferred time window</h4><div class="ct-rs-wins" role="group" aria-label="Preferred time window">' + wins + "</div>" +
+        '<label class="ct-rs-l" for="ct-rs-note">Add internal notes (optional)</label>' +
+        /* Speak the note instead of typing it, as everywhere else a note is
+           written (the browser's own speech-to-text). */
+        '<div class="ct-rs-ta' + (SPEECH ? " has-mic" : "") + '"><textarea id="ct-rs-note" rows="3" maxlength="' + RS_MAX + '" placeholder="e.g. Customer asked for tomorrow morning. Confirmed on phone.">' + esc(rs.note) + "</textarea>" +
+          '<span class="ct-rs-count">' + rs.note.length + "/" + RS_MAX + "</span>" +
+          (SPEECH ? '<button type="button" class="ct-dm-mic ct-rs-mic" data-a="rs-mic" aria-label="Speak your note" aria-pressed="false">' + I.mic + "</button>" : "") + "</div>" +
+        '<p class="ct-dm-err ct-rs-err" role="alert" hidden></p>' +
+        '<label class="ct-rs-cb"><input type="checkbox" id="ct-rs-notify"' + (rs.notify ? " checked" : "") + '><span class="ct-rs-box" aria-hidden="true">' + I.check + "</span>" +
+          "<span><b>Notify customer on WhatsApp</b><small>We'll send a confirmation message.</small></span></label>" +
+        /* One tap asks, the next does it (owner, 23 Sep 2026): the button
+           turns into what will happen, with Cancel and Confirm, in place. */
+        '<div class="ct-rs-foot"><button type="button" class="ct-rs-go" data-a="rs-go">Reschedule Delivery</button>' +
+          '<div class="ct-rs-conf" role="group" aria-label="Confirm the new delivery time" hidden><p class="ct-rs-conf-t" aria-live="polite"></p>' +
+            '<div class="ct-rs-conf-b"><button type="button" class="ct-rs-no" data-a="rs-no">Cancel</button>' +
+            '<button type="button" class="ct-rs-yes" data-a="rs-yes">Confirm</button></div></div></div>' +
+        "</div>";
+    }
+    /* Done: what was moved. The card closes with ✕ or a tap outside
+       (owner, 23 Sep 2026: no buttons here). */
+    const ILLUS = '<svg class="ct-rs-art" viewBox="0 0 224 162" aria-hidden="true">' +
+      '<g><rect x="30" y="18" width="6" height="6" rx="1.2" fill="#3B82F6" transform="rotate(20 33 21)"/><rect x="62" y="6" width="6" height="6" rx="1.2" fill="#F59E0B" transform="rotate(35 65 9)"/>' +
+      '<rect x="14" y="58" width="6" height="6" rx="1.2" fill="#16A34A" transform="rotate(15 17 61)"/><rect x="18" y="92" width="6" height="6" rx="1.2" fill="#F97316" transform="rotate(40 21 95)"/>' +
+      '<rect x="8" y="122" width="5" height="5" rx="1" fill="#3B82F6" transform="rotate(30 10 124)"/><circle cx="160" cy="6" r="3.2" fill="#3B82F6"/>' +
+      '<rect x="186" y="26" width="6" height="6" rx="1.2" fill="#F59E0B" transform="rotate(30 189 29)"/><rect x="206" y="52" width="6" height="6" rx="1.2" fill="#16A34A" transform="rotate(25 209 55)"/>' +
+      '<rect x="186" y="80" width="6" height="6" rx="1.2" fill="#16A34A" transform="rotate(40 189 83)"/><rect x="210" y="96" width="6" height="6" rx="1.2" fill="#EF4444" transform="rotate(20 213 99)"/>' +
+      '<rect x="196" y="126" width="5" height="5" rx="1" fill="#10B981" transform="rotate(35 198 128)"/></g>' +
+      '<ellipse cx="112" cy="148" rx="62" ry="7" fill="#EEF1F4"/>' +
+      '<rect x="52" y="30" width="112" height="108" rx="10" fill="#FFFFFF" stroke="#D7DCE2" stroke-width="2"/>' +
+      '<path d="M52 40a10 10 0 0 1 10-10h92a10 10 0 0 1 10 10v16H52z" fill="#1E8A4E"/>' +
+      '<rect x="76" y="20" width="8" height="22" rx="4" fill="#C9D0D8"/><rect x="132" y="20" width="8" height="22" rx="4" fill="#C9D0D8"/>' +
+      '<rect x="70" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="99" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="128" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/>' +
+      '<rect x="70" y="97" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="99" y="97" width="18" height="16" rx="4" fill="#E5E8EC"/>' +
+      '<circle cx="158" cy="116" r="34" fill="#0E8A4B"/><path d="m142 116 11 11 21-22" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    function donePane() {
+      const r = rs.done;
+      if (!r) return "";
+      return '<div class="ct-rd">' + ILLUS +
+        '<h3 class="ct-rd-t">Delivery Rescheduled!</h3>' +
+        '<p class="ct-rd-s">The delivery has been moved to ' + esc(r.phrase) + ".</p>" +
+        '<section class="ct-rd-card"><h4>Rescheduled delivery</h4><dl>' +
+          "<div><dt>Customer</dt><dd>" + esc(name) + "</dd></div>" +
+          "<div><dt>Date</dt><dd>" + esc(r.date) + "</dd></div>" +
+          "<div><dt>Time</dt><dd>" + esc(r.time) + "</dd></div>" +
+          (worth ? "<div><dt>Order value</dt><dd>" + esc(L.rupees(worth)) + "</dd></div>" : "") +
+          '<div><dt>Status</dt><dd><span class="ct-rd-pill">Scheduled</span></dd></div>' +
+        "</dl></section></div>";
+    }
+    function body() {
+      const notes = ((view.records.notes || {})[dl.no] || []);
+      const bits = [head.why].concat(more).filter(Boolean);
+      const main = '<section class="ct-dm-top"><h3>' + esc(name) + "</h3>" +
+          (tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>" : '<span class="ct-dm-pill" data-t="good">Delivered</span>') +
+          '<p class="ct-dm-sub">' + esc([(missed ? "Missed " : "Delivered ") + whenOf(dl.at), dl.van].filter(Boolean).join(" · ")) + "</p></section>" +
+        orderCard() +
+        '<section class="ct-dm-sec"><h4>What happened</h4><div class="ct-dm-line">' +
+          '<span class="ct-dm-ic" data-t="' + (clean ? "good" : tagX ? tagX.tone : "ugly") + '">' + (clean ? I.check : '<b aria-hidden="true">!</b>') + "</span>" +
+          '<div><p class="ct-dm-main">' + esc(head.text) + "</p>" + bits.map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") + "</div></div></section>" +
+        (impact ? '<section class="ct-dm-sec"><h4>Impact</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.rupee + "</span>" +
+          '<div><p class="ct-dm-main">' + esc(impact.value) + "</p><p>" + esc(impact.text) + "</p></div></div></section>" : "") +
+        '<section class="ct-dm-sec is-rec"><h4>Foodbridge recommends</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + (/\bcall\b/i.test(todo || "") ? I.phone : I.spark) + "</span>" +
+          '<div><p class="ct-dm-rec">' + esc(todo || "Nothing to do here.") + "</p></div></div></section>" +
+        (notes.length ? '<section class="ct-dm-sec ct-dm-notes"><h4>Notes</h4>' + notes.map(function (n) { return "<p>" + esc(n.text) + "<small>" + esc(whenOf(n.at)) + "</small></p>"; }).join("") + "</section>" : "") +
+        '<section class="ct-dm-acts"><div class="ct-dm-row">' +
+            (primary ? '<a class="ct-dm-call" href="' + tel(primary.call) + '">' + esc(primary.label) + "<small>" + esc(phoneText(primary.call)) + "</small></a>" : "") +
+            (canResched && !rs.done ? '<button type="button" class="ct-dm-re" data-a="re">Reschedule</button>' : "") +
+          "</div>" +
+          /* Add a note turns into the note itself (owner, 23 Sep 2026): while
+             the owner writes there is no button asking them to start one. */
+          (note.open
+            ? '<form class="ct-dm-compose"><label class="ct-dm-compose-l" for="ct-dm-ta">Add a note</label>' +
+                '<div class="ct-dm-talk"><textarea id="ct-dm-ta" rows="3" maxlength="' + NOTE_MAX + '" placeholder="' + (SPEECH ? "Type or speak what you found out" : "What did you find out?") + '">' + esc(note.draft) + "</textarea>" +
+                  (SPEECH ? '<button type="button" class="ct-dm-mic" data-a="note-mic" aria-label="Speak your note" aria-pressed="false">' + I.mic + "</button>" : "") + "</div>" +
+                '<p class="ct-dm-err" role="alert" hidden></p>' +
+                '<div class="ct-dm-compose-f"><span class="ct-dm-count" aria-live="polite">' + note.draft.length + "/" + NOTE_MAX + "</span>" +
+                  '<button type="button" class="ct-dm-cancel" data-a="note-cancel">Cancel</button>' +
+                  '<button type="submit" class="ct-dm-save"' + (note.draft.trim() ? "" : " disabled") + ">Save note</button></div></form>"
+            : '<button type="button" class="ct-dm-note" data-a="note">Add a note</button>') +
+        "</section>";
+      const paneHtml = function (k, html, label) {
+        return '<div class="ct-dm" data-pane="' + k + '" data-pos="' + posOf(k) + '"' + (k === dv.view ? "" : " inert") + (label ? ' aria-label="' + label + '"' : "") + '><div class="ct-dm-in">' + html + "</div></div>";
+      };
+      return paneHtml("main", main) +
+        (hasOrder ? paneHtml("order", orderPane(), "Order details") : "") +
+        (canResched || rs.done ? paneHtml("resched", reschedPane(), "Reschedule delivery") + paneHtml("done", donePane(), "Delivery rescheduled") : "");
+    }
+    /* The note being written lives here, so a repaint never loses it. */
+    const NOTE_MAX = 500;
+    const note = { open: false, draft: "" };
+    function setNote(open) { stopTalk(); note.open = open; if (!open) note.draft = ""; paint(); }
+    function saveNote() {
+      stopTalk();
+      const t = note.draft.trim();
+      if (!t) return;
+      try { tower.store.addNote(dl.no, t); tower.store.audit({ kind: "action", action: "add_note", outcome: name }); }
+      catch (x) { return toast(x.message); }
+      note.open = false; note.draft = "";
+      compute(); draw(); paint(); toast("Note saved");
     }
 
     sheet(function () {
-      return { title: name,
-        sub: [(missed ? "Missed " : "Delivered ") + whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · "),
-        body: detail({ stats: stats, tell: tell, todo: todo }),
-        foot: acts.filter(Boolean).join(""),
-        bind: function (el) { const b = $("[data-a=re]", el.parentNode); if (b) b.addEventListener("click", function () { rescheduleSheet([dl.no], true); }); } };
+      return { modal: true, title: name, cls: "is-" + dv.view,
+        barLeft: '<div class="ct-dm-bl"' + (dv.view === "order" || dv.view === "resched" ? "" : " inert") + '><button type="button" class="ct-dm-bk" data-a="nav-back" aria-label="Back to the delivery">' + I.arrowL + "</button>" +
+          "<h2>" + (dv.view === "resched" ? "Reschedule Delivery" : "Order details") + "</h2></div>",
+        body: body(),
+        bind: function (el) {
+          const vp = $(".ct-dm-vp", el);
+          const pane = function (k) { return $('.ct-dm[data-pane="' + k + '"]', el); };
+          /* The card is as tall as the pane in view, up to the screen; the
+             height eases when the pane changes, and snaps while typing. */
+          const sync = function (ease) {
+            const p = pane(dv.view); if (!p) return;
+            if (!ease) vp.classList.add("no-anim");
+            vp.style.height = $(".ct-dm-in", p).offsetHeight + "px";
+            if (!ease) { void vp.offsetHeight; vp.classList.remove("no-anim"); markPane(p); }
+            else setTimeout(function () { markPane(p); }, 320);
+          };
+          let busy = false;
+          sync(false);
+          /* Follows its content from then on: a note growing, late fonts, a
+             phone turned sideways. */
+          if (window.ResizeObserver) {
+            const ro = new ResizeObserver(function () { if (!busy && el.isConnected) sync(false); else if (!el.isConnected) ro.disconnect(); });
+            $$(".ct-dm-in", el).forEach(function (x) { ro.observe(x); });
+          }
+          const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          /* One way to move between the card's panes: the one in view slides
+             out the way it came, the next slides in; the bar follows. By
+             keyboard, focus follows the slide; by touch it stays put. */
+          const nav = function (to, byKey) {
+            if (busy || dv.view === to || !pane(to)) return;
+            busy = true;
+            stopTalk();
+            if (rs.confirming) conf(false);
+            const from = dv.view;
+            if (from === "main") dv.mainTop = pane("main").scrollTop;
+            if (DEPTH[to] > DEPTH[from]) pane(to).scrollTop = 0;
+            dv.from = from; dv.view = to;
+            el.className = el.className.replace(/\bis-(main|order|resched|done)\b/, "is-" + to);
+            $$(".ct-dm[data-pane]", el).forEach(function (p) { p.dataset.pos = posOf(p.dataset.pane); p.inert = p.dataset.pane !== to; });
+            const bl = $(".ct-dm-bl", el);
+            bl.inert = !(to === "order" || to === "resched");
+            if (to === "order" || to === "resched") $("h2", bl).textContent = to === "resched" ? "Reschedule Delivery" : "Order details";
+            sync(true);
+            if (to === "main") pane("main").scrollTop = dv.mainTop;
+            setTimeout(function () {
+              busy = false;
+              const f = to === "main" ? $(from === "resched" ? "[data-a=re]" : "[data-a=order]", el) : to === "done" ? $(".ct-dm-x", el) : $(".ct-dm-bk", el);
+              if (f && byKey) f.focus({ preventScroll: true });
+              else if (document.activeElement && el.contains(document.activeElement)) document.activeElement.blur();
+            }, reduced ? 0 : 300);
+          };
+          el.addEventListener("keydown", function (ev) {
+            if (ev.key === "Escape" && dv.view === "resched" && rs.confirming) { ev.preventDefault(); ev.stopPropagation(); conf(false, true); }
+            else if (ev.key === "Escape" && (dv.view === "order" || dv.view === "resched")) { ev.preventDefault(); ev.stopPropagation(); nav("main", true); }
+            else if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("[data-a=order]")) { ev.preventDefault(); nav("order", true); }
+          });
+          /* Reschedule: picks change in place; the button does the work. */
+          const rsEl = $(".ct-rs", el);
+          /* The inline confirmation: what will happen, from the picks as
+             they stand; any change to a pick puts the button back. */
+          const conf = function (on, byKey) {
+            const foot = $(".ct-rs-foot", rsEl); if (!foot) return;
+            const box = $(".ct-rs-conf", foot), go = $(".ct-rs-go", foot);
+            if (on) {
+              const d = dayAt(rs.day), w = WINS.filter(function (x) { return x.id === rs.win; })[0];
+              $(".ct-rs-conf-t", box).innerHTML = "Move to <b>" + esc(WD[d.getDay()] + ", " + d.getDate() + " " + MO[d.getMonth()]) + " · " + esc(w.time) + "</b>" +
+                "<small>" + (rs.notify ? esc(name) + " will get a WhatsApp confirmation." : "The customer won't be told.") + "</small>";
+            }
+            foot.classList.toggle("is-confirm", on);
+            go.hidden = on; box.hidden = !on;
+            rs.confirming = on;
+            if (byKey) (on ? $(".ct-rs-yes", box) : go).focus({ preventScroll: true });
+            if (on) foot.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+          };
+          const pickDay = function (i) {
+            if (rs.confirming) conf(false);
+            rs.day = i;
+            $$(".ct-rs-day", rsEl).forEach(function (x) { x.setAttribute("aria-pressed", String(+x.dataset.day === i)); });
+            $$(".ct-rs-win", rsEl).forEach(function (x) {
+              const w = WINS.filter(function (y) { return y.id === x.dataset.win; })[0];
+              x.disabled = !winOpen(i, w);
+            });
+            if (!winOpen(i, WINS.filter(function (w) { return w.id === rs.win; })[0])) pickWin(WINS.filter(function (w) { return winOpen(i, w); })[0].id);
+          };
+          const pickWin = function (id) {
+            if (rs.confirming && id !== rs.win) conf(false);
+            rs.win = id;
+            $$(".ct-rs-win", rsEl).forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.win === id)); });
+          };
+          const doResched = function (btn) {
+            const d = dayAt(rs.day), w = WINS.filter(function (x) { return x.id === rs.win; })[0];
+            const dayWord = rs.day === 0 ? "this" : rs.day === 1 ? "tomorrow" : WDL[d.getDay()];
+            stopTalk();
+            const note = rs.note.trim();
+            btn.disabled = true;
+            try {
+              tower.store.rescheduleDeliveries([dl.no], isoDay(d), { rescheduledWindow: w.id, rescheduleNote: note || null, notifyCustomer: rs.notify });
+              if (note) tower.store.addNote(dl.no, note);
+              if (rs.notify) tower.store.addOutbox([{ customerId: dl.customerId, name: name, channel: "whatsapp", kind: "reschedule",
+                body: "Hello " + name + ", your FoodBridge delivery is now on " + WDL[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()] + ", " + w.time + "." }]);
+              tower.store.audit({ kind: "action", action: "reschedule_delivery", outcome: name + " · " + isoDay(d) + " " + w.id, reason: note || null });
+            } catch (x) { btn.disabled = false; return toast(x.message + " Nothing was changed."); }
+            rs.done = { phrase: dayWord + " " + w.label.toLowerCase(), time: w.time,
+                        date: WD[d.getDay()] + ", " + d.getDate() + " " + MO[d.getMonth()] + " " + d.getFullYear() };
+            $(".ct-dm-in", pane("done")).innerHTML = donePane();
+            compute(); draw();
+            nav("done", false);
+          };
+          if (rsEl) {
+            rsEl.addEventListener("click", function (ev) {
+              const d = ev.target.closest("[data-day]"); if (d && !d.disabled) return pickDay(+d.dataset.day);
+              const w = ev.target.closest("[data-win]"); if (w && !w.disabled) return pickWin(w.dataset.win);
+            });
+            const rta = $("#ct-rs-note", rsEl), rc = $(".ct-rs-count", rsEl);
+            rta.addEventListener("input", function () { rs.note = rta.value; rc.textContent = rta.value.length + "/" + RS_MAX; });
+            $("#ct-rs-notify", rsEl).addEventListener("change", function (ev) { rs.notify = ev.target.checked; if (rs.confirming) conf(true); });
+          }
+          el.addEventListener("click", function (ev) {
+            const b = ev.target.closest("[data-a]"); if (!b) return;
+            if (b.dataset.a === "order") return nav("order", ev.detail === 0);
+            if (b.dataset.a === "nav-back") return nav("main", ev.detail === 0);
+            if (b.dataset.a === "re") return nav("resched", ev.detail === 0);
+            if (b.dataset.a === "rs-go") return conf(true, ev.detail === 0);
+            if (b.dataset.a === "rs-no") return conf(false, ev.detail === 0);
+            if (b.dataset.a === "rs-yes") return doResched(b);
+            if (b.dataset.a === "rs-mic") return talk ? stopTalk() : startTalk($("#ct-rs-note", el), b, $(".ct-rs-err", el));
+            if (b.dataset.a === "note") return setNote(true);
+            if (b.dataset.a === "note-cancel") return setNote(false);
+            if (b.dataset.a === "note-mic") return talk ? stopTalk() : startTalk($("#ct-dm-ta", el), b, $(".ct-dm-err", el));
+          });
+          const f = $(".ct-dm-compose", el);
+          if (!f) return;
+          const ta = $("textarea", f), save = $(".ct-dm-save", f), count = $(".ct-dm-count", f);
+          /* Grows with what is written, up to five lines. */
+          const fit = function () { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 132) + "px"; sync(false); };
+          ta.addEventListener("input", function () {
+            note.draft = ta.value;
+            save.disabled = !ta.value.trim();
+            count.textContent = ta.value.length + "/" + NOTE_MAX;
+            fit();
+          });
+          ta.addEventListener("keydown", function (ev) {
+            if (ev.key === "Escape") { ev.stopPropagation(); ev.preventDefault(); setNote(false); }
+            else if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); saveNote(); }
+          });
+          f.addEventListener("submit", function (ev) { ev.preventDefault(); saveNote(); });
+          fit();
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+          f.scrollIntoView({ block: "nearest" });
+        } };
     }, push);
   }
 
@@ -1231,11 +1714,6 @@
     if (a.kind === "purchase") return purchaseSheet(a.ids);
     if (a.kind === "orders") return ordersSheet(a.signal);
     if (a.kind === "reschedule") return rescheduleSheet(a.nos);
-  }
-  function doGrow() {
-    const g = lever().grow; if (!g) return;
-    if (g.tab) return setTab(g.tab);
-    if (g.kind === "offer") return offerSheet(g.signal);
   }
   function stepper(k, q) {
     return '<span class="ct-step"><button type="button" data-step="' + k + '" data-d="-1" aria-label="Less">' + I.minus + "</button>" +

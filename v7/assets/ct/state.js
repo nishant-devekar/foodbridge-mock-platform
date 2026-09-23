@@ -87,14 +87,25 @@
        renumbers its customers, so a record is matched by its id or, failing
        that, by the shop's name. No number on file, no call offered. */
     const phoneById = {};
+    const addressById = {};                         // where the van goes: a delivery's order details
     const idByName = {};
     customers.forEach(function (c) { idByName[String(c.name).toLowerCase()] = c.id; });
     ((r.seed && r.seed.b2b) || []).forEach(function (c) {
-      const ph = c && (c.phone || c.mobile);
-      if (!ph) return;
+      if (!c) return;
       const nm = (c.name && (c.name.en || c.name)) || "";
       const id = nameById[c._id] ? c._id : idByName[String(nm).toLowerCase()];
-      if (id) phoneById[id] = String(ph);
+      if (!id) return;
+      const ph = c.phone || c.mobile;
+      if (ph) phoneById[id] = String(ph);
+      /* Tidied: stray commas out, and a part said twice ("Guwahati, Assam,
+         … GUWAHATI, ASSAM") said once. An address that is only a state or
+         a city ("…, assam") tells the owner nothing, so it is left off. */
+      const ad = [c.adress2, c.adress1, c.address].map(function (x) {
+        const seen = {};
+        return String(x || "").split(",").map(function (p) { return p.trim(); })
+          .filter(function (p) { const k = p.toLowerCase(); if (!p || seen[k]) return false; seen[k] = 1; return true; }).join(", ");
+      }).filter(function (x) { return x.split(",").length > 1 || x.length > 20; })[0];
+      if (ad) addressById[id] = ad;
     });
 
     const mrpOf = api.mrpOf || function () { return null; };
@@ -184,6 +195,7 @@
       customers: customers,
       customerById: nameById,
       phoneById: phoneById,
+      addressById: addressById,
       products: products,
       productById: productById,
       orders: orders,

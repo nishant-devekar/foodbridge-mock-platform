@@ -27,6 +27,8 @@
      fb.v7.ct.holds              customers whose supply is held (Fire).
      fb.v7.ct.route              today's planned delivery stops (the demo
                                  business's route; demo.js plans it daily).
+     fb.v7.ct.notes              the owner's notes on an item (23 Sep 2026),
+                                 by its delivery no: what they found out.
 
    And one it does NOT own: orders go to fb.v7.orders, the store onboarding's
    Create Order already writes and Order Drafts reads, in that same shape.
@@ -51,6 +53,7 @@
     stockCounts: "fb.v7.ct.stockCounts",
     holds: "fb.v7.ct.holds",
     route: "fb.v7.ct.route",
+    notes: "fb.v7.ct.notes",
     orders: "fb.v7.orders",
   };
   const AUDIT_CAP = 500;
@@ -265,11 +268,13 @@
       return recs;
     }
     /* Missed deliveries go back on the next trip: the record stays, marked. */
-    function rescheduleDeliveries(nos, forDate) {
+    /* extra: what the owner chose with the day — the time window
+       (rescheduledWindow) and whether the customer is told. */
+    function rescheduleDeliveries(nos, forDate, extra) {
       const all = get(K.deliveries, []);
       const set = {}; nos.forEach(function (x) { set[x] = 1; });
       let hit = 0;
-      all.forEach(function (d) { if (set[d.no]) { d.rescheduledFor = forDate; d.rescheduledAt = isoNow(); hit += 1; } });
+      all.forEach(function (d) { if (set[d.no]) { d.rescheduledFor = forDate; d.rescheduledAt = isoNow(); Object.assign(d, extra || {}); hit += 1; } });
       put(K.deliveries, all);
       return hit;
     }
@@ -294,6 +299,16 @@
     }
 
     function setRoute(r) { put(K.route, r); return r; }
+    /* A note the owner keeps on one item. */
+    function addNote(key, text) {
+      const t = String(text || "").trim();
+      if (!t) return null;
+      const all = get(K.notes, {});
+      const rec = { text: t, at: isoNow() };
+      all[key] = (all[key] || []).concat([rec]);
+      put(K.notes, all);
+      return rec;
+    }
 
     function read() {
       return {
@@ -302,6 +317,7 @@
         followups: get(K.followups, []), support: get(K.support, []), orders: get(K.orders, []),
         deliveries: get(K.deliveries, []), payments: get(K.payments, []),
         stockCounts: get(K.stockCounts, []), holds: get(K.holds, {}), route: get(K.route, null),
+        notes: get(K.notes, {}),
       };
     }
 
@@ -312,7 +328,7 @@
              inProgress: inProgress, audit: audit, addPurchaseRequest: addPurchaseRequest, addOutbox: addOutbox,
              addFollowup: addFollowup, addSupport: addSupport, addOrders: addOrders,
              addDeliveries: addDeliveries, rescheduleDeliveries: rescheduleDeliveries, addPayment: addPayment,
-             addStockCounts: addStockCounts, setHold: setHold, setRoute: setRoute };
+             addStockCounts: addStockCounts, setHold: setHold, setRoute: setRoute, addNote: addNote };
   }
 
   const API = { create: create, memory: memory, KEYS: K, StoreError: StoreError };
