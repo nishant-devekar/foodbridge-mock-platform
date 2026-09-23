@@ -1,8 +1,8 @@
 /* ==========================================================================
-   CONTROL TOWER · ASSISTANT — the floating button and the chat. (22 Sep 2026)
+   CONTROL TOWER · ASSISTANT — the chat. (22 Sep 2026)
 
-   The owner asked for an assistant floating over the tower's screens: tap it
-   and a chat opens that looks and works like WhatsApp and a WhatsApp
+   The owner asked for an assistant over the tower's screens: tap it and a
+   chat opens that looks and works like WhatsApp and a WhatsApp
    Business bot — reply buttons, a list menu, "reply with a number". Built
    new for this; it borrows nothing from the platform's IVR or any earlier
    assistant.
@@ -12,9 +12,10 @@
    FBControlTower.api and never changes a record: a button opens the lever,
    or the lever's own confirm sheet.
 
-   The conversation lasts the browser session (sessionStorage), the way a
-   chat stays where you left it. The hint beside the button shows once per
-   device.
+   It opens from the footer's Assistant action (on a big screen, the top
+   bar's Assistant) — a floating button at first, moved to the footer the
+   same day (owner, 22 Sep 2026). The conversation lasts the browser session
+   (sessionStorage), the way a chat stays where you left it.
    ========================================================================== */
 
 (function () {
@@ -22,7 +23,6 @@
 
   const BASE = "../assets/ct/mascot/";
   const KEY = "fb.v7.ct.chat";                   // this session's conversation
-  const HINT = "fb.v7.ct.chat.hinted";           // the one-time hint, per device
   const CAP = 120;
 
   const esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
@@ -46,7 +46,7 @@
   };
 
   let S = { msgs: [], greeted: false };
-  let root, body, input, status, open = false, talking = Promise.resolve();
+  let root, body, input, status, open = false, wanted = false, opener = null, talking = Promise.resolve();
 
   function load() { try { const v = JSON.parse(sessionStorage.getItem(KEY) || "null"); if (v && Array.isArray(v.msgs)) S = v; } catch (e) { /* a new conversation */ } }
   function save() { try { sessionStorage.setItem(KEY, JSON.stringify({ msgs: S.msgs.slice(-CAP), greeted: S.greeted })); } catch (e) { /* this tab only */ } }
@@ -65,14 +65,6 @@
 
   function build() {
     load();
-    const fab = document.createElement("button");
-    fab.type = "button";
-    fab.className = "cb-fab";
-    fab.setAttribute("aria-label", "Open FoodBridge Assistant");
-    fab.innerHTML = '<span class="cb-face" style="background-image:url(' + BASE + 'hello-128.png)"></span><i class="cb-online" aria-hidden="true"></i>';
-    fab.addEventListener("click", function () { hideHint(); openChat(); });
-    document.body.appendChild(fab);
-
     root = document.createElement("section");
     root.className = "cb-chat";
     root.hidden = true;
@@ -111,28 +103,14 @@
       if (!$(".cb-sheetwrap", root).hidden) closeSheet(); else closeChat();
     }, true);
 
-    showHint();
+    if (wanted) openChat();                      // tapped before the tower was ready
   }
-
-  /* ── the one-time hint beside the button ──────────────────────────── */
-  function showHint() {
-    try { if (localStorage.getItem(HINT)) return; } catch (e) { return; }
-    setTimeout(function () {
-      if (open || document.body.classList.contains("ct-locked")) return;
-      const h = document.createElement("button");
-      h.type = "button"; h.className = "cb-hint";
-      h.innerHTML = "Ask me about your business 👋";
-      h.addEventListener("click", function () { hideHint(); openChat(); });
-      document.body.appendChild(h);
-      try { localStorage.setItem(HINT, "1"); } catch (e) { /* shows again next time */ }
-      setTimeout(hideHint, 7000);
-    }, 1500);
-  }
-  function hideHint() { const h = $(".cb-hint"); if (h) h.remove(); }
 
   /* ── open and close ────────────────────────────────────────────────── */
   function openChat() {
+    if (!root) { wanted = true; return; }
     if (open) return;
+    opener = document.activeElement;
     open = true;
     root.hidden = false;
     document.documentElement.classList.add("cb-open");
@@ -146,7 +124,8 @@
     closeSheet();
     root.hidden = true;
     document.documentElement.classList.remove("cb-open");
-    const f = $(".cb-fab"); if (f) f.focus({ preventScroll: true });
+    /* Back to what opened it: the footer's Assistant, or the top bar's. */
+    if (opener && opener.focus && document.contains(opener)) opener.focus({ preventScroll: true });
   }
 
   /* ── talking ───────────────────────────────────────────────────────── */

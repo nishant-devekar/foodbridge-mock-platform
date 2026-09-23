@@ -3,7 +3,7 @@
 
    THE FLOW, as it stands (21 Sep 2026):
 
-       EXIT DEMO ─▶ ┌ 👋 Leaving the demo? ─────────────────┐
+       EXIT DEMO ─▶ ┌ 👋 Share feedback before you go ──────┐
                     │  faces ─(a face)─▶ comment (type/speak)│
                     │  Set up my account  →  sign-up        │
                     │  Keep exploring     →  stays here     │
@@ -160,6 +160,22 @@
        by screens with a footer of their own — Delivery Management — and 58px
        of padding there would be a gap under a full-height app. */
     "  body.fbx-has-foot{padding-bottom:58px}",
+    /* ── "there is more this way" ──────────────────────────────────────
+       A bar with more in it than fits scrolls sideways, and nothing says so
+       until somebody tries it (owner, 23 Sep 2026). The end that has more
+       carries a soft fade with a chevron in it — and the chevron is a
+       button, so the cue is also the way to use it. It is drawn beside the
+       bar rather than inside it: an absolute child of a scroller travels
+       with the content it is meant to sit over. */
+    "  .fbx-onmore{position:fixed;bottom:0;z-index:calc(var(--fbx-z,39) + 1);width:46px;display:flex;align-items:center;",
+    "    border:0;padding:0;background:none;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s ease}",
+    "  .fbx-onmore.is-on{opacity:1;pointer-events:auto}",
+    "  .fbx-onmore.is-l{left:0;justify-content:flex-start;padding-left:5px;",
+    "    background:linear-gradient(to right,rgba(255,255,255,.97) 45%,rgba(255,255,255,0))}",
+    "  .fbx-onmore.is-r{right:0;justify-content:flex-end;padding-right:5px;",
+    "    background:linear-gradient(to left,rgba(255,255,255,.97) 45%,rgba(255,255,255,0))}",
+    "  .fbx-onmore svg{width:17px;height:17px;color:#6b7280;display:block}",
+    "  .fbx-onmore:active svg{color:#111418}",
     "}",
     /* The sheet is its own layer, above everything including the module's own
        drawers: it is the one thing on screen while it is open. */
@@ -259,8 +275,8 @@
     return sheet;
   }
 
-  /* 21 Sep 2026 — ONE SHEET. EXIT DEMO opens the form itself under
-     "Leaving the demo?"; the menu in front of it offered a single row and
+  /* 21 Sep 2026 — ONE SHEET. EXIT DEMO opens the form itself (titled
+     "Share feedback before you go" since 22 Sep); the menu in front of it offered a single row and
      cost a tap for nothing. Send ends in the chat; the ✕, a scrim tap or
      Escape goes back to the screen. There is no Skip (21 Sep 2026).
 
@@ -335,18 +351,20 @@
     rating = 0;
     var again = rated();
     var sheet = shell(
-      '<header class="fbx-head"><div><h2>👋 Leaving the demo?</h2></div>' +
+      /* One ask on every EXIT DEMO, answered by the faces right under it
+         (owner, 22 Sep 2026). The first time a visit the faces come first;
+         after that they are there but optional, and the ways on show at once:
+         nobody is made to rate twice. */
+      '<header class="fbx-head"><div><h2>👋 Share feedback before you go</h2></div>' +
         '<button class="fbx-x" aria-label="Close">✕</button></header>' +
       '<div class="fbx-form">' +
-        (again ? "" :
         '<div class="fbx-rate" role="group" aria-label="Rating">' +
           FACES.map(function (f) {
             return '<button type="button" data-r="' + f.v + '" aria-pressed="false" aria-label="' + f.lb + '">' +
               '<span class="em">' + f.em + '</span><span class="lb">' + f.lb + "</span></button>";
           }).join("") +
-        "</div>") +
+        "</div>" +
         '<div class="fbx-more" id="fbx-more"' + (again ? "" : " hidden") + ">" +
-          (again ? "" :
           '<p class="fbx-label" id="fbx-ask">What would you change?</p>' +
           '<div class="fbx-talk">' +
             '<textarea class="fbx-in" id="fbx-comment" placeholder="' + (SR ? "Type or speak — optional" : "Optional") + '" maxlength="1200"></textarea>' +
@@ -355,7 +373,7 @@
           /* No name or phone fields: who they are comes from what we already
              hold — the account on this browser, or the WhatsApp number they
              arrived with. */
-          '<p class="fbx-err" id="fbx-err" hidden></p>') +
+          '<p class="fbx-err" id="fbx-err" hidden></p>' +
           '<div class="fbx-ways" id="fbx-ways"></div>' +
         "</div>" +
       "</div>"
@@ -391,8 +409,10 @@
     ways.addEventListener("click", function (e) {
       var t = e.target.closest("[data-next]");
       if (!t) return;
-      if (again) return go(t.getAttribute("data-next"), who);
-      submit(sheet, t.getAttribute("data-next"));
+      /* Rated earlier this visit and nothing new said: straight on. A face
+         or a comment this time is feedback, and is sent. */
+      if (again && !rating && !sheet.querySelector("#fbx-comment").value.trim()) return go(t.getAttribute("data-next"), who);
+      submit(sheet, t.getAttribute("data-next"), again);
     });
     var mic = sheet.querySelector("#fbx-mic");
     if (mic) mic.addEventListener("click", function () {
@@ -411,14 +431,16 @@
     if (!goPlatform(q)) location.href = "/#/" + q;
   }
 
-  function submit(sheet, next) {
-    if (sending || !rating) return;
+  /* The first time a visit a face is required; after that a comment alone
+     is feedback too (the reader shows it with "•" for no face). */
+  function submit(sheet, next, optional) {
+    if (sending || (!rating && !optional)) return;
     stopTalk();
     sending = true;
     var who = known();
     var entry = {
       local: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-      rating: rating,
+      rating: rating || null,
       comment: sheet.querySelector("#fbx-comment").value,
       next: next,
       name: who.name,
@@ -441,6 +463,59 @@
         "<h3>" + (next === "setup" ? "Thanks! Setting up your account…" : next === "account" ? "Thanks! Opening your account…" : "Thanks!") + "</h3></div>"
     );
     setTimeout(function () { sending = false; go(next, who); }, next === "stay" ? 900 : 700);
+  }
+
+  /* ── "there is more this way" ────────────────────────────────────────
+     (`fbx-onmore`, not `fbx-more`: the sheet already owns that name for its
+     other ways out, and its animation would hold this one open.) 
+     Shown only while the bar actually overflows, on the end that has more,
+     and taken away as soon as it does not. The first time a bar turns out
+     to be scrollable it also nudges itself a few pixels: nothing explains a
+     scroll like seeing it move once. */
+  var CHEV = {
+    l: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+    r: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+  };
+  function scrollCue(foot) {
+    var ends = {}, nudged = false, step = 170;
+    ["l", "r"].forEach(function (side) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.id = "fbx-onmore-" + side;
+      b.className = "fbx-onmore is-" + side;
+      b.setAttribute("aria-label", side === "l" ? "Show what is to the left" : "Show what is to the right");
+      b.innerHTML = CHEV[side];
+      b.addEventListener("click", function () {
+        foot.scrollBy({ left: side === "l" ? -step : step, behavior: "smooth" });
+      });
+      document.body.appendChild(b);
+      ends[side] = b;
+    });
+    function sync() {
+      var box = foot.getBoundingClientRect();
+      var room = foot.scrollWidth - foot.clientWidth;
+      var live = !foot.hidden && box.height > 0 && room > 8;
+      ends.l.style.height = ends.r.style.height = box.height + "px";
+      ends.l.classList.toggle("is-on", live && foot.scrollLeft > 6);
+      ends.r.classList.toggle("is-on", live && foot.scrollLeft < room - 6);
+      if (live && !nudged) { nudged = true; nudge(); }
+    }
+    function nudge() {
+      foot.scrollTo({ left: 28, behavior: "smooth" });
+      setTimeout(function () { foot.scrollTo({ left: 0, behavior: "smooth" }); }, 430);
+    }
+    foot.addEventListener("scroll", sync, { passive: true });
+    window.addEventListener("resize", sync);
+    /* The bar changes as the owner moves around: items come and go, and a
+       tab can simply be hidden — an attribute, not a child — so watch for
+       both, or the cue outlives what it was pointing at. */
+    try {
+      new MutationObserver(sync).observe(foot, {
+        childList: true, subtree: true, attributes: true,
+        attributeFilter: ["hidden", "class", "style"],
+      });
+    } catch (e) { /* older engine */ }
+    setTimeout(sync, 0);
   }
 
   /* ── The footer ──────────────────────────────────────────────────────── */
@@ -479,6 +554,7 @@
       foot.querySelector('[data-x="' + i + '"]').addEventListener("click", t.onClick);
     });
     foot.querySelector("#fbx-exit").addEventListener("click", openMenu);
+    scrollCue(foot);
 
     /* Anything an earlier visit could not deliver goes now. */
     flush();

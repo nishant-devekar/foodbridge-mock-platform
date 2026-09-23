@@ -157,9 +157,14 @@ table.grid tbody tr:hover { background: #fafbfc; }
 .popover .m-sep { height: 1px; background: var(--line-soft); margin: 6px 4px; }
 
 /* ── Drawer (Add / Edit) — two-column, matches Add Raw Material ──────────── */
+/* Embedded in the mock platform, the top of the page sits behind the
+   platform's header and the foot behind its bar. The shell measures both and
+   sets --fb-top-inset / --fb-bottom-inset on <html>; every panel that pins
+   itself to the viewport stands on those, so its header and its foot land
+   where somebody can see them. Both are 0 when this screen runs on its own. */
 .drawer-scrim { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 90; opacity: 0; transition: opacity .2s; }
 .drawer-scrim.show { opacity: 1; }
-.drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 760px; max-width: 96vw; background: var(--card); z-index: 95; box-shadow: -8px 0 30px rgba(15,23,42,.18); transform: translateX(100%); transition: transform .28s cubic-bezier(.22,1,.36,1); display: flex; flex-direction: column; }
+.drawer { position: fixed; top: var(--fb-top-inset, 0px); right: 0; bottom: var(--fb-bottom-inset, 0px); height: auto; width: 760px; max-width: 96vw; background: var(--card); z-index: 95; box-shadow: -8px 0 30px rgba(15,23,42,.18); transform: translateX(100%); transition: transform .28s cubic-bezier(.22,1,.36,1); display: flex; flex-direction: column; }
 .drawer.open { transform: translateX(0); }
 .drawer-head { padding: 22px 30px; border-bottom: 1px solid var(--line); background: #fafbfc; position: relative; }
 .drawer-head h3 { margin: 0; font-size: 20px; color: #111827; }
@@ -187,7 +192,7 @@ table.grid tbody tr:hover { background: #fafbfc; }
 .info-i { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--muted-2); color: var(--muted-2); font-size: 10px; font-style: normal; margin-left: 5px; }
 
 /* ── Delete modal ───────────────────────────────────────────────────────── */
-.modal-scrim { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 100; display: grid; place-items: center; opacity: 0; transition: opacity .18s; padding: 20px; }
+.modal-scrim { position: fixed; inset: 0; top: var(--fb-top-inset, 0px); bottom: var(--fb-bottom-inset, 0px); background: rgba(15,23,42,.5); z-index: 100; display: grid; place-items: center; opacity: 0; transition: opacity .18s; padding: 20px; }
 .modal-scrim.show { opacity: 1; }
 .modal-card { background: var(--card); border-radius: 16px; max-width: 460px; width: 100%; padding: 34px 30px 24px; text-align: center; box-shadow: var(--shadow); transform: translateY(10px); transition: transform .18s; }
 .modal-scrim.show .modal-card { transform: translateY(0); }
@@ -245,7 +250,7 @@ table.grid tbody tr:hover { background: #fafbfc; }
 .pcard .pc-meta .lbl { color: var(--muted); } .pcard .pc-meta .val { font-weight: 700; }
 .pcard .pc-actions { display: flex; gap: 6px; margin-top: 10px; }
 .mobile-footer { display: none; }
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; pointer-events: none; z-index: 200; transition: opacity .2s, transform .2s; }
+.toast { position: fixed; bottom: calc(var(--fb-bottom-inset, 0px) + 24px); left: 50%; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; box-shadow: var(--shadow); opacity: 0; pointer-events: none; z-index: 200; transition: opacity .2s, transform .2s; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.ok { background: #065f46; } .toast.err { background: #991b1b; }
 
@@ -258,7 +263,10 @@ table.grid tbody tr:hover { background: #fafbfc; }
   .sidebar.open { transform: translateX(0); }
 }
 @media (max-width: 768px) {
-  .content { padding: 14px 12px 96px; }
+  /* 96px keeps the last row clear of this screen's own footer; embedded, the
+     platform's bar (and the action line above it) is what is down there, and
+     it says how deep. */
+  .content { padding: 14px 12px calc(96px + var(--fb-bottom-inset, 0px)); }
   .table-wrap.desktop-only { display: none; } .cards { display: flex; }
   .desktop-filter { display: none; }
   .d-row { grid-template-columns: 1fr; gap: 8px; } .d-row > label { padding-top: 0; }
@@ -509,7 +517,7 @@ table.grid tbody tr:hover { background: #fafbfc; }
    v2.3 — mobile: bottom-sheet action menus + redesigned cards + footers
    ========================================================================== */
 /* Bottom sheet */
-.sheet-scrim { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 130; opacity: 0; transition: opacity .2s; display: flex; align-items: flex-end; }
+.sheet-scrim { position: fixed; inset: 0; bottom: var(--fb-bottom-inset, 0px); background: rgba(15,23,42,.45); z-index: 130; opacity: 0; transition: opacity .2s; display: flex; align-items: flex-end; }
 .sheet-scrim.show { opacity: 1; }
 .sheet { width: 100%; background: var(--card); border-radius: 20px 20px 0 0; transform: translateY(100%); transition: transform .28s cubic-bezier(.22,1,.36,1); max-height: 86vh; overflow: auto; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); box-shadow: 0 -8px 30px rgba(15,23,42,.18); }
 .sheet-scrim.show .sheet { transform: translateY(0); }
@@ -608,14 +616,13 @@ table.grid tbody tr:hover { background: #fafbfc; }
    category card with subcategory rows.
    ========================================================================== */
 @media (max-width: 768px) {
-  /* Drawers cover the full page */
-  .drawer, .drawer.wide { width: 100vw; max-width: 100vw; height: 100vh; height: 100dvh; border-radius: 0; }
+  /* Drawers cover the full page — between the two insets, which are 0 when
+     this screen runs on its own and the height of the platform's header and
+     bar when it is embedded in the mock platform. (They replace a guessed
+     68px of top padding: the platform measures its own chrome and says, so
+     the drawer's own header clears it and its Save row clears the bar.) */
+  .drawer, .drawer.wide { width: 100vw; max-width: 100vw; height: auto; border-radius: 0; }
   .drawer-head { border-radius: 0; }
-
-  /* Embedded in the mock platform: it overlays a 56px top header across the iframe,
-     which would hide the drawer's own header. Drop the drawer below it so the title
-     stays visible. Standalone (not embedded) is left flush at the top. */
-  .fb-embedded .drawer, .fb-embedded .drawer.wide { box-sizing: border-box; padding-top: 68px; }
 
   /* Footer: equal columns, single-line labels aligned at the baseline, floating primary */
   .mobile-footer { align-items: flex-end; gap: 0; padding: 14px 2px calc(8px + env(safe-area-inset-bottom, 0px)); }

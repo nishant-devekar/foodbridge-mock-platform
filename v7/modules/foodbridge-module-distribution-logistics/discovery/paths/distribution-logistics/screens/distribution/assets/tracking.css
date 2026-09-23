@@ -88,6 +88,15 @@
 .tk-map-wrap { position: relative; z-index: 0; isolation: isolate;
   border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-height: 0; }
 .tk-map { position: absolute; inset: 0; }
+/* Recentre / Show all, over the map: top-right, clear of Leaflet's zoom
+   controls (top-left) and of the legend and attribution (the bottom edge). */
+.tk-fit { position: absolute; right: 10px; top: 10px; z-index: 500; display: inline-flex; align-items: center; gap: 6px;
+  height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, .96);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .16); color: var(--ink-soft); font-size: 13px; font-weight: 600; cursor: pointer; }
+.tk-fit svg { width: 18px; height: 18px; }
+.tk-fit:hover { color: var(--ink); }
+.tk-fit.is-on { border-color: var(--emerald-600); color: var(--emerald-600); }
+
 .tk-legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; display: flex; gap: 12px; flex-wrap: wrap;
   background: rgba(255, 255, 255, .94); border: 1px solid var(--line); border-radius: 8px; padding: 7px 11px;
   font-size: 11.5px; color: var(--ink-soft); font-weight: 600; }
@@ -119,8 +128,13 @@
   box-shadow: 0 1px 3px rgba(16, 24, 40, .4); }
 
 /* ── Drawer ───────────────────────────────────────────────────────────────── */
+/* Embedded in the mock platform, the top of this page sits behind the
+   platform's header and its foot behind the platform's bar; the shell says
+   how deep each band is (--fb-top-inset / --fb-bottom-inset, set on <html>).
+   The drawer stands on those, so its own header and its foot are always in
+   the part of the page somebody can actually see. Standalone both are 0. */
 .tk-drawer-scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .35); z-index: 150; }
-.tk-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 94vw; background: var(--card);
+.tk-drawer { position: fixed; top: var(--fb-top-inset, 0px); right: 0; bottom: var(--fb-bottom-inset, 0px); width: 460px; max-width: 94vw; background: var(--card);
   z-index: 151; display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(16, 24, 40, .18);
   animation: tk-slide .22s ease; }
 @keyframes tk-slide { from { transform: translateX(100%); } to { transform: none; } }

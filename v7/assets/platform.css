@@ -530,3 +530,91 @@
 @media (max-width: 1023.98px) {
   .fb-burger-mask { display: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE BAR AT THE FOOT OF A TRIP
+   ══════════════════════════════════════════════════════════════════════════
+   One system, not a pile of patches. Three stylesheets reach this bar — the
+   shared asset draws it (assets/exit-demo.js, injected last, so these rules
+   are written to out-specify it), the tower dresses its own copy
+   (screens/control-tower.css, the same values as here), and this file dresses
+   the one the shell puts under a module. They agree on all of it:
+
+     ITEM      every item is the same object: a 22px stroked icon over a
+               10.5px label, 60x46, centred. Tabs and controls alike — nothing
+               in this row is a different size or shape from anything else.
+     COLOUR    one accent. Muted ink for everything, brand green for where the
+               owner is. No second fill, no chips, no black.
+     GROUP     the screen the owner is on sits in a tinted group in the second
+               slot, and its own controls sit in that same group beside it —
+               so a parent and its children are visibly one thing.
+     GROUND    frosted white over the page, a hairline instead of a border.
+
+   Change a number here and in control-tower.css together, or the tower and
+   the screens it opens stop looking like one product. */
+@media (max-width: 1023.98px) {
+  html #fbx-foot {
+    --fbb-item: 60px; --fbb-item-h: 46px; --fbb-icon: 22px;
+    --fbb-muted: #6B7280; --fbb-ink: #111418; --fbb-brand: #1E7A46;
+    --fbb-tint: rgba(17, 20, 24, .05);
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding: 0 8px env(safe-area-inset-bottom, 0px); gap: 2px;
+    background: rgba(255, 255, 255, .88);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    backdrop-filter: saturate(180%) blur(16px);
+    border-top: 1px solid rgba(17, 20, 24, .07);
+    box-shadow: 0 -10px 28px rgba(17, 20, 24, .05);
+  }
+
+  /* ── the item ───────────────────────────────────────────────────────── */
+  html #fbx-foot .fbx-tab {
+    /* One rhythm, not one width: every item is the same height, icon, type
+       and spacing, and at least as wide as the next — a label that is a
+       phrase ("Add Template") is given the room rather than cut in half. */
+    box-sizing: border-box; min-width: var(--fbb-item); max-width: 112px; height: var(--fbb-item-h);
+    flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 0 8px; border-radius: 12px; color: var(--fbb-muted);
+    transition: color .15s ease, background .15s ease;
+  }
+  html #fbx-foot .fbx-tab > svg, html #fbx-foot .fbx-tab > i {
+    width: var(--fbb-icon); height: var(--fbb-icon); flex: none; stroke-width: 2;
+  }
+  html #fbx-foot .fbx-tab > span {
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .01em; line-height: 1.2; color: inherit;
+  }
+  html #fbx-foot .fbx-tab:active { background: rgba(17, 20, 24, .05); }
+
+  /* ── where the owner is: the one accent in the row ──────────────────── */
+  html #fbx-foot .fbx-tab[aria-current="page"] { color: var(--fbb-brand); }
+  html #fbx-foot .fbx-tab[aria-current="page"] > span { font-weight: 700; }
+
+  /* ── the group: that screen, and what it can do ───────────────────────
+     A quiet ground, not a colour: green in this row means one thing, and
+     that is the tab for the screen the owner is on. The controls inside are
+     drawn as quietly as the tabs outside; the one the screen is showing
+     right now is lifted onto white, the way a segmented control marks its
+     own selection. */
+  html #fbx-foot .fbx-group {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: 2px;
+    border-radius: 16px; background: var(--fbb-tint);
+  }
+  html #fbx-foot .fbx-group .fbx-tab.fbx-do { color: var(--fbb-muted); animation: fbx-open .18s cubic-bezier(.2, .8, .3, 1) both; }
+  html #fbx-foot .fbx-group .fbx-tab.fbx-do.is-on {
+    color: var(--fbb-ink); background: #fff; box-shadow: 0 1px 2px rgba(17, 20, 24, .08), 0 0 0 1px rgba(17, 20, 24, .04);
+  }
+  html #fbx-foot .fbx-group .fbx-tab.fbx-do.is-on > span { font-weight: 700; }
+  html #fbx-foot .fbx-group .fbx-tab:active { background: rgba(17, 20, 24, .06); }
+  @keyframes fbx-open { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+
+  /* The caret says the group folds; it turns when it does. */
+  html #fbx-foot .fbx-caret { width: 10px; height: 10px; margin-left: 2px; vertical-align: -1px; transition: transform .18s ease; }
+  html #fbx-foot .fbx-tab[aria-expanded="false"] .fbx-caret { transform: rotate(-90deg); }
+  html #fbx-foot .fbx-opens > span { display: inline-flex; align-items: center; }
+
+  /* ── the row itself: more than fits, so it scrolls ──────────────────── */
+  html #fbx-foot.is-wide { justify-content: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  html #fbx-foot.is-wide::-webkit-scrollbar { display: none; }
+  html #fbx-foot.is-wide > :first-child { margin-left: auto; }
+  html #fbx-foot.is-wide > #fbx-exit { margin-right: auto; }
+}

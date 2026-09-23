@@ -146,3 +146,43 @@ test("the same records tell the same news", () => {
   const a = demoDay(16, 10), b = demoDay(16, 10);
   assert.deepEqual(texts(TL.build(a.v, a.m, { now: a.now })), texts(TL.build(b.v, b.m, { now: b.now })));
 });
+
+/* Owner, 22 Sep 2026: a line opens its details in a sheet, not another page. */
+test("every line carries its details: a title, the facts, and the records it sums up", () => {
+  const { v, m, now } = demoDay(16, 40);
+  const items = all(TL.build(v, m, { now, statusLog: [{ at: now - 60000, lever: "purchase", from: "bad", to: "good" }] }));
+  for (const x of items) {
+    assert.ok(x.detail && x.detail.title, "a title: " + x.text);
+    assert.ok(x.detail.facts.length || x.detail.rows.length, "something to show: " + x.text);
+    assert.ok(x.detail.facts.every((f) => f.length === 2 && f[1] !== ""), "facts are label and value");
+  }
+  const done = items.find((x) => /trip done/.test(x.text));
+  const round = /first/.test(done.text) ? 1 : 2;
+  const drops = v.records.deliveries.filter((d) => d.van === done.text.slice(0, 5) && d.round === round);
+  assert.equal(done.detail.rows.length, drops.length, "every drop of the trip");
+  const hour = items.find((x) => x.key.startsWith("payh:"));
+  if (hour) {
+    const sum = hour.detail.rows.reduce((n, r) => n + Number(String(r.value).replace(/[^\d]/g, "")), 0);
+    assert.ok(hour.text.startsWith(L.rupees(sum)), "the list adds up to the line: " + hour.text);
+  }
+  const miss = items.find((x) => x.key.startsWith("miss:"));
+  if (miss) assert.ok(miss.detail.facts.some((f) => f[0] === "Customer") && miss.detail.facts.some((f) => f[0] === "What happened"));
+  const st = items.find((x) => x.key.startsWith("st:"));
+  assert.deepEqual(st.detail.facts.slice(0, 2), [["Was", "Needs work"], ["Became", "On track"]]);
+});
+
+test("what the owner did opens on its records: who was reminded, the order's lines, the orders made", () => {
+  const w = F.world({ dataReady: F.sampleDataReady(F.NOW) });
+  const run = (pv) => w.tower.actions.execute(pv, { confirmed: true, actor: "owner" });
+  const rem = run(w.tower.actions.prepare("overdue"));
+  run(w.tower.actions.prepare("stockout"));
+  const ord = run(w.tower.actions.prepare("reorder-due"));
+  const v = w.tower.pass();
+  const items = all(TL.build(v, model(v), { now: F.NOW + 1000 }));
+  const r = items.find((x) => /payment reminders? sent/.test(x.text));
+  assert.equal(r.detail.rows.length, rem.data.messages.length, "everyone reminded");
+  const po = items.find((x) => /^Purchase order/.test(x.text));
+  assert.ok(po.detail.rows.length && po.detail.rows.every((l) => l.title && l.value), "the order's lines");
+  const o = items.find((x) => /orders? created/.test(x.text));
+  assert.equal(o.detail.rows.length, ord.data.orders.length, "every order made");
+});

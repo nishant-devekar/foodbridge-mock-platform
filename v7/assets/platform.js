@@ -472,7 +472,163 @@
      Stock tab through the bar, and suppressing the bar would take the control
      with it. Two bars at the same bottom edge would stack, so whoever is
      framed wins and the shell stands its own down for that destination. */
+  /* ── EXIT DEMO where the destination already has a footer ──────────────
+     A module with its own bottom bar was getting a second one over it
+     (owner, 23 Sep 2026: "if a footer was already there, EXIT DEMO should be
+     one of its actions"). `exitIn` in modules.json names that bar; the
+     button is CLONED from one of the bar's own, so it wears the module's
+     styling, and it is dropped beside it. Same-origin only, and only while
+     that bar is on screen — most are phone-only, and above their breakpoint
+     the platform's own bar comes back.
+
+     The module's folder is never touched: this is platform-side, like the
+     clip offsets and the device frame. */
+  var exitWatch = null, exitWatcher = null;
+  var EXIT_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>';
+  /* ── The lever's own actions, carried into the work screens ────────────
+     The Deliveries lever opens the four Distribution & Logistics screens
+     from its own footer, as plain footer actions (owner, 23 Sep 2026: "just
+     like Tower, Timeline, Assistant"). A screen opened that way carries
+     `from=<lever>` in the hash, and gets THAT LEVER'S OWN ACTIONS in its own
+     bottom bar, in front of its EXIT DEMO — so the way back to the tower,
+     and to the other three screens, is always under the thumb. They plus the
+     screen's own actions do not fit a phone, so that bar scrolls sideways;
+     nothing is dropped (owner's pick, 23 Sep 2026).
+
+     Screens with no bar of their own (Logistic Returns) get them in the
+     platform's bar instead. Nothing changes for a screen reached from
+     the sidebar: no `from=`, no extra actions. */
+  /* Shape only: the bar's stylesheet gives every icon in the row its size,
+     weight and colour. */
+  function ico(d) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>"; }
+  /* The assistant's own face. Only what CSS cannot say — the image and its
+     framing — is inline; its size comes from the bar's stylesheet, with
+     every other icon's. */
+  var MASCOT = '<i style="border-radius:50%;background:#fff no-repeat 33% 0/155% url(assets/ct/mascot/hello-128.png);box-shadow:0 0 0 1px rgba(17,20,24,.1)"></i>';
+  var TOWER_ICON = ico('<path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/>');
+  /* The same list, the same order and the same words as the tower's own
+     footer on that lever (screens/control-tower.js, WORK): the bar reads the
+     same on both sides of the trip. No Timeline — the business's news is
+     offered from the tower's home, not from a lever (owner, 23 Sep 2026). */
+  var TRIP = {
+    deliveries: {
+      group: "distribution-logistics",
+      tabs: [
+        { id: "tower", label: "Tower", icon: TOWER_ICON, hash: "#/control-tower?lever=deliveries" },
+        { id: "live-tracking", label: "Tracking", icon: ico('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>') },
+        { id: "delivery-management", label: "Delivery", icon: ico('<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>') },
+        { id: "route-planning", label: "Planning", icon: ico('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>') },
+        /* "Assets", not "Returns": what the screen itself is about — asset
+           movement, asset inventory, the assets (owner, 23 Sep 2026). */
+        { id: "logistic-returns", label: "Assets", icon: ico('<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12M3.3 7l8.7 5 8.7-5"/>') },
+        /* The assistant's own face, framed as the tower frames it, and next
+           to EXIT DEMO wherever it appears (owner, 23 Sep 2026). */
+        { id: "assistant", label: "Assistant", icon: MASCOT, hash: "#/control-tower?lever=deliveries&chat=1" },
+      ],
+    },
+  };
+  function fromLever() {
+    var raw = location.hash || "";
+    var i = raw.indexOf("?");
+    if (i === -1) return null;
+    var v = new URLSearchParams(raw.slice(i + 1)).get("from");
+    return TRIP[v] ? v : null;
+  }
+
+  function exitInOwnFooter(frame, leaf) {
+    /* `barIn` names a bar that already carries its own EXIT DEMO (Delivery
+       Management draws one). Nothing is added to it — it is named so a trip
+       can stand it down and put its own bar there instead. */
+    var sel = leaf && (leaf.exitIn || leaf.barIn);
+    if (!sel) return false;
+    var doc;
+    try { doc = frame.contentDocument; } catch (e) { return false; }      // cross-origin: cannot reach in
+    if (!doc || !doc.body) return false;
+    var bar = doc.querySelector(sel);
+    /* Visible, not "laid out": these bars are position:fixed, and a fixed
+       element has no offsetParent — which read as hidden and cost an hour. */
+    var cs = bar && frame.contentWindow.getComputedStyle(bar);
+    var shown = !!bar && cs.display !== "none" && cs.visibility !== "hidden" && bar.getBoundingClientRect().height > 0;
+    var had = doc.getElementById("fbx-in");
+    if (!shown) { if (had) had.remove(); return false; }                  // its bar is off: ours comes back
+    if (!had && leaf.exitIn) barTab(frame, doc, bar, "fbx-in", "EXIT DEMO", EXIT_ARROW, function () { if (window.FB_EXIT) window.FB_EXIT.open(); }, null);
+    watchBar(frame, doc, leaf);
+    return true;
+  }
+
+  /* One of the bar's own buttons, cloned: the label and the icon are ours,
+     everything else is the module's — so it wears that module's styling.
+     `before` puts it ahead of a button already added (EXIT DEMO stays last). */
+  function barTab(frame, doc, bar, id, label, icon, onClick, before) {
+    /* Model it on a plain sibling, never the bar's main action: EXIT DEMO
+       never takes the active colour (the footer spec). */
+    var kids = Array.prototype.slice.call(bar.querySelectorAll("button, a"));
+    var plain = kids.filter(function (b) {
+      return b.id.indexOf("fbx-") !== 0 &&
+        !/primary|accent|cta|create|add|emerald-600|bg-green|is-on|active/i.test(b.className + " " + (b.getAttribute("data-mf") || ""));
+    });
+    var model = plain[plain.length - 1] || null;
+    var btn;
+    if (model) btn = model.cloneNode(true);
+    else {
+      /* Every button in this bar is its main action (Batch Management has
+         one): a quiet button of our own rather than a second green one. */
+      btn = doc.createElement("button");
+      btn.style.cssText = "display:flex;align-items:center;justify-content:center;gap:8px;flex:1;min-height:44px;padding:0 14px;" +
+        "border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#6b7280;font:600 14px/1.2 inherit;cursor:pointer";
+      btn.innerHTML = icon.replace("<svg", '<svg width="18" height="18"');
+      btn.appendChild(doc.createTextNode(label));
+    }
+    /* A clone carries the module's own handlers' hooks and its selected
+       state; strip both, so it is only ever our way out. */
+    Array.prototype.slice.call(btn.attributes || []).forEach(function (a) {
+      if (a.name.indexOf("data-") === 0 || a.name === "href" || a.name === "id" || a.name === "title" || a.name === "aria-current") btn.removeAttribute(a.name);
+    });
+    btn.className = String(btn.className || "").split(/\s+/).filter(function (c) {
+      return c && !/^(is-)?(active|primary|selected|current|on)$/.test(c);
+    }).join(" ");
+    var svg = model ? btn.querySelector("svg") : null;
+    if (!model) { /* already built */ }
+    else if (svg) svg.outerHTML = icon.replace("<svg", '<svg class="' + (svg.getAttribute("class") || "") + '" width="' + (svg.getAttribute("width") || 22) + '" height="' + (svg.getAttribute("height") || 22) + '"');
+    else if (model) btn.insertAdjacentHTML("afterbegin", icon);
+    /* The label: the first text the clone shows, so it keeps the module's
+       own type and spacing. */
+    if (model) {
+      var walker = doc.createTreeWalker(btn, 4 /* text nodes */), first = null, n;
+      while ((n = walker.nextNode())) { if (String(n.nodeValue).trim()) { if (!first) { first = n; n.nodeValue = label; } else n.nodeValue = ""; } }
+      if (!first) btn.appendChild(doc.createTextNode(label));
+    }
+    btn.id = id;
+    btn.setAttribute("type", "button");
+    btn.setAttribute("aria-label", label);
+    /* Capture, and stop there: these bars answer clicks by delegation, and
+       the module should never see this one. */
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      onClick();
+    }, true);
+    var host = (model && model.parentElement ? model.parentElement : bar);
+    if (before && before.parentElement === host) host.insertBefore(btn, before);
+    else host.appendChild(btn);
+    return btn;
+  }
+
+  /* A module that redraws its own bar (Live Tracking does, as pings come in;
+     Delivery Management redraws on every tap) throws our buttons away with
+     it: put them back when that happens. */
+  function watchBar(frame, doc, leaf) {
+    if (exitWatcher) exitWatcher.disconnect();
+    exitWatcher = new frame.contentWindow.MutationObserver(function () {
+      var missing = (leaf.exitIn && !doc.getElementById("fbx-in")) || (fromLever() && !doc.getElementById("fbx-t-tower"));
+      if (missing) exitInOwnFooter(frame, leaf);
+    });
+    exitWatcher.observe(doc.body, { childList: true, subtree: true });
+  }
+
   function deferToFramedExitBar(frame, leaf) {
+    if (exitWatcher) { exitWatcher.disconnect(); exitWatcher = null; }     // the last destination's
+    if (tripWatcher) { tripWatcher.disconnect(); tripWatcher = null; }     // watched the last document
+    tripSig = null; tripOpen = true;                                       // every screen opens with its own controls out
     var own = document.getElementById("fbx-foot");
     if (!own) return;
     var framed = false;
@@ -489,13 +645,353 @@
        it, but not as #fbx-foot, so the check above cannot see it. Delivery
        Management is the one: its Home · Routes · Follow-up · Reports · EXIT
        DEMO bar was being covered by this one on a phone. */
-    var hide = framed || !!(leaf && (leaf.noExitBar || leaf.ownExitBar));
+    /* A trip first: on the way from a lever this bar IS the bar, the
+       module's own is stood down, and nothing is injected into it. */
+    if (tripBar(frame, leaf)) { own.hidden = false; setFrameInsets(frame); return; }
+    var inBar = exitInOwnFooter(frame, leaf);
+    var hide = framed || !!(leaf && (leaf.noExitBar || leaf.ownExitBar)) || !!(leaf && leaf.exitIn && inBar);
     own.hidden = hide;
+    /* Some bars are drawn by the module's own script after load (Sales
+       Orders, Workforce), and two of these are a redirect away (Route
+       Planning, Live Tracking): look again for a moment rather than leaving
+       two bars on screen, or no way back. Stops as soon as it lands, or when
+       the frame moves on. */
+    if (leaf && (leaf.exitIn || leaf.barIn) && !inBar) {
+      clearInterval(exitWatch);
+      var url = state.currentUrl, tries = 0;
+      exitWatch = setInterval(function () {
+        if (++tries > 20 || state.currentUrl !== url) return clearInterval(exitWatch);
+        if (!exitInOwnFooter(frame, leaf)) return;
+        if (leaf.exitIn) own.hidden = true;
+        clearInterval(exitWatch);
+      }, 150);
+    }
+    setFrameInsets(frame);
     /* No body padding, ever, in the shell — it mounts with `pad: false` and
        this used to put the class straight back on the next navigation. The
        shell's content is a full-height frame: 58px of padding shrinks nothing
        and only makes this page taller than the window, so the whole app gains
        a stray scroll over a white strip. Framed screens keep their own room. */
+  }
+
+  /* ── A trip takes the bar over ─────────────────────────────────────────
+     On the way from a lever, every screen of the trip wears THE SAME BAR —
+     the platform's own, the one the Control Tower has (owner, 23 Sep 2026:
+     "all the delivery footers should look identical… it looks like I have
+     come to some other page"). The module's own bar is stood down for as
+     long as the owner is on the trip, and its actions are carried across as
+     tabs of ours, so the screen still does everything it did: same type,
+     same 22px icons, same 10px labels, one row that scrolls.
+
+     Nothing in the module's folder changes, and nothing is injected into its
+     bar: one stylesheet in its document stands the bar down, exactly as the
+     clip offsets are set on its frame. Leave the trip and the bar comes
+     straight back. */
+  var tripWatcher = null, tripSig = null;
+  function tripBar(frame, leaf) {
+    var lv = fromLever(), trip = lv && TRIP[lv];
+    var foot = document.getElementById("fbx-foot");
+    if (!foot) return false;
+    /* A big screen has no bar of ours to put anything in, and the phone app
+       in its device frame still needs its own. */
+    if (!trip || window.innerWidth >= 1024) { tripOff(frame); return false; }
+    ownBarOff(frame, leaf, true);
+    drawTripBar(frame, leaf, lv, trip, foot);
+    watchTrip(frame, leaf, lv, trip, foot);
+    return true;
+  }
+  function tripOff(frame) {
+    if (tripWatcher) { tripWatcher.disconnect(); tripWatcher = null; }
+    tripSig = null; tripOpen = false;
+    var foot = document.getElementById("fbx-foot");
+    if (foot) {
+      Array.prototype.slice.call(foot.querySelectorAll('[id^="fbx-t-"],.fbx-group')).forEach(function (b) { b.remove(); });
+      foot.classList.remove("is-wide");
+    }
+    ownBarOff(frame, null, false);
+  }
+  function ownBarOff(frame, leaf, off) {
+    var doc;
+    try { doc = frame.contentDocument; } catch (e) { return; }
+    if (!doc || !doc.head) return;
+    var st = doc.getElementById("fbx-standdown");
+    var sel = leaf && (leaf.exitIn || leaf.barIn);
+    if (!off || !sel) { if (st) st.remove(); return; }
+    if (!st) { st = doc.createElement("style"); st.id = "fbx-standdown"; doc.head.appendChild(st); }
+    /* Only when it actually changes: rewriting it is itself a change to the
+       document, which the observer below would hear and answer for ever. */
+    var css = sel + "{display:none!important}";
+    /* `padIn` in modules.json: a screen whose own scroller has to keep room
+       for what the platform puts at the foot of the page, now that its own
+       bar is not there to do it. It reads the inset the shell measured, so
+       there is no number to keep in step. */
+    if (leaf.padIn) css += leaf.padIn + "{padding-bottom:var(--fb-bottom-inset,0px)!important}";
+    if (st.textContent !== css) st.textContent = css;
+  }
+  /* The screen's own actions, said in our words: its label, its icon, its
+     click — the module's handler is called by clicking its own button, so
+     nothing of its behaviour is re-implemented here. */
+  function ownActions(frame, leaf) {
+    var doc, sel = leaf && (leaf.exitIn || leaf.barIn);
+    try { doc = frame.contentDocument; } catch (e) { return []; }
+    var bar = doc && sel && doc.querySelector(sel);
+    if (!bar) return [];
+    return Array.prototype.slice.call(bar.querySelectorAll("button, a")).map(function (el, i) {
+      var texts = [], w = doc.createTreeWalker(el, 4 /* text nodes */), n;
+      while ((n = w.nextNode())) { var t = String(n.nodeValue).replace(/\s+/g, " ").trim(); if (t) texts.push(t); }
+      var label = texts[texts.length - 1] || "";
+      var svg = el.querySelector("svg");
+      var glyph = !svg && texts.length > 1 ? texts[0] : null;             // an emoji tab (Delivery Management)
+      return { at: i, label: label, svg: svg, glyph: glyph, on: isOn(frame, el) };
+    }).filter(function (a) { return a.label && !/^exit demo$/i.test(a.label); });
+  }
+  /* Which of a screen's own controls it is showing right now — the module
+     says so in its own bar, and the group says it back in ours. A module
+     marks it as an attribute, as a class, or (Delivery Management) simply by
+     colouring that label: grey for the ones it is not on, its own colour for
+     the one it is. Saturation tells those two apart without knowing any
+     module's palette. */
+  function isOn(frame, el) {
+    if (el.getAttribute("aria-current") || el.getAttribute("aria-selected") === "true") return true;
+    if (/(^|[\s-])(active|selected|current)([\s-]|$)/i.test(el.className || "")) return true;
+    /* A main action is coloured because it is the main action, not because
+       the screen is on it: Live Tracking's Routes and Route Planning's Add
+       Template are green at rest. Those are marked by what they open, not
+       by their colour. */
+    if (/primary|accent|cta/i.test(el.className || "")) return false;
+    try {
+      var win = frame.contentWindow;
+      /* Any part of it, not the first: the label that carries the colour can
+         sit under an icon that does not. */
+      return [el].concat(Array.prototype.slice.call(el.querySelectorAll("*"))).some(function (n) {
+        var m = /(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(win.getComputedStyle(n).color || "");
+        if (!m) return false;
+        var r = +m[1], g = +m[2], b = +m[3], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        return mx > 0 && (mx - mn) / mx > 0.12;
+      });
+    } catch (e) { return false; }
+  }
+
+  /* A control is also the one the owner is on while the thing it opened is
+     on screen — Routes with its route list up, Add Template with its form
+     open. Any panel over the page counts, found the way anyone would find
+     it: a dialog, or a drawer or sheet that is not parked off-screen. */
+  var tripPressed = null;
+  function panelOpen(frame) {
+    var doc, win;
+    try { doc = frame.contentDocument; win = frame.contentWindow; } catch (e) { return false; }
+    if (!doc || !doc.body) return false;
+    var nodes = doc.querySelectorAll('[role="dialog"],[aria-modal="true"],.drawer,.sheet-scrim,.modal-scrim');
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i], cs = win.getComputedStyle(n);
+      if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity === 0) continue;
+      var r = n.getBoundingClientRect();
+      if (r.width < 40 || r.height < 40) continue;
+      if (r.right <= 4 || r.bottom <= 4 || r.left >= win.innerWidth - 4 || r.top >= win.innerHeight - 4) continue;
+      return true;                                                        // closed panels are parked outside
+    }
+    return false;
+  }
+
+  /* Back to the top of the screen the owner is on, three ways, in the order
+     that disturbs it least: its own Home if its bar is up; its own address
+     if it routes by one (Delivery Management does — deep in a route there is
+     no bar to press, and clearing the hash is exactly what its Home does);
+     otherwise load it again. */
+  function goHomeIn(frame, leaf) {
+    var a = ownActions(frame, leaf).filter(function (x) { return /^home$/i.test(x.label); })[0];
+    var btn = a ? ownButton(frame, leaf, a.at) : null;
+    if (btn) return btn.click();
+    try {
+      var cw = frame.contentWindow;
+      if (cw.location.hash && cw.location.hash !== "#") { cw.location.hash = ""; return; }
+    } catch (e) { /* cross-origin: the reload below is the only way */ }
+    loadModule(state.current);
+  }
+  /* The nth button of the screen's own bar, as it stands right now. */
+  function ownButton(frame, leaf, at) {
+    var doc, sel = leaf && (leaf.exitIn || leaf.barIn);
+    try { doc = frame.contentDocument; } catch (e) { return null; }
+    var bar = doc && sel && doc.querySelector(sel);
+    return bar ? bar.querySelectorAll("button, a")[at] || null : null;
+  }
+  /* ── The screen you are on holds its own controls (owner, 23 Sep 2026) ──
+     One row, and a rule the owner can say in a sentence: **Tower first, the
+     screen you are on second, and its own controls live inside it.** The
+     second slot is always the same thing — where you are, in green — so
+     nothing appears or disappears where a tab used to be. When that screen
+     has controls of its own it carries a caret; tapping it opens them to the
+     right, in place, and tapping it again closes them. The rest of the trip
+     follows, then the assistant, then EXIT DEMO.
+
+     So a tab is still a place, and a verb only ever shows up inside the
+     place it belongs to. */
+  /* Open by default (owner, 23 Sep 2026): the screen's own controls are the
+     reason the owner came to this screen, so they are there without a tap.
+     The caret closes them when the row is in the way. */
+  var tripOpen = true;
+  function drawTripBar(frame, leaf, lv, trip, foot) {
+    var own = ownActions(frame, leaf), up = panelOpen(frame);
+    own.forEach(function (a) { a.on = a.on || (a.label === tripPressed && up); });
+    var here = state.current && state.routes[state.current] ? state.routes[state.current].leaf.id : null;
+    /* The mark moves with the screen, so which one it is on is part of what
+       tells this row to be redrawn. */
+    var sig = here + "|" + own.map(function (a) { return a.label + (a.on ? "*" : ""); }).join("|") + "|" + tripOpen;
+    if (sig === tripSig) return;                                          // the same bar: leave it alone
+    tripSig = sig;
+    Array.prototype.slice.call(foot.querySelectorAll('[id^="fbx-t-"],.fbx-group')).forEach(function (b) { b.remove(); });
+    foot.classList.add("is-wide");
+    var exit = document.getElementById("fbx-exit");
+    var mine = trip.tabs.filter(function (t) { return t.id === here; })[0];
+
+    trip.tabs.filter(function (t) { return t.id === "tower"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+    /* The screen the owner is on, and what it can do, in one group: a
+       parent and its children have to look like one thing. */
+    if (mine) {
+      var group = document.createElement("div");
+      group.className = "fbx-group";
+      group.appendChild(tripTab(mine));
+      if (tripOpen) own.forEach(function (a, i) { group.appendChild(doTab(frame, leaf, a, i)); });
+      foot.insertBefore(group, exit);
+    }
+    trip.tabs.filter(function (t) { return t.id !== "tower" && t.id !== "assistant" && t !== mine; })
+      .forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+    trip.tabs.filter(function (t) { return t.id === "assistant"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+    /* From the start of the row, and again after layout: replacing the row's
+       children leaves the old scroll offset behind. */
+    foot.scrollLeft = 0;
+    requestAnimationFrame(function () { foot.scrollLeft = 0; });
+
+    function tripTab(t) {
+      var is = t.id === here;
+      var opens = is && own.length > 0;
+      var icon = t.icon;
+      /* The screen you are on: its controls open inside it. With none to
+         open, tapping it takes you to the top of it — the way a tab bar
+         behaves everywhere ("tapping Delivery lands on delivery home every
+         time"), however deep in the app you are. */
+      var btn = tab("fbx-t-" + t.id, icon, t.label,
+        opens ? function () { tripOpen = !tripOpen; tripSig = null; drawTripBar(frame, leaf, lv, trip, foot); }
+          : is ? function () { goHomeIn(frame, leaf); }
+          : function () { location.hash = t.hash || ("#/" + trip.group + "/" + t.id + "?from=" + lv); });
+      if (is) btn.setAttribute("aria-current", "page");
+      if (opens) {
+        btn.setAttribute("aria-expanded", tripOpen ? "true" : "false");
+        btn.classList.add("fbx-opens");
+        /* Drawn, not typed: a glyph in the label reads as a typo at 10px. */
+        btn.querySelector("span").insertAdjacentHTML("beforeend",
+          '<svg class="fbx-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
+      }
+      return btn;
+    }
+  }
+
+  /* One of the screen's own controls, shown inside its tab when that tab is
+     open: the bar's own shape — icon over a label — on a tinted ground, so
+     the group reads as one thing that came out of the tab beside it. */
+  function doTab(frame, leaf, a, i) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.id = "fbx-t-own" + i;
+    b.className = "fbx-tab fbx-do" + (a.on ? " is-on" : "");
+    var icon = "";
+    if (a.svg) {
+      /* The screen's own icon, stripped back to its shape: it is then drawn
+         at the size, weight and colour every other item in the row has. */
+      var c = a.svg.cloneNode(true);
+      c.setAttribute("stroke", "currentColor");
+      c.removeAttribute("width"); c.removeAttribute("height");
+      c.removeAttribute("stroke-width"); c.removeAttribute("class"); c.removeAttribute("style");
+      icon = c.outerHTML;
+    } else icon = ownIcon(a.label);
+    b.innerHTML = icon + "<span>" + esc(a.label) + "</span>";
+    /* Looked up again at click time, never held: these bars are redrawn
+       (Live Tracking redraws on every ping), and a button kept from the last
+       draw is detached — the tap would do nothing. */
+    b.addEventListener("click", function () {
+      var now = ownActions(frame, leaf).filter(function (x) { return x.label === a.label; })[0] || { at: a.at };
+      var el = ownButton(frame, leaf, now.at);
+      tripPressed = a.label;                                              // it is on while what it opens is up
+      if (el) el.click();
+    });
+    return b;
+  }
+
+  /* A screen's own action that draws its icon as an emoji (Delivery
+     Management's 🏠 and 📊) is given a stroked one, so the row is one set of
+     icons rather than two. Anything unrecognised gets a plain disc — the
+     label is what the owner reads. */
+  var OWN_ICONS = [
+    [/^home$/i, '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'],
+    [/report|summary|stat/i, '<path d="M4 20V10M10 20V4M16 20v-6M21 20H3"/>'],
+    [/follow|task/i, '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'],
+  ];
+  function ownIcon(label) {
+    var d = null;
+    OWN_ICONS.some(function (r) { if (r[0].test(label || "")) { d = r[1]; return true; } return false; });
+    return ico(d || '<circle cx="12" cy="12" r="8"/>');
+  }
+
+  /* One tab, exactly as the shared bar draws its own (assets/exit-demo.js):
+     an icon over a 10px label. The bar's only colour is on the tab for the
+     screen the owner is on. */
+  function tab(id, icon, label, onClick) {
+    var b = document.createElement("button");
+    b.type = "button"; b.id = id; b.className = "fbx-tab";
+    b.innerHTML = icon + "<span>" + esc(label) + "</span>";
+    if (onClick) b.addEventListener("click", onClick);
+    return b;
+  }
+  /* These bars are drawn by the module's own script, after load and again on
+     every redraw (Live Tracking as pings come in, Delivery Management on
+     every tap): stand the new one down and read its actions again. */
+  function watchTrip(frame, leaf, lv, trip, foot) {
+    var doc;
+    try { doc = frame.contentDocument; } catch (e) { return; }
+    if (!doc || !doc.body || tripWatcher) return;
+    var pending = null;
+    tripWatcher = new frame.contentWindow.MutationObserver(function () {
+      clearTimeout(pending);
+      pending = setTimeout(function () {
+        if (fromLever() !== lv) return;
+        ownBarOff(frame, leaf, true);
+        drawTripBar(frame, leaf, lv, trip, foot);
+      }, 120);
+    });
+    tripWatcher.observe(doc.body, { childList: true, subtree: true });
+  }
+
+  /* ── How much of the frame the shell is standing on ────────────────────
+     Below lg the platform's header sits OVER the top of the frame (that is
+     how a module's own header is hidden), and its bar sits over the bottom.
+     A module's own fixed panel — Live Tracking's route drawer — knows
+     nothing about either, so it draws its header into the band behind ours
+     and its foot behind the bar (owner, 23 Sep 2026: "its header is hiding
+     behind the header").
+
+     The shell measures both bands and hands them to the frame as
+     `--fb-top-inset` / `--fb-bottom-inset`; a panel in there positions
+     itself against them and lands exactly in the space the owner can see.
+     Nothing changes for a module that ignores them. */
+  function setFrameInsets(frame) {
+    var doc;
+    try { doc = frame.contentDocument; } catch (e) { return; }             // cross-origin: it is on its own
+    if (!doc || !doc.documentElement) return;
+    var r = frame.getBoundingClientRect();
+    var head = document.querySelector("[data-mobile-bar]");
+    var hb = head && getComputedStyle(head).display !== "none" ? head.getBoundingClientRect().bottom : 0;
+    var bar = document.getElementById("fbx-foot");
+    var bh = bar && !bar.hidden && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().height : 0;
+    var top = Math.max(0, Math.round(hb - r.top));
+    var bottom = Math.max(0, Math.round(r.bottom - (window.innerHeight - bh)));
+    var was = doc.documentElement.style.getPropertyValue("--fb-bottom-inset") + "|" + doc.documentElement.style.getPropertyValue("--fb-top-inset");
+    doc.documentElement.style.setProperty("--fb-top-inset", top + "px");
+    doc.documentElement.style.setProperty("--fb-bottom-inset", bottom + "px");
+    /* A page that measures the room it has (Live Tracking sizes its map to
+       the screen) hears about it the way it hears about everything else. */
+    if (was !== bottom + "px|" + top + "px") {
+      try { frame.contentWindow.dispatchEvent(new frame.contentWindow.Event("resize")); } catch (e) { /* not ours to poke */ }
+    }
   }
 
   function showError(dest, reason) {
@@ -859,8 +1355,14 @@
       var dest = state.current && state.routes[state.current];
       if (dest && dest.leaf.urlMobile && pickUrl(dest.leaf) !== state.currentUrl) {
         loadModule(state.current);
+        return;
       }
+      /* A module bar that hides itself above its own breakpoint hands EXIT
+         DEMO back to the platform's bar, and takes it again below. */
+      var f = document.querySelector("[data-frame]");
+      if (dest && f) deferToFramedExitBar(f, dest.leaf);
     };
+    window.addEventListener("resize", onBreakpoint);
     if (mobileMQ.addEventListener) mobileMQ.addEventListener("change", onBreakpoint);
     else mobileMQ.addListener(onBreakpoint); // older Safari
   }

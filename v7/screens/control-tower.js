@@ -27,6 +27,9 @@
     chev: sv('<path d="m9 18 6-6-6-6"/>'),
     x: sv('<path d="M18 6 6 18M6 6l12 12"/>'),
     info: sv('<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>'),
+    pin: sv('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'),
+    phone: sv('<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>'),
+    map: sv('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>'),
     truck: sv('<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>'),
     rupee: sv('<path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a4.5 4.5 0 0 0 0-10"/>'),
     cart: sv('<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'),
@@ -120,6 +123,7 @@
     if (deep.updates) { ui.page = "updates"; ui.newSince = updSeen() || Date.now(); markSeen(); }
     draw();
     if (deep.item) { const r = findRow(deep.item); if (r) openItem(r); }
+    if (deep.chat) setTimeout(openAssistant, 0);            // after the chat's own script has mounted
     wireGlobal();
   }
   function compute() {
@@ -156,14 +160,16 @@
   function lever(id) { return model.levers.filter(function (x) { return x.id === (id || ui.tab); })[0]; }
   function deepLink() {
     const q = new URLSearchParams(location.search);
-    let lv = q.get("lever"), item = q.get("item"), vw = q.get("view");
+    let lv = q.get("lever"), item = q.get("item"), vw = q.get("view"), chat = q.get("chat");
     try {
       const h = (platformWin() || window.top).location.hash || "";
       const i = h.indexOf("?");
-      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); }
+      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); chat = chat || hq.get("chat"); }
     } catch (e) { /* not ours to read */ }
     return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order"].indexOf(lv) !== -1 ? lv : null, item: item,
-             updates: vw === "updates" && !lv };
+             /* `chat=1`: the Assistant action on a work screen comes back to
+                the tower with the chat open, where it left off. */
+             chat: chat === "1", updates: vw === "updates" && !lv };
   }
 
   function skeleton() {
@@ -221,6 +227,7 @@
         /* Today needs no heading (owner, 22 Sep 2026); earlier days keep theirs. */
         return '<section class="ct-day">' + (d.label === "Today" ? "" : "<h3>" + esc(d.label) + "</h3>") + '<ol class="ct-tl">' + d.items.map(function (it) {
           ui.updItems[it.key] = it;
+          (ui.updDay = ui.updDay || {})[it.key] = d.label;
           const fresh = it.at > since;
           const arrived = fresh && ui.shownOnce && !shown[it.key + "@" + it.at];
           ui.shown[it.key + "@" + it.at] = 1;
@@ -247,14 +254,28 @@
     ui.page = p;
     draw(); window.scrollTo(0, 0);
   }
-  /* An update opens the lever that acts on it, on its tile. */
+  /* A line opens its details in a sheet, over the Timeline (owner, 22 Sep
+     2026): the facts and the records it sums up. The owner stays where they
+     are; Open, at the bottom, goes to the lever that acts on it. */
   function openUpdate(key) {
     const it = ui.updItems && ui.updItems[key]; if (!it) return;
-    markSeen();
-    ui.page = "tower";
-    if (ui.tab !== it.lever) setTab(it.lever); else { ui.sub = "status"; }
-    if (it.tile) ui.tile[it.lever] = it.tile;
-    draw(); window.scrollTo(0, 0);
+    const d = it.detail || { title: it.text, facts: [], rows: [] };
+    const day = ui.updDay && ui.updDay[key];
+    const lv = lever(it.lever);
+    sheet(function () {
+      return { title: d.title, sub: [day && day !== "Today" ? day : null, it.time].filter(Boolean).join(" · ") || null,
+        /* The title and facts say it; the line isn't repeated (no figure twice). */
+        body: (d.facts.length ? kv(d.facts) : "") +
+          (d.rows.length ? '<h4 class="ct-upd-h">' + esc(d.heading || "") + " · " + d.rows.length + '</h4><div class="ct-list">' + d.rows.map(function (r) {
+            return '<div class="ct-row"><span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (r.note ? "<small>" + esc(r.note) + "</small>" : "") + "</span>" +
+              (r.value ? '<b class="ct-row-v">' + esc(r.value) + "</b>" : "") + "</div>";
+          }).join("") + "</div>" : ""),
+        foot: lv ? '<button class="ct-btn is-ghost is-wide" data-a="open">Open ' + esc(lv.label) + "</button>" : "",
+        bind: function (el) {
+          const b = $("[data-a=open]", el.parentNode);
+          if (b) b.addEventListener("click", function () { closeAll(); openLever(it.lever, it.tile); });
+        } };
+    });
   }
   /* New since the owner last read the Timeline: a dot on its tab. */
   function unseen(tl) {
@@ -459,14 +480,19 @@
        is no sidebar to fold, so no button. */
     const burger = platformWin() ? '<button type="button" class="ct-top-burger" data-burger aria-label="Toggle sidebar" title="Toggle sidebar">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>' : "";
-    /* On a big screen the footer is off, so Tower · Timeline live here. */
+    /* On a big screen the footer is off, so Tower · Timeline · Assistant live here. */
     h.innerHTML = '<div class="ct-top-l">' + burger + '<h1 class="ct-top-t">Control Tower</h1>' +
       '<nav class="ct-top-nav" aria-label="Control Tower pages"><button type="button" data-page="tower">Tower</button>' +
-      '<button type="button" data-page="updates">Timeline<i class="ct-fnew" aria-hidden="true"></i></button></nav></div>' +
+      /* The work screens are not repeated here: on a big screen the shell's
+         sidebar lists all four under Distribution & Logistics, and seven
+         pills crowd the title out of this bar (23 Sep 2026). */
+      '<button type="button" data-page="updates">Timeline<i class="ct-fnew" aria-hidden="true"></i></button>' +
+      '<button type="button" data-assistant class="ct-top-assist"><span class="cb-face" style="background-image:url(../assets/ct/mascot/hello-128.png)" aria-hidden="true"></span>Assistant</button></nav></div>' +
       '<div class="ct-top-u"><span class="ct-top-ava">' + sv('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') + "<i></i></span>" +
       '<span class="ct-top-who"><b data-who-name></b><small data-who-role></small></span></div>';
     document.body.insertBefore(h, $("#ct"));
     h.addEventListener("click", function (e) {
+      if (e.target.closest("[data-assistant]")) return openAssistant();
       const p = e.target.closest("[data-page]"); if (!p) return;
       if (p.dataset.page === "updates") goUpdates(); else goTower();
     });
@@ -482,7 +508,11 @@
     $$(".ct-top-nav [data-page]").forEach(function (b) {
       const on = b.dataset.page === (ui.page || "tower");
       if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
-      if (b.dataset.page === "updates") b.classList.toggle("has-new", !on && !!tower && unseen(tl));
+      if (b.dataset.page !== "updates") return;
+      /* The same rule as the footer, whose place this bar takes on a big
+         screen: the Timeline is offered from home. */
+      b.hidden = !(on || hasTimeline());
+      b.classList.toggle("has-new", !on && !!tower && unseen(tl));
     });
     if (n) n.textContent = w.name;
     if (r) { r.textContent = w.role; r.hidden = !w.role; }
@@ -491,11 +521,52 @@
   /* ── footer: the platform's bar ──────────────────────────────────────── */
   function mountFooter() {
     if (!window.FB_EXIT) return;
-    window.FB_EXIT.mount({ pad: false, z: 39, tabs: [
+    const tabs = [
       { id: "tower", label: "Tower", icon: '<span class="ct-ftic">' + I.tower + "</span>", onClick: goTower },
       { id: "updates", label: "Timeline", icon: '<span class="ct-ftic">' + I.updates + '<i class="ct-fnew" aria-hidden="true"></i></span>', onClick: goUpdates },
-    ] });
+    ].concat(WORK.map(function (w) {
+      return { id: w.id, label: w.label, icon: '<span class="ct-ftic">' + I[w.icon] + "</span>", onClick: function () { openWork(w.id); } };
+    }), [
+      /* The assistant is a footer action, not a floating button (owner,
+         22 Sep 2026): its face as the icon; it opens the chat over the page.
+         It sits next to EXIT DEMO, whatever else is on the bar (owner,
+         23 Sep 2026) — the same thumb, the same place, every screen. */
+      { id: "assistant", label: "Assistant", icon: '<span class="ct-ftic ct-fassist"><span class="cb-face" style="background-image:url(../assets/ct/mascot/hello-128.png)"></span></span>', onClick: openAssistant },
+    ]);
+    window.FB_EXIT.mount({ pad: false, z: 39, tabs: tabs });
+    /* The bar numbers its tabs by position; name them, so the ones that come
+       and go (Work) never shift what the rest of this file points at. */
+    tabs.forEach(function (t, i) { const b = $('#fbx-foot [data-x="' + i + '"]'); if (b) b.dataset.ft = t.id; });
   }
+  function openAssistant() { closeAll(); if (window.FBChat) window.FBChat.open(); }
+
+  /* ── the work behind the Deliveries lever ─────────────────────────────
+     A lever says what is wrong; these four screens are where the owner does
+     something about it. They are the platform's own Distribution & Logistics
+     destinations, and on this lever they are footer actions like any other
+     (owner, 23 Sep 2026: "just like Tower, Timeline, Assistant" — not a
+     sheet in front of them). Eight actions do not fit a 375px bar, so the
+     bar scrolls sideways; nothing is dropped.
+
+     The same eight go into each screen's own bottom bar on the way in, so
+     the way back is always there — the shell does that; see `TRIP` in
+     assets/platform.js, which keeps this list in step.
+     Deliveries only: no other lever has a module behind it in this cut. */
+  const WORK = [
+    { id: "live-tracking", label: "Tracking", icon: "pin" },
+    { id: "delivery-management", label: "Delivery", icon: "phone" },
+    { id: "route-planning", label: "Planning", icon: "map" },
+    /* "Assets", not "Returns": what the screen itself is about — asset
+       movement, asset inventory, the assets (owner, 23 Sep 2026). */
+    { id: "logistic-returns", label: "Assets", icon: "box" },
+  ];
+  /* The work screens belong to the Deliveries lever, not to the tower. */
+  function hasWork() { return ui.page === "tower" && ui.tab === "deliveries"; }
+  /* The Timeline is offered from home only (owner, 23 Sep 2026). */
+  function hasTimeline() { return ui.page === "tower" && ui.tab === "overview"; }
+  /* `from=deliveries`: the screen opens carrying these same actions, and
+     they come back to this lever. */
+  function openWork(id) { closeAll(); go("#/distribution-logistics/" + id + "?from=deliveries"); }
   /* Tower is home: the five levers, from anywhere, Updates included. */
   function goTower() {
     closeAll();
@@ -508,9 +579,19 @@
   }
   function syncFooter(tl) {
     const up = ui.page === "updates";
-    const t = $('#fbx-foot [data-x="0"]'), u = $('#fbx-foot [data-x="1"]');
+    const t = $('#fbx-foot [data-ft="tower"]'), u = $('#fbx-foot [data-ft="updates"]');
+    const work = hasWork();
+    WORK.forEach(function (x) { const b = $('#fbx-foot [data-ft="' + x.id + '"]'); if (b) b.hidden = !work; });
+    /* Seven tabs do not fit a phone bar: it scrolls, and it starts at Tower. */
+    const bar = $("#fbx-foot");
+    if (bar) { bar.classList.toggle("is-wide", work); if (!work) bar.scrollLeft = 0; }
     if (t) { if (up) t.removeAttribute("aria-current"); else t.setAttribute("aria-current", "page"); }
     if (u) {
+      /* The Timeline belongs to the Overview (owner, 23 Sep 2026): the
+         business's news is a home-page thing, not something to carry into a
+         lever, where the lever's own work is what matters. It stays on the
+         bar while the owner is reading it, as the current tab. */
+      u.hidden = !(up || hasTimeline());
       if (up) u.setAttribute("aria-current", "page"); else u.removeAttribute("aria-current");
       const fresh = !up && unseen(tl);
       u.classList.toggle("has-new", fresh);

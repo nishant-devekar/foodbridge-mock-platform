@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CONTROL TOWER · ASSISTANT — the floating button and a WhatsApp-style chat.
+   CONTROL TOWER · ASSISTANT — the footer action and a WhatsApp-style chat.
    (22 Sep 2026.) WhatsApp's own palette and shapes, so it reads at a glance
    as a chat: green header, doodle wallpaper, white and green bubbles with
    tails, times, ticks, reply buttons, a list sheet.
@@ -12,39 +12,15 @@
   --cb-face: #FFE8D2;
 }
 
-/* ── the floating button: the assistant's face, above the footer ──────── */
-.cb-fab {
-  position: fixed; right: 16px; bottom: calc(var(--foot, 58px) + 16px + var(--safe, 0px)); z-index: 45;
-  width: 60px; height: 60px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
-  background: var(--cb-face); box-shadow: 0 0 0 3px #fff, 0 8px 20px rgba(17, 20, 24, .22);
-  transition: transform .18s cubic-bezier(.22, 1, .36, 1), opacity .15s, bottom .2s;
-  animation: cb-in .5s cubic-bezier(.22, 1.4, .36, 1) .3s both;
-}
-.cb-fab:hover { transform: scale(1.06); }
-.cb-fab:active { transform: scale(.94); }
-.cb-fab:focus-visible { outline: 3px solid var(--wa-send); outline-offset: 3px; }
-/* The head sits left of centre in the picture: 155% puts the face in the circle. */
-.cb-face { position: absolute; inset: 0; border-radius: 50%; background-repeat: no-repeat; background-size: 155%; background-position: 33% 0%; }
-.cb-online { position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; border-radius: 50%; background: #25D366; box-shadow: 0 0 0 2.5px #fff; }
-/* Above the lever's green action button when it shows. */
-html.ct-has-act .cb-fab { bottom: calc(var(--foot, 58px) + var(--act, 56px) + 24px + var(--safe, 0px)); }
-/* Out of the way while a sheet or the chat is open. */
-body.ct-locked .cb-fab, .cb-open .cb-fab, body.ct-locked .cb-hint { opacity: 0; pointer-events: none; transform: scale(.8); }
-@keyframes cb-in { from { transform: scale(.4); opacity: 0; } }
-
-/* Once per device: a speech bubble pointing at the button. */
-.cb-hint {
-  position: fixed; right: 88px; bottom: calc(var(--foot, 58px) + 26px + var(--safe, 0px)); z-index: 45;
-  padding: 10px 14px; border: 0; border-radius: 16px 16px 4px 16px; background: #fff; color: var(--wa-ink);
-  font: 600 14px/18px var(--font, system-ui, sans-serif); box-shadow: 0 6px 18px rgba(17, 20, 24, .18); cursor: pointer;
-  animation: cb-hint .35s cubic-bezier(.22, 1, .36, 1);
-}
-html.ct-has-act .cb-hint { bottom: calc(var(--foot, 58px) + var(--act, 56px) + 34px + var(--safe, 0px)); }
-@keyframes cb-hint { from { transform: translateX(12px); opacity: 0; } }
-/* The last line of a lever's list scrolls clear of the button. */
-.ct-main { scroll-padding-bottom: 88px; }
-html:not(.ct-ov) .ct-main { padding-bottom: calc(var(--foot, 58px) + 96px + var(--safe, 0px)); }
-html.ct-has-act:not(.ct-ov) .ct-main { padding-bottom: calc(var(--foot, 58px) + var(--act, 56px) + 108px + var(--safe, 0px)); }
+/* ── the Assistant action: the mascot's face, in the footer (and, on a big
+   screen, the top bar). A floating button until the owner moved it to the
+   footer (22 Sep 2026). The head sits left of centre in the picture: 155%
+   puts the face in the circle. ─────────────────────────────────────────── */
+.cb-face { position: absolute; inset: 0; border-radius: 50%; background-color: var(--cb-face); background-repeat: no-repeat; background-size: 155%; background-position: 33% 0%; }
+/* The assistant's face, at the size every other icon in the bar is drawn. */
+.ct-fassist { position: relative; width: var(--fbb-icon, 22px); height: var(--fbb-icon, 22px); border-radius: 50%; box-shadow: 0 0 0 1px rgba(17, 20, 24, .1); }
+.ct-top-assist { display: inline-flex; align-items: center; gap: 6px; }
+.ct-top-assist .cb-face { position: relative; inset: auto; display: inline-block; width: 22px; height: 22px; flex: none; }
 
 /* ── the chat: full screen on a phone, a panel on a big screen ────────── */
 .cb-chat {
@@ -170,6 +146,6 @@ html.cb-open, html.cb-open body { overflow: hidden; }
 .cb-rowbtn:active .cb-radio { border-color: var(--wa-send); box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 10px var(--wa-send); }
 
 @media (prefers-reduced-motion: reduce) {
-  .cb-fab, .cb-hint, .cb-chat, .cb-sheet, .cb-sheetwrap { animation: none !important; }
+  .cb-chat, .cb-sheet, .cb-sheetwrap { animation: none !important; }
   .cb-typing i { animation: none; opacity: .7; }
 }

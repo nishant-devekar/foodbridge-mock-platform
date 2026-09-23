@@ -110,12 +110,27 @@ back"*) and one at a time for new Ugly items. No alert for Good or Bad.
 
 ## 4a. The footer
 
-The platform's bar on every screen: **Tower · Timeline · EXIT DEMO** (Create
-is off for now; what it does is kept below).
+The platform's bar: **Tower · Assistant · EXIT DEMO** everywhere, **Timeline**
+on the Overview, and on the Deliveries lever the four work screens as well,
+which makes the bar scroll sideways. (Create is off for now; what it does is
+kept below.)
 
 - **Tower:** closes any sheet and returns to the five lever cards.
-- **Timeline:** the business's news, newest first; tap a line to open its
-  lever where it is dealt with (design §4.11).
+- **Assistant:** opens the WhatsApp-style chat over the page (design §4.12).
+- **Timeline:** on the **Overview** only, and while it is open — the
+  business's news, newest first; tap a line to open its lever where it is
+  dealt with (design §4.11). Inside a lever the bar is that lever's.
+- **Tracking · Delivery · Planning · Assets:** on the **Deliveries** lever
+  only, between Tower and Assistant (which keeps its place beside EXIT DEMO) — the four Distribution & Logistics screens as plain
+  footer actions (design §4.13). Seven actions do not fit a phone, so the bar
+  scrolls sideways.
+
+  1. Tap one → the platform opens that screen, as the sidebar would.
+  2. That screen wears **the same bar**: its own actions first, then Tower
+     back to the lever and the other three screens, then Assistant and EXIT
+     DEMO. Same look on every screen of the trip — nothing tells the owner
+     they have landed somewhere else. The owner toggles between them as long as they like.
+  3. Opened from the sidebar instead, a screen is untouched.
 
 - **Tower:** closes any sheet and returns to the top of the current lever.
 - **Create:** opens the Create sheet, one quick action per lever in tab order:

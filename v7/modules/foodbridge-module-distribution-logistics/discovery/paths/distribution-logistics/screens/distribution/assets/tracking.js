@@ -502,15 +502,13 @@
       document.querySelector(".main").appendChild(f);
     }
     const n = T().routes.length;
+    /* Routes only: Recentre moved onto the map, where a map control belongs
+       (owner, 23 Sep 2026). */
     f.innerHTML =
-      '<button class="mf-btn primary" data-mf="routes"><span class="mf-ic">' + ICO.list + "</span>Routes · " + n + "</button>" +
-      '<button class="mf-btn' + (state.selected ? " accent" : "") + '" data-mf="fit"><span class="mf-ic">' + ICO.target + "</span>" +
-      (state.selected ? "Show all" : "Recentre") + "</button>";
+      '<button class="mf-btn primary" data-mf="routes"><span class="mf-ic">' + ICO.list + "</span>Routes · " + n + "</button>";
     Array.from(f.querySelectorAll("[data-mf]")).forEach(function (b) {
       b.addEventListener("click", function () {
-        const k = b.getAttribute("data-mf");
-        if (k === "routes") return openSheet();
-        if (k === "fit") { state.selected = null; state._framed = false; state._framedFor = null; render(); }
+        if (b.getAttribute("data-mf") === "routes") openSheet();
       });
     });
   }
@@ -562,7 +560,12 @@
     const top = document.querySelector(".topbar");
     const foot = document.getElementById("mfooter");
     const pad = 26; // .content padding-top (14) + the wrap's own gap (12)
-    const h = (top ? top.getBoundingClientRect().height : 68) + (foot ? foot.getBoundingClientRect().height : 62) + pad;
+    /* Embedded, the platform's own bar (and the action line above it) cover
+       the foot of the page; it says how deep in --fb-bottom-inset, so the map
+       ends above them rather than under them. 0 when this screen is on its
+       own, where its own footer is the only thing down there. */
+    const inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--fb-bottom-inset")) || 0;
+    const h = (top ? top.getBoundingClientRect().height : 68) + (foot ? foot.getBoundingClientRect().height : 62) + inset + pad;
     document.documentElement.style.setProperty("--tk-chrome", Math.round(h) + "px");
   }
 
@@ -600,6 +603,11 @@
       (state.selected ? '<button class="tk-clear-sel" data-clearsel>Show all routes</button>' : "") +
       "</div>" +
       '<div class="tk-map-wrap"><div id="tkMap" class="tk-map"></div>' +
+      /* Recentre belongs to the map, not to the bottom bar (owner, 23 Sep
+         2026): it sits over the map, clear of the zoom controls and the
+         legend, and says which of the two things it does. */
+      '<button type="button" class="tk-fit' + (state.selected ? " is-on" : "") + '" data-fit>' + ICO.target +
+      "<span>" + (state.selected ? "Show all" : "Recentre") + "</span></button>" +
       '<div class="tk-legend">' +
       '<span><i class="lg ok"></i>on time</span><span><i class="lg behind"></i>behind</span>' +
       '<span><i class="lg idle"></i>idle</span><span><i class="lg offline"></i>no signal</span>' +
@@ -611,6 +619,8 @@
     wireRail();
     const cs = $("[data-clearsel]");
     if (cs) cs.addEventListener("click", () => { state.selected = null; render(); });
+    const fit = $("[data-fit]");
+    if (fit) fit.addEventListener("click", () => { state.selected = null; state._framed = false; state._framedFor = null; render(); });
     $$("[data-close]").forEach((b) => b.addEventListener("click", () => { state.drawer = null; state.focusStop = null; render(); }));
     $$("[data-act]").forEach((b) =>
       b.addEventListener("click", () => act(b.getAttribute("data-act"), b.getAttribute("data-stop"), b.getAttribute("data-arg")))

@@ -95,31 +95,32 @@ test("phone · Overview first: a dial per lever, and nothing else", async () => 
   await tap(p, "[data-home]");
   assert.equal(await view(p), "overview", "Back returns to the five levers");
   await tap(p, '.ct-dial[data-goto="order"]');
-  await tap(p, '#fbx-foot [data-x="0"]');
+  await tap(p, '#fbx-foot [data-ft="tower"]');
   assert.equal(await view(p), "overview", "Tower returns to the five levers");
+  assert.deepEqual(await footTabs(p), ["Tower", "Timeline", "Assistant", "EXIT DEMO"], "the work screens belong to Deliveries, the Timeline to home");
   assert.deepEqual(p.errors, []);
 });
 
 test("phone · Timeline: the footer's second tab, news newest first, a line opens its lever", async () => {
   const p = await open(PHONE);
-  await tap(p, '#fbx-foot [data-x="1"]');
+  await tap(p, '#fbx-foot [data-ft="updates"]');
   assert.equal(await text(p, ".ct-upbar h2"), "Business Timeline");
-  assert.equal(await p.$eval('#fbx-foot [data-x="1"]', (b) => b.getAttribute("aria-current")), "page");
+  assert.equal(await p.$eval('#fbx-foot [data-ft="updates"]', (b) => b.getAttribute("aria-current")), "page");
   const n = await p.$$eval(".ct-tli", (b) => b.length);
   if (n) {
     const lever = await p.$eval(".ct-tli", (b) => b.dataset.upd);
     await tap(p, ".ct-tli");
     assert.notEqual(await view(p), "updates", "a line opens a lever: " + lever);
   }
-  await tap(p, '#fbx-foot [data-x="0"]');
+  await tap(p, '#fbx-foot [data-ft="tower"]');
   assert.equal(await view(p), "overview", "Tower returns to the five levers");
+  assert.equal(await p.$eval('#fbx-foot [data-ft="updates"]', (b) => b.hidden), false, "the Timeline is offered from home");
   assert.deepEqual(p.errors, []);
 });
 
-test("phone · the assistant: a floating button, a WhatsApp-style chat, a menu number answered, a lever opened", async () => {
+test("phone · the assistant: the footer's Assistant, a WhatsApp-style chat, a menu number answered, a lever opened", async () => {
   const p = await open(PHONE);
-  await p.waitForSelector(".cb-fab");
-  await tap(p, ".cb-fab");
+  await tap(p, '#fbx-foot [data-ft="assistant"]');
   await p.waitForFunction(() => document.querySelectorAll(".cb-row").length >= 2, { timeout: 8000 });
   assert.match(await text(p, ".cb-head"), /FoodBridge Assistant/);
   await p.type(".cb-input", "3");
@@ -131,6 +132,8 @@ test("phone · the assistant: a floating button, a WhatsApp-style chat, a menu n
   assert.deepEqual(p.errors, []);
 });
 
+const footTabs = (p) => p.$$eval("#fbx-foot .fbx-tab", (t) => t.filter((b) => !b.hidden).map((b) => b.lastElementChild.textContent.trim()));
+
 test("phone · Deliveries opens in Preview; the platform footer", async () => {
   const p = await open(PHONE);
   await openLever(p, "deliveries");
@@ -138,8 +141,12 @@ test("phone · Deliveries opens in Preview; the platform footer", async () => {
   assert.match(await text(p, ".ct-main"), /Track all \d+ orders to the door/);
   assert.match(await text(p, ".ct-example"), /Example/);
   assert.equal(await text(p, ".ct-act"), "Record your first delivery");
-  const nav = await p.$$eval("#fbx-foot .fbx-tab > span:last-child", (s) => s.map((x) => x.textContent.trim()));
-  assert.deepEqual(nav, ["Tower", "Timeline", "EXIT DEMO"]);
+  /* The four Distribution & Logistics screens are the Deliveries lever's own
+     footer actions (23 Sep 2026), off everywhere else. Eight do not fit a
+     phone, so the bar scrolls sideways — and the page still does not. */
+  const nav = await footTabs(p);
+  assert.deepEqual(nav, ["Tower", "Tracking", "Delivery", "Planning", "Assets", "Assistant", "EXIT DEMO"]);
+  assert.equal(await p.$eval("#fbx-foot", (f) => f.scrollWidth > f.clientWidth), true, "the bar scrolls rather than clipping");
   assert.equal(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "no sideways scroll");
   assert.deepEqual(p.errors, []);
 });

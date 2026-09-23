@@ -64,10 +64,10 @@
       "icon": "layoutGrid",
       "submenus": [
         {
-          "_why": "In the sidebar since 21 Sep 2026; rebuilt 22 Sep 2026 on the five levers (context/control-tower/CONTROL_TOWER_LEVERS.md). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws, on a big screen, its own top bar the same as Reports (its name, who is signed in); the Overview's five lever cards are home, a card opens its lever with a Back bar; the Timeline (the business's news) is the footer's second tab; a floating assistant (a WhatsApp-style chat) sits over every screen; the platform footer Tower · Create · EXIT DEMO in place of the shell's EXIT DEMO bar.",
+          "_why": "In the sidebar since 21 Sep 2026; rebuilt 22 Sep 2026 on the five levers (context/control-tower/CONTROL_TOWER_LEVERS.md). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws, on a big screen, its own top bar the same as Reports (its name, who is signed in); the Overview's five lever cards are home, a card opens its lever with a Back bar; the Timeline (the business's news) is the footer's second tab; the footer's Assistant opens a WhatsApp-style chat over any screen; the platform footer Tower · Create · EXIT DEMO in place of the shell's EXIT DEMO bar.",
           "id": "control-tower",
           "name": "Control Tower",
-          "url": "screens/control-tower.html?v=20260922AI",
+          "url": "screens/control-tower.html?v=20260923DWU",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -90,6 +90,7 @@
       "submenus": [
         {
           "id": "finished-goods",
+          "exitIn": "#mfooter",
           "name": "Finished Goods",
           "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html",
           "clipLeft": 250,
@@ -99,6 +100,7 @@
         },
         {
           "id": "product-categories",
+          "exitIn": "#mfooter",
           "name": "Product Categories",
           "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html",
           "clipLeft": 250,
@@ -108,6 +110,7 @@
         },
         {
           "id": "raw-materials",
+          "exitIn": "#mfooter",
           "name": "Raw Materials",
           "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html",
           "clipLeft": 250,
@@ -120,6 +123,7 @@
         },
         {
           "id": "image-gallery",
+          "exitIn": "#mfooter",
           "name": "Image Gallery",
           "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html",
           "clipLeft": 250,
@@ -136,6 +140,7 @@
       "submenus": [
         {
           "id": "b2b-customers",
+          "exitIn": ".mobile-foot",
           "name": "B2B Customers",
           "url": "modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html",
           "clipLeft": 256,
@@ -144,6 +149,7 @@
         },
         {
           "id": "retail-customers",
+          "exitIn": ".mobile-foot",
           "name": "Retail Customers",
           "url": "modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html",
           "clipLeft": 256,
@@ -152,6 +158,7 @@
         },
         {
           "id": "catalog",
+          "exitIn": "#mfooter",
           "name": "Catalog",
           "url": "modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html",
           "clipLeft": 250,
@@ -172,6 +179,7 @@
     {
       "_why": "One item, not a group of one and a half: the submenu held the same name as its parent plus Order Drafts, which is a destination onboarding hands off to rather than a place anyone browses to. Order Drafts is standalone now — addressable at #/order-drafts, absent from the sidebar.",
       "id": "sales-orders",
+      "exitIn": "div.fixed.bottom-0.z-40",
       "name": "Sales Orders",
       "icon": "shoppingCart",
       "url": "modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
@@ -186,6 +194,7 @@
       "submenus": [
         {
           "id": "route-planning",
+          "exitIn": "#mfooter",
           "name": "Route Planning",
           "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html",
           "clipLeft": 250,
@@ -197,7 +206,9 @@
           "_why": "deviceFrame: the route rep's field app, drawn inside a phone on desktop the way Stock Audit frames itself, with the sidebar kept. fullBleed still governs mobile, where it has the screen to itself.",
           "id": "delivery-management",
           "name": "Delivery Management",
-          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260921E4",
+          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260923DWI",
+      "barIn": "#app div:has(> .rd-tab)",
+      "padIn": ".rd-body",
           "clipLeft": 0,
           "fullBleed": true,
           "deviceFrame": true,
@@ -216,6 +227,7 @@
         },
         {
           "id": "live-tracking",
+          "exitIn": "#mfooter",
           "name": "Live Delivery Tracking",
           "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/live-tracking/index.html",
           "clipLeft": 250,
@@ -232,6 +244,7 @@
       "submenus": [
         {
           "id": "batch-management",
+          "exitIn": "nav.bottom-nav",
           "name": "Batch Management",
           "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html",
           "clipLeft": 0,
@@ -268,7 +281,7 @@
         {
           "id": "finished-goods-inventory",
           "name": "Finished Goods Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260918E3",
+          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260922FB3",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true
@@ -276,7 +289,7 @@
         {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260918E3",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260922FB3",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
@@ -321,14 +334,14 @@
         {
           "id": "customer-receivables",
           "name": "Customer Receivables",
-          "url": "modules/invoice-payment-overview/screens/invoices-payments.html?v=20260918E3",
+          "url": "modules/invoice-payment-overview/screens/invoices-payments.html?v=20260922FB3",
           "clipLeft": 250,
           "owner": "kdansari02/invoice-payment-overview"
         },
         {
           "id": "supplier-payables",
           "name": "Supplier Payables",
-          "url": "modules/invoice-payment-overview/screens/supplier-invoices-payments.html?v=20260918E3",
+          "url": "modules/invoice-payment-overview/screens/supplier-invoices-payments.html?v=20260922FB3",
           "clipLeft": 250,
           "owner": "kdansari02/invoice-payment-overview"
         }
@@ -336,6 +349,7 @@
     },
     {
       "id": "workforce-management",
+      "exitIn": "div.fixed.bottom-0.z-40",
       "name": "Workforce Management",
       "icon": "userCog",
       "url": "modules/foodbridge-staff-mockup/screens/screen-01-staff-list.html",

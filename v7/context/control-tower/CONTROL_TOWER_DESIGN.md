@@ -214,7 +214,9 @@ last. In the tower it carries three items:
 | Item | Does | Why it is there |
 | --- | --- | --- |
 | **Tower** | Closes any sheet and returns to the five lever cards, from anywhere (Timeline included) | Home base: one tap back from anywhere |
-| **Timeline** | Opens the Business Timeline, the business's news (§4.11); a green dot when there is news since the last read | "What happened?" is the owner's second question after "what needs me?" |
+| **Assistant** | Opens the FoodBridge Assistant, a WhatsApp-style chat over the page (§4.12); the mascot's face is the icon, and it sits next to EXIT DEMO whatever else is on the bar (owner, 23 Sep 2026) | Questions answered in the owner's words, without leaving the screen |
+| **Timeline** | *The Overview only (owner, 23 Sep 2026)*, and while it is open: the Business Timeline, the business's news (§4.11); a green dot when there is news since the last read | "What happened?" is the owner's second question after "what needs me?" — a home question. Inside a lever the bar belongs to that lever's own work |
+| **Tracking · Delivery · Planning · Assets** | *Deliveries lever only (owner, 23 Sep 2026)*: the four Distribution & Logistics screens, as plain footer actions (§4.13) | The lever says what is wrong; these are where the owner goes to fix it |
 | **Create** | *Off for now (owner, 22 Sep 2026)*: opens the Create sheet, the quick actions | Where the business's own records go in |
 | **EXIT DEMO** | The platform's exit | Platform standard, always last |
 
@@ -233,7 +235,17 @@ last. In the tower it carries three items:
 - **With the sticky action:** the action sits directly above the footer, 12 px
   clear of it. A sheet rises over both.
 - **Bigger screens:** where the platform shows its sidebar, the footer is not
-  drawn; Create sits at the top of the tower instead.
+  drawn; Create sits at the top of the tower instead. The four work screens
+  are **not** repeated in the top bar — the sidebar already lists them under
+  Distribution & Logistics, and seven pills crowd the title out.
+- **What is on the bar where:** Tower, Assistant and EXIT DEMO everywhere;
+  **Timeline on the Overview** (and while it is open); the four work screens
+  **on the Deliveries lever**. So the Overview has four, a lever has three,
+  and the Deliveries lever has seven.
+- **Seven items at 375 px:** they do not fit, so **the bar scrolls sideways**
+  (owner's pick, 23 Sep 2026: nothing dropped, nothing squeezed). It starts at
+  Tower, with the next tab half in view; the gap closes to 14 px. Centred
+  while the items fit, and reachable at both ends once they do not.
 
 *Why:* quick actions need to be reachable from any lever with the thumb, and
 the owner expects the same bar they meet on every other screen. Everything
@@ -287,8 +299,16 @@ the day this way: the trip closure, the collection register, the Day Book.
   bold line with its figure in it**, and ›. A rail runs through the circles.
   A win (money stuck for months received, a trip delivered in full, a lever
   turning green) is written in green.
-- **Tap a line:** its lever opens on the tile where it is dealt with (a
-  missed drop → Deliveries, Urgent; a payment → Collections, On track).
+- **Tap a line:** its details open in a bottom sheet over the Timeline (a
+  side panel on a big screen); the owner stays where they are (owner, 22 Sep
+  2026). The sheet's title names it; a few facts; then the records it sums
+  up: a trip's every drop with what was collected, a late trip's late drops,
+  the orders that didn't fit the van with their cases, an hour's payments
+  (who, when, how, how much), who was reminded, a purchase order's lines,
+  the orders made, the products counted; a lever's change says what it was,
+  what it became, and where it stands now. The line itself is not repeated
+  (no figure twice). **Open <lever>**, at the bottom, goes to the lever on
+  the tile where it is dealt with.
 - **New:** what arrived since the last read is tagged *New*; on a first read
   nothing is (everything would be). A line arriving while the owner reads is
   highlighted once, never again on a live redraw.
@@ -315,11 +335,13 @@ connecting records is not "news". The model is `assets/ct/timeline.js`
 opens that looks like WhatsApp and a WhatsApp IVR flow."* Built new; it
 borrows nothing from the platform's IVR or the assistant removed on 21 Sep.
 
-- **The button:** the mascot's face (the headset pose) in a 60 px circle,
-  bottom right, with a green "online" dot. It sits above the footer, above a
-  lever's green action button when there is one, and steps aside while a
-  sheet is open. The first time on a device a bubble points at it: *"Ask me
-  about your business 👋"*, once.
+- **Where it opens: the footer's Assistant action** (Tower · Timeline ·
+  Assistant · EXIT DEMO), the mascot's face as its icon, on every Control
+  Tower screen: the five cards, each lever, the Timeline. On a big screen,
+  where the footer is off, **Assistant** sits in the top bar beside Tower and
+  Timeline. It began as a floating button, bottom right; the owner moved it
+  to the footer the same day (22 Sep 2026), so nothing floats over the list
+  or the green action button, and there is no hint bubble.
 - **The chat looks like WhatsApp:** full screen on a phone, a 390 px panel
   on a big screen. The green header (‹, the mascot, *FoodBridge Assistant*,
   *online* / *typing…*); the doodle wallpaper, drawn from the trade (truck,
@@ -353,6 +375,106 @@ borrows nothing from the platform's IVR or the assistant removed on 21 Sep.
 
 The words are `assets/ct/chat.js` (pure, tested headless); the chat is
 `screens/control-tower-chat.js` and `.css`; the mascot is `assets/ct/mascot/`.
+
+### 4.13 The work screens, in the lever's footer (owner, 23 Sep 2026)
+
+A lever says what is wrong. The four Distribution & Logistics screens are
+where the owner does something about it, so on the Deliveries lever they
+**become part of that lever**: footer actions like any other — *"just like
+Tower, Timeline, Assistant"*, not a list behind one of them — and the lever's
+own actions follow the owner into each screen.
+
+| Action | Opens | Address |
+| --- | --- | --- |
+| **Tracking** | Live Delivery Tracking — where each van is, stop by stop | `#/distribution-logistics/live-tracking?from=deliveries` |
+| **Delivery** | Delivery Management — the rep's own app: stops, proof, cash | `…/delivery-management?from=deliveries` |
+| **Planning** | Route Planning — which customers a round covers | `…/route-planning?from=deliveries` |
+| **Assets** | Logistic Returns — the crates and assets out with customers; *"Assets", not "Returns", is what the screen is about* | `…/logistic-returns?from=deliveries` |
+
+- **The same seven, both sides.** On the Deliveries lever the bar is
+  Tower · Tracking · Delivery · Planning · Assets · Assistant · EXIT DEMO —
+  no Timeline, which belongs to the Overview. On each of the four screens
+  those same seven are on the bar as well — so the tower, the assistant and
+  the other three screens are always under the thumb.
+- **One bar, one look** (owner, 23 Sep 2026: *"they should look identical…
+  it looks like I have come to some other page"*). On a trip **the platform's
+  own bar is the bar**: the screen's own bar is stood down and its controls
+  are carried into ours. Nothing is written into the module's bar and nothing
+  in its folder changes: one stylesheet in its document stands the bar down,
+  and leaving the trip brings it straight back.
+- **The screen you are on holds its own controls** (owner, 23 Sep 2026, after
+  three tries: *"a few footer actions only appear when I'm on some specific
+  page — it's not very clear"*). The rule is one sentence: **Tower first, the
+  screen you are on second, and its own controls live inside it.**
+
+  The second slot is always the same thing — where you are — so no tab ever
+  appears where another one used to be. It sits in a **group**: a soft
+  brand-tinted pill holding that screen and, beside it, that screen's own
+  controls, **open by default** (owner, 23 Sep 2026) because they are what
+  the owner came for. A caret folds them away when the row is in the way; a
+  screen with none has no caret and the pill holds it alone.
+
+  **One system, written down once** (owner, 23 Sep 2026: *"no uniformity,
+  nothing — colours, design, goes left and right… parent and those children
+  don't even seem they mean something together"*). Three stylesheets reach
+  this bar — the shared asset draws it, the tower dresses its own copy, the
+  shell dresses the one under a module — and they now agree on every value:
+
+  | | |
+  | --- | --- |
+  | **Item** | a 22px stroked icon over a 10.5px/600 label, 46px tall, at least 60px wide, centred. Tabs and controls are the same object; nothing in the row is a different size or shape |
+  | **Colour** | one accent. Muted ink (#6B7280) for everything, brand green for where the owner is, ink (#111418) for a control inside the group. No second fill, no chips, no black |
+  | **Group** | the screen and its controls in one quiet pill (ink at 5%), radius 16. The control the screen is **on** is lifted onto white — the module says which by an attribute, a class, or simply by colouring that label, and a control is on too while whatever it opened is still on screen |
+  | **Ground** | frosted white over the page, a hairline instead of a border, 64px plus the safe area |
+
+  The markup carries no styling of its own any more: icons are emitted as
+  shapes and the stylesheet gives every one of them its size, weight and
+  colour — which is what had drifted, three patches deep.
+
+  So a tab is a place, and a verb only ever shows up inside the place it
+  belongs to: Live Tracking opens **Routes · N**, Route Planning **Add
+  Template**, Delivery Management **Home · Reports** (its own two screens);
+  Logistic Returns has none, so its tab carries no caret and takes the owner
+  to the top of the screen instead.
+
+  *Tried and rejected by the owner on the way there: the controls as plain
+  tabs (they read as places), on their own line above the bar (a second row),
+  in a compartment between hairlines (weird), and moved out of the bar onto
+  their own pages (the bar is where they belong).*
+- **It scrolls, and it says so.** Seven tabs, and the open screen's controls
+  beside them, do not fit a 375px row, so it scrolls sideways rather than
+  squeezing or wrapping; opening a tab scrolls the row back to its start.
+  Nothing about a scrolling row announces itself, so the end that has more
+  carries a soft fade with a chevron in it — and the chevron is a button, so
+  the cue is also the way to use it. The first time a bar turns out to be
+  scrollable it nudges itself a few pixels: nothing explains a scroll like
+  seeing it move once. Both live in the shared asset (assets/exit-demo.js),
+  so the tower's bar and the shell's get them from one implementation. **Tower is
+  always first**, in the same place on every screen of the trip as on the
+  tower itself; the assistant and EXIT DEMO end every bar in the cut.
+- **A tab with nothing to open** takes the owner to the top of that screen —
+  its own Home if it has one, its own address if it routes by one (deep
+  inside a route in Delivery Management there is no bar to press), otherwise
+  the screen again. *"Tapping Delivery lands on delivery home every time"*
+  (owner, 23 Sep 2026).
+- **Assistant** goes to
+  `#/control-tower?lever=deliveries&chat=1`, which lands on the lever with the
+  chat open where it left off; **Tower** goes to
+  `#/control-tower?lever=deliveries`, the lever itself, not the Overview.
+- **Only with `from=`**: a screen opened from the sidebar is untouched —
+  nothing changes for anyone who did not come from the lever.
+- **No other lever** has a module behind it in this cut; the four are off
+  everywhere else and the footer is its usual four.
+- **A phone thing.** On a big screen there is no footer and the sidebar has
+  the same four screens, so the trip is not offered there; a screen opened
+  from the sidebar carries no `from=` and is untouched.
+
+The tower's side is `screens/control-tower.js` (`WORK`, `openWork`); the
+screens' side is `assets/platform.js` (`TRIP`, `tripBar`, `ownActions`,
+`drawTripBar`), and the bar to stand down is named by `exitIn` — or by
+`barIn` for a screen that draws its own EXIT DEMO (Delivery Management) — in
+`assets/modules.json`. The module folders are never touched, as with the clip
+offsets and the device frame.
 
 ## 5. The five levers on screen
 
@@ -674,4 +796,4 @@ Where the build differs from this document, and why:
 | Near expiry (Inventory) | Not tracked; said under ⓘ | No batch or expiry dates in the records |
 | 1200 px: tabs in a left column | Same centred column, sheets as a side panel from 768 px | One layout to keep right first |
 | Tiles: "Good / Bad / Ugly" | **On track / Needs work / Urgent** | The owner's call: common business words, the same three as the Overview dials. Tiles look pressable: a card, a ⌄, a notch from the selected tile to its list; an empty tile is flat and dashed |
-| Footer: Tower · Create · EXIT DEMO | **Tower · Timeline · EXIT DEMO** | Create removed for now (owner, 22 Sep 2026); Timeline added the same day (§4.11). "Record your first delivery" still opens the delivery form from the Deliveries preview |
+| Footer: Tower · Create · EXIT DEMO | **Tower · Assistant · EXIT DEMO**, with Timeline on the Overview and the four work screens on the Deliveries lever | Create removed for now (owner, 22 Sep 2026); Timeline (§4.11) and Assistant (§4.12) added the same day; the Distribution & Logistics screens joined the Deliveries lever's bar on 23 Sep 2026 (§4.13), which scrolls sideways to hold them, and the Timeline became a home action the same day. "Record your first delivery" still opens the delivery form from the Deliveries preview |
