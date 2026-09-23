@@ -516,7 +516,9 @@
       tabs: [
         { id: "tower", label: "Tower", icon: TOWER_ICON, hash: "#/control-tower?lever=deliveries" },
         { id: "live-tracking", label: "Tracking", icon: ico('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>') },
-        { id: "delivery-management", label: "Delivery", icon: ico('<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>') },
+        /* A truck, not a phone (owner, 23 Sep 2026): the screen is about the
+           delivery, not the device it is recorded on. */
+        { id: "delivery-management", label: "Delivery", icon: ico('<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>') },
         { id: "route-planning", label: "Planning", icon: ico('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>') },
         /* "Assets", not "Returns": what the screen itself is about — asset
            movement, asset inventory, the assets (owner, 23 Sep 2026). */
@@ -533,6 +535,14 @@
     if (i === -1) return null;
     var v = new URLSearchParams(raw.slice(i + 1)).get("from");
     return TRIP[v] ? v : null;
+  }
+  /* The tower and its trip — Tower itself, every lever, and the four work
+     screens a trip carries the bar onto — already have their own way home
+     (Tower, in the bar). The platform's hamburger opens the sidebar to
+     everything else, which has no place in that flow (owner, 23 Sep 2026:
+     "no hamburger anywhere in Control Tower"). */
+  function inControlTowerFlow(leaf) {
+    return !!(leaf && leaf.id === "control-tower") || !!fromLever();
   }
 
   function exitInOwnFooter(frame, leaf) {
@@ -628,7 +638,9 @@
   function deferToFramedExitBar(frame, leaf) {
     if (exitWatcher) { exitWatcher.disconnect(); exitWatcher = null; }     // the last destination's
     if (tripWatcher) { tripWatcher.disconnect(); tripWatcher = null; }     // watched the last document
-    tripSig = null; tripOpen = true;                                       // every screen opens with its own controls out
+    tripSig = null; tripTabsSig = null; tripOpenFor = null;                // a new screen opens with no menu up
+    var burger = document.querySelector("[data-mobile-toggle]");
+    if (burger) burger.hidden = inControlTowerFlow(leaf);
     var own = document.getElementById("fbx-foot");
     if (!own) return;
     var framed = false;
@@ -687,7 +699,11 @@
      bar: one stylesheet in its document stands the bar down, exactly as the
      clip offsets are set on its frame. Leave the trip and the bar comes
      straight back. */
-  var tripWatcher = null, tripSig = null;
+  /* tripSig gates the whole redraw; tripTabsSig gates only the row's own
+     buttons — separate, so opening or closing a menu (which changes tripSig
+     via tripOpenFor) does not tear the row down and rebuild it for that
+     alone. See drawTripBar. */
+  var tripWatcher = null, tripSig = null, tripTabsSig = null;
   function tripBar(frame, leaf) {
     var lv = fromLever(), trip = lv && TRIP[lv];
     var foot = document.getElementById("fbx-foot");
@@ -702,7 +718,8 @@
   }
   function tripOff(frame) {
     if (tripWatcher) { tripWatcher.disconnect(); tripWatcher = null; }
-    tripSig = null; tripOpen = false;
+    tripSig = null; tripTabsSig = null; tripOpenFor = null; tripHere = null; landGo = null;
+    closeTripMenu();
     var foot = document.getElementById("fbx-foot");
     if (foot) {
       Array.prototype.slice.call(foot.querySelectorAll('[id^="fbx-t-"],.fbx-group')).forEach(function (b) { b.remove(); });
@@ -826,57 +843,120 @@
 
      So a tab is still a place, and a verb only ever shows up inside the
      place it belongs to. */
-  /* Open by default (owner, 23 Sep 2026): the screen's own controls are the
-     reason the owner came to this screen, so they are there without a tap.
-     The caret closes them when the row is in the way. */
-  var tripOpen = true;
+  /* ── Which submenu (owner, 23 Sep 2026) ───────────────────────────────
+     "float"  the screen's own controls open in a small sheet OVER its tab.
+              Every tab keeps its place in the row — the screen the owner is
+              on does not jump into the second slot — and the controls carry
+              the same on/off marks they had in the row.
+     "group"  the earlier pattern, kept whole below and in platform.css
+              (.fbx-group): the screen moves into the second slot and its
+              controls sit beside it inside one tinted pill.
+     Change this one word to go back. */
+  var TRIP_SUBMENU = "float";
+  /* Which tab has its menu up (its id), or null. The inline group only ever
+     opened the screen the owner was on, and it came open — its controls were
+     the reason he was there. A sheet that floats over the page waits to be
+     asked, and any tab with parts can raise its own. */
+  var tripOpenFor = null;
+  var tripHere = null, tripRedraw = null, tripMenu = null;
+  /* A pick from another screen's menu travels in the hash (…&go=reports) and
+     is pressed once that screen is up. */
+  var landGo = null, landFor = null, landTries = 0;
+  /* window, not root: this IIFE takes no `root` parameter, so a bare `root`
+     resolves to the page's own #root div (the browser exposes every
+     id'd element as a same-named global) — not window — and every
+     `.FB_WORK` off it was silently undefined. That is what made a work
+     tab open its page directly instead of its menu: `opens` here was
+     always false. */
+  function workParts(id) { return (window.FB_WORK ? window.FB_WORK.parts(id) : []) || []; }
+  function hashParam(name) {
+    var raw = location.hash || "", i = raw.indexOf("?");
+    return i === -1 ? null : new URLSearchParams(raw.slice(i + 1)).get(name);
+  }
   function drawTripBar(frame, leaf, lv, trip, foot) {
     var own = ownActions(frame, leaf), up = panelOpen(frame);
     own.forEach(function (a) { a.on = a.on || (a.label === tripPressed && up); });
     var here = state.current && state.routes[state.current] ? state.routes[state.current].leaf.id : null;
     /* The mark moves with the screen, so which one it is on is part of what
        tells this row to be redrawn. */
-    var sig = here + "|" + own.map(function (a) { return a.label + (a.on ? "*" : ""); }).join("|") + "|" + tripOpen;
+    /* Walking to another screen puts the sheet away, and lands the pick that
+       brought the owner here. */
+    if (here !== tripHere) { tripHere = here; tripOpenFor = TRIP_SUBMENU === "group" ? here : null; }
+    var go = hashParam("go");
+    if (go && here) { armLanding(here, go); tryLanding(frame, here); }
+    /* Which buttons the row needs depends on `here` and the screen's own
+       actions, never on which one has its menu open — so that alone is its
+       own, narrower signature. Folding tripOpenFor into one combined sig
+       (the old way) meant every open and every close tore down and rebuilt
+       all seven buttons for nothing: a visible flicker on every single tap,
+       and worse under the module's own redraws (a toast, a saved template)
+       landing mid-tap. */
+    var tabsSig = here + "|" + own.map(function (a) { return a.label + (a.on ? "*" : ""); }).join("|");
+    var sig = tabsSig + "|" + tripOpenFor;
     if (sig === tripSig) return;                                          // the same bar: leave it alone
     tripSig = sig;
-    Array.prototype.slice.call(foot.querySelectorAll('[id^="fbx-t-"],.fbx-group')).forEach(function (b) { b.remove(); });
-    foot.classList.add("is-wide");
-    var exit = document.getElementById("fbx-exit");
-    var mine = trip.tabs.filter(function (t) { return t.id === here; })[0];
-
-    trip.tabs.filter(function (t) { return t.id === "tower"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
-    /* The screen the owner is on, and what it can do, in one group: a
-       parent and its children have to look like one thing. */
-    if (mine) {
-      var group = document.createElement("div");
-      group.className = "fbx-group";
-      group.appendChild(tripTab(mine));
-      if (tripOpen) own.forEach(function (a, i) { group.appendChild(doTab(frame, leaf, a, i)); });
-      foot.insertBefore(group, exit);
+    tripRedraw = function () { tripSig = null; drawTripBar(frame, leaf, lv, trip, foot); };
+    if (TRIP_SUBMENU === "group" || tabsSig !== tripTabsSig) {
+      tripTabsSig = tabsSig;
+      Array.prototype.slice.call(foot.querySelectorAll('[id^="fbx-t-"],.fbx-group')).forEach(function (b) { b.remove(); });
+      foot.classList.add("is-wide");
+      var exit = document.getElementById("fbx-exit");
+      var mine = trip.tabs.filter(function (t) { return t.id === here; })[0];
+      if (TRIP_SUBMENU === "group") {
+        /* ── THE INLINE GROUP — kept, not deleted (see TRIP_SUBMENU) ───────
+           The screen the owner is on, and what it can do, in one group: a
+           parent and its children have to look like one thing. */
+        trip.tabs.filter(function (t) { return t.id === "tower"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+        if (mine) {
+          var group = document.createElement("div");
+          group.className = "fbx-group";
+          group.appendChild(tripTab(mine));
+          if (tripOpenFor === here) own.forEach(function (a, i) { group.appendChild(doTab(frame, leaf, a, i)); });
+          foot.insertBefore(group, exit);
+        }
+        trip.tabs.filter(function (t) { return t.id !== "tower" && t.id !== "assistant" && t !== mine; })
+          .forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+        trip.tabs.filter(function (t) { return t.id === "assistant"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+      } else {
+        /* ── THE FLOATING SHEET ───────────────────────────────────────────
+           One row, in the trip's own order, and nothing moves when a screen
+           is opened: the tab the owner is on only gains a caret, and its
+           controls come up over it. */
+        trip.tabs.forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
+      }
+      /* From the start of the row, and again after layout: replacing the
+         row's children leaves the old scroll offset behind. */
+      foot.scrollLeft = 0;
+      requestAnimationFrame(function () { foot.scrollLeft = 0; });
+    } else {
+      /* Same buttons as last time — only which one's menu is open changed.
+         Move that mark, not the buttons. */
+      trip.tabs.forEach(function (t) {
+        var b = document.getElementById("fbx-t-" + t.id);
+        if (b && b.hasAttribute("aria-expanded")) b.setAttribute("aria-expanded", tripOpenFor === t.id ? "true" : "false");
+      });
     }
-    trip.tabs.filter(function (t) { return t.id !== "tower" && t.id !== "assistant" && t !== mine; })
-      .forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
-    trip.tabs.filter(function (t) { return t.id === "assistant"; }).forEach(function (t) { foot.insertBefore(tripTab(t), exit); });
-    /* From the start of the row, and again after layout: replacing the row's
-       children leaves the old scroll offset behind. */
-    foot.scrollLeft = 0;
-    requestAnimationFrame(function () { foot.scrollLeft = 0; });
+    if (TRIP_SUBMENU !== "group") paintTripMenu(frame, leaf, lv, trip, foot, here);
 
     function tripTab(t) {
       var is = t.id === here;
-      var opens = is && own.length > 0;
+      /* A tab opens its menu, never a page (owner, 23 Sep 2026). Every work
+         screen has parts — the screen itself first — so Tower, the assistant
+         and EXIT DEMO are the only items that still go somewhere on a tap.
+         The old group opened only the screen the owner was on. */
+      var opens = TRIP_SUBMENU === "group" ? (is && own.length > 0) : workParts(t.id).length > 0;
       var icon = t.icon;
-      /* The screen you are on: its controls open inside it. With none to
-         open, tapping it takes you to the top of it — the way a tab bar
-         behaves everywhere ("tapping Delivery lands on delivery home every
-         time"), however deep in the app you are. */
       var btn = tab("fbx-t-" + t.id, icon, t.label,
-        opens ? function () { tripOpen = !tripOpen; tripSig = null; drawTripBar(frame, leaf, lv, trip, foot); }
+        opens ? function () {
+            tripOpenFor = tripOpenFor === t.id ? null : t.id;
+            tripSig = null; drawTripBar(frame, leaf, lv, trip, foot);
+          }
           : is ? function () { goHomeIn(frame, leaf); }
           : function () { location.hash = t.hash || ("#/" + trip.group + "/" + t.id + "?from=" + lv); });
       if (is) btn.setAttribute("aria-current", "page");
       if (opens) {
-        btn.setAttribute("aria-expanded", tripOpen ? "true" : "false");
+        btn.setAttribute("aria-expanded", tripOpenFor === t.id ? "true" : "false");
+        if (TRIP_SUBMENU !== "group") btn.setAttribute("aria-haspopup", "true");
         btn.classList.add("fbx-opens");
         /* Drawn, not typed: a glyph in the label reads as a typo at 10px. */
         btn.querySelector("span").insertAdjacentHTML("beforeend",
@@ -884,6 +964,122 @@
       }
       return btn;
     }
+  }
+
+  /* ── What a screen can open, in a sheet over its tab (23 Sep 2026) ────
+     A tab raises this and nothing else; the page opens when the owner picks
+     a part of it. The parts are written down once, in assets/work-menu.js,
+     and the first one is always the screen as it opens, so every tab has
+     somewhere to land — Tracking's own bar offers only Routes, and its map
+     would otherwise be unreachable from its own tab.
+
+     On the screen the owner is already on, the part it is showing carries
+     the same mark the group used, and picking one presses it in place. From
+     any other tab the pick travels in the hash and is pressed once that
+     screen is up. The sheet closes on a tap outside, on Esc, on picking one,
+     and on walking to another screen. */
+  function closeTripMenu() {
+    if (tripMenu) { tripMenu.remove(); tripMenu = null; }
+    var s = document.getElementById("fbx-menu-scrim");
+    if (s) s.remove();
+    document.removeEventListener("keydown", tripMenuKey, true);
+  }
+  function tripMenuKey(e) {
+    if (e.key !== "Escape" || !tripMenu) return;
+    e.stopPropagation();
+    tripOpenFor = null;
+    if (tripRedraw) tripRedraw(); else closeTripMenu();
+  }
+  /* Which part a screen is showing, when the owner is on it: what the module
+     itself says (isOn), and the screen-as-it-opens when it says nothing
+     about any other part. */
+  function partsNow(frame, id, here) {
+    var parts = workParts(id);
+    if (id !== here) return parts.map(function (p) { return { part: p, on: false }; });
+    var doc = null;
+    try { doc = frame.contentDocument; } catch (e) { /* cross-origin */ }
+    var rows = parts.map(function (p) {
+      var el = doc && window.FB_WORK ? window.FB_WORK.find(doc, p) : null;
+      return { part: p, on: !!(el && isOn(frame, el)) || (!!p.press && p.label === tripPressed && panelOpen(frame)) };
+    });
+    if (!rows.some(function (r) { return r.on; })) {
+      var first = rows.filter(function (r) { return !r.part.press; })[0];
+      if (first) first.on = true;
+    }
+    return rows;
+  }
+  function paintTripMenu(frame, leaf, lv, trip, foot, here) {
+    closeTripMenu();
+    var id = tripOpenFor;
+    var anchor = id ? document.getElementById("fbx-t-" + id) : null;
+    var rows = id ? partsNow(frame, id, here) : [];
+    if (!anchor || !rows.length) return;
+
+    var scrim = document.createElement("div");
+    scrim.id = "fbx-menu-scrim";
+    scrim.addEventListener("click", function () { tripOpenFor = null; if (tripRedraw) tripRedraw(); });
+
+    var m = document.createElement("div");
+    m.id = "fbx-menu";
+    m.setAttribute("role", "menu");
+    m.setAttribute("aria-label", (window.FB_WORK && window.FB_WORK.screens[id] ? window.FB_WORK.screens[id].label : "This screen") + ": what to open");
+    rows.forEach(function (r, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.id = "fbx-t-own" + i;
+      b.className = "fbx-mi" + (r.on ? " is-on" : "");
+      b.setAttribute("role", "menuitem");
+      b.setAttribute("aria-current", r.on ? "true" : "false");
+      b.innerHTML = ico(window.FB_WORK.shape(r.part.icon)) + "<span>" + esc(r.part.label) + "</span>";
+      b.addEventListener("click", function () {
+        tripOpenFor = null;
+        if (id === here) openPart(frame, leaf, r.part);
+        else location.hash = "#/" + trip.group + "/" + id + "?from=" + lv + (r.part.press ? "&go=" + r.part.go : "");
+        if (tripRedraw) tripRedraw();
+      });
+      m.appendChild(b);
+    });
+    document.body.appendChild(scrim);
+    document.body.appendChild(m);
+
+    /* Centred on its tab, kept inside the screen, with the arrow left
+       pointing at the tab wherever the sheet had to slide to. */
+    var r0 = anchor.getBoundingClientRect();
+    var w = m.offsetWidth;
+    var left = Math.min(Math.max(8, r0.left + r0.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
+    m.style.left = left + "px";
+    m.style.bottom = (window.innerHeight - r0.top + 10) + "px";
+    m.style.setProperty("--fbx-arrow", Math.round(r0.left + r0.width / 2 - left) + "px");
+    document.addEventListener("keydown", tripMenuKey, true);
+    tripMenu = m;
+  }
+  /* A part of the screen the owner is already on: press it where it lives,
+     or — for the screen as it opens — take him to the top of it. */
+  function openPart(frame, leaf, part) {
+    if (!part.press) return goHomeIn(frame, leaf);
+    var doc = null;
+    try { doc = frame.contentDocument; } catch (e) { /* cross-origin */ }
+    var el = doc && window.FB_WORK ? window.FB_WORK.find(doc, part) : null;
+    tripPressed = part.label;                                             // it is on while what it opens is up
+    if (el) el.click();
+  }
+  /* A pick made from another tab: the screen loads, then its part is
+     pressed. Screens draw when their data is ready, so it is tried until it
+     is there, and given up on rather than pressed twice. */
+  function armLanding(here, go) {
+    if (landFor === here && landGo === go) return;
+    landFor = here; landGo = go; landTries = 0;
+  }
+  function tryLanding(frame, here) {
+    if (!landGo || landFor !== here) return;
+    var part = window.FB_WORK ? window.FB_WORK.partOf(here, landGo) : null;
+    if (!part || !part.press) { landGo = null; return; }
+    var doc = null;
+    try { doc = frame.contentDocument; } catch (e) { /* cross-origin */ }
+    var el = doc ? window.FB_WORK.find(doc, part) : null;
+    if (el) { landGo = null; tripPressed = part.label; el.click(); return; }
+    if (++landTries < 25) setTimeout(function () { tryLanding(frame, here); }, 200);
+    else landGo = null;
   }
 
   /* One of the screen's own controls, shown inside its tab when that tab is
@@ -894,26 +1090,8 @@
     b.type = "button";
     b.id = "fbx-t-own" + i;
     b.className = "fbx-tab fbx-do" + (a.on ? " is-on" : "");
-    var icon = "";
-    if (a.svg) {
-      /* The screen's own icon, stripped back to its shape: it is then drawn
-         at the size, weight and colour every other item in the row has. */
-      var c = a.svg.cloneNode(true);
-      c.setAttribute("stroke", "currentColor");
-      c.removeAttribute("width"); c.removeAttribute("height");
-      c.removeAttribute("stroke-width"); c.removeAttribute("class"); c.removeAttribute("style");
-      icon = c.outerHTML;
-    } else icon = ownIcon(a.label);
-    b.innerHTML = icon + "<span>" + esc(a.label) + "</span>";
-    /* Looked up again at click time, never held: these bars are redrawn
-       (Live Tracking redraws on every ping), and a button kept from the last
-       draw is detached — the tap would do nothing. */
-    b.addEventListener("click", function () {
-      var now = ownActions(frame, leaf).filter(function (x) { return x.label === a.label; })[0] || { at: a.at };
-      var el = ownButton(frame, leaf, now.at);
-      tripPressed = a.label;                                              // it is on while what it opens is up
-      if (el) el.click();
-    });
+    b.innerHTML = ownIconHtml(a) + "<span>" + esc(a.label) + "</span>";
+    b.addEventListener("click", function () { runOwn(frame, leaf, a); });
     return b;
   }
 
@@ -1278,6 +1456,12 @@
     if (dest.group) state.openGroups[dest.group.id] = true;
     refreshSidebars();
     closeMobileNav();
+    /* Every hash change, not only a changed route: routeFromHash drops the
+       query, so a trip's `?from=deliveries` can come or go without `key`
+       itself changing, and deferToFramedExitBar (module reload) would then
+       never run to catch it. */
+    var burger = document.querySelector("[data-mobile-toggle]");
+    if (burger) burger.hidden = inControlTowerFlow(dest.leaf);
     if (changed || (opts && opts.force)) loadModule(key);
   }
 

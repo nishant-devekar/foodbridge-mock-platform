@@ -297,6 +297,31 @@ html #fbx-foot .fbx-tab[hidden] { display: none; }
   html #fbx-foot.is-wide > #fbx-exit { margin-right: auto; }
 }
 
+/* The caret says a tab opens a menu, not a page; it turns over while that
+   menu is up (owner, 23 Sep 2026 — Delivery, Planning, Assets and Tracking
+   all raise their menu the same way, so they all carry the same mark). */
+html #fbx-foot .fbx-tab .ct-caret { width: 10px; height: 10px; margin-left: 2px; vertical-align: -1px; flex: none; transition: transform .18s ease; }
+html #fbx-foot .fbx-tab[aria-expanded="true"] .ct-caret { transform: rotate(180deg); }
+
+/* ── the footer's own menu: what a lever's work tab can open ──────────
+   The pattern in use everywhere a tab has more than one place to land
+   (control-tower.js, workMenu): a scrim to close it, a sheet that points at
+   the tab it came from, one row per place. */
+.ct-menu-scrim { position: fixed; inset: 0; z-index: 45; background: transparent; }
+.ct-menu { position: fixed; z-index: 46; box-sizing: border-box; min-width: 180px; max-width: min(280px, calc(100vw - 16px));
+  display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 18px;
+  background: var(--surface); box-shadow: 0 14px 34px rgba(17, 20, 24, .18), 0 0 0 1px rgba(17, 20, 24, .06);
+  animation: ct-menu-pop .16s cubic-bezier(.2, .8, .3, 1) both; transform-origin: var(--ct-arrow, 50%) 100%; }
+/* The arrow sits under the menu, on the tab it came from. */
+.ct-menu::after { content: ""; position: absolute; bottom: -7px; left: var(--ct-arrow, 50%); width: 14px; height: 14px; margin-left: -7px;
+  border-radius: 0 0 3px 0; background: var(--surface); transform: rotate(45deg); box-shadow: 2px 2px 0 rgba(17, 20, 24, .04); }
+.ct-mi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 12px; box-sizing: border-box;
+  border-radius: 12px; background: transparent; font-size: 14px; font-weight: 600; color: var(--ink-2); text-align: left; }
+.ct-mi > svg { width: 20px; height: 20px; flex: none; stroke-width: 1.8; }
+.ct-mi > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-mi:hover, .ct-mi:active { background: #F1F1EC; }
+@keyframes ct-menu-pop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+
 /* ── sheets ─────────────────────────────────────────────────────────── */
 .ct-scrim { position: fixed; inset: 0; z-index: 50; background: rgba(17, 20, 24, .38); animation: ct-fade .2s ease; }
 .ct-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; max-height: 90dvh; display: flex; flex-direction: column;

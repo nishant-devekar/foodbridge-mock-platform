@@ -40,6 +40,8 @@
     minus: sv('<path d="M5 12h14"/>'),
     check: sv('<path d="M20 6 9 17l-5-5"/>'),
     bang: sv('<path d="M12 7v6M12 17h.01"/>'),
+    /* Says a tab opens a menu, not a page; turns over while it is open. */
+    caret: '<svg class="ct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
   };
   const CREATE = [
     { id: "delivery", label: "Record a delivery", icon: I.truck },
@@ -505,7 +507,10 @@
       { id: "tower", label: "Tower", icon: '<span class="ct-ftic">' + I.tower + "</span>", onClick: goTower },
       { id: "updates", label: "Timeline", icon: '<span class="ct-ftic">' + I.updates + '<i class="ct-fnew" aria-hidden="true"></i></span>', onClick: goUpdates },
     ].concat(WORK.map(function (w) {
-      return { id: w.id, label: w.label, icon: '<span class="ct-ftic">' + I[w.icon] + "</span>", onClick: function () { openWork(w.id); } };
+      /* A work tab opens what that screen can do, and the screen opens when
+         the owner picks one (owner, 23 Sep 2026) — the same menu the screen's
+         own bar raises once he is there. */
+      return { id: w.id, label: w.label, icon: '<span class="ct-ftic">' + I[w.icon] + "</span>", onClick: function () { workMenu(w.id); } };
     }), [
       /* The assistant is a footer action, not a floating button (owner,
          22 Sep 2026): its face as the icon; it opens the chat over the page.
@@ -517,6 +522,18 @@
     /* The bar numbers its tabs by position; name them, so the ones that come
        and go (Work) never shift what the rest of this file points at. */
     tabs.forEach(function (t, i) { const b = $('#fbx-foot [data-x="' + i + '"]'); if (b) b.dataset.ft = t.id; });
+    /* A tab that opens a menu says so before the owner taps it — the same
+       caret the screens' own bars carry — so Delivery looks like Planning,
+       not like a shortcut to a page (owner, 23 Sep 2026). */
+    const W = window.FB_WORK;
+    WORK.forEach(function (w) {
+      const b = $('#fbx-foot [data-ft="' + w.id + '"]');
+      if (!b || !W || !W.parts(w.id).length) return;
+      b.setAttribute("aria-haspopup", "true");
+      b.setAttribute("aria-expanded", "false");
+      const label = b.querySelector("span:last-child");
+      if (label) label.insertAdjacentHTML("beforeend", I.caret);
+    });
   }
   function openAssistant() { closeAll(); if (window.FBChat) window.FBChat.open(); }
 
@@ -534,7 +551,7 @@
      Deliveries only: no other lever has a module behind it in this cut. */
   const WORK = [
     { id: "live-tracking", label: "Tracking", icon: "pin" },
-    { id: "delivery-management", label: "Delivery", icon: "phone" },
+    { id: "delivery-management", label: "Delivery", icon: "truck" },
     { id: "route-planning", label: "Planning", icon: "map" },
     /* "Assets", not "Returns": what the screen itself is about — asset
        movement, asset inventory, the assets (owner, 23 Sep 2026). */
@@ -546,7 +563,53 @@
   function hasTimeline() { return ui.page === "tower" && ui.tab === "overview"; }
   /* `from=deliveries`: the screen opens carrying these same actions, and
      they come back to this lever. */
-  function openWork(id) { closeAll(); go("#/distribution-logistics/" + id + "?from=deliveries"); }
+  function openWork(id, part) { closeAll(); go("#/distribution-logistics/" + id + "?from=deliveries" + (part ? "&go=" + part : "")); }
+  /* ── what a work screen can open, over its tab ─────────────────────────
+     The tower's bar raises the same menu the screen's own bar does (the one
+     list, assets/work-menu.js), so the owner meets one pattern on both sides
+     of the trip: a tab opens its menu, a pick opens the page — on the part
+     he picked. Nothing here is marked as on: that screen is not up yet. */
+  function workMenu(id) {
+    const W = window.FB_WORK;
+    const parts = W ? W.parts(id) : [];
+    const anchor = $('#fbx-foot [data-ft="' + id + '"]');
+    closeWorkMenu();
+    if (!parts.length || !anchor) return openWork(id);
+    closeAll();
+    const scrim = document.createElement("div");
+    scrim.className = "ct-menu-scrim";
+    scrim.addEventListener("click", closeWorkMenu);
+    const m = document.createElement("div");
+    m.className = "ct-menu";
+    m.setAttribute("role", "menu");
+    m.setAttribute("aria-label", (W.screens[id] ? W.screens[id].label : "This screen") + ": what to open");
+    m.innerHTML = parts.map(function (p, i) {
+      return '<button type="button" class="ct-mi" role="menuitem" data-go="' + esc(p.go) + '">' +
+        '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + W.shape(p.icon) + "</svg>" +
+        "<span>" + esc(p.label) + "</span></button>";
+    }).join("");
+    m.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-go]"); if (!b) return;
+      closeWorkMenu();
+      openWork(id, b.dataset.go);
+    });
+    document.body.appendChild(scrim);
+    document.body.appendChild(m);
+    const r = anchor.getBoundingClientRect();
+    const w = m.offsetWidth;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
+    m.style.left = left + "px";
+    m.style.bottom = (window.innerHeight - r.top + 10) + "px";
+    m.style.setProperty("--ct-arrow", Math.round(r.left + r.width / 2 - left) + "px");
+    anchor.setAttribute("aria-expanded", "true");
+    document.addEventListener("keydown", workMenuKey, true);
+  }
+  function closeWorkMenu() {
+    $$(".ct-menu, .ct-menu-scrim").forEach(function (el) { el.remove(); });
+    $$('#fbx-foot [data-ft][aria-expanded]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+    document.removeEventListener("keydown", workMenuKey, true);
+  }
+  function workMenuKey(e) { if (e.key === "Escape" && $(".ct-menu")) { e.stopPropagation(); closeWorkMenu(); } }
   /* Tower is home: the five levers, from anywhere, Updates included. */
   function goTower() {
     closeAll();

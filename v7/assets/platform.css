@@ -153,6 +153,12 @@
   display: inline-flex;
   cursor: pointer;
 }
+/* Control Tower and its trip carry their own way home (Tower, in the bar);
+   the sidebar this opens has no place there. `display` above would
+   otherwise outrank the `hidden` attribute at equal specificity. */
+.fb-mhead-burger[hidden] {
+  display: none;
+}
 .fb-mhead-burger:hover {
   background: #f3f4f6;
 }
@@ -545,9 +551,13 @@
                in this row is a different size or shape from anything else.
      COLOUR    one accent. Muted ink for everything, brand green for where the
                owner is. No second fill, no chips, no black.
-     GROUP     the screen the owner is on sits in a tinted group in the second
-               slot, and its own controls sit in that same group beside it —
-               so a parent and its children are visibly one thing.
+     SHEET     every tab keeps its place; the screen the owner is on carries
+               a caret, and its own controls come up in a small sheet over
+               that tab, pointing at it, the one it is showing marked with
+               the same tint the group used (platform.js, TRIP_SUBMENU =
+               "float"). The earlier group — that screen moved into the
+               second slot, its controls beside it in one tinted pill — is
+               kept in both files and comes back with that one word.
      GROUND    frosted white over the page, a hairline instead of a border.
 
    Change a number here and in control-tower.css together, or the tower and
@@ -607,9 +617,43 @@
   html #fbx-foot .fbx-group .fbx-tab:active { background: rgba(17, 20, 24, .06); }
   @keyframes fbx-open { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
 
-  /* The caret says the group folds; it turns when it does. */
+  /* ── the sheet: what this screen can do, over the tab it belongs to ───
+     The pattern in use (platform.js, TRIP_SUBMENU = "float"). The row above
+     never moves: the sheet floats, points at its tab, and marks the control
+     the screen is showing the way the group did — on white, the rest quiet. */
+  #fbx-menu-scrim { position: fixed; inset: 0; z-index: 2147483000; background: transparent; }
+  #fbx-menu {
+    position: fixed; z-index: 2147483001; box-sizing: border-box; min-width: 176px; max-width: min(280px, calc(100vw - 16px));
+    display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 18px;
+    background: rgba(255, 255, 255, .98); -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+    box-shadow: 0 14px 34px rgba(17, 20, 24, .18), 0 0 0 1px rgba(17, 20, 24, .06);
+    animation: fbx-pop .16s cubic-bezier(.2, .8, .3, 1) both; transform-origin: var(--fbx-arrow, 50%) 100%;
+  }
+  /* The arrow sits under the sheet, on the tab it came from. */
+  #fbx-menu::after {
+    content: ""; position: absolute; bottom: -7px; left: var(--fbx-arrow, 50%); width: 14px; height: 14px; margin-left: -7px;
+    border-radius: 0 0 3px 0; background: rgba(255, 255, 255, .98); transform: rotate(45deg);
+    box-shadow: 2px 2px 0 rgba(17, 20, 24, .04);
+  }
+  #fbx-menu .fbx-mi {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 12px;
+    box-sizing: border-box; border: none; border-radius: 12px; background: transparent; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 600; color: #6B7280; text-align: left;
+  }
+  #fbx-menu .fbx-mi > svg, #fbx-menu .fbx-mi > i { width: 20px; height: 20px; flex: none; stroke-width: 2; }
+  #fbx-menu .fbx-mi > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The group lifted the showing control onto white because it sat on a
+     tint; here the sheet is white, so the same mark is the tint itself. */
+  #fbx-menu .fbx-mi.is-on { color: #111418; background: rgba(17, 20, 24, .06); }
+  #fbx-menu .fbx-mi.is-on > span { font-weight: 700; }
+  #fbx-menu .fbx-mi:active { background: rgba(17, 20, 24, .06); }
+  @keyframes fbx-pop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+
+  /* The caret says there is more above; it turns over when the sheet is up. */
   html #fbx-foot .fbx-caret { width: 10px; height: 10px; margin-left: 2px; vertical-align: -1px; transition: transform .18s ease; }
-  html #fbx-foot .fbx-tab[aria-expanded="false"] .fbx-caret { transform: rotate(-90deg); }
+  html #fbx-foot .fbx-tab[aria-expanded="false"] .fbx-caret { transform: rotate(180deg); }
+  /* The group's own caret folded sideways (TRIP_SUBMENU = "group"). */
+  html #fbx-foot .fbx-group .fbx-tab[aria-expanded="false"] .fbx-caret { transform: rotate(-90deg); }
   html #fbx-foot .fbx-opens > span { display: inline-flex; align-items: center; }
 
   /* ── the row itself: more than fits, so it scrolls ──────────────────── */

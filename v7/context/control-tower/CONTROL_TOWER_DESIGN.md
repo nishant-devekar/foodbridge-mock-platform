@@ -439,12 +439,20 @@ own actions follow the owner into each screen.
   page — it's not very clear"*). The rule is one sentence: **Tower first, the
   screen you are on second, and its own controls live inside it.**
 
-  The second slot is always the same thing — where you are — so no tab ever
-  appears where another one used to be. It sits in a **group**: a soft
-  brand-tinted pill holding that screen and, beside it, that screen's own
-  controls, **open by default** (owner, 23 Sep 2026) because they are what
-  the owner came for. A caret folds them away when the row is in the way; a
-  screen with none has no caret and the pill holds it alone.
+  **Nothing in the row ever moves** (owner, 23 Sep 2026). The tabs stay in
+  the trip's own order — Tower · Tracking · Delivery · Planning · Assets ·
+  Assistant · EXIT DEMO — and the screen the owner is on is simply the green
+  one, with a caret. Tapping it brings its own controls up in a **sheet over
+  that tab**, pointing at it: each one an icon and a label, the one the
+  screen is showing marked with a tint, the rest quiet. It closes on a tap
+  outside, on Esc, on picking one, and on walking to another screen. A screen
+  with no controls has no caret and takes the owner to the top of itself.
+
+  *The earlier pattern is kept, not deleted:* the screen moved into the
+  second slot inside a tinted pill with its controls beside it, open by
+  default. `TRIP_SUBMENU = "group"` in `assets/platform.js` brings it back —
+  its markup, its styles (`.fbx-group`) and its ordering are all still
+  there.
 
   **One system, written down once** (owner, 23 Sep 2026: *"no uniformity,
   nothing — colours, design, goes left and right… parent and those children
@@ -455,8 +463,8 @@ own actions follow the owner into each screen.
   | | |
   | --- | --- |
   | **Item** | a 22px stroked icon over a 10.5px/600 label, 46px tall, at least 60px wide, centred. Tabs and controls are the same object; nothing in the row is a different size or shape |
-  | **Colour** | one accent. Muted ink (#6B7280) for everything, brand green for where the owner is, ink (#111418) for a control inside the group. No second fill, no chips, no black |
-  | **Group** | the screen and its controls in one quiet pill (ink at 5%), radius 16. The control the screen is **on** is lifted onto white — the module says which by an attribute, a class, or simply by colouring that label, and a control is on too while whatever it opened is still on screen |
+  | **Colour** | one accent. Muted ink (#6B7280) for everything, brand green for where the owner is, ink (#111418) for the control the screen is showing. No second fill, no chips, no black |
+  | **Sheet** | white, radius 18, a soft shadow and an arrow on the tab it came from; items 46px tall, icon and label on one line. The control the screen is **on** carries a tint (ink at 6%) — the module says which by an attribute, a class, or simply by colouring that label, and a control is on too while whatever it opened is still on screen |
   | **Ground** | frosted white over the page, a hairline instead of a border, 64px plus the safe area |
 
   The markup carries no styling of its own any more: icons are emitted as
@@ -465,7 +473,8 @@ own actions follow the owner into each screen.
 
   So a tab is a place, and a verb only ever shows up inside the place it
   belongs to: Live Tracking opens **Routes · N**, Route Planning **Add
-  Template**, Delivery Management **Home · Reports** (its own two screens);
+  Template**, Delivery Management **Home · Reports** (its own two screens, under a
+  truck, not a phone — owner, 23 Sep 2026);
   Logistic Returns has none, so its tab carries no caret and takes the owner
   to the top of the screen instead.
 
