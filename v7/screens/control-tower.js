@@ -28,6 +28,8 @@
     updates: sv('<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
     plus: sv('<path d="M12 5v14M5 12h14"/>'),
     chev: sv('<path d="m9 18 6-6-6-6"/>'),
+    more: sv('<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'),
+    exit: sv('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>'),
     x: sv('<path d="M18 6 6 18M6 6l12 12"/>'),
     clock: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
     pin: sv('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'),
@@ -47,7 +49,6 @@
     spark: sv('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
     bang: sv('<path d="M12 7v6M12 17h.01"/>'),
     /* Says a tab opens a menu, not a page; turns over while it is open. */
-    caret: '<svg class="ct-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
   };
   const CREATE = [
     { id: "delivery", label: "Record a delivery", icon: I.truck },
@@ -83,6 +84,56 @@
     document.documentElement.classList.toggle("ct-framed", !!platformWin());
     document.documentElement.classList.toggle("ct-shell-desktop", shellDesktop());
   }
+  /* ── the keyboard ───────────────────────────────────────────────────────
+     On a phone the keyboard does not shrink the page: iOS Safari, and
+     Chrome on Android by default, shrink only the *visual* viewport and lay
+     the keyboard over the rest. A sheet fixed to the screen — the delivery
+     modal centred on it, a form sheet at its foot — keeps its place, so the
+     field being typed into (Add a note sits at the modal's foot) ends up
+     under the keyboard; `dvh` does not help, it follows the browser's bars,
+     not the keyboard. And framed in the platform, this page is an iframe the
+     keyboard never resizes: only the top window's visual viewport knows.
+
+     So: read the top window's visual viewport, work out which slice of this
+     page is actually on screen, and hand it to the sheets as --vv-top,
+     --vv-h and --vv-bottom with html.ct-kb while a keyboard is up. */
+  function trackKeyboard() {
+    let top = window;
+    try { if (window.top && window.top.visualViewport) top = window.top; } catch (e) { /* another origin: our own */ }
+    const vv = top.visualViewport; if (!vv) return;
+    const root = document.documentElement;
+    let raf = 0;
+    /* This page's offset in the top window's layout viewport, frame by frame. */
+    const frameTop = function () {
+      let y = 0, w = window;
+      try { while (w !== top && w.frameElement) { y += w.frameElement.getBoundingClientRect().top; w = w.parent; } } catch (e) { return 0; }
+      return y;
+    };
+    const measure = function () {
+      raf = 0;
+      const H = window.innerHeight, fy = frameTop();
+      const visTop = Math.max(0, Math.round(vv.offsetTop - fy));
+      const visBot = Math.min(H, Math.round(vv.offsetTop + vv.height - fy));
+      /* A keyboard, not a toolbar sliding away: a real bite out of the page. */
+      const kb = visBot - visTop > 0 && H - (visBot - visTop) > 120;
+      root.classList.toggle("ct-kb", kb);
+      if (!kb) { ["--vv-top", "--vv-h", "--vv-bottom"].forEach(function (k) { root.style.removeProperty(k); }); return; }
+      root.style.setProperty("--vv-top", visTop + "px");
+      root.style.setProperty("--vv-h", (visBot - visTop) + "px");
+      root.style.setProperty("--vv-bottom", (H - visBot) + "px");
+      /* The field keeps its line in view inside the sheet it lives in. */
+      const a = document.activeElement;
+      if (a && a.closest && a.closest(".ct-sheet") && /^(TEXTAREA|INPUT|SELECT)$/.test(a.tagName)) a.scrollIntoView({ block: "nearest" });
+      $$(".ct-dm").forEach(markPane);
+    };
+    const later = function () { if (!raf) raf = requestAnimationFrame(measure); };
+    vv.addEventListener("resize", later);
+    vv.addEventListener("scroll", later);
+    window.addEventListener("resize", later);
+    /* The keyboard rises a beat after the focus; ask again once it is up. */
+    document.addEventListener("focusin", function () { later(); setTimeout(later, 350); });
+    document.addEventListener("focusout", function () { setTimeout(later, 350); });
+  }
   function go(route) {
     const pw = platformWin();
     try { (pw || window.top || window).location.hash = route; } catch (e) { location.href = "../index.html" + route; }
@@ -97,6 +148,7 @@
   function mount() {
     L = window.CTLevers;
     applyFrame();
+    trackKeyboard();
     mountTop();
     mountFooter();
     skeleton();
@@ -302,7 +354,7 @@
     /* One page per lever (owner, 23 Sep 2026: no Status/Suggestions tabs).
        The bar carries the way back, the lever's name, and where it stands. */
     return '<div class="ct-lvhead"><nav class="ct-lvbar" aria-label="' + esc(lv.label) + '">' +
-      '<button class="ct-home" data-home aria-label="Back to all levers" title="All levers">' + I.chev + "</button>" +
+      '<button class="ct-home" data-home aria-label="Back to all areas" title="All areas">' + I.chev + "</button>" +
       '<h2 class="ct-lvname"><span class="ct-lvicon">' + (ICON_OF[lv.id] || "") + "</span>" + esc(lv.label) + "</h2>" +
       '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav></div>";
   }
@@ -562,117 +614,68 @@
     if (r) { r.textContent = w.role; r.hidden = !w.role; }
   }
 
-  /* ── footer: the platform's bar ──────────────────────────────────────── */
+  /* ── footer: Tower · two levers · More (owner, 24 Sep 2026) ────────────
+     Level one of the tower's navigation: which part of the business. The
+     same four slots on every screen, nothing in the row ever moves or
+     scrolls, and the one the owner is in stays lit. A lever carries its dot;
+     More carries the worst dot of the levers inside it (or the Timeline's
+     "new"), so a problem is never hidden behind it. The Timeline, the
+     Assistant and EXIT DEMO live in More and open exactly what they opened
+     from the old bar. */
+  const PINS = ["deliveries", "collections"];              // goods out, money in: what a distributor runs every day
+  const LEVER_IDS = ["deliveries", "collections", "purchase", "inventory", "order"];
+  const SHORT_NAME = { order: "Orders" };
+  const RANK = { ugly: 0, bad: 1, good: 2, preview: 3 };
+  function leverName(id) { const x = model && lever(id); return SHORT_NAME[id] || (x ? x.label : id); }
+  const ASSIST_FACE = '<span class="cb-face" style="background-image:url(../assets/ct/mascot/hello-128.png)" aria-hidden="true"></span>';
   function mountFooter() {
-    if (!window.FB_EXIT) return;
-    const tabs = [
-      { id: "tower", label: "Tower", icon: '<span class="ct-ftic">' + I.tower + "</span>", onClick: goTower },
-      { id: "updates", label: "Timeline", icon: '<span class="ct-ftic">' + I.updates + '<i class="ct-fnew" aria-hidden="true"></i></span>', onClick: goUpdates },
-    ].concat(WORK.map(function (w) {
-      /* A work tab opens what that screen can do, and the screen opens when
-         the owner picks one (owner, 23 Sep 2026) — the same menu the screen's
-         own bar raises once he is there. */
-      return { id: w.id, label: w.label, icon: '<span class="ct-ftic">' + I[w.icon] + "</span>", onClick: function () { workMenu(w.id); } };
-    }), [
-      /* The assistant is a footer action, not a floating button (owner,
-         22 Sep 2026): its face as the icon; it opens the chat over the page.
-         It sits next to EXIT DEMO, whatever else is on the bar (owner,
-         23 Sep 2026) — the same thumb, the same place, every screen. */
-      { id: "assistant", label: "Assistant", icon: '<span class="ct-ftic ct-fassist"><span class="cb-face" style="background-image:url(../assets/ct/mascot/hello-128.png)"></span></span>', onClick: openAssistant },
-    ]);
-    window.FB_EXIT.mount({ pad: false, z: 39, tabs: tabs });
-    /* The bar numbers its tabs by position; name them, so the ones that come
-       and go (Work) never shift what the rest of this file points at. */
-    tabs.forEach(function (t, i) { const b = $('#fbx-foot [data-x="' + i + '"]'); if (b) b.dataset.ft = t.id; });
-    /* A tab that opens a menu says so before the owner taps it — the same
-       caret the screens' own bars carry — so Delivery looks like Planning,
-       not like a shortcut to a page (owner, 23 Sep 2026). */
-    const W = window.FB_WORK;
-    WORK.forEach(function (w) {
-      const b = $('#fbx-foot [data-ft="' + w.id + '"]');
-      if (!b || !W || !W.parts(w.id).length) return;
-      b.setAttribute("aria-haspopup", "true");
-      b.setAttribute("aria-expanded", "false");
-      const label = b.querySelector("span:last-child");
-      if (label) label.insertAdjacentHTML("beforeend", I.caret);
+    const f = document.createElement("nav");
+    f.id = "ct-foot";
+    f.setAttribute("aria-label", "Control Tower");
+    document.body.appendChild(f);
+    f.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-slot]"); if (!b) return;
+      const s = b.dataset.slot;
+      if (s === "tower") return goTower();
+      if (s === "more") return openMore();
+      openLeverTab(s);
     });
+    syncFooter();
+    /* Feedback an earlier visit could not deliver goes now, as it did when
+       the shared EXIT DEMO bar was mounted here. */
+    try { if (window.FB_EXIT && window.FB_EXIT.flush) window.FB_EXIT.flush(); } catch (e) { /* next visit */ }
   }
   function openAssistant() { closeAll(); if (window.FBChat) window.FBChat.open(); }
-
-  /* ── the work behind the Deliveries lever ─────────────────────────────
-     A lever says what is wrong; these four screens are where the owner does
-     something about it. They are the platform's own Distribution & Logistics
-     destinations, and on this lever they are footer actions like any other
-     (owner, 23 Sep 2026: "just like Tower, Timeline, Assistant" — not a
-     sheet in front of them). Eight actions do not fit a 375px bar, so the
-     bar scrolls sideways; nothing is dropped.
-
-     The same eight go into each screen's own bottom bar on the way in, so
-     the way back is always there — the shell does that; see `TRIP` in
-     assets/platform.js, which keeps this list in step.
-     Deliveries only: no other lever has a module behind it in this cut. */
-  const WORK = [
-    { id: "live-tracking", label: "Tracking", icon: "pin" },
-    { id: "delivery-management", label: "Delivery", icon: "truck" },
-    { id: "route-planning", label: "Planning", icon: "map" },
-    /* "Assets", not "Returns": what the screen itself is about — asset
-       movement, asset inventory, the assets (owner, 23 Sep 2026). */
-    { id: "logistic-returns", label: "Assets", icon: "box" },
-  ];
-  /* The work screens belong to the Deliveries lever, not to the tower. */
-  function hasWork() { return ui.page === "tower" && ui.tab === "deliveries"; }
-  /* The Timeline is offered from home only (owner, 23 Sep 2026). */
-  function hasTimeline() { return ui.page === "tower" && ui.tab === "overview"; }
-  /* `from=deliveries`: the screen opens carrying these same actions, and
-     they come back to this lever. */
-  function openWork(id, part) { closeAll(); go("#/distribution-logistics/" + id + "?from=deliveries" + (part ? "&go=" + part : "")); }
-  /* ── what a work screen can open, over its tab ─────────────────────────
-     The tower's bar raises the same menu the screen's own bar does (the one
-     list, assets/work-menu.js), so the owner meets one pattern on both sides
-     of the trip: a tab opens its menu, a pick opens the page — on the part
-     he picked. Nothing here is marked as on: that screen is not up yet. */
-  function workMenu(id) {
-    const W = window.FB_WORK;
-    const parts = W ? W.parts(id) : [];
-    const anchor = $('#fbx-foot [data-ft="' + id + '"]');
-    closeWorkMenu();
-    if (!parts.length || !anchor) return openWork(id);
-    closeAll();
-    const scrim = document.createElement("div");
-    scrim.className = "ct-menu-scrim";
-    scrim.addEventListener("click", closeWorkMenu);
-    const m = document.createElement("div");
-    m.className = "ct-menu";
-    m.setAttribute("role", "menu");
-    m.setAttribute("aria-label", (W.screens[id] ? W.screens[id].label : "This screen") + ": what to open");
-    m.innerHTML = parts.map(function (p, i) {
-      return '<button type="button" class="ct-mi" role="menuitem" data-go="' + esc(p.go) + '">' +
-        '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + W.shape(p.icon) + "</svg>" +
-        "<span>" + esc(p.label) + "</span></button>";
-    }).join("");
-    m.addEventListener("click", function (e) {
-      const b = e.target.closest("[data-go]"); if (!b) return;
-      closeWorkMenu();
-      openWork(id, b.dataset.go);
-    });
-    document.body.appendChild(scrim);
-    document.body.appendChild(m);
-    const r = anchor.getBoundingClientRect();
-    const w = m.offsetWidth;
-    const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), Math.max(8, window.innerWidth - w - 8));
-    m.style.left = left + "px";
-    m.style.bottom = (window.innerHeight - r.top + 10) + "px";
-    m.style.setProperty("--ct-arrow", Math.round(r.left + r.width / 2 - left) + "px");
-    anchor.setAttribute("aria-expanded", "true");
-    document.addEventListener("keydown", workMenuKey, true);
+  /* Where the owner is: home, a lever in the bar, or somewhere in More. */
+  function litSlot() {
+    if (ui.page === "updates") return "more";
+    if (!ui.tab || ui.tab === "overview") return "tower";
+    return PINS.indexOf(ui.tab) !== -1 ? ui.tab : "more";
   }
-  function closeWorkMenu() {
-    $$(".ct-menu, .ct-menu-scrim").forEach(function (el) { el.remove(); });
-    $$('#fbx-foot [data-ft][aria-expanded]').forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
-    document.removeEventListener("keydown", workMenuKey, true);
+  function syncFooter(tl) {
+    const f = $("#ct-foot"); if (!f) return;
+    const lit = litSlot();
+    const stOf = function (id) { const x = model && lever(id); return x ? x.status : null; };
+    const hot = function (s) { return s === "ugly" || s === "bad"; };
+    const worst = LEVER_IDS.filter(function (k) { return PINS.indexOf(k) === -1; }).map(stOf).filter(Boolean)
+      .sort(function (a, b) { return RANK[a] - RANK[b]; })[0];
+    const fresh = !!model && ui.page !== "updates" && unseen(tl);
+    const tab = function (id, label, icon, dot, say) {
+      return '<button type="button" class="ct-ft" data-slot="' + id + '"' + (lit === id ? ' aria-current="page"' : "") +
+        ' aria-label="' + esc(label + (say || "")) + '"><span class="ct-ftic">' + icon + (dot ? '<i class="ct-fdot" data-s="' + dot + '"></i>' : "") + "</span>" +
+        "<span>" + esc(label) + "</span></button>";
+    };
+    f.innerHTML = tab("tower", "Tower", I.tower) +
+      PINS.map(function (k) { const s = stOf(k); return tab(k, leverName(k), ICON_OF[k], hot(s) ? s : null, hot(s) ? ", " + WORD[s].toLowerCase() : ""); }).join("") +
+      tab("more", "More", I.more, hot(worst) ? worst : fresh ? "new" : null, hot(worst) ? ", an area inside needs you" : fresh ? ", new in the Timeline" : "");
   }
-  function workMenuKey(e) { if (e.key === "Escape" && $(".ct-menu")) { e.stopPropagation(); closeWorkMenu(); } }
-  /* Tower is home: the five levers, from anywhere, Updates included. */
+  /* A lever's slot opens the lever; tapped again while there, back to its top. */
+  function openLeverTab(id) {
+    if (!model || !lever(id)) return;
+    if (ui.page === "tower" && ui.tab === id) { closeAll(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    openLever(id);
+  }
+  /* Tower is home: the five levers, from anywhere, the Timeline included. */
   function goTower() {
     closeAll();
     if (ui.page !== "tower") { ui.tab = "overview"; ui.overY = 0; setPage("tower"); return; }
@@ -682,26 +685,47 @@
     if (ui.page === "updates") { closeAll(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setPage("updates");
   }
-  function syncFooter(tl) {
-    const up = ui.page === "updates";
-    const t = $('#fbx-foot [data-ft="tower"]'), u = $('#fbx-foot [data-ft="updates"]');
-    const work = hasWork();
-    WORK.forEach(function (x) { const b = $('#fbx-foot [data-ft="' + x.id + '"]'); if (b) b.hidden = !work; });
-    /* Seven tabs do not fit a phone bar: it scrolls, and it starts at Tower. */
-    const bar = $("#fbx-foot");
-    if (bar) { bar.classList.toggle("is-wide", work); if (!work) bar.scrollLeft = 0; }
-    if (t) { if (up) t.removeAttribute("aria-current"); else t.setAttribute("aria-current", "page"); }
-    if (u) {
-      /* The Timeline belongs to the Overview (owner, 23 Sep 2026): the
-         business's news is a home-page thing, not something to carry into a
-         lever, where the lever's own work is what matters. It stays on the
-         bar while the owner is reading it, as the current tab. */
-      u.hidden = !(up || hasTimeline());
-      if (up) u.setAttribute("aria-current", "page"); else u.removeAttribute("aria-current");
-      const fresh = !up && unseen(tl);
-      u.classList.toggle("has-new", fresh);
-      u.setAttribute("aria-label", "Timeline" + (fresh ? ", new" : ""));
-    }
+  /* The Timeline is offered from home on a big screen's top bar. */
+  function hasTimeline() { return ui.page === "tower" && ui.tab === "overview"; }
+
+  /* ── More: everything that is not one of the four places ───────────────
+     The other levers first, worst first, each with where it stands and its
+     figure, so "is anything wrong?" is answered without leaving the page;
+     then the business's news and the Assistant; EXIT DEMO last, apart from
+     the rest. */
+  function openMore() {
+    if (!model) return;
+    sheet(function () {
+      const others = LEVER_IDS.filter(function (k) { return PINS.indexOf(k) === -1 && lever(k); })
+        .sort(function (a, b) { return RANK[lever(a).status] - RANK[lever(b).status]; });
+      const fresh = ui.page !== "updates" && unseen();
+      const row = function (attr, icon, title, sub, tone, extra) {
+        return '<button type="button" class="ct-mo" ' + attr + '><span class="ct-mo-i"' + (tone ? ' data-s="' + tone + '"' : "") + ">" + icon + "</span>" +
+          '<span class="ct-mo-t"><b>' + esc(title) + (extra || "") + "</b>" + (sub ? "<small>" + sub + "</small>" : "") + "</span>" + I.chev + "</button>";
+      };
+      return { title: "More",
+        body: others.map(function (k) {
+            const x = lever(k);
+            const line = cardLine(x).replace(/<[^>]+>/g, "").trim();
+            /* "On track" is both the word and the line when nothing is wrong: say it once. */
+            return row('data-mo-lever="' + k + '"', ICON_OF[k], leverName(k), esc(WORD[x.status]) + (line && line !== WORD[x.status] ? " · " + line : ""), x.status);
+          }).join("") +
+          '<p class="ct-mo-h">Your business</p>' +
+          row('data-mo="timeline"', I.updates, "Business Timeline", "What happened, newest first", null, fresh ? '<em class="ct-new">New</em>' : "") +
+          row('data-mo="assistant"', ASSIST_FACE, "Assistant", "Ask about your business", "assist") +
+          '<div class="ct-mo-sep"></div>' +
+          row('data-mo="exit"', I.exit, "Exit demo", "Leave the demo business", "exit"),
+        bind: function (el) {
+          el.addEventListener("click", function (e) {
+            const l = e.target.closest("[data-mo-lever]"); if (l) return openLever(l.dataset.moLever);
+            const m = e.target.closest("[data-mo]"); if (!m) return;
+            if (m.dataset.mo === "timeline") { closeAll(); goUpdates(); }
+            else if (m.dataset.mo === "assistant") openAssistant();
+            /* The same exit the EXIT DEMO button opened: feedback, then out. */
+            else if (m.dataset.mo === "exit") { closeAll(); if (window.FB_EXIT) window.FB_EXIT.open(); }
+          });
+        } };
+    });
   }
 
   /* ════════════════════════════════════════════════════════════════════

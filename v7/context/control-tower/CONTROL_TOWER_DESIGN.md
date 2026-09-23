@@ -204,49 +204,44 @@ The page carries no primary button of its own. The only exception is a
 card, at the end of the example (§6.1) — a not-connected lever must keep one
 way in.
 
-### 4.9 Footer
+### 4.9 Footer — Tower · Deliveries · Collections · More (owner, 24 Sep 2026)
 
-The platform's standard bar, the same on every screen: 58 px, white, a
-hairline on top, the page's own items to the left and **EXIT DEMO** always
-last. In the tower it carries three items:
+Level one of the tower's navigation answers one question: **which part of
+the business.** Four slots, always the same four, so nothing in the row ever
+moves, hides or scrolls:
 
-| Item | Does | Why it is there |
-| --- | --- | --- |
-| **Tower** | Closes any sheet and returns to the five lever cards, from anywhere (Timeline included) | Home base: one tap back from anywhere |
-| **Assistant** | Opens the FoodBridge Assistant, a WhatsApp-style chat over the page (§4.12); the mascot's face is the icon, and it sits next to EXIT DEMO whatever else is on the bar (owner, 23 Sep 2026) | Questions answered in the owner's words, without leaving the screen |
-| **Timeline** | *The Overview only (owner, 23 Sep 2026)*, and while it is open: the Business Timeline, the business's news (§4.11); a green dot when there is news since the last read | "What happened?" is the owner's second question after "what needs me?" — a home question. Inside a lever the bar belongs to that lever's own work |
-| **Tracking · Delivery · Planning · Assets** | *Deliveries lever only (owner, 23 Sep 2026)*: the four Distribution & Logistics screens, as plain footer actions (§4.13) | The lever says what is wrong; these are where the owner goes to fix it |
-| **Create** | *Off for now (owner, 22 Sep 2026)*: opens the Create sheet, the quick actions | Where the business's own records go in |
-| **EXIT DEMO** | The platform's exit | Platform standard, always last |
+| Slot | Does |
+| --- | --- |
+| **Tower** | Closes any sheet and returns to the five lever cards, from anywhere (Timeline included) |
+| **Deliveries · Collections** | Opens the lever; tapped again while there, back to its top. Goods out and money in: what a distributor runs every day |
+| **More** | A sheet: the other three levers (worst first, each with its word and figure), Business Timeline (a New badge when there is news), Assistant, and **Exit demo**, apart at the bottom |
 
-- **Create sheet:** five rows, one per lever, in card order, each opening its
-  own short flow:
-  **Record a delivery** (delivered · missed · returned · money and empties
-  collected) · **Receive payment** · **New purchase order** · **Stock count**
-  · **New order**.
-  Anything recorded here shows on its lever straight away.
-- **Record a delivery** is how the Deliveries lever fills without any
-  integration: the driver or the owner records each stop.
-- **Look:** icon 22 px over a 10 px label; the current item in brand green,
-  the others grey. EXIT DEMO never takes the active colour.
-- Nothing floats over the page any more (§4.8): the footer is the only bar,
-  and a sheet rises over it.
-- **Bigger screens:** where the platform shows its sidebar, the footer is not
-  drawn; Create sits at the top of the tower instead. The four work screens
-  are **not** repeated in the top bar — the sidebar already lists them under
-  Distribution & Logistics, and seven pills crowd the title out.
-- **What is on the bar where:** Tower, Assistant and EXIT DEMO everywhere;
-  **Timeline on the Overview** (and while it is open); the four work screens
-  **on the Deliveries lever**. So the Overview has four, a lever has three,
-  and the Deliveries lever has seven.
-- **Seven items at 375 px:** they do not fit, so **the bar scrolls sideways**
-  (owner's pick, 23 Sep 2026: nothing dropped, nothing squeezed). It starts at
-  Tower, with the next tab half in view; the gap closes to 14 px. Centred
-  while the items fit, and reachable at both ends once they do not.
+- **Dots say where to look without opening anything:** red on an urgent
+  lever, amber on one that needs work; More carries the worst dot of the
+  levers inside it, or a green one for news in the Timeline.
+- **Words the owner uses** (owner, 24 Sep 2026): "lever" is our design
+  word, not a distributor's. On screen the five are **areas** of the
+  business — Back is "Back to all areas", More's label says "an area
+  inside needs you". More opens straight on the other three, with no heading
+  over them (owner, 24 Sep 2026).
+- **The lit slot is where the owner is:** a lever reached from More (or the
+  Timeline) lights More.
+- **The linked flows are unchanged:** Business Timeline opens the same page
+  (§4.11); Assistant opens the same chat, with the mascot's face as its icon
+  (§4.12); Exit demo opens the same shared exit, feedback first
+  (`FB_EXIT.open()`, the flow the EXIT DEMO button opened).
+- **One bar:** the shell's own EXIT DEMO bar stands down on the tower
+  (`ownExitBar` on the `control-tower` leaf in modules.json).
+- **Look:** frosted white, a hairline on top, 62 px plus the safe area; a
+  22 px icon over a 10.5 px label; where the owner is in brand green with a
+  bar above it.
+- **Bigger screens:** where the platform shows its sidebar the footer is not
+  drawn; Tower · Timeline · Assistant sit in the tower's top bar, as before.
 
-*Why:* quick actions need to be reachable from any lever with the thumb, and
-the owner expects the same bar they meet on every other screen. Everything
-else a footer could hold is already done by the five lever cards.
+*Replaces* the platform-standard bar (Tower · Timeline · Assistant · EXIT DEMO,
+plus Tracking · Delivery · Planning · Assets on the Deliveries lever), which
+reached seven items on a 375 px phone and had to scroll. The lever's work
+screens are level two and are not on the bar (§4.13).
 
 ### 4.10 Sheets
 All detail opens as a bottom sheet over the lever (the owner never loses their
@@ -409,6 +404,13 @@ The words are `assets/ct/chat.js` (pure, tested headless); the chat is
 `screens/control-tower-chat.js` and `.css`; the mascot is `assets/ct/mascot/`.
 
 ### 4.13 The work screens, in the lever's footer (owner, 23 Sep 2026)
+
+> **Retired from the footer, 24 Sep 2026** (§4.9): the tower's bar is now
+> Tower · Deliveries · Collections · More, so it no longer carries the four
+> work tabs, and the tower no longer opens a screen with `from=deliveries`.
+> The screens stay in the platform's sidebar; how a lever reaches its work is
+> level two, still to be designed. The shell's trip bar (below) is kept for a
+> screen opened with `from=`.
 
 A lever says what is wrong. The four Distribution & Logistics screens are
 where the owner does something about it, so on the Deliveries lever they

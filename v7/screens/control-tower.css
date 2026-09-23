@@ -211,94 +211,56 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-link { color: var(--brand); font-weight: 600; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   THE BAR AT THE FOOT OF THE TOWER
+   THE BAR AT THE FOOT OF THE TOWER: Tower · two levers · More (24 Sep 2026)
    ══════════════════════════════════════════════════════════════════════════
-   The same system as the bar under a module (assets/platform.css) — same
-   metrics, same type, same one accent — so the tower and the screens it opens
-   are one product. Change a number in either and change it in both.
+   Four places, always the same four, so nothing in the row moves or
+   scrolls. The metrics are the platform bar's (assets/platform.css):
 
-     ITEM      a 22px stroked icon over a 10.5px label, 60x46, centred.
+     ITEM      a 22px stroked icon over a 10.5px label, centred.
      COLOUR    muted ink, brand green for where the owner is. Nothing else.
      GROUND    frosted white over the page, a hairline instead of a border.
 
-   `html` and `> span` are here to out-specify the shared asset's own rules,
-   which it injects into the page after this file. */
-html #fbx-foot {
-  --fbb-item: 60px; --fbb-item-h: 46px; --fbb-icon: 22px;
-  --fbb-muted: #6B7280;
-  height: calc(var(--foot) + var(--safe)); padding: 0 8px var(--safe); gap: 2px;
-  background: rgba(255, 255, 255, .88);
-  -webkit-backdrop-filter: saturate(180%) blur(16px);
-  backdrop-filter: saturate(180%) blur(16px);
-  border-top: 1px solid rgba(17, 20, 24, .07);
-  box-shadow: 0 -10px 28px rgba(17, 20, 24, .05);
-}
-html #fbx-foot .fbx-tab {
-    /* One rhythm, not one width: every item is the same height, icon, type
-     and spacing, and at least as wide as the next — a label that is a
-     phrase ("Add Template") is given the room rather than cut in half. */
-  box-sizing: border-box; min-width: var(--fbb-item); max-width: 112px; height: var(--fbb-item-h);
-  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; padding: 0 8px; border-radius: 12px; color: var(--fbb-muted);
-  transition: color .15s ease, background .15s ease;
-}
-html #fbx-foot .fbx-tab > span {
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 10.5px; font-weight: 600; letter-spacing: .01em; line-height: 1.2; color: inherit;
-}
-html #fbx-foot .fbx-tab:active { background: rgba(17, 20, 24, .05); }
-/* The tower draws its own icons inside .ct-ftic (it hangs a "new" dot off
-   it); the size and colour are the row's, like everything else. */
-.ct-ftic { display: block; color: inherit; }
-.ct-ftic .i { width: var(--fbb-icon, 22px); height: var(--fbb-icon, 22px); display: block; }
-html #fbx-foot .fbx-tab[aria-current="page"] { color: var(--brand); }
-html #fbx-foot .fbx-tab[aria-current="page"] > span { font-weight: 700; }
-/* A tab that comes and goes (the work screens, on the Deliveries lever). The
-   shared rule sets the tabs to flex from an id, so plain [hidden] never
-   reaches them: this has to out-specify it. */
-html #fbx-foot .fbx-tab[hidden] { display: none; }
-/* The Create chip, if it ever comes back: the tower's green, not the
-   asset's. */
-#fbx-foot .fbx-tab span.fbx-chip { background: var(--brand-t) !important; color: var(--brand) !important; }
-#fbx-foot .fbx-tab span.fbx-chip svg { width: 20px; height: 20px; display: block; }
-#fbx-foot .fbx-tab span.fbx-green { color: var(--brand) !important; }
+   A dot on a lever says how it stands; on More, the worst of the levers
+   inside it, or green for news in the Timeline. */
+#ct-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  height: calc(var(--foot) + var(--safe)); padding: 0 6px var(--safe); box-sizing: border-box; background: rgba(255, 255, 255, .92);
+  -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
+  border-top: 1px solid rgba(17, 20, 24, .07); box-shadow: 0 -10px 28px rgba(17, 20, 24, .05); }
+.ct-ft { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; margin: 6px 2px; border-radius: 12px;
+  color: #6B7280; text-align: center; transition: color .15s, background .15s; }
+.ct-ft:active { background: rgba(17, 20, 24, .05); }
+.ct-ft:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.ct-ft > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; line-height: 1.2; }
+.ct-ftic { position: relative; display: block; color: inherit; }
+.ct-ftic .i { width: 22px; height: 22px; display: block; }
+.ct-ft[aria-current="page"] { color: var(--brand); }
+.ct-ft[aria-current="page"] > span:last-child { font-weight: 700; }
+.ct-ft[aria-current="page"]::before { content: ""; position: absolute; top: -6px; left: 28%; right: 28%; height: 3px; border-radius: 0 0 3px 3px; background: var(--brand); }
+.ct-fdot { position: absolute; top: -2px; right: -5px; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px #FFFFFF; }
+.ct-fdot[data-s="ugly"] { background: #D92D20; }
+.ct-fdot[data-s="bad"] { background: #D08A12; }
+.ct-fdot[data-s="new"] { background: var(--brand); }
 
-@media (max-width: 1023.98px) {
-  html:not(.ct-shell-desktop) #fbx-foot { position: fixed !important; left: 0; right: 0; bottom: 0; z-index: 39; }
-  /* More than fits a 375px row on the Deliveries lever, so it scrolls
-     sideways and nothing is dropped. Centred while the items fit, both ends
-     reachable once they do not — which is what the auto margins are for,
-     since a centred flex row clips its own start when it overflows. */
-  html #fbx-foot.is-wide { justify-content: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  html #fbx-foot.is-wide::-webkit-scrollbar { display: none; }
-  html #fbx-foot.is-wide > :first-child { margin-left: auto; }
-  html #fbx-foot.is-wide > #fbx-exit { margin-right: auto; }
-}
-
-/* The caret says a tab opens a menu, not a page; it turns over while that
-   menu is up (owner, 23 Sep 2026 — Delivery, Planning, Assets and Tracking
-   all raise their menu the same way, so they all carry the same mark). */
-html #fbx-foot .fbx-tab .ct-caret { width: 10px; height: 10px; margin-left: 2px; vertical-align: -1px; flex: none; transition: transform .18s ease; }
-html #fbx-foot .fbx-tab[aria-expanded="true"] .ct-caret { transform: rotate(180deg); }
-
-/* ── the footer's own menu: what a lever's work tab can open ──────────
-   The pattern in use everywhere a tab has more than one place to land
-   (control-tower.js, workMenu): a scrim to close it, a sheet that points at
-   the tab it came from, one row per place. */
-.ct-menu-scrim { position: fixed; inset: 0; z-index: 45; background: transparent; }
-.ct-menu { position: fixed; z-index: 46; box-sizing: border-box; min-width: 180px; max-width: min(280px, calc(100vw - 16px));
-  display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 18px;
-  background: var(--surface); box-shadow: 0 14px 34px rgba(17, 20, 24, .18), 0 0 0 1px rgba(17, 20, 24, .06);
-  animation: ct-menu-pop .16s cubic-bezier(.2, .8, .3, 1) both; transform-origin: var(--ct-arrow, 50%) 100%; }
-/* The arrow sits under the menu, on the tab it came from. */
-.ct-menu::after { content: ""; position: absolute; bottom: -7px; left: var(--ct-arrow, 50%); width: 14px; height: 14px; margin-left: -7px;
-  border-radius: 0 0 3px 0; background: var(--surface); transform: rotate(45deg); box-shadow: 2px 2px 0 rgba(17, 20, 24, .04); }
-.ct-mi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 0 12px; box-sizing: border-box;
-  border-radius: 12px; background: transparent; font-size: 14px; font-weight: 600; color: var(--ink-2); text-align: left; }
-.ct-mi > svg { width: 20px; height: 20px; flex: none; stroke-width: 1.8; }
-.ct-mi > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ct-mi:hover, .ct-mi:active { background: #F1F1EC; }
-@keyframes ct-menu-pop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
+/* ── More: the other levers, the Timeline, the Assistant, Exit demo ─────── */
+.ct-mo-h { margin: 14px 0 4px; font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #7A869E; }
+.ct-sb > .ct-mo-h:first-child { margin-top: 0; }
+.ct-mo { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; border-radius: 12px; color: var(--ink); text-align: left; }
+.ct-mo:hover { background: var(--fill); }
+.ct-mo > .i { width: 16px; height: 16px; color: #9AA3B5; flex: none; }
+.ct-mo-i { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #F1F3F6; color: #3A4764; flex: none; overflow: hidden; }
+.ct-mo-i .i { width: 19px; height: 19px; }
+.ct-mo-i[data-s="ugly"] { background: #FDECEC; color: #D92D20; }
+.ct-mo-i[data-s="bad"] { background: #FEF4E6; color: #C58A12; }
+.ct-mo-i[data-s="good"] { background: #ECFAF0; color: #1E9A58; }
+.ct-mo-i[data-s="exit"] { background: #FDECEC; color: #C62828; }
+.ct-mo-i[data-s="assist"] { background: #E8F3EC; }
+/* The Assistant's face, cropped as the chat crops it, filling its tile. */
+.ct-mo-i[data-s="assist"] { position: relative; }
+.ct-mo-i .cb-face { inset: 2px; }
+.ct-mo-t { flex: 1; min-width: 0; }
+.ct-mo-t b { display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 20px; font-weight: 600; }
+.ct-mo-t small { display: block; font-size: 12.5px; line-height: 17px; color: #4F5D75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-mo-sep { height: 1px; margin: 12px 0 6px; background: var(--line); }
 
 /* ── sheets ─────────────────────────────────────────────────────────── */
 .ct-scrim { position: fixed; inset: 0; z-index: 50; background: rgba(17, 20, 24, .38); animation: ct-fade .2s ease; }
@@ -421,7 +383,6 @@ a.ct-btn { display: grid; align-content: center; justify-items: center; text-dec
 @keyframes ct-arrive { from { background: var(--brand-t); } }
 /* New since the owner last read Updates: a dot on its tab (brand green, not
    red: red means Urgent in the tower). */
-.ct-ftic { position: relative; }
 .ct-fnew { display: none; position: absolute; top: -1px; right: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 2px #fff; }
 .has-new .ct-fnew { display: block; }
 /* Big screens: Tower · Updates beside the title, the footer being off. */
@@ -444,12 +405,12 @@ a.ct-btn { display: grid; align-content: center; justify-items: center; text-dec
 }
 /* Where the platform shows its sidebar: no footer; Create joins the tabs. */
 .ct-shell-desktop { --foot: 0px; --top: 56px; }
-.ct-shell-desktop #fbx-foot { display: none !important; }
+.ct-shell-desktop #ct-foot { display: none; }
 .ct-shell-desktop .ct-create-top { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; height: 36px; padding: 0 14px; border-radius: 18px;
   background: var(--brand-t); color: var(--brand); font-size: 14px; font-weight: 600; flex: none; }
 .ct-shell-desktop .ct-create-top .i { width: 18px; height: 18px; }
 @media (min-width: 1024px) {
-  html:not(.ct-framed) #fbx-foot { display: none !important; }
+  html:not(.ct-framed) #ct-foot { display: none; }
   html:not(.ct-framed) { --foot: 0px; --top: 56px; }
   html:not(.ct-framed) .ct-create-top { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; height: 36px; padding: 0 14px; border-radius: 18px;
     background: var(--brand-t); color: var(--brand); font-size: 14px; font-weight: 600; flex: none; }
@@ -547,6 +508,19 @@ a.ct-btn { display: grid; align-content: center; justify-items: center; text-dec
 @media (min-width: 768px) {
   .ct-sheet.is-modal { left: 50%; right: auto; width: 343px; transform: translate(-50%, -50%); }
   @keyframes ct-pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.96); } }
+}
+/* A keyboard is up (control-tower.js, trackKeyboard): every sheet lives in
+   the slice of the screen the owner can still see. The modal centres in it
+   and shrinks to it — its body scrolls, its foot (Add a note, the buttons)
+   sits just above the keys; a sheet at the foot rises onto the keyboard. */
+html.ct-kb .ct-sheet { bottom: var(--vv-bottom); max-height: calc(var(--vv-h) - 8px); }
+html.ct-kb .ct-sheet.is-modal { top: calc(var(--vv-top) + var(--vv-h) / 2); bottom: auto; max-height: calc(var(--vv-h) - 16px); }
+html.ct-kb .ct-dm-vp { max-height: calc(var(--vv-h) - 16px - 53px); }
+@media (min-width: 768px) {
+  html.ct-kb .ct-sheet:not(.is-modal) { top: calc(var(--vv-top) + 16px); bottom: calc(var(--vv-bottom) + 16px); max-height: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ct-sheet { transition: top .18s ease, bottom .18s ease, max-height .18s ease; }
 }
 /* The close sits in its own bar that never scrolls, so the content passes
    under it rather than behind the ✕. Its right edge lines up with the tag
