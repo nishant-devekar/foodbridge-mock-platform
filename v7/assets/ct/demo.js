@@ -120,8 +120,12 @@
 
   /* ── today's route ────────────────────────────────────────────────────── */
   const START = 9, END = 18;                      // the trips run 9 am to 6 pm
-  const VANS = ["Van 1", "Van 2"], VAN_CASES = 40;   // a load, in cases, per round
-  const PLAN_V = 2;                               // a route planned before vans is planned again
+  /* Two vans, each with its driver: the number the owner calls when a stop
+     runs late (the same crew the Tracking screen shows). */
+  const VANS = [{ name: "Van 1", driver: "Ajay", phone: "9820011231" },
+                { name: "Van 2", driver: "Kumar", phone: "9820011232" }];
+  const VAN_CASES = 40;                           // a load, in cases, per round
+  const PLAN_V = 3;                               // a route planned before drivers is planned again
   function slotAt(day, i, n) {
     const span = (END - START) * 3600000;
     return dayOf(day) + START * 3600000 - 5.5 * 3600000 + Math.round(span * (i + 0.5) / n);   // IST → UTC
@@ -153,7 +157,7 @@
       const k = (seq[key] = (seq[key] || 0) + 1) - 1;                              // the stop's place in its round
       const s = { no: "ST-" + day.replace(/-/g, "").slice(2) + "-" + String(i + 1).padStart(2, "0"), customerId: c.id, value: value,
                cases: cases, cratesOut: 1 + Math.floor(rnd(day + ":c:" + c.id) * 4), slot: new Date(slotAt(day, i, n)).toISOString(),
-               van: VANS[van], round: round };
+               van: VANS[van].name, driver: VANS[van].driver, driverPhone: VANS[van].phone, round: round };
       /* A van far behind barely makes up time; one a little behind catches up
          within a few stops. */
       if (van === lateVan) { s.delayMin = (round === 1 ? load : carry) - 3 * k; s.delayWhy = round === 1 ? "Loading ran late" : "First trip ran late"; }
@@ -173,7 +177,7 @@
     const r = rnd(day + ":o:" + stop.customerId);
     const colour = colourOf(stop.customerId);
     const shaky = colour === "red" || colour === "fire";
-    const trip = { van: stop.van || null, round: stop.round || null };
+    const trip = { van: stop.van || null, round: stop.round || null, driver: stop.driver || null, driverPhone: stop.driverPhone || null };
     if (stop.overbooked) return Object.assign({ status: "missed", reason: "Van full" }, trip);
     if (r < 0.07) return Object.assign({ status: "missed", reason: REASONS[Math.floor(rnd(day + ":r:" + stop.customerId) * REASONS.length)] }, trip);
     const returned = r > 0.93 ? 1 + Math.floor(rnd(day + ":rt:" + stop.customerId) * 2) : 0;
@@ -189,7 +193,8 @@
   }
   function record(store, stop, day, colourOf, at) {
     const o = outcome(stop, day, colourOf);
-    const rec = Object.assign({ customerId: stop.customerId, orderNo: stop.no, at: at }, o);
+    const rec = Object.assign({ customerId: stop.customerId, orderNo: stop.no, at: at,
+                                value: stop.value || null, cases: stop.cases || null }, o);
     const saved = store.addDeliveries([rec])[0];
     if (o.collected > 0) store.addPayment({ customerId: stop.customerId, amount: o.collected, mode: rnd(day + stop.no) < 0.5 ? "Cash" : "UPI", via: saved.no, forDrop: true, at: at });
     return { rec: saved, stop: stop };

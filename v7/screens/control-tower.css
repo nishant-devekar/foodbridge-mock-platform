@@ -14,7 +14,7 @@
   --good: #1E7A46; --good-t: #E8F3EC; --bad: #B7791F; --bad-t: #FBF1E0; --ugly: #C0362C; --ugly-t: #FBEAE8;
   --preview: #A3A7AE;
   --c-green: #2F9E5B; --c-yellow: #D4A017; --c-orange: #E07B24; --c-red: #C0362C; --c-fire: #7A1C1C;
-  --r: 16px; --pad: 16px; --foot: 62px; --act: 56px; --top: 0px;
+  --r: 16px; --pad: 16px; --foot: 62px; --top: 0px;
   --safe: env(safe-area-inset-bottom, 0px);
   --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 }
@@ -39,14 +39,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-lvhead { position: sticky; top: 0; z-index: 20; background: var(--canvas); border-bottom: 1px solid var(--line); }
 .ct-lvbar { display: flex; align-items: center; gap: 8px; min-height: 56px; box-sizing: border-box; padding: 6px var(--pad) 6px calc(var(--pad) - 8px); }
 /* Inside a lever: Status · Suggestions, two equal halves under the bar. */
-.ct-views { display: flex; padding: 0 var(--pad); }
-.ct-subtab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; margin-bottom: -1px;
-  font-size: 15px; line-height: 20px; font-weight: 500; color: var(--ink-2); border-bottom: 2px solid transparent; }
-.ct-subtab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--brand); }
-.ct-subtab:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 6px; }
-.ct-subn { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 10px; background: #ECECE7; color: var(--ink-2);
-  font-size: 12px; line-height: 20px; font-weight: 600; text-align: center; }
-.ct-subtab[aria-selected="true"] .ct-subn { background: var(--brand-t); color: var(--brand); }
 .ct-home { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; color: var(--ink); }
 .ct-home .i { width: 22px; height: 22px; transform: rotate(180deg); }
 .ct-home:hover { background: #ECECE7; }
@@ -84,14 +76,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-ov .ct-main { flex: 1; display: flex; flex-direction: column; justify-content: center; width: 100%; box-sizing: border-box;
   padding-top: 16px; padding-bottom: calc(var(--foot) + 16px + var(--safe)); }
 .ct-ov .ct-dials { margin-top: 0; }
-.ct-has-act .ct-main { padding-bottom: calc(var(--foot) + var(--act) + 36px + var(--safe)); }
 
 .ct-head { padding: 14px 0 16px; }
 .ct-head-v { display: flex; align-items: flex-start; gap: 8px; font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -.02em; }
 .ct-head-v.is-good { color: var(--good); }
 .ct-head-v > span { flex: 1; min-width: 0; }
-.ct-how { flex: none; display: grid; place-items: center; width: 32px; height: 32px; margin-top: 4px; border-radius: 50%; color: var(--ink-3); }
-.ct-how .i { width: 18px; height: 18px; }
 .ct-head-c { margin: 4px 0 0; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--ink-2); }
 .ct-bar { height: 6px; margin-top: 12px; border-radius: 3px; background: #EDEDE8; overflow: hidden; }
 .ct-bar i { display: block; height: 100%; background: var(--good); border-radius: 3px; }
@@ -233,12 +222,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .ct-exhead small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
 .ct-example .ct-tile { min-height: 72px; }
 
-/* Sticky action */
-.ct-actbar { position: fixed; left: 0; right: 0; bottom: calc(var(--foot) + 12px + var(--safe)); z-index: 30; padding: 0 var(--pad); pointer-events: none; }
-.ct-act { pointer-events: auto; display: block; width: 100%; height: var(--act); border-radius: 14px; background: var(--brand); color: #fff;
-  text-align: center; font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px rgba(17, 20, 24, .14); transition: transform .08s; }
-.ct-act:active { transform: scale(.985); background: var(--brand-d); }
-.ct-act.is-connect { background: var(--ink); }
+/* A Preview's one way in, in the flow of the page (no floating buttons). */
+.ct-connect { display: block; width: 100%; height: 56px; margin-top: 16px; border-radius: 14px; background: var(--ink); color: #fff;
+  text-align: center; font-size: 16px; font-weight: 600; transition: transform .08s; }
+.ct-connect:active { transform: scale(.985); }
 
 .ct-newbar { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 25; padding: 8px 14px; border-radius: 18px;
   background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; }
@@ -329,8 +316,28 @@ html #fbx-foot .fbx-tab[hidden] { display: none; }
 .ct-btn:disabled { background: #C9CCD1; }
 .ct-btn.is-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 .ct-btn.is-danger { background: var(--ugly); }
-.ct-how-p { margin: 0; font-size: 15px; line-height: 23px; color: var(--ink); }
 .ct-note { margin: 12px 0 0; font-size: 13px; line-height: 19px; color: var(--ink-2); }
+/* The detail sheet, in four parts (owner, 23 Sep 2026): the figures of this
+   one thing, what happened to it, and the one step to take now. */
+.ct-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.ct-stats > div { min-width: 0; padding: 10px 12px; border-radius: 12px; background: var(--canvas); border: 1px solid var(--line); }
+.ct-stats span { display: block; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-stats b { display: block; margin-top: 2px; font-size: 18px; line-height: 24px; font-weight: 700; letter-spacing: -.01em; }
+.ct-stats > div.is-good b { color: var(--good); }
+.ct-stats > div.is-bad b { color: var(--ugly); }
+.ct-sh4 { margin: 18px 0 8px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-3); }
+.ct-sb > .ct-sh4:first-child { margin-top: 0; }
+.ct-inc { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ct-inc li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; line-height: 21px; font-weight: 600; }
+.ct-inc small { display: block; font-size: 13px; line-height: 19px; font-weight: 500; color: var(--ink-2); }
+.ct-inc-i { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; }
+.ct-inc-i .i { width: 15px; height: 15px; stroke-width: 2.6; }
+.ct-inc-i.is-good { background: var(--good-t); color: var(--good); }
+.ct-inc-i.is-bad { background: var(--ugly-t); color: var(--ugly); }
+.ct-todo { margin: 0; font-size: 15px; line-height: 21px; font-weight: 500; color: var(--ink); }
+.ct-todo.is-clear { color: var(--ink-2); }
+a.ct-btn { display: grid; align-content: center; justify-items: center; text-decoration: none; }
+.ct-btn small { display: block; margin-top: 1px; font-size: 12px; line-height: 15px; font-weight: 500; opacity: .85; }
 .ct-kv { margin: 0; }
 .ct-kv > div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 15px; }
 .ct-kv > div:first-child { border-top: 0; }
@@ -425,11 +432,9 @@ html #fbx-foot .fbx-tab[hidden] { display: none; }
 @media (min-width: 768px) {
   /* The bar spans the page; what is in it lines up with the column. */
   .ct-lvbar { padding-left: calc(max(var(--pad), 50% - 260px + var(--pad)) - 8px); padding-right: max(var(--pad), 50% - 260px + var(--pad)); }
-  .ct-views { padding: 0 max(var(--pad), 50% - 260px + var(--pad)); }
   .ct-upbar { padding-left: max(var(--pad), 50% - 260px + var(--pad)); }
   .ct-main, .ct-asof { max-width: 520px; margin-left: auto; margin-right: auto; }
   .ct-asof { padding: 0 var(--pad); }
-  .ct-actbar { max-width: 520px; margin: 0 auto; }
   .ct-sheet { left: auto; right: 16px; top: 16px; bottom: 16px; width: 420px; max-height: none; border-radius: 24px; }
   .ct-grip { display: none; }
   .ct-toast { left: 50%; right: auto; transform: translateX(-50%); min-width: 320px; }

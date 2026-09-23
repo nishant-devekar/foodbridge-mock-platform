@@ -26,7 +26,6 @@
     plus: sv('<path d="M12 5v14M5 12h14"/>'),
     chev: sv('<path d="m9 18 6-6-6-6"/>'),
     x: sv('<path d="M18 6 6 18M6 6l12 12"/>'),
-    info: sv('<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>'),
     pin: sv('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>'),
     phone: sv('<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>'),
     map: sv('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>'),
@@ -40,6 +39,7 @@
     flame: sv('<path d="M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.5.7-2.6 1.5-3.5.2 1.3 1 2 2 2 0-2.5-1-4.5.5-7z"/>'),
     minus: sv('<path d="M5 12h14"/>'),
     check: sv('<path d="M20 6 9 17l-5-5"/>'),
+    bang: sv('<path d="M12 7v6M12 17h.01"/>'),
   };
   const CREATE = [
     { id: "delivery", label: "Record a delivery", icon: I.truck },
@@ -195,10 +195,8 @@
     root.innerHTML = (over ? "" : leverBar(lv)) +
       liveLine() +
       '<main class="ct-main" data-lever="' + (over ? "overview" : lv.id) + '">' + (over ? overviewBody() : lv.status === "preview" ? previewBody(lv) : leverBody(lv)) + "</main>" +
-      (over ? "" : actionBar(lv)) +
       (ui.pending ? '<button class="ct-newbar" id="ct-newbar">New updates · tap to update</button>' : "");
     window.scrollTo(0, keep);
-    document.documentElement.classList.toggle("ct-has-act", !!$(".ct-actbar"));
     document.documentElement.classList.toggle("ct-ov", over);
     syncFooter();
     syncTop();
@@ -240,7 +238,7 @@
       }).join("") : '<p class="ct-empty">Nothing has happened in the last 7 days.</p>') + "</main>";
     ui.shownOnce = true;
     window.scrollTo(0, keep);
-    document.documentElement.classList.remove("ct-has-act", "ct-ov");
+    document.documentElement.classList.remove("ct-ov");
     syncFooter(tl);
     syncTop(tl);
   }
@@ -294,24 +292,15 @@
   /* An open lever: back to the five levers, the lever's name, and how it is
      — the word its card on the Overview used (owner, 22 Sep 2026: no tabs). */
   function leverBar(lv) {
-    const n = lv.status === "preview" ? null : extras(lv).length;
+    /* One page per lever (owner, 23 Sep 2026: no Status/Suggestions tabs).
+       The bar carries the way back, the lever's name, and where it stands. */
     return '<div class="ct-lvhead"><nav class="ct-lvbar" aria-label="' + esc(lv.label) + '">' +
       '<button class="ct-home" data-home aria-label="Back to all levers" title="All levers">' + I.chev + "</button>" +
       '<h2 class="ct-lvname"><span class="ct-lvicon">' + (ICON_OF[lv.id] || "") + "</span>" + esc(lv.label) + "</h2>" +
-      '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav>" +
-      /* Two tabs inside a lever (owner, 22 Sep 2026): how it stands, and
-         what FoodBridge suggests: the balance, grow and tomorrow cards.
-         Named in the trade's plain words: Status, Suggestions. A Preview
-         has one page. */
-      (n === null ? "" : '<div class="ct-views" role="tablist" aria-label="' + esc(lv.label) + ' views">' +
-        '<button class="ct-subtab" role="tab" data-sub="status" aria-selected="' + (sub() === "status") + '">Status</button>' +
-        '<button class="ct-subtab" role="tab" data-sub="more" aria-selected="' + (sub() === "more") + '">Suggestions' +
-          (n ? '<span class="ct-subn">' + n + "</span>" : "") + "</button></div>") +
-      "</div>";
+      '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></nav></div>";
   }
-  function sub() { return ui.sub === "more" ? "more" : "status"; }
-  /* Suggestions: the forward-looking cards, in the order they were on the
-     lever's page: tomorrow's trips, balance, grow. */
+  /* What FoodBridge suggests, under the list on the same page: tomorrow's
+     trips, the balance cards, the Grow card. */
   function extras(lv) {
     return [].concat(lv.id === "deliveries" && lv.tomorrow && lv.tomorrow.length ? [tomorrowCard(lv.tomorrow)] : [],
       (lv.balance || []).map(balanceCard), lv.grow ? [growCard(lv.grow)] : []);
@@ -329,10 +318,6 @@
   }
 
   function leverBody(lv) {
-    if (sub() === "more") {
-      const x = extras(lv);
-      return x.length ? x.join("") : '<p class="ct-empty">No suggestions right now.</p>';
-    }
     const sel = selectedTile(lv);
     let rows = lv.tiles[sel].rows;
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
@@ -341,14 +326,14 @@
     return head(lv) + tiles(lv, sel) +
       (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
       (lv.id === "deliveries" && sel === "good" ? facts(lv.facts) : "") +
-      list(rows, lv, sel);
+      list(rows, lv, sel) +
+      extras(lv).join("");
   }
 
   function head(lv) {
     const h = lv.headline;
     return '<section class="ct-head">' +
-      '<div class="ct-head-v' + (lv.status === "good" ? " is-good" : "") + '"><span>' + esc(h.value) + "</span>" +
-        (lv.how ? '<button class="ct-how" data-how aria-label="How this is worked out">' + I.info + "</button>" : "") + "</div>" +
+      '<div class="ct-head-v' + (lv.status === "good" ? " is-good" : "") + '"><span>' + esc(h.value) + "</span></div>" +
       '<p class="ct-head-c">' + esc(h.context) + "</p>" +
       (typeof h.bar === "number" ? '<div class="ct-bar" role="img" aria-label="' + Math.round(h.bar * 100) + '% delivered"><i style="width:' + Math.round(h.bar * 100) + '%"></i></div>' : "") +
       "</section>";
@@ -452,15 +437,10 @@
         }).join("") + "</div>" : "") +
         (lv.facts ? facts(lv.facts) : "") +
         (lv.tomorrow ? tomorrowCard(lv.tomorrow) : "") +
-      "</div>";
-  }
-
-  function actionBar(lv) {
-    let a = null;
-    if (lv.status === "preview") a = { label: lv.preview.connect.label, connect: true };
-    else if (lv.action && sub() === "status" && selectedTile(lv) !== "good") a = lv.action;     // it acts on the list: not on Suggestions, not on good news
-    if (!a) return "";
-    return '<div class="ct-actbar"><button class="ct-act' + (a.connect ? " is-connect" : "") + '" data-act>' + esc(a.label) + "</button></div>";
+      "</div>" +
+      /* The one way in, in the flow of the page (owner, 23 Sep 2026: no
+         floating action buttons). */
+      '<button class="ct-connect" data-connect>' + esc(p.connect.label) + "</button>";
   }
 
   /* ── top bar: the same as Reports on a big screen ────────────────────────
@@ -607,7 +587,6 @@
     const d = b.dataset;
     if ("home" in d) { goHome(); return; }
     if (d.upd) { openUpdate(d.upd); return; }
-    if (d.sub) { if (d.sub !== sub()) { ui.sub = d.sub; draw(); window.scrollTo(0, 0); } return; }
     if (d.tile) { ui.tile[ui.tab] = d.tile; ui.colour = null; draw(); return; }
     /* A colour lives in one tile: Yellow and Orange under Needs work, Red
        and Fire under Urgent. Tapping it opens the tile that holds it. */
@@ -616,12 +595,11 @@
       if (ui.colour) ui.tile.collections = ui.colour === "red" || ui.colour === "fire" ? "ugly" : "bad";
       draw(); return;
     }
-    if ("how" in d) return openHow();
     if (d.row !== undefined) return openItem(ui.rows[+d.row]);
     if ("all" in d) return openAll();
     if (d.goto) { setTab(d.goto); return; }
     if ("grow" in d) return doGrow();
-    if ("act" in d) return doAction();
+    if ("connect" in d) return doAction();
     if ("openCreate" in d) return openCreate();
     if (b.id === "ct-newbar") { ui.pending = false; compute(); draw(); }
   }
@@ -632,7 +610,7 @@
     if (id === ui.tab) return;
     if (ui.tab === "overview") ui.overY = window.scrollY;             // where the owner was among the cards
     delete ui.tile[id];
-    ui.tab = id; ui.colour = null; ui.sub = "status";
+    ui.tab = id; ui.colour = null;
     draw(); window.scrollTo(0, 0);
   }
   /* Back to the five levers, where the owner left them. */
@@ -719,10 +697,6 @@
     clearTimeout(ui.toastT); ui.toastT = setTimeout(function () { if (t.parentNode) t.remove(); }, 4000);
   }
 
-  function openHow() {
-    const lv = lever();
-    sheet(function () { return { title: "How this is worked out", body: '<p class="ct-how-p">' + esc(lv.how) + "</p>" }; });
-  }
   function openAll() {
     const lv = lever();
     const sel = selectedTile(lv);
@@ -735,14 +709,95 @@
     });
   }
 
-  /* ── item sheets ─────────────────────────────────────────────────────── */
+  /* ── item sheets ───────────────────────────────────────────────────────
+     One shape for every detail sheet (owner, 23 Sep 2026), because the owner
+     reads them all the same way:
+
+       title           the name that matters — a shop, a customer, a product
+       sub             what this is and when: the trip, the driver, the time
+       stats           the two or three figures of this one thing
+       What happened   what is worth telling, good or bad, a line each
+       What to do      one step the owner can take now, and the button for it
+
+     No reference numbers. An order no, a delivery no, an invoice id tells
+     the owner nothing he can act on, and the work screens hold the
+     paperwork. Where FoodBridge cannot finish the job — a shop that was
+     shut, a van running behind — the step is the call he would make anyway,
+     with the number ready to dial. Nothing to do is said in those words.
+     ──────────────────────────────────────────────────────────────────── */
   function kv(pairs) {
     return '<dl class="ct-kv">' + pairs.filter(function (p) { return p && p[1] !== null && p[1] !== undefined && p[1] !== ""; })
       .map(function (p) { return "<div><dt>" + esc(p[0]) + "</dt><dd>" + esc(p[1]) + "</dd></div>"; }).join("") + "</dl>";
   }
+  /* 98200 11231 — a number the way it is read out. */
+  function phoneText(p) {
+    const d = String(p || "").replace(/\D/g, "");
+    return d.length === 10 ? d.slice(0, 5) + " " + d.slice(5) : String(p || "");
+  }
+  function callBtn(label, phone, ghost) {
+    if (!phone) return "";
+    return '<a class="ct-btn' + (ghost ? " is-ghost" : "") + '" href="tel:' + esc(String(phone).replace(/[^\d+]/g, "")) + '">' +
+      esc(label) + "<small>" + esc(phoneText(phone)) + "</small></a>";
+  }
+  /* Two or three figures, side by side. A figure that would read "₹0" or
+     "None" is left out: an empty line is not a fact. */
+  function statsHtml(list) {
+    const xs = (list || []).filter(Boolean);
+    if (!xs.length) return "";
+    return '<div class="ct-stats">' + xs.map(function (s) {
+      return '<div' + (s.tone ? ' class="is-' + s.tone + '"' : "") + "><span>" + esc(s.label) + "</span><b>" + esc(s.value) + "</b></div>";
+    }).join("") + "</div>";
+  }
+  function tellHtml(list) {
+    const xs = (list || []).filter(Boolean);
+    if (!xs.length) return "";
+    return '<h4 class="ct-sh4">What happened</h4><ul class="ct-inc">' + xs.map(function (i) {
+      const good = i.tone === "good";
+      return '<li><span class="ct-inc-i' + (good ? " is-good" : " is-bad") + '">' + (good ? I.check : I.bang) + "</span>" +
+        "<span>" + esc(i.text) + (i.why ? "<small>" + esc(i.why) + "</small>" : "") + "</span></li>";
+    }).join("") + "</ul>";
+  }
+  function todoHtml(text) {
+    return '<h4 class="ct-sh4">What to do</h4><p class="ct-todo' + (text ? "" : " is-clear") + '">' +
+      esc(text || "Nothing to do here.") + "</p>";
+  }
+  function detail(d) { return statsHtml(d.stats) + tellHtml(d.tell) + todoHtml(d.todo); }
+  /* Today's stops show the time; anything older says its day too. */
+  function whenOf(at) {
+    const d = new Date(at);
+    const clock = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+    const today = new Date(view.state.now);
+    return d.toDateString() === today.toDateString() ? clock : L.date(d.toISOString()) + ", " + clock;
+  }
+  function daysSince(date) { return Math.max(0, Math.round((view.state.now - new Date(String(date).slice(0, 10) + "T00:00:00Z").getTime()) / 86400000)); }
+
+  /* Today's route, and the van as it stands: its driver, and whether it is
+     still out. A van with stops left is worth a call; a finished round is
+     not. */
+  function routeToday() {
+    const r = view.records.route;
+    return r && r.day === new Date(view.state.now).toISOString().slice(0, 10) ? r : null;
+  }
+  function vanOf(van) {
+    const r = routeToday();
+    if (!r || !van) return null;
+    const stops = r.stops.filter(function (s) { return s.van === van; });
+    if (!stops.length) return null;
+    const done = {};
+    (view.records.deliveries || []).forEach(function (d) { if (d.orderNo) done[d.orderNo] = 1; });
+    return { van: van, driver: stops[0].driver || null, phone: stops[0].driverPhone || null,
+             left: stops.filter(function (s) { return !done[s.no]; }).length };
+  }
+  function driverBtn(van, phone, driver, ghost) {
+    const v = vanOf(van) || {};
+    const no = phone || v.phone;
+    if (!no) return "";
+    return callBtn("Call " + (driver || v.driver || "the driver") + " · " + van, no, ghost);
+  }
+
   function openItem(r, push) {
     if (!r) return;
-    if (r.kind === "customer") return customerSheet(r.id, push);
+    if (r.kind === "customer") return customerSheet(r.id, push, r);
     if (r.kind === "product") return productSheet(r.id, push);
     if (r.kind === "delivery") return deliverySheet(r.ref, push);
     if (r.kind === "order") return orderSheet(r, push);
@@ -763,30 +818,195 @@
     return { value: late.reduce(function (n, i) { return n + i.balance; }, 0),
              days: Math.max.apply(null, late.map(function (i) { return Math.round((now - day(i.dueDate)) / 86400000); })) };
   }
-  function customerSheet(id, push) {
+  function soonestDue(open) {
+    const day = function (s) { return new Date(String(s).slice(0, 10) + "T00:00:00Z").getTime(); };
+    const ds = (open || []).filter(function (i) { return i.dueDate && day(i.dueDate) >= view.state.now; })
+      .map(function (i) { return Math.max(1, Math.round((day(i.dueDate) - view.state.now) / 86400000)); });
+    return ds.length ? Math.min.apply(null, ds) : null;
+  }
+  function lastPaymentOf(id) {
+    const l = view.state.ledger;
+    const today = new Date(view.state.now).toISOString().slice(0, 10);
+    const ps = (l && l.payments ? l.payments : []).filter(function (p) { return p.customerId === id && String(p.date).slice(0, 10) <= today; })
+      .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    return ps[0] || null;
+  }
+  /* The last reminder this business sent them, in days. */
+  function lastReminderOf(id) {
+    const ms = (view.records.outbox || []).filter(function (m) { return m.customerId === id && m.createdAt; })
+      .sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+    return ms.length ? daysSince(ms[0].createdAt) : null;
+  }
+
+  /* ── a stop on today's route ──────────────────────────────────────── */
+  function deliverySheet(dl, push) {
+    const st = view.state;
+    const name = st.customerById[dl.customerId] || dl.customerId;
+    const shop = (st.phoneById || {})[dl.customerId] || null;
+    const e = dl.empties || {};
+    const out = Number(e.cratesOut) || 0, back = Number(e.cratesBack) || 0;
+    const crates = Math.max(0, out - back);
+    const bottles = Math.max(0, out * L.T.KIT_BOTTLES - (Number(e.bottlesBack) || 0));
+    const late = Number(dl.lateMin) > L.T.LATE_MIN ? Number(dl.lateMin) : 0;
+    const short = Number(dl.shortCases) || 0;
+    const returned = Number(dl.returnedCases) || 0;
+    const money = Number(dl.collected) || 0;
+    const worth = Number(dl.value) || 0;
+    const cases = Number(dl.cases) || 0;
+    const missed = dl.status === "missed";
+    const shopSide = ["Shop closed", "Refused", "Payment not ready"].indexOf(dl.reason) !== -1;
+    const van = vanOf(dl.van);
+
+    const stats = missed
+      ? [worth ? { label: "Not delivered", value: L.rupees(worth), tone: "bad" } : null]
+      : [{ label: "Collected", value: L.rupees(money) || "₹0", tone: money ? "good" : "bad" },
+         cases ? { label: "Cases", value: short ? (cases - short) + " of " + cases : String(cases), tone: short ? "bad" : null } : null,
+         out ? { label: "Crates back", value: back + " of " + out, tone: crates ? "bad" : "good" } : null];
+
+    const tell = missed
+      ? [{ text: dl.reason || "Missed", why: dl.reason === "Van full" ? "Booked past what the van could carry." : null }]
+      : [late ? { text: "Reached " + L.mins(late) + " late", why: dl.lateWhy || null } : null,
+         short ? { text: L.plural(short, "case") + " short", why: "Loaded short of what was booked." } : null,
+         returned ? { text: L.plural(returned, "case") + " came back", why: null } : null,
+         crates ? { text: L.plural(crates, "crate") + " not back", why: bottles ? L.plural(bottles, "bottle") + " still with them" : null } : null,
+         !money && worth ? { text: L.rupees(worth) + " went on credit", why: null } : null];
+    if (!missed && !tell.filter(Boolean).length) tell.push({ text: "On time, in full, paid at the door", tone: "good" });
+
+    let todo = null;
+    const acts = [];
+    if (missed) {
+      if (dl.rescheduledFor) todo = "On the trip for " + L.date(dl.rescheduledFor) + ". Nothing else to do.";
+      else if (shopSide && shop) {
+        todo = "Ask when they will take it, then put it on tomorrow's trip.";
+        acts.push(callBtn("Call the shop", shop), '<button class="ct-btn is-ghost" data-a="re">Reschedule</button>');
+      } else {
+        todo = dl.reason === "Van full" ? "It never left the dock. Put it on tomorrow's first round." : "Put it back on a trip.";
+        acts.push('<button class="ct-btn" data-a="re">Reschedule</button>');
+        if (shop) acts.push(callBtn("Call the shop", shop, true));
+      }
+    } else if (crates) {
+      todo = "Ask them to keep " + L.plural(crates, "crate") + " ready for the next trip.";
+      if (shop) acts.push(callBtn("Call the shop", shop));
+    } else if (short) {
+      todo = short === 1 ? "Tell them the case that was short follows on the next trip."
+        : "Tell them the " + short + " cases follow on the next trip.";
+      if (shop) acts.push(callBtn("Call the shop", shop));
+    } else if (returned) {
+      todo = "Find out why they came back, and take them into stock before they are sold twice.";
+      if (shop) acts.push(callBtn("Call the shop", shop));
+    } else if (late && van && van.left) {
+      todo = dl.van + " still has " + L.plural(van.left, "stop") + " to make and is running behind.";
+      acts.push(driverBtn(dl.van, dl.driverPhone, dl.driver));
+    }
+
+    sheet(function () {
+      return { title: name,
+        sub: [(missed ? "Missed " : "Delivered ") + whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · "),
+        body: detail({ stats: stats, tell: tell, todo: todo }),
+        foot: acts.filter(Boolean).join(""),
+        bind: function (el) { const b = $("[data-a=re]", el.parentNode); if (b) b.addEventListener("click", function () { rescheduleSheet([dl.no], true); }); } };
+    }, push);
+  }
+
+  /* ── a customer ───────────────────────────────────────────────────
+     The same customer answers a different question in each lever: in
+     Collections the money, in Order the buying (owner, 23 Sep 2026). */
+  function customerSheet(id, push, row) {
     const st = view.state;
     const name = st.customerById[id] || id;
+    const phone = (st.phoneById || {})[id] || null;
     const cad = st.cadence.filter(function (x) { return x.id === id; })[0] || {};
     const held = !!(view.records.holds || {})[id];
     const colour = colourMap()[id] || null;
     const open = st.ledger && st.ledger.invoices ? st.ledger.invoices.filter(function (i) { return i.customerId === id && i.balance > 0; }) : null;
     const outstanding = open ? open.reduce(function (n, i) { return n + i.balance; }, 0) : null;
     const ov = overdueOf(open);
+    const dueIn = soonestDue(open);
     const emp = emptiesOf(id);
+    const paid = lastPaymentOf(id);
+    const reminded = lastReminderOf(id);
+    const good = !!(row && row.good);
+    const buying = ui.tab === "order";
+    const overdueDays = Number(cad.daysOverdue) || 0;             // past their usual order day
+    const gap = cad.cycleDays || null;
+    const since = cad.lastOrderAt ? daysSince(cad.lastOrderAt) : null;
+
+    const stats = buying
+      ? [cad.avgValue ? { label: "Usual order", value: L.rupees(cad.avgValue) } : null,
+         gap ? { label: "Usually every", value: L.plural(gap, "day") } : null,
+         since !== null ? { label: "Last order", value: since === 0 ? "Today" : L.plural(since, "day") + " ago", tone: overdueDays > 0 ? "bad" : null } : null]
+      : good
+        ? [{ label: "Received", value: L.rupees(row.value), tone: "good" },
+           ov ? { label: "Still overdue", value: L.rupees(ov.value), tone: "bad" } : null,
+           emp ? { label: "Empties with them", value: emp } : null]
+        : [ov ? { label: "Overdue", value: L.rupees(ov.value), tone: "bad" } : null,
+           ov ? { label: "Oldest", value: L.plural(ov.days, "day"), tone: "bad" } : null,
+           !ov && outstanding ? { label: "Not due yet", value: L.rupees(outstanding) } : null,
+           emp ? { label: "Empties with them", value: emp } : null];
+
+    const tell = [];
+    if (buying) {
+      /* The stats already carry the gap and the last order: this line says
+         what those figures mean, never the same figure again. */
+      if (overdueDays > 0) tell.push({ tone: "bad", text: L.plural(overdueDays, "day") + " past their usual order day" });
+      if (ov) tell.push({ tone: "bad", text: L.rupees(ov.value) + " overdue for " + L.plural(ov.days, "day"), why: "Collect it with the next order." });
+      if (overdueDays <= 0 && !ov && since !== null) tell.push({ tone: "good", text: "Ordering on their usual cycle" });
+    } else {
+      if (good) tell.push({ tone: "good",
+        text: row.stuck ? "Stuck " + L.plural(row.late, "day") + " — now paid"
+          : row.late > 0 ? "Paid, " + L.plural(row.late, "day") + " late" : "Paid on time" });
+      else if (paid && daysSince(paid.date) <= 30) tell.push({ tone: "good", text: "Paid " + L.rupees(Number(paid.amount) || 0) + " on " + L.date(paid.date) });
+      if (!good && ov && (!paid || daysSince(paid.date) > L.T.FIRE_QUIET_DAYS)) {
+        tell.push({ tone: "bad", text: paid ? "No payment in " + L.plural(daysSince(paid.date), "day") : "No payment on record" });
+      }
+      if (reminded !== null && ov) tell.push({ tone: "bad", text: reminded ? "Reminded " + L.plural(reminded, "day") + " ago" : "Reminded today", why: "Still not paid." });
+      if (good && !ov) tell.push({ tone: "good", text: "Nothing overdue now" });
+    }
+    if (held) tell.push({ tone: "bad", text: "Supply stopped" });
+
+    let todo = null;
+    const acts = [];
+    const callShop = callBtn("Call the shop", phone);
+    const callShopG = callBtn("Call the shop", phone, true);
+    const order = '<button class="ct-btn" data-a="order">New order</button>';
+    const orderG = '<button class="ct-btn is-ghost" data-a="order">New order</button>';
+    if (held) {
+      todo = "Supply is stopped. Clear the money first, then restart them.";
+      acts.push(callShop, '<button class="ct-btn' + (phone ? " is-ghost" : "") + '" data-a="unhold">Restart supply</button>');
+    } else if (buying) {
+      if (overdueDays > 0) {
+        todo = "Call and find out why they stopped, then take the usual order.";
+        acts.push(callShop, phone ? orderG : order);
+      } else {
+        todo = "Nothing owing on their ordering. Take the next order when it is due.";
+        acts.push(order, callShopG);
+      }
+    } else if (colour === "fire") {
+      todo = "Over " + L.T.FIRE_DAYS + " days with no payment. Call the owner; with no date from them, stop supply.";
+      acts.push(callShop, '<button class="ct-btn is-danger" data-a="hold">Stop supply</button>');
+    } else if (ov && good) {
+      todo = "Money is moving. Ask for the rest while they are paying.";
+      acts.push(callShop, '<button class="ct-btn' + (phone ? " is-ghost" : "") + '" data-a="remind">Send reminder</button>');
+    } else if (ov) {
+      todo = "Ask for a date and a figure, and hold them to it.";
+      acts.push(callShop, '<button class="ct-btn' + (phone ? " is-ghost" : "") + '" data-a="remind">Send reminder</button>');
+    } else if (outstanding && dueIn !== null) {
+      todo = "Falls due in " + L.plural(dueIn, "day") + ". Nothing to chase yet.";
+      acts.push(orderG);
+    } else {
+      todo = "Nothing to collect. A good time to sell them more.";
+      acts.push(order);
+    }
+
     sheet(function () {
-      const acts = [];
-      if (ov && colour !== "fire") acts.push('<button class="ct-btn" data-a="remind">Send reminder</button>');
-      if (colour === "fire" && !held) acts.push('<button class="ct-btn is-danger" data-a="hold">Stop supply</button>');
-      if (held) acts.push('<button class="ct-btn is-ghost" data-a="unhold">Restart supply</button>');
-      if (!held) acts.push('<button class="ct-btn' + (acts.length ? " is-ghost" : "") + '" data-a="order">New order</button>');
       return { title: name,
-        body: (colour ? '<p class="ct-badge"><i class="ct-cdot" data-c="' + colour + '">' + (colour === "fire" ? I.flame : "") + "</i>" + COLOUR[colour] + (held ? " · supply stopped" : "") + "</p>" : "") +
-          kv([["Outstanding", outstanding === null ? null : L.rupees(outstanding) || "₹0"],
-              ["Overdue", ov ? L.rupees(ov.value) : null], ["Oldest overdue", ov ? L.plural(ov.days, "day") : null],
-              ["Empties with them", emp], ["Last order", cad.lastOrderAt ? L.date(cad.lastOrderAt) : null],
-              ["Usual order", typeof cad.avgValue === "number" && cad.avgValue > 0 ? L.rupees(cad.avgValue) : null],
-              ["Usual gap", cad.cycleDays ? cad.cycleDays + " days" : null]]),
-        foot: acts.join(""),
+        sub: buying
+          ? (ov ? L.rupees(ov.value) + " overdue" : outstanding ? L.rupees(outstanding) + " not due yet" : "Nothing overdue")
+          : ([gap ? "Orders every " + L.plural(gap, "day") : null,
+              cad.lastOrderAt ? "last on " + L.date(cad.lastOrderAt) : null].filter(Boolean).join(" · ") || null),
+        body: (colour ? '<p class="ct-badge"><i class="ct-cdot" data-c="' + colour + '">' + (colour === "fire" ? I.flame : "") + "</i>" + COLOUR[colour] + "</p>" : "") +
+          detail({ stats: stats, tell: tell, todo: todo }),
+        foot: acts.filter(Boolean).join(""),
         bind: function (el) {
           el.parentNode.addEventListener("click", function (e) {
             const b = e.target.closest("[data-a]"); if (!b) return;
@@ -799,61 +1019,121 @@
         } };
     }, push);
   }
+
+  /* ── a product ────────────────────────────────────────────────────── */
   function productSheet(id, push) {
     const d = window.CTSignals._detectors.demand(view.state).filter(function (x) { return x.product.id === id; })[0];
     if (!d) return;
     const p = d.product;
+    const week = d.daily ? Math.round(d.daily * 7) : 0;
+    const counted = p.stock !== null;
+    const have = Math.max(0, d.available || 0);
+    const dead = !d.daily && have > 0;
+    const cover = d.available === null ? null : d.available <= 0 ? "Out" : isFinite(d.cover) ? Math.floor(d.cover) + " days" : null;
+    const value = dead && p.mrp ? have * p.mrp : 0;
+    const supplier = (view.state.suppliers || []).filter(function (s) { return s.category && s.category === p.category; })[0];
+    const booked = Number(d.committed) || 0;
+
+    const stats = [{ label: "In stock", value: counted ? String(have) : "Not counted", tone: counted && have <= 0 ? "bad" : null },
+                   cover ? { label: "Lasts", value: cover, tone: d.available <= 0 || d.cover < L.T.HEALTHY_DAYS ? "bad" : "good" } : null,
+                   week ? { label: "Sells a week", value: String(week) } : null];
+
+    const tell = [!counted ? { tone: "bad", text: "Never counted", why: "The figure above is what the records imply, not a count." } : null,
+                  counted && have <= 0 && week ? { tone: "bad", text: "Out of stock", why: week + " a week go out — every day out is a sale lost." } : null,
+                  booked && booked > have ? { tone: "bad", text: L.plural(booked, "unit") + " booked on orders", why: have <= 0 ? "Nothing on the shelf to fill them." : "More than the shelf holds." } : null,
+                  counted && have > 0 && week && d.cover < L.T.HEALTHY_DAYS ? { tone: "bad", text: "Below two weeks of stock" } : null,
+                  d.onOrder ? { tone: "good", text: d.onOrder + " already on order" } : null,
+                  dead ? { tone: "bad", text: "No sale in " + L.T.DEAD_DAYS + " days", why: value ? L.rupees(value) + " sitting on the shelf" : null } : null];
+
+    let todo = null;
+    const acts = [];
+    if (dead) {
+      todo = "It is not selling. Offer it to the shops that bought it before.";
+      acts.push('<button class="ct-btn" data-a="offer">Offer to past buyers</button>', '<button class="ct-btn is-ghost" data-a="count">Count stock</button>');
+    } else if (!counted) {
+      todo = "Count it before you buy: the reorder is only as good as the figure.";
+      acts.push('<button class="ct-btn" data-a="count">Count stock</button>');
+    } else if (d.onOrder && have <= 0) {
+      todo = "It is on order already. Chase the supplier rather than raise another.";
+      acts.push('<button class="ct-btn is-ghost" data-a="po">Add to purchase order</button>');
+    } else if (week && (have <= 0 || d.cover < L.T.HEALTHY_DAYS)) {
+      todo = "Order today so it lands before the next trips.";
+      acts.push('<button class="ct-btn" data-a="po">Add to purchase order</button>', '<button class="ct-btn is-ghost" data-a="count">Count stock</button>');
+    } else {
+      todo = "Enough for now. Nothing to do.";
+      acts.push('<button class="ct-btn is-ghost" data-a="count">Count stock</button>');
+    }
+
     sheet(function () {
       return { title: p.name,
-        body: kv([["Stock", p.stock === null ? "Not counted" : String(Math.max(0, d.available))],
-                  ["Days of stock", d.available === null ? null : d.available <= 0 ? "Out" : isFinite(d.cover) ? Math.floor(d.cover) + " days" : "No recent sales"],
-                  ["Sells per week", d.daily ? String(Math.round(d.daily * 7)) : "No sale in 90 days"],
-                  ["On order", d.onOrder ? String(d.onOrder) : null], ["MRP", p.mrp ? L.rupees(p.mrp) : null],
-                  ["Last sold", d.lastSold ? L.date(d.lastSold) : "Never"]]),
-        foot: (d.daily > 0 ? '<button class="ct-btn" data-a="po">Add to purchase order</button>' : "") + '<button class="ct-btn is-ghost" data-a="count">Count stock</button>',
+        sub: supplier ? "From " + supplier.name : week ? "Fast mover" : "Not selling",
+        body: detail({ stats: stats, tell: tell, todo: todo }),
+        foot: acts.join(""),
         bind: function (el) {
           el.parentNode.addEventListener("click", function (e) {
             const b = e.target.closest("[data-a]"); if (!b) return;
             if (b.dataset.a === "po") purchaseSheet([id], true);
             if (b.dataset.a === "count") countSheet(id, true);
+            if (b.dataset.a === "offer") offerSheet("slow-stock");
           });
         } };
     }, push);
   }
-  function deliverySheet(dl, push) {
-    const name = view.state.customerById[dl.customerId] || dl.customerId;
-    sheet(function () {
-      return { title: name,
-        body: kv([["Status", dl.status === "missed" ? "Missed" : dl.status === "returned" ? "Delivered, some returned" : "Delivered"],
-                  ["Reason", dl.reason || null], ["Order", dl.orderNo || null],
-                  ["Trip", dl.van ? dl.van + " · round " + dl.round : null],
-                  ["Late", Number(dl.lateMin) > L.T.LATE_MIN ? L.mins(Number(dl.lateMin)) + (dl.lateWhy ? " · " + dl.lateWhy : "") : null],
-                  ["Returned", Number(dl.returnedCases) ? L.plural(Number(dl.returnedCases), "case") : null],
-                  ["Short", Number(dl.shortCases) ? L.plural(Number(dl.shortCases), "case") : null],
-                  ["Collected", Number(dl.collected) ? L.rupees(Number(dl.collected)) : null],
-                  ["Empties back", dl.empties && (dl.empties.cratesBack || dl.empties.bottlesBack) ? (dl.empties.cratesBack || 0) + " crates, " + (dl.empties.bottlesBack || 0) + " bottles" : null],
-                  ["Recorded", new Date(dl.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })]]),
-        foot: dl.status === "missed" && !dl.rescheduledFor ? '<button class="ct-btn" data-a="re">Reschedule</button>' : "",
-        bind: function (el) { const b = $("[data-a=re]", el.parentNode); if (b) b.addEventListener("click", function () { rescheduleSheet([dl.no], true); }); } };
-    }, push);
-  }
+
+  /* ── an order still to deliver ────────────────────────────────────── */
   function orderSheet(r, push) {
-    const o = (view.state.made || []).filter(function (x) { return x.no === r.id; })[0];
+    const st = view.state;
+    const o = (st.made || []).filter(function (x) { return x.no === r.id; })[0] || null;
+    const stop = r.ref || null;
+    const id = (o && o.customerId) || (stop && stop.customerId) || null;
+    const phone = id ? (st.phoneById || {})[id] : null;
+    const van = stop && stop.van ? vanOf(stop.van) : null;
+    const due = stop && stop.slot ? new Date(stop.slot).getTime() : null;
+    const lateMin = due ? Math.round((st.now - due) / 60000) : 0;
+    const late = lateMin > L.T.LATE_MIN ? lateMin : 0;
+    const worth = typeof r.value === "number" ? r.value : (o && typeof o.amount === "number" ? o.amount : null);
+    const cases = stop && stop.cases ? stop.cases : null;
+    const items = o ? (o.lines || []).reduce(function (n, l) { return n + (Number(l.qty) || 0); }, 0) : 0;
+
+    const stats = [worth !== null ? { label: "Worth", value: L.rupees(worth) } : null,
+                   cases ? { label: "Cases", value: String(cases) } : null,
+                   !cases && items ? { label: "Items", value: String(items) } : null];
+
+    const tell = [late ? { tone: "bad", text: "Running " + L.mins(late) + " late", why: stop && stop.van ? stop.van + " is past this stop's time." : null } : null,
+                  !stop && o ? { tone: "good", text: "Booked in FoodBridge", why: "Not on a van yet — it goes on the next trip." } : null];
+
+    let todo = null;
+    const acts = [];
+    if (late && stop && (stop.driverPhone || (van && van.phone))) {
+      todo = "Ask the driver where he is, and tell the shop when to expect him.";
+      acts.push(driverBtn(stop.van, stop.driverPhone, stop.driver));
+      if (phone) acts.push(callBtn("Call the shop", phone, true));
+    } else if (id) {
+      todo = stop && stop.van ? "On the van and on time. Nothing to do yet."
+        : "Not on a van yet — it goes on the next trip.";
+      acts.push('<button class="ct-btn is-ghost" data-a="dl">Record delivery</button>');
+      if (phone) acts.push(callBtn("Call the shop", phone, true));
+    }
+
     sheet(function () {
       return { title: r.title,
-        body: kv([["Order", r.id], ["Value", o && typeof o.amount === "number" ? L.rupees(o.amount) : null],
-                  ["Items", o ? String((o.lines || []).reduce(function (n, l) { return n + (Number(l.qty) || 0); }, 0)) : null],
-                  ["Note", r.note && r.note !== r.id ? r.note : null]]),
-        foot: o ? '<button class="ct-btn" data-a="dl">Record delivery</button>' : "",
-        bind: function (el) { const b = $("[data-a=dl]", el.parentNode); if (b) b.addEventListener("click", function () { deliveryDetails(o.customerId, o, true); }); } };
+        sub: stop && stop.van ? ["On " + stop.van, stop.driver, due ? "due " + whenOf(due) : null].filter(Boolean).join(" · ")
+          : "Booked · not on a van yet",
+        body: detail({ stats: stats, tell: tell, todo: todo }),
+        foot: acts.filter(Boolean).join(""),
+        bind: function (el) {
+          const b = $("[data-a=dl]", el.parentNode);
+          if (b) b.addEventListener("click", function () { deliveryDetails(id, o || (stop ? { no: stop.no, customerId: id } : null), true); });
+        } };
     }, push);
   }
+  /* Empties still with a customer: crates out, less what came back. */
   function emptiesOf(id) {
     const d = (view.records.deliveries || []).filter(function (x) { return x.customerId === id; });
     if (!d.length) return null;
     let crates = 0, bottles = 0;
     d.forEach(function (x) { const e = x.empties || {}; crates += (+e.cratesOut || 0) - (+e.cratesBack || 0); bottles += (+e.cratesOut || 0) * L.T.KIT_BOTTLES - (+e.bottlesBack || 0); });
-    return L.emptiesLine({ crates: Math.max(0, crates), bottles: Math.max(0, bottles) }) || "None";
+    return L.emptiesLine({ crates: Math.max(0, crates), bottles: Math.max(0, bottles) }) || null;
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -1292,7 +1572,7 @@
     if (!model || !lever(id)) return;
     closeAll(); markSeen();
     ui.page = "tower";
-    if (ui.tab !== id) setTab(id); else ui.sub = "status";
+    if (ui.tab !== id) setTab(id);
     if (tile) ui.tile[id] = tile;
     draw(); window.scrollTo(0, 0);
   }

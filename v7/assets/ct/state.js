@@ -81,6 +81,22 @@
     const nameById = {};
     customers.forEach(function (c) { nameById[c.id] = c.name; });
 
+    /* The shop's own phone, from the tenant's customer list. The one thing
+       the owner needs the moment a stop goes wrong, so the Control Tower can
+       offer the call instead of a reference number. An imported business
+       renumbers its customers, so a record is matched by its id or, failing
+       that, by the shop's name. No number on file, no call offered. */
+    const phoneById = {};
+    const idByName = {};
+    customers.forEach(function (c) { idByName[String(c.name).toLowerCase()] = c.id; });
+    ((r.seed && r.seed.b2b) || []).forEach(function (c) {
+      const ph = c && (c.phone || c.mobile);
+      if (!ph) return;
+      const nm = (c.name && (c.name.en || c.name)) || "";
+      const id = nameById[c._id] ? c._id : idByName[String(nm).toLowerCase()];
+      if (id) phoneById[id] = String(ph);
+    });
+
     const mrpOf = api.mrpOf || function () { return null; };
     const products = (seed.products || []).map(function (p) {
       const mrp = mrpOf(p.name);
@@ -167,6 +183,7 @@
       dataEnd: dataEnd,
       customers: customers,
       customerById: nameById,
+      phoneById: phoneById,
       products: products,
       productById: productById,
       orders: orders,

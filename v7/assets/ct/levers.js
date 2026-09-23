@@ -157,7 +157,11 @@
       if (d.orderNo && (d.status !== "missed" || !d.rescheduledFor)) done[d.orderNo] = d;
     });
     const route = c.rec.route && c.rec.route.day === new Date(c.today).toISOString().slice(0, 10) ? c.rec.route.stops : [];
-    const stops = route.map(function (x) { return { no: x.no, customerId: x.customerId, customer: c.st.customerById[x.customerId] || x.customerId, amount: x.value, slot: x.slot, van: x.van || null }; });
+    const stops = route.map(function (x) {
+      return { no: x.no, customerId: x.customerId, customer: c.st.customerById[x.customerId] || x.customerId, amount: x.value,
+               slot: x.slot, van: x.van || null, round: x.round || null, driver: x.driver || null,
+               driverPhone: x.driverPhone || null, cases: x.cases || null };
+    });
     return (c.st.made || []).concat(stops).filter(function (o) { return !done[o.no]; });
   }
 
@@ -251,8 +255,11 @@
     const badRows = pending.map(function (o) {
       return o.rescheduledFor
         ? { id: o.customerId, kind: "customer", title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor), value: null }
-        : { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: overdueBy(o) > T.LATE_MIN,
-            note: overdueBy(o) > T.LATE_MIN ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "") : o.no };
+        : { id: o.no, kind: "order", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: overdueBy(o) > T.LATE_MIN, ref: o,
+            /* What the owner can act on, never the order number (owner, 23
+               Sep 2026): which van has it, and whether it is behind. */
+            note: overdueBy(o) > T.LATE_MIN ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
+              : o.van ? "On " + o.van + (o.driver ? " · " + o.driver : "") : "Not on a van yet" };
     }).sort(function (a, b) { return (b.running ? 1 : 0) - (a.running ? 1 : 0) || (b.value || 0) - (a.value || 0); });
     const goodRows = delivered.map(function (d) {
       return { id: d.no, kind: "delivery", title: name(d.customerId), note: d.status === "returned" ? "Delivered, some returned" : "Delivered",

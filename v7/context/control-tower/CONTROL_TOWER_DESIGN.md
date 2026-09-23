@@ -58,7 +58,6 @@ Tower returns to the cards. No tabs, menu or settings inside the tower
 ```
 ┌─────────────────────────────────┐
 │ ‹  🚚 Deliveries        ● Urgent │  ← BACK BAR: to the five cards, sticky
-│   Status   │  Suggestions  2    │  ← two views of the lever, sticky with it
 ├─────────────────────────────────┤
 │ As of 24 Aug                    │  ← only when records aren't today's
 │                                 │
@@ -73,18 +72,16 @@ Tower returns to the cards. No tabs, menu or settings inside the tower
 │  list for the selected one      │  ← ONE LINE PER ITEM
 │  ─────────────────────────      │
 │                                 │
-│  (Suggestions view:)            │
 │ ⚖ Balance card (if out of line) │  ← only when this lever hurts another
 │ ↗ Grow card (the top one)       │  ← the single biggest opportunity
-│                                 │
-│ [   Send 5 reminders   ]        │  ← STICKY ACTION: the one prepared move
 ├─────────────────────────────────┤
-│  ⌂ Tower    ⊕ Create   ← EXIT DEMO│  ← FOOTER: the platform's bar, 58 px
+│  ⌂ Tower  ⏱ Timeline  ← EXIT DEMO│  ← FOOTER: the platform's bar, 58 px
 └─────────────────────────────────┘
 ```
 
 Reading order is the decision order: **where am I → what's wrong → what do I
-do.** The action is always under the thumb.
+do.** One page per lever, one scroll, nothing floating over it: the act lives
+in the row's own sheet (§4.8, §4.10).
 
 ## 4. The template, part by part
 
@@ -100,19 +97,13 @@ do.** The action is always under the thumb.
 - **Back returns to the five cards**, where the owner left them (the cards'
   scroll is kept). Esc does the same once no sheet is open. **Tower** in the
   footer always lands on the five cards, closing any sheet.
-- **Two views inside a lever** (owner, 22 Sep 2026), as tabs under the
-  back bar and sticky with it: **Status** (the headline, On track · Needs
-  work · Urgent and the list under them, with the sticky action) and
-  **Suggestions** (Deliveries' Tomorrow's trips, the balance cards, the
-  Grow card; a count beside the name; one line, *"No suggestions right
-  now."*, when there are none). The names are the trade's plain words:
-  "Balance & grow" was the spec's vocabulary, not the owner's; everything
-  in that view is something FoodBridge suggests and the owner decides. The sticky action belongs to
-  Status: it acts on that list. Every way into a lever opens on Status; the
-  view holds while the owner stays in the lever, through live updates. A
-  Preview lever has one page, no views.
-- A balance card opens the lever it names, on Status; Back still returns to
-  the cards, not to the lever before.
+- **One page per lever** (owner, 23 Sep 2026). The Status / Suggestions tabs
+  are gone: the headline, the three tiles and the list run down the page, and
+  what FoodBridge suggests — Deliveries' Tomorrow's trips, the balance cards,
+  the Grow card — follows under the list, in that order. A lever with nothing
+  to suggest simply ends at its list; no empty view, no count to chase.
+- A balance card opens the lever it names; Back still returns to the cards,
+  not to the lever before.
 - No tabs and no swiping between levers: with nothing on screen to say where
   a swipe lands, it would only surprise.
 - **The lever opens on the tile its card promised**: On track → On track,
@@ -133,8 +124,11 @@ the data is fresh, the line is noise, so it goes.
 ### 4.3 Headline
 - **The one number** that tells the state of the lever, large, with one short
   line of context under it.
-- **ⓘ** opens "How this is worked out" in a sheet: the rule, in one or two
-  sentences.
+- **No ⓘ, and no "How this is worked out" sheet** (owner, 23 Sep 2026). The
+  headline and its context line carry the whole story; a rule the owner has to
+  open a sheet to read is a rule the screen failed to say plainly. The
+  thresholds behind each lever stay in the model (`lv.how`) and in
+  CONTROL_TOWER_LEVERS.md §8, where they belong.
 
 | Lever | Headline | Context line |
 | --- | --- | --- |
@@ -164,8 +158,7 @@ the lever; selecting instead of stacking keeps the screen one scroll long.
 right, each row with a green ✓ and never a risk colour: in Collections, the
 money received this week, long-stuck money first ("Stuck 180 days · now
 paid"), then late payments, then on time. Under it there is no chase
-material: no customer colours, and no sticky action; those belong to Needs
-work and Urgent.
+material: no customer colours; chasing belongs to Needs work and Urgent.
 
 ### 4.5 The list
 - One item per line: **name · figure**, a small marker when it helps (a
@@ -195,15 +188,21 @@ levers are in balance the card is noise, so it isn't there.
 *Why:* the owner asked to see opportunity on every lever. One is a decision;
 a list is homework.
 
-### 4.8 Sticky action
-- A full-width button pinned above the phone's edge, **56 px**, naming exactly
-  what will happen and to how many: **"Send 5 reminders"**, **"Reschedule 3
-  deliveries"**, **"Raise 3 purchase orders"**.
-- It acts on the top Ugly (or Bad) items. When there's nothing to do, the
-  button is gone. It never says "Take action" or "Review".
+### 4.8 No action button on the page (owner, 23 Sep 2026)
+The tower had a sticky, full-width button over every lever — *"Reschedule 2
+deliveries"*, *"Send 5 reminders"*, *"Raise 3 purchase orders"*. **It is
+gone, everywhere.**
 
-*Why:* one prepared move under the thumb is how FoodBridge shows its value:
-the work is already done; the owner only confirms.
+*Why:* it floated over the owner's list and pushed a batch he had not looked
+at. Since 23 Sep 2026 every act starts from the thing it acts on: a row opens
+its sheet, and the sheet ends in the one step for that item (§4.10) — call the
+shop, reschedule that stop, send that reminder, add that product to a purchase
+order. One item, one decision, nothing hovering.
+
+The page carries no primary button of its own. The only exception is a
+**Preview** lever, whose single *"Connect…"* button sits in the flow of its
+card, at the end of the example (§6.1) — a not-connected lever must keep one
+way in.
 
 ### 4.9 Footer
 
@@ -229,11 +228,9 @@ last. In the tower it carries three items:
 - **Record a delivery** is how the Deliveries lever fills without any
   integration: the driver or the owner records each stop.
 - **Look:** icon 22 px over a 10 px label; the current item in brand green,
-  the others grey. Create is a green-tinted chip, not a filled button, so the
-  sticky action stays the only primary button on screen. EXIT DEMO never takes
-  the active colour.
-- **With the sticky action:** the action sits directly above the footer, 12 px
-  clear of it. A sheet rises over both.
+  the others grey. EXIT DEMO never takes the active colour.
+- Nothing floats over the page any more (§4.8): the footer is the only bar,
+  and a sheet rises over it.
 - **Bigger screens:** where the platform shows its sidebar, the footer is not
   drawn; Create sits at the top of the tower instead. The four work screens
   are **not** repeated in the top bar — the sidebar already lists them under
@@ -255,16 +252,46 @@ else a footer could hold is already done by the five lever cards.
 All detail opens as a bottom sheet over the lever (the owner never loses their
 place). Three kinds (the Create sheet is in 4.9):
 
-**Item sheet** (a customer, product or delivery): its name, the three or four
-facts that matter for this lever, and one action.
-- *Customer:* colour · outstanding · oldest overdue · empties with them ·
-  last order → **"Send reminder"**.
-- *Product:* days of stock · selling per week · on order → **"Add to purchase
-  order"**.
-- *Missed delivery:* customer · reason · what was short or returned →
-  **"Reschedule"**.
+**Item sheet** — a stop, a customer, a product, an order. One shape for all
+four (owner, 23 Sep 2026), because the owner reads them the same way every
+time:
 
-**Confirm sheet** (after the sticky action):
+| Part | What it holds |
+|---|---|
+| Title | the name that matters — the shop, the customer, the product |
+| Sub | what this is and when: the trip, the driver, the time |
+| Stats | two or three figures of this one thing, side by side |
+| **What happened** | what is worth telling, good or bad, one line each, with a why underneath when there is one |
+| **What to do** | one step the owner can take now — and the button that takes it |
+
+Rules, ruthlessly applied:
+- **No reference numbers.** An order no, delivery no, receipt no or invoice id
+  is not something the owner can act on; the work screens hold the paperwork.
+- **No figure twice.** If the sub says "due 4:27 pm", the stats do not.
+- **A figure that would read ₹0 or "None" is left out** — an empty line is
+  not a fact.
+- **The lever asks the question.** The same customer opens on the money in
+  Collections and on the buying in Order.
+- **Say when there is nothing to do**, in those words: *"Nothing to do
+  here."*, *"On the van and on time. Nothing to do yet."*
+- **Where FoodBridge cannot finish the job, the step is the call the owner
+  would make anyway**, with the number ready to dial: the shop for a stop that
+  was shut, a crate that did not come back or cases that went short; the
+  driver for a van still on the road and running behind. FoodBridge does not
+  pretend to fix what happens outside it.
+
+Worked examples:
+
+| Sheet | Sub | Stats | What happened | What to do |
+|---|---|---|---|---|
+| Late stop | Delivered 9:40 am · Van 1 · Ajay | Collected ₹2,800 · Cases 7 · Crates back 3 of 3 | Reached 32 min late — waited at the dock | Van 1 still has 11 stops to make and is running behind → **Call Ajay · Van 1** |
+| Missed stop | Missed 11:06 am · Van 2 · Kumar | Not delivered ₹1,830 | Shop closed | Ask when they will take it, then put it on tomorrow's trip → **Call the shop** · Reschedule |
+| Crate not back | Delivered 10:27 am · Van 1 · Ajay | Collected ₹3,340 · Cases 10 · Crates back 3 of 4 | 1 crate not back — 12 bottles still with them | Ask them to keep 1 crate ready for the next trip → **Call the shop** |
+| Customer (Collections) | Orders every 41 days · last on 22 Sep | Overdue ₹4,680 · Oldest 80 days | No payment in 159 days · Reminded 3 days ago — still not paid | Ask for a date and a figure, and hold them to it → **Call the shop** · Send reminder |
+| Customer (Order) | Nothing overdue | Usual order ₹2,400 · Usually every 30 days · Last order 172 days ago | No order in 172 days — they usually order every 30 days | Call and find out why they stopped, then take the usual order → **Call the shop** · New order |
+| Product | From Pickle And Murabba Traders | In stock 0 · Lasts Out · Sells a week 7 | Out of stock — 7 a week go out, every day out is a sale lost | Order today so it lands before the next trips → **Add to purchase order** · Count stock |
+
+**Confirm sheet** (after a step in an item sheet, or a Create flow):
 - Title that states the outcome: *"Remind 5 customers."*
 - The prefilled list, everything ticked, each line editable (untick, change a
   quantity, edit the message).
@@ -272,6 +299,11 @@ facts that matter for this lever, and one action.
 - **Done:** the sheet closes, a one-line confirmation at the bottom
   (*"5 reminders sent"*) with **Undo** for 5 seconds where undo is possible,
   and the lever's numbers update.
+
+**Timeline detail sheet** keeps its own shape — a news item is evidence, not a
+thing to act on: the facts behind the line, the records it sums up, and
+*"Open Deliveries"* at the foot. It follows the same no-reference-numbers
+rule.
 
 *Why:* seeing, changing and confirming in one place is the whole "FoodBridge
 prepares, the owner confirms" promise.
@@ -596,7 +628,7 @@ what they get:
 - Tiles and rows drawn in full, in light grey, with real labels and
   **Example** figures, marked with an *Example* tag on the tiles.
 - Tomorrow's trips, Balance and Grow cards shown the same way.
-- Sticky action becomes **Connect deliveries**, which says exactly what is
+- The card ends in **Connect deliveries**, which says exactly what is
   needed ("Mark each order delivered, missed or returned from the driver's
   phone").
 
@@ -633,7 +665,7 @@ A neutral canvas; colour only where it carries meaning.
 | Ink | #111418 | numbers, names |
 | Ink 2 | #5B616B | context, labels |
 | Hairline | #E6E6E1 | borders, dividers |
-| Brand | #1E7A46 | sticky action, selected tab underline |
+| Brand | #1E7A46 | sheet buttons, selected tab underline |
 | Good | #1E7A46 | Good tile, green dots |
 | Bad | #B7791F | Bad tile, amber dots |
 | Ugly | #C0362C | Ugly tile, red dots |
@@ -649,7 +681,7 @@ or shape.
 - 4 px base grid; 16 px screen gutters; 24 px between sections.
 - Cards: 16 px radius, hairline border, no shadow. Sheets: 24 px top radius,
   one soft shadow (the only one in the tower).
-- Touch targets at least 44 px; the sticky action 56 px, 16 px from the edges,
+- Touch targets at least 44 px; a sheet's button 52 px, 16 px from the edges,
   clear of the phone's gesture bar.
 - Icons: one outline set, 20 px, 1.75 stroke, used only where they speed
   recognition (the lever cards and the back bar use them; the sticky
@@ -689,7 +721,7 @@ it?"* Three passes.
 | Tomorrow's trips (Deliveries) | The owner's "upcoming health"; decides today's loading and collections |
 | Balance card, only when out | What makes it a control tower |
 | One Grow card | The owner asked for opportunity on every lever; one is actionable |
-| Sticky action | Shows FoodBridge has done the work; one tap to act |
+| The sheet's own button | The act belongs to the item the owner opened, not to the page |
 | Footer: Tower · Create · EXIT DEMO | Home base, quick actions within thumb reach, the platform's own exit |
 | Item sheet, confirm sheet | See, change, confirm without leaving the tab |
 | Preview state | The owner's decision: show what connecting gains |
@@ -751,7 +783,7 @@ The **Overview** is home: the tower opens on it every visit (no tabs,
 - **No Wins and no balance card** (owner, 22 Sep 2026). Balance lives on
   each lever's own screen, where the move is.
 
-No sticky action on Overview: every line opens the lever that acts.
+No action button anywhere on the page: every line opens what acts on it.
 
 ## 10b. The live demo business (owner, 22 Sep 2026)
 

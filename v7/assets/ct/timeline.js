@@ -79,7 +79,7 @@
     };
     const dropRow = function (d) { return { title: name(d.customerId), note: time(d.at) + " · " + how(d), value: money(d.collected) }; };
     const dropDetail = function (title, d) {
-      return detail(title, [fact("Customer", name(d.customerId)), fact("What happened", how(d)), fact("Order", d.orderNo), fact("Trip", tripOf(d)),
+      return detail(title, [fact("Customer", name(d.customerId)), fact("What happened", how(d)), fact("Trip", tripOf(d)),
         fact("Late by", d.status !== "missed" && Number(d.lateMin) > T.LATE_MIN ? L.mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy.toLowerCase() : "") : null),
         fact("Collected", money(d.collected)), fact("Recorded", time(d.at))]);
     };
@@ -98,7 +98,7 @@
       const planned = route && route.day === p[0] ? route.stops.filter(function (s) { return s.van === van && s.round === round; }) : [];
       if (late.length) add({ key: "late:" + k, at: late[0].at, lever: "deliveries", tone: "bad", tile: "ugly",
         text: which + " running " + L.mins(Number(late[0].lateMin)) + " late" + (late[0].lateWhy ? " · " + late[0].lateWhy.toLowerCase() : ""),
-        detail: detail(which + " running late", [fact("Van", van), fact("Trip", ORD[round - 1]), fact("Left late by", L.mins(Number(late[0].lateMin))),
+        detail: detail(which + " running late", [fact("Trip", van + " · " + ORD[round - 1] + " trip"), fact("Left late by", L.mins(Number(late[0].lateMin))),
           fact("Why", late[0].lateWhy), fact("Late drops so far", late.length + (planned.length ? " of " + planned.length : ""))],
           "Late drops", late.map(function (d) { return { title: name(d.customerId), note: time(d.at) + " · late " + L.mins(Number(d.lateMin)), value: money(d.collected) }; })) });
       const full = recs.filter(function (d) { return d.status === "missed" && d.reason === "Van full"; });
@@ -107,9 +107,9 @@
         const casesOf = {}; planned.forEach(function (s) { casesOf[s.no] = s.cases; });
         add({ key: "full:" + k, at: full[0].at, lever: "deliveries", tone: "bad", tile: "ugly",
           text: L.plural(full.length, "order") + " didn't fit " + van + " · left for the next trip",
-          detail: detail("Orders that didn't fit " + van, [fact("Trip", ORD[round - 1]), fact("A van's load", load ? cases(load) : null),
+          detail: detail("Orders that didn't fit " + van, [fact("Trip", van + " · " + ORD[round - 1] + " trip"), fact("A van's load", load ? cases(load) : null),
             fact("Booked on this trip", booked ? cases(booked) : null), fact("Left for the next trip", L.plural(full.length, "order"))],
-            "Left behind", full.map(function (d) { return { title: name(d.customerId), note: (d.orderNo || "") + (casesOf[d.orderNo] ? " · " + cases(casesOf[d.orderNo]) : ""), value: null }; })) });
+            "Left behind", full.map(function (d) { return { title: name(d.customerId), note: casesOf[d.orderNo] ? cases(casesOf[d.orderNo]) : null, value: null }; })) });
       }
       /* Done: every stop planned for this trip has an outcome. */
       if (planned.length && recs.length >= planned.length) {
@@ -129,7 +129,7 @@
       if (Number(d.shortCases) > 0) add({ key: "short:" + d.no, at: d.at, lever: "deliveries", tone: "bad", tile: "ugly", text: "Short " + cases(Number(d.shortCases)) + " at " + who, detail: dropDetail("Short delivery", d) });
       if (Number(d.returnedCases) > 0) add({ key: "ret:" + d.no, at: d.at, lever: "deliveries", tone: "bad", tile: "ugly", text: who + " returned " + cases(Number(d.returnedCases)), detail: dropDetail("Returned cases", d) });
       if (d.rescheduledAt && d.rescheduledFor) add({ key: "resch:" + d.no, at: d.rescheduledAt, lever: "deliveries", tile: "bad", text: who + "'s delivery moved to " + L.date(d.rescheduledFor),
-        detail: detail("Delivery moved", [fact("Customer", who), fact("Missed", time(d.at) + (d.reason ? " · " + d.reason : "")), fact("Moved to", L.date(d.rescheduledFor)), fact("Order", d.orderNo)]) });
+        detail: detail("Delivery moved", [fact("Customer", who), fact("Missed", time(d.at) + (d.reason ? " · " + d.reason : "")), fact("Moved to", L.date(d.rescheduledFor))]) });
       /* A delivery the owner recorded by hand (no trip) is news on its own. */
       if (!d.van && d.status !== "missed") {
         add({ key: "dl:" + d.no, at: d.at, lever: "deliveries", tone: "good", tile: "good",
@@ -147,7 +147,7 @@
        is always its own line, and it is a win. */
     function payDetail(title, p, late) {
       return detail(title, [fact("Customer", name(p.customerId)), fact("Amount", money(p.amount)), fact("Paid by", p.mode), fact("Received", time(p.at)),
-        fact("Receipt", p.no), fact("Stuck for", late >= T.STUCK_DAYS ? L.plural(late, "day") : null)]);
+        fact("Stuck for", late >= T.STUCK_DAYS ? L.plural(late, "day") : null)]);
     }
     const told = {};                                                    // "after 201 days" once: the payment that ended the wait
     const hours = {};

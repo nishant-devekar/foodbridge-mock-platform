@@ -67,7 +67,7 @@
           "_why": "In the sidebar since 21 Sep 2026; rebuilt 22 Sep 2026 on the five levers (context/control-tower/CONTROL_TOWER_LEVERS.md). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws, on a big screen, its own top bar the same as Reports (its name, who is signed in); the Overview's five lever cards are home, a card opens its lever with a Back bar; the Timeline (the business's news) is the footer's second tab; the footer's Assistant opens a WhatsApp-style chat over any screen; the platform footer Tower · Create · EXIT DEMO in place of the shell's EXIT DEMO bar.",
           "id": "control-tower",
           "name": "Control Tower",
-          "url": "screens/control-tower.html?v=20260923DWU",
+          "url": "screens/control-tower.html?v=20260923DY4",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

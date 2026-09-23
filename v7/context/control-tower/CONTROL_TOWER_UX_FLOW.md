@@ -36,12 +36,11 @@ flowchart TD
   LIVE --> A{What does the owner do?}
   A -->|Back · Esc · Tower| TD
   A -->|tap Good / Bad / Ugly| G[List changes to that tile] --> A
-  A -->|tap ⓘ| W[How this is worked out] --> A
   A -->|tap a row| IS[Item sheet<br/>customer · product · delivery]
   A -->|Show all| FL[Full list sheet<br/>sorted by ₹, filters] --> IS
   A -->|tap Balance| BL[The other lever<br/>the linked item highlighted] --> LV
   A -->|tap Grow| GR[Prepared opportunity]
-  A -->|sticky action| CF
+  A -->|a row's own step| CF
   A -->|footer: Tower| LV
   A -->|footer: Create| CR[Create sheet<br/>delivery · payment · PO · stock count · order]
   CR --> CRF[Short entry flow] --> LV
@@ -74,7 +73,8 @@ is the balance the tower exists to show.
 
 ## 2. Principles of the flow
 
-1. **Two taps to act.** From any lever screen: the sticky action, then
+1. **Two taps to act.** From any lever screen: the row, then its step (the
+   page itself carries no action button — owner, 23 Sep 2026), then
    confirm. Never more than three taps to any action.
 2. **Never lose your place.** All detail opens as a sheet over the tab. Back
    (swipe down, or the phone's back) returns to exactly where you were.
@@ -162,7 +162,7 @@ kept below.)
 
 ## 6. Act
 
-The same five steps for every action, from every door (sticky action, a row's
+The same five steps for every action, from every door (a row's
 item sheet, the Grow card, a balance):
 
 1. **Confirm sheet rises.** Its title states the outcome: *"Remind 5

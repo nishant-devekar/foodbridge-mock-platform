@@ -140,7 +140,7 @@ test("phone · Deliveries opens in Preview; the platform footer", async () => {
   assert.equal(await leverStatus(p), "preview");
   assert.match(await text(p, ".ct-main"), /Track all \d+ orders to the door/);
   assert.match(await text(p, ".ct-example"), /Example/);
-  assert.equal(await text(p, ".ct-act"), "Record your first delivery");
+  assert.equal(await text(p, ".ct-connect"), "Record your first delivery");
   /* The four Distribution & Logistics screens are the Deliveries lever's own
      footer actions (23 Sep 2026), off everywhere else. Eight do not fit a
      phone, so the bar scrolls sideways — and the page still does not. */
@@ -151,46 +151,56 @@ test("phone · Deliveries opens in Preview; the platform footer", async () => {
   assert.deepEqual(p.errors, []);
 });
 
-test("phone · the Deliveries preview records the first delivery; a missed one is Ugly until rescheduled", async () => {
+test("phone · the Deliveries preview records the first delivery; the missed stop's own sheet reschedules it", async () => {
   const p = await open(PHONE);
   await openLever(p, "deliveries");
-  await tap(p, ".ct-act");                               // "Record your first delivery"
+  await tap(p, ".ct-connect");                           // "Record your first delivery"
   await tap(p, ".ct-sheet [data-id]");
   await tap(p, '.ct-sheet [data-st="missed"]');
   assert.equal(await p.$eval(".ct-sheet [data-go]", (b) => b.disabled), true, "a missed delivery needs its reason");
   await tap(p, '.ct-sheet [data-reason="Shop closed"]');
   await tap(p, ".ct-sheet [data-go]");
   assert.equal(await leverStatus(p), "ugly");
-  assert.equal(await text(p, ".ct-act"), "Reschedule 1 delivery");
-  await tap(p, ".ct-act");
+  /* No action button on the page (23 Sep 2026): the stop is rescheduled from
+     its own sheet, which says what happened and what to do. */
+  assert.equal(await p.$(".ct-act"), null, "the page carries no action button");
+  await tap(p, ".ct-list .ct-row[data-row]");
+  assert.match(await text(p, ".ct-sheet"), /Shop closed/);
+  assert.match(await text(p, ".ct-sheet .ct-todo"), /tomorrow's trip/);
+  await tap(p, '.ct-sheet [data-a="re"]');
   await tap(p, ".ct-sheet [data-go]");
   assert.match(await text(p, ".ct-main"), /Rescheduled/);
   assert.deepEqual(p.errors, []);
 });
-test("desktop · Collections on the sample ledger: colours, and a button that says what its sheet holds", async () => {
+test("desktop \u00b7 Collections on the sample ledger: colours, and one customer reminded from their own sheet", async () => {
   const p = await open(DESKTOP, withSampleLedger);
   await openLever(p, "collections");
   assert.match(await text(p, ".ct-head"), /overdue/);
   const labels = await p.$$eval(".ct-clabel", (b) => b.map((x) => x.textContent.trim().split(" ")[0]));
   assert.deepEqual(labels, ["Green", "Yellow", "Orange", "Red", "Fire"]);
-  const btn = await text(p, ".ct-act");
-  const n = +btn.match(/Send (\d+)/)[1];
-  await tap(p, ".ct-act");
-  assert.equal(await text(p, ".ct-sheet h2"), "Remind " + n + " customer" + (n === 1 ? "" : "s"));
-  await tap(p, ".ct-sheet [data-go]");
+  /* The act belongs to the customer the owner opened, not to the page. */
+  await click(p, ".ct-list .ct-row[data-row]");
+  assert.match(await text(p, ".ct-sheet .ct-stats"), /Overdue/);
+  assert.match(await text(p, ".ct-sheet .ct-todo"), /\S/);
+  await click(p, '.ct-sheet [data-a="remind"]');
+  assert.equal(await text(p, ".ct-sheet h2"), "Remind 1 customer");
+  await click(p, ".ct-sheet [data-go]");
   const out = await p.evaluate(() => Object.keys(localStorage).filter((k) => /outbox$/.test(k)).map((k) => JSON.parse(localStorage.getItem(k))).flat());
-  assert.equal(out.length, n, "queued in the outbox; nothing reaches a customer");
+  assert.equal(out.length, 1, "queued in the outbox; nothing reaches a customer");
   assert.deepEqual(p.errors, []);
 });
 
-test("desktop · Purchase: raising the purchase orders clears what needed buying", async () => {
+test("desktop \u00b7 Purchase: a product's own sheet raises its purchase order", async () => {
   const p = await open(DESKTOP);
   await openLever(p, "purchase");
-  assert.match(await text(p, ".ct-act"), /^Raise \d+ purchase orders?$/);
-  await tap(p, ".ct-act");
-  await tap(p, ".ct-sheet [data-go]");
-  assert.equal(await p.$(".ct-act"), null, "nothing left to buy: no action");
-  assert.match(await text(p, '.ct-tile[data-k="ugly"]'), /0/);
+  const before = await text(p, '.ct-tile[data-k="ugly"]');
+  await click(p, ".ct-list .ct-row[data-row]");
+  assert.match(await text(p, ".ct-sheet .ct-todo"), /\S/);
+  await click(p, '.ct-sheet [data-a="po"]');
+  assert.match(await text(p, ".ct-sheet h2"), /^Raise \d+ purchase orders?$/);
+  await click(p, ".ct-sheet [data-go]");
+  assert.match(await text(p, "#ct-toast"), /purchase order/);
+  assert.notEqual(await text(p, '.ct-tile[data-k="ugly"]'), before, "the product it covered is off the Urgent list");
 });
 
 test("platform · framed on desktop, the shell's sidebar navigates; no footer", async () => {
