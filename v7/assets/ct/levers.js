@@ -217,7 +217,7 @@
     const ordersQuarter = c.st.orders.filter(function (o) { return o.source === "import" && c.asOf && dayOf(o.date) > dayOf(c.asOf) - 90 * DAY; }).length;
 
     /* A fact from the platform's screens makes it live too (24 Sep 2026). */
-    const facts = (c.rec.events || []).filter(function (e) { return /^(stop|return|dispute|problem|payment|count|credit|loadstock|pod)\./.test(e.type); });
+    const facts = (c.rec.events || []).filter(function (e) { return /^(stop|return|dispute|problem|payment|count|credit|loadstock|pod|assets|report)\./.test(e.type); });
     if (!all.length && !c.pending.length && !facts.length) {
       return Object.assign(lever, {
         status: "preview",
@@ -322,6 +322,13 @@
     const open = X.incidents.filter(function (i) { return i.state !== "resolved" && !i.parent && i.standing !== "good"; }).length;
     const fixedN = X.incidents.filter(function (i) { return i.state === "resolved" && i.actions; }).length;
     const otif = delivered.filter(function (s) { return !s.incidents.some(function (i) { return i.type === "window-missed" || i.type === "short-quantity"; }); }).length;
+    /* Something else, kept honest (25 Sep 2026): its share of today's
+       problems, counting those since re-filed. A share that climbs, or the
+       same type re-filed again and again, says a category is missing. */
+    const told = X.incidents.filter(function (i) { return /^something-/.test(i.type) || i.refiledFrom; });
+    const refiled = told.filter(function (i) { return i.refiledFrom; });
+    const elseFact = told.length ? { label: "Something else", value: told.length + " of " + X.incidents.length + (refiled.length ? " · " + refiled.length + " re-filed" : ""),
+      bad: told.length >= 3 && told.length / X.incidents.length > 0.2 } : null;
 
     const t = {
       good: tile("On track", "Done", String(counts.good), counts.good, tileRows.good),
@@ -340,7 +347,8 @@
                   context: [toGo.length ? toGo.length + " to deliver" : null, X.atRisk ? rupees(X.atRisk) + " at risk" : open ? plural(open, "problem") + " being fixed" : null].filter(Boolean).join(" · ") || "Today",
                   bar: total ? delivered.length / total : 0 },
       tiles: t,
-      facts: [{ label: "Collected", value: rupees(collected) || "₹0" }],
+      facts: [{ label: "Collected", value: rupees(collected) || "₹0" }, elseFact].filter(Boolean),
+      somethingElse: { told: told.length, of: X.incidents.length, refiled: refiled.map(function (i) { return i.cat.label; }) },
       tomorrow: [],
       balance: [],
       grow: nextOrders ? { text: plural(nextOrders, "next order") + " taken at the door today", tab: "order" } : null,

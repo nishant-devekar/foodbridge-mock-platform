@@ -97,6 +97,15 @@
     ["expiry-return", "Returns", "Expired return", "Yes", "bad", 0, "Raise credit note + Write it off", "7d", "Credit the customer and write it off."],
     ["wrong-product-return", "Returns", "Wrong item back", "Yes", "bad", 0, "Take it back + Send on next trip", "next-trip", "Take it back into stock and send the right item."],
     ["crates", "Returns", "Crates", "Yes", "good", 0, "Call the shop + Ask the team", "next-trip", "Ask the shop to keep the crates ready for the next trip."],
+    /* 25 Sep 2026 (owner): what the person on the ground reports in their
+       own words, because it fits none of the above — a bandh, a police stop,
+       an abusive customer, a flooded lane, anything uncertain. Its lead is a
+       call to whoever raised it; the call either settles it (Mark resolved,
+       with what was agreed) or finds it's one of ours (File it as …), and
+       it runs that type's own fix from there. "Call me now" is the second
+       row: Missed from the start. */
+    ["something-else", "Other", "Something else", "Yes", "bad", 0, "Call the driver + Mark resolved", "30min", "Read what they sent, then call them. Settle it on the call, or file it as what it turns out to be."],
+    ["something-urgent", "Other", "Urgent · call", "Urgent", "ugly", 0, "Call the driver + Mark resolved", "now", "They asked for a call now. Call them first, then settle it or file it as what it is."],
   ];
   const VAN_TYPES = { breakdown: 1, accident: 1, puncture: 1, fridge: 1, "driver-delayed": 1, "traffic-delay": 1, "road-closure": 1, "route-deviation": 1 };
 
@@ -119,6 +128,10 @@
     ask:         { label: "Ask the team", group: "People", proof: "answer" },
     proof:       { label: "Share proof", group: "Proof", proof: "accepted" },
     close:       { label: "Close it", group: "People", proof: "now" },
+    /* 25 Sep 2026: Something else — settled on the call, in the owner's own
+       words; or found to be one of ours and re-filed as it. */
+    resolve:     { label: "Mark resolved", group: "People", proof: "now" },
+    reclassify:  { label: "File it as…", group: "People", proof: "none" },
   };
   const BY_LABEL = {};
   Object.keys(ACTIONS).forEach(function (k) { BY_LABEL[ACTIONS[k].label] = k; });
@@ -149,6 +162,23 @@
     "price-dispute": [["They're right", "adjust", { decision: "once" }], ["Pay the balance", "adjust", { decision: "refuse" }]],
     "scheme-dispute": [["They're right", "adjust", { decision: "once" }], ["Pay the balance", "adjust", { decision: "refuse" }]],
     "crates": [["Keeping them ready", "close", { how: "agreed" }], ["Lost some", "writeOff", {}]],
+    /* "none": the call is logged and the card waits — Call again. */
+    "something-else": [["Sorted on the call", "resolve", {}], ["It's one of ours", "reclassify", {}], ["Couldn't reach them", "none", {}]],
+    "something-urgent": [["Sorted on the call", "resolve", {}], ["It's one of ours", "reclassify", {}], ["Couldn't reach them", "none", {}]],
+  };
+  /* What a Something else can be re-filed as: a type a person on the ground
+     would recognise, for the kind of thing it's about. A stop takes the
+     customer, order, goods, money and paperwork types; a van (no stop) the
+     van, road and warehouse ones. The system's own detectors (late, off
+     route, credit limit, GST, bill mismatch, capacity, no proof) aren't
+     offered: those are found, not told. */
+  const REFILE = {
+    stop: ["shop-closed", "customer-unavailable", "customer-refused", "order-changed", "order-dispute", "price-dispute", "scheme-dispute", "partial-acceptance",
+           "wrong-address", "address-inaccessible", "no-parking", "access-restriction",
+           "wrong-sku", "short-quantity", "substitute-rejected", "damaged-goods", "wrong-batch", "near-expiry", "expired-product", "quality-complaint",
+           "cash-unavailable", "upi-failed", "cheque-dispute", "pod-disputed", "saleable-return", "crates"],
+    van: ["breakdown", "accident", "puncture", "fridge", "temperature", "traffic-delay", "road-closure",
+          "wrong-loading", "missing-stock", "stock-not-loaded", "wrong-batch-loaded", "dispatch-doc-missing", "missing-item", "excess-quantity"],
   };
   const DRIVER_OUTCOMES = [["Moving again soon", "close", { how: "explained" }], ["Needs help", "move", {}]];
 
@@ -156,7 +186,10 @@
      The delivery app's keys and the tower's own words both map. */
   const REASON = {
     "shop closed": "shop-closed", shop_closed: "shop-closed",
-    "owner away": "customer-unavailable", owner_away: "customer-unavailable", "customer unavailable": "customer-unavailable", other: "customer-unavailable",
+    "owner away": "customer-unavailable", owner_away: "customer-unavailable", "customer unavailable": "customer-unavailable",
+    /* Skip Stop's "Other" was filed as Not available, which it often isn't
+       (25 Sep 2026): it is what it says — something else, for a call. */
+    other: "something-else",
     refused: "customer-refused",
     "payment not ready": "cash-unavailable",
     "van full": "van-full",
@@ -238,6 +271,15 @@
     const vansByName = {};
     if (route) route.stops.forEach(function (s) { if (s.van && !vansByName[s.van]) vansByName[s.van] = { van: s.van, driver: s.driver || null, phone: s.driverPhone || null }; });
     if (route) (route.spares || []).forEach(function (v) { vansByName[v.van] = { van: v.van, driver: v.driver || null, phone: v.driverPhone || null }; });
+    /* A van the route doesn't list is known by what its driver sends: the
+       delivery app says who is driving and their number (25 Sep 2026), so a
+       call to the driver dials. */
+    events.forEach(function (ev) {
+      const sj = ev.subject || {};
+      if (!sj.van || !sj.driverPhone) return;
+      const v = vansByName[sj.van] = vansByName[sj.van] || { van: sj.van, driver: null, phone: null };
+      v.driver = v.driver || ev.by || null; v.phone = v.phone || sj.driverPhone;
+    });
 
     /* ── subjects: one per delivery the owner is responsible for today ─── */
     const subjects = [], byKey = {};
@@ -374,7 +416,7 @@
           driver: ev.by || null, external: true });
       }
       if (sj.customer) return subject("ext:" + norm(sj.customer), { title: sj.customer, value: Number((ev.data || {}).value) || null, van: sj.van || null,
-        driver: ev.by || null, external: true, where: ev.where || null });
+        driver: ev.by || null, driverPhone: sj.driverPhone || null, external: true, where: ev.where || null });
       return null;
     }
     const vanRoots = {};
@@ -488,6 +530,23 @@
         const van = (ev.subject || {}).van;
         if (van) vanRoot("ev:" + ev.id, type, van, Object.assign(base, { capturedText: (ev.by || "The driver") + " reported: " + CATALOG[type].label.toLowerCase() + (data.where ? " at " + data.where : ""),
           facts: data }));
+      } else if (t === "report.raised") {
+        /* Something else (25 Sep 2026): the reporter's own words, the photos
+           they took, and whether they want a call now. At a shop it sits on
+           that delivery; on the road it is the van's own row, holding
+           nothing (it isn't known to stop anything). */
+        const type = data.urgent ? "something-urgent" : "something-else";
+        const words = String(data.text || "").trim();
+        const photos = data.photos || [];
+        const said = words ? words : plural(photos.length || 1, "photo") + ", no words";
+        const facts = { text: words || null, photos: photos, urgent: !!data.urgent, scope: data.scope || ((ev.subject || {}).customer ? "stop" : "van"), value: Number(data.value) || null };
+        let s = (ev.subject || {}).customer ? subjectOf(ev) : null;
+        const van = (ev.subject || {}).van || "Van";
+        if (!s) s = subject("report:" + ev.id, { kind: "count", title: van + " · on the road", van: van, driver: ev.by || null, status: "delivered", at: at });
+        const vv = vansByName[van] || {};
+        open("ev:" + ev.id, type, s, Object.assign(base, { capturedText: (ev.by ? ev.by + ": " : "") + said, facts: facts,
+          driver: ev.by || vv.driver || null, van: van, driverPhone: (ev.subject || {}).driverPhone || vv.phone || null,
+          impact: { rupees: 0, cases: 0, stops: facts.scope === "stop" ? 1 : 0, minutes: 0 } }));
       } else if (t === "credit.over") {
         const s = subjectOf(ev); if (!s) return;
         open("ev:" + ev.id, "credit-limit", s, Object.assign(base, { how: "system", capturedText: "Owes " + rupees(data.owed) + " against a " + rupees(data.limit) + " limit",
@@ -601,6 +660,25 @@
       inc.actions = (inc.actions || []).concat([{ id: id, at: at, by: ev.by || null, data: data, note: note, where: ev.where || null }]);
       inc.lastAction = inc.actions[inc.actions.length - 1];
       if (id === "cancel") { const cs = byKey[inc.subject]; if (cs) cs.cancelled = true; }
+      /* Re-filed: the same incident, now the type it turned out to be, with
+         that type's buttons, recommendation and clock from here. */
+      if (id === "reclassify") {
+        const to = CATALOG[data.to];
+        if (!to) return;
+        inc.refiledFrom = inc.cat.label; inc.type = data.to; inc.cat = to;
+        /* Unknown while it was Something else; as one of ours it has a
+           figure — what is due at that shop (the money types read it as the
+           amount). */
+        const due = inc.facts.value || Number((byKey[inc.subject] || {}).value) || 0;
+        if (!inc.impact.rupees && due) {
+          inc.impact = Object.assign({}, inc.impact, { rupees: due });
+          inc.facts = Object.assign({}, inc.facts, { amount: inc.facts.amount || due });
+        }
+        inc.trail.push({ at: at, step: "tagged", text: "Filed as " + to.label });
+        // Its new clock runs from the re-filing, not from the first report.
+        inc.due = dueOf(Object.assign({}, inc, { at: at }), byKey[inc.subject]);
+        return;
+      }
       if (a.proof === "now" || (id === "adjust") || (id === "collectLater")) return resolve(inc, at, ev.resolved || note);
       if (id === "fixCustomer") { if (ev.resolved) resolve(inc, at, ev.resolved); return; }   // the next action does the rest
       /* The goods are already with the shop: fixing the order re-issues the
@@ -823,7 +901,7 @@
         : acted ? acted.note
         : inc.answered ? (inc.answer.by || "Answer") + ": " + inc.answer.text
         : describe(inc, s, t);
-      inc.what = inc.trail[0].text + (inc.facts.note ? ". " + inc.facts.note : "") + ".";
+      inc.what = (inc.trail[0].text + (inc.facts.note ? ". " + inc.facts.note : "")).replace(/[.!?…]+$/, "") + ".";
       inc.impactText = impactLine(inc, s);
     }
     inc.rec = inc.state === "resolved" ? "Nothing to do here." : inc.state === "acting" ? waitLine(inc)
@@ -843,6 +921,11 @@
       case "crates": return plural(f.crates, "crate") + " not back";
       case "credit-limit": return "Owes " + rupees(f.owed) + " · limit " + rupees(f.limit);
       case "missing-item": case "excess-quantity": return (f.diff > 0 ? "+" : "") + f.diff + " " + f.name;
+      /* Their own words lead the row; the photos are counted. */
+      case "something-else": case "something-urgent": {
+        const w = f.text ? (f.text.length > 60 ? f.text.slice(0, 58).replace(/\s+\S*$/, "") + "…" : f.text) : "No words";
+        return "“" + w + "”" + ((f.photos || []).length ? " · " + plural(f.photos.length, "photo") : "") + " · " + t;
+      }
       /* The pill already says what happened: the line says when, where, how much. */
       default: return t + (inc.van ? " · " + inc.van : "") + (inc.impact.rupees ? " · " + rupees(inc.impact.rupees) : "");
     }
@@ -852,6 +935,8 @@
   function impactLine(inc, s) {
     const f = inc.facts || {};
     if (inc.type === "window-missed") return "The customer has waited " + f.lateMin + " min.";
+    if (inc.type === "something-urgent") return (inc.driver || "They") + " asked for a call now.";
+    if (inc.type === "something-else") return "Nobody knows yet. A call will tell you.";
     if (inc.type === "credit-limit") return "More on credit if it's delivered as usual.";
     if (inc.type === "crates") return plural(f.crates, "crate") + " of yours still with the shop.";
     if (s && s.status === "missed") return "Not delivered today.";
@@ -916,7 +1001,7 @@
   };
 
   const API = { derive: derive, simulate: simulate, standingOf: standingOf, CATALOG: CATALOG, ACTIONS: ACTIONS, OUTCOMES: OUTCOMES,
-                DRIVER_OUTCOMES: DRIVER_OUTCOMES, REASON: REASON, WIN: WIN, T: T, clock: clock, dayIso: dayIso, dayWord: dayWord, istAt: istAt, rupees: rupees };
+                DRIVER_OUTCOMES: DRIVER_OUTCOMES, REFILE: REFILE, REASON: REASON, WIN: WIN, T: T, clock: clock, dayIso: dayIso, dayWord: dayWord, istAt: istAt, rupees: rupees };
   root.CTIncidents = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

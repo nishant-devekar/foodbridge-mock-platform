@@ -98,7 +98,7 @@
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.38 : 1, pointerEvents: confirming ? "none" : "auto", transition: "opacity 0.2s" }) + '">' +
         U.NoteField({ label: "What happened? (optional)", model: "issue-note", value: S.issueNote, placeholder: "Type or speak what they said", typePlaceholder: "What did they say?", style: { marginTop: 12 } }) +
         U.Spacer(4) +
-        U.ChoiceList({ groups: ISSUE_GROUPS, value: kind, actName: "issue-kind", detail: amountField }) +
+        U.ChoiceList({ groups: ISSUE_GROUPS.concat([SOMETHING_ELSE]), value: kind, actName: "issue-kind", detail: amountField }) +
         U.Spacer() +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
@@ -113,7 +113,11 @@
           })
         : U.BtnXL({ variant: ready ? "brand" : "grey", label: cta, disabled: !ready, actName: "issue-confirm" })) + "</div>";
   });
-  window.RD.action("issue-kind", function (k) { window.RD.state.scratch.issueKind = k; window.RD.render(); });
+  window.RD.action("issue-kind", function (k) {
+    const S = window.RD.state.scratch;
+    if (k === "other") { window.RD.state.tellCarry = S.issueNote || ""; window.RD.go("/tell/" + window.RD.state.routeId + "/" + window.RD.state.stopId); return; }
+    S.issueKind = k; window.RD.render();
+  });
   window.RD.action("model:issue-note", function (v) { window.RD.state.scratch.issueNote = v; });
   window.RD.action("model:issue-gap", function (v) {
     const S = window.RD.state.scratch, had = Number(S.issueGap) > 0;
@@ -181,7 +185,7 @@
         (kind === "accident" ? U.Banner({ type: "red", icon: "🚑", text: "If anyone is hurt, call 112 first. Then send this — the office is told at once.", style: { marginTop: 8 } }) : "") +
         U.NoteField({ label: "Where are you? (optional)", model: "problem-where", value: S.problemWhere, placeholder: "Type or speak where you are, e.g. near the 4th Block signal", typePlaceholder: "e.g. Near the 4th Block signal", style: { marginTop: 12 } }) +
         U.Spacer(4) +
-        U.ChoiceList({ groups: PROBLEM_GROUPS, value: kind, actName: "problem-kind" }) +
+        U.ChoiceList({ groups: PROBLEM_GROUPS.concat([SOMETHING_ELSE]), value: kind, actName: "problem-kind" }) +
         U.Spacer() +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
@@ -196,7 +200,11 @@
           })
         : U.BtnXL({ variant: kind ? "brand" : "grey", label: kind ? "Report Problem" : "Choose what happened", disabled: !kind, actName: "problem-confirm" })) + "</div>";
   });
-  window.RD.action("problem-kind", function (k) { window.RD.state.scratch.problemKind = k; window.RD.render(); });
+  window.RD.action("problem-kind", function (k) {
+    const S = window.RD.state.scratch;
+    if (k === "other") { window.RD.state.tellCarry = S.problemWhere || ""; window.RD.go("/tell/" + window.RD.state.routeId); return; }
+    S.problemKind = k; window.RD.render();
+  });
   window.RD.action("model:problem-where", function (v) { window.RD.state.scratch.problemWhere = v; });
   window.RD.action("problem-confirm", function () { window.RD.state.scratch.problemConfirming = true; window.RD.render(); });
   window.RD.action("problem-confirm-cancel", function () { window.RD.state.scratch.problemConfirming = false; window.RD.render(); });
@@ -350,6 +358,149 @@
   }
   document.addEventListener("pointerup", lift);
   document.addEventListener("pointercancel", lift);
+
+
+  /* ══ Tell the Office: something else ══════════════════════════════════
+     (25 Sep 2026) For what fits none of the reports: a bandh, a police stop,
+     an abusive customer, a flooded lane, anything uncertain. The person on
+     the ground says it in their own words — typed or spoken, the same note
+     as everywhere — adds a photo if it helps, and says whether they need a
+     call now. The office's lead is a call back; it settles it on the call
+     or files it as what it turns out to be.
+       /tell/:routeId/:stopId   about this shop          /tell/:routeId   the road */
+  const TELL_MAX_PHOTOS = 3;
+
+  window.RD.screen("tell", function (p) {
+    const route = routeOf(p.routeId);
+    if (!route) throw new Error("Route " + p.routeId + " not found");
+    const stop = p.stopId ? stopOf(p.routeId, p.stopId) : null;
+    const S = window.RD.state.scratch;
+    // Words already typed on the report screen this came from come with it.
+    if (S.tellNote === undefined) { S.tellNote = window.RD.state.tellCarry || ""; window.RD.state.tellCarry = null; }
+    if (!S.tellPhotos) S.tellPhotos = [];
+    if (!S.tellUrgent) S.tellUrgent = "wait";
+    const confirming = !!S.tellConfirming;
+    const note = String(S.tellNote || "").trim();
+    const photos = S.tellPhotos;
+    const ready = !!note || photos.length > 0;
+    const urgent = S.tellUrgent === "now";
+    const where = stop ? stop.customerName : route.name;
+
+    const thumbs = '<div style="' + U.sty({ display: "flex", gap: 10, padding: "0 12px", flexWrap: "wrap" }) + '">' +
+      photos.map(function (ph, i) {
+        return '<div style="' + U.sty({ position: "relative", width: 84, height: 84, borderRadius: 14, overflow: "hidden", background: "#e5e7eb", flexShrink: 0 }) + '">' +
+          '<img alt="Photo ' + (i + 1) + '" src="' + ph.data + '" style="' + U.sty({ width: "100%", height: "100%", objectFit: "cover", display: "block" }) + '" />' +
+          '<button type="button" aria-label="Remove photo ' + (i + 1) + '"' + U.act("tell-photo-remove", i) + ' style="' + U.sty({
+            position: "absolute", top: 5, right: 5, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(17,17,17,0.7)",
+            color: "white", fontSize: 14, fontWeight: 700, lineHeight: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }) + '">×</button></div>';
+      }).join("") +
+      (photos.length < TELL_MAX_PHOTOS
+        ? '<label style="' + U.sty({ width: 84, height: 84, borderRadius: 14, border: "2px dashed #cbd5e1", background: "white", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", color: U.BRAND, fontSize: 12, fontWeight: 700, flexShrink: 0 }) + '">' +
+            '<span style="font-size:22px;line-height:1">📷</span>' + (photos.length ? "Add" : "Add Photo") +
+            '<input type="file" accept="image/*" data-tell-photo style="display:none" /></label>'
+        : "") +
+      "</div>";
+
+    return U.MobileHeader({ title: "Tell the Office", subtitle: stop ? "In your own words · the office calls you back" : route.name + " · on the road", backLabel: stop ? stop.customerName : "Back", backAct: "back" }) +
+      '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.38 : 1, pointerEvents: confirming ? "none" : "auto", transition: "opacity 0.2s" }) + '">' +
+        U.NoteField({ label: "What's going on?", model: "tell-note", value: S.tellNote, rows: 3, placeholder: "Type or speak what's happening — the office calls you back", typePlaceholder: "What's happening? The office calls you back.", style: { marginTop: 12 } }) +
+        U.SectionHeader("Photos · optional") + thumbs +
+        (S.tellPhotoError ? '<div role="alert" style="' + U.sty({ color: "#ef4444", fontSize: 12, fontWeight: 600, padding: "6px 16px 0" }) + '">' + U.esc(S.tellPhotoError) + "</div>" : "") +
+        U.SectionHeader("How urgent?") +
+        '<div style="padding:0 12px">' + U.Segmented({ actName: "tell-urgent", value: S.tellUrgent, options: [{ key: "wait", label: "Can wait" }, { key: "now", label: "Call me now", tone: "warn" }] }) +
+          '<div style="' + U.sty({ fontSize: 12, color: urgent ? "#c2410c" : "#6b7280", fontWeight: 600, marginTop: 6 }) + '">' +
+            (urgent ? "The office is asked to call you straight away." : "The office calls you back — within half an hour.") + "</div></div>" +
+        U.Spacer() +
+      "</div>" +
+      (confirming ? U.FreezeBackdrop() : "") +
+      '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(confirming
+        ? U.ConfirmPanel({
+            action: "Tell the Office", amount: urgent ? "📞 Call me now" : "💬 Something else",
+            context: where + (photos.length ? " · " + photos.length + " photo" + (photos.length === 1 ? "" : "s") : "") + " · the office calls you back",
+            backLabel: "Change", commitLabel: "Send to Office",
+            backAct: "tell-confirm-cancel", commitAct: "tell-send", arg: p.stopId || "",
+            processing: !!S.committing, processingLabel: photos.length ? "Sending words and photos…" : "Sending to office…",
+            extra: note ? U.Quote(note) : "",
+          })
+        : U.BtnXL({ variant: ready ? (urgent ? "orange" : "brand") : "grey", label: ready ? (urgent ? "Send · Call Me Now" : "Tell the Office") : "Say what's going on, or add a photo", disabled: !ready, actName: "tell-confirm" })) + "</div>";
+  });
+
+  window.RD.action("model:tell-note", function (v) {
+    const S = window.RD.state.scratch, had = !!String(S.tellNote || "").trim();
+    S.tellNote = v;
+    if (had !== !!String(v).trim()) { window.RD.render(); refocus("tell-note"); }
+  });
+  window.RD.action("tell-urgent", function (v) { window.RD.state.scratch.tellUrgent = v; window.RD.render(); });
+  window.RD.action("tell-photo-remove", function (i) { const S = window.RD.state.scratch; S.tellPhotos.splice(Number(i), 1); window.RD.render(); });
+  window.RD.action("tell-confirm", function () { window.RD.state.scratch.tellConfirming = true; window.RD.render(); });
+  window.RD.action("tell-confirm-cancel", function () { const S = window.RD.state.scratch; if (S.committing) return; S.tellConfirming = false; window.RD.render(); });
+
+  // Sent: the photos go to the platform's photo store first (assets/fb-
+  // media.js), the report carries their ids. A photo that can't be kept
+  // doesn't hold the words back.
+  window.RD.action("tell-send", function (stopId) {
+    const S = window.RD.state.scratch;
+    if (S.committing) return;
+    const routeId = window.RD.state.routeId;
+    const stop = stopId ? stopOf(routeId, stopId) : null;
+    const text = String(S.tellNote || "").trim(), urgent = S.tellUrgent === "now", photos = (S.tellPhotos || []).slice();
+    if (!text && !photos.length) return;
+    S.committing = true; window.RD.render();
+    const keep = photos.length && window.FB_MEDIA
+      ? Promise.all(photos.map(function (ph) { return window.FB_MEDIA.put(ph.data, { w: ph.w, h: ph.h, by: "delivery-app" }).then(function (id) { return { id: id, w: ph.w, h: ph.h }; }); }))
+      : Promise.resolve([]);
+    const minWait = new Promise(function (r) { setTimeout(r, 900); });
+    Promise.all([keep.catch(function () { return null; }), minWait]).then(function (res) {
+      const kept = res[0];
+      window.RD_EMIT("report.raised", routeOf(routeId), stop, { text: text || null, urgent: urgent, photos: kept || [], scope: stop ? "stop" : "van",
+        // What is due at that shop: if the call finds it is about money, it is the amount.
+        value: stop ? (dueOf(routeId, stop) || Number(stop.todayOrderAmount) || null) : null }, "Delivery app · Tell the office");
+      S.committing = false; S.tellConfirming = false; S.tellNote = undefined; S.tellPhotos = null; S.tellUrgent = null;
+      if (photos.length && !kept) window.RD.toast({ title: "Sent to office", detail: "The photos couldn't be kept — your words went" }, "error");
+      else window.RD.toast({ title: urgent ? "Sent · the office will call you" : "Sent to office", detail: (text ? "“" + (text.length > 48 ? text.slice(0, 46) + "…" : text) + "”" : photos.length + " photo" + (photos.length === 1 ? "" : "s")) + " · " + (stop ? stop.customerName : "on the road") });
+      if (stop) {
+        const done = stop.status === "DELIVERED" || stop.status === "SKIPPED" || stop.isReturnOnly;
+        window.RD.go((done ? "/stop-summary/" : "/delivery/") + routeId + "/" + stop.id);
+      } else window.RD.go("/office/" + routeId);
+    });
+  });
+
+  // A photo, shrunk to what the office needs to see before it is kept.
+  document.addEventListener("change", function (e) {
+    const el = e.target;
+    if (!el || !el.hasAttribute || !el.hasAttribute("data-tell-photo") || !el.files || !el.files[0]) return;
+    const S = window.RD.state.scratch;
+    S.tellPhotoError = null;
+    const reader = new FileReader();
+    reader.onload = function () {
+      const img = new Image();
+      img.onload = function () {
+        const k = Math.min(1, 1280 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        if (!S.tellPhotos) S.tellPhotos = [];
+        if (S.tellPhotos.length < TELL_MAX_PHOTOS) S.tellPhotos.push({ data: c.toDataURL("image/jpeg", 0.72), w: c.width, h: c.height });
+        window.RD.render();
+      };
+      img.onerror = function () { S.tellPhotoError = "That file isn't a photo we can read."; window.RD.render(); };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(el.files[0]);
+  });
+
+  // "Something Else" at the foot of Report an Issue and Report a Problem: it
+  // opens Tell the Office, with the words already typed.
+  const SOMETHING_ELSE = { label: "Something Else", options: [
+    { key: "other", icon: "💬", label: "Something Else", sub: "None of these fit — tell the office in your own words" },
+  ] };
+  window.RD.action("tell-open", function (arg) {
+    const S = window.RD.state.scratch; S.stopActions = false; S.queueMenu = false;
+    // The queue's menu hands over its route, a stop's menu its stop.
+    const stopId = arg && !D.db.routeDetails[arg] ? arg : null;
+    window.RD.go("/tell/" + window.RD.state.routeId + (stopId ? "/" + stopId : ""));
+  });
 
   window.RD_POD = { sheet: podSheet, card: podCard, of: podOf };
 })();

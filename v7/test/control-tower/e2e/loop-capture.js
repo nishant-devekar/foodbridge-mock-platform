@@ -48,12 +48,31 @@
      browser's own layout (foreignObject) draws them right. At scale 1 —
      html2canvas crops a scaled foreignObject — then shrunk here. */
   async function shoot(win, doc, fo) {
+    /* A foreignObject drawing can't keep a scroll position: a pane the owner
+       scrolled (a long list, its confirm at the foot) is drawn from its top.
+       So each scrolled pane's content is moved up by as much in the copy. */
+    const panes = Array.prototype.slice.call(doc.querySelectorAll(".ct-dm"));
+    const tops = panes.map(function (p) { return p.scrollTop; });
+    const base = prep(doc);
     const c = await win.html2canvas(doc.body, { scale: fo ? 1 : 0.6, backgroundColor: "#ffffff", logging: false, foreignObjectRendering: !!fo,
-      windowWidth: W, windowHeight: HGT, width: W, height: HGT, onclone: prep(doc) });
+      windowWidth: W, windowHeight: HGT, width: W, height: HGT, onclone: function (d) {
+        base(d);
+        d.querySelectorAll(".ct-dm").forEach(function (p, i) {
+          const top = tops[i]; if (!top) return;
+          p.scrollTop = 0; p.style.overflow = "hidden";
+          Array.prototype.forEach.call(p.children, function (ch) { ch.style.transform = "translateY(" + -top + "px)"; });
+        });
+      } });
     if (!fo) return c.toDataURL("image/jpeg", 0.62);
     const out = document.createElement("canvas");
     out.width = Math.round(W * 0.6); out.height = Math.round(HGT * 0.6);
-    out.getContext("2d").drawImage(c, 0, 0, c.width, c.height, 0, 0, out.width, out.height);
+    const g = out.getContext("2d");
+    g.drawImage(c, 0, 0, c.width, c.height, 0, 0, out.width, out.height);
+    /* A card open means the page under it is dimmed: its left edge, beside
+       the card, is grey, not white. White there means the card didn't draw
+       (a page the browser isn't showing can miss it, 25 Sep 2026). */
+    const px = g.getImageData(3, Math.round(out.height / 2), 1, 1).data;
+    shoot.dimmed = px[0] < 200;
     return out.toDataURL("image/jpeg", 0.62);
   }
   async function driver(label) {
@@ -62,7 +81,11 @@
   }
   async function tower(label) {
     const f = frame();
-    steps.push({ who: "tower", label: label, img: await shoot(f.contentWindow, f.contentDocument, true) });
+    const card = !!f.contentDocument.querySelector(".ct-sheet.is-modal");
+    let img = await shoot(f.contentWindow, f.contentDocument, true);
+    for (let n = 0; card && !shoot.dimmed && n < 4; n++) { await wait(700); img = await shoot(f.contentWindow, f.contentDocument, true); }
+    if (card && !shoot.dimmed) log.push("BLANK CARD · " + label);
+    steps.push({ who: "tower", label: label, img: img });
   }
 
   /* ── the tower, in its own frame ─────────────────────────────────────── */
@@ -146,13 +169,16 @@
   async function owner(plan, id) {
     await openTower("?lever=deliveries&item=" + encodeURIComponent(id));
     for (const s of plan) {
-      if (s.call) { await tclick('[data-a="call"][data-who="' + (s.who || "shop") + '"]'); log.push("owner · call · " + pane()); await tower(s.label || "Owner calls — what did they say?"); }
+      if (s.call) { await tclick('[data-a="call"][data-who="' + (s.who || "shop") + '"]', 1200); log.push("owner · call · " + pane()); await tower(s.label || "Owner calls — what did they say?"); }
       if (s.oc !== undefined) { await tclick('[data-oc="' + s.oc + '"]', 900); log.push("owner · answer · " + pane()); }
       if (s.act) { await tclick('[data-act="' + s.act + '"]', 900); log.push("owner · " + s.act + " · " + pane()); }
       if (s.pk) { await tclick('[data-pk="' + s.pk[0] + '"][data-v="' + s.pk[1] + '"]', 350); }
       if (s.type) { await ttype(s.type[0], s.type[1]); }
       if (s.shot) await tower(s.shot);
-      if (s.go) { const g = td().querySelector('[data-a="ap-go"]'); if (g && !g.hidden && g.offsetParent !== null) { g.click(); await wait(800); } log.push("owner · confirm · " + pane()); if (s.goShot) await tower(s.goShot); }
+      if (s.go) { const g = td().querySelector('[data-a="ap-go"]'); if (g && !g.hidden && g.offsetParent !== null) { g.click(); await wait(800); }
+        /* The owner pressed it at the foot of the pane: the confirm is where they are looking. */
+        const cf = td().querySelector('.ct-dm[data-pos="on"] .ct-rs-conf:not([hidden])'); if (cf) { cf.scrollIntoView({ block: "end" }); await wait(200); }
+        log.push("owner · confirm · " + pane()); if (s.goShot) await tower(s.goShot); }
       if (s.yes) { await tclick('[data-a="ap-yes"]', 1000); log.push("owner · done · " + pane()); if (s.yesShot) await tower(s.yesShot); }
       if (s.then) { await wait(s.then); }
     }
@@ -633,6 +659,79 @@
       return towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: delivered with no proof");
     } }) };
 
+  /* Something else (25 Sep 2026): what fits none of the reports, told in
+     the driver's own words with a photo, from Report an Issue (a shop) or
+     Report a Problem (the road). The lead is a call to the driver. */
+  function snap(line1, line2) {
+    const c = document.createElement("canvas"); c.width = 640; c.height = 480;
+    const g = c.getContext("2d"), sky = g.createLinearGradient(0, 0, 0, 480);
+    sky.addColorStop(0, "#9fb6c9"); sky.addColorStop(1, "#5d6b76"); g.fillStyle = sky; g.fillRect(0, 0, 640, 480);
+    g.fillStyle = "#7b8189"; g.fillRect(90, 120, 460, 300);
+    g.strokeStyle = "#5f656c"; g.lineWidth = 4;
+    for (let y = 140; y < 420; y += 18) { g.beginPath(); g.moveTo(90, y); g.lineTo(550, y); g.stroke(); }
+    g.fillStyle = "#c8102e"; g.fillRect(90, 70, 460, 50);
+    g.fillStyle = "#fff"; g.font = "bold 28px sans-serif"; g.fillText(line1, 110, 106);
+    g.fillStyle = "rgba(0,0,0,0.55)"; g.fillRect(0, 430, 640, 50);
+    g.fillStyle = "#fff"; g.font = "20px sans-serif"; g.fillText(line2, 16, 462);
+    return { data: c.toDataURL("image/jpeg", 0.72), w: 640, h: 480 };
+  }
+  async function tell(o, labels) {
+    const from = o.stop ? "/issue/RTE-001/" + o.stop : "/problem/RTE-001";
+    await go(from);
+    if (o.stop) root.RD.state.scratch.issueNote = o.text; else root.RD.state.scratch.problemWhere = o.text;
+    A()[o.stop ? "issue-kind" : "problem-kind"]("other"); await wait(250);
+    const S = root.RD.state.scratch;
+    S.tellPhotos = (o.photos || []).map(function (p) { return snap(p[0], p[1]); });
+    S.tellUrgent = o.urgent ? "now" : "wait";
+    await driver(labels[0]);
+    A()["tell-confirm"](); await driver(labels[1]);
+    A()["tell-send"](o.stop || ""); await wait(1600);
+  }
+  async function resolveOnCall(id, how, lead) {
+    await owner([{ call: true, who: "driver", label: lead || "Owner calls the driver — what did they say?" }, { oc: 0 },
+      { type: ["how", how], shot: "Owner: Sorted on the call — Mark Resolved, in their own words", go: true, goShot: "Owner confirms", yes: true, yesShot: "Resolved — it moves to On track" }], id);
+  }
+  F["something-else"] = { title: "Something else · at a shop, sorted on the call", run: async function () {
+      const st = stopOf("STP-0104");
+      await openStop("STP-0104"); await driver("Driver at " + st.customerName);
+      await tell({ stop: "STP-0104", text: "Owner won't take the goods till he talks to you about the Diwali scheme. Says the salesman promised extra.", photos: [["DIWALI OFFER", "Poster at the counter"]] },
+        ["Driver: Report an Issue → Something Else → Tell the Office, with a photo", "Driver confirms — the office calls back"]);
+      const id = await towerShows(titled(st.customerName), "Tower: Deliveries — Something else, Pending", "Tower: the report — their words, the photo, Call Rahul");
+      await resolveOnCall(id, "Spoke to the owner. He takes today's order as booked; I'll visit Friday about the scheme.");
+      await queue("Driver's queue: the office's word");
+      await openStop("STP-0104"); await driver("Driver opens it: Resolved, in the owner's words");
+      await pay("STP-0104", "Driver collects", "Delivered and paid");
+      await towerCard(id, "Tower: resolved"); await towerList("Tower: On track");
+    } };
+  F["something-urgent"] = { title: "Something else · on the road, Call me now", run: async function () {
+      await queue("Driver on the road");
+      await tell({ text: "Police stopped the van at the naka, asking for the e-way bill. Need a call.", urgent: true, photos: [["NAKA CHECK", "SV Road checkpost"], ["E-WAY BILL?", "Papers in the cabin"]] },
+        ["Driver: Report a Problem → Something Else → Call me now, two photos", "Driver confirms — urgent"]);
+      await go("/office/RTE-001"); await driver("Driver: Sent to Office — waiting for the call");
+      const id = await towerShows(tagged("something-urgent"), "Tower: Deliveries — Urgent · call, Missed", "Tower: the report — Call Rahul now");
+      await owner([{ call: true, who: "driver", label: "Owner calls Rahul — what did they say?" }, { oc: 2, then: 400 }], id);
+      await tower("Owner: couldn't reach them — logged, still open");
+      await queue("Driver's queue: the office tried to call you");
+      await resolveOnCall(id, "E-way bill sent to the officer on WhatsApp. He let the van go — carry on with the route.", "Owner calls again — what did they say?");
+      await go("/office/RTE-001"); await driver("Driver: Office — Resolved, in the owner's words");
+      const cur = root.RD_DB.getStops("RTE-001").filter(function (s) { return s.status === "CURRENT"; })[0];
+      await pay(cur.id, "Driver: back on the road — collects at " + cur.customerName, "Delivered and paid");
+      await towerCard(id, "Tower: resolved"); await towerList("Tower: On track");
+    } };
+  F["something-refiled"] = { title: "Something else · re-filed as Cash unavailable", run: async function () {
+      const st = stopOf("STP-0110");
+      await openStop("STP-0110"); await driver("Driver at " + st.customerName);
+      await tell({ stop: "STP-0110", text: "Shopkeeper says his son has the money and he's at the hospital. Wants the goods anyway." },
+        ["Driver: Report an Issue → Something Else, in their own words", "Driver confirms"]);
+      const id = await towerShows(titled(st.customerName), "Tower: Deliveries — Something else", "Tower: the report");
+      await owner([{ call: true, who: "driver", label: "Owner calls Rahul — what did they say?" }, { oc: 1 }, { pk: ["to", "cash-unavailable"], shot: "Owner: It's one of ours — File it as Cash unavailable", go: true, goShot: "Owner confirms", yes: true, yesShot: "Filed — its own fix is on the card" }], id);
+      await towerCard(id, "Tower: now Cash unavailable, with its own buttons");
+      await owner(LATER, id);
+      await queue("Driver's queue: the office's word"); await openStop("STP-0110"); await driver("Driver opens it: the office's banner");
+      await pay("STP-0110", "Driver delivers on credit", "Delivered", { amount: 0, short: "later" });
+      await towerCard(id, "Tower: fixed"); await towerList("Tower: On track");
+    } };
+
   async function run(key) {
     const f = F[key]; if (!f) throw new Error("no flow " + key);
     reset();
@@ -643,5 +742,6 @@
     return { key: key, title: f.title, steps: steps, log: log };
   }
 
-  root.LOOP = { setup: setup, run: run, keys: function () { return Object.keys(F); }, _F: F };
+  root.LOOP = { setup: setup, run: run, keys: function () { return Object.keys(F); }, _F: F,
+    _t: { openTower: openTower, tower: tower, steps: function () { return steps; } } };
 })(window);

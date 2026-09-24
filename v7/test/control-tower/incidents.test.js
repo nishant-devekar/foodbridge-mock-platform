@@ -52,9 +52,9 @@ function run(w, inc, id, hint, tweak) {
 }
 const find = (w, type) => dl(w).incidents.incidents.find((i) => i.type === type && i.state === "open");
 
-test("every one of the 54 incidents, and crates, is in the catalogue with two buttons at most and its clock", () => {
+test("every one of the 54 incidents, crates, and Something else (and its urgent call) is in the catalogue with two buttons at most and its clock", () => {
   const C = IN.CATALOG;
-  assert.equal(Object.keys(C).length, 55);
+  assert.equal(Object.keys(C).length, 57);
   assert.ok(!C["order-not-found"], "No order was removed (owner, 24 Sep 2026)");
   for (const id of Object.keys(C)) {
     const c = C[id];

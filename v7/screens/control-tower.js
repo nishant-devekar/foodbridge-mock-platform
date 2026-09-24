@@ -1242,6 +1242,7 @@
     /* ── the order, one step in (owner, 23 Sep 2026) ─────────────────── */
     function orderBits() {
       const c = cur(); if (!c || !c.subj) return null;
+      if (/^report:/.test(c.subj.key)) return null;          // told from the road: there is no order
       const dl = recordOf(c.subj), st = view.state, ord = orderLines(dl);
       const atMrp = ord.lines.every(function (l) { return l.mrp !== null; }) ? ord.lines.reduce(function (n, l) { return n + l.qty * l.mrp; }, 0) : 0;
       const worth = Number(dl.value) || atMrp;
@@ -1282,6 +1283,17 @@
         "</section>";
     }
 
+    /* The photos the person on the ground attached (Something else): drawn
+       empty, filled from the platform's photo store (assets/fb-media.js),
+       tapped to see full size. */
+    function photosHtml(inc) {
+      const ph = inc && inc.facts && inc.facts.photos || [];
+      if (!ph.length) return "";
+      return '<div class="ct-dm-photos">' + ph.map(function (p, i) {
+        return '<button type="button" class="ct-dm-ph" data-a="photo" aria-label="Photo ' + (i + 1) + ' of ' + ph.length + '"><img alt="" data-media="' + esc(p.id) + '"></button>';
+      }).join("") + "</div>";
+    }
+
     /* ── the buttons: the incident's own two, in the tower ───────────── */
     function buttonsOf(c) {
       const inc = c.inc, s = c.subj;
@@ -1307,12 +1319,14 @@
     }
     function phoneOf(c, who) {
       const s = c.subj, inc = c.inc;
+      if (who === "driver" && inc && /^something-/.test(inc.type) && inc.driverPhone) return inc.driverPhone;
       if (who === "driver") return (s && s.driverPhone) || (inc && inc.driverPhone) || ((vanOf(s ? s.van : inc && inc.van) || {}).phone) || null;
       return s && s.customerId ? (view.state.phoneById || {})[s.customerId] || null : null;
     }
     function btnHtml(c, b, lead) {
       if (b.id === "call") {
         const p = phoneOf(c, b.who);
+        if (b.who === "driver" && c.inc && c.inc.driver) b = Object.assign({}, b, { label: b.label.replace("the driver", c.inc.driver) });
         return p ? '<a class="ct-dm-call" data-a="call" data-who="' + b.who + '" href="' + tel(p) + '">' + esc(b.label) + "<small>" + esc(phoneText(p)) + "</small></a>"
           : '<button type="button" class="ct-dm-call" data-a="call" data-who="' + b.who + '">' + esc(b.label) + "<small>No number saved</small></button>";
       }
@@ -1327,7 +1341,7 @@
       const tone = inc ? (inc.state === "resolved" ? "good" : inc.standing) : s.cancelled ? "good" : s.status === "pending" ? "pend" : "good";
       const tagText = s && s.cancelled ? "Cancelled" : inc ? (inc.state === "resolved" ? "Fixed" : inc.cat.label) : s.status === "pending" ? "Pending" : "Delivered";
       const when = inc && inc.kind === "van" ? "Since " + IX().clock(new Date(inc.at).getTime()) + (inc.driver ? " · " + inc.driver : "")
-        : s ? [s.status === "missed" ? "Missed " + (s.at ? whenOf(s.at) : "") : s.status === "pending" ? (s.slot ? "Due " + whenOf(s.slot) : "Not on a van yet") : "Delivered " + whenOf(s.at || s.slot), s.van, s.driver].filter(Boolean).join(" · ") : "";
+        : s ? [/^report:/.test(s.key) ? "Reported " + whenOf(s.at) : s.status === "missed" ? "Missed " + (s.at ? whenOf(s.at) : "") : s.status === "pending" ? (s.slot ? "Due " + whenOf(s.slot) : s.van ? "On its way" : "Not on a van yet") : "Delivered " + whenOf(s.at || s.slot), s.van, s.driver].filter(Boolean).join(" · ") : "";
       const o = orderBits();
       /* What happened: the lead incident; anything else on this delivery. */
       const others = s ? s.incidents.filter(function (i) { return i !== inc; }) : [];
@@ -1339,7 +1353,8 @@
       others.forEach(function (i) { happened.lines.push(i.cat.label + (i.state === "resolved" ? " · fixed" : "") + ": " + (i.state === "resolved" ? i.proof.text : i.note)); });
       const money = inc ? (inc.kind === "van" ? inc.impact.rupees : inc.impact.rupees || (s && s.value)) : s && (s.status === "pending" ? s.value : Number((s.last || {}).collected) || s.value);
       /* No Impact line when there is nothing to put a figure on. */
-      const impact = inc ? (inc.kind === "van" && !inc.children.length ? null : { value: money ? L.rupees(money) : inc.kind === "van" ? L.plural(inc.children.length, "stop") : inc.cat.label, text: inc.impactText })
+      /* Something else has no figure until the call says what it is. */
+      const impact = inc ? (inc.kind === "van" && !inc.children.length || /^something-/.test(inc.type) ? null : { value: money ? L.rupees(money) : inc.kind === "van" ? L.plural(inc.children.length, "stop") : inc.cat.label, text: inc.impactText })
         : s && money ? { value: L.rupees(money), text: s.status === "pending" ? "Order value to deliver." : Number((s.last || {}).collected) ? "Collected at the door." : "Went on credit." } : null;
       const rec = inc ? inc.rec : s.cancelled ? "Nothing to do here." : s.status === "pending" ? (s.van ? "On the van and on time. Nothing to do yet." : "It goes on the next trip. Nothing to do yet.") : "Nothing to do here.";
       const heldList = inc && inc.kind === "van" && inc.children.length ? '<section class="ct-dm-sec ct-dm-held"><h4>' + (inc.type === "driver-delayed" ? "Past their time" : "Held on " + esc(inc.van)) + "</h4><ul>" +
@@ -1353,7 +1368,8 @@
         orderCard(o) +
         '<section class="ct-dm-sec"><h4>What happened</h4><div class="ct-dm-line">' +
           '<span class="ct-dm-ic" data-t="' + (tone === "pend" ? "pend" : tone) + '">' + (inc ? (inc.state === "resolved" ? I.check : "<b aria-hidden=\"true\">!</b>") : s.status === "pending" ? I.truck : I.check) + "</span>" +
-          '<div><p class="ct-dm-main">' + esc(happened.text) + "</p>" + happened.lines.filter(Boolean).map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") + "</div></div></section>" +
+          '<div><p class="ct-dm-main">' + esc(happened.text) + "</p>" + happened.lines.filter(Boolean).map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") +
+          photosHtml(inc) + "</div></div></section>" +
         heldList +
         (impact ? '<section class="ct-dm-sec"><h4>Impact</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.rupee + "</span>" +
           '<div><p class="ct-dm-main">' + esc(impact.value) + "</p><p>" + esc(impact.text) + "</p></div></div></section>" : "") +
@@ -1383,14 +1399,22 @@
       return spec.available(actionCtx(c)) ? id : "reschedule";
     }
     /* ── What did they say? ──────────────────────────────────────────── */
+    /* A type with its own answers keeps them whoever was called (Something
+       else calls the driver who raised it); otherwise a call to a driver is
+       about the van getting moving. */
+    function outcomesOf(c) {
+      const own = IX().OUTCOMES[c.inc.type];
+      return own && (cv.calledWho !== "driver" || /^something-/.test(c.inc.type)) ? own : cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : own || [];
+    }
     function callHtml() {
       const c = cur(); if (!c || !c.inc) return "";
-      const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+      const list = outcomesOf(c);
       return '<div class="ct-rs ct-oc"><p class="ct-oc-k">' + esc(cv.calledWho === "driver" ? "You called " + (c.inc.driver || (c.subj && c.subj.driver) || "the driver") : "You called " + name()) + "</p>" +
         '<h4 class="ct-rs-h">What did they say?</h4><div class="ct-oc-list">' +
         list.map(function (o, i) {
-          const a = IX().ACTIONS[o[1] === "close" ? "close" : fallbackOf(o[1], c)];
-          return '<button type="button" class="ct-oc-b" data-oc="' + i + '"><b>' + esc(o[0]) + "</b><small>" + esc(o[1] === "close" ? "Close it" : "Opens " + (a ? a.label : o[1])) + "</small></button>";
+          const a = o[1] === "none" ? null : IX().ACTIONS[o[1] === "close" ? "close" : fallbackOf(o[1], c)];
+          const what = o[1] === "close" ? "Close it" : o[1] === "none" ? "Keep it open · call again" : "Opens " + (a ? a.label : o[1]);
+          return '<button type="button" class="ct-oc-b" data-oc="' + i + '"><b>' + esc(o[0]) + "</b><small>" + esc(what) + "</small></button>";
         }).join("") + '</div><button type="button" class="ct-oc-skip" data-a="nav-back">Not now</button></div>';
     }
 
@@ -1589,12 +1613,15 @@
             const oc = ev.target.closest("[data-oc]");
             if (oc) {
               const c = cur(); if (!c || !c.inc) return;
-              const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+              const list = outcomesOf(c);
               const o = list[+oc.dataset.oc]; if (!o) return;
               try { tower.store.addEvent({ type: "call.outcome", by: "You", where: "Control Tower", how: "owner", subject: { incident: c.inc.id }, data: { answer: o[0], who: cv.calledWho } }); }
               catch (x) { return toast(x.message); }
               compute(); draw(); fill("main", mainHtml());
               if (o[1] === "close") return closeWith(o[2].how, ev.detail === 0);
+              /* Nobody answered: the attempt is on the card and the phone, the
+                 incident stays as it was. */
+              if (o[1] === "none") { nav("main", ev.detail === 0); return toast("Logged. Call again when you can."); }
               return openAct(o[1], o[2], ev.detail === 0);
             }
             const b = ev.target.closest("[data-a]"); if (!b) return;
@@ -1605,7 +1632,7 @@
               /* The phone dials; the card waits with "What did they say?". */
               const c = cur(); if (!c || !c.inc || c.inc.state === "resolved") return;
               cv.calledWho = b.dataset.who;
-              const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+              const list = outcomesOf(c);
               if (!list.length) return;
               fill("call", callHtml());
               setTimeout(function () { nav("call", false); }, b.tagName === "A" ? 700 : 0);
@@ -2270,4 +2297,40 @@
     sheetOpen: function () { return isOpen(); },
   };
   window.FBControlTower = { mount: mount, api: api, _ui: ui, _model: function () { return model; }, _view: function () { return view; } };
+})();
+
+/* ── Photos attached to a report (25 Sep 2026) ──────────────────────────────
+   The card draws each as an empty <img data-media="id">; this fills it from
+   the platform's photo store (assets/fb-media.js) whenever one appears, and
+   opens it full size on a tap. Outside the tower's own render so every
+   redraw of the card is covered without asking each one to remember. */
+(function () {
+  "use strict";
+  if (typeof document === "undefined") return;
+  function fill(root) {
+    if (!window.FB_MEDIA) return;
+    (root.querySelectorAll ? root.querySelectorAll("img[data-media]:not([data-filled])") : []).forEach(function (img) {
+      img.setAttribute("data-filled", "1");
+      window.FB_MEDIA.get(img.getAttribute("data-media")).then(function (r) {
+        if (r && r.data) img.src = r.data; else img.closest(".ct-dm-ph").classList.add("is-gone");
+      });
+    });
+  }
+  new MutationObserver(function () { fill(document); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener("click", function (e) {
+    const b = e.target.closest && e.target.closest(".ct-dm-ph");
+    if (b) {
+      const img = b.querySelector("img");
+      if (!img || !img.src) return;
+      const v = document.createElement("div");
+      v.className = "ct-ph-view"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "Photo");
+      v.innerHTML = '<img alt="Photo from the report"><button type="button" aria-label="Close">×</button>';
+      v.querySelector("img").src = img.src;
+      document.body.appendChild(v);
+      return;
+    }
+    const open = e.target.closest && e.target.closest(".ct-ph-view");
+    if (open) open.remove();
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { const v = document.querySelector(".ct-ph-view"); if (v) v.remove(); } });
 })();

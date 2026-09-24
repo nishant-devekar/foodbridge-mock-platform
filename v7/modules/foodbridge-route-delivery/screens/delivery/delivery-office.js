@@ -43,7 +43,8 @@
         where: where || "Delivery app",
         // rdStop / rdRoute: which stop of this app the fact is about, so the
         // office's answer finds its way back to it.
-        subject: Object.assign({ customer: stop ? stop.customerName : null, van: route ? route.name : null,
+        // driverPhone: so the office's "Call the driver" dials (25 Sep 2026).
+        subject: Object.assign({ customer: stop ? stop.customerName : null, van: route ? route.name : null, driverPhone: route && route.driver ? route.driver.phone || null : null,
           rdStop: stop && stop.id ? stop.id : null, rdRoute: (window.RD && window.RD.state && window.RD.state.routeId) || null }, subject || {}),
         data: data || {},
       }, note ? { note: note } : {}));
@@ -96,6 +97,10 @@
       case "ask": return { text: d.question || "What happened here?", ask: true };
       case "proof": return { text: "Your photo and signature went to the shop" };
       case "close": return { text: "Closed by the office" };
+      /* Something else (25 Sep 2026): settled on the call, or found to be
+         one of ours and filed as it. */
+      case "resolve": return { text: "Resolved: " + (d.how || "sorted on the call") };
+      case "reclassify": return { text: "The office filed it as " + String(d.label || "a known problem").toLowerCase() + ". What they decide comes next." };
       default: return null;
     }
   }
@@ -230,6 +235,10 @@
         if (d.dispatchDocsReady === false) bits.push("dispatch papers not ready");
         return "Load check · " + bits.join(", ");
       }
+      case "report.raised": {
+        const t = d.text ? "“" + (d.text.length > 44 ? d.text.slice(0, 42) + "…" : d.text) + "”" : (d.photos || []).length + " photo" + ((d.photos || []).length === 1 ? "" : "s");
+        return (d.urgent ? "Call me now · " : "Something else · ") + t;
+      }
       case "count.submitted": { const n = (d.mismatches || []).length; return "Stock count · " + n + " discrepanc" + (n === 1 ? "y" : "ies"); }
       case "assets.recorded": { const e = d.empties || {}, k = Math.max(0, (e.cratesOut || 0) - (e.cratesBack || 0)); return k ? k + " crate" + (k === 1 ? "" : "s") + " not back" : null; }
       default: return null;
@@ -255,7 +264,8 @@
         return x.type === "van.moving" || (x.type.indexOf("action.") === 0 && (x.where || "").indexOf("Delivery app") !== 0);
       });
       const last = done[done.length - 1];
-      const status = !last ? "Waiting for the office" : last.type === "van.moving" ? "Closed · you're moving" : "Office: " + ((words(last) || {}).text || "acted on it");
+      const tried = !last && evs.some(function (x) { return x.type === "call.outcome" && String((x.subject || {}).incident || "") === ids && /couldn.t reach/i.test((x.data || {}).answer || ""); });
+      const status = tried ? "The office tried to call you" : !last ? "Waiting for the office" : last.type === "van.moving" ? "Closed · you're moving" : "Office: " + ((words(last) || {}).text || "acted on it");
       out.push({ id: ev.id, at: ev.at, rid: rid, stopId: hit ? hit.stop.id : null, title: hit ? hit.stop.customerName : (D.db.routeDetails[rid] || {}).name, text: text, status: status, waiting: !last });
     });
     return out;
@@ -286,7 +296,11 @@
     });
 
     evs.forEach(function (ev) {
-      if (!ev || !ev.type || ev.type.indexOf("action.") !== 0) return;
+      if (!ev || !ev.type) return;
+      // An unanswered call to the driver (Something else, 25 Sep 2026) is
+      // the office's word too: call them back.
+      const missedCall = ev.type === "call.outcome" && (ev.data || {}).who === "driver" && /couldn.t reach/i.test((ev.data || {}).answer || "");
+      if (ev.type.indexOf("action.") !== 0 && !missedCall) return;
       // Today's, or one the office set for today (the next trip, a new day).
       const forToday = ev.data && ev.data.date === today;
       if (ev.at && dayIst(new Date(ev.at).getTime()) !== today && !forToday) return;
@@ -294,9 +308,9 @@
       // not the office's: it still puts a today stop back in the queue, but
       // it never reads as a message from the office.
       const own = (ev.where || "").indexOf("Delivery app") === 0;
-      const w = own ? ownWords(ev) : words(ev); if (!w) return;
+      const w = missedCall ? { text: "The office tried to call you. Call them back." } : own ? ownWords(ev) : words(ev); if (!w) return;
       const t = targetOf(ev, byId);
-      const note = { id: ev.id, at: ev.at, text: w.text, kind: ev.type.slice(7), incident: t.incident, ask: !!w.ask, own: own,
+      const note = { id: ev.id, at: ev.at, text: w.text, kind: missedCall ? "callFailed" : ev.type.slice(7), incident: t.incident, ask: !!w.ask, own: own,
                      customer: t.customer, rid: null, stopId: null, answer: null };
       if (w.ask) note.answer = evs.filter(function (x) {
         return x.type === "question.answered" && x.subject && x.subject.incident === t.incident && x.at >= ev.at;
@@ -513,6 +527,12 @@
     return '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' + inner + "</div>";
   }
 
+  // Anything the reports don't cover, from the Office screen itself.
+  function tellRow() {
+    return '<div style="padding:4px 0 0">' + card(row({ icon: "💬", tint: "#e8f5f7", title: "Tell the Office", sub: "Something the reports don't cover — say it in your own words, add a photo. The office calls you back.",
+      cta: "Tell them", actName: "tell-open", arg: "", last: true })) + "</div>";
+  }
+
   window.RD.screen("office", function (p) {
     const route = D.db.routeDetails[p.routeId];
     if (!route) throw new Error("Route " + p.routeId + " not found");
@@ -567,7 +587,7 @@
           : U.BtnXL({ variant: "green", label: "🚚 We're Moving Again", actName: "office-moving-confirm" })) + "</div>";
 
     return U.MobileHeader({ title: "Office", subtitle: route.name + " · today", backLabel: "Delivery Stops", backAct: "back" }) +
-      '<div class="rd-body" style="background:' + U.BG + '">' + U.Spacer(4) + van + replies + updates + sentList + empty + U.Spacer() + "</div>" +
+      '<div class="rd-body" style="background:' + U.BG + '">' + U.Spacer(4) + tellRow() + van + replies + updates + sentList + empty + U.Spacer() + "</div>" +
       (confirming ? U.FreezeBackdrop(0.45) : "") + footer + replySheet();
   });
 

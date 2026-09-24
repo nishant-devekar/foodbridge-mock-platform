@@ -83,7 +83,8 @@
     return (window.RD_OFFICE ? window.RD_OFFICE.replySheet() : "") + (window.RD_POD ? window.RD_POD.sheet() : "");
   }
   function officeGroup(stopId, withProof) {
-    const actions = [{ icon: "⚠️", label: "Report an Issue", sub: "A dispute, payment, quality or access problem", act: "goto-issue", arg: stopId }];
+    const actions = [{ icon: "⚠️", label: "Report an Issue", sub: "A dispute, payment, quality or access problem", act: "goto-issue", arg: stopId },
+                     { icon: "💬", label: "Tell the Office", sub: "Something else, in your own words — they call you back", act: "tell-open", arg: stopId }];
     if (withProof) {
       const pod = window.RD_POD && window.RD_POD.of(stopId);
       actions.push({ icon: "📷", label: pod ? "Proof of Delivery · Saved" : "Add Proof of Delivery", sub: pod ? "Retake the photo or signature" : "Photo and the customer's signature", act: "pod-open", arg: stopId });
@@ -112,6 +113,7 @@
             boxShadow: "0 10px 28px rgba(15,23,42,0.18)", border: "1px solid #eef0f2", overflow: "hidden",
           }) + '">' +
             item(MENU_SVG.alert, "Report an Issue", "goto-issue", stopId) +
+            item(MENU_SVG.chat, "Tell the Office", "tell-open", stopId) +
             (customerId ? item(MENU_SVG.crate, "Manage Assets", "goto-assets", customerId) : "") +
             item(MENU_SVG.office, "Office", "office-open") + "</div>"
         : "") +
@@ -234,6 +236,7 @@
     alert: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>'),
     office: svg('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/>'),
     crate: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+    chat: svg('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/>'),
   };
 
   function QueueActionsMenu(open, routeId) {
@@ -261,7 +264,7 @@
           }) + '">' + item("↻", "Restock", "queue-restock") + item("₹", "Return & Settle", "queue-settle") +
             // The office (24 Sep 2026, not in the upstream app).
             '<div style="' + U.sty({ height: 1, background: "#f0f2f5", margin: "5px 0" }) + '"></div>' +
-            item(MENU_SVG.alert, "Report a Problem", "queue-problem") + item(MENU_SVG.office, "Office", "office-open") + "</div>"
+            item(MENU_SVG.alert, "Report a Problem", "queue-problem") + item(MENU_SVG.chat, "Tell the Office", "tell-open") + item(MENU_SVG.office, "Office", "office-open") + "</div>"
         : "") +
       "</div>";
   }

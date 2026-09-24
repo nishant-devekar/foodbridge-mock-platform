@@ -261,6 +261,44 @@ forward. Load it in the delivery app page and run `await LOOP.setup(); await LOO
 
 ---
 
+## #56 Something else — what fits none of the 55 (25 Sep 2026)
+
+For what the person on the ground can't file as any known type: a bandh, a police stop, an
+abusive customer, a flooded lane, a shop that wants to talk to the owner. Skip Stop's "Other"
+now lands here too; it used to be filed as Not available.
+
+**Driver side.** Tell the Office (`/tell/:routeId[/:stopId]`, `delivery-report.js`). It's reached
+from Something Else at the foot of Report an Issue (tied to the stop) and Report a Problem (the
+van), from both ⋮ menus, the stop's More Actions, and the Office screen. It has the same note
+field as every report (typed or spoken), up to 3 photos (shrunk to 1280 px and kept in IndexedDB
+by `assets/fb-media.js`; the event carries only their ids), and How urgent?: Can wait or Call me
+now. Sending needs a note or a photo, then the usual two-card confirm. The event is
+`report.raised`, and it carries the driver's number and what's due at that shop.
+
+**Tower side.** Two catalogue rows in a new family, Other: `something-else` (Pending, turns
+Missed after 30 min) and `something-urgent` (Missed from the start). The card leads with the
+driver's words and photos (tap to see full size). Its two buttons are Call Rahul (it dials the
+driver who raised it) and Mark resolved. After the call, What did they say? gives three answers:
+- **Sorted on the call** → Mark Resolved, with a required note (typed or spoken). The note is the fix, and the driver reads it as "Resolved: …".
+- **It's one of ours** → File It As: the stop's or the van's known types, as chips. The same incident becomes that type, with that type's buttons, recommendation and clock, and it takes over what's due at the shop as its amount.
+- **Couldn't reach them** → logged, still open; the driver sees "The office tried to call you".
+
+**Keeping it honest.** The Deliveries lever shows "Something else: N of M", counting reports
+that were later re-filed. It's flagged when there are 3 or more and they make up over a fifth of
+the day's incidents. A share that climbs, or the same type re-filed again and again, means a
+category is missing.
+
+**Proof.** `test/control-tower/something-else.test.js` has 11 tests (127 in all pass). There are
+three live loops in the harness (`something-else`, `something-urgent`, `something-refiled`),
+52 screens in all, on the proof page as #56a–c.
+
+**Found and fixed along the way.**
+- The card's line for a pending stop said "Not on a van yet · Andheri West Beat". It now says "On its way" when the stop has a van.
+- Delivery-app events now carry the driver's number, so "Call the driver" dials instead of showing "No number saved".
+- The capture harness drew the tower's card blank when the browser pane was in the background. html2canvas copies computed styles mid-animation. The harness now checks that the page behind the card is dimmed, retries, and logs `BLANK CARD` if it's still blank. It also drew scrolled panes from the top; the offset is now carried into the copy.
+
+---
+
 ## Caveats — two detectors that need data this repo doesn't collect yet
 
 **GST mismatch (#50)** and **Insufficient capacity (#37)** are both written, both pass a

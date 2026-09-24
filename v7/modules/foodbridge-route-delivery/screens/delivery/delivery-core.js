@@ -87,6 +87,8 @@
     ["/office/:routeId",                  "office"],
     ["/problem/:routeId",                 "problem"],
     ["/issue/:routeId/:stopId",           "issue"],
+    ["/tell/:routeId/:stopId",            "tell"],
+    ["/tell/:routeId",                    "tell"],
   ];
 
   function matchRoute(path) {

@@ -112,8 +112,8 @@
     fact: function (label, text) { return '<div class="ct-ap-quote ct-ap-fact"><small>' + esc(label) + "</small><p>" + esc(text) + "</p></div>"; },
     quote: function (label, text) { return '<div class="ct-ap-quote"><small>' + esc(label) + "</small><p>" + esc(text) + "</p></div>"; },
     msg: function (text) { return H.h("The message") + '<div class="ct-ap-msg">' + esc(text) + "</div>"; },
-    note: function (key, value, ph, mic) {
-      return '<label class="ct-rs-l" for="ct-ap-note">Add internal notes (optional)</label>' +
+    note: function (key, value, ph, mic, label) {
+      return '<label class="ct-rs-l" for="ct-ap-note">' + esc(label || "Add internal notes (optional)") + "</label>" +
         '<div class="ct-rs-ta' + (mic ? " has-mic" : "") + '"><textarea id="ct-ap-note" data-tx="' + key + '" rows="3" maxlength="200" placeholder="' + esc(ph || "e.g. Confirmed on the phone.") + '">' + esc(value || "") + "</textarea>" +
         '<span class="ct-rs-count" data-count="' + key + '">' + (value || "").length + "/200</span>" +
         (mic ? '<button type="button" class="ct-dm-mic ct-rs-mic" data-a="ap-mic" aria-label="Speak your note" aria-pressed="false">' + mic + "</button>" : "") + "</div>" +
@@ -617,6 +617,65 @@
     confirm: function (x, s) { return { main: "Close it as <b>" + esc(A.close.words[s.how].toLowerCase()) + "</b>", small: "" }; },
     commit: function (x, s) { const note = A.close.words[s.how]; return { note: note, events: [ev(x, "close", { how: s.how }, note, { resolved: note })], outbox: [] }; },
     done: function (x, s) { return { title: "Closed", sub: A.close.words[s.how] + ".", head: "Closed", rows: [["Item", x.name]], pill: "Done" }; },
+  };
+
+  /* ── Something else (25 Sep 2026) ──────────────────────────────────────
+     Settled on the call: the owner says, in their own words, what was
+     agreed — typed or spoken — and that sentence is the fix. It is what the
+     person on the ground reads back, so it is required. */
+  A.resolve = {
+    title: "Mark Resolved",
+    init: function () { return { how: "" }; },
+    html: function (x, s) {
+      const f = x.inc.facts || {};
+      return (f.text ? H.quote("They reported", f.text) : "") +
+        H.note("how", s.how, "e.g. Police checked the papers and let the van go. Carrying on with the route.", x.mic, "How was it resolved?");
+    },
+    ready: function (x, s) { return String(s.how || "").trim() ? null : "Say how it was resolved — it's what " + (x.driver || "the driver") + " reads."; },
+    go: function () { return "Mark Resolved"; },
+    confirm: function (x, s) {
+      return { main: "Resolved: <b>" + esc(String(s.how).trim()) + "</b>", small: "It moves to On track, and " + (x.driver || "the driver") + " sees it in the delivery app." };
+    },
+    commit: function (x, s) {
+      const how = String(s.how).trim();
+      const note = "Resolved on the call · " + how;
+      return { note: note, events: [ev(x, "resolve", { how: how }, note, { resolved: how })], outbox: [] };
+    },
+    done: function (x, s) { return { title: "Resolved", sub: String(s.how).trim(), head: "Resolved", rows: [["Reported by", x.driver || "The driver"], ["Where", x.name || x.van || "On the road"]], pill: "On track" }; },
+  };
+
+  /* It's one of ours: the call found what it really is. Filed as that type,
+     the incident keeps its history and runs that type's own fix — its
+     buttons, its recommendation, its clock. Offered by where it happened:
+     a shop's types for a stop, the van's and the warehouse's for the road. */
+  A.reclassify = {
+    title: "File It As",
+    types: function (x) {
+      const R = IN().REFILE, C = IN().CATALOG;
+      const scope = (x.inc.facts && x.inc.facts.scope) === "van" || !x.subj || x.subj.kind === "count" ? "van" : "stop";
+      return R[scope].map(function (id) { return C[id]; }).filter(Boolean);
+    },
+    init: function (x) { return { to: "" }; },
+    html: function (x, s) {
+      const by = {};
+      A.reclassify.types(x).forEach(function (c) { (by[c.family] = by[c.family] || []).push(c); });
+      // Chips, grouped by family: some twenty-six types for a shop, so rows
+      // would push the button a long way down; chips keep it all in view.
+      return H.h("What is it, really?", true) + Object.keys(by).map(function (fam) {
+        return '<p class="ct-rs-l ct-ap-l">' + esc(fam) + '</p><div class="ct-ap-chips ct-ap-refile" role="radiogroup" aria-label="' + esc(fam) + '">' + by[fam].map(function (c) {
+          return '<button type="button" class="ct-ap-chip" role="radio" data-pk="to" data-v="' + esc(c.id) + '" aria-checked="' + (c.id === s.to) + '">' + esc(c.label) + "</button>";
+        }).join("") + "</div>";
+      }).join("");
+    },
+    ready: function (x, s) { return s.to ? null : "Pick what it turned out to be."; },
+    label: function (s) { const c = IN().CATALOG[s.to]; return c ? c.label : ""; },
+    go: function (x, s) { return s.to ? "File as " + A.reclassify.label(s) : "File It"; },
+    confirm: function (x, s) { return { main: "File it as <b>" + esc(A.reclassify.label(s)) + "</b>", small: "Its own fix comes next, on this card." }; },
+    commit: function (x, s) {
+      const note = "Filed as " + A.reclassify.label(s);
+      return { note: note, events: [ev(x, "reclassify", { to: s.to, from: x.inc.type, label: A.reclassify.label(s) }, note)], outbox: [] };
+    },
+    done: function (x, s) { return { title: "Filed as " + A.reclassify.label(s), sub: "Its own fix is on the card now.", head: "Filed", rows: [["Was", x.inc.cat.label], ["Now", A.reclassify.label(s)]], pill: "Re-filed" }; },
   };
 
   /* An action is offered only when it can do something: nothing to move,
