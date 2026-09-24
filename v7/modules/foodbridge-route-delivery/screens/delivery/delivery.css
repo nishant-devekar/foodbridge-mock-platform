@@ -20,3 +20,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media (max-width: 480px) {
   input:focus, textarea:focus, select:focus { font-size: 16px !important; }
 }
+
+/* The note field's mic while it listens (delivery-voice.js): the same red
+   pulse as the Control Tower's. */
+@keyframes rd-mic { 0% { box-shadow: 0 0 0 0 rgba(224,58,62,0.45); } 100% { box-shadow: 0 0 0 12px rgba(224,58,62,0); } }
+.rd-mic.is-on { animation: rd-mic 1.3s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .rd-mic.is-on { animation: none; } }
+
+/* The toast (delivery-core.js): it drops in from the top, runs its hairline
+   down, and lifts away. */
+@keyframes rd-toast-in  { from { opacity: 0; transform: translateY(-14px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes rd-toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-10px) scale(0.98); } }
+@keyframes rd-toast-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.rd-toast--in  { animation: rd-toast-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rd-toast--out { animation: rd-toast-out 0.18s ease-in both; }
+.rd-toast-bar  { animation-name: rd-toast-bar; animation-timing-function: linear; animation-fill-mode: both; }
+.rd-toast:active { transform: scale(0.99); }
+@media (prefers-reduced-motion: reduce) {
+  .rd-toast--in, .rd-toast--out { animation: none; }
+  .rd-toast-bar { display: none; }
+}

@@ -861,6 +861,99 @@
     "</span>";
   }
 
+  /* ── Choices (24 Sep 2026, not in the upstream app) ───────────────────── */
+
+  // A single choice from a grouped list — the radio rows of NewDeliverySheet,
+  // where the row chosen opens its own field beneath it. Used where a reason
+  // needs a line of explanation to be picked right (reporting to the office),
+  // which a chip grid cannot carry.
+  //   groups = [{ label, options: [{ key, icon, label, sub }] }]
+  //   detail = html shown under the chosen row
+  function ChoiceList(o) {
+    o = o || {};
+    return (o.groups || []).map(function (g) {
+      return (g.label ? SectionHeader(g.label) : "") +
+        '<div role="radiogroup" style="' + sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
+        g.options.map(function (op, i) {
+          const on = o.value === op.key;
+          return "<div>" +
+            '<button type="button" role="radio" aria-checked="' + (on ? "true" : "false") + '"' + act(o.actName, op.key) + ' style="' + sty({
+              width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+              background: on ? "#eef6f7" : "white", border: "none",
+              borderBottom: i < g.options.length - 1 || (on && o.detail) ? "1px solid #f0f2f5" : "none",
+              textAlign: "left", fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+            }) + '">' +
+              '<span style="' + sty({ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: on ? "#d8ecef" : "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 700, color: BRAND }) + '">' + op.icon + "</span>" +
+              '<span style="' + sty({ flex: 1, minWidth: 0 }) + '">' +
+                '<span style="' + sty({ display: "block", fontSize: 15, fontWeight: on ? 700 : 600, color: on ? BRAND : "#111" }) + '">' + esc(op.label) + "</span>" +
+                (op.sub ? '<span style="' + sty({ display: "block", fontSize: 12, color: "#888", marginTop: 1 }) + '">' + esc(op.sub) + "</span>" : "") +
+              "</span>" +
+              '<span style="' + sty({ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, border: "2.5px solid " + (on ? BRAND : "#d1d5db"), background: on ? BRAND : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }) + '">' +
+                (on ? '<span style="' + sty({ width: 7, height: 7, borderRadius: "50%", background: "white" }) + '"></span>' : "") + "</span>" +
+            "</button>" +
+            (on && o.detail ? '<div style="' + sty({ padding: "10px 16px 14px", background: "#eef6f7", borderBottom: i < g.options.length - 1 ? "1px solid #d1e8eb" : "none" }) + '">' + o.detail + "</div>" : "") +
+          "</div>";
+        }).join("") + "</div>";
+    }).join("");
+  }
+
+  // Two or three answers to one question, in the grey track OrderDiscountPanel
+  // uses for % / ₹. An option with tone "warn" turns orange when chosen, so a
+  // problem answer reads as one at a glance.
+  function Segmented(o) {
+    o = o || {};
+    return '<div role="radiogroup" style="' + sty(mix({ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 3 }, o.style)) + '">' +
+      (o.options || []).map(function (op) {
+        const on = o.value === op.key;
+        const bg = on ? (op.tone === "warn" ? ORANGE : BRAND) : "transparent";
+        return '<button type="button" role="radio" aria-checked="' + (on ? "true" : "false") + '"' + act(o.actName, op.key) + ' style="' + sty({
+          flex: 1, padding: "8px 6px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 700,
+          background: bg, color: on ? "white" : "#6b7280", cursor: "pointer", fontFamily: "inherit",
+          whiteSpace: "nowrap", transition: "background 0.15s, color 0.15s",
+        }) + '">' + esc(op.label) + "</button>";
+      }).join("") + "</div>";
+  }
+
+  // The one note field in this app (24 Sep 2026): a textarea the driver can
+  // type into or speak into — the tower's speech-to-text mic (delivery-
+  // voice.js), inside the field's corner. It leads its screen: a driver at a
+  // shop door says what happened first, and picks the reason after. With no
+  // speech in the browser there is no mic, rather than one that fails.
+  const MIC_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>';
+  function NoteField(o) {
+    o = o || {};
+    const V = window.RD_VOICE;
+    const can = !!(V && V.supported);
+    const on = can && V.active === o.model;
+    const err = (V && V.errorFor(o.model)) || o.error || null;
+    const bad = !!o.error && !on;
+    return '<div style="' + sty(mix({ padding: "0 12px", marginTop: 8 }, o.style)) + '">' +
+      (o.label ? '<label style="' + sty({ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6, display: "flex", justifyContent: "space-between" }) + '">' +
+        "<span>" + esc(o.label) + "</span>" +
+        (on ? '<span style="' + sty({ color: "#E03A3E", fontWeight: 700 }) + '">● Listening — tap to stop</span>' : "") + "</label>" : "") +
+      '<div style="' + sty({ position: "relative" }) + '">' +
+        '<textarea data-model="' + esc(o.model) + '" rows="' + (o.rows || 2) + '" maxlength="' + (o.max || 500) + '" placeholder="' + esc(can ? (o.placeholder || "Type or speak a note") : (o.typePlaceholder || o.placeholder || "Add a note")) + '" style="' + sty({
+          width: "100%", padding: "12px " + (can ? 54 : 14) + "px 12px 14px", borderRadius: 14,
+          border: "2px solid " + (on ? "#E03A3E" : bad ? "#ef4444" : "#e5e7eb"),
+          fontSize: 15, fontWeight: 500, lineHeight: 1.4, color: "#111", background: o.background || "#fafafa",
+          outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "none", display: "block",
+        }) + '">' + esc(o.value || "") + "</textarea>" +
+        (can ? '<button type="button" class="rd-mic' + (on ? " is-on" : "") + '"' + act("voice-toggle", o.model) + ' aria-pressed="' + (on ? "true" : "false") + '" aria-label="' + (on ? "Stop" : "Speak your note") + '" style="' + sty({
+            position: "absolute", right: 8, bottom: 8, width: 38, height: 38, borderRadius: "50%", border: "none",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            background: on ? "#E03A3E" : "#eef2f4", color: on ? "white" : BRAND,
+          }) + '">' + MIC_SVG + "</button>" : "") +
+      "</div>" +
+      (err ? '<div role="alert" style="' + sty({ color: "#ef4444", fontSize: 12, marginTop: 4, fontWeight: 600 }) + '">' + esc(err) + "</div>" : "") +
+      "</div>";
+  }
+
+  // What a note will say, quoted — the way Skip Stop's confirm repeats it.
+  function Quote(text) {
+    return '<div style="' + sty({ background: "#f8fafc", borderRadius: 10, border: "1px solid #e9eef2", padding: "9px 14px", fontSize: 13, color: "#555", fontStyle: "italic" }) + '">"' + esc(text) + '"</div>';
+  }
+
   // Dims and blocks the screen behind a ConfirmPanel, so the only live controls
   // are the two decision cards.
   // Two shades upstream: the settlement/numeric screens dim to 0.5, the
@@ -904,5 +997,6 @@
     SearchInput: SearchInput, StepperInput: StepperInput, NumPad: NumPad,
     SettleRow: SettleRow, CheckItem: CheckItem,
     ConfirmPanel: ConfirmPanel, FreezeBackdrop: FreezeBackdrop,
+    Sheet: sheetShell, ChoiceList: ChoiceList, Segmented: Segmented, NoteField: NoteField, Quote: Quote,
   };
 })();

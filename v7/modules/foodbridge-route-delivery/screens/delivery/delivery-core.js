@@ -83,6 +83,8 @@
     ["/reports",                          "reports"],
     ["/closed/:routeId",                  "closed"],
     ["/analytics/:routeId",               "analytics"],
+    // The office channel (delivery-office.js, delivery-report.js).
+    ["/office/:routeId",                  "office"],
     ["/problem/:routeId",                 "problem"],
     ["/issue/:routeId/:stopId",           "issue"],
   ];
@@ -131,27 +133,74 @@
   /* ── Toast ─────────────────────────────────────────────────────────────── */
   // Upstream uses react-toastify. One transient message at a time is all the
   // screens actually raise, so this is a div rather than a queue.
-  let toastTimer = null;
+  //
+  // It drops in under the top of the screen (24 Sep 2026): the bottom is
+  // where every screen keeps its committing button, and a slab of black over
+  // "Collect" read like an error. A white card with what kind of message it
+  // is (done, from the office, went wrong), a title and a quieter line, and a
+  // hairline that runs out as it goes. Tap it to put it away.
+  //
+  //   toast("Invoice sent to customer")
+  //   toast({ title: "Sent to office", detail: "No parking or loading · Ravi General Store" }, "success")
+  //   toast({ title: "Office · Ravi General Store", detail: "Go back about 9:30 am" }, "office")
+  const TOAST_MS = { success: 2800, info: 2800, error: 4000, office: 4500 };
+  const TOAST_OUT_MS = 180;
+  let toastTimer = null, toastOutTimer = null;
   function toast(message, kind) {
-    state.toast = { message: message, kind: kind || "success" };
+    const m = typeof message === "string" ? { title: message } : (message || {});
+    const k = TOAST_MS[kind] ? kind : "success";
+    state.toast = { title: m.title || "", detail: m.detail || "", kind: k, at: Date.now(), ms: TOAST_MS[k], leaving: false };
+    clearTimeout(toastTimer); clearTimeout(toastOutTimer);
     render();
+    toastTimer = setTimeout(dismissToast, state.toast.ms);
+  }
+  function dismissToast() {
+    if (!state.toast || state.toast.leaving) return;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { state.toast = null; render(); }, 2600);
+    state.toast.leaving = true;
+    render();
+    toastOutTimer = setTimeout(function () { state.toast = null; render(); }, TOAST_OUT_MS);
   }
 
+  const TOAST_KIND = {
+    success: { ink: "#16a34a", tint: "#e9f7ee", icon: '<path d="M5 12.5l4.2 4.2L19 7"/>' },
+    office:  { ink: U.BRAND,   tint: "#e6f2f4", icon: '<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/>' },
+    error:   { ink: "#dc2626", tint: "#fdecec", icon: '<path d="M12 8v5M12 16.5h.01"/><circle cx="12" cy="12" r="9"/>' },
+    info:    { ink: "#475569", tint: "#eef2f6", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>' },
+  };
+
   function renderToast() {
-    if (!state.toast) return "";
-    const bg = state.toast.kind === "error" ? "#dc2626" : "#111";
-    return '<div style="' + U.sty({
-      position: "absolute", left: 16, right: 16, bottom: 74, zIndex: 60,
-      background: bg, color: "white", padding: "12px 16px", borderRadius: 12,
-      fontSize: 14, fontWeight: 600, boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
-      textAlign: "center",
-    }) + '">' + U.esc(state.toast.message) + "</div>";
+    const t = state.toast;
+    if (!t) return "";
+    const k = TOAST_KIND[t.kind] || TOAST_KIND.success;
+    // The screen redraws from a string, so the card is new on every render:
+    // it only slides in on the render that raised it, and its hairline picks
+    // up where it had got to rather than starting over.
+    const elapsed = Math.max(0, Date.now() - t.at);
+    const entering = !t.leaving && elapsed < 80;
+    return '<div role="status" aria-live="polite" class="rd-toast' + (entering ? " rd-toast--in" : "") + (t.leaving ? " rd-toast--out" : "") + '"' + U.act("toast-dismiss") + ' style="' + U.sty({
+      position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 10px)", left: 10, right: 10, zIndex: 300,
+      display: "flex", alignItems: "center", gap: 12, padding: "11px 14px 12px 12px",
+      background: "white", borderRadius: 16, border: "1px solid rgba(15,23,42,0.06)",
+      boxShadow: "0 12px 32px rgba(15,23,42,0.16), 0 2px 6px rgba(15,23,42,0.06)",
+      overflow: "hidden", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+    }) + '">' +
+      '<span aria-hidden="true" style="' + U.sty({ width: 34, height: 34, borderRadius: 11, flexShrink: 0, background: k.tint, color: k.ink, display: "flex", alignItems: "center", justifyContent: "center" }) + '">' +
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + k.icon + "</svg></span>" +
+      '<span style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
+        '<span style="' + U.sty({ display: "block", fontSize: 14, fontWeight: 700, color: "#111", lineHeight: 1.3 }) + '">' + U.esc(t.title) + "</span>" +
+        (t.detail ? '<span style="' + U.sty({ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 12.5, fontWeight: 500, color: "#6b7280", lineHeight: 1.35, marginTop: 1 }) + '">' + U.esc(t.detail) + "</span>" : "") +
+      "</span>" +
+      '<span aria-hidden="true" class="rd-toast-bar" style="' + U.sty({
+        position: "absolute", left: 0, bottom: 0, height: 2.5, width: "100%", background: k.ink, opacity: 0.55, transformOrigin: "left",
+        animationDuration: t.ms + "ms", animationDelay: -elapsed + "ms",
+      }) + '"></span>' +
+    "</div>";
   }
 
   /* ── Render ────────────────────────────────────────────────────────────── */
   let rootEl = null;
+  const afterRender = [];
 
   function render() {
     if (!rootEl) return;
@@ -173,6 +222,9 @@
       }
     }
     rootEl.innerHTML = '<div class="rd-screen">' + body + renderToast() + "</div>";
+    // A control the markup alone cannot restore — the signature pad's
+    // drawing — puts itself back here, after every paint.
+    afterRender.forEach(function (fn) { try { fn(rootEl); } catch (err) { if (window.console) console.error("[delivery] after-render hook failed:", err); } });
   }
 
   /* ── Events ────────────────────────────────────────────────────────────── */
@@ -190,6 +242,7 @@
   action("home-confirm-close", function () { state.homeConfirm = false; render(); });
   action("home-confirm-go",    function () { state.homeConfirm = false; go(""); });
   action("retry", function () { render(); });
+  action("toast-dismiss", function () { dismissToast(); });
   action("tab", function (which) {
     if (which === "home") go("");
     else if (which === "reports") go("/reports");
@@ -197,7 +250,7 @@
        if the shared asset is missing — this folder opened on its own — the
        app's own back is still there rather than a dead tab. */
     else if (which === "back") { if (window.FB_EXIT) window.FB_EXIT.open(); else back(); }
-    else toast(which === "routes" ? "Routes tab — not in this prototype" : "Follow-up tab — not in this prototype");
+    else toast({ title: which === "routes" ? "Routes" : "Follow-up", detail: "Not in this prototype yet" }, "info");
   });
 
   function onClick(e) {
@@ -294,5 +347,6 @@
   window.RD = {
     state: state, screen: screen, action: action, actions: actions,
     go: go, back: back, render: render, toast: toast, mount: mount, commit: commit,
+    afterRender: function (fn) { afterRender.push(fn); },
   };
 })();

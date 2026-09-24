@@ -448,6 +448,15 @@
         const cratesOut = Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0));
         if (cratesOut) open("crates:ev:" + ev.id, "crates", s, Object.assign({}, base, { capturedText: plural(cratesOut, "crate") + " not back",
           facts: { crates: cratesOut }, impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } }));
+      } else if (t === "assets.recorded") {
+        /* 24 Sep 2026: crates are recorded in the delivery app's Manage
+           Assets, with every other returnable — crates left with the shop
+           against crates brought back. More out than back is crates not back. */
+        const s = subjectOf(ev); if (!s) return;
+        const e = data.empties || {};
+        const cratesOut = Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0));
+        if (cratesOut) open("crates:ev:" + ev.id, "crates", s, Object.assign({}, base, { capturedText: plural(cratesOut, "crate") + " not back",
+          facts: { crates: cratesOut }, impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } }));
       } else if (t === "loadstock.checked") {
         /* 24 Sep 2026: Load Stock now says what didn't match the plan, and
            whether the dispatch papers are ready — a van-level fact, like a

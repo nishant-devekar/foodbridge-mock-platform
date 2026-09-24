@@ -116,7 +116,22 @@ test("wrong loading, stock not loaded, missing stock, wrong batch loaded, dispat
   assert.ok(find(w, "dispatch-doc-missing"));
 });
 
-test("crates: Collect Payment's empties steppers reach the tower on a real drop", () => {
+test("crates: Manage Assets records crates left and brought back, and more out than back is crates not back", () => {
+  const w = F.world();
+  const cust = w.tower.pass().state.customers;
+  w.store.addEvents([
+    { type: "stop.delivered", by: "Ajay", where: "Delivery app", how: "driver", subject: { customer: cust[0].name }, data: { value: 2400, collected: 2400 } },
+    { type: "assets.recorded", by: "Ajay", where: "Delivery app · Manage assets", how: "driver", subject: { customer: cust[0].name },
+      data: { movements: [{ asset: "Crate — Large", given: 3, taken: 1 }], empties: { cratesOut: 3, cratesBack: 1 } } },
+    { type: "assets.recorded", by: "Ajay", where: "Delivery app · Manage assets", how: "driver", subject: { customer: cust[1].name },
+      data: { movements: [{ asset: "Crate — Large", given: 2, taken: 2 }], empties: { cratesOut: 2, cratesBack: 2 } } },
+  ]);
+  const all = dl(w).incidents.incidents.filter((i) => i.type === "crates");
+  assert.equal(all.length, 1, "an even swap raises nothing");
+  assert.equal(all[0].facts.crates, 2, "2 crates still with the shop");
+});
+
+test("crates: the empties a drop carried before Manage Assets took them still count", () => {
   const w = F.world();
   const cust = w.tower.pass().state.customers;
   w.store.addEvents([{ type: "stop.delivered", by: "Ajay", where: "Delivery app", how: "driver", subject: { customer: cust[0].name },

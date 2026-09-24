@@ -75,13 +75,59 @@
     return D.getStops(routeId).reduce(function (a, s) { return a + (s.collectedAmount || 0); }, 0);
   }
 
+  /* The office at a stop (24 Sep 2026, not in the upstream app): the
+     office's latest word under the stop's own card, the sheets to answer it
+     and to prove a drop, and the More Actions group that reports to it. */
+  function officeBanner(stopId) { return window.RD_OFFICE ? window.RD_OFFICE.banner(stopId) : ""; }
+  function officeSheets() {
+    return (window.RD_OFFICE ? window.RD_OFFICE.replySheet() : "") + (window.RD_POD ? window.RD_POD.sheet() : "");
+  }
+  function officeGroup(stopId, withProof) {
+    const actions = [{ icon: "⚠️", label: "Report an Issue", sub: "A dispute, payment, quality or access problem", act: "goto-issue", arg: stopId }];
+    if (withProof) {
+      const pod = window.RD_POD && window.RD_POD.of(stopId);
+      actions.push({ icon: "📷", label: pod ? "Proof of Delivery · Saved" : "Add Proof of Delivery", sub: pod ? "Retake the photo or signature" : "Photo and the customer's signature", act: "pod-open", arg: stopId });
+    }
+    return { label: "Office", actions: actions };
+  }
+
+  // The ⋮ on a stop's header — the queue's menu, for one customer: what a
+  // driver reaches for while standing at the shop, without leaving it.
+  function StopMenu(open, stopId, customerId) {
+    function item(icon, label, actName, arg) {
+      return '<button type="button" role="menuitem"' + U.act(actName, arg) + ' style="' + U.sty(MENU_ITEM) + '">' +
+        '<span aria-hidden="true" style="' + U.sty(MENU_ICON) + '">' + icon + "</span>" + U.esc(label) + "</button>";
+    }
+    return '<div style="' + U.sty({ position: "relative" }) + '">' +
+      '<button type="button" aria-label="Stop actions" aria-haspopup="menu" aria-expanded="' + (open ? "true" : "false") + '"' + U.act("queue-menu") + ' style="' + U.sty({
+        width: 32, height: 32, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+        border: "1px solid rgba(255,255,255,0.30)", borderRadius: 9, background: open ? "rgba(255,255,255,0.12)" : "transparent",
+        color: "white", cursor: "pointer",
+      }) + '">' +
+        [0, 1, 2].map(function () { return '<span aria-hidden="true" style="' + U.sty({ width: 13, height: 1.5, borderRadius: 2, background: "currentColor" }) + '"></span>'; }).join("") +
+      "</button>" +
+      (open
+        ? '<div role="menu" aria-label="Stop actions" style="' + U.sty({
+            position: "absolute", zIndex: 100, top: 39, right: 0, width: 220, padding: "7px 0", background: "white", borderRadius: 14,
+            boxShadow: "0 10px 28px rgba(15,23,42,0.18)", border: "1px solid #eef0f2", overflow: "hidden",
+          }) + '">' +
+            item(MENU_SVG.alert, "Report an Issue", "goto-issue", stopId) +
+            (customerId ? item(MENU_SVG.crate, "Manage Assets", "goto-assets", customerId) : "") +
+            item(MENU_SVG.office, "Office", "office-open") + "</div>"
+        : "") +
+      "</div>";
+  }
+
   /* ══ Customer Queue ════════════════════════════════════════════════════ */
 
-  /* What the office said about this stop, from the Control Tower
-     (delivery-office.js). Not in the upstream app. */
-  function officeLine(stop) { return window.RD_OFFICE ? window.RD_OFFICE.lineFor(stop.id) : null; }
-  function officeSub(text) {
-    return '<div style="' + U.sty({ fontSize: 13, color: "#c2410c", marginTop: 1, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">🚚 Office: ' + U.esc(text) + "</div>";
+  /* The office's word on a stop (delivery-office.js): a second line under
+     the row's own subtitle, and an orange dot while it is unread or waits
+     for a reply. Not in the upstream app. */
+  function officeLine(stop) { return window.RD_OFFICE ? window.RD_OFFICE.rowLine(stop) : ""; }
+  function officeDot(stop, fallback) {
+    return window.RD_OFFICE && window.RD_OFFICE.rowFlag(stop)
+      ? '<div aria-label="From the office" style="' + U.sty({ width: 10, height: 10, background: U.ORANGE, borderRadius: "50%", flexShrink: 0 }) + '"></div>'
+      : fallback;
   }
 
   function StopRow(stop, depleted) {
@@ -89,13 +135,12 @@
     const skipped = stop.status === "SKIPPED";
     const done = stop.status === "DELIVERED" || skipped;
     const returnOnly = !!stop.isReturnOnly;
-    const office = officeLine(stop);
 
     // ── Completed (delivered, returned or skipped) ──
     if (done) {
       // CustomerQueue renders the model's displaySubtitle here — "₹520 · Collected",
       // "₹0 · Over Payment", "₹120 · Partial payment" — not the payment method.
-      const sub = skipped ? "Skipped" + (office ? " · Office: " + office : "") : returnOnly ? "Return received" : M.buildStopSubtitle(stop);
+      const sub = skipped ? "Skipped" : returnOnly ? "Return received" : M.buildStopSubtitle(stop);
       return Row(
         // The avatar carries the outcome, not the customer's initials: a tick
         // for a delivery, ↩ for a return, − for a skip.
@@ -103,6 +148,7 @@
         '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
           '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">' + U.esc(stop.customerName) + "</div>" +
           '<div style="' + U.sty({ fontSize: 13, color: skipped ? "#ef4444" : returnOnly ? "#c2410c" : "#888", marginTop: 1 }) + '">' + U.esc(sub) + "</div>" +
+          officeLine(stop) +
         "</div>" +
         '<div style="' + U.sty({ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }) + '">' +
           '<span style="' + U.sty({ fontSize: 17, color: stop.outstandingAmount > 0 ? "#f97316" : "#43A047" }) + '">' + (skipped ? "" : stop.outstandingAmount > 0 ? "✓" : "✓✓") + "</span>" +
@@ -141,9 +187,9 @@
         Avatar(initials, "brand", 13) +
         '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
           '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: U.BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">' + U.esc(stop.customerName) + "</div>" +
-          (office ? officeSub(office) :
           '<div style="' + U.sty({ fontSize: 13, marginTop: 1, color: stop.outstandingAmount > 0 ? "#f97316" : "#888", fontWeight: stop.outstandingAmount > 0 ? 600 : 400 }) + '">' +
-            (stop.outstandingAmount > 0 ? "⚠️ " + U.inr(stop.outstandingAmount) + " outstanding" : "Current stop") + "</div>") +
+            (stop.outstandingAmount > 0 ? "⚠️ " + U.inr(stop.outstandingAmount) + " outstanding" : "Current stop") + "</div>" +
+          officeLine(stop) +
         "</div>" +
         '<div style="' + U.sty({ width: 24, height: 24, background: "#43A047", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 700, flexShrink: 0 }) + '">→</div>',
         { active: true, actName: "queue-select", arg: stop.id, status: "current" }
@@ -162,10 +208,10 @@
       Avatar(returnOnly ? "↩" : initials, returnOnly ? "orange" : stop.outstandingAmount > 0 ? "orange" : stop.advanceAmount > 0 ? "green" : "blue") +
       '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
         '<div style="' + U.sty({ fontSize: 15, fontWeight: 600, color: "#111" }) + '">' + U.esc(stop.customerName) + "</div>" +
-        (office ? officeSub(office) :
-        '<div style="' + U.sty({ fontSize: 13, color: returnOnly ? "#c2410c" : "#888", marginTop: 1, fontWeight: returnOnly ? 600 : 400 }) + '">' + U.esc(sub) + "</div>") +
+        '<div style="' + U.sty({ fontSize: 13, color: returnOnly ? "#c2410c" : "#888", marginTop: 1, fontWeight: returnOnly ? 600 : 400 }) + '">' + U.esc(sub) + "</div>" +
+        officeLine(stop) +
       "</div>" +
-      '<div style="' + U.sty({ width: 8, height: 8, background: "#d1d5db", borderRadius: "50%", flexShrink: 0 }) + '"></div>',
+      officeDot(stop, '<div style="' + U.sty({ width: 8, height: 8, background: "#d1d5db", borderRadius: "50%", flexShrink: 0 }) + '"></div>'),
       { actName: returnOnly ? "queue-view-done" : "queue-select", arg: stop.id, status: returnOnly ? "return-pending" : "pending" }
     );
   }
@@ -179,6 +225,16 @@
     fontFamily: "inherit", fontSize: 14, fontWeight: 600, textAlign: "left", cursor: "pointer",
   };
   const MENU_ICON = { width: 18, display: "inline-flex", justifyContent: "center", color: "#111", fontSize: 15, fontWeight: 700 };
+  // Line icons for the menu items the office added, drawn in the same ink
+  // and weight as QA's ↻ and ₹ glyphs so the menu reads as one list.
+  const svg = function (d) {
+    return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block">' + d + "</svg>";
+  };
+  const MENU_SVG = {
+    alert: svg('<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>'),
+    office: svg('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/>'),
+    crate: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  };
 
   function QueueActionsMenu(open, routeId) {
     function item(icon, label, actName) {
@@ -202,7 +258,10 @@
             position: "absolute", zIndex: 100, top: 39, right: 0, width: 220,
             padding: "7px 0", background: "white", borderRadius: 14,
             boxShadow: "0 10px 28px rgba(15,23,42,0.18)", border: "1px solid #eef0f2", overflow: "hidden",
-          }) + '">' + item("↻", "Restock", "queue-restock") + item("₹", "Return & Settle", "queue-settle") + item("⚠", "Report a problem", "queue-problem") + "</div>"
+          }) + '">' + item("↻", "Restock", "queue-restock") + item("₹", "Return & Settle", "queue-settle") +
+            // The office (24 Sep 2026, not in the upstream app).
+            '<div style="' + U.sty({ height: 1, background: "#f0f2f5", margin: "5px 0" }) + '"></div>' +
+            item(MENU_SVG.alert, "Report a Problem", "queue-problem") + item(MENU_SVG.office, "Office", "office-open") + "</div>"
         : "") +
       "</div>";
   }
@@ -212,7 +271,6 @@
   window.RD.screen("queue", function (p) {
     const route = routeOr404(p.routeId);
     const S = window.RD.state.scratch;
-    if (window.RD_OFFICE) window.RD_OFFICE.apply();
     const all = D.getStops(p.routeId);
     const search = (S.queueSearch || "").trim().toLowerCase();
     const shown = search
@@ -269,7 +327,7 @@
       }) +
       // CustomerQueue leaves BODY's background to the screen behind it.
       '<div class="rd-body">' +
-        (window.RD_OFFICE ? window.RD_OFFICE.routeCard(p.routeId) : "") +
+        (window.RD_OFFICE ? window.RD_OFFICE.strip(p.routeId) : "") +
         U.SearchInput({ value: S.queueSearch || "", model: "queue-search", placeholder: "Search by name or phone…", clearAct: "queue-search-clear", style: { margin: "8px 12px 4px" } }) +
         list +
         '<div style="height:16px"></div>' +
@@ -441,6 +499,7 @@
               ? '<div style="' + U.sty({ fontSize: 12, color: "#16a34a", marginTop: 3 }) + '">' + U.inr(advance) + " advance balance available</div>"
               : "") +
         "</div>" +
+        officeBanner(stop.id) +
         U.SearchInput({ value: S.bookSearch || "", model: "book-search", placeholder: "Search products…", clearAct: "book-search-clear", style: { margin: "0 12px 8px" } }) +
         '<div style="' + U.sty({ background: "white", borderRadius: 14, padding: "8px 0", margin: "0 12px 10px" }) + '">' +
           (rows || '<div style="padding:24px;text-align:center;color:#888;font-size:14px">No stock available to order</div>') + "</div>" +
@@ -510,9 +569,9 @@
             act: "goto-outstanding", arg: stop.id }] },
           { label: "Returns",   actions: [{ icon: "📦", label: "Product Return", act: "goto-returns", arg: p.routeId }] },
           { label: "Assets",    actions: [{ icon: "🗂️", label: "Manage Assets", act: "goto-assets", arg: stop.customerId }] },
-          { label: "Tell the office", actions: [{ icon: "⚠️", label: "Something wrong here?", act: "goto-issue", arg: stop.id }] },
+          officeGroup(stop.id, false),
         ],
-      });
+      }) + officeSheets();
   }
 
   window.RD.action("stop-actions-open", function () { window.RD.state.scratch.stopActions = true; window.RD.render(); });
@@ -647,7 +706,8 @@
       ? '<div style="' + U.sty({ margin: "0 12px 10px", background: "white", borderRadius: 14, overflow: "hidden" }) + '">' +
           '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px 10px" }) + '">' +
             '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "#888" }) + '">Today\'s Order</div>' +
-            (editing ? '<div style="' + U.sty({ fontSize: 12, color: "#43A047", fontWeight: 700 }) + '">Editing</div>' : "") +
+            (editing ? '<div style="' + U.sty({ fontSize: 12, color: "#43A047", fontWeight: 700 }) + '">Editing</div>'
+              : stop.orderFixedByOffice ? '<div style="' + U.sty({ fontSize: 11, color: U.BRAND, fontWeight: 700, background: "#e8f5f7", borderRadius: 6, padding: "2px 8px" }) + '">Updated by office</div>' : "") +
           "</div>" + orderBody +
           '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "8px 16px 13px", borderTop: "1px dashed #e5e7eb", marginTop: 8 }) + '">' +
             '<span style="font-weight:700">Order Total</span>' +
@@ -665,10 +725,10 @@
     // these differently (24 Sep 2026).
     const bookedTotal = (detail.orderItems || []).reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0);
     const isShortEdit = updatedTotal < bookedTotal;
-    if (!S.editWhy) S.editWhy = "customer";
     const whyChips = isShortEdit
-      ? '<div style="' + U.sty({ display: "flex", gap: 8, margin: "10px 0" }) + '">' +
-          [["customer", "The shop took less"], ["short", "Not enough on the van"]].map(function (o) {
+      ? '<div style="' + U.sty({ fontSize: 12, fontWeight: 700, color: S.editWhy ? "#555" : "#c2410c", marginBottom: 6 }) + '">Why is it less than booked? The office is told.</div>' +
+        '<div style="' + U.sty({ display: "flex", gap: 8, marginBottom: 10 }) + '">' +
+          [["customer", "Shop Took Less"], ["short", "Short on the Van"]].map(function (o) {
             const on = S.editWhy === o[0];
             return '<button type="button" class="rd-chip"' + U.act("edit-why", o[0]) + ' style="' + U.sty({
               flex: 1, padding: "10px 8px", borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "center",
@@ -684,6 +744,7 @@
           context: updatedItems.length + " item" + (updatedItems.length !== 1 ? "s" : "") + " · Total Due " + U.inr(editDue),
           backLabel: "Keep Editing", commitLabel: "Save Changes",
           backAct: "edit-confirm-cancel", commitAct: "edit-commit",
+          disabled: isShortEdit && !S.editWhy,
           processing: !!S.committing,
           extra: whyChips + '<div style="' + U.sty({ background: "#f8fafc", borderRadius: 10, border: "1px solid #e9eef2", overflow: "hidden", maxHeight: 140, overflowY: "auto" }) + '">' +
             updatedItems.map(function (it, i) {
@@ -701,20 +762,18 @@
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: editing ? "brand" : "green", label: editing ? "✓ Done Editing" : "✏️ Edit Order", actName: "toggle-edit" }) +
           (editing ? "" : U.BtnSm({ variant: "red", label: "Skip Stop →", actName: "goto-skip", arg: p.stopId })) +
-        "</div>" +
-        (editing ? "" : '<button type="button"' + U.act("goto-issue", p.stopId) + ' style="' + U.sty({ display: "block", width: "100%", marginTop: 8, padding: "10px", background: "none", border: "none",
-          color: "#b45309", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">⚠ Something wrong here?</button>');
+        "</div>";
 
-    if (window.RD_OFFICE) window.RD_OFFICE.apply();
-    return U.ProgressBar({ collected: U.inr(collectedFor(p.routeId)), backLabel: "Delivery Stops", backAct: "back" }) +
+    return U.ProgressBar({ collected: U.inr(collectedFor(p.routeId)), backLabel: "Delivery Stops", backAct: "back",
+        rightAction: StopMenu(!!S.queueMenu, p.stopId, stop.customerId) }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
-        (window.RD_OFFICE ? window.RD_OFFICE.bannerFor(p.stopId) : "") +
-        card +
+        card + officeBanner(p.stopId) +
         (editing ? U.SearchInput({ value: S.editSearch || "", model: "edit-search", placeholder: "Search products…", clearAct: "edit-search-clear", style: { margin: "0 12px 8px" } }) : "") +
         orderCard + emptyOrder +
       "</div>" +
       (editConfirming ? U.FreezeBackdrop(0.45) : "") +
-      '<div style="' + U.sty({ position: "relative", zIndex: editConfirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
+      '<div style="' + U.sty({ position: "relative", zIndex: editConfirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>" +
+      officeSheets();
   });
 
   window.RD.action("edit-why", function (v) { window.RD.state.scratch.editWhy = v; window.RD.render(); });
@@ -812,6 +871,25 @@
 
   /* ══ Payment Collection ════════════════════════════════════════════════ */
 
+  // Why a balance is left at the door. `method` is what the office's payment
+  // incident is filed under; "later" is the everyday case and tells no one.
+  const SHORT_REASONS = [
+    { key: "later",  label: "Pay Next Visit", says: function (b) { return b + " stays on their outstanding."; } },
+    { key: "cash",   label: "No Cash Ready",  method: "CASH",   says: function (b) { return b + " stays outstanding. The office is told why."; } },
+    { key: "upi",    label: "UPI Failed",     method: "UPI",    says: function (b) { return b + " stays outstanding. The office is told why."; } },
+    { key: "cheque", label: "Cheque Problem", method: "CHEQUE", says: function (b) { return b + " stays outstanding. The office is told why."; } },
+    { key: "offer",  label: "Adjust as Offer", says: function (b) { return b + " adjusted as offer. Outstanding stays ₹0. The office reviews it."; } },
+  ];
+  // `due` is what is actually owed after any advance the customer carries —
+  // an advance that covers the order leaves nothing short, whatever the pad
+  // was prefilled with.
+  function shortOf(S, due) {
+    const paid = Number(S.payAmount) || 0;
+    if (!(due > 0 && paid < due)) return null;
+    const key = S.payShort === "offer" && paid <= 0 ? "later" : (S.payShort || "later");
+    return { reason: SHORT_REASONS.filter(function (r) { return r.key === key; })[0] || SHORT_REASONS[0], balance: M.roundMoney(due - paid), paid: paid };
+  }
+
   window.RD.screen("payment", function (p) {
     const stop = D.getStops(p.routeId).find(function (s) { return s.id === p.stopId; });
     if (!stop) throw new Error("Stop " + p.stopId + " not found");
@@ -835,7 +913,6 @@
       S.payAmount = openAmount ? "0" : String(totalDue);
       S.payPrefilled = !openAmount; S.payMethod = "CASH";
     }
-    if (S.cratesOut === undefined) { S.cratesOut = 0; S.cratesBack = 0; }
     const display = M.formatPaymentDisplay(S.payAmount);
     const method = S.payMethod || "CASH";
     const methodLabel = method === "CASH" ? "Cash" : "UPI";
@@ -849,13 +926,7 @@
           flex: 1, padding: "10px 8px", textAlign: "center", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
           border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white", color: on ? U.BRAND : "#555",
         }) + '">' + m.label + "</button>";
-      }).join("") + "</div>" +
-      (method === "UPI" ? '<button type="button"' + U.act("pay-upi-failed", p.stopId) + ' style="' + U.sty({ display: "block", margin: "6px 16px 0", padding: 0, background: "none", border: "none",
-        color: "#b45309", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">UPI didn\'t go through?</button>' : "") +
-      (method === "CASH" ? '<button type="button"' + U.act("pay-cash-unavailable", p.stopId) + ' style="' + U.sty({ display: "block", margin: "6px 16px 0", padding: 0, background: "none", border: "none",
-        color: "#b45309", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">No cash ready today?</button>' : "") +
-      '<button type="button"' + U.act("pay-cheque-dispute", p.stopId) + ' style="' + U.sty({ display: "block", margin: "6px 16px 0", padding: 0, background: "none", border: "none",
-        color: "#b45309", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">Cheque bounced or disputed?</button>';
+      }).join("") + "</div>";
 
     const presetRow = '<div style="' + U.sty({ display: "flex", gap: 8, padding: "6px 16px 6px", overflowX: "auto", flexShrink: 0 }) + '">' +
       presets.map(function (q) {
@@ -866,26 +937,31 @@
         }) + '">₹' + U.formatAmountValue(q) + (q === totalDue ? " Full" : "") + "</button>";
       }).join("") + "</div>";
 
+    // A short payment says why the balance stays (24 Sep 2026). QA's own
+    // choice — adjust the shortfall as an offer — is one of the answers; the
+    // rest leave it outstanding and, except "next visit", tell the office.
+    const amountNum = Number(String(S.payAmount || "").replace(/[^0-9.]/g, "")) || 0;
+    const owed = outstandingMode ? totalDue : Math.max(0, M.roundMoney(totalDue - Math.min(stop.advanceAmount || 0, orderSum)));
+    const short = owed > 0 && amountNum < owed;
+    const balance = short ? Math.round((owed - amountNum) * 100) / 100 : 0;
+    const reasons = SHORT_REASONS.filter(function (r) { return r.key !== "offer" || amountNum > 0; });
+    const shortKey = short ? (reasons.filter(function (r) { return r.key === S.payShort; })[0] || reasons[0]).key : null;
+    const shortReason = shortKey ? SHORT_REASONS.filter(function (r) { return r.key === shortKey; })[0] : null;
+    const officeWord = window.RD_OFFICE ? window.RD_OFFICE.rowLine(stop) : "";
+
     const footer = confirming
       ? U.ConfirmPanel({
           action: "Collecting " + methodLabel, amount: "₹" + display,
-          context: "from " + stop.customerName,
+          context: "from " + stop.customerName + (short ? " · " + U.inr(balance) + " balance" : ""),
           backLabel: "Change Amount", commitLabel: "Collect Payment",
           commitAct: "pay-commit", arg: p.stopId,
           processing: !!S.committing, processingLabel: "Recording payment collection…",
-          extra: outstandingMode ? "" : '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 2px" }) + '">' +
-            '<span style="' + U.sty({ fontSize: 13, fontWeight: 700, color: "#555" }) + '">Crates left with the shop</span>' +
-            U.StepperInput({ value: S.cratesOut, small: true, decAct: "crates-out-dec", incAct: "crates-out-inc", model: "crates-out" }) + "</div>" +
-            '<div style="' + U.sty({ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "6px 2px" }) + '">' +
-            '<span style="' + U.sty({ fontSize: 13, fontWeight: 700, color: "#555" }) + '">Crates collected back</span>' +
-            U.StepperInput({ value: S.cratesBack, small: true, decAct: "crates-back-dec", incAct: "crates-back-inc", model: "crates-back" }) + "</div>",
+          extra: short
+            ? '<div style="' + U.sty({ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#9a3412" }) + '">' +
+                "<strong>" + U.esc(shortReason.label) + "</strong> · " + U.esc(shortReason.says(U.inr(balance))) + "</div>"
+            : "",
         })
       : U.BtnXL({ variant: "green", label: "✅ Collect ₹" + display + " " + methodLabel, actName: "pay-confirm" });
-
-    // usePaymentCollectionController: only for a genuine short payment.
-    const amountNum = Number(String(S.payAmount || "").replace(/[^0-9.]/g, "")) || 0;
-    const showWriteoff = totalDue > 0 && amountNum > 0 && amountNum < totalDue;
-    const writeoffAmount = showWriteoff ? Math.round((totalDue - amountNum) * 100) / 100 : 0;
 
     return U.MobileHeader({ showHome: false, title: "Collect Payment", subtitle: stop.customerName,
       backLabel: outstandingMode ? "Delivery Stops" : "Customer",
@@ -901,36 +977,34 @@
         (S.payError
           ? '<div style="' + U.sty({ padding: "4px 16px", color: "#ef4444", fontSize: 13, textAlign: "center", flexShrink: 0 }) + '">' + U.esc(S.payError) + "</div>"
           : "") +
-        // Short payment: QA offers to write the shortfall off as an offer
-        // rather than leaving it outstanding, and says what each choice means.
-        (showWriteoff
-          ? '<label style="' + U.sty({
-              display: "flex", alignItems: "flex-start", gap: 10, margin: "0 16px 8px",
-              padding: 12, borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0",
-              flexShrink: 0, cursor: "pointer",
-            }) + '">' +
-              '<input type="checkbox" data-model="pay-writeoff"' + (S.payWriteoff ? " checked" : "") + ' style="' + U.sty({ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: "#16a34a" }) + '" />' +
-              "<div>" +
-                '<div style="' + U.sty({ fontSize: 14, fontWeight: 700, color: "#16a34a" }) + '">' + U.inr(writeoffAmount) + " will be adjusted as offer.</div>" +
-                '<div style="' + U.sty({ fontSize: 13, color: "#666" }) + '">Customer outstanding will remain ₹0.</div>' +
-              "</div></label>"
+        // Short payment: why the balance isn't collected. QA's "adjust as
+        // offer" is one answer; the others keep it outstanding.
+        (short
+          ? '<div style="' + U.sty({ margin: "0 16px 8px", padding: "10px 12px", borderRadius: 12, background: shortKey === "offer" ? "#f0fdf4" : "#fff7ed",
+              border: "1px solid " + (shortKey === "offer" ? "#bbf7d0" : "#fed7aa"), flexShrink: 0 }) + '">' +
+              '<div style="' + U.sty({ fontSize: 13, fontWeight: 700, color: shortKey === "offer" ? "#15803d" : "#9a3412", marginBottom: 8 }) + '">' + U.inr(balance) + " balance · why isn't it collected?</div>" +
+              '<div class="rd-noscrollbar" style="' + U.sty({ display: "flex", gap: 6, overflowX: "auto", marginBottom: 6 }) + '">' +
+                reasons.map(function (r) {
+                  const on = r.key === shortKey;
+                  return '<button type="button" class="rd-chip" role="radio" aria-checked="' + (on ? "true" : "false") + '"' + U.act("pay-short", r.key) + ' style="' + U.sty({
+                    padding: "7px 11px", borderRadius: 10, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0,
+                    border: "1.5px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? U.BRAND : "white", color: on ? "white" : "#374151",
+                  }) + '">' + U.esc(r.label) + "</button>";
+                }).join("") + "</div>" +
+              '<div style="' + U.sty({ fontSize: 12, color: "#555" }) + '">' + U.esc(shortReason.says(U.inr(balance))) + "</div>" +
+              (officeWord ? '<div style="' + U.sty({ marginTop: 4 }) + '">' + officeWord + "</div>" : "") +
+            "</div>"
           : "") +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
   });
 
-  // The exact-match model handler is called as (value, element).
-  window.RD.action("model:pay-writeoff", function (_v, el) {
-    window.RD.state.scratch.payWriteoff = !!(el && el.checked);
-    window.RD.render();
-  });
 
   window.RD.action("pay-key", function (k) {
     const S = window.RD.state.scratch;
     S.payAmount = M.applyNumpadKey(S.payAmount || "", k, S.payPrefilled);
     S.payPrefilled = false;
-    S.payWriteoff = false;
     S.payError = null;
     window.RD.render();
   });
@@ -938,32 +1012,11 @@
     const S = window.RD.state.scratch;
     S.payAmount = String(q); S.payPrefilled = false; window.RD.render();
   });
-  window.RD.action("pay-upi-failed", function (stopId) {
-    const S = window.RD.state.scratch, routeId = window.RD.state.routeId;
-    const st = D.getStops(routeId).filter(function (x) { return x.id === stopId; })[0] || {};
-    if (window.RD_EMIT) window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Number(S.payAmount) || null, method: "UPI" }, "Delivery app · Collect payment");
-    S.payMethod = "CASH"; S.payConfirming = false;
-    window.RD.toast("The office knows. Take cash, or leave it on credit.");
+  window.RD.action("pay-short", function (k) { window.RD.state.scratch.payShort = k; window.RD.render(); });
+  window.RD.action("goto-issue", function (stopId) {
+    const S = window.RD.state.scratch; S.stopActions = false; S.queueMenu = false;
+    window.RD.go("/issue/" + window.RD.state.routeId + "/" + stopId);
   });
-  window.RD.action("crates-out-inc", function () { const S = window.RD.state.scratch; S.cratesOut = (Number(S.cratesOut) || 0) + 1; window.RD.render(); });
-  window.RD.action("crates-out-dec", function () { const S = window.RD.state.scratch; S.cratesOut = Math.max(0, (Number(S.cratesOut) || 0) - 1); window.RD.render(); });
-  window.RD.action("crates-back-inc", function () { const S = window.RD.state.scratch; S.cratesBack = (Number(S.cratesBack) || 0) + 1; window.RD.render(); });
-  window.RD.action("crates-back-dec", function () { const S = window.RD.state.scratch; S.cratesBack = Math.max(0, (Number(S.cratesBack) || 0) - 1); window.RD.render(); });
-  window.RD.action("pay-cash-unavailable", function (stopId) {
-    const S = window.RD.state.scratch, routeId = window.RD.state.routeId;
-    const st = D.getStops(routeId).filter(function (x) { return x.id === stopId; })[0] || {};
-    if (window.RD_EMIT) window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Number(S.payAmount) || null, method: "CASH" }, "Delivery app · Collect payment");
-    S.payConfirming = false;
-    window.RD.toast("The office knows. Collect on the next visit, or send the UPI link.");
-  });
-  window.RD.action("pay-cheque-dispute", function (stopId) {
-    const S = window.RD.state.scratch, routeId = window.RD.state.routeId;
-    const st = D.getStops(routeId).filter(function (x) { return x.id === stopId; })[0] || {};
-    if (window.RD_EMIT) window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Number(S.payAmount) || null, method: "CHEQUE" }, "Delivery app · Collect payment");
-    S.payConfirming = false;
-    window.RD.toast("The office knows the cheque is disputed.");
-  });
-  window.RD.action("goto-issue", function (stopId) { window.RD.state.scratch.stopActions = false; window.RD.go("/issue/" + window.RD.state.routeId + "/" + stopId); });
   window.RD.action("pay-method", function (m) {
     const S = window.RD.state.scratch;
     S.payMethod = m; S.payConfirming = false; window.RD.render();
@@ -1011,7 +1064,9 @@
       if (window.RD.state.payOutstanding) {
         const due = Math.max(0, M.roundMoney(st.outstandingAmount || 0));
         const paid = Number(S.payAmount) || 0;
-        const written = S.payWriteoff ? Math.max(0, M.roundMoney(due - paid)) : 0;
+        const sh = shortOf(S, due);
+        const written = sh && sh.reason.key === "offer" ? sh.balance : 0;
+        if (sh && sh.reason.method) window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Math.round(sh.balance), method: sh.reason.method }, "Delivery app · Collect payment");
         SDK.routeDelivery.recordRoutePayment({
           routeId: routeId, customerId: st.customerId,
           paymentAmount: paid, paymentMethod: S.payMethod || "CASH",
@@ -1033,28 +1088,29 @@
         return;
       }
       const totalDue = M.roundMoney((st.outstandingAmount || 0) + orderSum);
-      /* Paid less and "adjusted as offer": the driver proposes, the owner
-         decides in the tower (Review adjustment). */
-      if (S.payWriteoff && window.RD_EMIT) {
-        const paid = Number(S.payAmount) || 0;
-        window.RD_EMIT("payment.adjusted", D.db.routeDetails[routeId], st, { billed: Math.round(totalDue), paid: Math.round(paid), gap: Math.round(totalDue - paid),
+      const sh = shortOf(S, Math.max(0, M.roundMoney(totalDue - Math.min(st.advanceAmount || 0, orderSum))));
+      /* The balance's reason reaches the office: "adjusted as offer" is the
+         driver's proposal the owner reviews (Review adjustment); no cash, a
+         failed UPI and a cheque problem are the tower's payment incidents. */
+      if (sh && sh.reason.key === "offer") {
+        window.RD_EMIT("payment.adjusted", D.db.routeDetails[routeId], st, { billed: Math.round(totalDue), paid: Math.round(sh.paid), gap: Math.round(sh.balance),
           why: "Adjusted as offer at the door" }, "Delivery app · Collect payment");
+      } else if (sh && sh.reason.method) {
+        window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Math.round(sh.balance), method: sh.reason.method }, "Delivery app · Collect payment");
       }
       SDK.routeDelivery.collectPayment({
         routeId: routeId, stopId: stopId,
         amount: Number(S.payAmount), method: S.payMethod || "CASH", sendInvoice: false,
-        // A ticked short-payment box writes the shortfall off as an offer
-        // instead of leaving it on the customer's outstanding.
-        writeoffAmount: S.payWriteoff ? Math.max(0, M.roundMoney(totalDue - (Number(S.payAmount) || 0))) : 0,
+        // Adjusted as offer writes the shortfall off instead of leaving it on
+        // the customer's outstanding.
+        writeoffAmount: sh && sh.reason.key === "offer" ? sh.balance : 0,
       });
       /* The fact a real drop closes on: without this, nothing in the tower's
          incident engine ever learns the delivery actually happened, and no
-         open incident whose fix is "delivered" can ever resolve (24 Sep
-         2026). */
-      if (window.RD_EMIT) window.RD_EMIT("stop.delivered", D.db.routeDetails[routeId], st,
-        { value: orderSum, collected: Number(S.payAmount) || 0, empties: { cratesOut: Number(S.cratesOut) || 0, cratesBack: Number(S.cratesBack) || 0 } },
-        "Delivery app · Collect payment");
-      S.payConfirming = false; S.cratesOut = 0; S.cratesBack = 0;
+         open incident whose fix is "delivered" can ever resolve. Crates are
+         recorded where every returnable is, in Manage Assets. */
+      window.RD_EMIT("stop.delivered", D.db.routeDetails[routeId], st, { value: orderSum, collected: Number(S.payAmount) || 0 }, "Delivery app · Collect payment");
+      S.payConfirming = false; S.payShort = null;
       window.RD.go("/payment-success/" + routeId + "/" + stopId);
     });
   });
@@ -1099,13 +1155,14 @@
             "<span>" + methodLabel + "</span> · <span>" + U.esc(custName) + "</span>" +
             (outstanding > 0 ? "<br /><span>" + U.inr(outstanding) + " outstanding remaining</span>" : "") +
           "</div>" +
-          '<div style="' + U.sty({ background: "rgba(255,255,255,0.2)", borderRadius: 14, padding: 14, width: "100%", marginBottom: 24, textAlign: "left" }) + '">' +
+          '<div style="' + U.sty({ background: "rgba(255,255,255,0.2)", borderRadius: 14, padding: 14, width: "100%", marginBottom: om ? 24 : 12, textAlign: "left" }) + '">' +
             '<div style="' + U.sty({ fontSize: 13, color: "white", fontWeight: 600, marginBottom: 10 }) + '">Share receipt with customer?</div>' +
             '<div style="' + U.sty({ display: "flex", gap: 8 }) + '">' +
               (om ? "" : '<button type="button" class="rd-btn-sm"' + U.act("share-whatsapp") + ' style="' + U.sty({ flex: 1, padding: 11, background: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, color: U.BRAND, cursor: "pointer" }) + '">📲 WhatsApp</button>') +
               '<button type="button" class="rd-btn-sm"' + U.act("print-open") + ' style="' + U.sty({ flex: 1, padding: 11, background: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, color: U.BRAND, cursor: "pointer" }) + '">🖨 Print Receipt</button>' +
             "</div>" +
           "</div>" +
+          (om || !window.RD_POD ? "" : window.RD_POD.card(p.stopId)) +
           '<button type="button" class="rd-btn"' + U.act("back-to-queue", p.routeId) + ' style="' + U.sty({
             background: "white", color: U.BRAND, padding: "18px 32px", borderRadius: 16,
             fontSize: 17, fontWeight: 700, border: "none", cursor: "pointer", width: "100%",
@@ -1114,7 +1171,7 @@
         '<div style="' + U.sty({ height: 24, background: U.GREEN, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }) + '">' +
           '<div style="' + U.sty({ width: 120, height: 4, background: "white", borderRadius: 2, opacity: 0.3 }) + '"></div>' +
         "</div>" +
-      "</div>" + receipt;
+      "</div>" + receipt + (window.RD_POD ? window.RD_POD.sheet() : "");
   });
 
   // Print sheet, matched to QA: printer type, a PRINTER DEVICE block with a
@@ -1295,7 +1352,7 @@
   window.RD.action("print-do", function () {});
   window.RD.action("paper-size", function (t) { window.RD.state.scratch.paper = t; window.RD.render(); });
   // The one toast QA raises in this app (PaymentSuccess notifySuccess).
-  window.RD.action("share-whatsapp", function () { window.RD.toast("Invoice sent to customer"); });
+  window.RD.action("share-whatsapp", function () { window.RD.toast({ title: "Invoice sent to customer", detail: "On WhatsApp" }); });
 
   window.RD.action("back-to-queue", function (routeId) {
     window.RD.state.payOutstanding = false;
@@ -1305,6 +1362,9 @@
 
   /* ══ Skip Stop ═════════════════════════════════════════════════════════ */
 
+  // QA's six reasons are about the shop; the three after them (24 Sep 2026,
+  // not in the upstream app) are the van not getting there, which the office
+  // acts on differently — so they sit in their own row.
   const SKIP_REASONS = [
     { key: "SHOP_CLOSED",      icon: "🔒", label: "Shop Closed" },
     { key: "OWNER_AWAY",       icon: "🚶", label: "Owner Away" },
@@ -1312,15 +1372,13 @@
     { key: "REFUSED",          icon: "🙅", label: "Refused" },
     { key: "WILL_ORDER_LATER", icon: "⏰", label: "Will Order Later" },
     { key: "OTHER",            icon: "❓", label: "Other" },
-    /* 24 Sep 2026: the reasons the office needs to act on (the tower's
-       incidents). Not in the upstream app. */
-    { key: "WRONG_ADDRESS",    icon: "📍", label: "Wrong address" },
-    { key: "CANT_REACH",       icon: "🚧", label: "Can't reach shop" },
-    { key: "VAN_FULL",         icon: "🚚", label: "Van Full" },
+    { key: "WRONG_ADDRESS",    icon: "📍", label: "Wrong Address", road: true },
+    { key: "CANT_REACH",       icon: "🚧", label: "Can't Reach", road: true },
+    { key: "VAN_FULL",         icon: "🚚", label: "Van Full", road: true },
   ];
   /* When can we come back? Agreed with the shopkeeper at the door — the
      same Reschedule the owner can make in the tower. */
-  const COME_BACK = [{ key: "today", label: "Later today" }, { key: "tomorrow", label: "Tomorrow" }, { key: "none", label: "Not agreed" }];
+  const COME_BACK = [{ key: "today", label: "Later Today" }, { key: "tomorrow", label: "Tomorrow" }, { key: "none", label: "Not Agreed" }];
   const ASK_BACK = { SHOP_CLOSED: 1, OWNER_AWAY: 1, CANT_REACH: 1, REFUSED: 1 };
 
   window.RD.screen("skipStop", function (p) {
@@ -1337,21 +1395,27 @@
 
     // Chips wrap in a flex row at half width each, so a long label grows its
     // own row taller rather than every chip growing with it.
+    const chip = function (r, basis, pad) {
+      const on = S.skipReason === r.key;
+      return '<button type="button" class="rd-chip"' + U.act("skip-reason", r.key) + ' style="' + U.sty({
+        padding: pad, borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer",
+        flex: basis, textAlign: "center",
+        border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white",
+        color: on ? U.BRAND : "#555",
+      }) + '">' + r.icon + " " + r.label + "</button>";
+    };
     const grid = '<div style="' + U.sty({ display: "flex", flexWrap: "wrap", gap: 8, padding: "0 16px" }) + '">' +
-      SKIP_REASONS.map(function (r) {
-        const on = S.skipReason === r.key;
-        return '<button type="button" class="rd-chip"' + U.act("skip-reason", r.key) + ' style="' + U.sty({
-          padding: "12px 16px", borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: "pointer",
-          flex: "1 1 calc(50% - 8px)", textAlign: "center",
-          border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white",
-          color: on ? U.BRAND : "#555",
-        }) + '">' + r.icon + " " + r.label + "</button>";
-      }).join("") + "</div>";
+      SKIP_REASONS.filter(function (r) { return !r.road; }).map(function (r) { return chip(r, "1 1 calc(50% - 8px)", "12px 16px"); }).join("") + "</div>";
+    const roadGrid = '<div style="' + U.sty({ display: "flex", gap: 8, padding: "0 16px" }) + '">' +
+      SKIP_REASONS.filter(function (r) { return r.road; }).map(function (r) { return chip(r, "1 1 0", "12px 6px"); }).join("") + "</div>";
+    const back = ASK_BACK[S.skipReason] && S.skipBack && S.skipBack !== "none" ? S.skipBack : null;
 
     return U.MobileHeader({ title: "Why no delivery?", backLabel: stop.customerName, backAct: "back" }) +
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.38 : 1, pointerEvents: confirming ? "none" : "auto", transition: "opacity 0.2s" }) + '">' +
-        U.Spacer() +
-        U.SectionHeader("Select Reason") + grid +
+        U.NoteField({ label: "What happened? (optional)", model: "skip-note", value: S.skipNote, placeholder: "Type or speak what happened at the shop", typePlaceholder: "Add a note...", style: { marginTop: 12 } }) +
+        U.Spacer(4) +
+        U.SectionHeader("At the Shop") + grid +
+        U.Spacer(4) + U.SectionHeader("Couldn't Deliver") + roadGrid +
         (ASK_BACK[S.skipReason]
           ? U.Spacer() + U.SectionHeader("When can we come back?") +
             '<div style="' + U.sty({ display: "flex", gap: 8, padding: "0 16px" }) + '">' + COME_BACK.map(function (c) {
@@ -1366,13 +1430,6 @@
         (outstanding > 0
           ? U.Banner({ type: "orange", icon: "⚠️", text: stop.customerName + " has " + U.inr(outstanding) + " outstanding. This will be added to follow-up list.", style: { marginTop: 4 } })
           : "") +
-        '<div style="' + U.sty({ padding: "0 12px", marginTop: 8 }) + '">' +
-          '<label style="' + U.sty({ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6, display: "block" }) + '">Note (optional)</label>' +
-          '<input data-model="skip-note" value="' + U.esc(S.skipNote || "") + '" placeholder="Add a note..." style="' + U.sty({
-            width: "100%", padding: "14px 16px", border: "2px solid #e5e7eb", borderRadius: 14,
-            fontSize: 15, fontWeight: 500, color: "#111", background: "#fafafa", outline: "none",
-            boxSizing: "border-box", fontFamily: "inherit",
-          }) + '" /></div>' +
         U.Spacer() +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
@@ -1380,9 +1437,10 @@
         confirming
           ? U.ConfirmPanel({
               action: "Skip Confirmation", amount: chosenLabel,
-              context: outstanding > 0
+              context: (outstanding > 0
                 ? "⚠ " + U.inr(outstanding) + " outstanding will be tracked"
-                : "No delivery for " + stop.customerName + " today",
+                : "No delivery for " + stop.customerName + " today") +
+                (back ? " · back " + (back === "today" ? "later today" : "tomorrow") : "") + " · the office is told",
               backLabel: "Change Reason", commitLabel: "Skip Stop",
               backAct: "skip-confirm-cancel", commitAct: "skip-commit", arg: p.stopId,
               processing: !!S.committing, processingLabel: "Syncing delivery attempt…",
@@ -1394,7 +1452,7 @@
       ) + "</div>";
   });
 
-  window.RD.action("skip-reason", function (r) { window.RD.state.scratch.skipReason = r; window.RD.render(); });
+  window.RD.action("skip-reason", function (r) { const S = window.RD.state.scratch; S.skipReason = r; if (!ASK_BACK[r]) S.skipBack = null; window.RD.render(); });
   window.RD.action("skip-back", function (b) { window.RD.state.scratch.skipBack = b; window.RD.render(); });
   window.RD.action("model:skip-note", function (v) { window.RD.state.scratch.skipNote = v; });
   window.RD.action("skip-confirm", function () { window.RD.state.scratch.skipConfirming = true; window.RD.render(); });
@@ -1856,6 +1914,11 @@
       "</div>" +
       '<div style="' + U.sty({ fontSize: 26, fontWeight: 800, color: "#111", lineHeight: 1.2, marginBottom: 4 }) + '">' + U.esc(stop.customerName) + "</div>" +
       (cust.address ? '<div style="' + U.sty({ fontSize: 13, color: "#888", display: "flex", alignItems: "center", gap: 4 }) + '">📍 ' + U.esc(cust.address) + "</div>" : "") +
+      (!isSkipped && !summaryReturnOnly && window.RD_POD
+        ? (window.RD_POD.of(p.stopId)
+            ? '<div style="' + U.sty({ fontSize: 12, color: "#16a34a", fontWeight: 600, marginTop: 4 }) + '">📷 Proof of delivery saved</div>'
+            : '<button type="button"' + U.act("pod-open", p.stopId) + ' style="' + U.sty({ marginTop: 6, padding: 0, background: "none", border: "none", fontSize: 12, color: "#b45309", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }) + '">📷 No proof of delivery yet · Add</button>')
+        : "") +
       '<div style="' + U.sty({ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f0f0f0" }) + '">' +
         (summaryReturnOnly
           ? '<div style="' + U.sty({ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }) + '">Products returned by this customer are recorded below.</div>'
@@ -1960,19 +2023,19 @@
     if (delivery.length) groups.push({ label: "Delivery", actions: delivery });
     if (stop.customerId) groups.push({ label: "Returns", actions: [{ icon: "📦", label: "Product Return", act: "goto-returns", arg: p.routeId }] });
     if (stop.customerId) groups.push({ label: "Assets", actions: [{ icon: "🗂️", label: "Manage Assets", act: "goto-assets", arg: stop.customerId }] });
-    groups.push({ label: "Tell the office", actions: [{ icon: "⚠️", label: "Something wrong here?", act: "goto-issue", arg: p.stopId },
-                                                      { icon: "📷", label: "Proof at the door", act: "stop-proof", arg: p.stopId }] });
+    groups.push(officeGroup(p.stopId, !isSkipped && !summaryReturnOnly));
 
     return U.ProgressBar({ collected: U.inr(collectedFor(p.routeId)), backLabel: "Delivery Stops", backAct: "back" }) +
-      '<div class="rd-body" style="background:' + U.BG + '">' + (window.RD_OFFICE ? (window.RD_OFFICE.apply(), window.RD_OFFICE.bannerFor(p.stopId)) : "") +
-        hero + orderCard + returnsSection + "</div>" +
+      '<div class="rd-body" style="background:' + U.BG + '">' +
+        hero + officeBanner(p.stopId) + orderCard + returnsSection + "</div>" +
       U.ActionBar(
         U.BtnXL({ variant: "green", label: primary.label, actName: primary.act, arg: primary.arg }) +
         U.BtnXL({ variant: "outline", label: "More Actions", style: { marginTop: 8, fontSize: 15, padding: "13px 18px" }, actName: "stop-actions-open" })
       ) +
       // QA mounts the print sheet before the actions sheet.
       PrintSheet(p, stop) +
-      U.ActionsSheet({ open: !!S.stopActions, closeAct: "stop-actions-close", groups: groups });
+      U.ActionsSheet({ open: !!S.stopActions, closeAct: "stop-actions-close", groups: groups }) +
+      officeSheets();
   });
 
   // Delivering extra items to a stop that is already done reopens it in Book

@@ -44,6 +44,47 @@ invoice-mismatch (#50) hang their detectors — see the table.
 
 ---
 
+## The driver's side, rebuilt on the app's own patterns (24 Sep 2026, later)
+
+The first pass bolted each capture point onto the delivery app wherever it fitted: three
+amber text links under Collect Payment that told the office on one tap, a "Something wrong
+here?" link under At Customer plus a duplicate in More Actions, crate steppers inside the
+payment confirm, two bare checkboxes inside the Load Stock confirm, a "Proof at the door"
+action that saved a photo and a signature without taking either, and office cards stacked
+above the queue's search. It also changed stops while a screen was being drawn. The office's
+answer reached the driver, but not in a way the app itself would have built it.
+
+It is now built the way the app builds every other decision: a list of reasons, an optional
+note, a two-card confirm, then a processing block — nothing reaches the office on one tap.
+
+| Before | Now |
+|---|---|
+| "What's wrong here?" — amber link under At Customer, and in More Actions | **Report an Issue** (`/issue/:routeId/:stopId`), from the stop's **⋮** menu (At Customer) or the **Office** group in More Actions (Book Order, Stop Summary). Grouped: *The Customer Disputes* (The Order, The Price, A Scheme or Offer, That It Came), *Payment* (No Cash Ready, UPI Not Going Through, Cheque Problem), *At the Shop* (Quality Complaint, No Parking or Loading, Set Delivery Hours). The price and scheme rows open their "Amount in dispute" field under themselves. Confirm → Send to Office |
+| "No cash ready today?", "UPI didn't go through?", "Cheque bounced or disputed?" — one-tap links on Collect Payment | Two honest moments. **Before handing over**: Report an Issue → *Payment*, and the office decides credit or collection. **At collection**: a payment short of what is owed (net of any advance) asks *why the balance isn't collected* — Pay Next Visit (tells no one), No Cash Ready, UPI Failed, Cheque Problem, or QA's own Adjust as Offer — and the confirm says what the office is told. `payment.failed` now carries the balance, not the whole bill |
+| "Adjusted as offer" tick box | One of the short-payment reasons above; still `payment.adjusted` |
+| Crate steppers in the payment confirm | **Manage Assets**, where every returnable is already recorded (now also on the stop's ⋮ menu). Crates given against crates taken is `assets.recorded`; the tower raises *crates not back* from it (`incidents.js`, one new test) |
+| "Proof at the door" — one tap, nothing captured | **Proof of Delivery** sheet: a camera photo (shrunk to 640px) and a signature pad. On Payment Collected, and in a delivered stop's More Actions until the route settles. The stop shows whether proof is on file |
+| Two checkboxes in the Load Stock confirm | **Before You Leave the Dock** card on the Load Stock screen: Dispatch papers *In Hand / Not Ready*, Batches *As Ordered / Mismatch*. Each row differing from the plan says "planned N", and the confirm lists what the office is told |
+| Edit Order's reason pre-picked "The shop took less" | No default: *Shop Took Less* or *Short on the Van*, and Save Changes waits for one |
+| Report a problem: a chip grid, one tap to send | **Report a Problem** — *The Van* (Breakdown, Puncture, Accident, Fridge Not Cooling, Temperature Out of Range), *The Road* (Traffic Jam, Road Closed), where you are, confirm. An open problem is shown so it isn't reported twice |
+| Van-problem card, question cards and office banners stacked above the queue's search | One **Office** strip above the search: the open van problem, questions waiting, new updates, reports still waiting — with a count. It opens the **Office** screen (`/office/:routeId`): Your Van (with *We're Moving Again*, confirmed), Needs Your Reply, Today's Updates, **Sent to Office** (every report today and where the office has got to on it) |
+| The office's word replaced the row's money line (orange "🚚 Office: …") | A second line under the row's own subtitle — *Office: …*, *Office asks: …* or *You replied: …* — and an orange dot while it's unread or unanswered |
+| Up to two orange banners above a stop's card | One banner under the stop's card: blue for the office's word, orange with **Reply to Office** for a question, green once answered |
+| Three canned replies, one tap | **Reply to Office** sheet: four quick replies or the driver's own words, then Send Reply |
+| Skip Stop: 9 chips, the last alone; come-back chips unlabelled in the confirm | *At the Shop* (QA's six) and *Couldn't Deliver* (Wrong Address, Can't Reach, Van Full). The confirm says the agreed come-back and that the office is told. A come-back agreed at the door reads "You agreed: …", never as the office's word |
+| The office fixed an order; the driver still delivered and collected the booking | The fix is applied to the stop's lines when the office's items match the order; the order card reads *Updated by office*. Goods the office sends on today's trip (a replacement at ₹0, or a short drop's balance) join that day's order the same way. On a stop already delivered, the same action reads "Bill re-issued for ₹X" |
+| Notes typed only, and last on each screen (under the reasons) | **One note field everywhere** (`U.NoteField`), **first** on its screen — the driver says what happened, then picks the reason — with the Control Tower's **speech-to-text mic** in its corner (`delivery-voice.js`: the browser's own Web Speech API, Indian English, words added after what's written and editable; no mic where the browser has none; a blocked mic says to type instead). Report an Issue, Report a Problem, Skip Stop, the Product Return reason panel, the Stock Count explanation and Reply to Office all use it |
+| `RD_OFFICE.apply()` called inside screen renders, putting stops back mid-draw | `sync()` runs on load, before every navigation draws, and on the tower's storage event. A new word from the office arrives as a toast |
+
+New shared controls in `shell.js`: `ChoiceList` (the NewDeliverySheet radio rows, grouped, with
+a field under the chosen row), `Segmented`, `TextField`, `Quote`, and `Sheet` (the existing
+sheet shell, exported). The router gained an after-render hook (`RD.afterRender`) the signature
+pad uses to redraw itself. The event contracts the tower reads are unchanged, apart from
+`assets.recorded` (new) and `payment.failed`'s amount (the balance). `loop-capture.js` drives
+the new screens; all 49 live flows were re-run against them.
+
+---
+
 ## What changed, by file
 
 | File | What |
@@ -79,11 +120,11 @@ invoice-mismatch (#50) hang their detectors — see the table.
 | 5 | Address inaccessible | Skip Stop → *Can't reach shop* | Pending · Can't reach shop | Call the shop + Try again today | Pending | Driver queue | Retries, delivers | On track | `incidents.test.js` |
 | 6 | Order changed | Skip Stop → *Fully Stocked*/*Will Order Later*, or Edit Order (qty ≥ booked) | Pending · Order changed | Call the customer + Fix the order | Resolved | n/a | Confirmed/edited | On track | `incidents.test.js` |
 | 7 | Part accepted | Edit Order, less, reason "The shop took less" | Pending · Part accepted | Ask the team + Fix the order | Pending | n/a | Settled with the balance | On track | `incidents.test.js` |
-| 8 | Order dispute | What's wrong here? → *Disputes the order* | Missed · Order dispute | Call the customer + Fix the order | Resolved/Pending | Fixed order redelivered | Delivered as fixed | On track | `incidents.test.js` |
-| 9 | Price dispute | What's wrong here? → *Disputes the price*, or short pay "adjusted as offer" | Pending (Missed ≥ ₹500) · Price dispute | Call the customer + Review adjustment | Resolved | n/a | Credit or balance collected | On track | `incidents.test.js` |
-| 10 | Scheme dispute | What's wrong here? → *Disputes the scheme* | Pending/Missed · Scheme dispute | Call the customer + Review adjustment | Resolved | n/a | Approved/refused | On track | `incidents.test.js` |
-| 11 | No parking | **What's wrong here? → *No parking or loading access* (new)** | On track · No parking (informational) | Ask the team + Fix customer details | Resolved | n/a | Noted for next trip | On track | `incident-flows-fix.test.js` |
-| 12 | Access hours restriction | **What's wrong here? → *Only delivers in certain hours* (new)** | Pending · Access hours | Fix customer details + Reschedule | Pending | Hours saved | Delivered in hours | On track | `incident-flows-fix.test.js` |
+| 8 | Order dispute | Report an Issue → *The Customer Disputes: The Order* | Missed · Order dispute | Call the customer + Fix the order | Resolved/Pending | Fixed order redelivered | Delivered as fixed | On track | `incidents.test.js` |
+| 9 | Price dispute | Report an Issue → *The Price* (amount in dispute), or a short payment's reason *Adjust as Offer* | Pending (Missed ≥ ₹500) · Price dispute | Call the customer + Review adjustment | Resolved | n/a | Credit or balance collected | On track | `incidents.test.js` |
+| 10 | Scheme dispute | Report an Issue → *A Scheme or Offer* (amount in dispute) | Pending/Missed · Scheme dispute | Call the customer + Review adjustment | Resolved | n/a | Approved/refused | On track | `incidents.test.js` |
+| 11 | No parking | **Report an Issue → *At the Shop: No Parking or Loading*** | On track · No parking (informational) | Ask the team + Fix customer details | Resolved | n/a | Noted for next trip | On track | `incident-flows-fix.test.js` |
+| 12 | Access hours restriction | **Report an Issue → *At the Shop: Set Delivery Hours*** | Pending · Access hours | Fix customer details + Reschedule | Pending | Hours saved | Delivered in hours | On track | `incident-flows-fix.test.js` |
 | 13 | Wrong SKU | Product Return → *Wrong Product* | Pending · Wrong item | Call the customer + Send on next trip | Pending | n/a (next trip) | Right item delivered | On track | `incidents.test.js` |
 | 14 | Short quantity | **Edit Order, less, reason "Not enough on the van" (new — the `why` field)** | Pending · Short | Call the customer + Send on next trip | Pending | n/a | Balance sent next trip | On track | `incident-flows-fix.test.js` |
 | 15 | Excess quantity | Settle Route → stock count, surplus | Pending · Excess | Ask the team + Take it back | Pending | n/a | Explained, taken back | On track | `incidents.test.js` |
@@ -96,7 +137,7 @@ invoice-mismatch (#50) hang their detectors — see the table.
 | 22 | Wrong batch (Product) | **Product Return → *Wrong Batch* (new)** | Pending · Wrong batch | Ask the team + Send on next trip | Pending | n/a | Batch swapped next trip | On track | `incident-flows-fix.test.js` |
 | 23 | Near expiry | **Product Return → *Near Expiry* (new)** | Pending · Near expiry | Ask the team | Resolved | n/a | Sold first/moved | On track | `incident-flows-fix.test.js` |
 | 24 | Expired product | Product Return → *Expired* | Missed · Expired | Take it back + Raise credit note | Resolved | n/a | Credited, written off | On track | `incidents.test.js` |
-| 25 | Quality complaint | What's wrong here? → *Quality complaint* | Missed · Quality | Call the customer + Send on next trip | Pending | n/a | Replacement next trip | On track | `incidents.test.js` |
+| 25 | Quality complaint | Report an Issue → *At the Shop: Quality Complaint* (from a delivered stop's More Actions) | Missed · Quality | Call the customer + Send on next trip | Pending | n/a | Replacement next trip | On track | `incidents.test.js` |
 | 26 | Temperature | **Report a problem → *Temperature / cold chain* (new)** | Missed (Urgent), holds chilled stops | Call the driver + Take it back | Pending, holds resolve | n/a — owner moves stops | Checked, moved | On track | `incident-flows-fix.test.js` |
 | 27 | Breakdown | Report a problem → *Breakdown* | Missed (Urgent), holds its stops | Call the driver + Move to another van | Pending on new van | n/a | Delivered on spare van | On track | `incidents.test.js` |
 | 28 | Accident | Report a problem → *Accident* | Missed (Urgent), holds its stops | Call the driver + Move to another van | Same | n/a | Same | On track | `incidents.test.js` |
@@ -112,21 +153,21 @@ invoice-mismatch (#50) hang their detectors — see the table.
 | 38 | Wrong loading | **Load Stock's own plan check (new)** | Pending · Wrong load | Ask the team | Resolved | n/a | Load matches plan | On track | `incident-flows-fix.test.js` + live |
 | 39 | Missing stock (Warehouse) | **Load Stock's own plan check — none of it loaded (new)** | Pending · Out of stock | Tell customers + Send on next trip | Pending | n/a | Sent when stock's in | On track | `incident-flows-fix.test.js` + live |
 | 40 | Stock not loaded | **Load Stock's own plan check — some loaded (new)** | Pending · Not loaded | Ask the team + Send on next trip | Pending | n/a | Restocked/delivered | On track | `incident-flows-fix.test.js` + live |
-| 41 | Wrong batch loaded | **Load Stock's own plan check (new)** | Pending · Wrong batch | Ask the team | Resolved | n/a | Batch swapped before departure | On track | `incident-flows-fix.test.js` |
-| 42 | Dispatch document missing | **Load Stock's "Dispatch papers ready" checkbox (new)** | Pending · No papers | Ask the team | Resolved | n/a | Papers made | On track | `incident-flows-fix.test.js` + live |
-| 43 | Cash unavailable | **Collect Payment → "No cash ready today?" (new)** | Pending · Cash not ready | Call the customer + Collect later | Resolved, with Collections | n/a | Collected next visit | On track | `incident-flows-fix.test.js` |
-| 44 | UPI failed | Collect Payment → "UPI didn't go through?" | Pending · UPI failed | Ask the team + Collect later | Resolved | n/a | Collected next visit/counter | On track | `incidents.test.js` |
-| 45 | Cheque disputed | **Collect Payment → "Cheque bounced or disputed?" (new)** | Missed · Cheque | Call the customer + Decide on credit | Resolved | n/a | Cleared/credit decided | On track | `incident-flows-fix.test.js` |
+| 41 | Wrong batch loaded | **Load Stock → Before You Leave the Dock → Batches: *Mismatch*** | Pending · Wrong batch | Ask the team | Resolved | n/a | Batch swapped before departure | On track | `incident-flows-fix.test.js` |
+| 42 | Dispatch document missing | **Load Stock → Before You Leave the Dock → Dispatch papers: *Not Ready*** | Pending · No papers | Ask the team | Resolved | n/a | Papers made | On track | `incident-flows-fix.test.js` + live |
+| 43 | Cash unavailable | **Report an Issue → *Payment: No Cash Ready* (before handing over), or a short payment's reason *No Cash Ready*** | Pending · Cash not ready | Call the customer + Collect later | Resolved, with Collections | n/a | Collected next visit | On track | `incident-flows-fix.test.js` |
+| 44 | UPI failed | Report an Issue → *Payment: UPI Not Going Through*, or a short payment's reason *UPI Failed* | Pending · UPI failed | Ask the team + Collect later | Resolved | n/a | Collected next visit/counter | On track | `incidents.test.js` |
+| 45 | Cheque disputed | **Report an Issue → *Payment: Cheque Problem*, or a short payment's reason *Cheque Problem*** | Missed · Cheque | Call the customer + Decide on credit | Resolved | n/a | Cleared/credit decided | On track | `incident-flows-fix.test.js` |
 | 46 | Credit limit | System: stop due today, customer over their credit limit | Missed · Credit limit | Call the customer + Decide on credit | Decision set | Driver told to collect part | Delivered per decision | On track | design verified (pre-existing) |
 | 47 | POD missing | **System: delivered via `stop.delivered`, no `pod.captured` on file (new detector)** | Pending · No proof | Ask the team | Resolved | n/a | Photo/signature added | On track | design verified; see note |
-| 48 | POD disputed | What's wrong here? → *Says it never came* | Missed · Says not received | Call the customer + Share proof | Pending, awaiting accept | Customer WhatsApp | Accepts the proof | On track | `incidents.test.js` |
+| 48 | POD disputed | Report an Issue → *That It Came* (from a delivered stop's More Actions) | Missed · Says not received | Call the customer + Share proof | Pending, awaiting accept | Customer WhatsApp | Accepts the proof | On track | `incidents.test.js` |
 | 49 | Invoice mismatch | **System: order changed, delivered as changed, never re-billed (new detector)** | Pending · Bill mismatch | Fix the order | Resolved | n/a | Bill re-issued | On track | design verified; see note |
 | 50 | GST/billing mismatch | **System: a customer's GSTIN on file that fails format, due today (new detector)** | Pending · GST | Fix customer details | Resolved | n/a | Details corrected | On track | `incident-flows-fix.test.js` |
 | 51 | Saleable return | Product Return → *Unsold* | On track · Returned | Take it back | n/a | n/a | Counted back at settlement | On track | `incidents.test.js` |
 | 52 | Damaged return (Returns family) | **Product Return → *Damaged*, standalone pickup (new disambiguation)** | Pending (tag: Damaged) | Raise credit note + Write it off | Resolved | n/a | Written off/claimed | On track | `incident-flows-fix.test.js` |
 | 53 | Expiry return (Returns family) | **Product Return → *Expired*, standalone pickup (new disambiguation)** | Pending (tag: Expired) | Raise credit note + Write it off | Resolved | n/a | Credit note raised | On track | `incident-flows-fix.test.js` |
 | 54 | Wrong-product return (Returns family) | **Product Return → *Wrong Product*, standalone pickup (new disambiguation)** | Pending (tag: Wrong SKU) | Take it back + Send on next trip | Pending | n/a | Replaced | On track | `incident-flows-fix.test.js` |
-| 55 | Crates | **Collect Payment's crates-out/crates-back steppers, on `stop.delivered` (new)** | On track · Crates | Call the shop + Ask the team | n/a | n/a | Collected next trip | On track | `incident-flows-fix.test.js` |
+| 55 | Crates | **Manage Assets: crates given against crates taken, on `assets.recorded`** | On track · Crates | Call the shop + Ask the team | n/a | n/a | Collected next trip | On track | `incident-flows-fix.test.js` |
 
 Rows in **bold** are the 26 that had no real trigger before today, plus the closing-loop fix
 that all 55 needed underneath. "design verified; see note": the detector is written, unit-shaped

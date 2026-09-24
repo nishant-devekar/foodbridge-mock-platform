@@ -177,6 +177,7 @@
     A()["issue-kind"](kind);
     root.RD.state.scratch.issueNote = note || "";
     if (gap) root.RD.state.scratch.issueGap = String(gap);
+    A()["issue-confirm"]();
     await driver(label);
     A()["issue-send"](id); await wait(1400);
   }
@@ -184,6 +185,7 @@
     await go("/problem/RTE-001");
     A()["problem-kind"](kind);
     root.RD.state.scratch.problemWhere = where || "";
+    A()["problem-confirm"]();
     await driver(label);
     A()["problem-send"]("RTE-001"); await wait(1400);
     if (label2) await driver(label2);
@@ -193,19 +195,16 @@
     await go("/payment/" + (o.rid || "RTE-001") + "/" + id);
     const S = root.RD.state.scratch;
     if (o.amount !== undefined) { S.payAmount = String(o.amount); S.payPrefilled = false; }
-    if (o.writeoff) S.payWriteoff = true;
-    if (o.cratesOut !== undefined) { S.cratesOut = o.cratesOut; S.cratesBack = o.cratesBack || 0; }
+    if (o.short) S.payShort = o.short;
     A()["pay-confirm"]();
     if (label1) await driver(label1);
     A()["pay-commit"](id); await wait(1400);
     if (label2) await driver(label2);
   }
-  async function payLink(id, link, label1, label2) {
-    await go("/payment/RTE-001/" + id);
-    if (link === "pay-upi-failed") A()["pay-method"]("UPI");
-    await driver(label1);
-    A()[link](id); await wait(200);
-    if (label2) await driver(label2);
+  /* Can't pay at the door, before handing over: Report an Issue's Payment
+     reasons (the office decides credit or collection). */
+  async function cantPay(id, kind, label) {
+    await issue(id, kind, null, null, label);
   }
   async function giveBack(id, reason, detail, labels, rid) {
     root.RD.state.routeId = rid || "RTE-001";
@@ -233,7 +232,7 @@
     await go("/load-stock/RTE-001");
     const S = root.RD.state.scratch;
     if (o.set) Object.keys(o.set).forEach(function (i) { S.stockQtys[+i] = o.set[i]; });
-    S.docsReady = !o.noDocs; S.batchOff = !!o.batch;
+    S.dockPapers = o.noDocs ? "missing" : "ready"; S.dockBatch = o.batch ? "off" : "ok";
     A()["stock-confirm"]();
     await driver(label);
     A()["stock-commit"]("RTE-001"); await wait(1400);
@@ -249,21 +248,52 @@
     await driver(label);
     A()["count-commit"]("RTE-001"); await wait(300);
   }
+  /* The office's question: the queue's Office strip says one is waiting,
+     the Office screen lists it, the reply sheet sends the answer. */
   async function answer(label1, label2, rid) {
-    await queue(null, rid);
-    await driver(label1);
-    const b = document.querySelector('[data-act="office-answer"]');
+    await queue(label1, rid);
+    await go("/office/" + (rid || "RTE-001"));
+    const b = document.querySelector('[data-act="office-reply-open"]');
     if (!b) throw new Error("driver: no question from the office");
-    b.click(); await wait(400);
+    b.click(); await wait(250);
+    const q = document.querySelector('[data-act="office-quick"]');
+    if (q) { q.click(); await wait(200); }
+    if (label2) await driver(label2);
+    const send = document.querySelector('[data-act="office-reply-send"]');
+    if (!send) throw new Error("driver: no Send Reply");
+    send.click(); await wait(1300);
+  }
+  /* The van moves again: the Office screen's We're Moving Again, confirmed. */
+  async function moving(label1, label2) {
+    await go("/office/RTE-001");
+    if (label1) await driver(label1);
+    const b = document.querySelector('[data-act="office-moving-confirm"]');
+    if (!b) throw new Error("driver: no open van problem");
+    b.click(); await wait(250);
+    const c = document.querySelector('[data-act="office-moving"]');
+    if (!c) throw new Error("driver: no confirm for moving again");
+    c.click(); await wait(1300);
     if (label2) await driver(label2);
   }
-  async function moving(label1, label2) {
-    await queue(null);
-    if (label1) await driver(label1);
-    const b = document.querySelector('[data-act="office-moving"]');
-    if (!b) throw new Error("driver: no open van problem");
-    b.click(); await wait(400);
-    if (label2) await driver(label2);
+  /* Proof of delivery, through the real sheet: a signature, saved. A day
+     that runs to the evening needs it on every drop, or the route ends
+     with the tower's "POD missing" on that stop. */
+  async function proof(id, rid) {
+    await go("/stop-summary/" + (rid || "RTE-001") + "/" + id);
+    A()["pod-open"](id);
+    root.RD.state.scratch.podSign = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+    A()["pod-save"](id); await wait(1300);
+  }
+  /* Crates at the door, in Manage Assets with every other returnable. */
+  async function crates(id, out, back, label) {
+    const st = stopOf(id);
+    root.RD.state.scratch.assetOrgId = st.customerId;
+    await go("/manage-assets/RTE-001/" + id);
+    const S = root.RD.state.scratch;
+    S.assetOrgId = st.customerId; S.giving = { "AST-CRATE-L": out }; S.taking = { "AST-CRATE-L": back };
+    A()["asset-confirm"]();
+    await driver(label);
+    A()["asset-commit"](st.customerId); await wait(1400);
   }
 
   /* ── the day ─────────────────────────────────────────────────────────── */
@@ -352,7 +382,7 @@
   F["access-restriction"] = { title: "Access hours restriction", run: async function () {
       const st = stopOf("STP-0108");
       await openStop("STP-0108"); await driver("Driver at " + st.customerName);
-      await issue("STP-0108", "hours", "Only takes deliveries 12 to 4", null, "Driver: What's wrong here? — only delivers in certain hours");
+      await issue("STP-0108", "hours", "Only takes deliveries 12 to 4", null, "Driver: Report an Issue — only delivers in certain hours");
       await queue("Driver's queue after telling the office");
       const id = await towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: the incident");
       await owner([{ act: "reschedule" }, { pk: ["day", "0"] }, { pk: ["win", "afternoon"], shot: "Owner: Reschedule into their hours", go: true, goShot: "Owner confirms", yes: true, yesShot: "Delivery rescheduled" }], id);
@@ -363,7 +393,7 @@
   F["order-dispute"] = { title: "Order dispute", run: async function () {
       const st = stopOf("STP-0114");
       await openStop("STP-0114"); await driver("Driver at " + st.customerName);
-      await issue("STP-0114", "order", "Says he ordered 2 packs of Chakli, not 4", null, "Driver: What's wrong here? — disputes the order");
+      await issue("STP-0114", "order", "Says he ordered 2 packs of Chakli, not 4", null, "Driver: Report an Issue — disputes the order");
       const id = await towerShows(titled(st.customerName), "Tower: Deliveries turns Urgent", "Tower: the incident");
       await owner([{ call: true, label: "Owner calls the customer — what did they say?" }, { oc: 1 }, { shot: "Owner: Fix the order", go: true, goShot: "Owner confirms the new total", yes: true, yesShot: "Order updated — the driver delivers it" }], id);
       await queue("Driver's queue: the office's word"); await openStop("STP-0114"); await driver("Driver opens it: the office's banner");
@@ -383,20 +413,20 @@
     };
   }
   F["price-dispute"] = { title: "Price dispute", run: moneyAtDoor({ stop: "STP-0116",
-    raise: async function (st) { await openStop("STP-0116"); await driver("Driver at " + st.customerName); await issue("STP-0116", "price", "Wants last month's rate on cookies", 120, "Driver: What's wrong here? — disputes ₹120 of the price"); },
+    raise: async function (st) { await openStop("STP-0116"); await driver("Driver at " + st.customerName); await issue("STP-0116", "price", "Wants last month's rate on cookies", 120, "Driver: Report an Issue — disputes ₹120 of the price"); },
     plan: [{ act: "adjust", shot: "Owner: Review adjustment — approve once", go: true, goShot: "Owner confirms", yes: true, yesShot: "Adjustment approved" }],
     finish: async function () { await openStop("STP-0116"); await driver("Driver opens it: the office approved it"); await pay("STP-0116", "Driver collects", "Delivered and paid"); } }) };
   F["scheme-dispute"] = { title: "Scheme dispute", run: moneyAtDoor({ stop: "STP-0118",
-    raise: async function (st) { await openStop("STP-0118"); await driver("Driver at " + st.customerName); await issue("STP-0118", "scheme", "Claims the 10% Diwali scheme on Kaju Barfi", 150, "Driver: What's wrong here? — claims ₹150 of scheme"); },
+    raise: async function (st) { await openStop("STP-0118"); await driver("Driver at " + st.customerName); await issue("STP-0118", "scheme", "Claims the 10% Diwali scheme on Kaju Barfi", 150, "Driver: Report an Issue — claims ₹150 of scheme"); },
     plan: [{ act: "adjust" }, { pk: ["decision", "refuse"], shot: "Owner: Review adjustment — don't approve", go: true, goShot: "Owner confirms", yes: true, yesShot: "Balance added to Collections" }],
     finish: async function () { await openStop("STP-0118"); await driver("Driver opens it: collect it next visit"); await pay("STP-0118", "Driver collects", "Delivered and paid"); } }) };
   F["quality-complaint"] = { title: "Quality complaint", run: moneyAtDoor({ stop: "STP-0119",
-    raise: async function (st) { await pay("STP-0119", null, "Driver delivers " + st.customerName); await issue("STP-0119", "quality", "Chakli packets gone soft", null, "Driver: What's wrong here? — quality complaint"); },
+    raise: async function (st) { await pay("STP-0119", null, "Driver delivers " + st.customerName); await issue("STP-0119", "quality", "Chakli packets gone soft", null, "Driver: Report an Issue — quality complaint"); },
     plan: [{ call: true, label: "Owner calls the customer — what did they say?" }, { oc: 1, shot: "Owner: Credit it — a credit note" }, { yes: true, yesShot: "Credit note raised" }] }) };
   F["pod-disputed"] = { title: "Says it never came (POD disputed)", run: async function () {
       const st = stopOf("STP-0120");
       await pay("STP-0120", "Driver collects", "Driver delivers " + st.customerName);
-      await issue("STP-0120", "pod", "Says the goods never came", null, "Driver: What's wrong here? — says it never came");
+      await issue("STP-0120", "pod", "Says the goods never came", null, "Driver: Report an Issue — says it never came");
       const id = await towerShows(titled(st.customerName), "Tower: Deliveries turns Urgent", "Tower: the incident");
       await owner([{ act: "proof", shot: "Owner: Share proof", go: true, goShot: "Owner confirms", yes: true, yesShot: "Proof sent on WhatsApp" }], id);
       await queue("Driver's queue: the office's word"); await go("/stop-summary/RTE-001/STP-0120"); await driver("Driver: the stop shows the proof went to the shop");
@@ -407,7 +437,7 @@
   F["no-parking"] = { title: "No parking / loading access", run: askLoop({ raise: async function () {
       const st = stopOf("STP-0106");
       await openStop("STP-0106"); await driver("Driver at " + st.customerName);
-      await issue("STP-0106", "parking", "No spot outside; unloaded from the side lane", null, "Driver: What's wrong here? — no parking");
+      await issue("STP-0106", "parking", "No spot outside; unloaded from the side lane", null, "Driver: Report an Issue — no parking");
       return towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: the incident");
     }, after: async function () { await pay("STP-0106", "Driver collects", "Delivered and paid"); } }) };
 
@@ -415,7 +445,7 @@
     return async function () {
       const rid = o.rid || "RTE-001";
       const st = stopOf(o.stop, rid);
-      if (!o.standalone) await pay(o.stop, null, "Driver delivers " + st.customerName);
+      if (!o.standalone) { await pay(o.stop, null, "Driver delivers " + st.customerName); if (o.evening) await proof(o.stop, rid); }
       else { root.RD.state.routeId = rid; await go("/queue/" + rid); await driver("Driver at " + st.customerName + " — nothing booked, goods to pick up"); }
       await giveBack(o.stop, o.reason, o.detail, ["Driver: Product Return — " + o.reasonLabel], rid);
       const id = await towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: the incident");
@@ -458,7 +488,8 @@
     plan: [{ act: "takeBack", shot: "Owner: Take it back", go: true, goShot: "Owner confirms", yes: true, yesShot: "Return recorded — back tonight" }], evening: true }) };
   F["crates"] = { title: "Crates", run: askLoop({ raise: async function () {
       const st = stopOf("STP-0120");
-      await pay("STP-0120", "Driver collects — 3 crates left, 1 back", "Delivered and paid", { cratesOut: 3, cratesBack: 1 });
+      await pay("STP-0120", "Driver collects", "Delivered and paid");
+      await crates("STP-0120", 3, 1, "Driver: Manage Assets — 3 crates left, 1 back");
       return towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: the incident");
     } }) };
 
@@ -496,19 +527,18 @@
     return async function () {
       const st = stopOf(o.stop);
       await openStop(o.stop); await driver("Driver at " + st.customerName);
-      await payLink(o.stop, o.link, "Driver: Collect Payment", "Driver: " + o.said + " — the office is told");
+      await cantPay(o.stop, o.kind, "Driver: Report an Issue — " + o.said);
       const id = await towerShows(titled(st.customerName), "Tower: Deliveries", "Tower: the incident");
       await owner(o.plan, id);
       await queue("Driver's queue: the office's word"); await openStop(o.stop); await driver("Driver opens it: the office's banner");
-      await pay(o.stop, "Driver " + o.finish, "Delivered", { amount: o.amount });
+      await pay(o.stop, "Driver " + o.finish, "Delivered", { amount: o.amount, short: o.short });
       await towerCard(id, "Tower: the incident, fixed"); await towerList("Tower: On track");
     };
   }
   const LATER = [{ act: "collectLater", shot: "Owner: Collect later — at the next visit", go: true, goShot: "Owner confirms", yes: true, yesShot: "Added to Collections" }];
-  F["cash-unavailable"] = { title: "Cash unavailable", run: payLoop({ stop: "STP-0103", link: "pay-cash-unavailable", said: "No cash ready today", plan: LATER, finish: "delivers on credit", amount: 1 }) };
-  F["upi-failed"] = { title: "UPI failed", run: payLoop({ stop: "STP-0105", link: "pay-upi-failed", said: "UPI didn't go through", plan: LATER, finish: "takes cash instead" }) };
-  F["cheque-dispute"] = { title: "Cheque disputed", run: payLoop({ stop: "STP-0107", link: "pay-cheque-dispute", said: "Cheque bounced", plan: [{ call: true, label: "Owner calls the customer — what did they say?" }, { oc: 0, shot: "Owner: Collect later", go: true, goShot: "Owner confirms", yes: true, yesShot: "Added to Collections" }], finish: "collects cash" }) };
-  F["price-dispute"].alsoShort = true;
+  F["cash-unavailable"] = { title: "Cash unavailable", run: payLoop({ stop: "STP-0103", kind: "cash", said: "No cash ready", plan: LATER, finish: "delivers on credit", amount: 0, short: "later" }) };
+  F["upi-failed"] = { title: "UPI failed", run: payLoop({ stop: "STP-0105", kind: "upi", said: "UPI not going through", plan: LATER, finish: "takes cash instead" }) };
+  F["cheque-dispute"] = { title: "Cheque disputed", run: payLoop({ stop: "STP-0107", kind: "cheque", said: "Cheque problem", plan: [{ call: true, label: "Owner calls the customer — what did they say?" }, { oc: 0, shot: "Owner: Collect later", go: true, goShot: "Owner confirms", yes: true, yesShot: "Added to Collections" }], finish: "collects cash" }) };
 
   /* Edit Order at the door. */
   F["partial-acceptance"] = { title: "Part accepted (+ invoice mismatch)", run: askLoop({ raise: async function () {

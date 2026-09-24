@@ -923,6 +923,10 @@
       REFUSED:          'Refused',
       WILL_ORDER_LATER: 'Will order later',
       OTHER:            'Other',
+      // The three the office acts on (24 Sep 2026, not in the upstream app).
+      WRONG_ADDRESS:    'Wrong address',
+      CANT_REACH:       "Can't reach shop",
+      VAN_FULL:         'Van full',
     };
     return MAP[reason] || reason || 'No reason';
   }

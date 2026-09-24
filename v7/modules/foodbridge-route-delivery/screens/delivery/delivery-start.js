@@ -191,13 +191,18 @@
       : '<div style="' + U.sty({ background: "white", borderRadius: 16, margin: "0 12px 10px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }) + '">' +
         rows.map(function (r, fi) {
           const qty = S.stockQtys[r.i] || 0;
+          // What today's orders planned for this line, once the driver has
+          // loaded something else — the difference is what the office hears.
+          const plan = (S.stockPlanQtys || [])[r.i] || 0;
+          const off = plan > 0 && Number(qty) !== plan;
           return '<div style="' + U.sty({
               display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16,
               borderBottom: fi < rows.length - 1 ? "1px solid #f5f5f5" : "none",
             }) + '">' +
             "<div>" +
               '<div style="' + U.sty({ fontSize: 16, fontWeight: 600, color: "#111" }) + '">' + U.esc(r.prod.name) + "</div>" +
-              '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 2 }) + '">₹' + r.prod.price + " / unit</div>" +
+              '<div style="' + U.sty({ fontSize: 12, color: off ? "#c2410c" : "#888", fontWeight: off ? 600 : 400, marginTop: 2 }) + '">₹' + r.prod.price + " / unit" +
+                (off ? " · planned " + plan : "") + "</div>" +
             "</div>" +
             (readOnly
               ? '<div style="' + U.sty({ fontSize: 18, fontWeight: 700, color: "#111", minWidth: 40, textAlign: "right" }) + '">' + qty + "</div>"
@@ -214,7 +219,22 @@
         '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 600, marginTop: 2 }) + '">Est. Value</div></div></div>';
 
     const confirming = !!S.stockConfirming;
-    if (S.docsReady === undefined) S.docsReady = true;
+    // The dock check (24 Sep 2026, not in the upstream app): two answers the
+    // driver gives before leaving, on the screen rather than tucked into the
+    // confirm — the office acts on either being wrong.
+    if (!S.dockPapers) S.dockPapers = "ready";
+    if (!S.dockBatch) S.dockBatch = "ok";
+    const told = stockDiffs(S).map(function (m) { return m.name + ": " + m.loaded + " of " + m.plan + " planned"; });
+    if (S.dockBatch === "off") told.push("A batch isn't the one ordered");
+    if (S.dockPapers === "missing") told.push("Dispatch papers not ready");
+    const dock = readOnly ? "" : U.SectionHeader("Before You Leave the Dock") +
+      U.Card(
+        [{ label: "Dispatch papers", model: "dock-papers", value: S.dockPapers, options: [{ key: "ready", label: "In Hand" }, { key: "missing", label: "Not Ready", tone: "warn" }] },
+         { label: "Batches", model: "dock-batch", value: S.dockBatch, options: [{ key: "ok", label: "As Ordered" }, { key: "off", label: "Mismatch", tone: "warn" }] }].map(function (q, i) {
+          return '<div style="' + U.sty({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 0", borderTop: i ? "1px dashed #e5e7eb" : "none" }) + '">' +
+            '<span style="' + U.sty({ fontSize: 14, fontWeight: 600, color: "#111" }) + '">' + q.label + "</span>" +
+            U.Segmented({ options: q.options, value: q.value, actName: q.model, style: { width: 190, flexShrink: 0 } }) + "</div>";
+        }).join(""), { padding: "4px 16px" });
     const loadedItems = (S.stockProducts || []).map(function (prod, i) {
       return { name: prod.name, qty: Number(S.stockQtys[i]) || 0, orderingUnit: prod.orderingUnit || "" };
     }).filter(function (it) { return it.qty > 0; });
@@ -239,12 +259,12 @@
                   '<span style="' + U.sty({ fontSize: 13, color: "#374151", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }) + '">' + U.esc(it.name) + "</span>" +
                   '<span style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#374151", flexShrink: 0 }) + '">× ' + it.qty + (it.orderingUnit ? " " + U.esc(it.orderingUnit) : "") + "</span></div>";
               }).join("") + "</div>" +
-              '<label style="' + U.sty({ display: "flex", alignItems: "center", gap: 8, marginTop: 10, cursor: "pointer" }) + '">' +
-                '<input type="checkbox" data-model="docs-ready"' + (S.docsReady ? " checked" : "") + ' />' +
-                '<span style="' + U.sty({ fontSize: 13, color: "#374151", fontWeight: 600 }) + '">Dispatch papers ready for this load</span></label>' +
-              '<label style="' + U.sty({ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer" }) + '">' +
-                '<input type="checkbox" data-model="batch-off"' + (S.batchOff ? " checked" : "") + ' />' +
-                '<span style="' + U.sty({ fontSize: 13, color: "#374151", fontWeight: 600 }) + '">A batch loaded isn\'t the one ordered</span></label>',
+              (told.length
+                ? '<div style="' + U.sty({ marginTop: 8, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "8px 12px" }) + '">' +
+                    '<div style="' + U.sty({ fontSize: 11, fontWeight: 800, color: "#9a3412", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 3 }) + '">The office is told</div>' +
+                    told.map(function (t) { return '<div style="' + U.sty({ fontSize: 12, color: "#92400e" }) + '">· ' + U.esc(t) + "</div>"; }).join("") +
+                  "</div>"
+                : ""),
           })
         : U.BtnXL({
             variant: "brand",
@@ -264,7 +284,7 @@
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.35 : 1, pointerEvents: confirming ? "none" : "auto" }) + '">' +
         U.Banner({ type: banner.type, icon: banner.icon, text: banner.text, style: { marginTop: 10 } }) +
         '<div style="padding:0 12px 8px">' + U.SearchInput({ value: S.stockSearch || "", model: "stock-search", placeholder: "Search products…", clearAct: "stock-search-clear" }) + "</div>" +
-        list + totals +
+        list + totals + dock + U.Spacer(8) +
       "</div>" +
       (confirming ? U.FreezeBackdrop() : "") +
       '<div style="' + U.sty({ position: "relative", zIndex: confirming ? 50 : "auto" }) + '">' + U.ActionBar(footer) + "</div>";
@@ -289,8 +309,19 @@
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   });
   window.RD.action("stock-confirm", function () { window.RD.state.scratch.stockConfirming = true; window.RD.render(); });
-  window.RD.action("model:docs-ready", function (_v, el) { window.RD.state.scratch.docsReady = !!(el && el.checked); window.RD.render(); });
-  window.RD.action("model:batch-off", function (_v, el) { window.RD.state.scratch.batchOff = !!(el && el.checked); window.RD.render(); });
+  window.RD.action("dock-papers", function (v) { window.RD.state.scratch.dockPapers = v; window.RD.render(); });
+  window.RD.action("dock-batch", function (v) { window.RD.state.scratch.dockBatch = v; window.RD.render(); });
+
+  // Lines loaded differently from today's plan. Less than planned is the
+  // warehouse not supplying it ("stock"); more is the wrong load ("wrong").
+  function stockDiffs(S) {
+    const plan = S.stockPlanQtys || [];
+    return (S.stockProducts || []).map(function (prod, i) {
+      const loaded = Number(S.stockQtys[i]) || 0, planned = Number(plan[i]) || 0;
+      if (!planned || loaded === planned) return null;
+      return { productId: prod.productId, name: prod.name, plan: planned, loaded: loaded, reason: loaded < planned ? "stock" : "wrong" };
+    }).filter(Boolean);
+  }
   window.RD.action("confirm-cancel", function () {
     const S = window.RD.state.scratch;
     S.stockConfirming = false; S.cashConfirming = false; S.payConfirming = false;
@@ -305,20 +336,16 @@
         return { productId: prod.productId, name: prod.name, unitPrice: prod.price, loadedQty: Number(S.stockQtys[i]) || 0 };
       }).filter(function (it) { return it.loadedQty > 0; });
       SDK.routeDelivery.confirmStockLoad({ routeId: routeId, products: items });
-      // The office hears what didn't match the plan, and whether the
-      // dispatch papers are ready — the same fact Report a problem writes,
-      // just from Load Stock instead of the road (24 Sep 2026).
-      const plan = S.stockPlanQtys || [];
-      const mismatches = S.stockProducts.map(function (prod, i) {
-        const loaded = Number(S.stockQtys[i]) || 0, planned = Number(plan[i]) || 0;
-        if (!planned || loaded === planned) return null;
-        return { productId: prod.productId, name: prod.name, plan: planned, loaded: loaded, reason: loaded < planned ? "stock" : "wrong" };
-      }).filter(Boolean);
-      if (S.batchOff) mismatches.push({ productId: null, name: "Batch on the van", plan: 0, loaded: 0, reason: "batch" });
-      if (window.RD_EMIT && (mismatches.length || !S.docsReady)) {
-        window.RD_EMIT("loadstock.checked", D.db.routeDetails[routeId], null, { mismatches: mismatches, dispatchDocsReady: !!S.docsReady }, "Delivery app · Load stock");
+      // The office hears what didn't match the plan, a batch that isn't the
+      // one ordered, and papers not ready — a van-level fact, like a problem
+      // reported from the road.
+      const mismatches = stockDiffs(S);
+      if (S.dockBatch === "off") mismatches.push({ productId: null, name: "Batch on the van", plan: 0, loaded: 0, reason: "batch" });
+      const papers = S.dockPapers !== "missing";
+      if (window.RD_EMIT && (mismatches.length || !papers)) {
+        window.RD_EMIT("loadstock.checked", D.db.routeDetails[routeId], null, { mismatches: mismatches, dispatchDocsReady: papers }, "Delivery app · Load stock");
       }
-      S.stockConfirming = false; S.docsReady = true; S.batchOff = false;
+      S.stockConfirming = false; S.dockPapers = null; S.dockBatch = null;
       window.RD.go("/opening-cash/" + routeId);
     });
   });

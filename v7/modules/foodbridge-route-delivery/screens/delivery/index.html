@@ -34,7 +34,7 @@
        copied somewhere else on its own. -->
   <link rel="stylesheet" href="fonts/inter.css" />
   <link rel="stylesheet" href="styles.css?v=20260918E2" />
-  <link rel="stylesheet" href="delivery.css?v=20260918E2" />
+  <link rel="stylesheet" href="delivery.css?v=20260925TS1" />
 </head>
 <body>
   <div id="app"></div>
@@ -55,20 +55,24 @@
   <script src="../../../../assets/fb-events.js?v=20260924IN1"></script>
   <script src="seed.inline.js?v=20260924CS1"></script>
   <script src="services.js?v=20260918E2"></script>
-  <script src="models.js?v=20260918E2"></script>
+  <script src="models.js?v=20260924OC1"></script>
   <script src="validation.js?v=20260918E2"></script>
-  <script src="shell.js?v=20260921E4"></script>
-  <script src="delivery-core.js?v=20260924IN1"></script>
+  <script src="shell.js?v=20260925NV1"></script>
+  <script src="delivery-core.js?v=20260925TS1"></script>
+  <!-- The office channel first among the screens: it hears every
+       navigation before the router draws it (delivery-office.js). -->
+  <script src="delivery-office.js?v=20260925TS1"></script>
+  <!-- Speak a note instead of typing it: every note field's mic. -->
+  <script src="delivery-voice.js?v=20260925NV1"></script>
 
   <!-- Screens. Each registers itself with RD.screen(), so this list is the only
        place a new screen file needs mentioning. -->
   <script src="delivery-home.js?v=20260918E2"></script>
-  <script src="delivery-start.js?v=20260924OF4"></script>
-  <script src="delivery-stops.js?v=20260924CS1"></script>
-  <script src="delivery-settle.js?v=20260924IN1"></script>
-  <script src="delivery-aside.js?v=20260924OF1"></script>
-  <script src="delivery-report.js?v=20260924OF4"></script>
-  <script src="delivery-office.js?v=20260924CS1"></script>
+  <script src="delivery-start.js?v=20260924OC1"></script>
+  <script src="delivery-stops.js?v=20260925TS1"></script>
+  <script src="delivery-settle.js?v=20260925NV1"></script>
+  <script src="delivery-aside.js?v=20260925NV1"></script>
+  <script src="delivery-report.js?v=20260925TS1"></script>
 
   <script>RD.mount(document.getElementById("app"));</script>
 </body>

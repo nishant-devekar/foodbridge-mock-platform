@@ -433,8 +433,10 @@
                 entries.map(function (e, i) {
                   const isGive = e.type === "give";
                   const color = isGive ? "#3b82f6" : "#16a34a";
+                  // The balance after the whole visit — giving and taking the
+                  // same asset in one visit land on one figure, not two.
                   const h = held[e.productId] || 0;
-                  const updated = isGive ? h + e.quantity : h - e.quantity;
+                  const updated = Math.max(0, h + (S.giving[e.productId] || 0) - (S.taking[e.productId] || 0));
                   return '<div style="' + U.sty({
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "9px 14px", borderBottom: i < entries.length - 1 ? "1px solid #f1f5f9" : "none",
@@ -503,7 +505,19 @@
     });
     // QA's panel swaps to the processing block for the length of the write.
     window.RD.commit(function () {
-      SDK.routeDelivery.recordAssetMovement({ routeId: window.RD.state.routeId, customerOrgId: orgId, movements: movements });
+      const routeId = window.RD.state.routeId;
+      SDK.routeDelivery.recordAssetMovement({ routeId: routeId, customerOrgId: orgId, movements: movements });
+      /* Crates left with the shop against crates brought back: more out than
+         back is the tower's "crates not back" (24 Sep 2026). Every returnable
+         is recorded here, so this is where the office hears about crates. */
+      const crates = movements.filter(function (m) { return /^AST-CRATE/.test(m.productId); });
+      if (crates.length && window.RD_EMIT) {
+        const st = D.getStops(routeId).filter(function (x) { return x.customerId === orgId; })[0] || null;
+        window.RD_EMIT("assets.recorded", D.db.routeDetails[routeId], st, {
+          movements: movements.map(function (m) { return { asset: m.productName, given: m.given, taken: m.taken }; }),
+          empties: { cratesOut: crates.reduce(function (n, m) { return n + m.given; }, 0), cratesBack: crates.reduce(function (n, m) { return n + m.taken; }, 0) },
+        }, "Delivery app · Manage assets");
+      }
       S.giving = {}; S.taking = {};
       S.assetConfirming = false;
       window.RD.back();
@@ -515,20 +529,21 @@
   // QA's return flow is two steps: pick the items, then pick a reason in a
   // footer panel. The reasons and their icons are QA's, and the primary button
   // narrates what is still needed at each stage.
+  // QA's four, then three the office acts on (24 Sep 2026, not in the
+  // upstream app), each next to its kin: the date problems together, the
+  // wrong-goods problems together. The longest label takes the last row.
   const RETURN_REASONS = [
     { key: "DAMAGED",       icon: "🔴", label: "Damaged" },
-    { key: "EXPIRED",       icon: "⏰", label: "Expired" },
     { key: "UNSOLD",        icon: "📦", label: "Unsold" },
-    { key: "WRONG_PRODUCT", icon: "❌", label: "Wrong Product" },
-    /* 24 Sep 2026: three more the tower's incident engine needs a way to
-       capture. Not in the upstream app. */
-    { key: "SUBSTITUTE",    icon: "🔁", label: "Substitute Rejected" },
-    { key: "WRONG_BATCH",   icon: "🏷️", label: "Wrong Batch" },
+    { key: "EXPIRED",       icon: "⏰", label: "Expired" },
     { key: "NEAR_EXPIRY",   icon: "📅", label: "Near Expiry" },
+    { key: "WRONG_PRODUCT", icon: "❌", label: "Wrong Product" },
+    { key: "WRONG_BATCH",   icon: "🏷️", label: "Wrong Batch" },
+    { key: "SUBSTITUTE",    icon: "🔁", label: "Substitute Rejected" },
   ];
-  /* What kind of damage (24 Sep 2026): one more tap, so the office knows
-     whether to replace it, credit it or claim it from the supplier. */
-  const DAMAGE = [{ key: "LEAKING", label: "Leaking" }, { key: "WET", label: "Wet carton" }, { key: "BROKEN", label: "Broken pack" }];
+  /* What kind of damage: one more tap, so the office knows whether to
+     replace it, credit it or claim it from the supplier. */
+  const DAMAGE = [{ key: "LEAKING", label: "Leaking" }, { key: "WET", label: "Wet Carton" }, { key: "BROKEN", label: "Broken Pack" }];
 
   window.RD.screen("returnAcceptance", function (p) {
     const S = window.RD.state.scratch;
@@ -563,13 +578,17 @@
         '<div style="' + U.sty({ fontSize: 10, fontWeight: 800, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 4 }) + '">Return Reason</div>' +
         '<div style="' + U.sty({ fontSize: 13, color: "#6b7280", fontWeight: 500 }) + '">Why is the customer returning these items?</div>' +
       "</div>" +
+      // QA takes an optional note with the reason; it leads, spoken or typed.
+      U.NoteField({ model: "return-note", value: S.returnNote, rows: 2, placeholder: "Type or speak a note about this return (optional)", typePlaceholder: "Add a note about this return (optional)",
+        background: "white", style: { padding: 0, marginTop: 0, marginBottom: 12 } }) +
       '<div style="' + U.sty({ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }) + '">' +
-        RETURN_REASONS.map(function (r) {
+        RETURN_REASONS.map(function (r, ri) {
           const on = S.returnReason === r.key;
+          const wide = ri === RETURN_REASONS.length - 1 && RETURN_REASONS.length % 2 === 1;
           // No .rd-chip here: QA's reason buttons centre their icon and label
           // and have no press-scale.
           return '<button type="button"' + U.act("return-reason", r.key) + ' style="' + U.sty({
-            padding: "11px 10px", borderRadius: 12,
+            padding: "11px 10px", borderRadius: 12, gridColumn: wide ? "1 / -1" : undefined,
             border: "2px solid " + (on ? U.BRAND : "#e5e7eb"),
             background: on ? "#e8f4f8" : "white",
             color: on ? U.BRAND : "#374151",
@@ -580,7 +599,8 @@
           }) + '"><span>' + r.icon + "</span><span>" + r.label + "</span></button>";
         }).join("") + "</div>" +
       (S.returnReason === "DAMAGED"
-        ? '<div style="' + U.sty({ display: "flex", gap: 6, marginBottom: 12 }) + '">' + DAMAGE.map(function (dm) {
+        ? '<div style="' + U.sty({ fontSize: 11, fontWeight: 700, color: "#9ca3af", marginBottom: 6 }) + '">Type of damage (optional)</div>' +
+          '<div style="' + U.sty({ display: "flex", gap: 6, marginBottom: 12 }) + '">' + DAMAGE.map(function (dm) {
             const on = S.returnDamage === dm.key;
             return '<button type="button"' + U.act("return-damage", dm.key) + ' style="' + U.sty({
               flex: 1, padding: "9px 6px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
@@ -588,12 +608,7 @@
             }) + '">' + dm.label + "</button>";
           }).join("") + "</div>"
         : "") +
-      // QA takes an optional note with the reason.
-      '<textarea data-model="return-note" rows="2" placeholder="Add a note about this return (optional)" style="' + U.sty({
-        width: "100%", padding: "10px 14px", borderRadius: 12, border: "1.5px solid #e5e7eb",
-        fontSize: 13, fontFamily: "inherit", color: "#111", background: "white", resize: "none",
-        outline: "none", boxSizing: "border-box", marginBottom: 12, transition: "border-color 0.15s",
-      }) + '">' + U.esc(S.returnNote || "") + "</textarea>" +
+
       '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
         '<button type="button"' + U.act("return-cancel") + ' style="' + U.sty({
           flex: 1, padding: "14px 16px", background: "white", border: "2px solid " + U.BRAND,
@@ -611,7 +626,8 @@
       "</div></div>";
 
     // Step 2: the same ConfirmPanel every other commit uses, in orange.
-    const reasonLabel = (RETURN_REASONS.filter(function (r) { return r.key === S.returnReason; })[0] || {}).label || "";
+    const damageLabel = S.returnReason === "DAMAGED" && S.returnDamage ? (DAMAGE.filter(function (d) { return d.key === S.returnDamage; })[0] || {}).label : "";
+    const reasonLabel = ((RETURN_REASONS.filter(function (r) { return r.key === S.returnReason; })[0] || {}).label || "") + (damageLabel ? " · " + damageLabel : "");
     const returnItems = products.filter(function (pr) { return (S.returnQtys[pr.productId] || 0) > 0; });
     const reasonIcon = (RETURN_REASONS.filter(function (r) { return r.key === S.returnReason; })[0] || {}).icon || "";
     const confirmPanel = U.ConfirmPanel({
@@ -635,6 +651,7 @@
           '<span style="' + U.sty({ fontSize: 18, lineHeight: 1 }) + '">' + reasonIcon + "</span>" +
           '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
             '<span style="' + U.sty({ fontSize: 13, fontWeight: 700, color: "#c2410c" }) + '">' + reasonLabel + "</span>" +
+            '<span style="' + U.sty({ display: "block", fontSize: 11, color: "#9a3412" }) + '">The office is told, and decides a credit, a replacement or a pickup</span>' +
           "</div>" +
           '<button type="button"' + U.act("return-confirm-cancel") + ' style="' + U.sty({
             background: "none", border: "none", padding: 0, cursor: "pointer",

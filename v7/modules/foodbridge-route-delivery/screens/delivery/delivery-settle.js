@@ -235,7 +235,7 @@
           // QA's exact copy on this panel.
           action: "Stock Count",
           amount: mismatches.length === 0 ? "All counts match" : mismatches.length + " discrepanc" + (mismatches.length !== 1 ? "ies" : "y"),
-          context: mismatches.length === 0 ? "Ready to submit" : "Review and explain before submitting",
+          context: mismatches.length === 0 ? "Ready to submit" : "Review and explain before submitting · the office is told",
           backLabel: "Edit Count", commitLabel: "Submit Count",
           disabled: noteMissing, commitAct: "count-commit", arg: p.routeId,
           // QA groups the textarea and its "Required" line in their own wrapper,
@@ -243,18 +243,14 @@
           // line sits 2px under the field.
           extra: mismatches.length > 0
             ? '<div style="' + U.sty({ display: "flex", flexDirection: "column", gap: 8 }) + '">' +
+              // The explanation leads — typed or spoken — and the lines it
+              // explains follow it.
+              U.NoteField({ model: "count-note", value: S.countNote, rows: 2, placeholder: "Type or speak why the count is off", typePlaceholder: "Explain the discrepancy…",
+                background: "#fffbeb", error: noteMissing ? "Required before confirming" : null, style: { padding: 0, marginTop: 0 } }) +
               '<div style="' + U.sty({ background: "#fff7ed", borderRadius: 10, border: "1px solid #fed7aa", padding: "10px 12px" }) + '">' +
                 mismatches.map(function (m) {
                   return '<div style="' + U.sty({ fontSize: 12, color: "#92400e", marginBottom: 2 }) + '">· <strong>' + U.esc(m.name) + ":</strong> expected " + m.expected + ", got " + m.actual + " (" + Math.abs(m.diff) + " " + (m.diff < 0 ? "missing" : "excess") + ")</div>";
                 }).join("") + "</div>" +
-              "<div>" +
-                '<textarea data-model="count-note" rows="2" placeholder="Explain the discrepancy…" style="' + U.sty({
-                  width: "100%", padding: "10px 12px", borderRadius: 10, fontSize: 13,
-                  border: "1.5px solid " + (noteMissing ? "#ef4444" : "#fbbf24"),
-                  background: "#fffbeb", color: "#111", outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "none",
-                }) + '">' + U.esc(S.countNote || "") + "</textarea>" +
-                (noteMissing ? '<div style="' + U.sty({ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: 2 }) + '">Required before confirming</div>' : "") +
-              "</div>" +
               "</div>"
             : "",
         })
