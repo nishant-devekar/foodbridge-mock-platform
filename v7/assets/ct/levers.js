@@ -217,7 +217,7 @@
     const ordersQuarter = c.st.orders.filter(function (o) { return o.source === "import" && c.asOf && dayOf(o.date) > dayOf(c.asOf) - 90 * DAY; }).length;
 
     /* A fact from the platform's screens makes it live too (24 Sep 2026). */
-    const facts = (c.rec.events || []).filter(function (e) { return /^(stop|return|dispute|problem|payment|count|credit)\./.test(e.type); });
+    const facts = (c.rec.events || []).filter(function (e) { return /^(stop|return|dispute|problem|payment|count|credit|loadstock|pod)\./.test(e.type); });
     if (!all.length && !c.pending.length && !facts.length) {
       return Object.assign(lever, {
         status: "preview",
@@ -260,7 +260,8 @@
       if (typeof set === "number") return set;
       return avg[id] ? Math.max(10000, Math.ceil(avg[id] * 3 / 1000) * 1000) : null;
     };
-    const X = IN.derive({ st: c.st, rec: c.rec, now: c.today, pending: c.pending, owed: owed, limit: limitOf });
+    const X = IN.derive({ st: c.st, rec: c.rec, now: c.today, pending: c.pending, owed: owed, limit: limitOf,
+      gstinById: c.st.gstinById || null, vanCapacity: c.st.vanCapacity || null });
     const stand = { ugly: "missed", bad: "pending", good: "delivered" };
     const tagOf = function (inc, fixed) {
       if (!inc) return null;

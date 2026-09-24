@@ -807,7 +807,12 @@
     return s;
   }
 
+  /* One van, one place: a stop finished out of turn (the driver tapped a
+     later one in the queue) leaves the current stop current. Only when
+     nothing is current does the next pending stop become it. */
   function advanceToNextStop(routeId) {
+    const cur = getStops(routeId).find(s => s.status === 'CURRENT');
+    if (cur) return cur;
     const next = getStops(routeId).find(s => s.status === 'PENDING');
     if (next) next.status = 'CURRENT';
     return next ?? null;

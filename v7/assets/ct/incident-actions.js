@@ -129,7 +129,7 @@
   /* ── what every commit carries ─────────────────────────────────────── */
   function ev(x, id, data, note, extra) {
     return Object.assign({ type: "action." + id, by: "You", where: "Control Tower", how: "owner", note: note,
-                           subject: { incident: x.inc.id, stopNo: x.subj ? x.subj.key : null, customerId: x.customerId || null, van: x.van || null }, data: data || {} }, extra || {});
+                           subject: { incident: x.inc.id, stopNo: x.subj ? x.subj.key : null, customerId: x.customerId || null, customer: x.name || null, van: x.van || null }, data: data || {} }, extra || {});
   }
   function wa(x, body, to) { return { customerId: to ? to.customerId : x.customerId, name: to ? to.title : x.name, channel: "whatsapp", kind: "incident", body: body }; }
   const orNull = function (v) { return v === undefined ? null : v; };

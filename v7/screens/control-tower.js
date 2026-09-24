@@ -152,7 +152,7 @@
     mountTop();
     mountFooter();
     skeleton();
-    window.FBContext.ready().then(init).catch(function (e) { fatal(e && e.message); });
+    window.FBContext.ready().then(init).catch(function (e) { if (window.console) console.error("Control Tower:", e); fatal(e && e.message); });
   }
   function init() {
     const store = window.CTStore.create(storage());
@@ -365,7 +365,10 @@
   const LANDS = { good: "good", bad: "bad", ugly: "ugly" };
   function selectedTile(lv) {
     const t = lv.tiles, pick = ui.tile[lv.id], land = LANDS[lv.status];
-    if (pick && t[pick] && t[pick].count) return pick;
+    /* A tile with rows opens even at 0: a van's fixed problem is listed
+       under On track, though the tile counts deliveries. */
+    const has = function (k) { return t[k] && (t[k].count || (t[k].rows && t[k].rows.length)); };
+    if (pick && has(pick)) return pick;
     if (land && t[land].count) return land;
     return t.ugly.count ? "ugly" : t.bad.count ? "bad" : "good";
   }
@@ -399,7 +402,7 @@
   function tiles(lv, sel) {
     return '<div class="ct-tiles" role="tablist" aria-label="On track, needs work, urgent">' + ["good", "bad", "ugly"].map(function (k) {
       const t = lv.tiles[k];
-      const off = !t.count;
+      const off = !t.count && !(t.rows && t.rows.length);
       /* A tile is a button: it opens its list below (the chevron says so). */
       return '<button class="ct-tile" role="tab" data-k="' + k + '" data-tile="' + k + '" aria-selected="' + (k === sel) + '"' + (off ? " disabled" : "") + ">" +
         '<span class="ct-tile-l">' + t.label + (off ? "" : '<span class="ct-tile-go">' + I.chev + "</span>") + "</span>" +
@@ -952,6 +955,7 @@
   /* Today's stops show the time; anything older says its day too. */
   function whenOf(at) {
     const d = new Date(at);
+    if (!at || isNaN(d.getTime())) return "";              // a van-level fact with no time of its own
     const clock = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }).toLowerCase();
     const today = new Date(view.state.now);
     return d.toDateString() === today.toDateString() ? clock : L.date(d.toISOString()) + ", " + clock;
@@ -1250,7 +1254,7 @@
       if (!o || !o.has) return "";
       return '<section class="ct-dm-order"><div class="ct-dm-ocard" data-a="order" role="button" tabindex="0" aria-label="Order details, view the whole order">' +
           "<h4>Order details</h4><dl>" +
-            row("Order No.", o.dl.orderNo && !/^(ext|cust|count):/.test(o.dl.orderNo) ? esc(o.dl.orderNo) : "") +
+            row("Order No.", o.dl.orderNo && !/^(ext|cust|count|load|dispatchdoc):/.test(o.dl.orderNo) ? esc(o.dl.orderNo) : "") +
             row("Order value", o.worth ? esc(L.rupees(o.worth)) : "", "is-num") +
             row("Items", o.ord.lines.length ? esc(L.plural(o.ord.lines.length, "item")) + ' <span class="ct-dm-view">(View)</span>' : '<span class="ct-dm-muted">Not recorded</span>') +
             row("Delivery address", o.address ? esc(o.address) : "", "is-clip") +
@@ -1261,7 +1265,7 @@
       const dl = o.dl;
       const facts = [o.worth ? [L.rupees(o.worth), "Order value"] : null, o.ord.cases ? [String(o.ord.cases), o.ord.cases === 1 ? "Case" : "Cases"] : null,
         o.units ? [String(o.units), o.units === 1 ? "Unit" : "Units"] : null].filter(Boolean);
-      return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo && !/^(ext|cust|count):/.test(dl.orderNo) ? dl.orderNo : "Order") + "</h3>" +
+      return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo && !/^(ext|cust|count|load|dispatchdoc):/.test(dl.orderNo) ? dl.orderNo : "Order") + "</h3>" +
           '<p class="ct-dm-sub">' + esc(name()) + "</p></section>" +
         (facts.length ? '<div class="ct-dm-facts">' + facts.map(function (f) { return "<div><b>" + esc(f[0]) + "</b><span>" + esc(f[1]) + "</span></div>"; }).join("") + "</div>" : "") +
         '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (dl.status === "delivered" ? "Delivered" : "Due") + "</small>" +

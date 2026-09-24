@@ -28,7 +28,10 @@
       return window.FB_EVENTS.emit(type, Object.assign({
         by: route && route.driver ? String(route.driver.name || "").split(" ")[0] : null,
         where: where || "Delivery app",
-        subject: Object.assign({ customer: stop ? stop.customerName : null, van: route ? route.name : null }, subject || {}),
+        /* rdStop / rdRoute: which stop of this app the fact is about, so the
+           office's answer finds its way back to it (delivery-office.js). */
+        subject: Object.assign({ customer: stop ? stop.customerName : null, van: route ? route.name : null,
+          rdStop: stop && stop.id ? stop.id : null, rdRoute: (window.RD && window.RD.state && window.RD.state.routeId) || null }, subject || {}),
         data: data || {},
       }, note ? { note: note } : {}));
     } catch (e) { return null; }
@@ -61,6 +64,11 @@
     { key: "puncture", icon: "🛞", label: "Puncture" },
     { key: "accident", icon: "🚨", label: "Accident" },
     { key: "fridge", icon: "❄️", label: "Fridge not cooling" },
+    /* 24 Sep 2026: the Route family, off the same screen. Not in the
+       upstream app. */
+    { key: "temperature", icon: "🌡️", label: "Temperature / cold chain" },
+    { key: "traffic", icon: "🚦", label: "Traffic jam" },
+    { key: "road", icon: "⛔", label: "Road closed" },
   ];
   window.RD.screen("problem", function (p) {
     const route = routeOf(p.routeId);
@@ -94,6 +102,10 @@
     { key: "scheme", icon: "🏷️", label: "Disputes the scheme" },
     { key: "quality", icon: "⚠️", label: "Quality complaint" },
     { key: "pod", icon: "📦", label: "Says it never came" },
+    /* 24 Sep 2026: the Location family, off the same screen. Not in the
+       upstream app. */
+    { key: "parking", icon: "🅿️", label: "No parking or loading access" },
+    { key: "hours", icon: "🕐", label: "Only delivers in certain hours" },
   ];
   window.RD.screen("issue", function (p) {
     const stop = stopOf(p.routeId, p.stopId);
@@ -102,12 +114,22 @@
     return U.MobileHeader({ title: "What's wrong here?", backLabel: stop.customerName, backAct: "back" }) +
       '<div class="rd-body" style="background:' + U.BG + '">' + U.Spacer() +
         U.SectionHeader("The customer…") + chipGrid(ISSUES, S.issueKind, "issue-kind") +
+        /* A price or scheme dispute is about an amount: the office approves
+           or refuses that, not the whole order. */
+        (S.issueKind === "price" || S.issueKind === "scheme"
+          ? '<div style="' + U.sty({ padding: "0 12px", marginTop: 10 }) + '">' +
+              '<label style="' + U.sty({ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6, display: "block" }) + '">How much do they dispute? (₹)</label>' +
+              '<input data-model="issue-gap" inputmode="numeric" value="' + U.esc(S.issueGap || "") + '" placeholder="e.g. 120" style="' + U.sty({
+                width: "100%", padding: "14px 16px", border: "2px solid #e5e7eb", borderRadius: 14, fontSize: 15, fontWeight: 600,
+                color: "#111", background: "#fafafa", outline: "none", boxSizing: "border-box", fontFamily: "inherit" }) + '" /></div>'
+          : "") +
         noteBox("issue-note", S.issueNote, "What did they say?") + U.Spacer() +
       "</div>" +
       U.ActionBar(U.BtnXL({ variant: S.issueKind ? "brand" : "grey", label: "Tell the office", disabled: !S.issueKind, actName: "issue-send", arg: p.stopId }));
   });
   window.RD.action("issue-kind", function (k) { window.RD.state.scratch.issueKind = k; window.RD.render(); });
   window.RD.action("model:issue-note", function (v) { window.RD.state.scratch.issueNote = v; });
+  window.RD.action("model:issue-gap", function (v) { window.RD.state.scratch.issueGap = String(v).replace(/\D/g, ""); });
   window.RD.action("issue-send", function (stopId) {
     const S = window.RD.state.scratch;
     if (!S.issueKind) return;
@@ -115,9 +137,13 @@
     window.RD.commit(function () {
       const stop = stopOf(routeId, stopId) || {};
       const it = ISSUES.filter(function (x) { return x.key === S.issueKind; })[0];
+      const det = D.resolveStopDetail(routeId, stopId) || {};
+      const lineSum = (det.orderItems || []).reduce(function (a, x) { return a + x.qty * (x.unitPrice || 0); }, 0);
+      const gap = (S.issueKind === "price" || S.issueKind === "scheme") && Number(S.issueGap) > 0 ? Number(S.issueGap) : null;
       window.RD_EMIT("dispute.raised", routeOf(routeId), stop, { kind: S.issueKind, why: (S.issueNote || "").trim() || it.label.toLowerCase(),
-        value: Number(stop.todayOrderAmount) || null }, "Delivery app · What's wrong here?");
-      S.issueKind = null; S.issueNote = "";
+        value: Math.round(lineSum) || Number(stop.todayOrderAmount) || null, gap: gap,
+        billed: gap ? Math.round(lineSum) : null, paid: gap ? Math.round(lineSum - gap) : null }, "Delivery app · What's wrong here?");
+      S.issueKind = null; S.issueNote = ""; S.issueGap = "";
       window.RD.toast("Sent to the office.");
       window.RD.back();
     });

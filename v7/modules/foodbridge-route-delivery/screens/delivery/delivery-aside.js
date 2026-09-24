@@ -520,6 +520,11 @@
     { key: "EXPIRED",       icon: "⏰", label: "Expired" },
     { key: "UNSOLD",        icon: "📦", label: "Unsold" },
     { key: "WRONG_PRODUCT", icon: "❌", label: "Wrong Product" },
+    /* 24 Sep 2026: three more the tower's incident engine needs a way to
+       capture. Not in the upstream app. */
+    { key: "SUBSTITUTE",    icon: "🔁", label: "Substitute Rejected" },
+    { key: "WRONG_BATCH",   icon: "🏷️", label: "Wrong Batch" },
+    { key: "NEAR_EXPIRY",   icon: "📅", label: "Near Expiry" },
   ];
   /* What kind of damage (24 Sep 2026): one more tap, so the office knows
      whether to replace it, credit it or claim it from the supplier. */
@@ -728,7 +733,10 @@
       if (window.RD_EMIT) window.RD_EMIT("return.recorded", D.db.routeDetails[routeId], fromStop, {
         reason: S.returnReason || "DAMAGED", detail: S.returnReason === "DAMAGED" ? S.returnDamage || null : null,
         items: items.map(function (it) { const pr = products.find(function (x) { return x.productId === it.productId; }); return { name: pr ? pr.name : it.productId, qty: it.qty }; }),
-        value: Math.round(items.reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0)), note: S.returnNote || null }, "Delivery app · Product return");
+        value: Math.round(items.reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0)), note: S.returnNote || null,
+        // A pickup with nothing booked today isn't a delivery to hold it
+        // against — the tower tags it under the Returns family instead.
+        standalone: !!(fromDetail && !(fromDetail.orderItems || []).length) }, "Delivery app · Product return");
       S.returnDamage = null;
       // A customer who had nothing booked is now a return-only stop, exactly as
       // QA's node types resolve it (RETURN_DISPATCH and nothing else).

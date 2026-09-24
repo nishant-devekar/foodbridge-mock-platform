@@ -165,6 +165,10 @@
       });
       S.stockProducts = products.map(function (p) { return { productId: p.productId, name: p.name, price: p.unitPrice, planQty: p.planQty || 0 }; });
       S.stockQtys = products.map(function (p) { return p.loadedQty || 0; });
+      // What today's proxy orders actually called for, snapshotted before the
+      // driver can edit it — what the office wants to know is what changed
+      // from the plan, not from an empty screen.
+      S.stockPlanQtys = S.stockQtys.slice();
     }
     return S;
   }
@@ -210,6 +214,7 @@
         '<div style="' + U.sty({ fontSize: 11, color: "#888", fontWeight: 600, marginTop: 2 }) + '">Est. Value</div></div></div>';
 
     const confirming = !!S.stockConfirming;
+    if (S.docsReady === undefined) S.docsReady = true;
     const loadedItems = (S.stockProducts || []).map(function (prod, i) {
       return { name: prod.name, qty: Number(S.stockQtys[i]) || 0, orderingUnit: prod.orderingUnit || "" };
     }).filter(function (it) { return it.qty > 0; });
@@ -233,7 +238,13 @@
                 }) + '">' +
                   '<span style="' + U.sty({ fontSize: 13, color: "#374151", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }) + '">' + U.esc(it.name) + "</span>" +
                   '<span style="' + U.sty({ fontSize: 12, fontWeight: 700, color: "#374151", flexShrink: 0 }) + '">× ' + it.qty + (it.orderingUnit ? " " + U.esc(it.orderingUnit) : "") + "</span></div>";
-              }).join("") + "</div>",
+              }).join("") + "</div>" +
+              '<label style="' + U.sty({ display: "flex", alignItems: "center", gap: 8, marginTop: 10, cursor: "pointer" }) + '">' +
+                '<input type="checkbox" data-model="docs-ready"' + (S.docsReady ? " checked" : "") + ' />' +
+                '<span style="' + U.sty({ fontSize: 13, color: "#374151", fontWeight: 600 }) + '">Dispatch papers ready for this load</span></label>' +
+              '<label style="' + U.sty({ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer" }) + '">' +
+                '<input type="checkbox" data-model="batch-off"' + (S.batchOff ? " checked" : "") + ' />' +
+                '<span style="' + U.sty({ fontSize: 13, color: "#374151", fontWeight: 600 }) + '">A batch loaded isn\'t the one ordered</span></label>',
           })
         : U.BtnXL({
             variant: "brand",
@@ -278,6 +289,8 @@
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   });
   window.RD.action("stock-confirm", function () { window.RD.state.scratch.stockConfirming = true; window.RD.render(); });
+  window.RD.action("model:docs-ready", function (_v, el) { window.RD.state.scratch.docsReady = !!(el && el.checked); window.RD.render(); });
+  window.RD.action("model:batch-off", function (_v, el) { window.RD.state.scratch.batchOff = !!(el && el.checked); window.RD.render(); });
   window.RD.action("confirm-cancel", function () {
     const S = window.RD.state.scratch;
     S.stockConfirming = false; S.cashConfirming = false; S.payConfirming = false;
@@ -292,7 +305,20 @@
         return { productId: prod.productId, name: prod.name, unitPrice: prod.price, loadedQty: Number(S.stockQtys[i]) || 0 };
       }).filter(function (it) { return it.loadedQty > 0; });
       SDK.routeDelivery.confirmStockLoad({ routeId: routeId, products: items });
-      S.stockConfirming = false;
+      // The office hears what didn't match the plan, and whether the
+      // dispatch papers are ready — the same fact Report a problem writes,
+      // just from Load Stock instead of the road (24 Sep 2026).
+      const plan = S.stockPlanQtys || [];
+      const mismatches = S.stockProducts.map(function (prod, i) {
+        const loaded = Number(S.stockQtys[i]) || 0, planned = Number(plan[i]) || 0;
+        if (!planned || loaded === planned) return null;
+        return { productId: prod.productId, name: prod.name, plan: planned, loaded: loaded, reason: loaded < planned ? "stock" : "wrong" };
+      }).filter(Boolean);
+      if (S.batchOff) mismatches.push({ productId: null, name: "Batch on the van", plan: 0, loaded: 0, reason: "batch" });
+      if (window.RD_EMIT && (mismatches.length || !S.docsReady)) {
+        window.RD_EMIT("loadstock.checked", D.db.routeDetails[routeId], null, { mismatches: mismatches, dispatchDocsReady: !!S.docsReady }, "Delivery app · Load stock");
+      }
+      S.stockConfirming = false; S.docsReady = true; S.batchOff = false;
       window.RD.go("/opening-cash/" + routeId);
     });
   });

@@ -169,12 +169,28 @@
     "order dispute": "order-dispute", "credit limit": "credit-limit",
   };
   const RETURN = { damaged: "damaged-goods", expired: "expired-product", unsold: "saleable-return", wrong_product: "wrong-sku", "wrong product": "wrong-sku",
-                   leaking: "leaking", wet: "wet-carton", "wet carton": "wet-carton", broken: "broken-pack", "broken pack": "broken-pack" };
+                   leaking: "leaking", wet: "wet-carton", "wet carton": "wet-carton", broken: "broken-pack", "broken pack": "broken-pack",
+                   /* 24 Sep 2026: three more the Product Return screen now offers directly. */
+                   substitute: "substitute-rejected", wrong_batch: "wrong-batch", "wrong batch": "wrong-batch", near_expiry: "near-expiry", "near expiry": "near-expiry" };
+  /* The same fact, returned after an earlier delivery rather than at today's
+     drop, is the Returns-family row instead of the Product-family one — the
+     goods are the same, but nothing is being delivered today to hold it to
+     (owner, 24 Sep 2026). */
+  const RETURN_STANDALONE = { "damaged-goods": "damaged-return", "expired-product": "expiry-return", "wrong-sku": "wrong-product-return" };
   /* The tags records carried before the catalogue (23 Sep 2026). */
   const ALIAS = { missed: "customer-unavailable", late: "window-missed", short: "short-quantity", returned: "saleable-return", damaged: "damaged-goods", crates: "crates" };
   const typeOf = function (t) { return CATALOG[t] ? t : ALIAS[t] || null; };
-  const DISPUTE = { order: "order-dispute", price: "price-dispute", scheme: "scheme-dispute", quality: "quality-complaint", pod: "pod-disputed" };
-  const PROBLEM = { breakdown: "breakdown", accident: "accident", puncture: "puncture", fridge: "fridge" };
+  const DISPUTE = { order: "order-dispute", price: "price-dispute", scheme: "scheme-dispute", quality: "quality-complaint", pod: "pod-disputed",
+                    /* 24 Sep 2026: "What's wrong here?" grew two Location reasons. */
+                    parking: "no-parking", hours: "access-restriction" };
+  const PROBLEM = { breakdown: "breakdown", accident: "accident", puncture: "puncture", fridge: "fridge",
+                    /* 24 Sep 2026: Report a problem grew a cold-chain and two road reasons. */
+                    temperature: "temperature", traffic: "traffic-delay", road: "road-closure" };
+  const LOAD_ISSUE = { stock: "stock-not-loaded", wrong: "wrong-loading", batch: "wrong-batch-loaded" };
+  /* Under-loaded splits on its own: none of it on the van at all is the
+     warehouse never had it (Missing stock); some of it, less than planned,
+     is the van left without the rest (Stock not loaded) — 24 Sep 2026. */
+  const loadIssueType = function (m) { return m.reason === "stock" ? (Number(m.loaded) > 0 ? "stock-not-loaded" : "missing-stock") : LOAD_ISSUE[m.reason] || "wrong-loading"; };
 
   /* ── small words ─────────────────────────────────────────────────────── */
   function rupees(n) {
@@ -382,14 +398,21 @@
       } else if (t === "return.recorded") {
         const s = subjectOf(ev); if (!s) return;
         if (s.status !== "missed") s.status = "delivered";
-        const type = RETURN[norm(data.detail)] || RETURN[norm(data.reason)] || "saleable-return";
+        let type = RETURN[norm(data.detail)] || RETURN[norm(data.reason)] || "saleable-return";
+        /* Goods back with nothing delivered today (a standalone pickup, not
+           today's drop) are the Returns-family row instead — the same fact,
+           but there's no delivery here to hold it against (24 Sep 2026). */
+        if (data.standalone && RETURN_STANDALONE[type]) type = RETURN_STANDALONE[type];
         const units = (data.items || []).reduce(function (n, x) { return n + (Number(x.qty) || 0); }, 0);
         open("ev:" + ev.id, type, s, Object.assign(base, { capturedText: (ev.by ? ev.by + " took back " : "Took back ") + plural(units || 1, "unit") + " · " + String(data.detail || data.reason || "").toLowerCase().replace(/_/g, " "),
           facts: { items: data.items || [], reason: data.reason, detail: data.detail || null }, impact: { rupees: Number(data.value) || 0, cases: 0, stops: 1, minutes: 0 } }));
       } else if (t === "stop.itemsEdited") {
         const s = subjectOf(ev); if (!s) return;
         const less = Number(data.delivered) < Number(data.booked);
-        open("ev:" + ev.id, less ? "partial-acceptance" : "order-changed", s, Object.assign(base, {
+        /* 24 Sep 2026: the driver now says why it's less — the shop took
+           less (Part accepted) or the van didn't have enough (Short). */
+        const type = data.why === "short" || data.why === "stock" ? "short-quantity" : less ? "partial-acceptance" : "order-changed";
+        open("ev:" + ev.id, type, s, Object.assign(base, {
           capturedText: (ev.by || "The driver") + " changed the order at the door: " + rupees(data.booked) + " → " + rupees(data.delivered),
           facts: data, impact: { rupees: Math.abs(Number(data.booked) - Number(data.delivered)) || 0, cases: 0, stops: 1, minutes: 0 } }));
       } else if (t === "dispute.raised") {
@@ -405,13 +428,47 @@
           facts: data, impact: { rupees: Number(data.gap) || 0, cases: 0, stops: 1, minutes: 0 } }));
       } else if (t === "payment.failed") {
         const s = subjectOf(ev); if (!s) return;
-        open("ev:" + ev.id, "upi-failed", s, Object.assign(base, { capturedText: "UPI didn't go through at the door", facts: data,
+        /* 24 Sep 2026: not just UPI — cash not ready, and a cheque disputed,
+           each land under their own tag now. */
+        const type = data.method === "CASH" ? "cash-unavailable" : data.method === "CHEQUE" ? "cheque-dispute" : "upi-failed";
+        const said = { CASH: "No cash ready at the door", CHEQUE: "The cheque is disputed" }[data.method] || "UPI didn't go through at the door";
+        open("ev:" + ev.id, type, s, Object.assign(base, { capturedText: said, facts: data,
           impact: { rupees: Number(data.amount) || 0, cases: 0, stops: 1, minutes: 0 } }));
+      } else if (t === "pod.captured") {
+        const s = subjectOf(ev); if (s) s.podCaptured = true;
+      } else if (t === "stop.delivered") {
+        /* 24 Sep 2026: the fact a real drop closes on — nothing else in the
+           driver app ever said a delivery actually happened. Without this,
+           no incident whose proof is "delivered" can ever resolve. */
+        const s = subjectOf(ev); if (!s) return;
+        const rec = { at: at, driver: ev.by || null, status: "delivered", value: Number(data.value) || Number(s.value) || 0,
+          collected: Number(data.collected) || 0, nextOrder: !!data.nextOrder, empties: data.empties || null, orderNo: s.orderNo || null, fromEvent: true };
+        s.records.push(rec); s.last = rec; s.status = "delivered"; s.at = at;
+        const e = rec.empties || {};
+        const cratesOut = Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0));
+        if (cratesOut) open("crates:ev:" + ev.id, "crates", s, Object.assign({}, base, { capturedText: plural(cratesOut, "crate") + " not back",
+          facts: { crates: cratesOut }, impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } }));
+      } else if (t === "loadstock.checked") {
+        /* 24 Sep 2026: Load Stock now says what didn't match the plan, and
+           whether the dispatch papers are ready — a van-level fact, like a
+           problem on the road. */
+        const van = (ev.subject || {}).van || "Van";
+        (data.mismatches || []).forEach(function (m, i) {
+          const type = loadIssueType(m);
+          const s = subject("load:" + van + ":" + dayIso(at) + ":" + i, { kind: "count", title: van + " load check", van: van, driver: ev.by || null, status: "delivered", at: at });
+          open("ev:" + ev.id + ":" + i, type, s, Object.assign({}, base, {
+            capturedText: m.reason === "batch" ? "A batch on the van isn't the one ordered" : m.name + ": loaded " + m.loaded + " of " + m.plan + " planned",
+            facts: m, impact: { rupees: 0, cases: Math.max(0, (Number(m.plan) || 0) - (Number(m.loaded) || 0)), stops: 0, minutes: 0 } }));
+        });
+        if (data.dispatchDocsReady === false) {
+          const ds = subject("dispatchdoc:" + van + ":" + dayIso(at), { kind: "count", title: van + " dispatch papers", van: van, driver: ev.by || null, status: "delivered", at: at });
+          open("ev:" + ev.id + ":doc", "dispatch-doc-missing", ds, Object.assign({}, base, { capturedText: "Dispatch papers not ready when " + van + " left the dock" }));
+        }
       } else if (t === "count.submitted") {
         const van = (ev.subject || {}).van || "Van";
         (data.mismatches || []).forEach(function (m, i) {
           const key = "count:" + van + ":" + dayIso(new Date(at).getTime());
-          const s = subject(key, { kind: "count", title: van + " stock count", van: van, driver: ev.by || null, status: "delivered", counted: true });
+          const s = subject(key, { kind: "count", title: van + " stock count", van: van, driver: ev.by || null, status: "delivered", counted: true, at: at });
           const excess = Number(m.diff) > 0;
           open("ev:" + ev.id + ":" + i, excess ? "excess-quantity" : "missing-item", s, Object.assign({}, base, {
             capturedText: "Counted " + m.actual + " " + m.name + ", expected " + m.expected + (data.note ? " · " + data.note : ""),
@@ -440,6 +497,81 @@
         impact: { rupees: Number(s.value) || 0, cases: 0, stops: 1, minutes: 0 } });
     });
 
+    /* GST: a customer's saved GSTIN that doesn't parse, with a stop due today. */
+    if (input.gstinById) subjects.forEach(function (s) {
+      if (s.status !== "pending" || !s.customerId || !s.onRoute) return;
+      const gstin = input.gstinById[s.customerId];
+      if (!gstin || /^[0-9A-Z]{15}$/i.test(gstin)) return;
+      open("gst:" + s.key, "gst-mismatch", s, { at: new Date(now).toISOString(), how: "system", where: "FoodBridge",
+        capturedText: "GSTIN on file doesn't parse: " + gstin, facts: { gstin: gstin }, impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } });
+    });
+
+    /* Capacity: a van booked past the cases it can carry. */
+    if (input.vanCapacity && route) {
+      const byVan = {};
+      route.stops.forEach(function (s) { if (s.van) (byVan[s.van] = byVan[s.van] || []).push(s); });
+      Object.keys(byVan).forEach(function (van) {
+        const cap = input.vanCapacity[van];
+        if (!cap) return;
+        const cases = byVan[van].reduce(function (n, s) { return n + (Number(s.cases) || 0); }, 0);
+        if (cases <= cap) return;
+        const cs = subject("capacity:" + van + ":" + today, { kind: "count", title: van + " load", van: van, status: "delivered" });
+        open("cap:" + van + ":" + today, "insufficient-capacity", cs, { at: new Date(Math.min(now, endOf(today) - 3 * HOUR)).toISOString(), how: "system", where: "FoodBridge",
+          capturedText: van + " is booked for " + cases + " cases, " + (cases - cap) + " over its capacity of " + cap,
+          facts: { cases: cases, capacity: cap }, impact: { rupees: 0, cases: cases - cap, stops: byVan[van].length, minutes: 0 } });
+      });
+    }
+
+    /* The detectors below read what the delivery app recorded (a drop, an
+       edit, a photo), so they run here — before what was done is applied,
+       or an owner's action on them would find no incident to land on. */
+
+    /* POD missing: delivered through the app's own "stop.delivered" fact
+       (not an import or a demo record, which never modelled proof at all),
+       with no photo or signature on it. Proof can be added any time until
+       the route settles; only a route that has ended without it is missing
+       it (spec §7: "The route is settled without it"). */
+    subjects.forEach(function (s) {
+      if (s.status !== "delivered" || !s.last || !s.last.fromEvent || s.podCaptured || s.cancelled) return;
+      if (now < endOf(dayIso(new Date(s.last.at).getTime()))) return;
+      open("pod:" + s.key, "pod-missing", s, { at: new Date(endOf(dayIso(new Date(s.last.at).getTime()))).toISOString(), how: "system", where: "Delivery app",
+        capturedText: "Delivered with no photo or signature on file", facts: {}, impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } });
+    });
+
+    /* Route deviation: a stop delivered well out of its planned order on the
+       van's round — 3 places or more either way. */
+    if (route) {
+      const plannedIx = {};
+      route.stops.forEach(function (s, i) { plannedIx[s.no] = i; });
+      const byVanDev = {};
+      subjects.forEach(function (s) {
+        if (s.status !== "delivered" || !s.last || !s.last.fromEvent || !s.van || plannedIx[s.key] === undefined) return;
+        (byVanDev[s.van] = byVanDev[s.van] || []).push(s);
+      });
+      Object.keys(byVanDev).forEach(function (van) {
+        byVanDev[van].sort(function (a, b) { return a.at < b.at ? -1 : 1; }).forEach(function (s, actualIx) {
+          if (Math.abs(actualIx - plannedIx[s.key]) < 3) return;
+          open("dev:" + s.key, "route-deviation", s, { at: s.at, how: "system", where: "Live Tracking",
+            capturedText: van + " reached " + s.title + " well out of the planned order", facts: { planned: plannedIx[s.key], actual: actualIx },
+            impact: { rupees: 0, cases: 0, stops: 1, minutes: 0 } });
+        });
+      });
+    }
+
+    /* Invoice mismatch: the order was changed at the door (the app's Edit
+       Order) and then delivered at the changed amount — the bill made from
+       the booking no longer matches what was delivered. Closed by Fix the
+       order, which re-issues it. */
+    subjects.forEach(function (s) {
+      if (s.status !== "delivered" || !s.last || !s.last.fromEvent) return;
+      const edit = s.incidents.filter(function (i) { return i.event && i.event.type === "stop.itemsEdited" && i.at < s.last.at; }).slice(-1)[0];
+      if (!edit) return;
+      const f = edit.facts || {};
+      open("inv:" + edit.id, "invoice-mismatch", s, { at: s.last.at, how: "system", where: "FoodBridge",
+        capturedText: "Billed " + rupees(f.booked) + " at booking, delivered " + rupees(f.delivered) + " after the edit at the door",
+        facts: { booked: f.booked, delivered: f.delivered }, impact: { rupees: Math.abs((Number(f.booked) || 0) - (Number(f.delivered) || 0)), cases: 0, stops: 1, minutes: 0 } });
+    });
+
     /* ── what was done, by the owner or on the ground ─────────────────── */
     const moved = {};
     events.forEach(function (ev) {
@@ -462,6 +594,9 @@
       if (id === "cancel") { const cs = byKey[inc.subject]; if (cs) cs.cancelled = true; }
       if (a.proof === "now" || (id === "adjust") || (id === "collectLater")) return resolve(inc, at, ev.resolved || note);
       if (id === "fixCustomer") { if (ev.resolved) resolve(inc, at, ev.resolved); return; }   // the next action does the rest
+      /* The goods are already with the shop: fixing the order re-issues the
+         bill, and that is the fix. */
+      if (id === "fixOrder" && inc.type === "invoice-mismatch") return resolve(inc, at, "Bill re-issued · " + note);
       inc.state = "acting";
       inc.acting = { id: id, at: at, note: note, data: data, by: ev.by || null };
       inc.due = data.due ? new Date(data.due).getTime() : null;
@@ -575,6 +710,13 @@
         }
         /* Credit limit settles when the drop happens with the money in. */
         if (inc.type === "credit-limit" && s && s.status === "delivered") resolve(inc, s.at, "Delivered " + clock(new Date(s.at).getTime()));
+        return;
+      }
+      /* A problem found in the van's load (Load Stock, the stock count) has
+         no delivery of its own to wait for: the van settling is its proof. */
+      if (s && s.kind === "count" && (a.proof === "delivered" || a.proof === "delivered-later")) {
+        const end = endOf(dayIso(new Date(inc.acting.at).getTime()));
+        if (now >= end) resolve(inc, new Date(end).toISOString(), "Settled at the end of the route · " + inc.acting.note);
         return;
       }
       if (a.proof === "delivered" || a.proof === "delivered-later") {
