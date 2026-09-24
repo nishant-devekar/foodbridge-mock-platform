@@ -192,10 +192,12 @@
             position: "absolute", zIndex: 100, top: 39, right: 0, width: 220,
             padding: "7px 0", background: "white", borderRadius: 14,
             boxShadow: "0 10px 28px rgba(15,23,42,0.18)", border: "1px solid #eef0f2", overflow: "hidden",
-          }) + '">' + item("↻", "Restock", "queue-restock") + item("₹", "Return & Settle", "queue-settle") + "</div>"
+          }) + '">' + item("↻", "Restock", "queue-restock") + item("₹", "Return & Settle", "queue-settle") + item("⚠", "Report a problem", "queue-problem") + "</div>"
         : "") +
       "</div>";
   }
+
+  window.RD.action("queue-problem", function (routeId) { window.RD.state.scratch.queueMenu = false; window.RD.go("/problem/" + routeId); });
 
   window.RD.screen("queue", function (p) {
     const route = routeOr404(p.routeId);
@@ -496,6 +498,7 @@
             act: "goto-outstanding", arg: stop.id }] },
           { label: "Returns",   actions: [{ icon: "📦", label: "Product Return", act: "goto-returns", arg: p.routeId }] },
           { label: "Assets",    actions: [{ icon: "🗂️", label: "Manage Assets", act: "goto-assets", arg: stop.customerId }] },
+          { label: "Tell the office", actions: [{ icon: "⚠️", label: "Something wrong here?", act: "goto-issue", arg: stop.id }] },
         ],
       });
   }
@@ -670,7 +673,9 @@
         '<div style="' + U.sty({ display: "flex", gap: 10 }) + '">' +
           U.BtnSm({ variant: editing ? "brand" : "green", label: editing ? "✓ Done Editing" : "✏️ Edit Order", actName: "toggle-edit" }) +
           (editing ? "" : U.BtnSm({ variant: "red", label: "Skip Stop →", actName: "goto-skip", arg: p.stopId })) +
-        "</div>";
+        "</div>" +
+        (editing ? "" : '<button type="button"' + U.act("goto-issue", p.stopId) + ' style="' + U.sty({ display: "block", width: "100%", marginTop: 8, padding: "10px", background: "none", border: "none",
+          color: "#b45309", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">⚠ Something wrong here?</button>');
 
     return U.ProgressBar({ collected: U.inr(collectedFor(p.routeId)), backLabel: "Delivery Stops", backAct: "back" }) +
       '<div class="rd-body" style="background:' + U.BG + '">' +
@@ -695,6 +700,13 @@
     window.RD.commit(function () {
       // Persist through the service so the change survives navigation, exactly
       // as saveOrderEdits does upstream.
+      const beforeDet = D.resolveStopDetail(window.RD.state.routeId, window.RD.state.stopId) || {};
+      const booked = (beforeDet.orderItems || []).reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0);
+      const delivered = (S.items || []).reduce(function (a, it) { return a + (it.qty > 0 ? it.qty * (it.unitPrice || 0) : 0); }, 0);
+      if (window.RD_EMIT && Math.round(booked) !== Math.round(delivered)) {
+        window.RD_EMIT("stop.itemsEdited", D.db.routeDetails[window.RD.state.routeId], D.getStops(window.RD.state.routeId).filter(function (x) { return x.id === window.RD.state.stopId; })[0],
+          { booked: Math.round(booked), delivered: Math.round(delivered) }, "Delivery app · Edit order");
+      }
       SDK.routeDelivery.updateStopItems({
         routeId: window.RD.state.routeId, stopId: window.RD.state.stopId,
         items: (S.items || []).filter(function (i) { return i.qty > 0; }),
@@ -804,7 +816,9 @@
           flex: 1, padding: "10px 8px", textAlign: "center", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer",
           border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white", color: on ? U.BRAND : "#555",
         }) + '">' + m.label + "</button>";
-      }).join("") + "</div>";
+      }).join("") + "</div>" +
+      (method === "UPI" ? '<button type="button"' + U.act("pay-upi-failed", p.stopId) + ' style="' + U.sty({ display: "block", margin: "6px 16px 0", padding: 0, background: "none", border: "none",
+        color: "#b45309", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }) + '">UPI didn\'t go through?</button>' : "");
 
     const presetRow = '<div style="' + U.sty({ display: "flex", gap: 8, padding: "6px 16px 6px", overflowX: "auto", flexShrink: 0 }) + '">' +
       presets.map(function (q) {
@@ -881,6 +895,14 @@
     const S = window.RD.state.scratch;
     S.payAmount = String(q); S.payPrefilled = false; window.RD.render();
   });
+  window.RD.action("pay-upi-failed", function (stopId) {
+    const S = window.RD.state.scratch, routeId = window.RD.state.routeId;
+    const st = D.getStops(routeId).filter(function (x) { return x.id === stopId; })[0] || {};
+    if (window.RD_EMIT) window.RD_EMIT("payment.failed", D.db.routeDetails[routeId], st, { amount: Number(S.payAmount) || null, method: "UPI" }, "Delivery app · Collect payment");
+    S.payMethod = "CASH"; S.payConfirming = false;
+    window.RD.toast("The office knows. Take cash, or leave it on credit.");
+  });
+  window.RD.action("goto-issue", function (stopId) { window.RD.state.scratch.stopActions = false; window.RD.go("/issue/" + window.RD.state.routeId + "/" + stopId); });
   window.RD.action("pay-method", function (m) {
     const S = window.RD.state.scratch;
     S.payMethod = m; S.payConfirming = false; window.RD.render();
@@ -950,6 +972,13 @@
         return;
       }
       const totalDue = M.roundMoney((st.outstandingAmount || 0) + orderSum);
+      /* Paid less and "adjusted as offer": the driver proposes, the owner
+         decides in the tower (Review adjustment). */
+      if (S.payWriteoff && window.RD_EMIT) {
+        const paid = Number(S.payAmount) || 0;
+        window.RD_EMIT("payment.adjusted", D.db.routeDetails[routeId], st, { billed: Math.round(totalDue), paid: Math.round(paid), gap: Math.round(totalDue - paid),
+          why: "Adjusted as offer at the door" }, "Delivery app · Collect payment");
+      }
       SDK.routeDelivery.collectPayment({
         routeId: routeId, stopId: stopId,
         amount: Number(S.payAmount), method: S.payMethod || "CASH", sendInvoice: false,
@@ -1215,7 +1244,15 @@
     { key: "REFUSED",          icon: "🙅", label: "Refused" },
     { key: "WILL_ORDER_LATER", icon: "⏰", label: "Will Order Later" },
     { key: "OTHER",            icon: "❓", label: "Other" },
+    /* 24 Sep 2026: the reasons the office needs to act on (the tower's
+       incidents). Not in the upstream app. */
+    { key: "WRONG_ADDRESS",    icon: "📍", label: "Wrong address" },
+    { key: "CANT_REACH",       icon: "🚧", label: "Can't reach shop" },
   ];
+  /* When can we come back? Agreed with the shopkeeper at the door — the
+     same Reschedule the owner can make in the tower. */
+  const COME_BACK = [{ key: "today", label: "Later today" }, { key: "tomorrow", label: "Tomorrow" }, { key: "none", label: "Not agreed" }];
+  const ASK_BACK = { SHOP_CLOSED: 1, OWNER_AWAY: 1, CANT_REACH: 1, REFUSED: 1 };
 
   window.RD.screen("skipStop", function (p) {
     const stop = D.getStops(p.routeId).find(function (s) { return s.id === p.stopId; });
@@ -1246,6 +1283,16 @@
       '<div class="rd-body" style="' + U.sty({ background: U.BG, opacity: confirming ? 0.38 : 1, pointerEvents: confirming ? "none" : "auto", transition: "opacity 0.2s" }) + '">' +
         U.Spacer() +
         U.SectionHeader("Select Reason") + grid +
+        (ASK_BACK[S.skipReason]
+          ? U.Spacer() + U.SectionHeader("When can we come back?") +
+            '<div style="' + U.sty({ display: "flex", gap: 8, padding: "0 16px" }) + '">' + COME_BACK.map(function (c) {
+              const on = (S.skipBack || "none") === c.key;
+              return '<button type="button" class="rd-chip"' + U.act("skip-back", c.key) + ' style="' + U.sty({
+                flex: 1, padding: "11px 6px", borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "center",
+                border: "2px solid " + (on ? U.BRAND : "#e5e7eb"), background: on ? "#e8f5f7" : "white", color: on ? U.BRAND : "#555",
+              }) + '">' + c.label + "</button>";
+            }).join("") + "</div>"
+          : "") +
         U.Spacer() +
         (outstanding > 0
           ? U.Banner({ type: "orange", icon: "⚠️", text: stop.customerName + " has " + U.inr(outstanding) + " outstanding. This will be added to follow-up list.", style: { marginTop: 4 } })
@@ -1279,6 +1326,7 @@
   });
 
   window.RD.action("skip-reason", function (r) { window.RD.state.scratch.skipReason = r; window.RD.render(); });
+  window.RD.action("skip-back", function (b) { window.RD.state.scratch.skipBack = b; window.RD.render(); });
   window.RD.action("model:skip-note", function (v) { window.RD.state.scratch.skipNote = v; });
   window.RD.action("skip-confirm", function () { window.RD.state.scratch.skipConfirming = true; window.RD.render(); });
   window.RD.action("skip-confirm-cancel", function () { window.RD.state.scratch.skipConfirming = false; window.RD.render(); });
@@ -1289,6 +1337,19 @@
     window.RD.commit(function () {
       const routeId = window.RD.state.routeId;
       SDK.routeDelivery.skipStop({ routeId: routeId, stopId: stopId, reason: S.skipReason, note: S.skipNote });
+      /* The office hears it (the tower's incident), and a day agreed at the
+         door is the same Reschedule the owner would make. */
+      const route = D.db.routeDetails[routeId], st = D.getStops(routeId).filter(function (x) { return x.id === stopId; })[0] || {};
+      const reason = SKIP_REASONS.filter(function (r) { return r.key === S.skipReason; })[0] || {};
+      const ev = window.RD_EMIT && window.RD_EMIT("stop.skipped", route, st, { reason: S.skipReason, label: reason.label, note: (S.skipNote || "").trim() || null,
+        value: Number(st.todayOrderAmount) || null }, "Delivery app · Why no delivery?");
+      if (ev && ASK_BACK[S.skipReason] && S.skipBack && S.skipBack !== "none") {
+        const d = new Date(Date.now() + (S.skipBack === "tomorrow" ? 86400000 : 0));
+        const when = S.skipBack === "tomorrow" ? "tomorrow morning" : "today evening";
+        window.RD_EMIT("action.reschedule", route, st, { date: d.toISOString().slice(0, 10), window: S.skipBack === "tomorrow" ? "morning" : "evening" },
+          "Delivery app · Why no delivery?", { incident: window.FB_EVENTS.incidentOf(ev) }, "Rescheduled at the door · " + when);
+      }
+      S.skipBack = null;
       S.skipConfirming = false;
       window.RD.go("/queue/" + routeId);
     });
@@ -1826,6 +1887,8 @@
     if (delivery.length) groups.push({ label: "Delivery", actions: delivery });
     if (stop.customerId) groups.push({ label: "Returns", actions: [{ icon: "📦", label: "Product Return", act: "goto-returns", arg: p.routeId }] });
     if (stop.customerId) groups.push({ label: "Assets", actions: [{ icon: "🗂️", label: "Manage Assets", act: "goto-assets", arg: stop.customerId }] });
+    groups.push({ label: "Tell the office", actions: [{ icon: "⚠️", label: "Something wrong here?", act: "goto-issue", arg: p.stopId },
+                                                      { icon: "📷", label: "Proof at the door", act: "stop-proof", arg: p.stopId }] });
 
     return U.ProgressBar({ collected: U.inr(collectedFor(p.routeId)), backLabel: "Delivery Stops", backAct: "back" }) +
       '<div class="rd-body" style="background:' + U.BG + '">' + hero + orderCard + returnsSection + "</div>" +

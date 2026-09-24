@@ -545,12 +545,12 @@ html.ct-kb .ct-dm-vp { max-height: calc(var(--vv-h) - 16px - 53px); }
 /* Back and the order's title come into the bar with the order. */
 .ct-dm-bl { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; height: 36px; padding-left: 8px; opacity: 0; transform: translateX(10px);
   pointer-events: none; transition: opacity .2s ease, transform .3s cubic-bezier(.22, 1, .36, 1); }
-.is-order .ct-dm-bl, .is-resched .ct-dm-bl { opacity: 1; transform: none; pointer-events: auto; }
+.is-order .ct-dm-bl, .is-resched .ct-dm-bl, .is-act .ct-dm-bl, .is-call .ct-dm-bl { opacity: 1; transform: none; pointer-events: auto; }
 /* Rescheduling: a taller bar, the title in its middle, a hairline under. */
 .ct-dm-bar { transition: height .3s cubic-bezier(.22, 1, .36, 1), border-color .2s; border-bottom: 1px solid transparent; }
-.is-resched .ct-dm-bar { height: 53px; border-bottom-color: #EEF1F4; }
-.is-resched .ct-dm-bl { padding-top: 4px; }
-.is-resched .ct-dm-bl h2 { position: absolute; left: 44px; right: 44px; top: 11px; text-align: center; font-size: 19.5px; line-height: 26px; font-weight: 700; pointer-events: none; }
+.is-resched .ct-dm-bar, .is-act .ct-dm-bar, .is-call .ct-dm-bar { height: 53px; border-bottom-color: #EEF1F4; }
+.is-resched .ct-dm-bl, .is-act .ct-dm-bl, .is-call .ct-dm-bl { padding-top: 4px; }
+.is-resched .ct-dm-bl h2, .is-act .ct-dm-bl h2, .is-call .ct-dm-bl h2 { position: absolute; left: 44px; right: 44px; top: 11px; text-align: center; font-size: 19.5px; line-height: 26px; font-weight: 700; pointer-events: none; }
 .ct-dm-bl h2 { margin: 0; font-size: 16px; line-height: 22px; font-weight: 700; color: #111418; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-dm-bk { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: #111418; flex: none; }
 .ct-dm-bk:hover { background: var(--fill); }
@@ -684,7 +684,7 @@ html.ct-kb .ct-dm-vp { max-height: calc(var(--vv-h) - 16px - 53px); }
 
 /* ── Reschedule Delivery (owner, 23 Sep 2026): pixel for pixel from the
    owner's picture at the card's phone width. ───────────────────────── */
-.ct-dm[data-pane="resched"] .ct-dm-in, .ct-dm[data-pane="done"] .ct-dm-in { padding: 0; }
+.ct-dm[data-pane="resched"] .ct-dm-in, .ct-dm[data-pane="done"] .ct-dm-in, .ct-dm[data-pane="act"] .ct-dm-in, .ct-dm[data-pane="call"] .ct-dm-in { padding: 0; }
 .ct-rs { padding: 23px 15px 19px; }
 .ct-rs-h { margin: 0; font-size: 16.4px; line-height: 24px; font-weight: 700; color: #111418; }
 .ct-rs-h.is-win { margin-top: 38px; }
@@ -759,3 +759,77 @@ html.ct-kb .ct-dm-vp { max-height: calc(var(--vv-h) - 16px - 53px); }
 .ct-rd-card dd { margin: 0; font-size: 13.5px; line-height: 20px; font-weight: 600; color: #111418; overflow-wrap: anywhere; }
 .ct-rd-pill { display: inline-flex; align-items: center; height: 25.5px; padding: 0 9px; border-radius: 8px; background: #DDF5E6; color: #1E8A45; font-size: 12.9px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .ct-dm-bar { transition: none; } }
+
+/* ══ Incidents (owner, 24 Sep 2026; CONTROL_TOWER_INCIDENTS.md) ═══════════ */
+/* The chase to all green, under the headline's bar. */
+.ct-chase { display: flex; gap: 14px; margin: 8px 0 0; font-size: 12.5px; line-height: 18px; color: var(--ink-2); }
+.ct-chase span { display: inline-flex; align-items: center; gap: 4px; }
+.ct-chase .is-fixed { color: var(--good); font-weight: 600; }
+.ct-chase .i { width: 14px; height: 14px; stroke-width: 2.6; }
+/* The card: the lead action is the filled one when there's no call. */
+.ct-dm-re.is-lead { background: #0A8A4C; border-color: #0A8A4C; color: #fff; font-weight: 700; }
+button.ct-dm-call { border: 0; }
+/* A van's held stops. */
+.ct-dm-held ul { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid #E8EBEF; border-radius: 10px; }
+.ct-dm-held li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: 13.5px; line-height: 19px; color: #111418; }
+.ct-dm-held li + li { border-top: 1px solid #EEF0F3; }
+.ct-dm-held li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-dm-held small { flex: none; font-size: 12px; color: #6B7790; }
+/* After the call: what did they say? */
+.ct-oc-k { margin: 0 0 4px; font-size: 13px; color: #5A6782; }
+.ct-oc-list { display: grid; gap: 8px; margin-top: 14px; }
+.ct-oc-b { display: grid; gap: 1px; padding: 12px 14px; border-radius: 10px; border: 1px solid #E6EAEE; background: #FEFEFE; text-align: left; }
+.ct-oc-b:hover { border-color: #43A86F; background: #F6FBF8; }
+.ct-oc-b b { font-size: 15px; line-height: 21px; font-weight: 600; color: #111418; }
+.ct-oc-b small { font-size: 12.5px; line-height: 17px; color: #0E7A3B; }
+.ct-oc-skip { display: block; width: 100%; height: 44px; margin-top: 14px; border-radius: 9px; color: #44516D; font-size: 15px; font-weight: 600; text-align: center; }
+.ct-oc-skip:hover { background: var(--fill); }
+/* Every action's own controls, in the Reschedule pane's look. */
+.ct-ap .ct-rs-h.ct-ap-h { margin-top: 26px; }
+.ct-ap-body > .ct-rs-h.ct-ap-h:first-child, .ct-ap-body > .ct-ap-fact:first-child { margin-top: 0; }
+.ct-ap-body:empty + .ct-ap-err + .ct-rs-foot { margin-top: 0; }
+/* A decided thing, said once (a van with room, when only one has). */
+.ct-ap-fact { margin-top: 22px; }
+.ct-ap .ct-rs-l { margin-top: 20px; }
+.ct-ap .ct-rs-cb { margin-top: 18px; }
+.ct-ap .ct-rs-foot { margin-top: 28px; }
+.ct-ap-opts, .ct-ap-checks, .ct-ap-items { display: grid; gap: 8px; margin-top: 11px; }
+.ct-ap-opt { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 11px; align-items: center; padding: 11px 12px; border-radius: 9px; border: 1px solid #E6EAEE; background: #FEFEFE; text-align: left; }
+.ct-ap-opt i { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #C5CCD6; }
+.ct-ap-opt b { display: block; font-size: 14.5px; line-height: 20px; font-weight: 600; color: #111418; }
+.ct-ap-opt small { display: block; font-size: 12.5px; line-height: 17px; color: #4F5D75; }
+.ct-ap-opt[aria-checked="true"] { background: #ECFDF3; border: 1.5px solid #43A86F; padding: 10.5px 11.5px; }
+.ct-ap-opt[aria-checked="true"] i { border: 5.5px solid #1E8A4E; }
+.ct-ap-opt[aria-checked="true"] b { color: #0E7A3B; }
+.ct-ap-opt:disabled { opacity: .45; cursor: default; }
+.ct-ap-chk { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; text-align: left; }
+.ct-ap-chk b { display: block; font-size: 14.5px; line-height: 21px; font-weight: 500; color: #111418; }
+.ct-ap-chk small { display: block; font-size: 12.5px; line-height: 17px; color: #4F5D75; }
+.ct-ap-chk[aria-pressed="true"] .ct-rs-box { background: #1E8A4E; border-color: #1E8A4E; color: #fff; }
+.ct-ap-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 9px; border: 1px solid #E6EAEE; }
+.ct-ap-item > span:first-child { min-width: 0; }
+.ct-ap-item b { display: block; font-size: 14px; line-height: 19px; font-weight: 600; color: #111418; overflow-wrap: anywhere; }
+.ct-ap-item small { display: block; font-size: 12px; line-height: 16px; color: #4F5D75; }
+.ct-ap-step { display: flex; align-items: center; gap: 8px; flex: none; }
+.ct-ap-step button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #F1F3F6; font-size: 18px; font-weight: 700; color: #111418; }
+.ct-ap-step button:disabled { opacity: .35; }
+.ct-ap-step b { min-width: 22px; text-align: center; font-size: 15px; font-variant-numeric: tabular-nums; }
+.ct-ap-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.ct-ap-chip { padding: 8px 12px; border-radius: 999px; border: 1px solid #E6EAEE; background: #FEFEFE; font-size: 13.5px; font-weight: 600; color: #3A4764; text-align: left; }
+.ct-ap-chip[aria-checked="true"] { background: #ECFDF3; border-color: #43A86F; color: #0E7A3B; }
+.ct-ap-facts { margin-top: 0; }
+.ct-ap-in { display: block; width: 100%; height: 44px; margin-top: 6px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E6EA; background: #FEFEFE; font: inherit; font-size: 14.5px; color: #111418; }
+.ct-ap-in:focus { outline: none; border-color: #43A86F; box-shadow: 0 0 0 3px rgba(30, 138, 78, .12); }
+.ct-ap-quote { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: #F6F7F9; }
+.ct-ap-quote small { display: block; font-size: 12px; color: #6B7790; }
+.ct-ap-quote p { margin: 2px 0 0; font-size: 14px; line-height: 20px; color: #111418; }
+.ct-ap-msg { margin-top: 10px; padding: 10px 12px; border-radius: 12px 12px 12px 3px; background: #DCF8C6; font-size: 13.5px; line-height: 19px; color: #111418; }
+.ct-ap-photo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.ct-ap-photo span { display: flex; align-items: flex-end; height: 120px; padding: 8px; border-radius: 10px; background: repeating-linear-gradient(135deg, #EEF1F4 0 8px, #E4E8EC 8px 16px); font-size: 12px; color: #4F5D75; }
+.ct-ap-cap { margin: 6px 0 0; font-size: 12.5px; color: #4F5D75; }
+.ct-ap-err { margin-top: 12px; }
+.ct-rs-go.is-danger, .ct-rs-yes.is-danger { background: #C62828; }
+.ct-rd-pill.is-grey { background: #EEF0F3; color: #44516D; }
+
+/* The card never scrolls sideways, whatever scrolls into view inside it. */
+.ct-dm-vp { overflow-x: clip; }

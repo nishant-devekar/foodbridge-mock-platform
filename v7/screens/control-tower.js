@@ -390,6 +390,9 @@
       '<div class="ct-head-v' + (lv.status === "good" ? " is-good" : "") + '"><span>' + esc(h.value) + "</span></div>" +
       '<p class="ct-head-c">' + esc(h.context) + "</p>" +
       (typeof h.bar === "number" ? '<div class="ct-bar" role="img" aria-label="' + Math.round(h.bar * 100) + '% delivered"><i style="width:' + Math.round(h.bar * 100) + '%"></i></div>' : "") +
+      /* The chase to all green: what was fixed today, and what is still open. */
+      (lv.chase && (lv.chase.fixed || lv.chase.open) ? '<p class="ct-chase">' + (lv.chase.fixed ? '<span class="is-fixed">' + I.check + lv.chase.fixed + " fixed today</span>" : "") +
+        (lv.chase.open ? "<span>" + L.plural(lv.chase.open, "problem") + " open</span>" : "<span>Nothing open</span>") + "</p>" : "") +
       "</section>";
   }
 
@@ -424,7 +427,7 @@
   }
 
   /* What the list under each tile is, in the owner's words (23 Sep 2026). */
-  const LIST_TITLE = { deliveries: { ugly: "Deliveries needing attention", bad: "Still to deliver", good: "Delivered today" } };
+  const LIST_TITLE = { deliveries: { ugly: "Needing you", bad: "To deliver, or being fixed", good: "Done today" } };
 
   /* A row that carries an incident tag (Deliveries, 23 Sep 2026): the
      tag's own icon in its colour, what happened and the step for it,
@@ -440,6 +443,12 @@
     damaged: sv('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>'),
     crates: sv('<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M3 15h18M9 5v15M15 5v15"/>'),
   };
+  /* The catalogue's types, drawn with the six marks there are. */
+  const TAG_OF = { "window-missed": "late", "driver-delayed": "late", "traffic-delay": "late", "short-quantity": "short", "stock-not-loaded": "short", "missing-stock": "short",
+                   "saleable-return": "returned", "wrong-product-return": "returned", "wrong-sku": "returned", "damaged-goods": "damaged", leaking: "damaged", "wet-carton": "damaged",
+                   "broken-pack": "damaged", "expired-product": "damaged", "damaged-return": "damaged", "expiry-return": "damaged", "quality-complaint": "damaged", temperature: "damaged",
+                   "shop-closed": "missed", "customer-refused": "missed", "customer-unavailable": "missed", "wrong-address": "missed", "address-inaccessible": "missed",
+                   "van-full": "missed", "order-dispute": "missed" };
   const STAND = { delivered: { label: "Delivered", tone: "good", icon: I.check },
                   pending: { label: "Pending", tone: "pend", icon: I.truck },
                   missed: { label: "Missed", tone: "ugly", icon: TAG_ICON.missed } };
@@ -448,10 +457,11 @@
        else where the row stands — so every row under a tile reads the same
        (owner, 23 Sep 2026). A standing is not an incident: it only says
        Delivered or Pending. */
-    const t = r.tag ? L.INCIDENTS[r.tag.type] : STAND[r.stand] || null;
+    const t = r.tag ? { label: r.tag.label, tone: r.tag.tone } : STAND[r.stand] || null;
     const sub = r.note && r.next && r.next !== r.note ? r.note + " · " + r.next : (r.note || r.next);
     const fig = !t && typeof r.value === "number" && r.value ? L.rupees(r.value) : "";
-    const mark = r.tag ? TAG_ICON[r.tag.type] || I.bang : t ? t.icon : I.truck;
+    /* The mark: a tick once it's fixed, the van for a van, the incident's own. */
+    const mark = r.tag && r.tag.state === "resolved" ? I.check : r.kind === "van" ? I.truck : r.tag ? TAG_ICON[TAG_OF[r.tag.type] || r.tag.type] || I.bang : t ? t.icon : I.truck;
     return '<button class="ct-row is-tagged" data-row="' + i + '">' +
       '<span class="ct-ava" data-t="' + (t ? t.tone : "none") + '" aria-hidden="true">' + mark + "</span>" +
       '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
@@ -987,9 +997,9 @@
     if (!r) return;
     if (r.kind === "customer") return customerSheet(r.id, push, r);
     if (r.kind === "product") return productSheet(r.id, push);
-    if (r.kind === "delivery") return deliverySheet(r.ref, push);
-    /* Still to deliver: the same card as a delivery (owner, 23 Sep 2026). */
-    if (r.kind === "order") return deliverySheet(pendingStop(r), push);
+    /* A delivery, still to deliver or done, a van, a stock count: the
+       incident's own card (owner, 24 Sep 2026). */
+    if (r.kind === "delivery" || r.kind === "order" || r.kind === "van" || r.kind === "count") return deliverySheet(r, push);
   }
   function colourMap() {
     const m = {};
@@ -1118,194 +1128,8 @@
     const many = { pc: "pcs", box: "boxes", case: "cases", jar: "jars", bottle: "bottles", pack: "packs", packet: "packets", crate: "crates" }[base];
     return q + " " + (q === 1 || !many ? base : many);
   }
-  function deliverySheet(dl, push) {
-    const st = view.state;
-    const name = st.customerById[dl.customerId] || dl.customerId;
-    const shop = (st.phoneById || {})[dl.customerId] || null;
-    const e = dl.empties || {};
-    const out = Number(e.cratesOut) || 0, back = Number(e.cratesBack) || 0;
-    const crates = Math.max(0, out - back);
-    const bottles = Math.max(0, out * L.T.KIT_BOTTLES - (Number(e.bottlesBack) || 0));
-    const late = Number(dl.lateMin) > L.T.LATE_MIN ? Number(dl.lateMin) : 0;
-    const short = Number(dl.shortCases) || 0;
-    const returned = Number(dl.returnedCases) || 0;
-    const money = Number(dl.collected) || 0;
-    /* The order's value as recorded; a stop recorded before values were
-       kept (before 23 Sep 2026) is valued from its items at their MRP —
-       and says so, rather than showing no value at all. */
-    const ord = orderLines(dl);
-    const atMrp = ord.lines.every(function (l) { return l.mrp !== null; }) ? ord.lines.reduce(function (n, l) { return n + l.qty * l.mrp; }, 0) : 0;
-    const worth = Number(dl.value) || atMrp;
-    const worthAtMrp = !Number(dl.value) && worth > 0;
-    const missed = dl.status === "missed";
-    /* Still to deliver: a stop on today's route, or an order not yet on a van. */
-    const pending = dl.status === "pending";
-    const runLate = pending && dl.at && (view.state.now - new Date(dl.at).getTime()) / 60000 > L.T.LATE_MIN
-      ? Math.round((view.state.now - new Date(dl.at).getTime()) / 60000) : 0;
-    const shopSide = ["Shop closed", "Refused", "Payment not ready"].indexOf(dl.reason) !== -1;
-    const van = vanOf(dl.van);
-    const tag = deliveryTag(dl.no) || (missed ? { type: "missed" } : null);
-    const tagX = tag ? L.INCIDENTS[tag.type] : null;
-
-    /* What happened: the one thing, big, and what else there is to know. */
-    const events = missed
-      ? [{ text: dl.reason || "Missed", why: MISS_WHY[dl.reason] || null }]
-      : pending
-      ? [runLate ? { text: "Running " + L.mins(runLate) + " late", why: (dl.van ? dl.van + " is past this stop's time." : "Past this stop's time.") + (dl.delayWhy ? " " + dl.delayWhy + "." : "") }
-          : dl.van ? { text: "On its way", why: "On " + dl.van + (dl.driver ? " with " + dl.driver : "") + ", due " + whenOf(dl.at) + "." }
-          : { text: "Booked", why: "Not on a van yet. It goes on the next trip." }]
-      : [late ? { text: "Reached " + L.mins(late) + " late", why: dl.lateWhy || null } : null,
-         short ? { text: L.plural(short, "case") + " short", why: "Loaded short of what was booked." } : null,
-         returned ? { text: L.plural(returned, "case") + " came back", why: null } : null,
-         crates ? { text: L.plural(crates, "crate") + " not back", why: bottles ? L.plural(bottles, "bottle") + " still with them." : null } : null,
-         !money && worth ? { text: L.rupees(worth) + " went on credit", why: null } : null].filter(Boolean);
-    const clean = !missed && !pending && !events.length;
-    const head = clean ? { text: "Delivered", why: "On time, in full, paid at the door." } : events[0];
-    const more = clean ? [] : events.slice(1).map(function (x) { return x.text + (x.why ? " · " + x.why : ""); });
-    const winText = { morning: "morning (8am – 12pm)", afternoon: "afternoon (12pm – 4pm)", evening: "evening (4pm – 8pm)" }[dl.rescheduledWindow] || null;
-    if (missed && dl.rescheduledFor) more.push("Rescheduled for " + L.date(dl.rescheduledFor) + (winText ? ", " + winText : "") + ".");
-
-    /* What FoodBridge recommends, and the buttons for it. */
-    let todo = null;
-    let primary = shop ? { call: shop, label: "Call the shop" } : null;
-    if (missed) {
-      if (dl.rescheduledFor) todo = "It is on the trip for " + L.date(dl.rescheduledFor) + (winText ? ", " + winText : "") + ". Nothing else to do.";
-      else if (shopSide) todo = "Call the customer and confirm when they will take it. Then reschedule for tomorrow's route.";
-      else todo = dl.reason === "Van full" ? "It never left the dock. Put it on tomorrow's first round." : "Put it back on a trip.";
-    } else if (pending) {
-      const vp = vanOf(dl.van) || {};
-      const dp = dl.driverPhone || vp.phone;
-      if (runLate && dp) {
-        todo = "Call " + (dl.driver || vp.driver || "the driver") + " and ask where the van is, then tell the shop when to expect it.";
-        primary = { call: dp, label: "Call " + (dl.driver || vp.driver || "the driver") };
-      } else todo = dl.van ? "On the van and on time. Nothing to do yet." : "It goes on the next trip. Nothing to do yet.";
-    } else if (crates) {
-      todo = "Call the shop and ask them to keep " + L.plural(crates, "crate") + " ready for the next trip.";
-    } else if (short) {
-      todo = short === 1 ? "Call the shop and tell them the case that was short follows on the next trip."
-        : "Call the shop and tell them the " + short + " cases follow on the next trip.";
-    } else if (returned) {
-      todo = "Find out why they came back, and take them into stock before they are sold twice.";
-    } else if (late && van && van.left) {
-      todo = dl.van + " still has " + L.plural(van.left, "stop") + " to make and is running behind. Call the driver.";
-      const dp = dl.driverPhone || van.phone;
-      if (dp) primary = { call: dp, label: "Call " + (dl.driver || van.driver || "the driver") };
-    } else if (late) {
-      todo = "Ask " + (dl.driver || "the driver") + " why it was late" + (dl.lateWhy ? " — " + dl.lateWhy.toLowerCase() + "." : ".");
-    }
-
-    const tel = function (p) { return "tel:" + String(p).replace(/[^\d+]/g, ""); };
-    /* The stop's tag, as its row shows it; with none, where it stands. */
-    const pillHtml = function () {
-      return tagX ? '<span class="ct-dm-pill" data-t="' + tagX.tone + '">' + esc(tagX.label) + "</span>"
-        : pending ? '<span class="ct-dm-pill" data-t="pend">Pending</span>' : '<span class="ct-dm-pill" data-t="good">Delivered</span>';
-    };
-    const whenWord = function () { return missed ? "Missed" : pending ? (runLate ? "Was due" : "Due") : "Delivered"; };
-    /* The owner's picture (23 Sep 2026): the shop and its tag; the order;
-       then What happened · Impact · FoodBridge recommends, each an icon in
-       a soft circle beside a line or two; then the actions. */
-    const impact = missed
-      ? (worth ? { value: L.rupees(worth), text: (dl.rescheduledFor ? "Order value to deliver" : "Order value at risk") + (worthAtMrp ? ", at MRP." : ".") } : null)
-      : pending ? (worth ? { value: L.rupees(worth), text: "Order value to deliver" + (worthAtMrp ? ", at MRP." : ".") } : null)
-      : money ? { value: L.rupees(money), text: "Collected at the door." + (worth && money < worth ? " " + L.rupees(worth - money) + " on credit." : "") }
-      : worth ? { value: L.rupees(worth), text: "Went on credit." } : null;
-    /* Order details (owner, 23 Sep 2026): a card on the delivery, and the
-       whole order one step in, in the same card — the delivery slides away
-       and the order slides in; back slides it home. */
-    const address = (st.addressById || {})[dl.customerId] || null;
-    const units = ord.lines.reduce(function (n, l) { return n + l.qty; }, 0);
-    const hasOrder = !!(dl.orderNo || worth || ord.lines.length || address);
-    /* Where the card is: the delivery (main), its order, rescheduling it,
-       or done. Depth says which way a pane slides. */
-    const dv = { view: "main", mainTop: 0, from: null };
-    const DEPTH = { main: 0, order: 1, resched: 1, done: 2 };
-    const posOf = function (k) { return k === dv.view ? "on" : DEPTH[k] < DEPTH[dv.view] ? "left" : "right"; };
-    const canResched = missed && !dl.rescheduledFor;
-    /* Reschedule (owner, 23 Sep 2026, from their picture): a day from
-       today and the next four, a time window, a note for the team, and
-       whether the customer is told on WhatsApp. Tomorrow morning unless the
-       owner picks otherwise; a window already past today can't be picked. */
-    const WINS = [{ id: "morning", label: "Morning", time: "8am – 12pm", from: 8, to: 12 },
-                  { id: "afternoon", label: "Afternoon", time: "12pm – 4pm", from: 12, to: 16 },
-                  { id: "evening", label: "Evening", time: "4pm – 8pm", from: 16, to: 20 }];
-    const RS_MAX = 200;
-    const rs = { day: 1, win: "morning", note: "", notify: true, done: null, confirming: false };
-    const row = function (k, v, cls) { return v ? '<div><dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</dd></div>" : ""; };
-    function orderCard() {
-      if (!hasOrder) return "";
-      return '<section class="ct-dm-order"><div class="ct-dm-ocard" data-a="order" role="button" tabindex="0" aria-label="Order details, view the whole order">' +
-          "<h4>Order details</h4><dl>" +
-            row("Order No.", dl.orderNo ? esc(dl.orderNo) : "") +
-            row("Order value", worth ? esc(L.rupees(worth)) : "", "is-num") +
-            row("Items", ord.lines.length ? esc(L.plural(ord.lines.length, "item")) + ' <span class="ct-dm-view">(View)</span>' : '<span class="ct-dm-muted">Not recorded</span>') +
-            row("Delivery address", address ? esc(address) : "", "is-clip") +
-          "</dl>" + '<span class="ct-dm-ochev" aria-hidden="true">' + I.chev + "</span></div></section>";
-    }
-    /* The order, one step in: its number and tag, three figures in a light
-       strip, when and where in two quiet lines, then what was on it. */
-    function orderPane() {
-      const facts = [worth ? [L.rupees(worth), "Order value"] : null, ord.cases ? [String(ord.cases), ord.cases === 1 ? "Case" : "Cases"] : null,
-        units ? [String(units), units === 1 ? "Unit" : "Units"] : null].filter(Boolean);
-      return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo || "Order") + "</h3>" +
-          pillHtml() +
-          '<p class="ct-dm-sub">' + esc(name) + "</p></section>" +
-        (facts.length ? '<div class="ct-dm-facts">' + facts.map(function (f) { return "<div><b>" + esc(f[0]) + "</b><span>" + esc(f[1]) + "</span></div>"; }).join("") + "</div>" : "") +
-        /* When and where, each on its own labelled row; the address in full. */
-        '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (missed ? "Was due" : pending ? "Due" : "Delivered") + "</small>" +
-            esc([whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · ")) + "</p></div>" +
-          (address ? '<div><span class="ct-dm-wic">' + I.pin + "</span><p><small>Delivery address</small>" + esc(address) + "</p></div>" : "") + "</div>" +
-        '<section class="ct-dm-sec ct-dm-list"><div class="ct-dm-lh"><h4>Items' + (ord.lines.length ? " (" + ord.lines.length + ")" : "") + "</h4>" +
-            (ord.usual ? "<small>From their usual order</small>" : "") + "</div>" +
-          (ord.lines.length
-            ? '<ul class="ct-dm-items">' + ord.lines.map(function (l) {
-                return '<li><span class="ct-dm-iname">' + esc(itemName(l.name)) + '</span><span class="ct-dm-qty">' + esc(qtyText(l.qty, l.unit)) + "</span></li>";
-              }).join("") + "</ul>" +
-              '<div class="ct-dm-total"><span>Total</span><b>' + esc(L.plural(units, "unit") + (worth ? " · " + L.rupees(worth) : "")) + "</b></div>"
-            : '<p class="ct-dm-empty">The items on this order weren\'t recorded.</p>') +
-        "</section>";
-    }
-    const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], WDL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    function dayAt(i) { const d = new Date(view.state.now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + i); return d; }
-    const isoDay = function (d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
-    /* A window is open unless it is today and already over. */
-    const winOpen = function (dayIdx, w) { return dayIdx > 0 || new Date(view.state.now).getHours() < w.to; };
-    const dayOpen = function (i) { return WINS.some(function (w) { return winOpen(i, w); }); };
-    function reschedPane() {
-      if (!dayOpen(rs.day)) rs.day = 1;
-      if (!winOpen(rs.day, WINS.filter(function (w) { return w.id === rs.win; })[0])) rs.win = WINS.filter(function (w) { return winOpen(rs.day, w); })[0].id;
-      const days = [0, 1, 2, 3, 4].map(function (i) {
-        const d = dayAt(i);
-        return '<button type="button" class="ct-rs-day" data-day="' + i + '" aria-pressed="' + (i === rs.day) + '"' + (dayOpen(i) ? "" : " disabled") + ">" +
-          "<span>" + WD[d.getDay()] + "</span><b>" + d.getDate() + "</b><small>" + (i === 0 ? "Today" : i === 1 ? "Tomorrow" : "") + "</small></button>";
-      }).join("");
-      const wins = WINS.map(function (w) {
-        return '<button type="button" class="ct-rs-win" data-win="' + w.id + '" aria-pressed="' + (w.id === rs.win) + '"' + (winOpen(rs.day, w) ? "" : " disabled") + ">" +
-          "<b>" + w.label + "</b><span>" + w.time + '</span><i class="ct-rs-ck" aria-hidden="true">' + I.check + "</i></button>";
-      }).join("");
-      return '<div class="ct-rs">' +
-        '<h4 class="ct-rs-h">Select new delivery date</h4><div class="ct-rs-days" role="group" aria-label="New delivery date">' + days + "</div>" +
-        '<h4 class="ct-rs-h is-win">Preferred time window</h4><div class="ct-rs-wins" role="group" aria-label="Preferred time window">' + wins + "</div>" +
-        '<label class="ct-rs-l" for="ct-rs-note">Add internal notes (optional)</label>' +
-        /* Speak the note instead of typing it, as everywhere else a note is
-           written (the browser's own speech-to-text). */
-        '<div class="ct-rs-ta' + (SPEECH ? " has-mic" : "") + '"><textarea id="ct-rs-note" rows="3" maxlength="' + RS_MAX + '" placeholder="e.g. Customer asked for tomorrow morning. Confirmed on phone.">' + esc(rs.note) + "</textarea>" +
-          '<span class="ct-rs-count">' + rs.note.length + "/" + RS_MAX + "</span>" +
-          (SPEECH ? '<button type="button" class="ct-dm-mic ct-rs-mic" data-a="rs-mic" aria-label="Speak your note" aria-pressed="false">' + I.mic + "</button>" : "") + "</div>" +
-        '<p class="ct-dm-err ct-rs-err" role="alert" hidden></p>' +
-        '<label class="ct-rs-cb"><input type="checkbox" id="ct-rs-notify"' + (rs.notify ? " checked" : "") + '><span class="ct-rs-box" aria-hidden="true">' + I.check + "</span>" +
-          "<span><b>Notify customer on WhatsApp</b><small>We'll send a confirmation message.</small></span></label>" +
-        /* One tap asks, the next does it (owner, 23 Sep 2026): the button
-           turns into what will happen, with Cancel and Confirm, in place. */
-        '<div class="ct-rs-foot"><button type="button" class="ct-rs-go" data-a="rs-go">Reschedule Delivery</button>' +
-          '<div class="ct-rs-conf" role="group" aria-label="Confirm the new delivery time" hidden><p class="ct-rs-conf-t" aria-live="polite"></p>' +
-            '<div class="ct-rs-conf-b"><button type="button" class="ct-rs-no" data-a="rs-no">Cancel</button>' +
-            '<button type="button" class="ct-rs-yes" data-a="rs-yes">Confirm</button></div></div></div>' +
-        "</div>";
-    }
-    /* Done: what was moved. The card closes with ✕ or a tap outside
-       (owner, 23 Sep 2026: no buttons here). */
-    const ILLUS = '<svg class="ct-rs-art" viewBox="0 0 224 162" aria-hidden="true">' +
+  /* Done: the Reschedule card's own illustration, for every action. */
+  const ILLUS = '<svg class="ct-rs-art" viewBox="0 0 224 162" aria-hidden="true">' +
       '<g><rect x="30" y="18" width="6" height="6" rx="1.2" fill="#3B82F6" transform="rotate(20 33 21)"/><rect x="62" y="6" width="6" height="6" rx="1.2" fill="#F59E0B" transform="rotate(35 65 9)"/>' +
       '<rect x="14" y="58" width="6" height="6" rx="1.2" fill="#16A34A" transform="rotate(15 17 61)"/><rect x="18" y="92" width="6" height="6" rx="1.2" fill="#F97316" transform="rotate(40 21 95)"/>' +
       '<rect x="8" y="122" width="5" height="5" rx="1" fill="#3B82F6" transform="rotate(30 10 124)"/><circle cx="160" cy="6" r="3.2" fill="#3B82F6"/>' +
@@ -1319,44 +1143,222 @@
       '<rect x="70" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="99" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="128" y="70" width="18" height="16" rx="4" fill="#E5E8EC"/>' +
       '<rect x="70" y="97" width="18" height="16" rx="4" fill="#E5E8EC"/><rect x="99" y="97" width="18" height="16" rx="4" fill="#E5E8EC"/>' +
       '<circle cx="158" cy="116" r="34" fill="#0E8A4B"/><path d="m142 116 11 11 21-22" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    function donePane() {
-      const r = rs.done;
-      if (!r) return "";
-      return '<div class="ct-rd">' + ILLUS +
-        '<h3 class="ct-rd-t">Delivery Rescheduled!</h3>' +
-        '<p class="ct-rd-s">The delivery has been moved to ' + esc(r.phrase) + ".</p>" +
-        '<section class="ct-rd-card"><h4>Rescheduled delivery</h4><dl>' +
-          "<div><dt>Customer</dt><dd>" + esc(name) + "</dd></div>" +
-          "<div><dt>Date</dt><dd>" + esc(r.date) + "</dd></div>" +
-          "<div><dt>Time</dt><dd>" + esc(r.time) + "</dd></div>" +
-          (worth ? "<div><dt>Order value</dt><dd>" + esc(L.rupees(worth)) + "</dd></div>" : "") +
-          '<div><dt>Status</dt><dd><span class="ct-rd-pill">Scheduled</span></dd></div>' +
-        "</dl></section></div>";
+  /* ── a delivery, or a van: its incident, in a modal card ───────────────
+     Owner, 24 Sep 2026 (CONTROL_TOWER_INCIDENTS.md): the card the owner's
+     picture drew — the shop and its tag; What happened · Impact · FoodBridge
+     recommends — now read off the incident, with what has happened to it so
+     far, and the incident's own two buttons. Each button is a lead action
+     that runs in the same card, the way Reschedule always has: a pane with
+     the choices filled in, confirm in place, one write, a done card. A call
+     comes back to "What did they say?", and the answer opens the action. */
+  const IA = function () { return window.CTLeadActions; };
+  const IX = function () { return window.CTIncidents; };
+  function currentOf(key, van) {
+    const lv = lever("deliveries");
+    const X = lv && lv.incidents;
+    if (!X) return null;
+    if (van) { const inc = X.byId[key]; return inc ? { X: X, inc: inc, subj: null } : null; }
+    const s = X.byKey[key];
+    return s ? { X: X, subj: s, inc: s.lead || s.fixed || null } : null;
+  }
+  /* Everything an action pane needs to fill itself in. */
+  function actionCtx(c) {
+    const s = c.subj, inc = c.inc, st = view.state;
+    const r = routeToday();
+    const X = c.X;
+    const van = s ? s.van : inc.van;
+    const isPending = function (no) { const x = X.byKey[no]; return x && x.status === "pending" && !x.cancelled; };
+    const vanStops = r && van ? r.stops.filter(function (x) { return x.van === van && isPending(x.no) && (!s || x.no !== s.key); })
+      .sort(function (a, b) { return a.slot < b.slot ? -1 : 1; }) : [];
+    const ends = r && van ? r.stops.filter(function (x) { return x.van === van; }).map(function (x) { return new Date(x.slot).getTime() + (x.delayMin || 0) * 60000; }) : [];
+    const endIst = IX().istAt(new Date(st.now).toISOString().slice(0, 10), IX().T.END_H);
+    const held = inc && inc.kind === "van" ? inc.children.map(function (k) { return X.byKey[k]; }).filter(function (x) { return x && x.status === "pending" && !x.cancelled && (inc.type === "driver-delayed" || x.van === inc.van); })
+      .sort(function (a, b) { return (a.slot || "") < (b.slot || "") ? -1 : 1; }) : [];
+    const need = (held.length ? held : s ? [s] : []).reduce(function (n, x) { return n + (Number(x.cases) || 3); }, 0);
+    const down = {};
+    X.roots.forEach(function (x) { if (x.state !== "resolved" && x.type !== "driver-delayed") down[x.van] = x; });
+    const vans = r ? Object.keys(r.stops.reduce(function (m, x) { if (x.van) m[x.van] = 1; return m; }, {})).map(function (v) {
+      const left = r.stops.filter(function (x) { return x.van === v && isPending(x.no); });
+      /* Room on the load it is carrying now: its current round. */
+      const round = left.length ? left.slice().sort(function (a, b) { return a.slot < b.slot ? -1 : 1; })[0].round : null;
+      const room = Math.max(0, (r.vanCases || 40) - left.filter(function (x) { return x.round === round; }).reduce(function (n, x) { return n + (Number(x.cases) || 0); }, 0));
+      const d = r.stops.filter(function (x) { return x.van === v; })[0] || {};
+      const off = v === van ? "It's this van" : down[v] ? "Stopped · " + down[v].cat.label.toLowerCase() : room <= 0 ? "Full" : null;
+      return { van: v, driver: d.driver || null, phone: d.driverPhone || null, room: room, off: !!off, why: off, s: "Room for " + room + " cases · " + L.plural(left.length, "stop") + " left" };
+    }).concat((r.spares || []).map(function (v) {
+      /* A spare at the dock takes a full load; it leaves when it's sent. */
+      const sent = (view.records.events || []).some(function (e) { return e.type === "stops.moved" && e.data && e.data.to === v.van; });
+      const on = r.stops.filter(function (x) { return X.byKey[x.no] && X.byKey[x.no].van === v.van && isPending(x.no); });
+      const room = Math.max(0, (r.vanCases || 40) - on.reduce(function (n, x) { return n + (Number(x.cases) || 0); }, 0));
+      return { van: v.van, driver: v.driver, phone: v.driverPhone, room: room, off: room <= 0, why: room <= 0 ? "Full" : null,
+               s: sent ? "Out · room for " + room + " cases" : "At the dock · room for " + room + " cases, leaves in 20 min" };
+    })).sort(function (a, b) { return a.off - b.off || (b.room || 0) - (a.room || 0); }) : [];
+    const dl = s ? recordOf(s) : null;
+    const ord = dl ? orderLines(dl) : { lines: [] };
+    const f = (inc && inc.facts) || {};
+    const items = (f.items && f.items.length ? f.items.map(function (x) { return { name: itemName(x.name || x.productName || "Item"), qty: Number(x.qty) || 1, unit: x.unit || "" }; })
+      : inc && inc.type === "short-quantity" ? [{ name: ord.lines[0] ? itemName(ord.lines[0].name) : "Cases short", qty: f.cases || 1, unit: "case", note: "short on the drop" }]
+      : inc && /return|damag|leak|wet|broken|expir|wrong-sku/.test(inc.type) && f.cases ? [{ name: ord.lines[0] ? itemName(ord.lines[0].name) : "Returned cases", qty: f.cases, unit: "case" }] : null);
+    const colours = colourMap();
+    return { inc: inc, subj: s, X: X, name: s ? s.title : inc.title, customerId: s ? s.customerId : null, van: van, driver: s ? s.driver : inc.driver,
+      value: s ? s.value : (inc.impact.rupees || null), cases: s ? s.cases : null, now: st.now, vans: vans, vanStops: vanStops,
+      routeEnd: Math.min(endIst, ends.length ? Math.max.apply(null, ends) + 30 * 60000 : endIst), held: held,
+      lines: ord.lines.map(function (l) { return { name: itemName(l.name), qty: l.qty, unit: qtyText(l.qty, l.unit).replace(/^\d+\s*/, ""), price: l.mrp }; }),
+      items: items, address: s ? (st.addressById || {})[s.customerId] || null : null,
+      owed: s && s.customerId ? overdueOwed(s.customerId) : 0, paid: !!(s && s.last && Number(s.last.collected)),
+      colour: s && colours[s.customerId], mic: SPEECH ? I.mic : null };
+  }
+  function overdueOwed(id) {
+    const l = view.state.ledger;
+    return l && l.invoices ? l.invoices.filter(function (i) { return i.customerId === id && i.balance > 0; }).reduce(function (n, i) { return n + i.balance; }, 0) : 0;
+  }
+  /* A subject in the shape of a delivery record, for the order card. */
+  function recordOf(s) {
+    const stop = s.stop || {};
+    return { no: s.key, orderNo: s.orderNo || s.key, customerId: s.customerId, lines: (s.last && s.last.lines) || stop.lines || null,
+             cases: s.cases, value: s.value, at: s.at || s.slot || new Date(view.state.now).toISOString(), van: s.van, driver: s.driver,
+             status: s.status, collected: s.last ? s.last.collected : null };
+  }
+
+  function deliverySheet(r, push) {
+    const isVan = r.kind === "van";
+    const key = isVan ? r.id : r.id;
+    const TAGI = { ugly: I.bang, bad: I.bang, good: I.check };
+    const cv = { view: "main", mainTop: 0, act: null, as: null, confirming: false, done: null, x: null, calledWho: null };
+    const DEPTH = { main: 0, order: 1, act: 1, call: 1, done: 2 };
+    const posOf = function (k) { return k === cv.view ? "on" : DEPTH[k] < DEPTH[cv.view] ? "left" : "right"; };
+    const NOTE_MAX = 500;
+    const note = { open: false, draft: "" };
+    const tel = function (p) { return "tel:" + String(p).replace(/[^\d+]/g, ""); };
+    const row = function (k, v, cls) { return v ? '<div><dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</dd></div>" : ""; };
+
+    function cur() { return currentOf(key, isVan); }
+    function name() { const c = cur(); return c ? (c.subj ? c.subj.title : c.inc.title) : r.title; }
+
+    /* ── the order, one step in (owner, 23 Sep 2026) ─────────────────── */
+    function orderBits() {
+      const c = cur(); if (!c || !c.subj) return null;
+      const dl = recordOf(c.subj), st = view.state, ord = orderLines(dl);
+      const atMrp = ord.lines.every(function (l) { return l.mrp !== null; }) ? ord.lines.reduce(function (n, l) { return n + l.qty * l.mrp; }, 0) : 0;
+      const worth = Number(dl.value) || atMrp;
+      const address = (st.addressById || {})[dl.customerId] || null;
+      const units = ord.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+      return { dl: dl, ord: ord, worth: worth, address: address, units: units, has: !!(dl.orderNo || worth || ord.lines.length || address) };
     }
-    function body() {
-      const notes = ((view.records.notes || {})[dl.no] || []);
-      const bits = [head.why].concat(more).filter(Boolean);
-      const main = '<section class="ct-dm-top"><h3>' + esc(name) + "</h3>" +
-          pillHtml() +
-          '<p class="ct-dm-sub">' + esc([whenWord() + " " + whenOf(dl.at), dl.van].filter(Boolean).join(" · ")) + "</p></section>" +
-        orderCard() +
+    function pillHtml(tag, tone) { return '<span class="ct-dm-pill" data-t="' + (tone === "bad" ? "bad" : tone) + '">' + esc(tag) + "</span>"; }
+    function orderCard(o) {
+      if (!o || !o.has) return "";
+      return '<section class="ct-dm-order"><div class="ct-dm-ocard" data-a="order" role="button" tabindex="0" aria-label="Order details, view the whole order">' +
+          "<h4>Order details</h4><dl>" +
+            row("Order No.", o.dl.orderNo && !/^(ext|cust|count):/.test(o.dl.orderNo) ? esc(o.dl.orderNo) : "") +
+            row("Order value", o.worth ? esc(L.rupees(o.worth)) : "", "is-num") +
+            row("Items", o.ord.lines.length ? esc(L.plural(o.ord.lines.length, "item")) + ' <span class="ct-dm-view">(View)</span>' : '<span class="ct-dm-muted">Not recorded</span>') +
+            row("Delivery address", o.address ? esc(o.address) : "", "is-clip") +
+          "</dl>" + '<span class="ct-dm-ochev" aria-hidden="true">' + I.chev + "</span></div></section>";
+    }
+    function orderPane() {
+      const o = orderBits(); if (!o) return "";
+      const dl = o.dl;
+      const facts = [o.worth ? [L.rupees(o.worth), "Order value"] : null, o.ord.cases ? [String(o.ord.cases), o.ord.cases === 1 ? "Case" : "Cases"] : null,
+        o.units ? [String(o.units), o.units === 1 ? "Unit" : "Units"] : null].filter(Boolean);
+      return '<section class="ct-dm-top"><h3>' + esc(dl.orderNo && !/^(ext|cust|count):/.test(dl.orderNo) ? dl.orderNo : "Order") + "</h3>" +
+          '<p class="ct-dm-sub">' + esc(name()) + "</p></section>" +
+        (facts.length ? '<div class="ct-dm-facts">' + facts.map(function (f) { return "<div><b>" + esc(f[0]) + "</b><span>" + esc(f[1]) + "</span></div>"; }).join("") + "</div>" : "") +
+        '<div class="ct-dm-where"><div><span class="ct-dm-wic">' + I.clock + "</span><p><small>" + (dl.status === "delivered" ? "Delivered" : "Due") + "</small>" +
+            esc([whenOf(dl.at), dl.van, dl.driver].filter(Boolean).join(" · ")) + "</p></div>" +
+          (o.address ? '<div><span class="ct-dm-wic">' + I.pin + "</span><p><small>Delivery address</small>" + esc(o.address) + "</p></div>" : "") + "</div>" +
+        '<section class="ct-dm-sec ct-dm-list"><div class="ct-dm-lh"><h4>Items' + (o.ord.lines.length ? " (" + o.ord.lines.length + ")" : "") + "</h4>" +
+            (o.ord.usual ? "<small>From their usual order</small>" : "") + "</div>" +
+          (o.ord.lines.length
+            ? '<ul class="ct-dm-items">' + o.ord.lines.map(function (l) {
+                return '<li><span class="ct-dm-iname">' + esc(itemName(l.name)) + '</span><span class="ct-dm-qty">' + esc(qtyText(l.qty, l.unit)) + "</span></li>";
+              }).join("") + "</ul>" +
+              '<div class="ct-dm-total"><span>Total</span><b>' + esc(L.plural(o.units, "unit") + (o.worth ? " · " + L.rupees(o.worth) : "")) + "</b></div>"
+            : '<p class="ct-dm-empty">The items on this order weren\'t recorded.</p>') +
+        "</section>";
+    }
+
+    /* ── the buttons: the incident's own two, in the tower ───────────── */
+    function buttonsOf(c) {
+      const inc = c.inc, s = c.subj;
+      if (s && s.cancelled) return [];
+      if (!inc) {
+        /* Nothing wrong: a stop on its way can still call its driver. */
+        if (s && s.status === "pending" && (s.driverPhone || (vanOf(s.van) || {}).phone)) return [{ id: "call", label: "Call " + (s.driver || "the driver"), who: "driver" }];
+        return [];
+      }
+      if (inc.state === "resolved") return [];
+      if (inc.state === "acting") return inc.cat.buttons.filter(function (b) { return b.id === "call"; });
+      /* An action that can't do anything here isn't offered (nothing to
+         move, nobody to tell). */
+      let x = null;
+      const can = function (b) {
+        const spec = b.id !== "call" && b.id !== "close" && IA().A[b.id];
+        if (!spec || !spec.available) return true;
+        x = x || actionCtx(c);
+        return spec.available(x);
+      };
+      if (inc.answered) return [{ id: "close", label: "Close as explained", hint: { how: "explained" } }].concat(inc.cat.buttons.filter(function (b) { return b.id !== "ask" && b.id !== "call"; }).filter(can).slice(-1));
+      return inc.cat.buttons.filter(can);
+    }
+    function phoneOf(c, who) {
+      const s = c.subj, inc = c.inc;
+      if (who === "driver") return (s && s.driverPhone) || (inc && inc.driverPhone) || ((vanOf(s ? s.van : inc && inc.van) || {}).phone) || null;
+      return s && s.customerId ? (view.state.phoneById || {})[s.customerId] || null : null;
+    }
+    function btnHtml(c, b, lead) {
+      if (b.id === "call") {
+        const p = phoneOf(c, b.who);
+        return p ? '<a class="ct-dm-call" data-a="call" data-who="' + b.who + '" href="' + tel(p) + '">' + esc(b.label) + "<small>" + esc(phoneText(p)) + "</small></a>"
+          : '<button type="button" class="ct-dm-call" data-a="call" data-who="' + b.who + '">' + esc(b.label) + "<small>No number saved</small></button>";
+      }
+      return '<button type="button" class="' + (lead ? "ct-dm-re is-lead" : "ct-dm-re") + '" data-act="' + b.id + '"' + (b.hint ? " data-hint='" + esc(JSON.stringify(b.hint)) + "'" : "") + ">" + esc(b.label) + "</button>";
+    }
+
+    /* ── main: what happened, what it costs, what to do, so far ──────── */
+    function mainHtml() {
+      const c = cur();
+      if (!c) return '<section class="ct-dm-top"><h3>' + esc(r.title) + '</h3><p class="ct-dm-sub">This is no longer on today\'s list.</p></section>';
+      const s = c.subj, inc = c.inc;
+      const tone = inc ? (inc.state === "resolved" ? "good" : inc.standing) : s.cancelled ? "good" : s.status === "pending" ? "pend" : "good";
+      const tagText = s && s.cancelled ? "Cancelled" : inc ? (inc.state === "resolved" ? "Fixed" : inc.cat.label) : s.status === "pending" ? "Pending" : "Delivered";
+      const when = inc && inc.kind === "van" ? "Since " + IX().clock(new Date(inc.at).getTime()) + (inc.driver ? " · " + inc.driver : "")
+        : s ? [s.status === "missed" ? "Missed " + (s.at ? whenOf(s.at) : "") : s.status === "pending" ? (s.slot ? "Due " + whenOf(s.slot) : "Not on a van yet") : "Delivered " + whenOf(s.at || s.slot), s.van, s.driver].filter(Boolean).join(" · ") : "";
+      const o = orderBits();
+      /* What happened: the lead incident; anything else on this delivery. */
+      const others = s ? s.incidents.filter(function (i) { return i !== inc; }) : [];
+      /* One sentence, not the tag again (the pill says it). */
+      const happened = inc ? { text: inc.what, lines: (inc.answer ? [(inc.answer.by || "Answer") + ": " + inc.answer.text] : []).concat(inc.state === "resolved" && inc.proof ? ["Fixed · " + inc.proof.text] : []) }
+        : s.cancelled ? { text: "Cancelled", lines: ["The goods come back and go into stock."] }
+        : s.status === "pending" ? { text: s.van ? "On its way" : "Booked", lines: [s.van ? "On " + s.van + (s.driver ? " with " + s.driver : "") + (s.slot ? ", due " + whenOf(s.slot) + "." : ".") : "Not on a van yet. It goes on the next trip."] }
+        : { text: "Delivered", lines: ["On time, in full" + (Number((s.last || {}).collected) ? ", paid at the door." : ".")] };
+      others.forEach(function (i) { happened.lines.push(i.cat.label + (i.state === "resolved" ? " · fixed" : "") + ": " + (i.state === "resolved" ? i.proof.text : i.note)); });
+      const money = inc ? (inc.kind === "van" ? inc.impact.rupees : inc.impact.rupees || (s && s.value)) : s && (s.status === "pending" ? s.value : Number((s.last || {}).collected) || s.value);
+      /* No Impact line when there is nothing to put a figure on. */
+      const impact = inc ? (inc.kind === "van" && !inc.children.length ? null : { value: money ? L.rupees(money) : inc.kind === "van" ? L.plural(inc.children.length, "stop") : inc.cat.label, text: inc.impactText })
+        : s && money ? { value: L.rupees(money), text: s.status === "pending" ? "Order value to deliver." : Number((s.last || {}).collected) ? "Collected at the door." : "Went on credit." } : null;
+      const rec = inc ? inc.rec : s.cancelled ? "Nothing to do here." : s.status === "pending" ? (s.van ? "On the van and on time. Nothing to do yet." : "It goes on the next trip. Nothing to do yet.") : "Nothing to do here.";
+      const heldList = inc && inc.kind === "van" && inc.children.length ? '<section class="ct-dm-sec ct-dm-held"><h4>' + (inc.type === "driver-delayed" ? "Past their time" : "Held on " + esc(inc.van)) + "</h4><ul>" +
+        inc.children.map(function (k) { return c.X.byKey[k]; }).filter(Boolean).slice(0, 8).map(function (x) {
+          return "<li><span>" + esc(x.title) + "</span><small>" + esc([x.status === "pending" ? (x.slot ? "due " + whenOf(x.slot) : "") : x.status === "delivered" ? "delivered" : "", x.value ? L.rupees(x.value) : ""].filter(Boolean).join(" · ")) + "</small></li>";
+        }).join("") + "</ul></section>" : "";
+      const notes = ((view.records.notes || {})[key] || []);
+      const btns = buttonsOf(c);
+      return '<section class="ct-dm-top"><h3>' + esc(s ? s.title : inc.title) + "</h3>" + pillHtml(tagText, tone) +
+          '<p class="ct-dm-sub">' + esc(when) + "</p></section>" +
+        orderCard(o) +
         '<section class="ct-dm-sec"><h4>What happened</h4><div class="ct-dm-line">' +
-          /* A tick when it went right, a truck while it is on its way,
-             a "!" in its tag's colour when something went wrong. */
-          '<span class="ct-dm-ic" data-t="' + (clean ? "good" : tagX ? tagX.tone : pending ? "pend" : "ugly") + '">' +
-            (clean ? I.check : pending && !tagX ? I.truck : '<b aria-hidden="true">!</b>') + "</span>" +
-          '<div><p class="ct-dm-main">' + esc(head.text) + "</p>" + bits.map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") + "</div></div></section>" +
+          '<span class="ct-dm-ic" data-t="' + (tone === "pend" ? "pend" : tone) + '">' + (inc ? (inc.state === "resolved" ? I.check : "<b aria-hidden=\"true\">!</b>") : s.status === "pending" ? I.truck : I.check) + "</span>" +
+          '<div><p class="ct-dm-main">' + esc(happened.text) + "</p>" + happened.lines.filter(Boolean).map(function (m) { return "<p>" + esc(m) + "</p>"; }).join("") + "</div></div></section>" +
+        heldList +
         (impact ? '<section class="ct-dm-sec"><h4>Impact</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.rupee + "</span>" +
           '<div><p class="ct-dm-main">' + esc(impact.value) + "</p><p>" + esc(impact.text) + "</p></div></div></section>" : "") +
-        '<section class="ct-dm-sec is-rec"><h4>Foodbridge recommends</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + (/\bcall\b/i.test(todo || "") ? I.phone : I.spark) + "</span>" +
-          '<div><p class="ct-dm-rec">' + esc(todo || "Nothing to do here.") + "</p></div></div></section>" +
+        '<section class="ct-dm-sec is-rec"><h4>Foodbridge recommends</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + (/\bcall\b/i.test(rec) ? I.phone : I.spark) + "</span>" +
+          '<div><p class="ct-dm-rec">' + esc(rec) + "</p></div></div></section>" +
         (notes.length ? '<section class="ct-dm-sec ct-dm-notes"><h4>Notes</h4>' + notes.map(function (n) { return "<p>" + esc(n.text) + "<small>" + esc(whenOf(n.at)) + "</small></p>"; }).join("") + "</section>" : "") +
-        '<section class="ct-dm-acts"><div class="ct-dm-row">' +
-            (primary ? '<a class="ct-dm-call" href="' + tel(primary.call) + '">' + esc(primary.label) + "<small>" + esc(phoneText(primary.call)) + "</small></a>" : "") +
-            (canResched && !rs.done ? '<button type="button" class="ct-dm-re" data-a="re">Reschedule</button>' : "") +
-          "</div>" +
-          /* Add a note turns into the note itself (owner, 23 Sep 2026): while
-             the owner writes there is no button asking them to start one. */
+        /* The call is the filled button, as in the owner's picture; with no
+           call on the card, the lead action is. */
+        '<section class="ct-dm-acts">' + (btns.length ? '<div class="ct-dm-row">' + btns.map(function (b, i) { return btnHtml(c, b, b.id !== "call" && i === btns.length - 1 && !btns.some(function (x) { return x.id === "call"; })); }).join("") + "</div>" : "") +
           (note.open
             ? '<form class="ct-dm-compose"><label class="ct-dm-compose-l" for="ct-dm-ta">Add a note</label>' +
                 '<div class="ct-dm-talk"><textarea id="ct-dm-ta" rows="3" maxlength="' + NOTE_MAX + '" placeholder="' + (SPEECH ? "Type or speak what you found out" : "What did you find out?") + '">' + esc(note.draft) + "</textarea>" +
@@ -1367,39 +1369,82 @@
                   '<button type="submit" class="ct-dm-save"' + (note.draft.trim() ? "" : " disabled") + ">Save note</button></div></form>"
             : '<button type="button" class="ct-dm-note" data-a="note">Add a note</button>') +
         "</section>";
-      const paneHtml = function (k, html, label) {
-        return '<div class="ct-dm" data-pane="' + k + '" data-pos="' + posOf(k) + '"' + (k === dv.view ? "" : " inert") + (label ? ' aria-label="' + label + '"' : "") + '><div class="ct-dm-in">' + html + "</div></div>";
-      };
-      return paneHtml("main", main) +
-        (hasOrder ? paneHtml("order", orderPane(), "Order details") : "") +
-        (canResched || rs.done ? paneHtml("resched", reschedPane(), "Reschedule delivery") + paneHtml("done", donePane(), "Delivery rescheduled") : "");
     }
-    /* The note being written lives here, so a repaint never loses it. */
-    const NOTE_MAX = 500;
-    const note = { open: false, draft: "" };
+
+    /* An answer whose action can't apply now (no time left today, nothing
+       to move) opens Reschedule for tomorrow instead — and says so. */
+    function fallbackOf(id, c) {
+      const spec = IA().A[id];
+      if (!spec || !spec.available) return id;
+      return spec.available(actionCtx(c)) ? id : "reschedule";
+    }
+    /* ── What did they say? ──────────────────────────────────────────── */
+    function callHtml() {
+      const c = cur(); if (!c || !c.inc) return "";
+      const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+      return '<div class="ct-rs ct-oc"><p class="ct-oc-k">' + esc(cv.calledWho === "driver" ? "You called " + (c.inc.driver || (c.subj && c.subj.driver) || "the driver") : "You called " + name()) + "</p>" +
+        '<h4 class="ct-rs-h">What did they say?</h4><div class="ct-oc-list">' +
+        list.map(function (o, i) {
+          const a = IX().ACTIONS[o[1] === "close" ? "close" : fallbackOf(o[1], c)];
+          return '<button type="button" class="ct-oc-b" data-oc="' + i + '"><b>' + esc(o[0]) + "</b><small>" + esc(o[1] === "close" ? "Close it" : "Opens " + (a ? a.label : o[1])) + "</small></button>";
+        }).join("") + '</div><button type="button" class="ct-oc-skip" data-a="nav-back">Not now</button></div>';
+    }
+
+    /* ── an action, the Reschedule way ───────────────────────────────── */
+    function actHtml() {
+      const spec = cv.act && IA().A[cv.act];
+      if (!spec) return "";
+      return '<div class="ct-rs ct-ap"><div class="ct-ap-body">' + spec.html(cv.x, cv.as, IA().H) + "</div>" +
+        '<p class="ct-dm-err ct-ap-err" role="alert" hidden></p>' +
+        '<div class="ct-rs-foot"><button type="button" class="ct-rs-go' + (spec.danger ? " is-danger" : "") + '" data-a="ap-go">' + esc(spec.go(cv.x, cv.as)) + "</button>" +
+          '<div class="ct-rs-conf" role="group" aria-label="Confirm" hidden><p class="ct-rs-conf-t" aria-live="polite"></p>' +
+            '<div class="ct-rs-conf-b"><button type="button" class="ct-rs-no" data-a="ap-no">Cancel</button>' +
+            '<button type="button" class="ct-rs-yes' + (spec.danger ? " is-danger" : "") + '" data-a="ap-yes">Confirm</button></div></div></div></div>';
+    }
+    function doneHtml() {
+      const d = cv.done; if (!d) return "";
+      return '<div class="ct-rd">' + ILLUS + '<h3 class="ct-rd-t">' + esc(d.title) + '</h3><p class="ct-rd-s">' + esc(d.sub) + "</p>" +
+        '<section class="ct-rd-card"><h4>' + esc(d.head) + "</h4><dl>" +
+          (d.rows || []).filter(Boolean).map(function (x) { return "<div><dt>" + esc(x[0]) + "</dt><dd>" + esc(x[1]) + "</dd></div>"; }).join("") +
+          '<div><dt>Status</dt><dd><span class="ct-rd-pill' + (d.grey ? " is-grey" : "") + '">' + esc(d.pill) + "</span></dd></div>" +
+        "</dl></section></div>";
+    }
+    function barTitle() {
+      if (cv.view === "order") return "Order details";
+      if (cv.view === "call") return "After the call";
+      if (cv.view === "act") return IA().A[cv.act] ? IA().A[cv.act].title : "";
+      return "";
+    }
+    function paneHtml(k, html, label) {
+      return '<div class="ct-dm" data-pane="' + k + '" data-pos="' + posOf(k) + '"' + (k === cv.view ? "" : " inert") + (label ? ' aria-label="' + label + '"' : "") + '><div class="ct-dm-in">' + html + "</div></div>";
+    }
+    function body() {
+      const o = orderBits();
+      return paneHtml("main", mainHtml()) + (o && o.has ? paneHtml("order", orderPane(), "Order details") : "") +
+        paneHtml("call", callHtml(), "After the call") + paneHtml("act", actHtml(), "Action") + paneHtml("done", doneHtml(), "Done");
+    }
     function setNote(open) { stopTalk(); note.open = open; if (!open) note.draft = ""; paint(); }
     function saveNote() {
       stopTalk();
       const t = note.draft.trim();
       if (!t) return;
-      try { tower.store.addNote(dl.no, t); tower.store.audit({ kind: "action", action: "add_note", outcome: name }); }
+      try { tower.store.addNote(key, t); tower.store.audit({ kind: "action", action: "add_note", outcome: name() }); }
       catch (x) { return toast(x.message); }
       note.open = false; note.draft = "";
       compute(); draw(); paint(); toast("Note saved");
     }
 
     sheet(function () {
-      return { modal: true, title: name, cls: "is-" + dv.view,
-        barLeft: '<div class="ct-dm-bl"' + (dv.view === "order" || dv.view === "resched" ? "" : " inert") + '><button type="button" class="ct-dm-bk" data-a="nav-back" aria-label="Back to the delivery">' + I.arrowL + "</button>" +
-          "<h2>" + (dv.view === "resched" ? "Reschedule Delivery" : "Order details") + "</h2></div>",
+      return { modal: true, title: name(), cls: "is-" + cv.view,
+        barLeft: '<div class="ct-dm-bl"' + (cv.view === "main" || cv.view === "done" ? " inert" : "") + '><button type="button" class="ct-dm-bk" data-a="nav-back" aria-label="Back">' + I.arrowL + "</button>" +
+          "<h2>" + esc(barTitle()) + "</h2></div>",
         body: body(),
         bind: function (el) {
           const vp = $(".ct-dm-vp", el);
           const pane = function (k) { return $('.ct-dm[data-pane="' + k + '"]', el); };
-          /* The card is as tall as the pane in view, up to the screen; the
-             height eases when the pane changes, and snaps while typing. */
           const sync = function (ease) {
-            const p = pane(dv.view); if (!p) return;
+            const p = pane(cv.view); if (!p) return;
+            vp.scrollLeft = 0;
             if (!ease) vp.classList.add("no-anim");
             vp.style.height = $(".ct-dm-in", p).offsetHeight + "px";
             if (!ease) { void vp.offsetHeight; vp.classList.remove("no-anim"); markPane(p); }
@@ -1407,122 +1452,174 @@
           };
           let busy = false;
           sync(false);
-          /* Follows its content from then on: a note growing, late fonts, a
-             phone turned sideways. */
           if (window.ResizeObserver) {
             const ro = new ResizeObserver(function () { if (!busy && el.isConnected) sync(false); else if (!el.isConnected) ro.disconnect(); });
             $$(".ct-dm-in", el).forEach(function (x) { ro.observe(x); });
           }
           const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          /* One way to move between the card's panes: the one in view slides
-             out the way it came, the next slides in; the bar follows. By
-             keyboard, focus follows the slide; by touch it stays put. */
+          const fill = function (k, html) { const p = pane(k); if (p) $(".ct-dm-in", p).innerHTML = html; };
           const nav = function (to, byKey) {
-            if (busy || dv.view === to || !pane(to)) return;
+            /* A tap while the card is still sliding waits for it, not lost. */
+            if (busy) { setTimeout(function () { nav(to, byKey); }, 120); return; }
+            if (cv.view === to || !pane(to)) return;
             busy = true;
             stopTalk();
-            if (rs.confirming) conf(false);
-            const from = dv.view;
-            if (from === "main") dv.mainTop = pane("main").scrollTop;
+            if (cv.confirming && to !== "act") conf(false);
+            const from = cv.view;
+            if (from === "main") cv.mainTop = pane("main").scrollTop;
             if (DEPTH[to] > DEPTH[from]) pane(to).scrollTop = 0;
-            dv.from = from; dv.view = to;
-            el.className = el.className.replace(/\bis-(main|order|resched|done)\b/, "is-" + to);
+            cv.view = to;
+            el.className = el.className.replace(/\bis-(main|order|act|call|done)\b/, "is-" + to);
             $$(".ct-dm[data-pane]", el).forEach(function (p) { p.dataset.pos = posOf(p.dataset.pane); p.inert = p.dataset.pane !== to; });
             const bl = $(".ct-dm-bl", el);
-            bl.inert = !(to === "order" || to === "resched");
-            if (to === "order" || to === "resched") $("h2", bl).textContent = to === "resched" ? "Reschedule Delivery" : "Order details";
+            bl.inert = to === "main" || to === "done";
+            $("h2", bl).textContent = barTitle();
             sync(true);
-            if (to === "main") pane("main").scrollTop = dv.mainTop;
+            if (to === "main") pane("main").scrollTop = cv.mainTop;
             setTimeout(function () {
               busy = false;
-              const f = to === "main" ? $(from === "resched" ? "[data-a=re]" : "[data-a=order]", el) : to === "done" ? $(".ct-dm-x", el) : $(".ct-dm-bk", el);
+              const f = to === "main" ? $("[data-act],[data-a=order]", pane("main")) : to === "done" ? $(".ct-dm-x", el) : $(".ct-dm-bk", el);
               if (f && byKey) f.focus({ preventScroll: true });
               else if (document.activeElement && el.contains(document.activeElement)) document.activeElement.blur();
             }, reduced ? 0 : 300);
           };
-          el.addEventListener("keydown", function (ev) {
-            if (ev.key === "Escape" && dv.view === "resched" && rs.confirming) { ev.preventDefault(); ev.stopPropagation(); conf(false, true); }
-            else if (ev.key === "Escape" && (dv.view === "order" || dv.view === "resched")) { ev.preventDefault(); ev.stopPropagation(); nav("main", true); }
-            else if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("[data-a=order]")) { ev.preventDefault(); nav("order", true); }
-          });
-          /* Reschedule: picks change in place; the button does the work. */
-          const rsEl = $(".ct-rs", el);
-          /* The inline confirmation: what will happen, from the picks as
-             they stand; any change to a pick puts the button back. */
+          /* Open an action, filled in (a hint from the call's answer). */
+          const openAct = function (id, hint, byKey) {
+            const c = cur(); if (!c || !IA().A[id]) return;
+            const alt = fallbackOf(id, c);
+            if (alt !== id) { id = alt; hint = { day: 1 }; }
+            cv.act = id; cv.x = actionCtx(c); cv.as = IA().A[id].init(cv.x, hint || {}); cv.confirming = false;
+            fill("act", actHtml());
+            if (cv.view === "act") { $("h2", $(".ct-dm-bl", el)).textContent = barTitle(); sync(false); pane("act").scrollTop = 0; }
+            else nav("act", byKey);
+            /* Nothing to decide: the pane opens on what will happen. */
+            if (!actBody().innerHTML.trim()) conf(true, byKey);
+          };
+          const actBody = function () { return $(".ct-ap-body", pane("act")); };
+          const redraw = function () {
+            const spec = IA().A[cv.act], b = actBody(); if (!spec || !b) return;
+            const y = pane("act").scrollTop;
+            b.innerHTML = spec.html(cv.x, cv.as, IA().H);
+            $(".ct-rs-go", pane("act")).textContent = spec.go(cv.x, cv.as);
+            pane("act").scrollTop = y;
+            if (cv.confirming) conf(false);
+            sync(false);
+          };
+          const err = function (msg) { const e = $(".ct-ap-err", pane("act")); if (!e) return; e.hidden = !msg; e.textContent = msg || ""; };
           const conf = function (on, byKey) {
-            const foot = $(".ct-rs-foot", rsEl); if (!foot) return;
+            const foot = $(".ct-rs-foot", pane("act")); if (!foot) return;
             const box = $(".ct-rs-conf", foot), go = $(".ct-rs-go", foot);
             if (on) {
-              const d = dayAt(rs.day), w = WINS.filter(function (x) { return x.id === rs.win; })[0];
-              $(".ct-rs-conf-t", box).innerHTML = "Move to <b>" + esc(WD[d.getDay()] + ", " + d.getDate() + " " + MO[d.getMonth()]) + " · " + esc(w.time) + "</b>" +
-                "<small>" + (rs.notify ? esc(name) + " will get a WhatsApp confirmation." : "The customer won't be told.") + "</small>";
+              const cf = IA().A[cv.act].confirm(cv.x, cv.as);
+              $(".ct-rs-conf-t", box).innerHTML = cf.main + (cf.small ? "<small>" + esc(cf.small) + "</small>" : "");
             }
             foot.classList.toggle("is-confirm", on);
             go.hidden = on; box.hidden = !on;
-            rs.confirming = on;
+            cv.confirming = on;
             if (byKey) (on ? $(".ct-rs-yes", box) : go).focus({ preventScroll: true });
-            if (on) foot.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+            /* Down to what will happen, inside the pane only: scrollIntoView
+               here would slide the card sideways while the pane moves in. */
+            if (on) { const ap = pane("act"); ap.scrollTo({ top: ap.scrollHeight, behavior: reduced ? "auto" : "smooth" }); }
+            sync(false);
           };
-          const pickDay = function (i) {
-            if (rs.confirming) conf(false);
-            rs.day = i;
-            $$(".ct-rs-day", rsEl).forEach(function (x) { x.setAttribute("aria-pressed", String(+x.dataset.day === i)); });
-            $$(".ct-rs-win", rsEl).forEach(function (x) {
-              const w = WINS.filter(function (y) { return y.id === x.dataset.win; })[0];
-              x.disabled = !winOpen(i, w);
-            });
-            if (!winOpen(i, WINS.filter(function (w) { return w.id === rs.win; })[0])) pickWin(WINS.filter(function (w) { return winOpen(i, w); })[0].id);
-          };
-          const pickWin = function (id) {
-            if (rs.confirming && id !== rs.win) conf(false);
-            rs.win = id;
-            $$(".ct-rs-win", rsEl).forEach(function (x) { x.setAttribute("aria-pressed", String(x.dataset.win === id)); });
-          };
-          const doResched = function (btn) {
-            const d = dayAt(rs.day), w = WINS.filter(function (x) { return x.id === rs.win; })[0];
-            const dayWord = rs.day === 0 ? "this" : rs.day === 1 ? "tomorrow" : WDL[d.getDay()];
+          /* One write, all or nothing: the facts, the messages, the note, the
+             audit line. The platform's proof closes it later. */
+          const commit = function (btn) {
+            const spec = IA().A[cv.act];
+            const c = cur(); if (!spec || !c) return;
             stopTalk();
-            const note = rs.note.trim();
+            const out = spec.commit(cv.x, cv.as);
             btn.disabled = true;
             try {
-              tower.store.rescheduleDeliveries([dl.no], isoDay(d), { rescheduledWindow: w.id, rescheduleNote: note || null, notifyCustomer: rs.notify });
-              if (note) tower.store.addNote(dl.no, note);
-              if (rs.notify) tower.store.addOutbox([{ customerId: dl.customerId, name: name, channel: "whatsapp", kind: "reschedule",
-                body: "Hello " + name + ", your FoodBridge delivery is now on " + WDL[d.getDay()] + " " + d.getDate() + " " + MO[d.getMonth()] + ", " + w.time + "." }]);
-              tower.store.audit({ kind: "action", action: "reschedule_delivery", outcome: name + " · " + isoDay(d) + " " + w.id, reason: note || null });
+              const rec = c.subj && c.subj.records.filter(function (d) { return d.status === "missed"; }).slice(-1)[0];
+              if (out.reschedule && rec) tower.store.rescheduleDeliveries([rec.no], out.reschedule.date, { rescheduledWindow: out.reschedule.window, rescheduleNote: out.reschedule.note, notifyCustomer: out.reschedule.notify });
+              tower.store.addEvents(out.events);
+              if (out.outbox && out.outbox.length) tower.store.addOutbox(out.outbox);
+              if (cv.as.note && String(cv.as.note).trim()) tower.store.addNote(key, String(cv.as.note).trim());
+              tower.store.audit({ kind: "action", action: "incident_" + cv.act, outcome: name() + " · " + out.note });
             } catch (x) { btn.disabled = false; return toast(x.message + " Nothing was changed."); }
-            rs.done = { phrase: dayWord + " " + w.label.toLowerCase(), time: w.time,
-                        date: WD[d.getDay()] + ", " + d.getDate() + " " + MO[d.getMonth()] + " " + d.getFullYear() };
-            $(".ct-dm-in", pane("done")).innerHTML = donePane();
+            const done = spec.done(cv.x, cv.as);
             compute(); draw();
+            fill("main", mainHtml());
+            if (out.next || done.next) { toast(done.title); return openAct(out.next || done.next); }
+            cv.done = done;
+            fill("done", doneHtml());
             nav("done", false);
           };
-          if (rsEl) {
-            rsEl.addEventListener("click", function (ev) {
-              const d = ev.target.closest("[data-day]"); if (d && !d.disabled) return pickDay(+d.dataset.day);
-              const w = ev.target.closest("[data-win]"); if (w && !w.disabled) return pickWin(w.dataset.win);
-            });
-            const rta = $("#ct-rs-note", rsEl), rc = $(".ct-rs-count", rsEl);
-            rta.addEventListener("input", function () { rs.note = rta.value; rc.textContent = rta.value.length + "/" + RS_MAX; });
-            $("#ct-rs-notify", rsEl).addEventListener("change", function (ev) { rs.notify = ev.target.checked; if (rs.confirming) conf(true); });
-          }
+          const closeWith = function (how, byKey) {
+            cv.act = "close"; cv.x = actionCtx(cur()); cv.as = IA().A.close.init(cv.x, { how: how });
+            const out = IA().A.close.commit(cv.x, cv.as);
+            try { tower.store.addEvents(out.events); tower.store.audit({ kind: "action", action: "incident_close", outcome: name() + " · " + out.note }); }
+            catch (x) { return toast(x.message + " Nothing was changed."); }
+            compute(); draw(); fill("main", mainHtml());
+            cv.done = IA().A.close.done(cv.x, cv.as); fill("done", doneHtml()); nav("done", byKey);
+          };
+          el.addEventListener("keydown", function (ev) {
+            if (ev.key === "Escape" && cv.view === "act" && cv.confirming) { ev.preventDefault(); ev.stopPropagation(); conf(false, true); }
+            else if (ev.key === "Escape" && (cv.view === "order" || cv.view === "act" || cv.view === "call")) { ev.preventDefault(); ev.stopPropagation(); nav("main", true); }
+            else if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("[data-a=order]")) { ev.preventDefault(); nav("order", true); }
+          });
+          el.addEventListener("input", function (ev) {
+            const t = ev.target; if (!t.dataset || !t.dataset.tx || !cv.as) return;
+            cv.as[t.dataset.tx] = t.value;
+            const cnt = $('[data-count="' + t.dataset.tx + '"]', el); if (cnt) cnt.textContent = t.value.length + "/200";
+            err(null);
+            if (cv.confirming) conf(false);
+          });
+          el.addEventListener("change", function (ev) {
+            const t = ev.target; if (!t.dataset || !t.dataset.tg || !cv.as) return;
+            cv.as[t.dataset.tg] = t.checked;
+            if (cv.confirming) conf(true);
+          });
           el.addEventListener("click", function (ev) {
+            const pk = ev.target.closest("[data-pk]");
+            if (pk && !pk.disabled && cv.as) { cv.as[pk.dataset.pk] = pk.dataset.n ? +pk.dataset.v : pk.dataset.v; err(null); return redraw(); }
+            const ck = ev.target.closest("[data-ck]");
+            if (ck && !ck.disabled && cv.as) { const m = cv.as[ck.dataset.ck]; if (m[ck.dataset.v]) delete m[ck.dataset.v]; else m[ck.dataset.v] = 1; err(null); return redraw(); }
+            const stp = ev.target.closest("[data-st]");
+            if (stp && !stp.disabled && cv.as) { const m = cv.as[stp.dataset.st]; m[stp.dataset.v] = Math.max(0, Math.min(+(stp.dataset.max || 999), (m[stp.dataset.v] || 0) + (+stp.dataset.d))); err(null); return redraw(); }
+            const act = ev.target.closest("[data-act]");
+            if (act) { let hint = null; try { hint = act.dataset.hint ? JSON.parse(act.dataset.hint) : null; } catch (e) { hint = null; }
+              if (act.dataset.act === "close") return closeWith((hint && hint.how) || "explained", ev.detail === 0);
+              return openAct(act.dataset.act, hint, ev.detail === 0); }
+            const oc = ev.target.closest("[data-oc]");
+            if (oc) {
+              const c = cur(); if (!c || !c.inc) return;
+              const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+              const o = list[+oc.dataset.oc]; if (!o) return;
+              try { tower.store.addEvent({ type: "call.outcome", by: "You", where: "Control Tower", how: "owner", subject: { incident: c.inc.id }, data: { answer: o[0], who: cv.calledWho } }); }
+              catch (x) { return toast(x.message); }
+              compute(); draw(); fill("main", mainHtml());
+              if (o[1] === "close") return closeWith(o[2].how, ev.detail === 0);
+              return openAct(o[1], o[2], ev.detail === 0);
+            }
             const b = ev.target.closest("[data-a]"); if (!b) return;
-            if (b.dataset.a === "order") return nav("order", ev.detail === 0);
-            if (b.dataset.a === "nav-back") return nav("main", ev.detail === 0);
-            if (b.dataset.a === "re") return nav("resched", ev.detail === 0);
-            if (b.dataset.a === "rs-go") return conf(true, ev.detail === 0);
-            if (b.dataset.a === "rs-no") return conf(false, ev.detail === 0);
-            if (b.dataset.a === "rs-yes") return doResched(b);
-            if (b.dataset.a === "rs-mic") return talk ? stopTalk() : startTalk($("#ct-rs-note", el), b, $(".ct-rs-err", el));
-            if (b.dataset.a === "note") return setNote(true);
-            if (b.dataset.a === "note-cancel") return setNote(false);
-            if (b.dataset.a === "note-mic") return talk ? stopTalk() : startTalk($("#ct-dm-ta", el), b, $(".ct-dm-err", el));
+            const a = b.dataset.a;
+            if (a === "order") return nav("order", ev.detail === 0);
+            if (a === "nav-back") return nav("main", ev.detail === 0);
+            if (a === "call") {
+              /* The phone dials; the card waits with "What did they say?". */
+              const c = cur(); if (!c || !c.inc || c.inc.state === "resolved") return;
+              cv.calledWho = b.dataset.who;
+              const list = cv.calledWho === "driver" ? IX().DRIVER_OUTCOMES : IX().OUTCOMES[c.inc.type] || [];
+              if (!list.length) return;
+              fill("call", callHtml());
+              setTimeout(function () { nav("call", false); }, b.tagName === "A" ? 700 : 0);
+              return;
+            }
+            if (a === "ap-go") { const spec = IA().A[cv.act]; const e = spec.ready ? spec.ready(cv.x, cv.as) : null; if (e) return err(e); return conf(true, ev.detail === 0); }
+            /* Nothing to decide: Cancel is back to the card, not to a button
+               that asks the same thing again. */
+            if (a === "ap-no") return actBody() && !actBody().innerHTML.trim() ? nav("main", ev.detail === 0) : conf(false, ev.detail === 0);
+            if (a === "ap-yes") return commit(b);
+            if (a === "ap-mic") return talk ? stopTalk() : startTalk($("#ct-ap-note", el), b, $(".ct-ap-err", el));
+            if (a === "note") return setNote(true);
+            if (a === "note-cancel") return setNote(false);
+            if (a === "note-mic") return talk ? stopTalk() : startTalk($("#ct-dm-ta", el), b, $(".ct-dm-err", el));
           });
           const f = $(".ct-dm-compose", el);
           if (!f) return;
           const ta = $("textarea", f), save = $(".ct-dm-save", f), count = $(".ct-dm-count", f);
-          /* Grows with what is written, up to five lines. */
           const fit = function () { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 132) + "px"; sync(false); };
           ta.addEventListener("input", function () {
             note.draft = ta.value;

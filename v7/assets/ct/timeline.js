@@ -138,6 +138,23 @@
       }
     });
 
+    /* ── Incidents (24 Sep 2026): a van problem from the road, a fix made
+       on the ground, and every problem fixed — the day's wins. ────────── */
+    const dlv = model && model.levers.filter(function (x) { return x.id === "deliveries"; })[0];
+    if (dlv && dlv.incidents) dlv.incidents.incidents.forEach(function (inc) {
+      if (inc.kind === "van" && inc.event) add({ key: "van:" + inc.id, at: inc.at, lever: "deliveries", tone: "bad", tile: "ugly",
+        text: inc.title + " · " + inc.cat.label.toLowerCase() + (inc.by ? ", reported by " + inc.by : ""),
+        detail: detail(inc.title, [fact("What happened", inc.what), fact("Holding", inc.children.length ? L.plural(inc.children.length, "stop") : null), fact("Reported", time(inc.at))]) });
+      (inc.actions || []).forEach(function (a) {
+        if (!a.by || a.by === "You") return;
+        add({ key: "act:" + inc.id + ":" + a.at, at: a.at, lever: "deliveries", tile: "bad", text: a.by + " · " + a.note.toLowerCase().replace(/^\w/, function (c) { return c.toUpperCase(); }) + " · " + inc.title,
+          detail: detail("Fixed on the ground", [fact("Who", a.by), fact("Where", a.where), fact("What", a.note), fact("For", inc.title)]) });
+      });
+      if (inc.state === "resolved" && inc.actions && inc.proof) add({ key: "fix:" + inc.id, at: inc.proof.at, lever: "deliveries", tone: "good", win: true, tile: "good",
+        text: inc.title + " · " + inc.cat.label.toLowerCase() + ", fixed",
+        detail: detail("Fixed", [fact("What went wrong", inc.cat.label), fact("What was done", inc.actions.map(function (a) { return a.note; }).join("; ")), fact("Proof", inc.proof.text)]) });
+    });
+
     /* ── Money in: counter and owner payments; the imported ledger's ─── */
     const col = model && model.levers.filter(function (x) { return x.id === "collections"; })[0];
     const lateOf = {};

@@ -69,7 +69,7 @@
           "id": "control-tower",
           "name": "Control Tower",
           "ownExitBar": true,
-          "url": "screens/control-tower.html?v=20260924KB3",
+          "url": "screens/control-tower.html?v=20260924IN18",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -208,7 +208,7 @@
           "_why": "deviceFrame: the route rep's field app, drawn inside a phone on desktop the way Stock Audit frames itself, with the sidebar kept. fullBleed still governs mobile, where it has the screen to itself.",
           "id": "delivery-management",
           "name": "Delivery Management",
-          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260923DWI",
+          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260924IN18",
       "barIn": "#app div:has(> .rd-tab)",
       "padIn": ".rd-body",
           "clipLeft": 0,

@@ -521,6 +521,9 @@
     { key: "UNSOLD",        icon: "📦", label: "Unsold" },
     { key: "WRONG_PRODUCT", icon: "❌", label: "Wrong Product" },
   ];
+  /* What kind of damage (24 Sep 2026): one more tap, so the office knows
+     whether to replace it, credit it or claim it from the supplier. */
+  const DAMAGE = [{ key: "LEAKING", label: "Leaking" }, { key: "WET", label: "Wet carton" }, { key: "BROKEN", label: "Broken pack" }];
 
   window.RD.screen("returnAcceptance", function (p) {
     const S = window.RD.state.scratch;
@@ -571,6 +574,15 @@
             transition: "border-color 0.15s, background 0.15s, color 0.15s",
           }) + '"><span>' + r.icon + "</span><span>" + r.label + "</span></button>";
         }).join("") + "</div>" +
+      (S.returnReason === "DAMAGED"
+        ? '<div style="' + U.sty({ display: "flex", gap: 6, marginBottom: 12 }) + '">' + DAMAGE.map(function (dm) {
+            const on = S.returnDamage === dm.key;
+            return '<button type="button"' + U.act("return-damage", dm.key) + ' style="' + U.sty({
+              flex: 1, padding: "9px 6px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              border: "1.5px solid " + (on ? "#f97316" : "#e5e7eb"), background: on ? "#fff7ed" : "white", color: on ? "#c2410c" : "#555",
+            }) + '">' + dm.label + "</button>";
+          }).join("") + "</div>"
+        : "") +
       // QA takes an optional note with the reason.
       '<textarea data-model="return-note" rows="2" placeholder="Add a note about this return (optional)" style="' + U.sty({
         width: "100%", padding: "10px 14px", borderRadius: 12, border: "1.5px solid #e5e7eb",
@@ -686,7 +698,8 @@
     window.RD.render();
   });
   window.RD.action("model:return-note", function (v) { window.RD.state.scratch.returnNote = v; });
-  window.RD.action("return-reason", function (r) { window.RD.state.scratch.returnReason = r; window.RD.render(); });
+  window.RD.action("return-reason", function (r) { window.RD.state.scratch.returnReason = r; if (r !== "DAMAGED") window.RD.state.scratch.returnDamage = null; window.RD.render(); });
+  window.RD.action("return-damage", function (k) { const S = window.RD.state.scratch; S.returnDamage = S.returnDamage === k ? null : k; window.RD.render(); });
 
   window.RD.action("return-search-clear", function () { window.RD.state.scratch.returnSearch = ""; window.RD.render(); });
   window.RD.action("model:return-search", function (v) {
@@ -710,6 +723,13 @@
         routeId: routeId, orgId: fromStop ? fromStop.customerId : null,
         items: items, reason: S.returnReason || "Damaged", note: S.returnNote || "",
       });
+      /* The office hears it: the tower names it (damaged, expired, wrong
+         item) and offers the replacement or the credit. */
+      if (window.RD_EMIT) window.RD_EMIT("return.recorded", D.db.routeDetails[routeId], fromStop, {
+        reason: S.returnReason || "DAMAGED", detail: S.returnReason === "DAMAGED" ? S.returnDamage || null : null,
+        items: items.map(function (it) { const pr = products.find(function (x) { return x.productId === it.productId; }); return { name: pr ? pr.name : it.productId, qty: it.qty }; }),
+        value: Math.round(items.reduce(function (a, it) { return a + it.qty * (it.unitPrice || 0); }, 0)), note: S.returnNote || null }, "Delivery app · Product return");
+      S.returnDamage = null;
       // A customer who had nothing booked is now a return-only stop, exactly as
       // QA's node types resolve it (RETURN_DISPATCH and nothing else).
       if (fromStop && fromDetail && !(fromDetail.orderItems || []).length) fromStop.isReturnOnly = true;

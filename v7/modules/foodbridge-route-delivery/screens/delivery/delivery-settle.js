@@ -321,6 +321,13 @@
       return { productId: it.productId, actualCount: raw === "" || raw == null ? it.expectedReturn : parseInt(raw, 10) };
     });
     SDK.settlement.submitStockCount({ routeId: routeId, items: counts, note: S.countNote || null });
+    /* A count that doesn't match is the office's to explain (the tower's
+       Missing and Excess incidents). */
+    const mism = (sheet.items || []).map(function (it, i) {
+      const actual = counts[i].actualCount, diff = actual - it.expectedReturn;
+      return diff ? { name: it.name, expected: it.expectedReturn, actual: actual, diff: diff, value: Math.round(Math.abs(diff) * (it.unitPrice || 0)) } : null;
+    }).filter(Boolean);
+    if (mism.length && window.RD_EMIT) window.RD_EMIT("count.submitted", D.db.routeDetails[routeId], null, { mismatches: mism, note: S.countNote || null }, "Delivery app · Stock count");
     S.countConfirming = false;
     window.RD.go("/settlement/" + routeId);
   });

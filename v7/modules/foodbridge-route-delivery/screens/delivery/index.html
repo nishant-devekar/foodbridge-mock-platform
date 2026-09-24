@@ -47,20 +47,24 @@
        way out: v7/assets/exit-demo.js. The bar itself is NOT mounted here —
        this app has its own tab bar, and EXIT DEMO in it opens the sheet. -->
   <script src="../../../../assets/exit-demo.js?v=20260923DX2"></script>
+  <!-- The platform's event stream: what happens here reaches the Control
+       Tower as it happens (24 Sep 2026). -->
+  <script src="../../../../assets/fb-events.js?v=20260924IN1"></script>
   <script src="seed.inline.js?v=20260918E2"></script>
   <script src="services.js?v=20260918E2"></script>
   <script src="models.js?v=20260918E2"></script>
   <script src="validation.js?v=20260918E2"></script>
   <script src="shell.js?v=20260921E4"></script>
-  <script src="delivery-core.js?v=20260918E2"></script>
+  <script src="delivery-core.js?v=20260924IN1"></script>
 
   <!-- Screens. Each registers itself with RD.screen(), so this list is the only
        place a new screen file needs mentioning. -->
   <script src="delivery-home.js?v=20260918E2"></script>
   <script src="delivery-start.js?v=20260918E2"></script>
-  <script src="delivery-stops.js?v=20260918E2"></script>
-  <script src="delivery-settle.js?v=20260918E2"></script>
-  <script src="delivery-aside.js?v=20260918E2"></script>
+  <script src="delivery-stops.js?v=20260924IN18"></script>
+  <script src="delivery-settle.js?v=20260924IN1"></script>
+  <script src="delivery-aside.js?v=20260924IN1"></script>
+  <script src="delivery-report.js?v=20260924IN1"></script>
 
   <script>RD.mount(document.getElementById("app"));</script>
 </body>

@@ -55,7 +55,13 @@
     route: "fb.v7.ct.route",
     notes: "fb.v7.ct.notes",
     orders: "fb.v7.orders",
+    /* The event stream (24 Sep 2026): facts from the platform's screens —
+       the delivery app, Live Tracking — and from the tower's own actions.
+       Not scoped: the modules write it without knowing the business; each
+       event the tower writes carries its scope, and reads keep their own. */
+    events: "fb.v7.events",
   };
+  const EVENTS_CAP = 2000;
   const AUDIT_CAP = 500;
   const SEV_RANK = { opportunity: 0, medium: 1, high: 2, critical: 3 };
 
@@ -81,7 +87,7 @@
      export keeps the plain keys; any other business gets its own. Orders are
      not scoped: they are filtered by the customers each business has. */
   function scoped(k, scope) {
-    return !scope || scope === "export" || k === K.orders ? k : k.replace("fb.v7.ct.", "fb.v7.ct." + scope + ".");
+    return !scope || scope === "export" || k === K.orders || k === K.events ? k : k.replace("fb.v7.ct.", "fb.v7.ct." + scope + ".");
   }
 
   function create(storage, clock) {
@@ -299,6 +305,16 @@
     }
 
     function setRoute(r) { put(K.route, r); return r; }
+    /* Facts, appended in one write: all or nothing. */
+    function addEvents(list) {
+      const all = get(K.events, []);
+      let n = all.reduce(function (m, e) { const k = parseInt(String(e.id || "").replace(/\D/g, ""), 10); return isNaN(k) ? m : Math.max(m, k); }, 0);
+      const recs = list.map(function (e) { n += 1; return Object.assign({ id: "EV-" + String(n).padStart(6, "0"), at: isoNow(), scope: scope }, e); });
+      put(K.events, all.concat(recs).slice(-EVENTS_CAP));
+      return recs;
+    }
+    function addEvent(e) { return addEvents([e])[0]; }
+    function events() { return get(K.events, []).filter(function (e) { return !e.scope || e.scope === scope; }); }
     /* A note the owner keeps on one item. */
     function addNote(key, text) {
       const t = String(text || "").trim();
@@ -317,7 +333,7 @@
         followups: get(K.followups, []), support: get(K.support, []), orders: get(K.orders, []),
         deliveries: get(K.deliveries, []), payments: get(K.payments, []),
         stockCounts: get(K.stockCounts, []), holds: get(K.holds, {}), route: get(K.route, null),
-        notes: get(K.notes, {}),
+        notes: get(K.notes, {}), events: events(),
       };
     }
 
@@ -328,7 +344,8 @@
              inProgress: inProgress, audit: audit, addPurchaseRequest: addPurchaseRequest, addOutbox: addOutbox,
              addFollowup: addFollowup, addSupport: addSupport, addOrders: addOrders,
              addDeliveries: addDeliveries, rescheduleDeliveries: rescheduleDeliveries, addPayment: addPayment,
-             addStockCounts: addStockCounts, setHold: setHold, setRoute: setRoute, addNote: addNote };
+             addStockCounts: addStockCounts, setHold: setHold, setRoute: setRoute, addNote: addNote,
+             addEvent: addEvent, addEvents: addEvents };
   }
 
   const API = { create: create, memory: memory, KEYS: K, StoreError: StoreError };

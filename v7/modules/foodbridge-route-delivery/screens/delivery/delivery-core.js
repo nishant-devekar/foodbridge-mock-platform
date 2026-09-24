@@ -83,6 +83,8 @@
     ["/reports",                          "reports"],
     ["/closed/:routeId",                  "closed"],
     ["/analytics/:routeId",               "analytics"],
+    ["/problem/:routeId",                 "problem"],
+    ["/issue/:routeId/:stopId",           "issue"],
   ];
 
   function matchRoute(path) {

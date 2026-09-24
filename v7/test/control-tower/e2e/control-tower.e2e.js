@@ -145,25 +145,47 @@ test("phone · footer: a lever slot opens its lever, dots say where to look, Mor
   assert.deepEqual(p.errors, []);
 });
 
-test("phone · a missed delivery: its modal reschedules it in place", async () => {
+test("phone · a missed delivery: its lead action runs in the card, and the delivery moves to Pending", async () => {
   const p = await open(PHONE);
   await tap(p, '#ct-foot [data-slot="deliveries"]');
   const count = (k) => p.$eval('.ct-tile[data-k="' + k + '"]', (t) => +t.textContent.replace(/\D+/g, " ").trim().split(" ")[0]);
-  const missed = await count("ugly"), pending = await count("bad");
+  const missed = await count("ugly");
   assert.ok(missed > 0, "the demo has a missed stop");
   await tap(p, '.ct-tile[data-k="ugly"]');
-  await tap(p, ".ct-list .ct-row[data-row]");
+  /* The first delivery (not a van) under Missed: its lead action. */
+  const i = await p.$$eval(".ct-list .ct-row[data-row]", (rs) => rs.findIndex((r) => !/^Van \d/.test(r.querySelector(".ct-row-n").textContent)));
+  await tap(p, '.ct-list .ct-row[data-row="' + i + '"]');
   await p.waitForSelector(".ct-sheet.is-modal");
-  await click(p, ".ct-sheet [data-a=re]");
-  await click(p, ".ct-sheet [data-a=rs-go]");
-  assert.match(await text(p, ".ct-rs-conf-t"), /^Move to .+ · .+/, "the button asks what will happen, in place");
-  await click(p, ".ct-sheet [data-a=rs-yes]");
+  const lead = await p.$$eval(".ct-sheet [data-pane=main] [data-act]", (b) => b[b.length - 1].dataset.act);
+  await click(p, '.ct-sheet [data-pane=main] [data-act="' + lead + '"]');
+  await p.waitForSelector(".ct-sheet.is-act");
+  /* A pane with nothing to decide opens on its confirmation. */
+  if (await p.$eval(".ct-sheet [data-a=ap-go]", (b) => !b.hidden)) await click(p, ".ct-sheet [data-a=ap-go]");
+  assert.ok((await text(p, ".ct-rs-conf-t")).length > 10, "it says what will happen, in place");
+  assert.equal(await p.$$eval('.ct-sheet [data-pane=act] input[type=checkbox]', (b) => b.length), 0, "no questions that aren't decisions");
+  await click(p, ".ct-sheet [data-a=ap-yes]");
+  await p.waitForSelector(".ct-sheet.is-done");
   await p.waitForFunction((m) => {
     const t = document.querySelector('.ct-tile[data-k="ugly"]');
-    return t && +t.textContent.replace(/\D+/g, " ").trim().split(" ")[0] === m - 1;
+    return t && +t.textContent.replace(/\D+/g, " ").trim().split(" ")[0] < m;
   }, { timeout: 5000 }, missed);
   await click(p, ".ct-sheet .ct-dm-x");
-  assert.equal(await count("bad"), pending + 1, "it waits under Pending for its new day");
+  assert.deepEqual(p.errors, []);
+});
+
+test("phone · a call comes back to What did they say?, and the answer opens its action, filled in", async () => {
+  const p = await open(PHONE);
+  await tap(p, '#ct-foot [data-slot="deliveries"]');
+  await tap(p, '.ct-tile[data-k="ugly"]');
+  const i = await p.$$eval(".ct-list .ct-row[data-row]", (rs) => rs.findIndex((r) => /Shop closed|Not available|Refused/.test(r.textContent)));
+  if (i < 0) return;
+  await tap(p, '.ct-list .ct-row[data-row="' + i + '"]');
+  await p.waitForSelector(".ct-sheet.is-modal");
+  await p.$eval(".ct-sheet [data-a=call]", (a) => { a.removeAttribute("href"); a.click(); });
+  await p.waitForSelector(".ct-sheet.is-call");
+  await click(p, ".ct-sheet [data-oc]");
+  await p.waitForSelector(".ct-sheet.is-act");
+  assert.ok(await p.$(".ct-sheet [data-pane=act] .ct-rs-foot"), "the action, ready to confirm");
   assert.deepEqual(p.errors, []);
 });
 

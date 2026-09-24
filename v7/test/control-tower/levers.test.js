@@ -84,7 +84,7 @@ test("the Cash balance appears on Collections and Purchase only when owed and ow
   assert.ok(!by(plain, "collections").balance.length, "no invoices: no cash balance");
 });
 
-test("Deliveries goes live from its first recorded delivery; missed → Ugly → rescheduled → To deliver", () => {
+test("Deliveries goes live from its first recorded delivery; missed → Missed → rescheduled → Pending, being fixed", () => {
   const w = F.world();
   const cust = levers(w).v.state.customers[0].id;
   w.store.addDeliveries([{ customerId: cust, status: "delivered", collected: 4200, empties: { cratesOut: 2, cratesBack: 1, bottlesBack: 10 } }]);
@@ -98,28 +98,31 @@ test("Deliveries goes live from its first recorded delivery; missed → Ugly →
   const other = levers(w).v.state.customers[1].id;
   const [missed] = w.store.addDeliveries([{ customerId: other, status: "missed", reason: "Shop closed" }]);
   d = by(levers(w).m, "deliveries");
-  assert.notEqual(d.status, "good", "half the stops went wrong");
-  assert.ok(d.tiles.ugly.rows.some((r) => r.note === "Shop closed"), "the missed stop is under Missed");
-  assert.equal(d.action.label, "Reschedule 1 delivery");
+  assert.equal(d.status, "ugly", "a delivery needs the owner: Urgent");
+  assert.ok(d.tiles.ugly.rows.some((r) => r.tag.type === "shop-closed" && r.next === "Reschedule"), "under Missed, with its lead action");
+  assert.equal(d.action, null, "the fix is on the delivery, not a page button");
 
   w.store.rescheduleDeliveries([missed.no], "2026-09-23");
   d = by(levers(w).m, "deliveries");
-  assert.ok(!d.tiles.ugly.rows.some((r) => r.note === "Shop closed"), "no longer a problem once rescheduled");
-  assert.ok(d.tiles.bad.rows.some((r) => r.id === other && /Rescheduled/.test(r.note)), "back on the next trips");
+  assert.ok(!d.tiles.ugly.rows.some((r) => r.tag && r.tag.type === "shop-closed"), "no longer Missed once rescheduled");
+  assert.ok(d.tiles.bad.rows.some((r) => r.id === missed.no && /Rescheduled/.test(r.note)), "Pending, being fixed");
 });
 
-test("each item carries one incident tag: the platform's own when it set one, else read off the record", () => {
+test("each item carries one incident tag: its worst open one; the platform's own tag is read the same", () => {
   const w = F.world();
   const cust = levers(w).v.state.customers;
   const [a, b] = w.store.addDeliveries([
     { customerId: cust[0].id, status: "delivered", lateMin: 50, shortCases: 2 },
     { customerId: cust[1].id, status: "delivered", lateMin: 50, incident: "damaged" },
   ]);
-  const rows = by(levers(w).m, "deliveries").tiles.good.rows;
+  const d = by(levers(w).m, "deliveries");
+  const rows = [].concat(d.tiles.good.rows, d.tiles.bad.rows, d.tiles.ugly.rows);
   const ra = rows.find((r) => r.id === a.no), rb = rows.find((r) => r.id === b.no);
-  assert.deepEqual(ra.tag, { type: "late", action: "Ask why it was late" }, "late before short, one tag only");
-  assert.equal(rb.tag.type, "damaged", "the platform's tag wins");
-  assert.equal(rb.next, "Replace on next trip");
+  assert.equal(ra.tag.type, "short-quantity", "the open problem, not the late that was fixed by delivering");
+  assert.equal(ra.next, "Send on next trip");
+  assert.ok(d.tiles.bad.rows.includes(ra), "a delivered drop with an open problem is Pending until it's fixed");
+  assert.equal(rb.tag.type, "damaged-goods", "the platform's tag wins");
+  assert.equal(rb.next, "Send on next trip");
 });
 
 test("empties travel as kits: a crate back with 10 bottles leaves 2 bottles with the customer", () => {
@@ -210,14 +213,17 @@ test("Overview: a lever turns green once its problem is handled", () => {
   assert.ok(!m.overview.need.some((n) => n.id === "purchase"));
 });
 
-test("a lever's standing follows its health: mostly right is Good, a few items to fix or not", () => {
+test("Deliveries stands where its deliveries do: Urgent while one needs you, all green when nothing is open", () => {
   const w = F.world();
   const cust = levers(w).v.state.customers;
   w.store.addDeliveries(cust.slice(0, 9).map((c) => ({ customerId: c.id, status: "delivered" })).concat([{ customerId: cust[9].id, status: "missed", reason: "Shop closed" }]));
-  const d = by(levers(w).m, "deliveries");
+  let d = by(levers(w).m, "deliveries");
   assert.equal(d.tiles.ugly.count, 1, "one still to fix");
-  assert.equal(d.health.value, 0.9);
-  assert.equal(d.status, "good", "9 of 10 right is Good");
+  assert.equal(d.health.value, 0.9, "health still reads on time and in full");
+  assert.equal(d.status, "ugly", "Urgent while one needs you (decision, 24 Sep 2026)");
+  w.store.addDeliveries([{ customerId: cust[9].id, status: "delivered" }]);
+  d = by(levers(w).m, "deliveries");
+  assert.equal(d.status, "good", "delivered after all: all green");
 });
 
 test("Collections › On track is good news only: payments in, long-stuck money first", () => {

@@ -526,6 +526,9 @@ balance · grow · action.
 
 ### 5.1 Deliveries — today
 
+> **Since 24 Sep 2026 Deliveries runs on incidents** — the list, the tiles, the card and its
+> sixteen lead actions: see `CONTROL_TOWER_INCIDENTS.md`. Where this section disagrees, that one wins.
+
 | Tile | Number | List rows |
 | --- | --- | --- |
 | **Good** · Delivered | 38 | Three facts, not rows: **₹48,200 collected · 112 empties back · 9 next orders taken** |

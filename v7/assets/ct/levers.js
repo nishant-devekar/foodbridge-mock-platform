@@ -91,7 +91,7 @@
   function standing(lv) {
     const t = lv.tiles;
     if (!t.ugly.count && !t.bad.count) return "good";
-    if (!lv.health) return statusOf(t);
+    if (lv.byIncidents || !lv.health) return statusOf(t);
     return lv.health.value >= GOOD ? "good" : lv.health.value >= OK ? "bad" : "ugly";
   }
 
@@ -216,7 +216,9 @@
     const lever = { id: "deliveries", label: "Deliveries", period: "Today" };
     const ordersQuarter = c.st.orders.filter(function (o) { return o.source === "import" && c.asOf && dayOf(o.date) > dayOf(c.asOf) - 90 * DAY; }).length;
 
-    if (!all.length && !c.pending.length) {
+    /* A fact from the platform's screens makes it live too (24 Sep 2026). */
+    const facts = (c.rec.events || []).filter(function (e) { return /^(stop|return|dispute|problem|payment|count|credit)\./.test(e.type); });
+    if (!all.length && !c.pending.length && !facts.length) {
       return Object.assign(lever, {
         status: "preview",
         preview: {
@@ -241,130 +243,109 @@
       });
     }
 
-    const todayIso = new Date(c.today).toISOString().slice(0, 10);
-    const ofToday = all.filter(function (d) { return String(d.at).slice(0, 10) === todayIso; });
-    const delivered = ofToday.filter(function (d) { return d.status === "delivered" || d.status === "returned"; });
-    const missed = all.filter(function (d) { return d.status === "missed" && !d.rescheduledFor; });
-    const late = delivered.filter(function (d) { return (Number(d.lateMin) || 0) > T.LATE_MIN; });
-    const name = function (id) { return c.st.customerById[id] || id; };
-    /* A rescheduled delivery is to deliver until the customer's next
-       delivery is recorded. */
-    const later = function (d) { return all.some(function (x) { return x.customerId === d.customerId && x.at > d.at && x.status !== "missed"; }); };
-    /* Rescheduled for today, the stop is back on the route (above), not here. */
-    const rescheduled = all.filter(function (d) { return d.status === "missed" && d.rescheduledFor && d.rescheduledFor !== todayIso && !later(d); });
-    /* A stop past its slot and still on the road is already late: the
-       customer is waiting. It stays in progress, flagged, and it already
-       counts against on time. */
-    const overdueBy = function (o) { return o.slot ? (c.today - new Date(o.slot).getTime()) / 60000 : 0; };
-    const running = c.pending.filter(function (o) { return overdueBy(o) > T.LATE_MIN; });
-    const pending = c.pending.concat(rescheduled.map(function (d) {
-      return { no: d.no, customerId: d.customerId, customer: name(d.customerId), amount: null, rescheduledFor: d.rescheduledFor, window: d.rescheduledWindow || null, rec: d };
-    }));
-
-    /* The row's note says what happened; `next` says the one thing to do
-       about it, in a few words — the same split the detail sheet already
-       makes (see control-tower.js, todoHtml), just short enough for a list.
-       Kept a duplicate of the shop-side/Van-full split in deliverySheet's
-       own todo, since levers.js runs under node and never reaches the DOM. */
-    const missNext = function (reason) {
-      if (["Shop closed", "Refused", "Payment not ready"].indexOf(reason) !== -1) return "Call to reschedule";
-      if (reason === "Van full") return "Reschedule for tomorrow";
-      return "Reschedule the trip";
+    /* Run on incidents (owner, 24 Sep 2026; CONTROL_TOWER_INCIDENTS.md):
+       each delivery stands where its worst open incident puts it — Missed
+       (needs you), Pending (to deliver, or being fixed), On track (done,
+       nothing open). The standing comes from the incident engine; this
+       only lays it out as tiles and rows. */
+    const IN = root.CTIncidents || (typeof require === "function" ? require("./incidents.js") : null);
+    const owed = {};
+    if (c.colours) Object.keys(c.colours).forEach(function (id) { owed[id] = c.colours[id].outstanding || 0; });
+    const avg = {};
+    (c.st.cadence || []).forEach(function (x) { if (x.avgValue) avg[x.id] = x.avgValue; });
+    /* A credit limit per customer: set on the customer, else three of their
+       usual orders (never under ₹10,000). */
+    const limitOf = function (id) {
+      const set = (c.st.creditLimitById || {})[id];
+      if (typeof set === "number") return set;
+      return avg[id] ? Math.max(10000, Math.ceil(avg[id] * 3 / 1000) * 1000) : null;
     };
-    /* Every row says where it stands (`stand`: delivered, pending, missed —
-       its tile), so a row with nothing wrong still reads like the others.
-       One row per item, with at most one tag: what went wrong with it.
-       Missed holds the stops that were not delivered; a drop that went
-       late, short, came back or left crates out is still delivered, so it
-       sits under On track with its tag. A record the platform has tagged
-       (`incident`) keeps that tag; otherwise it is read off the record:
-       late before short before returned before crates. */
-    const lateNote = function (d) { return "Late " + mins(Number(d.lateMin)) + (d.lateWhy ? " · " + d.lateWhy : ""); };
-    const cratesOut = function (d) { const e = d.empties || {}; return Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0)); };
-    const found = function (d) {
-      const t = [];
-      if ((Number(d.lateMin) || 0) > T.LATE_MIN) t.push({ type: "late", note: lateNote(d) });
-      if ((Number(d.shortCases) || 0) > 0) t.push({ type: "short", note: "Short " + plural(Number(d.shortCases), "case") });
-      if ((Number(d.returnedCases) || 0) > 0) t.push({ type: "returned", note: "Returned " + plural(Number(d.returnedCases), "case") });
-      if (cratesOut(d)) t.push({ type: "crates", note: plural(cratesOut(d), "crate") + " not back" });
-      return t;
+    const X = IN.derive({ st: c.st, rec: c.rec, now: c.today, pending: c.pending, owed: owed, limit: limitOf });
+    const stand = { ugly: "missed", bad: "pending", good: "delivered" };
+    const tagOf = function (inc, fixed) {
+      if (!inc) return null;
+      return { type: inc.type, label: (fixed ? "✓ " : "") + inc.cat.label, tone: fixed ? "good" : inc.standing, state: inc.state, action: inc.next };
     };
-    const tagOf = function (type, action) { return { type: type, action: action || INCIDENTS[type].action }; };
-    const uglyRows = missed.map(function (d) {
-      const tag = tagOf(INCIDENTS[d.incident] ? d.incident : "missed", missNext(d.reason));
-      return { id: d.no, kind: "delivery", stand: "missed", title: name(d.customerId), note: d.reason || "Missed", next: tag.action, tag: tag, value: null, ref: d };
-    });
-    const badRows = pending.map(function (o) {
-      const running = overdueBy(o) > T.LATE_MIN;
-      if (o.rescheduledFor) {
-        /* Opens as the delivery it was: missed, and now rescheduled. */
-        return { id: o.customerId, kind: "delivery", stand: "pending", ref: o.rec, title: o.customer, note: "Rescheduled · " + date(o.rescheduledFor) + (o.window ? " · " + o.window.charAt(0).toUpperCase() + o.window.slice(1) : ""), next: "Nothing to do", value: null,
-                 tag: tagOf("missed", "Nothing to do") };
+    const cleanNote = function (s) {
+      if (s.cancelled) return "Cancelled · goods back" + (s.van ? " on " + s.van : "");
+      if (s.status === "delivered") {
+        const d = s.last || {};
+        if (s.kind === "count") return "Counted";
+        return Number(d.collected) ? "Paid " + rupees(Number(d.collected)) + " at the door" : "On credit";
       }
-      const tag = INCIDENTS[o.incident] ? tagOf(o.incident) : running ? tagOf("late", "Call the driver") : null;
-      return { id: o.no, kind: "order", stand: "pending", title: o.customer, value: typeof o.amount === "number" ? o.amount : null, running: running, ref: o, tag: tag,
-            /* What the owner can act on, never the order number (owner, 23
-               Sep 2026): which van has it, and whether it is behind. */
-            note: running ? "Running " + mins(overdueBy(o)) + " late" + (o.van ? " · " + o.van : "")
-              : o.van ? "On " + o.van + (o.driver ? " · " + o.driver : "") : "Not on a van yet",
-            next: tag ? tag.action : o.van ? "Nothing to do yet" : "Goes on next trip" };
-    }).sort(function (a, b) { return (b.running ? 1 : 0) - (a.running ? 1 : 0) || (b.value || 0) - (a.value || 0); });
-    const goodRows = delivered.map(function (d) {
-      const f = found(d);
-      const pick = INCIDENTS[d.incident] ? (f.filter(function (x) { return x.type === d.incident; })[0] || { type: d.incident, note: INCIDENTS[d.incident].label }) : f[0];
-      const tag = pick ? tagOf(pick.type) : null;
-      const paid = Number(d.collected) || 0;
-      return { id: d.no, kind: "delivery", stand: "delivered", title: name(d.customerId), tag: tag,
-               note: pick ? pick.note : d.status === "returned" ? "Delivered, some returned"
-                 : paid ? "Paid " + rupees(paid) + " at the door" : "On credit",
-               next: tag ? tag.action : null, value: Number(d.collected) || 0, ref: d };
-    }).sort(function (a, b) { return (b.tag ? 1 : 0) - (a.tag ? 1 : 0) || (b.value || 0) - (a.value || 0); });
+      const due = s.slot ? IN.clock(new Date(s.slot).getTime()) : null;
+      return s.van ? "On " + s.van + (s.driver ? " · " + s.driver : "") + (due ? " · due " + due : "") : "Not on a van yet";
+    };
+    const rowOf = function (s) {
+      const inc = s.lead, fixed = !inc ? s.fixed : null;
+      const tag = s.cancelled ? { type: "cancelled", label: "Cancelled", tone: "good", state: "resolved" } : inc ? tagOf(inc) : tagOf(fixed, true);
+      return { id: s.key, kind: s.kind === "count" ? "count" : "delivery", stand: stand[s.standing], title: s.title, ref: s, subject: s,
+        incident: inc || fixed || null, tag: tag,
+        note: s.cancelled ? cleanNote(s) : inc ? inc.note : fixed ? fixed.proof.text : cleanNote(s),
+        next: inc && inc.state === "open" ? inc.next : inc ? null : s.status === "pending" && !s.cancelled ? (s.van ? "Nothing to do yet" : "Goes on the next trip") : null,
+        value: typeof s.value === "number" ? s.value : null, running: !!(inc && inc.type === "window-missed" && inc.state !== "resolved") };
+    };
+    const rootRow = function (r) {
+      return { id: r.id, kind: "van", stand: stand[r.standing], title: r.title, incident: r, tag: tagOf(r, r.state === "resolved"),
+        note: r.note, next: r.state === "open" ? r.next : null, value: r.impact.rupees || null, held: r.children.length, ref: r };
+    };
+    const live = X.subjects.filter(function (s) { return s.kind !== "count" || s.incidents.length; });
+    const deliveriesOnly = live.filter(function (s) { return s.kind === "stop" && !s.cancelled; });
+    const tileRows = { ugly: [], bad: [], good: [] }, counts = { ugly: 0, bad: 0, good: 0 };
+    live.forEach(function (s) {
+      counts[s.standing] += 1;
+      if (s.parent) return;                                   // drawn as its van's row
+      tileRows[s.standing].push(rowOf(s));
+    });
+    X.roots.forEach(function (r) {
+      if (!r.children.length && r.state !== "resolved" && r.type === "driver-delayed") return;
+      if (r.state === "resolved" && !r.actions) return;       // a late van that caught up on its own is not news
+      tileRows[r.standing].unshift(rootRow(r));
+    });
+    const rank = { open: 0, acting: 1, resolved: 2 };
+    const byMoney = function (a, b) { return (b.value || 0) - (a.value || 0); };
+    tileRows.ugly.sort(function (a, b) { return (b.kind === "van") - (a.kind === "van") || byMoney(a, b); });
+    tileRows.bad.sort(function (a, b) {
+      const ra = a.tag ? rank[a.tag.state] : 3, rb = b.tag ? rank[b.tag.state] : 3;
+      return (b.kind === "van") - (a.kind === "van") || ra - rb || ((a.ref.slot || "") < (b.ref.slot || "") ? -1 : 1);
+    });
+    tileRows.good.sort(function (a, b) { return (b.tag && b.tag.state === "resolved" ? 1 : 0) - (a.tag && a.tag.state === "resolved" ? 1 : 0) || ((b.ref.at || "") > (a.ref.at || "") ? 1 : -1); });
 
-    const collected = sum(delivered, function (d) { return Number(d.collected) || 0; });
-    const emptiesOut = sum(ofToday, function (d) { const e = d.empties || {}; return Math.max(0, (Number(e.cratesOut) || 0) - (Number(e.cratesBack) || 0)); });
-    const nextOrders = ofToday.filter(function (d) { return d.nextOrder; }).length;
-    const total = delivered.length + missed.length + pending.length;
+    const delivered = deliveriesOnly.filter(function (s) { return s.status === "delivered"; });
+    const toGo = deliveriesOnly.filter(function (s) { return s.status === "pending"; });
+    const missedN = deliveriesOnly.filter(function (s) { return s.status === "missed" && s.standing === "ugly"; }).length;
+    const runningN = X.incidents.filter(function (i) { return i.type === "window-missed" && i.state !== "resolved"; }).length;
+    const total = deliveriesOnly.length;
+    const collected = sum(delivered, function (s) { return Number((s.last || {}).collected) || 0; });
+    const nextOrders = delivered.filter(function (s) { return s.last && s.last.nextOrder; }).length;
+    const open = X.incidents.filter(function (i) { return i.state !== "resolved" && !i.parent && i.standing !== "good"; }).length;
+    const fixedN = X.incidents.filter(function (i) { return i.state === "resolved" && i.actions; }).length;
+    const otif = delivered.filter(function (s) { return !s.incidents.some(function (i) { return i.type === "window-missed" || i.type === "short-quantity"; }); }).length;
 
     const t = {
-      good: tile("On track", "Delivered", String(delivered.length), delivered.length, goodRows),
-      bad: tile("Pending", "To deliver", String(pending.length), pending.length, badRows),
-      ugly: tile("Missed", "Need action", String(uglyRows.length), uglyRows.length, uglyRows),
+      good: tile("On track", "Done", String(counts.good), counts.good, tileRows.good),
+      bad: tile("Pending", "In hand", String(counts.bad), counts.bad, tileRows.bad),
+      ugly: tile("Missed", "Need you", String(counts.ugly), counts.ugly, tileRows.ugly),
     };
-
-    /* Tomorrow's trips: only the lines that are not zero. */
-    const pendCust = {};
-    pending.forEach(function (o) { pendCust[o.customerId] = 1; });
-    const critical = c.colours ? Object.keys(pendCust).filter(function (id) { const x = c.colours[id]; return x && (x.colour === "red" || x.colour === "fire") && x.overdue > 0; }) : [];
-    const critEmpties = Object.keys(pendCust).filter(function (id) { const e = c.empties[id]; const x = c.colours && c.colours[id]; return e && e.crates > 0 && x && (x.colour === "red" || x.colour === "fire"); });
-    const shortSig = c.sig["order-risk"];
-    const demUp = c.sig["demand-up"];
-    const notBuying = {};
-    ((demUp && demUp.recommendation && demUp.recommendation.customers) || []).forEach(function (x) { notBuying[x.customerId] = 1; });
-    const upsell = Object.keys(pendCust).filter(function (id) { return notBuying[id]; }).length;
-    const tomorrow = [
-      critical.length ? "Collect " + rupees(sum(critical, function (id) { return c.colours[id].overdue; })) + " from " + plural(critical.length, "critical customer") : null,
-      critEmpties.length ? "Collect " + sum(critEmpties, function (id) { return c.empties[id].crates; }) + " crates from " + plural(critEmpties.length, "critical customer") : null,
-      shortSig && !shortSig.phase ? plural(shortSig.affected.products, "product") + " short for booked orders" : null,
-      upsell && demUp ? plural(upsell, "customer") + " to upsell " + plural(demUp.affected.products, "fast-selling product") : null,
-    ].filter(Boolean);
-
     return Object.assign(lever, {
       status: statusOf(t),
-      missedCount: missed.length,
-      runningCount: running.length,
-      headline: { value: delivered.length + " of " + total + " delivered", context: [pending.length ? pending.length + " to deliver" : null, (late.length + running.length) ? (late.length + running.length) + " late" : null, missed.length ? missed.length + " missed" : null].filter(Boolean).join(" · ") || "Today",
+      byIncidents: true,
+      incidents: X,
+      chase: { open: open, fixed: fixedN, atRisk: X.atRisk },
+      missedCount: missedN,
+      runningCount: runningN,
+      otif: { value: otif, of: delivered.length + missedN + runningN },
+      headline: { value: delivered.length + " of " + total + " delivered",
+                  context: [toGo.length ? toGo.length + " to deliver" : null, X.atRisk ? rupees(X.atRisk) + " at risk" : open ? plural(open, "problem") + " being fixed" : null].filter(Boolean).join(" · ") || "Today",
                   bar: total ? delivered.length / total : 0 },
       tiles: t,
-      /* What the trips brought back, and what they did not: an empty not
-         back is the owner's money out. Next orders live in the Grow card. */
-      facts: [{ label: "Collected", value: rupees(collected) || "₹0" }]
-        .concat(emptiesOut ? [] : [{ label: "Empties", value: "All back", good: true }]),
-      tomorrow: tomorrow,
+      facts: [{ label: "Collected", value: rupees(collected) || "₹0" }],
+      tomorrow: [],
       balance: [],
       grow: nextOrders ? { text: plural(nextOrders, "next order") + " taken at the door today", tab: "order" } : null,
-      action: missed.length ? { label: "Reschedule " + plural(missed.length, "delivery", "deliveries"), kind: "reschedule", nos: missed.map(function (d) { return d.no; }) } : null,
-      how: "Today's deliveries as recorded at the door. To deliver: orders made in FoodBridge not yet delivered. Missed deliveries stay here until rescheduled. " +
-        "A drop counts as on time and in full when it arrives within " + T.LATE_MIN + " minutes of its slot with nothing short; Deliveries is on track while " + Math.round(GOOD * 100) + "% of the stops due do, and urgent under " + Math.round(OK * 100) + "%.",
+      action: null,
+      how: "Today's deliveries, each where its worst open problem puts it. Missed: it can't happen without you, or the money at risk is above " + rupees(IN.T.LINE) +
+        ", or its time ran out. Pending: still to deliver, or being fixed. On track: delivered with nothing open. A problem closes when the platform records the fix — delivered, paid, counted back.",
     });
   }
 
@@ -673,8 +654,8 @@
          what I committed, on time?" (owner, 22 Sep 2026). Late and short fail
          a drop as surely as missed. Returns and empties are problems to fix,
          listed under Urgent, not failed drops. */
-      const otif = t.good.rows.filter(function (r) { const d = r.ref || {}; return (Number(d.lateMin) || 0) <= T.LATE_MIN && !(Number(d.shortCases) > 0); }).length;
-      return ratio(otif, t.good.count + (lv.missedCount || 0) + (lv.runningCount || 0), "of stops due, on time and in full");
+      if (lv.otif) return ratio(lv.otif.value, lv.otif.of, "of stops due, on time and in full");
+      return null;
     }
     if (lv.id === "collections") {
       /* The money, not the head count: 30 small payers on time don't make
@@ -817,7 +798,7 @@
     }
   }
 
-  const API = { build: build, T: T, INCIDENTS: INCIDENTS, rupees: rupees, plural: plural, date: date, mins: mins, emptiesLine: emptiesLine };
+  const API = { build: build, T: T, INCIDENTS: INCIDENTS, catalog: function () { return root.CTIncidents ? root.CTIncidents.CATALOG : {}; }, rupees: rupees, plural: plural, date: date, mins: mins, emptiesLine: emptiesLine };
   root.CTLevers = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

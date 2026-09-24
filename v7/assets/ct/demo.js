@@ -53,7 +53,10 @@
     return ((h >>> 0) % 100000) / 100000;
   }
   const ORG = { id: "demo", name: "Demo business" };
-  const REASONS = ["Shop closed", "Payment not ready", "Refused", "Shop closed"];
+  /* What the van finds at a stop it can't deliver (24 Sep 2026: the reasons
+     the delivery app records, each one an incident in the tower). */
+  const REASONS = ["Shop closed", "Owner away", "Refused", "Payment not ready", "Wrong address", "Order dispute", "Shop closed"];
+  const RETURNS = [["Damaged", "Leaking"], ["Damaged", "Wet carton"], ["Expired", null], ["Unsold", null], ["Wrong product", null], ["Damaged", "Broken pack"]];
   const FLOOR = 0.6;                              // counter payments stop at 60% of opening overdue
   const COUNTER = "demo-counter";
 
@@ -124,8 +127,11 @@
      runs late (the same crew the Tracking screen shows). */
   const VANS = [{ name: "Van 1", driver: "Ajay", phone: "9820011231" },
                 { name: "Van 2", driver: "Kumar", phone: "9820011232" }];
+  /* The spare at the dock: a tempo the owner can send when a van can't go
+     on (24 Sep 2026: Move to another van needs somewhere to move to). */
+  const SPARES = [{ name: "Van 3", driver: "Suresh", phone: "9820011233" }];
   const VAN_CASES = 40;                           // a load, in cases, per round
-  const PLAN_V = 3;                               // a route planned before drivers is planned again
+  const PLAN_V = 5;                               // a route planned before incidents is planned again
   function slotAt(day, i, n) {
     const span = (END - START) * 3600000;
     return dayOf(day) + START * 3600000 - 5.5 * 3600000 + Math.round(span * (i + 0.5) / n);   // IST → UTC
@@ -170,7 +176,21 @@
     const leaves = {};
     stops.forEach(function (s) { const k = s.van + ":" + s.round; if (!leaves[k] || s.slot < leaves[k]) leaves[k] = s.slot; });
     stops.forEach(function (s) { if (s.overbooked) s.leftAt = leaves[s.van + ":" + s.round]; });
-    return { v: PLAN_V, day: day, stops: stops, vanCases: VAN_CASES };
+    /* The on-time van has a problem at midday (24 Sep 2026): a puncture or a
+       breakdown, and its next stops wait for it — unless the owner moves them. */
+    const okVan = VANS[1 - lateVan];
+    const downAt = dayOf(day) + (12.25 + rnd(day + ":dn") * 0.75) * 3600000 - 5.5 * 3600000;
+    const down = { van: okVan.name, driver: okVan.driver, kind: rnd(day + ":dk") < 0.5 ? "puncture" : "breakdown",
+                   from: new Date(downAt).toISOString(), until: new Date(downAt + (45 + Math.floor(rnd(day + ":du") * 30)) * 60000).toISOString(),
+                   where: "Jayanagar 4th Block" };
+    /* One afternoon customer is over their credit limit; one morning drop
+       will be disputed as never received. */
+    const pm = stops.filter(function (s) { return s.round === 2 && !s.overbooked; });
+    const credit = pm.length ? pm[Math.floor(rnd(day + ":cr") * pm.length)].no : null;
+    const am = stops.filter(function (s) { return s.round === 1; });
+    const pod = am.length ? am[Math.floor(rnd(day + ":pod") * am.length)].no : null;
+    return { v: PLAN_V, day: day, stops: stops, vanCases: VAN_CASES, down: down, credit: credit, pod: pod,
+             spares: SPARES.map(function (v) { return { van: v.name, driver: v.driver, driverPhone: v.phone }; }) };
   }
   /* How a stop went: deterministic, and like a real route. */
   function outcome(stop, day, colourOf) {
@@ -179,15 +199,22 @@
     const shaky = colour === "red" || colour === "fire";
     const trip = { van: stop.van || null, round: stop.round || null, driver: stop.driver || null, driverPhone: stop.driverPhone || null };
     if (stop.overbooked) return Object.assign({ status: "missed", reason: "Van full" }, trip);
-    if (r < 0.07) return Object.assign({ status: "missed", reason: REASONS[Math.floor(rnd(day + ":r:" + stop.customerId) * REASONS.length)] }, trip);
+    if (r < 0.09) return Object.assign({ status: "missed", reason: REASONS[Math.floor(rnd(day + ":r:" + stop.customerId) * REASONS.length)] }, trip);
     const returned = r > 0.93 ? 1 + Math.floor(rnd(day + ":rt:" + stop.customerId) * 2) : 0;
+    const ret = returned ? RETURNS[Math.floor(rnd(day + ":rr:" + stop.customerId) * RETURNS.length)] : null;
+    /* Now and then the shop pays less, saying the scheme rate is lower. */
+    const disputed = r > 0.74 && r <= 0.78;
+    const gap = disputed ? Math.max(200, Math.round(stop.value * (0.06 + rnd(day + ":g:" + stop.customerId) * 0.08) / 10) * 10) : 0;
     /* Booked without seeing the stock: about one drop in eight goes short. */
     const short = r > 0.81 && r <= 0.93 ? 1 + Math.floor(rnd(day + ":sh:" + stop.customerId) * 3) : 0;
     const pays = shaky ? rnd(day + ":p:" + stop.customerId) < 0.35 : rnd(day + ":p:" + stop.customerId) < 0.8;
     const back = Math.max(0, stop.cratesOut - (rnd(day + ":e:" + stop.customerId) < 0.25 ? 1 : 0));
     const bottles = back * 12 - (rnd(day + ":b:" + stop.customerId) < 0.15 ? 2 : 0);
     return Object.assign({ status: returned ? "returned" : "delivered", returnedCases: returned, shortCases: short,
-             collected: pays ? stop.value : 0, empties: { cratesOut: stop.cratesOut, cratesBack: back, bottlesBack: bottles },
+             returnReason: ret ? ret[0] : null, returnDetail: ret ? ret[1] : null,
+             returnValue: returned ? Math.round(stop.value * returned / Math.max(1, stop.cases)) : null,
+             dispute: disputed ? { kind: "price", billed: stop.value, paid: stop.value - gap, gap: gap, why: "They say the scheme rate is lower" } : null,
+             collected: disputed ? stop.value - gap : pays ? stop.value : 0, empties: { cratesOut: stop.cratesOut, cratesBack: back, bottlesBack: bottles },
              nextOrder: rnd(day + ":n:" + stop.customerId) < 0.3 },
              trip, stop.delayMin ? { lateMin: stop.delayMin, lateWhy: stop.delayWhy } : {});
   }
@@ -199,17 +226,113 @@
     if (o.collected > 0) store.addPayment({ customerId: stop.customerId, amount: o.collected, mode: rnd(day + stop.no) < 0.5 ? "Cash" : "UPI", via: saved.no, forDrop: true, at: at });
     return { rec: saved, stop: stop };
   }
-  function colours(view) {
-    const m = {};
-    const lv = root.CTLevers && root.CTLevers.build(view, { demand: root.CTSignals._detectors.demand(view.state) });
+  function model(view) {
+    return root.CTLevers ? root.CTLevers.build(view, { demand: root.CTSignals._detectors.demand(view.state) }) : null;
+  }
+  function colours(view, m) {
+    const mm = {};
+    const lv = m || model(view);
     const c = lv && lv.levers.filter(function (x) { return x.id === "collections"; })[0];
-    if (c && c.status !== "preview") [].concat(c.tiles.ugly.rows, c.tiles.bad.rows, c.tiles.good.rows).forEach(function (r) { if (r.colour) m[r.id] = r.colour; });
-    return function (id) { return m[id] || "green"; };
+    if (c && c.status !== "preview") [].concat(c.tiles.ugly.rows, c.tiles.bad.rows, c.tiles.good.rows).forEach(function (r) { if (r.colour) mm[r.id] = r.colour; });
+    return function (id) { return mm[id] || "green"; };
   }
   function doneNos(view) {
     const d = {};
     (view.records.deliveries || []).forEach(function (x) { if (x.orderNo) d[x.orderNo] = 1; });
     return d;
+  }
+  /* Stops the owner moved to another van (the tower's Move to another van,
+     or Live Tracking's Reassign): the same fact either way. */
+  function movedOf(view) {
+    const m = {};
+    (view.records.events || []).forEach(function (e) {
+      if (e.type === "stops.moved") ((e.data || {}).stops || []).forEach(function (no) { m[no] = { to: e.data.to, at: e.at }; });
+    });
+    return m;
+  }
+  const vanNamed = function (n) { return VANS.concat(SPARES).filter(function (v) { return v.name === n; })[0] || null; };
+  /* When the van reaches a stop: its slot and its van's delay. A van that is
+     down holds its stops until it moves; a stop moved to the other van goes
+     about twenty minutes after the move. */
+  function reach(s, route, moved) {
+    if (s.overbooked) return { at: new Date(s.leftAt).getTime(), stop: s };
+    const m = moved[s.no];
+    if (m) {
+      const v = vanNamed(m.to) || {};
+      return { at: Math.max(new Date(s.slot).getTime(), new Date(m.at).getTime() + 20 * 60000),
+               stop: Object.assign({}, s, { van: m.to, driver: v.driver || s.driver, driverPhone: v.phone || s.driverPhone, delayMin: 0, delayWhy: null }) };
+    }
+    let at = new Date(s.slot).getTime() + (s.delayMin || 0) * 60000;
+    const d = route.down;
+    if (d && s.van === d.van) {
+      const from = new Date(d.from).getTime(), until = new Date(d.until).getTime();
+      if (at >= from && at < until) {
+        const held = route.stops.filter(function (x) { return x.van === d.van && !x.overbooked && x.slot <= s.slot; }).filter(function (x) {
+          const t0 = new Date(x.slot).getTime() + (x.delayMin || 0) * 60000; return t0 >= from && t0 < until; }).length;
+        const late = Math.round((until + held * 8 * 60000 - new Date(s.slot).getTime()) / 60000);
+        return { at: until + held * 8 * 60000, stop: Object.assign({}, s, { delayMin: late, delayWhy: d.kind === "puncture" ? "Puncture on the way" : "Van broke down" }) };
+      }
+    }
+    return { at: at, stop: s };
+  }
+  /* The demo's own facts, each written once, when its moment comes. */
+  function happenings(store, view, now) {
+    const route = view.records.route;
+    if (!route || !route.down) return 0;
+    const ev = view.records.events || [];
+    const had = function (k) { return ev.some(function (e) { return e.demoKey === k; }); };
+    const put = [];
+    const d = route.down, v = vanNamed(d.van) || {};
+    if (now >= new Date(d.from).getTime() && !had("down:" + route.day))
+      put.push({ demoKey: "down:" + route.day, at: d.from, type: "problem.reported", by: v.driver, where: "Delivery app · Report a problem", how: "driver",
+                 subject: { van: d.van }, data: { kind: d.kind, where: d.where, until: d.until } });
+    const cs = route.credit && route.stops.filter(function (s) { return s.no === route.credit; })[0];
+    const done = doneNos(view);
+    if (cs && !done[cs.no] && now >= new Date(cs.slot).getTime() - 2 * 3600000 && !had("credit:" + route.day)) {
+      const l = view.state.ledger;
+      let owed = l && l.invoices ? l.invoices.filter(function (i) { return i.customerId === cs.customerId && i.balance > 0; }).reduce(function (n, i) { return n + i.balance; }, 0) : 0;
+      if (owed < 12000) owed = Math.round((cs.value * 4.5 + 9000) / 100) * 100;
+      const limit = Math.max(10000, Math.floor(owed * 0.82 / 1000) * 1000);
+      put.push({ demoKey: "credit:" + route.day, at: new Date(new Date(cs.slot).getTime() - 2 * 3600000).toISOString(), type: "credit.over", by: "FoodBridge", where: "FoodBridge", how: "system",
+                 subject: { stopNo: cs.no, customerId: cs.customerId }, data: { owed: owed, limit: limit, ask: Math.ceil((owed - limit) / 100) * 100 } });
+    }
+    const pd = route.pod && (view.records.deliveries || []).filter(function (x) { return x.orderNo === route.pod && x.status !== "missed"; })[0];
+    if (pd && now >= new Date(pd.at).getTime() + 90 * 60000 && !had("pod:" + route.day))
+      put.push({ demoKey: "pod:" + route.day, at: new Date(new Date(pd.at).getTime() + 90 * 60000).toISOString(), type: "dispute.raised", by: view.state.customerById[pd.customerId] || "The customer",
+                 where: "WhatsApp", how: "customer", subject: { stopNo: pd.orderNo, customerId: pd.customerId }, data: { kind: "pod", why: "The shop says the delivery never came", value: pd.value } });
+    /* Settlement: each van counts what came back; one is short, one over. */
+    const end = dayOf(route.day) + (END - 5.5) * 3600000;
+    const prods = (view.state.products || []).filter(function (p) { return p.mrp; }).slice(0, 2);
+    if (now >= end + 20 * 60000 && prods.length === 2 && !had("count:" + route.day)) {
+      put.push({ demoKey: "count:" + route.day, at: new Date(end + 20 * 60000).toISOString(), type: "count.submitted", by: VANS[0].driver, where: "Delivery app · Settlement", how: "driver",
+                 subject: { van: VANS[0].name }, data: { mismatches: [{ name: prods[0].name, expected: 12, actual: 8, diff: -4, value: 4 * prods[0].mrp }] } });
+      put.push({ demoKey: "count2:" + route.day, at: new Date(end + 25 * 60000).toISOString(), type: "count.submitted", by: VANS[1].driver, where: "Delivery app · Settlement", how: "driver",
+                 subject: { van: VANS[1].name }, data: { mismatches: [{ name: prods[1].name, expected: 6, actual: 10, diff: 4, value: 4 * prods[1].mrp }] } });
+    }
+    if (put.length) store.addEvents(put);
+    return put.length;
+  }
+  /* The proof for what the owner set in motion: a van back at a stop that
+     was missed, the driver's answer, the customer accepting the proof. */
+  function proofs(store, view, now, m) {
+    const X = root.CTIncidents;
+    const lv = (m || model(view));
+    const dl = lv && lv.levers.filter(function (x) { return x.id === "deliveries"; })[0];
+    if (!X || !dl || !dl.incidents) return 0;
+    const out = X.simulate(dl.incidents, now);
+    const evs = [], dls = [];
+    out.forEach(function (p) {
+      if (p.kind === "event") evs.push(Object.assign({ at: new Date(now).toISOString(), demo: true }, p.event));
+      else if (p.kind === "deliver") {
+        const s = p.subject;
+        dls.push({ customerId: s.customerId || null, orderNo: s.orderNo || s.key, at: p.at, status: "delivered", value: s.value || null, cases: s.cases || null,
+                   collected: s.value || 0, van: s.van || null, driver: s.driver || null, driverPhone: s.driverPhone || null, fixOf: p.incident.id,
+                   empties: { cratesOut: 0, cratesBack: 0, bottlesBack: 0 } });
+      }
+    });
+    if (evs.length) store.addEvents(evs);
+    if (dls.length) store.addDeliveries(dls);
+    return evs.length + dls.length;
   }
 
   /* Plan today once, and record every stop the van has already reached: a
@@ -217,16 +340,18 @@
   function ensureDay(store, view, now) {
     const day = iso(now);
     const r = view.records.route;
-    if (!r || r.day !== day || r.v !== PLAN_V) store.setRoute(plan(view, now));
+    let fresh = 0;
+    if (!r || r.day !== day || r.v !== PLAN_V) { store.setRoute(plan(view, now)); fresh = 1; }
     const route = store.read().route;
     const done = doneNos(view);
     const colourOf = colours(view);
+    const moved = movedOf(view);
     let n = 0;
     route.stops.forEach(function (s) {
-      const at = s.overbooked ? new Date(s.leftAt).getTime() : new Date(s.slot).getTime() + (s.delayMin || 0) * 60000;
-      if (!done[s.no] && at <= now) { record(store, s, day, colourOf, new Date(at).toISOString()); n += 1; }
+      const x = reach(s, route, moved);
+      if (!done[s.no] && x.at <= now) { record(store, x.stop, day, colourOf, new Date(x.at).toISOString()); n += 1; }
     });
-    return n;
+    return fresh + n + happenings(store, Object.assign({}, view, { records: store.read() }), now);
   }
 
   /* Overdue as today's business opened: its own invoices, before any payment
@@ -242,12 +367,21 @@
     const day = iso(now);
     const route = view.records.route;
     if (!route || route.day !== day) return null;
-    const done = doneNos(view);
-    const next = route.stops.filter(function (s) { return !done[s.no]; })[0];
-    const beat = Math.floor(now / 20000);
     const name = function (id) { return view.state.customerById[id] || id; };
+    const m = model(view);
+    /* First what the owner's fixes brought about, then the day's own news. */
+    if (proofs(store, view, now, m)) return { at: now, lever: "deliveries", text: "A fix came through" };
+    if (happenings(store, view, now)) return { at: now, lever: "deliveries", text: "Something happened on the road" };
+    const done = doneNos(view);
+    const moved = movedOf(view);
+    const beat = Math.floor(now / 20000);
+    const due = route.stops.filter(function (s) { return !done[s.no]; }).map(function (s) { return reach(s, route, moved); })
+      /* A van that is down holds its stops until it moves. */
+      .filter(function (x) { return x.at <= now + 40 * 60000 && !(route.down && x.stop.van === route.down.van && x.at > now && now < new Date(route.down.until).getTime() + 3600000); })
+      .sort(function (a, b) { return a.at - b.at; });
+    const next = due[0] || null;
     if (next && rnd(day + ":t:" + beat) < 0.75) {
-      const r = record(store, next, day, colours(view), new Date(now).toISOString());
+      const r = record(store, next.stop, day, colours(view, m), new Date(now).toISOString());
       const d = r.rec;
       return { at: now, lever: "deliveries",
         text: d.status === "missed" ? "Missed at " + name(d.customerId) + " · " + d.reason
@@ -270,7 +404,7 @@
     return null;
   }
 
-  const API = { dataReady: dataReady, isDemo: isDemo, ensureDay: ensureDay, tick: tick, _plan: plan, _outcome: outcome, _openingOverdue: openingOverdue, FLOOR: FLOOR };
+  const API = { dataReady: dataReady, isDemo: isDemo, ensureDay: ensureDay, tick: tick, _plan: plan, _outcome: outcome, _openingOverdue: openingOverdue, _proofs: proofs, FLOOR: FLOOR, VANS: VANS };
   root.CTDemo = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
