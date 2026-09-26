@@ -24,7 +24,7 @@
   function blank() {
     return {
       v: VERSION,
-      lang: null,
+      lang: "en",           // English first (owner, 26 Sep 2026); हिंदी one tap away on Welcome and in ⋯
       startedAt: null,
       updatedAt: null,
       store: { name: "", owner: "", mobile: "", gst: "", type: "", makes: null, photo: null, loc: null, address: "", godownAtShop: null, godowns: [], areas: [] },
@@ -319,6 +319,7 @@
     if (!s || typeof s !== "object") return b;
     const out = Object.assign(b, s);
     out.store = Object.assign(blank().store, s.store || {});
+    if (out.lang !== "hi" && out.lang !== "en") out.lang = "en";
     /* One godown (same place as shop, or one other address) became many on 26 Sep 2026. */
     if ("godownSame" in out.store) {
       if (out.store.godownAtShop == null) out.store.godownAtShop = out.store.godownSame;

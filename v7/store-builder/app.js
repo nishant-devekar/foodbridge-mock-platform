@@ -181,7 +181,7 @@
   /* ─────────────────────────────────────────────────────── helpers ── */
 
   function t(k, v) {
-    const L = I18N[S.lang || "hi"] || I18N.en;
+    const L = I18N[S.lang || "en"] || I18N.en;
     if (v && v.n === 1 && L[k + "_1"] != null) k = k + "_1";   // "1 shop", not "1 shops"
     let s = L[k] != null ? L[k] : I18N.en[k] != null ? I18N.en[k] : k;
     if (v) Object.keys(v).forEach(function (x) { s = s.split("{" + x + "}").join(v[x]); });
@@ -1485,7 +1485,7 @@
       S.lang = el.dataset.v; save();
       if (view === "welcome") render(); else closeSheet();
     },
-    start: function () { if (!S.lang) S.lang = "hi"; if (!S.startedAt) S.startedAt = Date.now(); save(); go("store"); },
+    start: function () { if (!S.lang) S.lang = "en"; if (!S.startedAt) S.startedAt = Date.now(); save(); go("store"); },
     speak: function (el) { speak(t(el.dataset.key)); },
     menu: function () { openSheet({ kind: "menu" }); },
     closeSheet: function () { closeSheet(); },

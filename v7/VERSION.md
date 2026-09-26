@@ -2732,3 +2732,7 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 **Then, owner:** success is a whole page, not a sheet. After *Build my store*, a full *Thank you!* page with a big check reads *The FoodBridge team will reach out to you soon.*, with one quiet link, *Back to my store*. While sending, the same page shows *Sending to FoodBridge…*; offline, *Waiting to send* with *Send now*. The built sheet is gone. `?v=` bumped to `20260927S14`.
 
 **Then, owner:** no *Back to my store*; the FoodBridge logo and name sit centred at the top of the *Thank you!* page, and there is nothing else to tap. The only button is *Send now*, and only while offline. `?v=` bumped to `20260927S15`.
+
+### 26 September 2026 — Store Builder opens in English
+
+**Owner:** keep English as the default language. A new session starts in English, as does an older save that never chose a language. Welcome still switches to हिंदी in one tap, as does ⋯ later, and a save that chose Hindi stays in Hindi. `?v=` bumped to `20260927S18`.
