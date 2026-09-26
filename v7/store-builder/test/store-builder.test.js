@@ -290,36 +290,58 @@ test("godowns: one or more, and a save from before 26 Sep keeps its godown", () 
   assert.deepEqual(rows.map((r) => r[0] + ": " + r[1]), ["Godown 1: At the shop", "Godown 2: Plot 9, MIDC Bhosari", "Godown 3: Gala 3, Wagholi"]);
 });
 
-test("godown stock: a stock audit draft from what he counted, and Finish writes the opening stock", () => {
+test("godown stock: counts save as he taps, one number in one unit, into the opening stock", () => {
   const s = sample();                       // par02: 12 boxes of 72 + 30 loose
   s.items.veg01 = { unit: "piece" };
-  const d = M.stockDraft(CAT, s);
-  assert.deepEqual(d.sel, ["par02"]);
-  assert.deepEqual(d.lines.par02, { qty: 12 * 72 + 30, unit: "piece" });
-  assert.equal(M.draftSig(d), M.draftSig(M.stockDraft(CAT, s)));
+  s.items.hul25.stockLoose = undefined;
+  assert.deepEqual(M.stockSel(CAT, s), ["par02"]);   // the count starts from what was already counted
+  assert.deepEqual(M.countOf(M.item(CAT, s, "par02")), { qty: 12 * 72 + 30, unit: "piece" });
 
-  const par01 = M.item(CAT, s, "par01"), veg = M.item(CAT, s, "veg01");
+  const par01 = M.item(CAT, s, "par01"), veg = M.item(CAT, s, "veg01"), hul = M.item(CAT, s, "hul25");
   assert.deepEqual(M.countUnits(par01).map((u) => u.k), ["piece", "case"]);
-  assert.equal(M.countUnit(par01), "case");
+  assert.equal(M.lineUnit(s, par01), "case");
   assert.deepEqual(M.countUnits(veg), [{ k: "kg", per: 1 }]);
+  assert.equal(M.countOf(par01), null);   // blank: not counted
 
-  d.sel.unshift("veg01", "par01", "hul25");
-  d.lines.par01 = { qty: 5, unit: "case" };
-  d.lines.veg01 = { qty: 0, unit: "kg" };   // looked, none there: counted
-  d.lines.hul25 = { qty: null, unit: "piece" };   // chosen, never counted
-  d.sel = d.sel.filter((id) => id !== "par02");   // taken off the count
-  assert.notEqual(M.draftSig(d), M.draftSig(M.stockDraft(CAT, s)));
-  assert.equal(M.applyCount(CAT, s, d), 2);
+  M.setCount(s, par01, 5, "case");
+  M.setCount(s, M.item(CAT, s, "veg01"), 0, "kg");   // looked, none there: counted
+  M.setCount(s, hul, null, "piece");
+  M.setCount(s, M.item(CAT, s, "par02"), null, "piece");
   assert.equal(M.item(CAT, s, "par01").stockCases, 5);
+  assert.deepEqual(M.countOf(M.item(CAT, s, "par01")), { qty: 5, unit: "case" });
   assert.equal(M.item(CAT, s, "veg01").stockLoose, 0);
-  assert.equal(M.item(CAT, s, "hul25").stockLoose, null);
-  assert.equal(M.item(CAT, s, "par02").stockCases, null);
+  assert.equal(M.countOf(M.item(CAT, s, "hul25")), null);
+
+  /* A new unit keeps the number and re-reads it. */
+  M.setCount(s, M.item(CAT, s, "par01"), 5, "piece");
+  assert.deepEqual(M.countOf(M.item(CAT, s, "par01")), { qty: 5, unit: "piece" });
+  M.setCount(s, M.item(CAT, s, "par01"), 5, "case");
 
   const stock = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Opening stock").rows;
   assert.equal(stock.find((r) => r[0] === "par01")[5], 5 * M.item(CAT, s, "par01").caseQty);
   assert.equal(stock.find((r) => r[0] === "veg01")[7], "Counted");
-  assert.deepEqual(M.stockDraft(CAT, s).lines.par01, { qty: 5, unit: "case" });
-  assert.equal(M.migrate(Object.assign({}, s, { stockDraft: { sel: "x" } })).stockDraft, null);
+  assert.equal(M.progress(CAT, s).stock.n, 2);
+
+  s.stockSel = ["par01", "gone", "par01"];   // a product dropped on the Products step leaves the count
+  assert.deepEqual(M.stockSel(CAT, s), ["par01"]);
+  const old = M.migrate(Object.assign({}, s, { stockDraft: { sel: [] }, stockSel: "x" }));
+  assert.ok(!("stockDraft" in old));
+  assert.equal(old.stockSel, null);
+});
+
+test("build my store: the files FoodBridge receives, one by one, and the line its team sees", () => {
+  const s = sample();
+  s.papers = [{ id: "ph1", kind: "photo", step: "store", at: NOW.getTime(), mime: "image/jpeg" }];
+  const parts = X.parts(CAT, s, { ph1: { bytes: new Uint8Array([255, 216, 255]), mime: "image/jpeg" } }, NOW);
+  assert.deepEqual(parts.map((p) => p.name), ["FoodBridge-Setup-Gupta-Traders-2026-09-24.xlsx", "setup.json", "photos/ph1.jpg"]);
+  assert.ok(parts[0].bytes.length > 1000, "the Excel");
+  assert.equal(JSON.parse(new TextDecoder().decode(parts[1].bytes)).state.store.name, "Gupta Traders");
+  const m = X.summary(CAT, s, NOW, parts.map((p) => p.name));
+  assert.equal(m.shop, "Gupta Traders");
+  assert.equal(m.counts.products, Object.keys(s.items).length);
+  assert.equal(m.counts.photos, 1);
+  assert.equal(m.files.length, 3);
+  assert.equal(X.b64(new Uint8Array([104, 105])), "aGk=");
 });
 
 test("fresh produce has real photos, and the file credits each one it uses", () => {

@@ -2640,7 +2640,7 @@ Tests: 15 pass (new: no usual-order sheets or gaps, and an old save with usual o
 
 `?v=` bumped to `20260926R13`. Tests: 15 pass.
 
-### 27 September 2026 — Store Builder: Godown stock is the platform's Stock Audit
+### 26 September 2026 — Store Builder: Godown stock is the platform's Stock Audit
 
 **Asked:** the whole Godown stock flow with the exact UI/UX of the platform's Customer Stock Audit, but for the owner counting stock in his own shop.
 
@@ -2658,3 +2658,73 @@ The step is now the platform's Quick Audit loop (`modules/foodbridge-customer-mo
 - **Gone:** the per-product cards with Boxes + Loose steppers, the company filter chips and *Count later*, with their words.
 
 `?v=` bumped to `20260927S01`. Tests: 19 pass (new: draft from saved counts, Finish writes opening stock, blank vs 0).
+
+### 26 September 2026 — Store Builder: the stock audit, in the same flow as the other steps
+
+**Owner:** Godown stock should look and work like the rest of the steps, so the owner feels he is in the same flow.
+
+It keeps the audit's way of working and drops the platform's look.
+- **Same as every step:** the back arrow and six-bar progress, *STEP 4 OF 6*, the title with the spoken question in Hindi, the onboarding's tokens, Inter and rem, the green ✓ *Save* back to the list, and the sheet that rises from below.
+- **Kept from the Stock Audit:**
+  - Tapping the search box opens a dropdown (5 A–Z, then *keep typing*), his products first.
+  - One card holds the count. Each row has the unit above a − n + stepper; blank means not counted, 0 means none there. A counted row is tinted.
+- **Changed to fit the flow:**
+  - Counts save as he taps, like every other step, so there is no *Finish Audit*, no *Leave this audit?* and no draft.
+  - The footer shows *N of M counted* over Save.
+  - The product photos are back on the rows and in the dropdown.
+  - Tapping a row opens a product sheet: unit chips with his price for one, and *Take off the count*. It replaces the unit select with its ✓ / ✗, and the trash with its *Remove?*.
+  - *All my products · N* puts every product he chose on the count in one tap.
+- **Data:** `stockSel` is the list being counted; counts go straight into `stockCases` / `stockLoose`. The first cut's unsaved `stockDraft` is dropped from old saves.
+
+`?v=` bumped to `20260927S03`. Tests: 19 pass.
+
+### 26 September 2026 — Store Builder: How you work, shorter
+
+**Owner:** make the form quick to do now rather than something to put off. A one-question-per-screen version was tried and turned down: paging felt slower, it had too much text, and it looked unlike the other steps.
+
+It is still one page, and still the same eight answers.
+- **Yes/No questions:** the four are now one card of short rows (*Fixed route days?*, *Customers order on phone?*, *Part now, rest later?*, *Check expiry dates?*), each with a Yes | No switch at the end. They sit first, so the page starts with four quick taps.
+- **Choice questions:** payment, returns, order steps and the morning check keep their chips, with fewer words (*Customers pay by*, *Give credit*, *First thing each morning*).
+- **Progress:** *N of 8 answered* sits over Save, as the other steps show their counts.
+
+`?v=` bumped to `20260927S05`. Tests: 19 pass.
+
+**Then, owner:** remove *Order steps*. *How you work* now asks 7 questions, and the count reads *N of 7 answered*. The export's settings sheet no longer has an *Order steps* row. Old saves that have the answer still open; nothing reads it. `?v=` bumped to `20260927S06`. Tests: 19 pass.
+
+**Then, owner:** too many icons. Only the question headings (*Customers pay by*, *Damaged goods come back*, *First thing each morning*) keep their icon. The Yes/No rows and the answer chips are plain text. `?v=` bumped to `20260927S07`.
+
+**Then, owner:** icons back on the four Yes/No questions. Each question has one icon, on its row or its heading; the answer chips stay plain. `?v=` bumped to `20260927S08`.
+
+**Then, owner:** *Anything else? Say it* is now just a note. It used to record a voice note into Photos & voice. It is now an *Anything else?* box: he types, or taps the mic and speech becomes text (Web Speech, Hindi or English, adding to what is there). The note goes to the export's Settings sheet as *Anything else he said*. Voice notes are still on Send's *Photos & voice*. `?v=` bumped to `20260927S09`. Tests: 19 pass.
+
+### 26 September 2026 — Store Builder: Build my store, and the files go to FoodBridge
+
+**Owner:** redesign the last step so the Excel is kept somewhere it can be opened any time, and the button says *Build my store*. The files must NOT stay on the distributor's phone; the customer success team must be able to open them. For where they live, the owner chose **our own list on the bridge**.
+
+- **The step (*Build your store*):**
+  - Six tiles (products, customers, suppliers, staff, stock counted, photos & voice), each opening its step.
+  - What is still missing is folded into one line (*9 things to fill later*) that opens the list.
+  - One green **Build my store** button.
+  - Gone: *Save file*, *Send on WhatsApp*, *Excel only* and the *How to send* steps.
+- **Build my store:** it makes the Excel, `setup.json` and every photo and voice note, then sends them to the bridge one file per request.
+  - A sheet follows it: *Sending to FoodBridge…*, then *Your store is built. FoodBridge's team has it.*
+  - Offline or with no bridge, it says *Waiting to send · 0 of 2 files sent* with *Send now*. It sends by itself when the phone comes online or the app reopens.
+  - The phone holds a build only until it is delivered, in its own IndexedDB queue (`fb-storebuilder-outbox`). Each file is deleted as it lands.
+  - The steps list shows *Sent 26 Sep, 10:05 pm* or *Waiting to send*.
+- **Bridge (`zoho-function/`):** new `POST/GET /api/stores`.
+  - Storage is private Vercel Blob, or `stores-data/` under `npm run dev`. Reading needs the team key `FB_STORES_KEY`.
+  - File names and ids are held to a pattern; files over 3 MB are refused.
+  - `/api/health` reports `stores`.
+- **Team page:** `v7/stores.html` lists every built store, newest first, with a search. Each store shows its counts and *to follow up*, and downloads its Excel, `setup.json`, photos and voice notes through the bridge with the key.
+- **Not live until the owner turns it on:** a Blob store, `BLOB_READ_WRITE_TOKEN` and `FB_STORES_KEY` in `zoho-function/.env`, then `./deploy.sh` (see the bridge README). Until then, builds wait queued on the phones and arrive once it is on.
+
+Checked end to end locally: build → 3 files at the bridge → listed on `stores.html` → the Excel downloads intact. Offline: waits, then sends on *Send now*, and the phone's queue is empty afterwards. Tests: Store Builder 20 pass; bridge `stores.test.js` 8 pass. The bridge's `extract.test.js` fails before and after this change (a package not installed locally). `?v=` bumped to `20260927S11`.
+
+**Then, owner:** tell him he can leave. The built sheet now reads *You can close the app now. The FoodBridge team will call you soon to set up your store.* (Hindi too). `?v=` bumped to `20260927S12`.
+
+**Then, owner:** email the Excel as a backup and fallback, to two team addresses. The addresses are kept in the bridge's `.env`, not in this public repo.
+- The first request of a build now carries the summary, the Excel and `setup.json` together.
+- The bridge stores them and also emails the Excel and `setup.json` to the team, with the store's summary, through Resend (`zoho-function/stores-email.js`).
+- With no file store yet, the email alone counts as delivered. Photos and voice notes wait for the store.
+- It needs `RESEND_API_KEY`, and a verified sender (`FB_STORES_EMAIL_FROM`) to reach both inboxes; see the bridge README.
+- Bridge tests: 10 pass (new: the email and its attachments, the fallback, a refused email is not a delivery). `?v=` bumped to `20260927S13`.

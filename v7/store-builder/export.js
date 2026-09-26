@@ -379,11 +379,11 @@
       ["Allows part payment", yn(r.partPay), "paymentConfig.allowPartialPayment"],
       ["Delivers by fixed route days", yn(r.routes), "appProp.isRouteDeliveryEnabled"],
       ["Customers can order themselves (Store QR)", yn(r.selfOrder), "appProp.isStoreQrCode.isEnabled + storefront"],
-      ["Order steps", r.steps === "simple" ? "Order → Delivered" : r.steps === "dispatch" ? "Order → Dispatched → Delivered (or Skipped)" : "", "globalSetting.orderWorkflow.statusWorkFlow.ORDER"],
       ["Tracks batch and expiry", yn(r.batches), "Product batches (ProductBatch)"],
       ["Returns and damages", { credit: "Takes back, gives credit", replace: "Replaces", none: "Does not take back" }[r.returns] || "", "Returns handling"],
       ["First thing he checks each morning", { orders: "Orders", money: "Money to collect", stock: "Stock", trucks: "Trucks and delivery" }[r.morning] || "", "Home screen focus / first recommendation"],
       ["Makes or packs anything", yn(st.makes), "storefrontMenus: Production and raw material on/off"],
+      ["Anything else he said", String(r.note || "").trim(), "Onboarder to read"],
     ] });
 
     out.push({ name: "Papers", rows: [["File", "Type", "Screen", "Time", "Note"]]
@@ -434,6 +434,31 @@ notCounted: "Products not counted in stock",
     return { name: base + ".zip", bytes: zip(files, now) };
   }
 
+  /* Build my store (26 Sep 2026): the build goes to FoodBridge a file at a
+     time -- the Excel, setup.json, each photo and voice note -- so no request
+     nears the bridge's size limit. parts() is those files; summary() is the
+     line the customer success team's list shows. */
+  function parts(cat, s, blobs, now) {
+    now = now || new Date();
+    const out = [
+      { name: fileBase(s, now) + ".xlsx", bytes: xlsx(sheets(cat, s, now)) },
+      { name: "setup.json", bytes: new TextEncoder().encode(JSON.stringify({ kind: "foodbridge-store-builder", v: M.VERSION, catalogue: cat.version, at: now.toISOString(), state: s }, null, 1)) },
+    ];
+    s.papers.forEach(function (p) { if (blobs && blobs[p.id]) out.push({ name: paperFile(p), bytes: blobs[p.id].bytes }); });
+    return out;
+  }
+
+  function summary(cat, s, now, files) {
+    const P = M.progress(cat, s);
+    return {
+      at: (now || new Date()).toISOString(), shop: s.store.name || "", owner: s.store.owner || "", mobile: s.store.mobile || "",
+      gst: s.store.gst || "", type: s.store.type || "", lang: s.lang || "", version: "store-builder " + M.VERSION,
+      counts: { products: Object.keys(s.items).length, customers: M.peopleOf(s, "shop").length, suppliers: M.peopleOf(s, "supplier").length,
+        staff: M.peopleOf(s, "staff").length, counted: P.stock.n, answered: P.rules.n, photos: s.papers.length, gaps: M.missing(cat, s).length },
+      files: files || [],
+    };
+  }
+
   function b64(bytes) {
     let bin = "";
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -477,7 +502,7 @@ notCounted: "Products not counted in stock",
     return { state: M.migrate(json.state), blobs: blobs };
   }
 
-  const api = { zip: zip, unzip: unzip, crc32: crc32, xlsx: xlsx, sheets: sheets, pack: pack, shareText: shareText, read: read, paperFile: paperFile, fileBase: fileBase };
+  const api = { zip: zip, unzip: unzip, crc32: crc32, xlsx: xlsx, sheets: sheets, pack: pack, parts: parts, summary: summary, b64: b64, shareText: shareText, read: read, paperFile: paperFile, fileBase: fileBase };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SB_EXPORT = api;
 })(typeof window !== "undefined" ? window : globalThis);

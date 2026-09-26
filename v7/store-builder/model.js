@@ -18,6 +18,7 @@
 
   /* 26 Sep 2026: Phone contacts, Customers, Staff and Suppliers are one step,
      "people": he brings contacts in once and tags each one. */
+  const RULES_N = 7;   // How you work questions (Order steps went 26 Sep 2026)
   const STEPS = ["store", "items", "people", "stock", "rules", "finish"];   // Usual orders went 26 Sep 2026 (owner)
 
   function blank() {
@@ -34,10 +35,10 @@
       people: {},           // id -> person
       order: [],            // people ids in the order they were added
       usual: {},            // shopId -> { itemId: qty }; no longer asked (26 Sep 2026), kept so old saves open
-      rules: { payMethods: [], routes: null, selfOrder: null, partPay: null, returns: null, steps: null, batches: null, morning: null },
+      rules: { payMethods: [], routes: null, selfOrder: null, partPay: null, returns: null, batches: null, morning: null, note: "" },   // Order steps went 26 Sep 2026 (owner)
       skipped: {},          // step -> true when the owner said "none / later"
       papers: [],           // [{ id, kind: photo|voice, step, at, mime }]
-      stockDraft: null,     // the Godown stock count in progress: { sel: [itemId], lines: { itemId: { qty, unit } } }
+      stockSel: null,       // Godown stock: the products on his count, newest first (null: not opened yet)
     };
   }
 
@@ -263,7 +264,7 @@
     const sups = peopleOf(s, "supplier");
     const counted = chosenItems(cat, s).filter(function (it) { return it.stockCases != null || it.stockLoose != null; }).length;
     const r = s.rules;
-    const rulesAnswered = [r.payMethods.length > 0, r.routes != null, r.selfOrder != null, r.partPay != null, r.returns != null, r.steps != null, r.batches != null, r.morning != null].filter(Boolean).length;
+    const rulesAnswered = [r.payMethods.length > 0, r.routes != null, r.selfOrder != null, r.partPay != null, r.returns != null, r.batches != null, r.morning != null].filter(Boolean).length;
     const sorted = s.order.filter(function (id) { return s.people[id] && s.people[id].type; }).length;
     return {
       store:     { done: !!(s.store.name && phone10(s.store.mobile).length === 10), n: null },
@@ -272,7 +273,7 @@
                    (staff.length > 0 && staff.every(function (p) { return p.role; }) || !!s.skipped.staff) && (sups.length > 0 || !!s.skipped.suppliers),
                    n: sorted, shops: shops.length, staff: staff.length, suppliers: sups.length, left: unsorted(s).length },
       stock:     { done: counted > 0 || !!s.skipped.stock, n: counted },
-      rules:     { done: rulesAnswered === 8, n: rulesAnswered },
+      rules:     { done: rulesAnswered === RULES_N, n: rulesAnswered },
       finish:    { done: false, n: null },
     };
   }
@@ -308,7 +309,7 @@
     add("suppliers", "noSuppliers", sups.length || s.skipped.suppliers ? 0 : 1);
     add("suppliers", "supNoCompany", sups.filter(function (p) { return !(p.companies || []).length; }).length);
     add("stock", "notCounted", its.filter(function (it) { return it.stockCases == null && it.stockLoose == null; }).length);
-    add("rules", "rulesOpen", 8 - progress(cat, s).rules.n);
+    add("rules", "rulesOpen", RULES_N - progress(cat, s).rules.n);
     return gaps;
   }
 
@@ -329,7 +330,8 @@
     out.rules = Object.assign(blank().rules, s.rules || {});
     ["companies", "items", "customItems", "people", "usual", "skipped"].forEach(function (k) { if (!out[k] || typeof out[k] !== "object") out[k] = {}; });
     ["customCompanies", "order", "papers"].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = []; });
-    if (!out.stockDraft || !Array.isArray(out.stockDraft.sel) || typeof out.stockDraft.lines !== "object" || !out.stockDraft.lines) out.stockDraft = null;
+    delete out.stockDraft;   // 26 Sep 2026: counts save as he taps; the unsaved draft of the first cut is dropped
+    if (!Array.isArray(out.stockSel)) out.stockSel = null;
     out.order = out.order.filter(function (id) { return out.people[id]; });
     Object.keys(out.people).forEach(function (id) { if (out.order.indexOf(id) < 0) out.order.push(id); });
     out.v = VERSION;
@@ -359,11 +361,12 @@
     return out;
   }
 
-  /* ── Godown stock, counted the way the platform's Stock Audit counts ──
-     27 Sep 2026: one line per product, one number in one unit -- pieces or
+  /* ── Godown stock: a stock audit of his own godown ──
+     26 Sep 2026: one line per product, one number in one unit -- pieces or
      boxes for a pack, kg / dozen / … for loose goods. Blank is not counted;
-     0 is "looked, none there". The count is a draft until Finish Audit; the
-     export still reads stockCases + stockLoose, so Finish writes into those. */
+     0 is "looked, none there". Like every other step it saves as he taps,
+     into the stockCases (boxes) or stockLoose (pieces, kg…) the export reads.
+     s.stockSel is the list he is counting, newest first. */
   function countUnits(it) {
     if (it.loose) return [{ k: it.per || "kg", per: 1 }];
     const u = [{ k: "piece", per: 1 }];
@@ -373,44 +376,35 @@
   function countUnit(it) { return !it.loose && it.unit === "case" && it.caseQty > 1 ? "case" : countUnits(it)[0].k; }
   function unitPer(it, k) { const u = countUnits(it).find(function (x) { return x.k === k; }); return u ? u.per : 1; }
 
-  /* What he counted last time, as a draft to carry on from. */
-  function stockDraft(cat, s) {
-    const d = { sel: [], lines: {} };
-    chosenItems(cat, s).forEach(function (it) {
-      if (it.stockCases == null && it.stockLoose == null) return;
-      let line;
-      if (it.loose) line = { qty: it.stockLoose || 0, unit: countUnits(it)[0].k };
-      else if (it.stockLoose == null && it.caseQty > 1) line = { qty: it.stockCases, unit: "case" };
-      else line = { qty: (it.stockCases || 0) * it.caseQty + (it.stockLoose || 0), unit: "piece" };
-      d.sel.push(it.id);
-      d.lines[it.id] = line;
-    });
-    return d;
+  /* What he counted, as one number in one unit; null when not counted. */
+  function countOf(it) {
+    if (it.stockCases == null && it.stockLoose == null) return null;
+    if (it.loose) return { qty: it.stockLoose || 0, unit: countUnits(it)[0].k };
+    if (it.stockLoose == null && it.caseQty > 1) return { qty: it.stockCases, unit: "case" };
+    return { qty: (it.stockCases || 0) * it.caseQty + (it.stockLoose || 0), unit: "piece" };
   }
-
-  /* Same products, same numbers, same units: nothing to lose by leaving. */
-  function draftSig(d) {
-    return JSON.stringify(d.sel.slice().sort().map(function (id) {
-      const l = d.lines[id];
-      return l && l.qty != null ? [id, l.qty, l.unit] : [id];
-    }));
+  /* The unit his count is in: the counted one, else the one he picked, else how he sells it. */
+  function lineUnit(s, it) {
+    const c = countOf(it);
+    if (c) return c.unit;
+    const k = (s.items[it.id] || {}).countUnit;
+    return k && countUnits(it).some(function (u) { return u.k === k; }) ? k : countUnit(it);
   }
-
-  /* Finish Audit: the draft becomes his opening stock. Returns how many were counted. */
-  function applyCount(cat, s, d) {
-    let n = 0;
-    Object.keys(s.items).forEach(function (id) {
-      const mine = s.items[id];
-      const l = d.sel.indexOf(id) >= 0 ? d.lines[id] : null;
-      const it = item(cat, s, id);
-      delete mine.stockCases;
-      delete mine.stockLoose;
-      if (!it || !l || l.qty == null) return;
-      n++;
-      if (!it.loose && l.unit === "case") mine.stockCases = l.qty;
-      else mine.stockLoose = l.qty;
-    });
-    return n;
+  function setCount(s, it, qty, unit) {
+    const mine = s.items[it.id];
+    if (!mine) return;
+    delete mine.stockCases;
+    delete mine.stockLoose;
+    mine.countUnit = unit;
+    if (qty == null) return;
+    if (!it.loose && unit === "case") mine.stockCases = qty; else mine.stockLoose = qty;
+  }
+  /* The list being counted: from before 26 Sep, what was already counted. */
+  function stockSel(cat, s) {
+    if (!Array.isArray(s.stockSel)) s.stockSel = chosenItems(cat, s).filter(function (it) { return countOf(it); }).map(function (it) { return it.id; });
+    const list = s.stockSel;   // cleaned in place: callers add to the array they were given
+    for (let i = list.length - 1; i >= 0; i--) if (!s.items[list[i]] || list.indexOf(list[i]) !== i) list.splice(i, 1);
+    return list;
   }
 
   const api = {
@@ -419,7 +413,7 @@
     phone10: phone10, phoneShow: phoneShow, gstOk: gstOk,
     companyList: companyList, companyById: companyById, item: item, syncCompanies: syncCompanies, tidy: tidy, aisleOf: aisleOf, chosenItems: chosenItems, unitPrice: unitPrice,
     search: search, findBarcode: findBarcode,
-    countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, stockDraft: stockDraft, draftSig: draftSig, applyCount: applyCount,
+    countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, countOf: countOf, lineUnit: lineUnit, setCount: setCount, stockSel: stockSel,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
     progress: progress, missing: missing, shortAddress: shortAddress,

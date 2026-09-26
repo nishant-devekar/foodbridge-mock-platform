@@ -39,15 +39,14 @@
   }
   const canScan = "BarcodeDetector" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   const canSpeak = "speechSynthesis" in window;
+  const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const canRecord = "MediaRecorder" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-  let canShareFiles = false;
-  try { canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [new File(["x"], "x.txt", { type: "text/plain" })] })); } catch (e) { canShareFiles = false; }
 
   let S = load();
   let view = "welcome";
   let sheet = null;
-  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", saQ: "", saOpen: false, saAdding: false, saConfirm: false, saFlash: null, lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
+  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", gsQ: "", gsOpen: false, outbox: [], building: false, sending: false, lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
   const urls = {};
 
   /* ─────────────────────────────────────────────────────── storage ── */
@@ -88,6 +87,96 @@
       clear: function () { return run("readwrite", function (st) { return st.clear(); }); },
     };
   })();
+
+  /* Build my store (26 Sep 2026, owner): the build goes to FoodBridge, where
+     the customer success team opens it (the bridge's /api/stores, read back
+     at v7/stores.html). It is NOT kept on this phone: a build waits here only
+     until it is delivered, file by file, and each file is deleted as it lands.
+     Offline or no bridge yet, it stays queued and goes on the next chance. */
+  const BRIDGE = "https://zoho-function-nu.vercel.app", BRIDGE_LOCAL = "http://localhost:8787";
+  function bridge() {
+    let b = "";
+    try { b = localStorage.getItem("fb-api-base") || ""; } catch (e) { /* private window */ }
+    if (b) return b.replace(/\/+$/, "");
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? BRIDGE_LOCAL : BRIDGE;
+  }
+
+  const OUTBOX = (function () {
+    let opening = null;
+    function open() {
+      if (!opening) opening = new Promise(function (res, rej) {
+        const r = indexedDB.open("fb-storebuilder-outbox", 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore("builds", { keyPath: "id" }); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+      return opening;
+    }
+    function run(mode, fn) {
+      return open().then(function (db) {
+        return new Promise(function (res, rej) {
+          const tx = db.transaction("builds", mode);
+          const req = fn(tx.objectStore("builds"));
+          tx.oncomplete = function () { res(req ? req.result : undefined); };
+          tx.onerror = function () { rej(tx.error); };
+        });
+      });
+    }
+    return {
+      all: function () { return run("readonly", function (st) { return st.getAll(); }); },
+      put: function (b) { return run("readwrite", function (st) { return st.put(b); }); },
+      del: function (id) { return run("readwrite", function (st) { return st.delete(id); }); },
+    };
+  })();
+
+  function post(body) {
+    return fetch(bridge() + "/api/stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.status; }, function () { return 0; });
+  }
+  function bytesOf(blob) { return blob.arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
+
+  /* Sends what is left of one build. 200 lands it; a 4xx is about the file and
+     will never pass, so it is dropped (and named in the summary as missing);
+     anything else is about the network or the bridge, so it waits. */
+  async function deliver(b) {
+    /* The first request is the summary with the Excel and setup.json: the
+       bridge stores them and emails the Excel to the team as a backup. */
+    if (!b.metaSent) {
+      const first = b.files.filter(function (f) { return /\.xlsx$|^setup\.json$/.test(f.name); });
+      const enc = await Promise.all(first.map(async function (f) { return { name: f.name, data: X.b64(await bytesOf(f.blob)) }; }));
+      const st = await post({ id: b.id, meta: b.meta, files: enc });
+      if (st !== 200 && (st < 400 || st >= 500)) return false;
+      b.metaSent = true;
+      b.files = b.files.filter(function (f) { return first.indexOf(f) < 0; });
+      b.sent += first.length;
+      await OUTBOX.put(b);
+    }
+    while (b.files.length) {
+      const f = b.files[0];
+      const st = await post({ id: b.id, file: { name: f.name, data: X.b64(await bytesOf(f.blob)) } });
+      if (st !== 200 && (st < 400 || st >= 500)) return false;
+      b.files.shift();
+      b.sent += 1;
+      await OUTBOX.put(b);
+      if (sheet && sheet.kind === "built") render();
+    }
+    await OUTBOX.del(b.id);
+    return true;
+  }
+
+  async function sendAll() {
+    if (ui.sending) return;
+    ui.sending = true;
+    let list = [];
+    try { list = await OUTBOX.all(); } catch (e) { list = []; }
+    for (const b of list.sort(function (x, y) { return x.at - y.at; })) {
+      if (!(await deliver(b))) break;   // the bridge is not there: try the rest later
+    }
+    try { ui.outbox = await OUTBOX.all(); } catch (e) { ui.outbox = []; }
+    ui.sending = false;
+    if (view === "finish" || view === "home" || (sheet && sheet.kind === "built")) render();
+  }
+  window.addEventListener("online", function () { sendAll(); });
 
   /* ─────────────────────────────────────────────────────── helpers ── */
 
@@ -275,6 +364,7 @@
       }
       case "stock": return p.n ? t("sStock", { n: p.n }) : S.skipped.stock ? t("sSkipped") : t("sNone");
       case "rules": return p.n ? t("sRules", { n: p.n }) : t("sNone");
+      case "finish": return !S.lastBuild ? "" : (ui.outbox || []).some(function (b) { return b.id === S.lastBuild.id; }) ? t("fiWaiting") : t("fiSentAt", { d: when(S.lastBuild.at) });
       default: return "";
     }
   }
@@ -593,242 +683,195 @@
   };
 
   /* ── Godown stock ────────────────────────────────────────────────────────
-     27 Sep 2026, the owner: the platform's Customer Stock Audit, screen for
-     screen (modules/foodbridge-customer-mockup/v3/screens/customers/
-     stock-audit.js, the Quick Audit loop), with one change of context: he is
-     counting his own godown, not a customer's shelf, so there is no "who are
-     you visiting" and the audit starts at the count. Search → add → count in
-     the row (unit above the − n + stepper) → Finish Audit, asked inline in
-     the footer. The ← asks before throwing an unsaved count away. Its look is
-     the platform's too (the .sa block in sb.css), not the onboarding's. */
+     26 Sep 2026, the owner: a stock audit of his own godown, done the way
+     the platform's Customer Stock Audit does it (search, add, count each in
+     its row: the unit over a − n + stepper), but inside this flow: the same
+     top bar and step, the same title and question, his product photos, the
+     same sheet, and one Save back to the list. Like every step it saves as
+     he taps, so there is nothing to finish and nothing to lose by leaving. */
 
-  function saDraft() {
-    if (!S.stockDraft) S.stockDraft = M.stockDraft(CAT, S);
-    const d = S.stockDraft;
-    d.sel = d.sel.filter(function (id) { return S.items[id]; });   // a product dropped on the Products step leaves the count too
-    return d;
+  function gsItems() { return M.stockSel(CAT, S).map(function (id) { return M.item(CAT, S, id); }).filter(Boolean); }
+  function gsStats() {
+    const its = gsItems();
+    return { its: its, n: its.filter(function (it) { return M.countOf(it); }).length, total: its.length };
   }
-  function saItems() { return saDraft().sel.map(function (id) { return M.item(CAT, S, id); }).filter(Boolean); }
-  function saCounted(id) { const l = saDraft().lines[id]; return !!l && l.qty != null; }
-  function saStats() {
-    const its = saItems();
-    const n = its.filter(function (it) { return saCounted(it.id); }).length;
-    return { its: its, n: n, total: its.length, pct: its.length ? Math.round(n / its.length * 100) : 0 };
-  }
-  function saDirty() { return !!S.stockDraft && M.draftSig(S.stockDraft) !== M.draftSig(M.stockDraft(CAT, S)); }
-  function saUnitLabel(it, k) { return it.loose ? t("u_" + k) : k === "case" ? t("uCase") : t("uPiece"); }
-  function saLineUnit(it) { const l = saDraft().lines[it.id]; return (l && l.unit) || M.countUnit(it); }
-  function saSub(it) {
+  function gsUnitLabel(it, k) { return it.loose ? t("u_" + k) : k === "case" ? t("uCase") : t("uPiece"); }
+  function gsSub(it) {
     const co = it.company && M.companyById(CAT, S, it.company);
     return [packLabel(it), co ? co.short : ""].filter(Boolean).join(" · ");
   }
-  const saSearching = function () { return !!ui.saQ.trim() || ui.saOpen || ui.saAdding; };
-
-  function saHeadHTML() {
-    const s = saStats();
-    return '<button type="button" class="ws-exit" data-act="saExit" aria-label="' + h(t("saExit")) + '">←</button>' +
-      '<span class="ws-who">' + h(t("title_stock")) + "</span>" +
-      (s.total ? '<span class="ws-count">' + h(t("saProg", { n: s.n, total: s.total })) + "</span>" : "") +
-      '<div class="ws-bar"><span style="width:' + s.pct + '%"></span></div>';
-  }
+  const gsSearching = function () { return !!ui.gsQ.trim() || ui.gsOpen; };
+  /* His products not on the count yet: one tap puts them all on. */
+  function gsMissing() { const sel = M.stockSel(CAT, S); return Object.keys(S.items).filter(function (id) { return sel.indexOf(id) < 0; }); }
 
   /* While the box is in use the results own the screen; cleared, the count comes back. */
-  function saBodyHTML() {
-    const q = ui.saQ.trim();
-    const d = saDraft();
-    if (saSearching()) {
-      const mine = Object.keys(S.items).filter(function (id) { return d.sel.indexOf(id) < 0; });
+  function gsBodyHTML() {
+    const q = ui.gsQ.trim();
+    const sel = M.stockSel(CAT, S);
+    if (gsSearching()) {
+      const off = function (id) { return sel.indexOf(id) < 0; };
       let ids, total = 0;
-      if (q) ids = M.search(CAT, S, q, null).filter(function (id) { return d.sel.indexOf(id) < 0; })
-        .sort(function (a, b) { return (S.items[b] ? 1 : 0) - (S.items[a] ? 1 : 0); });   // his own products first
+      if (q) ids = M.search(CAT, S, q, null).filter(off).sort(function (a, b) { return (S.items[b] ? 1 : 0) - (S.items[a] ? 1 : 0); }).slice(0, SEARCH_MAX);   // his own products first
       else {
-        const pool = (mine.length ? mine : M.search(CAT, S, "", null).filter(function (id) { return d.sel.indexOf(id) < 0; }))
+        const mine = gsMissing();
+        const pool = (mine.length ? mine : M.search(CAT, S, "", null).filter(off))
           .map(function (id) { return M.item(CAT, S, id); }).filter(Boolean).sort(function (a, b) { return nm(a).localeCompare(nm(b)); });
         total = pool.length;
         ids = pool.slice(0, 5).map(function (it) { return it.id; });
       }
-      const rows = ids.map(function (id) { return M.item(CAT, S, id); }).filter(Boolean);
-      return '<div class="picker-list dropdown">' + (rows.length
-        ? rows.map(function (it) {
-          return '<button type="button" class="picker-row" data-act="saAdd" data-id="' + h(it.id) + '">' +
-            '<span><span class="nm">' + h(nm(it)) + '</span><div class="sub">' + h(saSub(it)) + "</div></span>" +
-            '<span class="add-ic" aria-hidden="true">+</span></button>';
-        }).join("")
-        : '<div class="dropdown-empty">' + h(t("saNoFound")) + '<button type="button" class="np-add" data-act="saNew">' + h(t("saAddProduct")) + "</button></div>") +
-        (!q && total > rows.length ? '<div class="suggest-hint">' + h(t("saShowing", { n: rows.length, total: total })) + "</div>" : "") + "</div>";
+      if (!ids.length) return empty(t("gsNoFound"), "gsNew", "", t("iNew"), "plus");
+      return '<div class="sb-group gs-drop">' + ids.map(function (id) {
+        const it = M.item(CAT, S, id);
+        return '<button type="button" class="gs-add" data-act="gsAdd" data-id="' + h(id) + '"><span class="pick-img">' + pickImg(it) + "</span>" +
+          '<span class="prod-main"><b>' + h(nm(it)) + '</b><span class="sb-muted">' + h(gsSub(it)) + "</span></span>" +
+          '<span class="gs-plus">' + ic("plus", 16) + "</span></button>";
+      }).join("") + (!q && total > ids.length ? '<p class="sb-hint center-text">' + h(t("gsShowing", { n: ids.length, total: total })) + "</p>" : "") + "</div>";
     }
-    const its = saItems();
-    return '<div class="section-head-row"><h2>' + h(t("saSelected")) + "</h2></div>" + (its.length
-      ? '<div class="qc-card">' + its.map(saRowHTML).join("") + "</div>"
-      : '<div class="sah-empty"><div class="big">📋</div><p>' + h(t("saEmpty")) + "<br>" + h(t("saEmpty2")) + "</p></div>");
+    const its = gsItems();
+    const missing = gsMissing().length;
+    return '<div class="pick-bar gs-bar"><span class="sb-glabel">' + h(t("gsList")) + (its.length ? " · " + its.length : "") + "</span>" +
+      (missing ? '<button class="sb-more" data-act="gsAll">' + ic("plus", 16) + h(t("gsAllMine", { n: missing })) + "</button>" : "") + "</div>" +
+      (its.length ? '<div class="sb-group gs-list">' + its.map(gsRowHTML).join("") + "</div>"
+        : '<div class="empty"><p>' + h(t("gsEmpty")) + "</p></div>");
   }
-
-  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
   /* An untouched row's box is empty, not 0: blank is "not counted", 0 is "none there". */
-  function saRowHTML(it) {
-    const l = saDraft().lines[it.id];
-    const done = saCounted(it.id);
+  function gsRowHTML(it) {
+    const c = M.countOf(it);
     const id = h(it.id);
-    return '<div class="qc-line qc-row' + (done ? " done" : "") + '" data-row="' + id + '">' +
-      '<div class="info"><div class="nm" title="' + h(nm(it)) + '">' + h(nm(it)) + '</div><div class="meta">' + h(saSub(it)) + '</div><div class="meta ask">' + h(t("saRemoveQ")) + "</div></div>" +
-      '<span class="qty-col">' +
-        '<button type="button" class="unit-pick" data-act="saUnit" data-id="' + id + '" aria-label="' + h(saUnitLabel(it, saLineUnit(it))) + '"><span class="lbl">' + h(saUnitLabel(it, saLineUnit(it))) + '</span><span class="chev" aria-hidden="true">⌄</span></button>' +
-        '<span class="pd-stepper"><button type="button" data-act="saStep" data-id="' + id + '" data-d="-1" aria-label="−">−</button>' +
-        '<span class="val"><input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" data-sa-qty="' + id + '" value="' + (done ? l.qty : "") + '" placeholder="0" aria-label="' + h(nm(it)) + '"></span>' +
-        '<button type="button" data-act="saStep" data-id="' + id + '" data-d="1" aria-label="+">+</button></span></span>' +
-      '<button type="button" class="qc-remove" data-act="saRemove" aria-label="' + h(t("remove")) + " " + h(nm(it)) + '">' + TRASH + "</button>" +
-      '<button type="button" class="ci-btn sm yes" data-act="saRemoveYes" data-id="' + id + '" aria-label="' + h(t("remove")) + '">✓</button>' +
-      '<button type="button" class="ci-btn sm no" data-act="saRemoveNo" aria-label="' + h(t("cancel")) + '">✗</button></div>';
+    return '<div class="gs-row' + (c ? " done" : "") + '" data-row="' + id + '">' +
+      '<span class="pick-img" data-act="gsSheet" data-id="' + id + '">' + pickImg(it) + "</span>" +
+      '<div class="prod-main" data-act="gsSheet" data-id="' + id + '"><b>' + h(nm(it)) + '</b><span class="sb-muted">' + h(gsSub(it)) + "</span></div>" +
+      '<div class="gs-qty"><button type="button" class="gs-unit" data-act="gsSheet" data-id="' + id + '">' + h(gsUnitLabel(it, M.lineUnit(S, it))) + ic("chev", 12) + "</button>" +
+        '<div class="stepper small"><button type="button" data-act="gsStep" data-id="' + id + '" data-d="-1" aria-label="−">' + ic("minus", 18) + "</button>" +
+        '<input data-gs-qty="' + id + '" inputmode="numeric" autocomplete="off" value="' + (c ? c.qty : "") + '" placeholder="–" aria-label="' + h(nm(it)) + '">' +
+        '<button type="button" data-act="gsStep" data-id="' + id + '" data-d="1" aria-label="+">' + ic("plus", 18) + "</button></div></div></div>";
   }
 
-  /* The footer in its two states; the question is recomputed on every change behind it. */
-  function saFootHTML() {
-    if (!ui.saConfirm) {
-      return (saSearching() ? "" : '<button type="button" class="btn-add" data-act="saAddBtn">' + h(t("saAddProduct")) + "</button>") +
-        '<button type="button" class="btn-wide primary" data-act="saFinish">' + h(t("saFinish")) + "</button>";
-    }
-    const s = saStats();
-    const detail = s.n < s.total ? t("saSomeCounted", { n: s.n, total: s.total }) : t("saAllCounted", { n: s.total });
-    return '<span class="confirm-inline"><span class="ci-copy"><span class="ci-prompt">' + h(t("saFinishQ")) + '</span><span class="ci-detail">' + h(detail) + "</span></span>" +
-      '<button type="button" class="ci-btn yes" data-act="saYes" aria-label="' + h(t("saFinish")) + '">✓</button>' +
-      '<button type="button" class="ci-btn no" data-act="saNo" aria-label="' + h(t("saKeep")) + '">✗</button></span>';
+  function gsNoteHTML() {
+    const s = gsStats();
+    return s.total ? selectedNote(t("gsCounted", { n: s.n, total: s.total })) : "";
   }
 
   SCREENS.stock = function () {
-    saDraft();
-    return '<main class="sa sa-main"><div class="ws-head" id="saHead">' + saHeadHTML() + "</div>" +
-      '<div class="sah-search-row"><div class="sah-search"><input type="search" id="saQ" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search" value="' + h(ui.saQ) + '" placeholder="' + h(t("saSearch")) + '" aria-label="' + h(t("saSearch")) + '"></div></div>' +
-      '<div id="saBody">' + saBodyHTML() + "</div></main>" +
-      '<footer class="sa sah-foot ws-foot"><div class="inner" id="saFoot">' + saFootHTML() + "</div></footer>";
+    return frame("stock",
+      '<label class="sb-search">' + ic("search", 18) +
+      '<input type="search" id="gsQ" value="' + h(ui.gsQ) + '" placeholder="' + h(t("gsSearch")) + '" aria-label="' + h(t("gsSearch")) + '" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"></label>' +
+      '<div id="gsBody">' + gsBodyHTML() + "</div>",
+      '<div id="gsNote">' + gsNoteHTML() + "</div>");
   };
 
   /* In place, never a full redraw: a redraw would rebuild the box he is typing in. */
-  function saRefresh(body) {
-    const set = function (id, html) { const n = document.getElementById(id); if (n) n.innerHTML = html; };
-    set("saHead", saHeadHTML());
-    if (body) set("saBody", saBodyHTML());
-    set("saFoot", saFootHTML());
+  function gsRefresh(body) {
+    if (body) { const b = document.getElementById("gsBody"); if (b) b.innerHTML = gsBodyHTML(); hydrate(); }
+    const n = document.getElementById("gsNote");
+    if (n) n.innerHTML = gsNoteHTML();
   }
 
-  function saWrite(id, qty) {
+  function gsWrite(id, qty) {
     const it = M.item(CAT, S, id);
     if (!it) return;
-    const d = saDraft();
-    const l = d.lines[id] || (d.lines[id] = { qty: null, unit: M.countUnit(it) });
-    l.qty = qty;
+    M.setCount(S, it, qty, M.lineUnit(S, it));
     save();
-    const row = document.querySelector('.qc-row[data-row="' + id + '"]');
+    const row = document.querySelector('.gs-row[data-row="' + id + '"]');
     if (row) {
       row.classList.add("done");
       const inp = row.querySelector("input");
       if (inp && inp.value !== String(qty)) inp.value = qty;
     }
-    saRefresh(false);
+    gsRefresh(false);
   }
 
-  function saFlash(id) {
-    const col = document.querySelector('.qc-row[data-row="' + id + '"] .qty-col');
-    if (!col) return;
-    const b = document.createElement("span");
-    b.className = "unit-flash";
-    b.setAttribute("role", "status");
-    b.innerHTML = '<span class="ic" aria-hidden="true">✓</span>' + h(t("saUpdated"));
-    col.insertBefore(b, col.querySelector(".pd-stepper"));
-    setTimeout(function () { b.classList.add("out"); setTimeout(function () { b.remove(); }, 220); }, 1500);
-  }
-
-  /* The platform's unit sheet: his price for one of that unit, and the unit. */
-  function saPrice(it, k) {
-    if (it.sell == null) return null;
-    return M.round2(it.sell * M.unitPer(it, k));
-  }
-  function saMoney(v) { return "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function saPriceHTML(it, k) {
-    const v = saPrice(it, k);
-    return v == null ? '<span class="us-price none">' + h(t("saNoPrice")) + "</span>" : '<span class="us-price">' + h(saMoney(v)) + "</span>";
-  }
-
-  SHEETS.saUnit = function (sh) {
+  /* One product on the count: the unit it is counted in, his price for one, and off the count. */
+  SHEETS.gsItem = function (sh) {
     const it = M.item(CAT, S, sh.id);
-    if (!it) return "";
-    const base = saUnitLabel(it, M.countUnits(it)[0].k);
-    return '<div class="grip"></div><h2 class="us-name">' + h(nm(it)) + '</h2><p class="us-sku">' + h(saSub(it)) + "</p>" +
-      '<div class="us-now"><span class="us-now-copy"><span class="us-label">' + h(t("saPrice")) + '</span><span id="usPrice">' + saPriceHTML(it, sh.picked) + "</span></span>" +
-      '<span class="us-pick"><label class="us-label" for="usUnit">' + h(t("saUnitSel")) + '</label><span class="us-select"><select id="usUnit">' +
-      M.countUnits(it).map(function (u) {
-        return '<option value="' + h(u.k) + '"' + (u.k === sh.picked ? " selected" : "") + ">" + h(saUnitLabel(it, u.k) + (u.per > 1 ? " (" + u.per + " " + base + ")" : "")) + "</option>";
-      }).join("") + '</select><span class="chev" aria-hidden="true">⌄</span></span></span></div>' +
-      '<div class="sheet-acts" id="usActs">' + saUnitActs(it, sh) + "</div>";
+    if (!it) return sheetWrap("", "");
+    const k = M.lineUnit(S, it);
+    const price = it.sell == null ? null : M.round2(it.sell * M.unitPer(it, k));
+    const base = gsUnitLabel(it, M.countUnits(it)[0].k);
+    const head = '<div class="item-head"><span class="pick-img is-lg">' + pickImg(it) + "</span><div><b>" + h(nm(it)) + '</b><small class="sb-muted">' + h(gsSub(it)) + "</small></div></div>";
+    return sheetWrap(h(nm(it)), head +
+      field("box", t("gsUnit"), chips(M.countUnits(it).map(function (u) {
+        return { v: u.k, label: gsUnitLabel(it, u.k) + (u.per > 1 ? " · " + u.per + " " + base : "") };
+      }), function (v) { return v === k; }, 'data-act="gsUnitPick" data-id="' + h(it.id) + '"', "two"),
+      price == null ? h(t("gsNoPrice")) : h(t("gsPrice", { p: rupee(price), u: gsUnitLabel(it, k) }))) +
+      '<button class="sb-btn is-bad wide" data-act="gsRemove" data-id="' + h(it.id) + '">' + ic("trash", 18) + h(t("gsRemove")) + "</button>",
+      '<button class="sb-cta" data-act="closeSheet">' + h(t("done")) + "</button>");
   };
-  SHEETS.saUnit.sa = true;
 
-  function saUnitActs(it, sh) {
-    if (!sh.asking) return '<button type="button" class="sheet-btn primary" data-act="saUnitAsk">' + h(t("save")) + "</button>";
-    const changed = sh.picked !== sh.cur;
-    const v = saPrice(it, sh.picked);
-    const detail = (changed ? saUnitLabel(it, sh.cur) + " → " + saUnitLabel(it, sh.picked) : saUnitLabel(it, sh.picked)) + (v != null ? " · " + saMoney(v) : "");
-    return '<span class="confirm-inline"><span class="ci-copy"><span class="ci-prompt">' + h(t(changed ? "saChangeUnit" : "saSaveUnit")) + '</span><span class="ci-detail">' + h(detail) + "</span></span>" +
-      '<button type="button" class="ci-btn yes" data-act="saUnitYes" aria-label="' + h(t("save")) + '">✓</button>' +
-      '<button type="button" class="ci-btn no" data-act="saUnitNo" aria-label="' + h(t("cancel")) + '">✗</button></span>';
+  /* How you work, 26 Sep 2026 (owner): quick to get through, all on one
+     page, few words. The four yes/no questions are one card of short rows,
+     a Yes | No switch at the end of each; the four with choices keep their
+     chips. What is answered shows over Save, as on the other steps.
+     One icon per question (its heading or its row), none on the answers (owner: too many).
+     Order steps went the same day (owner). */
+  function ynRow(icon, label, path) {
+    const v = getPath(path);
+    const b = function (on, key, val) {
+      return '<button type="button" class="' + (on ? "on" : "") + '" data-act="set" data-path="' + path + '" data-kind="bool" data-v="' + val + '" aria-pressed="' + on + '">' + h(t(key)) + "</button>";
+    };
+    return '<li class="ru-row"><span class="ru-ic">' + ic(icon, 18) + '</span><span class="ru-t">' + h(t(label)) + "</span>" +
+      '<span class="seg ru-seg" role="group" aria-label="' + h(t(label)) + '">' + b(v === true, "yes", "1") + b(v === false, "no", "0") + "</span></li>";
   }
-  function saUnitRedraw() {
-    const it = M.item(CAT, S, sheet.id);
-    const acts = document.getElementById("usActs");
-    if (!it || !acts) return;
-    acts.classList.toggle("asking", !!sheet.asking);
-    acts.innerHTML = saUnitActs(it, sheet);
-  }
-
-  /* Leaving asks only when there is something to lose (ruthless panes, 24 Sep). */
-  SHEETS.saLeave = function () {
-    const s = saStats();
-    const so = !s.total ? t("saNoneSel") : !s.n ? t("saNoneCounted") : t("saSoFar", { n: s.n, total: s.total });
-    return (S.store.name ? '<div class="eyebrow">' + h(S.store.name) + "</div>" : "") +
-      "<h2>" + h(t("saLeaveQ")) + '</h2><p class="sub">' + h(so + " " + t("saLeaveSub")) + "</p>" +
-      '<div class="sheet-acts"><button type="button" class="sheet-btn primary" data-act="closeSheet">' + h(t("saKeep")) + "</button>" +
-      '<button type="button" class="sheet-btn danger" data-act="saDiscard">' + h(t("saEnd")) + "</button></div>";
-  };
-  SHEETS.saLeave.sa = "center";
 
   SCREENS.rules = function () {
+    const n = M.progress(CAT, S).rules.n;
     return frame("rules",
-      field("cash", t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash"), icon: "cash" }, { v: "upi", label: t("mUpi"), icon: "upi" },
-        { v: "cheque", label: t("mCheque"), icon: "receipt" }, { v: "credit", label: t("mCredit"), icon: "ledger" }])) +
-      field("calendar", t("ruRoutes"), yesNo("rules.routes")) +
-      field("mobile", t("ruSelf"), yesNo("rules.selfOrder")) +
-      field("divide", t("ruPart"), yesNo("rules.partPay")) +
-      field("returns", t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }], "col")) +
-      field("steps", t("ruSteps"), setChips("rules.steps", "str", [{ v: "simple", label: t("stepsSimple") }, { v: "dispatch", label: t("stepsDispatch") }], "col")) +
-      field("hourglass", t("ruBatches"), yesNo("rules.batches")) +
-      field("sunrise", t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders"), icon: "receipt" }, { v: "money", label: t("mnMoney"), icon: "rupee" },
-        { v: "stock", label: t("mnStock"), icon: "box" }, { v: "trucks", label: t("mnTrucks"), icon: "truck" }])) +
-      '<button class="sb-btn is-alt wide sb-voice" data-act="papers" data-rec="1">' + ic("mic", 18) + h(t("ruVoice")) + "</button>");
+      '<ul class="sb-group ru-card">' +
+        ynRow("calendar", "ruRoutes", "rules.routes") + ynRow("mobile", "ruSelf", "rules.selfOrder") +
+        ynRow("divide", "ruPart", "rules.partPay") + ynRow("hourglass", "ruBatches", "rules.batches") + "</ul>" +
+      field("cash", t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") },
+        { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }])) +
+      field("returns", t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }])) +
+      field("sunrise", t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") },
+        { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }])) +
+      field("note", t("ruNote"), input("rules.note", { area: true, mic: true, ph: t("ruNotePh") })),   // a note, typed or spoken (26 Sep 2026, owner)
+      n ? selectedNote(t("sRules", { n: n })) : "");
   };
 
+  /* ── Build your store ────────────────────────────────────────────────────
+     26 Sep 2026, the owner: one button, "Build my store", and the files go
+     to FoodBridge's customer success team -- not kept on the phone. So the
+     last step is a short look at what he has (six tiles), what can wait
+     (folded into one line), and whether FoodBridge has his last build. */
+
+  function when(ms) {
+    const d = new Date(ms);
+    const loc = S.lang === "en" ? "en-IN" : "hi-IN";
+    return d.toLocaleDateString(loc, { day: "numeric", month: "short" }) + ", " + d.toLocaleTimeString(loc, { hour: "numeric", minute: "2-digit" });
+  }
+
+  /* Where his last build is: with FoodBridge, or still waiting on this phone. */
+  function buildStatus() {
+    const last = S.lastBuild;
+    if (!last) return "";
+    const wait = (ui.outbox || []).find(function (b) { return b.id === last.id; });
+    if (!wait) return '<div class="sb-callout fi-sent">' + ic("circleCheck", 18) + "<p><b>" + h(t("fiSent")) + "</b><br>" + h(when(last.at)) + "</p></div>";
+    return '<div class="sb-callout is-warn fi-sent">' + ic("clock", 18) + "<p><b>" + h(t("fiWaiting")) + "</b><br>" + h(t("fiWaitingSub", { n: wait.sent, total: wait.total })) + "</p>" +
+      '<button class="sb-more" data-act="sendNow"' + (ui.sending ? " disabled" : "") + ">" + h(t(ui.sending ? "fiSending" : "fiSendNow")) + "</button></div>";
+  }
+
   SCREENS.finish = function () {
-    const its = Object.keys(S.items).length;
+    const P = M.progress(CAT, S);
     const gaps = M.missing(CAT, S);
-    const row = function (icon, n, label, to, tab) {
-      return '<button class="sb-grow" data-act="go" data-to="' + to + '"' + (tab ? ' data-tab="' + tab + '"' : "") + '><span class="sb-grow-ic">' + ic(icon, 18) + '</span><span class="sb-grow-t">' + h(label) + "</span>" +
-        '<span class="sb-grow-n">' + n + '</span><span class="sb-grow-go">' + ic("chev", 16) + "</span></button>";
+    const tile = function (n, label, act, to, tab) {
+      return '<button class="fi-tile" data-act="' + act + '"' + (to ? ' data-to="' + to + '"' : "") + (tab ? ' data-tab="' + tab + '"' : "") + "><b>" + n + "</b><span>" + h(label) + "</span></button>";
     };
     return frame("finish",
-      '<div class="sb-group is-found">' +
-      row("box", its, t("tProducts"), "items") + row("users", M.peopleOf(S, "shop").length, t("tShops"), "people", "shop") +
-      row("truck", M.peopleOf(S, "supplier").length, t("tSuppliers"), "people", "supplier") + row("staff", M.peopleOf(S, "staff").length, t("tStaff"), "people", "staff") +
-      '<button class="sb-grow" data-act="papers"><span class="sb-grow-ic">' + ic("camera", 18) + '</span><span class="sb-grow-t">' + h(t("tPapers")) + '</span><span class="sb-grow-n">' + S.papers.length + '</span><span class="sb-grow-go">' + ic("chev", 16) + "</span></button></div>" +
+      '<div class="fi-tiles">' +
+        tile(Object.keys(S.items).length, t("tProducts"), "go", "items") + tile(M.peopleOf(S, "shop").length, t("tShops"), "go", "people", "shop") +
+        tile(M.peopleOf(S, "supplier").length, t("tSuppliers"), "go", "people", "supplier") + tile(M.peopleOf(S, "staff").length, t("tStaff"), "go", "people", "staff") +
+        tile(P.stock.n, t("fiStock"), "go", "stock") + tile(S.papers.length, t("tPapers"), "papers") + "</div>" +
       (gaps.length
-        ? '<p class="sb-glabel">' + h(t("fiMissing")) + '</p><div class="sb-group">' + gaps.map(function (g) {
-          const gi = { shop: "users", staff: "staff", supplier: "truck" }[g.tab] || ICON[g.step];
-          return '<button class="sb-grow is-need" data-act="go" data-to="' + g.step + '"' + (g.tab ? ' data-tab="' + g.tab + '"' : "") + '><span class="sb-grow-ic">' + ic(gi, 18) + '</span><span class="sb-grow-t">' + h(t("gap_" + g.key)) + "</span>" +
-            (g.n > 1 ? '<i class="pill">' + g.n + "</i>" : "") + '<span class="sb-grow-go">' + ic("chev", 16) + "</span></button>";
-        }).join("") + "</div>"
-        : '<div class="sb-callout">' + ic("circleCheck", 18) + "<p>" + h(t("fiNoMissing")) + "</p></div>") +
-      '<p class="sb-glabel">' + h(t("fiHow")) + '</p><ol class="sb-card how-send"><li>' + h(t("fiHow1")) + "</li><li>" + h(t("fiHow2")) + "</li><li>" + h(t("fiHow3")) + "</li></ol>",
-      '<button class="sb-cta" data-act="saveFile">' + ic("save", 20) + h(t("fiSave")) + "</button>" +
-      (canShareFiles ? '<button class="sb-cta is-alt" data-act="share">' + ic("share", 20) + h(t("fiShare")) + "</button>" : "") +
-      '<button class="sb-link is-sm" data-act="excel">' + ic("sheet", 18) + h(t("fiExcel")) + "</button>");
+        ? '<details class="fi-gaps"><summary>' + ic("info", 18) + "<span>" + h(t("fiLater", { n: gaps.length })) + "</span>" + ic("chev", 16) + "</summary>" +
+          '<div class="sb-group">' + gaps.map(function (g) {
+            const gi = { shop: "users", staff: "staff", supplier: "truck" }[g.tab] || ICON[g.step];
+            return '<button class="sb-grow is-need" data-act="go" data-to="' + g.step + '"' + (g.tab ? ' data-tab="' + g.tab + '"' : "") + '><span class="sb-grow-ic">' + ic(gi, 18) + '</span><span class="sb-grow-t">' + h(t("gap_" + g.key)) + "</span>" +
+              (g.n > 1 ? '<i class="pill">' + g.n + "</i>" : "") + '<span class="sb-grow-go">' + ic("chev", 16) + "</span></button>";
+          }).join("") + "</div></details>"
+        : '<div class="sb-callout fi-gaps">' + ic("circleCheck", 18) + "<p>" + h(t("fiNoMissing")) + "</p></div>") +
+      buildStatus(),
+      '<button class="sb-cta" data-act="build"' + (ui.building ? " disabled" : "") + ">" + ic("store", 20) + h(t(ui.building ? "fiWorking" : "fiBuild")) + "</button>");
   };
 
   /* ───────────────────────────────────────────────────────── sheets ── */
@@ -848,6 +891,20 @@
       menuRow("lang", "langs", t("menuLang"), { attrs: 'data-v="' + (S.lang === "en" ? "hi" : "en") + '"' }) +
       menuRow("confirm", "trash", t("menuFresh"), { cls: "is-bad", attrs: 'data-what="fresh"' }) + "</div>" +
       '<p class="sb-hint">' + h(CAT.note) + '</p><p class="sb-hint">' + h(CAT.credit) + "</p>");
+  };
+
+  /* Right after Build my store: sending, then sent (or waiting for a network). */
+  SHEETS.built = function (sh) {
+    const wait = (ui.outbox || []).find(function (b) { return b.id === sh.id; });
+    const done = !wait && !ui.sending;
+    const body = done
+      ? '<div class="fi-done">' + ic("check", 30) + '</div><p class="fi-meta"><b>' + h(t("fiBuilt")) + "</b><span>" + h(t("fiBuiltSub")) + "</span></p>"
+      : ui.sending
+        ? '<div class="fi-done is-busy">' + ic("send", 26) + '</div><p class="fi-meta"><b>' + h(t("fiSending")) + "</b><span>" + h(wait ? t("fiWaitingSub", { n: wait.sent, total: wait.total }) : "") + "</span></p>"
+        : '<div class="fi-done is-wait">' + ic("clock", 28) + '</div><p class="fi-meta"><b>' + h(t("fiWaiting")) + "</b><span>" + h(t("fiWaitingWhy")) + "</span></p>";
+    return sheetWrap(h(S.store.name || t("hTitle")), body,
+      (!done && !ui.sending ? '<button class="sb-btn" data-act="sendNow">' + ic("repeat", 18) + h(t("fiSendNow")) + "</button>" : "") +
+      '<button class="sb-cta" data-act="closeSheet">' + h(t("done")) + "</button>");
   };
 
   SHEETS.confirm = function () {
@@ -1060,12 +1117,7 @@
     const prevBody = $sheet.querySelector(".sheet-body");
     const keep = prevBody && sheet && prevBody.dataset.kind === sheet.kind + (sheet.id || "") ? prevBody.scrollTop : 0;
     $app.innerHTML = (SCREENS[view] || SCREENS.home)();
-    $app.classList.toggle("is-sa", view === "stock");
-    const sa = sheet && SHEETS[sheet.kind] && SHEETS[sheet.kind].sa;
-    if (sa) {
-      /* The platform's own sheet (Godown stock): a bottom sheet, or a centred card. */
-      $sheet.innerHTML = '<div class="sa sah-sheet-scrim' + (sa === "center" ? " center" : "") + '" data-act="saScrim"><div class="sah-sheet" role="dialog" aria-modal="true">' + SHEETS[sheet.kind](sheet) + "</div></div>";
-    } else if (sheet && SHEETS[sheet.kind]) {
+    if (sheet && SHEETS[sheet.kind]) {
       $sheet.innerHTML = '<div class="scrim" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true">' + SHEETS[sheet.kind](sheet) + "</div>";
       const body = $sheet.querySelector(".sheet-body");
       if (body) { body.dataset.kind = sheet.kind + (sheet.id || ""); body.scrollTop = keep; }
@@ -1082,7 +1134,6 @@
       }
     }
     hydrate();
-    if (ui.saFlash && view === "stock" && !sheet) { saFlash(ui.saFlash); ui.saFlash = null; }
   }
 
   function refreshList(key) {
@@ -1416,7 +1467,7 @@
   const ACT = {
     go: function (el) {
       if (el.dataset.to === "people") ui.peopleTab = el.dataset.tab || null;
-      if (el.dataset.to === "stock") { ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false; }
+      if (el.dataset.to === "stock") { ui.gsQ = ""; ui.gsOpen = false; }
       go(el.dataset.to);
     },
     saveStep: function (el) {
@@ -1532,7 +1583,7 @@
         S.customItems[id] = { name: d.name.trim(), brand: "", company: d.company || "", pack: d.pack || "", mrp: d.mrp || null, caseQty: d.caseQty || 1, cat: d.cat || "other", photo: d.photo || null, barcode: d.barcode || "" };
         S.items[id] = { unit: "case", barcode: d.barcode || "", touched: { mrp: true } };
       }
-      if (sheet.toCount) { saDraft().sel.unshift(id); ui.saQ = ""; ui.saOpen = ui.saAdding = false; }
+      if (sheet.toCount) { M.stockSel(CAT, S).unshift(id); ui.gsQ = ""; ui.gsOpen = false; }
       syncSave();
       closeSheet();
       toast("✓ " + d.name.trim());
@@ -1598,118 +1649,77 @@
     },
     delPerson: function (el) { M.removePerson(S, el.dataset.id); save(); closeSheet(); },
 
-    saveFile: async function () {
-      toast(t("fiWorking"));
-      const p = X.pack(CAT, S, await gatherBlobs(), new Date());
-      download(new Blob([p.bytes], { type: "application/zip" }), p.name);
-      toast("✓ " + t("fiSaved", { name: p.name }));
-    },
-    excel: function () {
-      const now = new Date();
-      download(new Blob([X.xlsx(X.sheets(CAT, S, now))], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), X.fileBase(S, now) + ".xlsx");
-    },
-    share: async function () {
-      const f = X.shareText(CAT, S, await gatherBlobs(), new Date());
-      const file = new File([f.text], f.name, { type: "text/plain" });
+    /* Build my store: the Excel, setup.json and every photo and voice note,
+       queued and sent to FoodBridge; the sheet follows it until it lands. */
+    build: async function () {
+      if (ui.building) return;
+      ui.building = true;
+      render();
       try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: f.name });
-        else toast(t("fiShareFail"));
-      } catch (e) { if (e.name !== "AbortError") toast(t("fiShareFail")); }
+        const now = new Date();
+        const blobs = await gatherBlobs();
+        const files = X.parts(CAT, S, blobs, now).map(function (f) {
+          return { name: f.name, blob: new Blob([f.bytes], { type: /\.xlsx$/.test(f.name) ? XLSX : "application/octet-stream" }) };
+        });
+        const id = "SB-" + now.getTime().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        const b = { id: id, at: now.getTime(), meta: X.summary(CAT, S, now, files.map(function (f) { return f.name; })), files: files, sent: 0, total: files.length, metaSent: false };
+        await OUTBOX.put(b);
+        ui.outbox = (ui.outbox || []).concat([b]);
+        S.lastBuild = { id: id, at: b.at };
+        save();
+        ui.building = false;
+        openSheet({ kind: "built", id: id });
+        sendAll();
+      } catch (e) {
+        ui.building = false;
+        render();
+        toast("⚠ " + e.message);
+      }
     },
+    sendNow: function () { sendAll(); render(); },
     confirm: function (el) { sheet = { kind: "confirm", what: el.dataset.what }; render(); },
 
-    /* Godown stock: the platform's Stock Audit. */
-    saScrim: function (el, e) { if (e.target === el) closeSheet(); },
-    saExit: function () { if (saDirty()) openSheet({ kind: "saLeave" }); else { S.stockDraft = null; save(); go("home"); } },
-    saDiscard: function () {
-      S.stockDraft = null;
-      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
-      save();
-      go("home");
-      toast(t("saDiscarded"));
-    },
-    saAdd: function (el) {
+    /* Godown stock */
+    gsAdd: function (el) {
       const id = el.dataset.id;
       if (!S.items[id]) { S.items[id] = { unit: "case" }; M.syncCompanies(CAT, S); }   // counted in his godown, so he sells it
-      const d = saDraft();
-      if (d.sel.indexOf(id) < 0) d.sel.unshift(id);   // newest on top, where he is looking
-      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
+      const sel = M.stockSel(CAT, S);
+      if (sel.indexOf(id) < 0) sel.unshift(id);   // newest on top, where he is looking
+      ui.gsQ = ""; ui.gsOpen = false;
       save();
       render();
     },
-    saAddBtn: function () {
-      ui.saOpen = ui.saAdding = true;
-      ui.saConfirm = false;
-      saRefresh(true);
-      const box = document.getElementById("saQ");
-      if (box) box.focus();
-    },
-    saNew: function () {
-      openSheet({ kind: "newItem", toCount: true, draft: { name: ui.saQ.trim(), company: "", cat: "other", caseQty: 1, loose: false, per: "kg" } });
-    },
-    saStep: function (el) {
-      const l = saDraft().lines[el.dataset.id];
-      const cur = l && l.qty != null ? l.qty : 0;
-      saWrite(el.dataset.id, Math.max(0, cur + Number(el.dataset.d)));
-    },
-    /* Remove is asked in the row (✓ / ✗), one row at a time. */
-    saRemove: function (el) {
-      document.querySelectorAll(".qc-row.confirming").forEach(function (r) { r.classList.remove("confirming"); });
-      el.closest(".qc-row").classList.add("confirming");
-    },
-    saRemoveNo: function (el) { el.closest(".qc-row").classList.remove("confirming"); },
-    saRemoveYes: function (el) {
-      const d = saDraft(), id = el.dataset.id;
-      d.sel = d.sel.filter(function (x) { return x !== id; });
-      delete d.lines[id];
-      ui.saConfirm = false;
+    gsAll: function () {
+      const sel = M.stockSel(CAT, S);
+      gsMissing().forEach(function (id) { sel.push(id); });
       save();
-      saRefresh(true);
+      render();
     },
-    saUnit: function (el) {
+    gsNew: function () {
+      openSheet({ kind: "newItem", toCount: true, draft: { name: ui.gsQ.trim(), company: "", cat: "other", caseQty: 1, loose: false, per: "kg" } });
+    },
+    gsStep: function (el) {
       const it = M.item(CAT, S, el.dataset.id);
       if (!it) return;
-      const cur = saLineUnit(it);
-      openSheet({ kind: "saUnit", id: it.id, cur: cur, picked: cur, asking: false });
+      const c = M.countOf(it);
+      gsWrite(it.id, Math.max(0, (c ? c.qty : 0) + Number(el.dataset.d)));
     },
-    saUnitAsk: function () { sheet.asking = true; saUnitRedraw(); },
-    saUnitNo: function () { sheet.asking = false; saUnitRedraw(); },
+    gsSheet: function (el) { openSheet({ kind: "gsItem", id: el.dataset.id }); },
     /* A new unit keeps the number and re-reads it: three of something bigger. */
-    saUnitYes: function () {
-      const it = M.item(CAT, S, sheet.id);
-      if (it) {
-        const d = saDraft();
-        const l = d.lines[it.id] || (d.lines[it.id] = { qty: null, unit: M.countUnit(it) });
-        l.unit = sheet.picked;
-        save();
-        ui.saFlash = it.id;
-      }
+    gsUnitPick: function (el) {
+      const it = M.item(CAT, S, el.dataset.id);
+      if (!it) return;
+      const c = M.countOf(it);
+      M.setCount(S, it, c ? c.qty : null, el.dataset.v);
+      save();
+      render();
+    },
+    gsRemove: function (el) {
+      const it = M.item(CAT, S, el.dataset.id);
+      if (it) M.setCount(S, it, null, M.lineUnit(S, it));
+      S.stockSel = M.stockSel(CAT, S).filter(function (x) { return x !== el.dataset.id; });
+      save();
       closeSheet();
-    },
-    saFinish: function () {
-      if (!saStats().n) { toast(t("saCountFirst")); return; }
-      ui.saConfirm = true;
-      saRefresh(false);
-    },
-    saNo: function () { ui.saConfirm = false; saRefresh(false); },
-    saYes: function () {
-      if (!S.stockDraft) return;
-      const n = M.applyCount(CAT, S, S.stockDraft);
-      S.stockDraft = null;
-      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
-      save();
-      go("home");
-      toast(t("saSaved", { n: n }));
-    },
-    fresh: async function () {
-      const lang = S.lang;
-      localStorage.removeItem(KEY);
-      await DB.clear().catch(function () {});
-      S = M.blank();
-      S.lang = lang;
-      save();
-      sheet = null;
-      go("welcome");
     },
   };
 
@@ -1720,7 +1730,6 @@
     if (!el) return;
     const a = ACT[el.dataset.act];
     if (!a) return;
-    if (el.dataset.act === "saScrim" && e.target !== el) return;   // a tap inside the sheet, not on the dim
     e.preventDefault();
     a(el, e);
   });
@@ -1739,44 +1748,33 @@
     } else if (el.dataset.search) {
       ui[el.dataset.search] = el.value;
       refreshList(el.dataset.search);
-    } else if (el.id === "saQ") {
-      ui.saQ = el.value;
-      ui.saConfirm = false;
-      saRefresh(true);
-    } else if (el.dataset.saQty != null) {
+    } else if (el.id === "gsQ") {
+      ui.gsQ = el.value;
+      gsRefresh(true);
+    } else if (el.dataset.gsQty != null) {
       /* Typed over a 0, the 0 goes: "05" is 5. Cleared, it is 0 -- he looked. */
-      saWrite(el.dataset.saQty, Math.max(0, parseInt(el.value.replace(/\D/g, ""), 10) || 0));
+      gsWrite(el.dataset.gsQty, Math.max(0, parseInt(el.value.replace(/\D/g, ""), 10) || 0));
     }
   });
 
   /* The count's search box opens its list the moment it is tapped, and closes when he taps away.
      The close waits a beat so a tap on a result lands first. */
   document.addEventListener("focusin", function (e) {
-    if (e.target.id !== "saQ" || ui.saOpen) return;
-    ui.saOpen = true;
-    ui.saConfirm = false;
-    saRefresh(true);
+    if (e.target.id !== "gsQ" || ui.gsOpen) return;
+    ui.gsOpen = true;
+    gsRefresh(true);
   });
   document.addEventListener("focusout", function (e) {
-    if (e.target.id !== "saQ") return;
+    if (e.target.id !== "gsQ") return;
     setTimeout(function () {
-      if (view !== "stock" || document.activeElement === document.getElementById("saQ") || !ui.saOpen) return;
-      ui.saOpen = ui.saAdding = false;
-      saRefresh(true);
+      if (view !== "stock" || document.activeElement === document.getElementById("gsQ") || !ui.gsOpen) return;
+      ui.gsOpen = false;
+      gsRefresh(true);
     }, 150);
   });
 
   document.addEventListener("change", function (e) {
     const el = e.target;
-    if (el.id === "usUnit" && sheet && sheet.kind === "saUnit") {
-      const it = M.item(CAT, S, sheet.id);
-      sheet.picked = el.value;
-      sheet.asking = false;
-      const p = document.getElementById("usPrice");
-      if (p && it) p.innerHTML = saPriceHTML(it, el.value);
-      saUnitRedraw();
-      return;
-    }
     if (el.dataset.bind && (el.dataset.rerender !== undefined || el.tagName === "SELECT")) setTimeout(render, 0);
     if (el.id === "filePhoto" || el.id === "fileGallery") { if (el.files.length) addPhotos(Array.from(el.files)); el.value = ""; }
   });
@@ -1795,4 +1793,6 @@
   view = !S.startedAt ? "welcome" : STEPS.indexOf(hash) >= 0 || hash === "home" ? hash : "home";
   history.replaceState({ to: view }, "", "#" + view);
   render();
+  OUTBOX.all().then(function (list) { ui.outbox = list || []; if (ui.outbox.length) sendAll(); else if (view === "finish") render(); })
+    .catch(function () { ui.outbox = []; });
 })();
