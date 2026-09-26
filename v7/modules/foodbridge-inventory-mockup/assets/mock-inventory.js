@@ -320,6 +320,8 @@
     return d.toISOString();
   }
 
+  function isProductionMaterial(p) { return !!(window.FB_PRODUCTION && /^rm-p\d+$/.test(String(p._id))); }
+
   function materialiseBatches(seed) {
     return (seed.batches || []).map((b) => ({
       _id: b._id,
@@ -2135,6 +2137,20 @@
                 }" />
               <span class="text-xs text-gray-400 whitespace-nowrap">${esc(getDisplayUnit(p))}</span>
             </div>
+            ${
+              /* Production materials (owner, 26 Sep 2026): the truck at the gate — weigh,
+                 check quality, accept or send back. Quantity above is what is accepted. */
+              isProductionMaterial(p)
+                ? `<div class="flex items-center gap-1.5 mt-1.5">
+                     <input type="number" min="0" step="0.1" data-mrow="${esc(p._id)}" data-mfield="gateQty" value="${esc(p.gateQty || "")}" placeholder="Gate"
+                       class="w-20 h-7 px-2 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 tabular-nums" title="Weight on the gate scale" />
+                     <select data-mrow="${esc(p._id)}" data-mfield="qc" class="h-7 px-1.5 text-xs border border-gray-200 rounded-lg bg-white ${p.qc === "returned" ? "text-red-600" : "text-emerald-700"}" title="Quality check at the gate">
+                       <option value="accepted"${p.qc !== "returned" ? " selected" : ""}>Accept</option>
+                       <option value="returned"${p.qc === "returned" ? " selected" : ""}>Send back</option>
+                     </select>
+                   </div>`
+                : ""
+            }
           </td>
           <td class="px-3 py-2.5">
             <input type="date" data-mrow="${esc(p._id)}" data-mfield="mfgDate" value="${esc(p.mfgDate)}"
@@ -2258,7 +2274,7 @@
                      .map(
                        (p) => `<tr>
                      <td class="px-3 py-2 text-gray-800">${esc(p.productName)}</td>
-                     <td class="px-3 py-2 tabular-nums">${esc(p.qty || "—")} ${esc(getDisplayUnit(p))}</td>
+                     <td class="px-3 py-2 tabular-nums">${p.qc === "returned" ? `<span class="text-red-600 font-medium">Sent back</span>` : `${esc(p.qty || "—")} ${esc(getDisplayUnit(p))}`}${p.gateQty ? `<span class="block text-[11px] text-gray-400">gate ${esc(p.gateQty)}</span>` : ""}</td>
                      <td class="px-3 py-2 text-gray-600">${p.mfgDate ? fmtDate(p.mfgDate) : "—"}</td>
                      <td class="px-3 py-2 text-gray-600">${p.expDate ? fmtDate(p.expDate) : "—"}</td>
                      <td class="px-3 py-2 text-gray-600">${esc(p.supplierId || "—")}</td>
@@ -2892,7 +2908,15 @@
               supplierData: (state.seed.suppliers || []).find((s) => s.name === r.supplierId) || null,
             })),
           });
+          /* Production materials become lots in the production store — the stock
+             the plan and the floor's weigh-out steps take from, oldest first. */
           d.selected.forEach((r) => {
+            if (!isProductionMaterial(r)) return;
+            window.FB_PRODUCTION.receive({ materialId: r._id, qty: Number(r.qty) || 0, gateQty: Number(r.gateQty) || Number(r.qty) || 0, qc: r.qc === "returned" ? "returned" : "accepted",
+              supplier: r.supplierId || undefined, price: r.price === "" || r.price == null ? undefined : Number(r.price), by: (state.seed.user && state.seed.user.displayName) || "Store" });
+          });
+          d.selected.forEach((r) => {
+            if (isProductionMaterial(r) && r.qc === "returned") return;
             const p = state.products.find((x) => x._id === r._id);
             if (!p) return;
             p.availableStock += Number(r.qty) || 0;

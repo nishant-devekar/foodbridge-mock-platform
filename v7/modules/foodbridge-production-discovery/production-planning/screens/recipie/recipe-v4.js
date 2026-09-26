@@ -65,11 +65,14 @@
      The displayed qty label = base × previewFactor (bars stay proportional). */
   function drawBars() {
     const rows = $$('.ing');
-    const max = Math.max(1, ...rows.map((r) => num(r.getAttribute('data-qty'))));
+    // Pieces (sticks) are not weight: bars compare weights only, and a counted item is shown full.
+    const counted = (r) => (r.getAttribute('data-unit') || '') === 'pcs';
+    const max = Math.max(1, ...rows.filter((r) => !counted(r)).map((r) => num(r.getAttribute('data-qty'))));
     rows.forEach((r) => {
       const base = num(r.getAttribute('data-qty'));
       const fill = $('.ing-fill', r);
-      if (fill) fill.style.width = (base / max * 100) + '%';
+      if (fill) fill.style.width = (counted(r) ? 100 : base / max * 100) + '%';
+      if (fill) fill.style.opacity = counted(r) ? '.35' : '';
       const q = $('.ing-qty', r);
       if (q) q.textContent = fmtQty(base * previewFactor) + ' ' + (r.getAttribute('data-unit') || 'kg');
     });
@@ -279,7 +282,9 @@
   // effectively changed → a dedicated recipe version. The band is the third optimisation
   // lever (alongside ratio + lock): flexing the batch absorbs demand skew that no ratio
   // split can remove. See addendum-007 D-P11.
-  const NOMINAL = 100;                       // recipe's validated batch weight (kg)
+  // From the production store when recipe-store.js has run (frozen peas / veg / soya chaap).
+  const R = window.FB_RECIPE || null;
+  const NOMINAL = R ? R.nominal : 100;       // recipe's validated batch weight (kg)
   const BUF = 0.10;                          // ±10% quality tolerance
   const EPS = 1e-9;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -289,12 +294,12 @@
   const inBand = (v) => v >= bandLo() - EPS && v <= bandHi() + EPS;
 
   // Variant master — net weight per unit (kg) + carton multiple + outstanding orders.
-  const VARIANTS = [
+  const VARIANTS = R ? R.variants : [
     { id: '250g', name: '250g Pouch', sku: 'Cookies 250g', net: 0.25, multiple: 24, demand: 238 },
     { id: '500g', name: '500g Pouch', sku: 'Cookies 500g', net: 0.5, multiple: 12, demand: 82 },
     { id: '1kg', name: '1kg Box', sku: 'Cookies 1kg', net: 1, multiple: 6, demand: 7 },
   ];
-  const STRATEGIES = {           // ratios must total 100
+  const STRATEGIES = R ? R.strategies : {           // ratios must total 100
     default: { '250g': 60, '500g': 30, '1kg': 10 },
     festive: { '250g': 40, '500g': 35, '1kg': 25 },
     bulk: { '250g': 20, '500g': 30, '1kg': 50 },
@@ -538,6 +543,25 @@
     const no = 'PO-2026-' + String(180 + Math.floor(Math.random() * 40)).padStart(5, '0');
     $('#pb-number').textContent = no;
 
+    // Production integration: a real order — a Planned batch in Batch Management and a
+    // packing order per pack, in the one production store. Shown with its real numbers.
+    if (R && window.FB_PRODUCTION) {
+      const made = window.FB_PRODUCTION.createProductionOrder({
+        recipeId: R.id, batchSize: batchSize(), plannedDate: $('#pb-date').value || undefined, expectedFinishDate: $('#pb-finish').value || undefined,
+        supervisor: ($('#pb-op') && $('#pb-op').value) || undefined, where: 'Recipes', actor: 'admin', packNow: true,
+        packs: mix.map((r) => ({ skuId: r.id, qty: rowQty(r) })).filter((p) => p.qty > 0),
+      });
+      $('#pb-number').textContent = made.batch.batchNumber;
+      $('#ord-batches').innerHTML = `<div class="ord-line"><span><span class="ol-n">${made.batch.batchNumber}</span> <span class="ol-m">· ${made.batch.displayName} · Planned · ${made.batch.operator}</span></span><span class="ol-v">${made.batch.batchSize} kg</span></div>`;
+      $('#ord-packs').innerHTML = made.packing.map((p) => `<div class="ord-line"><span><span class="ol-n">${p.batchNumber}</span> <span class="ol-m">· ${p.displayName.replace('Packing · ', '')} · packs from the freezer, oldest bags first</span></span><span class="ol-v">${p.packets} pcs · ${p.batchSize} kg</span></div>`).join('')
+        + `<div class="ord-line"><span><span class="ol-n">NEXT</span> <span class="ol-m">· add ${made.batch.batchNumber} to a shift in Production › Shifts to put it on the floor</span></span><span class="ol-v"></span></div>`;
+      const card = $('#order-card'); if (card) card.classList.add('on');
+      const qr = $('#pb-qr');
+      if (qr && FB.renderQR) { qr.setAttribute('data-qr-payload', 'batch=' + made.batch.batchNumber + ';recipe=' + R.id + ';kg=' + made.batch.batchSize); qr.setAttribute('data-qr-size', '108'); FB.renderQR(qr); }
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     // Stage A → one batch of the selected size (kg). Numbers are immutable once created (Rule 8).
     const B = batchSize();
     const batches = [{ no: 'PB-2026-' + String(1820).padStart(5, '0'), kg: B, left: B }];
@@ -668,6 +692,7 @@
       making: [{ name: 'Labour', amount: 5 }, { name: 'Packing', amount: 3.5 }, { name: 'Transport', amount: 3 }, { name: 'Wastage + Electricity', amount: 4 }]
     }
   };
+  if (window.FB_RECIPE) SEED.store = window.FB_RECIPE.sheet;
   const RAIL = { 'Premium Butter Cookies': 'cookies', 'Classic Noodles Masala': 'masala' };
   const UNITS = ['kg', 'g', 'litre', 'ml', 'pcs'];
 
@@ -835,7 +860,7 @@
   document.addEventListener('input', (e) => applyCell(e.target));
   document.addEventListener('change', (e) => { if (e.target.matches('[data-sh="unit"]')) applyCell(e.target); });
 
-  function boot() { load('cookies'); syncGrand(false); }
+  function boot() { load(window.FB_RECIPE ? 'store' : 'cookies'); syncGrand(false); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();

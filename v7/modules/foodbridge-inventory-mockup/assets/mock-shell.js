@@ -400,11 +400,72 @@
   }
 
   /* ── Seed loading ─────────────────────────────────────────────────────── */
+  /* ── Production integration (owner, 26 Sep 2026) ──────────────────────
+     The factory's own raw material and packets live in the one production
+     store (v7/assets/production/production-api.js), with Recipes, Batch
+     Management and the shop floor. Every inventory screen loads its seed
+     here, so this is where they join it: the store's materials (each lot
+     received is a batch) go into RAW-MATERIAL, its frozen packs (each packing
+     order a batch) into FINISHED-GOODS — ahead of the seed's own rows, which
+     stay as they were. Dates become the seed's day offsets. */
+  const SELF = document.currentScript && document.currentScript.src;
+  function ensureProduction() {
+    if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
+    return new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = new URL("../../../assets/production/production-api.js?v=20260926PR1", SELF).href;
+      s.onload = s.onerror = () => resolve();
+      document.head.appendChild(s);
+    });
+  }
+  function mergeProduction(seed) {
+    const P = window.FB_PRODUCTION;
+    if (!P || !seed || !seed.stockSummary) return seed;
+    const DAY = 86400000, today = new Date(); today.setHours(0, 0, 0, 0);
+    const ago = (iso) => Math.max(0, Math.round((today - new Date(iso).setHours(0, 0, 0, 0)) / DAY));
+    const until = (iso) => Math.round((new Date(iso).setHours(0, 0, 0, 0) - today) / DAY);
+    const stamp = (iso) => { const d = new Date(iso); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + "-" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0"); };
+    return P.read((D, d) => {
+      const rm = [], fg = [], batches = [];
+      d.materials.forEach((m) => {
+        const lots = d.lots.filter((l) => l.materialId === m.id && l.qc === "accepted");
+        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.receivedAt), batchName: l.lotNo, createdDaysAgo: ago(l.receivedAt),
+          products: [{ _id: m.id, name: m.name, articleNo: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, stock: l.qty, remainingStock: l.remaining,
+            mfgDaysAgo: ago(l.receivedAt), expiryInDays: until(l.useBy), price: l.price, tax: 5, supplierData: d.suppliers.find((x) => x.name === l.supplier) || { name: l.supplier, contact: "" } }] }));
+        rm.push({ _id: m.id, productName: m.name, articleNumber: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, availableStock: D.onHand(m.id), requiredStock: D.reserved(m.id),
+          outstandingStock: Math.max(0, D.reserved(m.id) - D.onHand(m.id)), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: m.threshold });
+      });
+      d.skus.forEach((k) => {
+        const lots = (d.fg[k.id] ? d.fg[k.id].lots : []).map((l, i) => Object.assign({ id: k.id + "-" + i }, l));
+        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.at), batchName: l.ref, createdDaysAgo: ago(l.at),
+          products: [{ _id: k.id, name: k.name, articleNo: "FG-" + k.id.slice(-2).padStart(4, "40"), unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40, stock: l.qty, remainingStock: l.remaining,
+            mfgDaysAgo: ago(l.madeAt), expiryInDays: until(l.useBy), price: k.price, tax: 5, supplierData: null }] }));
+        const open = (d.demand[k.id] || {}).open || 0, have = D.packetsOf(k.id);
+        fg.push({ _id: k.id, productName: k.name, articleNumber: "FG-" + k.id.slice(-2).padStart(4, "40"), unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
+          availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null });
+      });
+      seed.stockSummary["RAW-MATERIAL"] = rm.concat(seed.stockSummary["RAW-MATERIAL"] || []);
+      seed.stockSummary["FINISHED-GOODS"] = fg.concat(seed.stockSummary["FINISHED-GOODS"] || []);
+      seed.batches = batches.concat(seed.batches || []);
+      seed.suppliers = d.suppliers.concat((seed.suppliers || []).filter((x) => !d.suppliers.some((y) => y.name === x.name)));
+      seed.categoryTree = seed.categoryTree || {};
+      seed.categoryTree["RAW-MATERIAL"] = [
+        { _id: "cat-rm-cold", name: "Cold room · peas & vegetables", productIds: ["rm-p01", "rm-p02", "rm-p03", "rm-p04"] },
+        { _id: "cat-rm-dry", name: "Dry store · flours", productIds: ["rm-p05", "rm-p06"] },
+        { _id: "cat-rm-pack", name: "Dry store · sticks & big bags", productIds: ["rm-p07", "rm-p08", "rm-p09"] },
+      ].concat(seed.categoryTree["RAW-MATERIAL"] || []);
+      seed.categoryTree["FINISHED-GOODS"] = [{ _id: "cat-fg-frozen", name: "Frozen foods · our packs", productIds: d.skus.map((k) => k.id) }].concat(seed.categoryTree["FINISHED-GOODS"] || []);
+      return seed;
+    });
+  }
+
   async function loadSeed(path) {
     try {
       const res = await fetch(path);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const seed = await res.json();
+      await ensureProduction();
+      return mergeProduction(seed);
     } catch (err) {
       // fetch() on file:// is blocked by CORS. The live template screen has the
       // same constraint; surface it instead of rendering a blank page.

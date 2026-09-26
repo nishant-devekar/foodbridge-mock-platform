@@ -1,0 +1,46 @@
+/* Inside the FoodBridge platform, and only there.
+ *
+ * The shell writes the depth of its own bands onto this page's <html> as
+ * --fb-top-inset / --fb-bottom-inset (assets/platform.js, setFrameInsets).
+ * Every rule here is keyed on that inline style, so opened on their own the
+ * two apps get none of it and render exactly as their React builds do.
+ * Nothing here restyles the apps; it only fits them to the shell.
+ */
+
+/* EXIT DEMO sits over the foot of the frame. The app's outermost
+   screen-height box reserves its depth: a short page's bottom action sits
+   right above the bar, a long page's last row scrolls clear of it. A
+   transparent border, not padding — the apps pad these boxes themselves (the
+   admin sign-in is p-4) — and the box's own background paints under it.
+   The top band needs nothing: on a phone the admin's own "Signed in as" bar
+   is meant to sit under the platform's header (mHeaderH 61), and the worker
+   app's frame starts below it (mHeaderH 0). */
+html[style*="--fb-bottom-inset"] #root > .h-dvh,
+html[style*="--fb-bottom-inset"] #root > .min-h-dvh {
+  border-bottom: var(--fb-bottom-inset, 0px) solid transparent;
+}
+/* A screen-height box inside it (the worker sign-in's form panel). */
+html[style*="--fb-bottom-inset"] #root > * .min-h-dvh {
+  min-height: calc(100dvh - var(--fb-bottom-inset, 0px));
+}
+/* Dialog backdrops fill the room between the bands, not the whole frame. */
+html[style*="--fb-bottom-inset"] #root .fixed.inset-0 {
+  top: var(--fb-top-inset, 0px);
+  bottom: var(--fb-bottom-inset, 0px);
+}
+/* …and a dialog is never taller than that room (its own cap is 90dvh of the
+   whole frame, which on a phone reaches under the platform's header). */
+html[style*="--fb-bottom-inset"] #root .fixed.inset-0 > [role="dialog"] {
+  max-height: min(90dvh, 100%);
+}
+
+/* The admin's own 240px sidebar (its w-60 aside) is clipped away by the
+   platform (clipLeft 240 in modules.json), so the frame's left 240px are off
+   screen. What centres itself on the frame — its dialogs, its sign-in card —
+   centres on what is left instead. Change both numbers together. */
+html[data-app="admin"][style*="--fb-bottom-inset"] #root .fixed.inset-0 {
+  left: 240px;
+}
+html[data-app="admin"][style*="--fb-bottom-inset"] #root > .min-h-dvh {
+  padding-left: calc(240px + 1rem);
+}

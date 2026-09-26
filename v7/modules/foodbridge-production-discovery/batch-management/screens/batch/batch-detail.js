@@ -20,7 +20,7 @@
 
   const state = {
     batch: null,
-    tab: "overview", // "overview" | "ingredients" | "activity"
+    tab: "overview", // "overview" | "steps" | "ingredients" | "activity"
 
     // NextAction / status-update
     selectedTrigger: null,
@@ -96,10 +96,10 @@
           type: "checkbox", checked: state.handoverOn || undefined, disabled: state.busy || undefined,
           onchange: (e) => { state.handoverOn = e.target.checked; render(); },
         }),
-        "Hand over to a new operator (optional)"),
+        "Hand over to a new supervisor (optional)"),
       state.handoverOn
         ? el("div", { style: "margin-top:8px" }, OperatorPicker({
-            value: state.newOperator, disabled: state.busy, placeholder: "Search operators…",
+            value: state.newOperator, disabled: state.busy, placeholder: "Search supervisors…",
             onChange: (v) => { state.newOperator = v; },
           }))
         : null);
@@ -459,7 +459,7 @@
       el("div", { class: "ov-block" },
         el("div", { class: "ds-label" }, "Batch Facts"),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Planned Batch Size"), el("span", { class: "v" }, `${b.batchSize ?? "—"} ${batchUnit}`)),
-        el("div", { class: "kv" }, el("span", { class: "k" }, "Operator"), el("span", { class: "v" }, b.operator ?? "—")),
+        el("div", { class: "kv" }, el("span", { class: "k" }, "Supervisor"), el("span", { class: "v" }, b.operator ?? "—")),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Planned Date"), el("span", { class: "v" }, b.plannedDate ? fmtDateNice(b.plannedDate) : "Not set")),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Expected Finish"), el("span", { class: "v" }, b.expectedFinishDate ? fmtDateNice(b.expectedFinishDate) : "Not set")),
         b.stateId !== "planned" ? el("button", { type: "button", class: "btn btn-sm", style: "margin-top:8px", onclick: openEditDates }, "✎ Edit Dates") : null),
@@ -652,6 +652,48 @@
       el("div", { class: "ws-modal-footer" }, el("button", { type: "button", class: "btn", onclick: () => { state.historyFor = null; render(); } }, "Close")));
   }
 
+  // ── Steps tab — the batch on the shop floor (Production integration, 26 Sep 2026) ──
+  // Every step the batch's process has, as the floor recorded it: who, how much, from
+  // which lot, when. Read straight from the production store the worker app writes.
+  function stepsTab() {
+    const b = state.batch;
+    if (!window.FB_PRODUCTION) return el("div", { class: "ws-note" }, "The shop floor isn't connected on this page.");
+    const tasks = window.FB_PRODUCTION.read((D, d) => d.tasks.filter((t) => t.batch === b.id)
+      .map((t) => ({ ...t, shiftName: (d.shifts.find((sh) => sh._id === t.shift) || {}).name }))
+      .sort((x, y) => x.stepOrder - y.stepOrder || (x.createdAt < y.createdAt ? -1 : 1)));
+    if (!tasks.length) {
+      return el("div", { class: "ws-section" }, el("div", { class: "ws-section-title" }, "Steps"),
+        el("div", { class: "ws-note" }, b.stateId === "planned" ? "Not on a shift yet. Add it to a shift in Production › Shifts; publishing puts its steps on the floor." : "No steps were recorded on the floor for this batch."));
+    }
+    const fmt = (iso) => iso ? `${fmtDateNice(iso)} ${fmtTime(iso)}` : "—";
+    const how = (t) => {
+      const parts = [];
+      if (t.kgIn) parts.push(`${t.kgIn} → ${t.kgOut} kg · −${t.lossPct}%${t.loss != null ? ` (≤${t.loss}%)` : ""}`);
+      if (t.sticksUsed) parts.push(`${t.sticksUsed} sticks`);
+      if (t.bagsMade) parts.push(`${t.bagsMade.length} bags · ${t.kgOut} kg`);
+      if (t.packets) parts.push(`${t.packets} packets`);
+      if (t.cartonsPacked) parts.push(`${t.cartonsPacked} cartons`);
+      return parts.join(" · ") || "—";
+    };
+    const from = (t) => (t.lots || []).map((l) => l.lotNo).join(", ") || (t.bagsTaken || []).map((g) => "bag " + g.bagNo).join(", ") || (t.bagsMade || []).map((g) => "bag " + g.bagNo).join(", ") || "—";
+    const STATUS = { done: "Done", in_progress: "In progress", available: "Waiting", locked: "Locked" };
+    return el("div", { class: "ws-section" },
+      el("div", { class: "ws-section-title" }, "Steps on the floor"),
+      el("div", { style: "overflow-x:auto" }, el("table", { class: "ws-table" },
+        el("thead", {}, el("tr", {}, ...["Step", "Who", "How much", "Lot / bags", "When", ""].map((h) => el("th", {}, h)))),
+        el("tbody", {}, ...tasks.map((t) => {
+          const over = t.weigh && t.loss != null && t.lossPct > t.loss;
+          return el("tr", {},
+            el("td", {}, el("b", {}, `${t.stepOrder}. ${t.stepName}`), el("div", { class: "muted small" }, t.shiftName || "")),
+            el("td", {}, t.assignedName || "—"),
+            el("td", { style: over ? "color:var(--fb-amber-700,#c2410c);font-weight:700" : "" }, how(t)),
+            el("td", { class: "muted small" }, from(t)),
+            el("td", { class: "muted small" }, t.status === "done" ? fmt(t.completedAt) : t.status === "in_progress" ? "since " + fmt(t.startedAt) : "—"),
+            el("td", {}, el("span", { class: "badge " + (t.status === "done" ? "badge-completed" : t.status === "in_progress" ? "badge-inprogress" : "badge-planned") }, el("span", { class: "dot" }), STATUS[t.status] || t.status)));
+        })))),
+      el("div", { class: "muted small", style: "margin-top:10px" }, "Recorded by the worker app. Weighing steps take raw material from the oldest lot; the last step puts the bags in Freezer Stock."));
+  }
+
   // ── Activity tab — 5-source merged timeline ──
   function dateEditTitle(entry) {
     const planned = !!entry.plannedDate;
@@ -745,7 +787,7 @@
         el("div", { class: "pl-row" }, el("span", {}, "Batch Size"), el("b", {}, `${b.batchSize ?? "—"} ${b.batchUnit ?? "kg"}`)),
         el("div", { class: "pl-row" }, el("span", {}, "Planned Date"), el("b", {}, fmtDateNice(b.plannedDate))),
         el("div", { class: "pl-row" }, el("span", {}, "Expected Finish"), el("b", {}, fmtDateNice(b.expectedFinishDate))),
-        el("div", { class: "pl-row" }, el("span", {}, "Operator"), el("b", {}, b.operator ?? "—"))));
+        el("div", { class: "pl-row" }, el("span", {}, "Supervisor"), el("b", {}, b.operator ?? "—"))));
   }
 
   // ── modal mount (generic — swaps content by state) ──
@@ -793,11 +835,11 @@
       el("div", { class: "ds-title" }, b.displayName),
       el("div", { class: "ds-header-meta" }, el("span", { class: "badge " + statusBadgeClass(b.statusLabel) }, el("span", { class: "dot" }), b.statusLabel))));
 
-    root.appendChild(el("div", { class: "ds-tabs seg block" }, ...["overview", "ingredients", "activity"].map((t) =>
+    root.appendChild(el("div", { class: "ds-tabs seg block" }, ...["overview", "steps", "ingredients", "activity"].map((t) =>
       el("button", { type: "button", class: state.tab === t ? "on" : "", onclick: () => { state.tab = t; render(); } }, t[0].toUpperCase() + t.slice(1)))));
 
     root.appendChild(el("div", { class: "ds-tabcontent" },
-      state.tab === "overview" ? overviewTab() : state.tab === "ingredients" ? ingredientsTab() : activityTab()));
+      state.tab === "overview" ? overviewTab() : state.tab === "steps" ? stepsTab() : state.tab === "ingredients" ? ingredientsTab() : activityTab()));
 
     const printRoot = document.getElementById("print-label-root");
     printRoot.innerHTML = "";
@@ -826,5 +868,10 @@
     document.getElementById("detail-root").appendChild(el("p", { class: "muted small", style: "padding:20px" }, "No batch id in the URL."));
   } else {
     MockApi.getBatch(batchId).then((b) => { state.batch = b; render(); });
+    // The floor moves while this is open: the worker app writes the same store.
+    window.addEventListener("storage", (e) => {
+      if (!window.FB_PRODUCTION || e.key !== window.FB_PRODUCTION.KEY || state.confirmingUpdate || state.editingDates) return;
+      MockApi.getBatch(batchId).then((b) => { state.batch = b; render(); });
+    });
   }
 })();

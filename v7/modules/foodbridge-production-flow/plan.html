@@ -1,0 +1,106 @@
+<!doctype html>
+<!--
+  Production Plan — the first stage of the owner's reference flow (26 Sep 2026):
+  HOW MUCH WILL WE SELL? (past sales + orders in hand + season) → WHAT TO MAKE THIS
+  WEEK (minus packets and big bags already in the freezer) → RAW MATERIAL + BAGS
+  NEEDED (needed − in store − already ordered = buy). Reads and writes the one
+  production store (v7/assets/production/production-api.js): the orders it
+  creates are Planned batches in Batch Management; the buys are recorded as
+  already ordered, so Raw Material Inventory and the next plan see them.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Production Plan</title>
+  <link rel="stylesheet" href="flow.css?v=20260926PR1" />
+</head>
+<body>
+  <div class="page" id="app"></div>
+  <script src="../../assets/production/production-api.js?v=20260926PR1"></script>
+  <script>
+  (function () {
+    "use strict";
+    var app = document.getElementById("app");
+    var state = { made: null, ordered: {} };
+    function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function n(v, d) { return (Math.round(v * (d || 1)) / (d || 1)).toLocaleString("en-IN"); }
+    function kg(v) { return n(v, 10) + " kg"; }
+    function qty(v, unit) { return unit === "kg" ? kg(v) : n(v) + " " + unit; }
+    /* Inside the platform, go to another screen through the platform (its sidebar follows). */
+    function leaf(route) {
+      try { if (window.parent !== window && window.parent.document.querySelector('a[href="#/' + route + '"]')) { window.parent.location.hash = "#/" + route; return; } } catch (e) {}
+    }
+    function spark(weekly) {
+      var max = Math.max.apply(null, weekly.concat([1]));
+      return '<span class="spark" aria-label="Weekly sales: ' + weekly.join(", ") + '">' + weekly.map(function (w) { return '<i style="height:' + Math.max(3, Math.round(w / max * 22)) + 'px"></i>'; }).join("") + "</span>";
+    }
+
+    function render() {
+      var p = FB_PRODUCTION.plan();
+      var today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+      var toMake = p.products.filter(function (x) { return x.batches.length; });
+      var buys = p.materials.filter(function (m) { return m.need > 0; });
+      app.innerHTML =
+        '<div class="head"><div><h1>Production Plan</h1><p>What to make this week: orders in hand and next week\'s sales, less the packets already packed and the bags already in the freezer.</p></div><span class="when">' + esc(today) + '</span></div>' +
+
+        '<section class="card"><header><h2><span class="step-no">1</span>How much will we sell?</h2><span class="sub">Last four weeks of sales, orders in hand, and season</span></header>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Pack</th><th>Last 4 weeks</th><th class="num">Orders in hand</th><th class="num">Next week</th><th class="num">Packets packed</th><th class="num">Being packed</th><th class="num">Short</th></tr></thead><tbody>' +
+        p.skus.map(function (s) {
+          return "<tr><td><b>" + esc(s.name) + "</b></td><td>" + spark(s.weekly) + ' <span class="muted small">' + s.weekly.join(" · ") + '</span></td><td class="num">' + n(s.open) + '</td><td class="num">' + n(s.forecast) + '</td><td class="num">' + n(s.packets) + '</td><td class="num">' + (s.packing ? n(s.packing) : "—") + '</td><td class="num">' +
+            (s.shortPackets ? '<span class="pill short">' + n(s.shortPackets) + " · " + kg(s.shortKg) + "</span>" : '<span class="pill ok">Covered</span>') + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<div class="body note">Next week = the average of the last four weeks. The weekly sales and orders in hand are this demo's own figures; they are not yet read from Sales Orders or corrected by Stock Audit's distributor counts.</div></section>' +
+
+        '<section class="card"><header><h2><span class="step-no">2</span>What to make this week</h2><span class="sub">Short packets in kg, less what is in the freezer and already planned</span></header><div class="body">' +
+        (state.made ? '<p class="done-msg">Created ' + state.made.map(function (b) { return esc(b.batchNumber) + " (" + esc(b.displayName) + ", " + b.batchSize + " kg)"; }).join(", ") + '. They are Planned in Batch Management. <a href="#" data-leaf="production/shifts" style="color:inherit">Put them on a shift ›</a></p>' : "") +
+        '<div class="products">' + p.products.map(function (x) {
+          return '<div class="prod"><div><h3>' + esc(x.name) + '</h3><span class="line">' + esc(x.line) + ' line</span></div>' +
+            '<div class="sum"><span>Short packets</span><b>' + kg(x.needKg) + "</b><span>In the freezer</span><b>− " + kg(x.freezerKg) + "</b><span>Already planned</span><b>− " + kg(x.plannedKg) + '</b><span class="eq">To make</span><b class="eq">' + kg(x.toMakeKg) + "</b></div>" +
+            (x.batches.length ? '<div class="chips">' + x.batches.map(function (z) { return '<span class="chip">' + z + " kg batch</span>"; }).join("") + "</div>" : '<span class="pill ok">Nothing to make</span>') +
+            "</div>";
+        }).join("") + "</div>" +
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px">' +
+        '<button class="btn primary" data-act="make"' + (toMake.length ? "" : " disabled") + ">" + (toMake.length ? "Create " + toMake.reduce(function (a, x) { return a + x.batches.length; }, 0) + " production orders" : "Nothing to make") + "</button>" +
+        '<span class="note">Batches are rounded to each recipe\'s sizes. They open as Planned in Batch Management, with their raw material reserved.</span></div>' +
+        "</div></section>" +
+
+        '<section class="card"><header><h2><span class="step-no">3</span>Raw material and bags needed</h2><span class="sub">Needed − in store − already ordered = buy</span></header>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Material</th><th class="num">Needed</th><th class="num">In store</th><th class="num">Held for planned batches</th><th class="num">Already ordered</th><th class="num">Buy</th><th>Supplier</th><th></th></tr></thead><tbody>' +
+        (buys.length ? buys : p.materials).map(function (m) {
+          var done = state.ordered[m.id];
+          return "<tr><td><b>" + esc(m.name) + '</b></td><td class="num">' + qty(m.need, m.unit) + '</td><td class="num">' + qty(m.onHand, m.unit) + '</td><td class="num">' + qty(m.reserved, m.unit) + '</td><td class="num">' + (m.ordered ? qty(m.ordered, m.unit) : "—") + '</td><td class="num">' +
+            (m.buy ? '<span class="pill short">' + qty(m.buy, m.unit) + "</span>" : '<span class="pill ok">Covered</span>') + '</td><td class="muted small">' + esc(m.supplier) + "</td><td>" +
+            (done ? '<span class="pill info">Ordered ' + qty(done, m.unit) + "</span>" : m.buy ? '<button class="btn sm" data-act="order" data-id="' + m.id + '" data-qty="' + m.buy + '">Raise PO</button>' : "") + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<div class="body note">"Held for planned batches" is what batches already planned will take. Raising a PO here records it as already ordered; the purchase order itself is made in <a href="#" data-leaf="procurement/purchase-orders">Purchase Orders</a>. Peas and vegetables: farmers or the mandi, in season. Flour, sticks and bags: traders.</div></section>' +
+        '<p class="foot">The same store feeds Batch Management, the shop floor and Raw Material Inventory, so a batch created here is the batch the floor works, and a lot received there is the stock this plan counts.</p>';
+    }
+
+    app.addEventListener("click", function (e) {
+      var lf = e.target.closest("[data-leaf]");
+      if (lf) { e.preventDefault(); leaf(lf.getAttribute("data-leaf")); return; }
+      var b = e.target.closest("[data-act]");
+      if (!b || b.disabled) return;
+      if (b.getAttribute("data-act") === "make") {
+        var p = FB_PRODUCTION.plan(), made = [];
+        var tomorrow = new Date(Date.now() + 86400000), iso = tomorrow.getFullYear() + "-" + String(tomorrow.getMonth() + 1).padStart(2, "0") + "-" + String(tomorrow.getDate()).padStart(2, "0");
+        p.products.forEach(function (x) {
+          x.batches.forEach(function (size) { made.push(FB_PRODUCTION.createProductionOrder({ recipeId: x.recipeId, batchSize: size, plannedDate: iso, expectedFinishDate: iso, where: "Production Plan", actor: "admin" }).batch); });
+        });
+        state.made = made;
+        render();
+      }
+      if (b.getAttribute("data-act") === "order") {
+        var id = b.getAttribute("data-id"), q = Number(b.getAttribute("data-qty"));
+        FB_PRODUCTION.order(id, q);
+        state.ordered[id] = q;
+        render();
+      }
+    });
+    window.addEventListener("storage", function (e) { if (e.key === FB_PRODUCTION.KEY) render(); });
+    render();
+  })();
+  </script>
+</body>
+</html>

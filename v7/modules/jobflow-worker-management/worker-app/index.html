@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  JobFlow Worker — HTML port of jobflow-worker-app (React PWA + Vite +
+  Tailwind v4), Nidhimehta9399, commit bd716eb plus its uncommitted
+  multi-shift dashboard. worker.css is that app's own compiled Tailwind
+  build, unmodified; worker.js renders the same markup, class for class, over
+  the in-browser JobFlow API in ../../../assets/production/production-api.js. No service worker:
+  this copy is a screen, not an installable app. See ../README.md.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="JobFlow" />
+    <title>JobFlow Worker</title>
+    <link rel="stylesheet" href="worker.css?v=20260926PR1" />
+    <link rel="stylesheet" href="../shared/frame.css?v=20260926PR1" />
+    <link rel="stylesheet" href="../shared/floor.css?v=20260926PR1" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../../assets/production/production-api.js?v=20260926PR1"></script>
+    <script src="../../../assets/qrcode.min.js"></script>
+    <script src="../shared/ui.js?v=20260926PR1"></script>
+    <script src="worker.js?v=20260926PR1"></script>
+  </body>
+</html>

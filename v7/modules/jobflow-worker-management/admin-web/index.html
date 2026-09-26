@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  JobFlow Admin — HTML port of jobflow-admin-web (React + Vite + Tailwind v4),
+  Nidhimehta9399, commit 3d4eeb0 plus its uncommitted Shifts.jsx change.
+  admin.css is that app's own compiled Tailwind build, unmodified; admin.js
+  renders the same markup, class for class, over the in-browser JobFlow API
+  in ../../../assets/production/production-api.js. See ../README.md.
+-->
+<html lang="en" data-app="admin">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d9488" />
+    <title>JobFlow Admin</title>
+    <link rel="stylesheet" href="admin.css?v=20260926PR1" />
+    <link rel="stylesheet" href="../shared/frame.css?v=20260926PR1" />
+    <link rel="stylesheet" href="../shared/floor.css?v=20260926PR1" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../../assets/production/production-api.js?v=20260926PR1"></script>
+    <script src="../../../assets/qrcode.min.js"></script>
+    <script src="../shared/ui.js?v=20260926PR1"></script>
+    <script src="admin.js?v=20260926PR1"></script>
+  </body>
+</html>

@@ -400,11 +400,41 @@
   }
 
   /* ── Seed loading ─────────────────────────────────────────────────────── */
+  /* ── Production integration (owner, 26 Sep 2026): one roster ─────────
+     The shop floor's people are staff too. The four factory roles and the
+     floor's workers come from the one production store
+     (v7/assets/production/production-api.js) — the same people JobFlow's
+     Shifts assigns and the worker app signs in — ahead of the seed's own. */
+  const SELF = document.currentScript && document.currentScript.src;
+  function ensureProduction() {
+    if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
+    return new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = new URL("../../../assets/production/production-api.js?v=20260926PR1", SELF).href;
+      s.onload = s.onerror = () => resolve();
+      document.head.appendChild(s);
+    });
+  }
+  const roleId = (role) => "sr-factory-" + role.replace(/\s+/g, "-");
+  function mergeProduction(seed) {
+    const P = window.FB_PRODUCTION;
+    if (!P || !seed || !Array.isArray(seed.staff)) return seed;
+    return P.read((D, d) => {
+      const roles = P.FACTORY_ROLES.map((r) => ({ _id: roleId(r), name: r.replace(/\b\w/g, (c) => c.toUpperCase()) }));
+      seed.subRoles = roles.concat((seed.subRoles || []).filter((x) => !roles.some((y) => y._id === x._id)));
+      const floor = d.workers.filter((w) => w.role !== "admin").map((w) => ({ _id: w._id, name: { en: w.name }, email: "", phone: w.phone || "", subRoleRef: roleId(w.role) }));
+      seed.staff = floor.concat(seed.staff.filter((x) => !floor.some((y) => y._id === x._id)));
+      return seed;
+    });
+  }
+
   async function loadSeed(path) {
     try {
       const res = await fetch(path);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const seed = await res.json();
+      await ensureProduction();
+      return mergeProduction(seed);
     } catch (err) {
       // fetch() on file:// is blocked by CORS. The live template screen has the
       // same constraint; surface it instead of rendering a blank page.

@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+  Month End — the last stage of the owner's reference flow (26 Sep 2026):
+  "real cost · where weight was lost · accounts to CA". Built only from what the
+  floor recorded in the production store (v7/assets/production/production-api.js):
+  the raw material each batch actually took, at the lot's price, over the kg that
+  went into bags; and every weighing step's kg in and kg out.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Month End</title>
+  <link rel="stylesheet" href="flow.css?v=20260926PR1" />
+</head>
+<body>
+  <div class="page" id="app"></div>
+  <script src="../../assets/production/production-api.js?v=20260926PR1"></script>
+  <script>
+  (function () {
+    "use strict";
+    var app = document.getElementById("app");
+    function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function n(v, d) { return (Math.round(v * (d || 1)) / (d || 1)).toLocaleString("en-IN"); }
+    function rs(v) { return "₹" + n(v, 100); }
+    function day(iso) { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+    function lossBar(pct, allowed) {
+      var scale = Math.max(15, (allowed || 0) * 1.5, pct);
+      return '<span class="bar" title="' + pct + "% lost" + (allowed != null ? ", " + allowed + "% allowed" : "") + '"><i class="' + (allowed != null && pct > allowed ? "over" : "") + '" style="width:' + Math.min(100, pct / scale * 100) + '%"></i>' +
+        (allowed != null ? '<u style="left:' + Math.min(100, allowed / scale * 100) + '%"></u>' : "") + "</span>";
+    }
+    function render() {
+      var r = FB_PRODUCTION.monthEnd();
+      var made = r.cost.reduce(function (s, c) { return s + c.kgMade; }, 0);
+      var kgIn = r.steps.reduce(function (s, x) { return s + x.kgIn; }, 0), lost = r.steps.reduce(function (s, x) { return s + x.lost; }, 0);
+      var over = r.steps.reduce(function (s, x) { return s + x.over; }, 0);
+      var gapRs = r.cost.reduce(function (s, c) { return s + (c.gapPerKg || 0) * c.kgMade; }, 0);
+      app.innerHTML =
+        '<div class="head"><div><h1>Month End</h1><p>Real cost per kg and where weight was lost, from what the floor weighed and the store issued. ' + esc(day(r.from)) + " to " + esc(day(r.to)) + '.</p></div><span class="when">For the accounts</span></div>' +
+        '<div class="tiles">' +
+        '<div class="tile"><div class="k">Batches made</div><div class="v">' + r.batches + '</div><div class="h">completed on the floor this month</div></div>' +
+        '<div class="tile"><div class="k">Into the freezer</div><div class="v">' + n(made) + ' kg</div><div class="h">in big bags</div></div>' +
+        '<div class="tile"><div class="k">Weight lost at weighing steps</div><div class="v">' + n(lost, 10) + ' kg</div><div class="h">' + (kgIn ? n(lost / kgIn * 100, 10) : 0) + "% of " + n(kgIn) + " kg weighed in</div></div>" +
+        '<div class="tile"><div class="k">Over the recipe\'s limit</div><div class="v">' + over + '</div><div class="h">weighing steps lost more than allowed</div></div>' +
+        "</div>" +
+
+        '<section class="card"><header><h2>Real cost per kg</h2><span class="sub">Raw material actually taken, at the lot\'s price, plus making cost</span></header>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Product</th><th class="num">Batches</th><th class="num">Kg made</th><th class="num">Recipe cost / kg</th><th class="num">Real cost / kg</th><th class="num">Difference</th><th class="num">On the month</th></tr></thead><tbody>' +
+        r.cost.map(function (c) {
+          var tone = c.gapPerKg == null ? "" : c.gapPerKg > 0.5 ? "short" : c.gapPerKg < -0.5 ? "info" : "ok";
+          return "<tr><td><b>" + esc(c.name) + '</b></td><td class="num">' + c.batches + '</td><td class="num">' + n(c.kgMade) + '</td><td class="num">' + rs(c.recipeCostPerKg) + '</td><td class="num">' + (c.actualCostPerKg == null ? "—" : rs(c.actualCostPerKg)) + '</td><td class="num">' +
+            (c.gapPerKg == null ? "—" : '<span class="pill ' + tone + '">' + (c.gapPerKg > 0 ? "+" : "") + rs(c.gapPerKg) + "</span>") + '</td><td class="num">' + (c.gapPerKg == null ? "—" : (c.gapPerKg > 0 ? "+" : "") + rs(c.gapPerKg * c.kgMade)) + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<div class="body note">A positive difference means the floor used more raw material per kg than the recipe says, usually because of weight lost at peeling, cutting and washing. On the month: ' + (gapRs > 0 ? "+" : "") + rs(gapRs) + ".</div></section>" +
+
+        '<section class="card"><header><h2>Where weight was lost · by step</h2><span class="sub">Every weighing step this month</span></header>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Product · step</th><th class="num">Times</th><th class="num">Kg in</th><th class="num">Lost</th><th>Lost %, against the limit</th><th class="num">Over the limit</th></tr></thead><tbody>' +
+        r.steps.map(function (x) {
+          return "<tr><td><b>" + esc(x.product) + '</b> <span class="muted">· ' + esc(x.step) + '</span></td><td class="num">' + x.times + '</td><td class="num">' + n(x.kgIn) + '</td><td class="num">' + n(x.lost, 10) + " kg</td><td>" + lossBar(x.pct, x.allowed) + ' <span class="small">' + x.pct + "%" + (x.allowed != null ? ' <span class="muted">/ ' + x.allowed + "%</span>" : "") + '</span></td><td class="num">' + (x.over ? '<span class="pill short">' + x.over + "</span>" : '<span class="pill ok">0</span>') + "</td></tr>";
+        }).join("") + "</tbody></table></div></section>" +
+
+        '<section class="card"><header><h2>Where weight was lost · by worker</h2><span class="sub">Weighing steps each person did</span></header>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Worker</th><th class="num">Steps weighed</th><th class="num">Kg in</th><th class="num">Lost</th><th class="num">Lost %</th><th class="num">Over the limit</th></tr></thead><tbody>' +
+        r.workers.map(function (w) {
+          return "<tr><td><b>" + esc(w.name) + '</b></td><td class="num">' + w.steps + '</td><td class="num">' + n(w.kgIn) + '</td><td class="num">' + n(w.lost, 10) + ' kg</td><td class="num">' + w.pct + '%</td><td class="num">' + (w.over ? '<span class="pill short">' + w.over + "</span>" : '<span class="pill ok">0</span>') + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<div class="body note">A washer\'s loss depends on the crop as much as the hands: compare the same step on the same product before reading anything into a name.</div></section>' +
+        '<p class="foot">Every figure here is from the floor\'s record: who did each step, the kg in and out, the lots taken and the bags filled. The kg made are the bags that went into the freezer.</p>';
+    }
+    window.addEventListener("storage", function (e) { if (e.key === FB_PRODUCTION.KEY) render(); });
+    render();
+  })();
+  </script>
+</body>
+</html>

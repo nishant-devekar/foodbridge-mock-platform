@@ -10,7 +10,13 @@
 // real API: resets per-tab, never touches anything real. "Reset demo data" clears it back to the
 // original seed.json.
 const SEED_STORAGE_KEY = "fbp-discovery-batch-mgmt-v7-seed";
+// Production integration (owner, 26 Sep 2026): the batches are the ONE production
+// store's (v7/assets/production/production-api.js), shared with Configure Recipe,
+// JobFlow's Shifts and Shop Floor, and the worker app. Its batches keep this
+// module's own seed.json shape, so nothing below changes; the seed file stays as
+// the fallback when the store isn't loaded.
 async function loadSeed() {
+  if (window.FB_PRODUCTION) return window.FB_PRODUCTION.batchSeed();
   const saved = sessionStorage.getItem(SEED_STORAGE_KEY);
   if (saved) return JSON.parse(saved);
   const res = await fetch("../../seed-data/seed.json");
@@ -19,6 +25,7 @@ async function loadSeed() {
   return seed;
 }
 function saveSeed(seed) {
+  if (window.FB_PRODUCTION) { window.FB_PRODUCTION.save(seed); return; }
   sessionStorage.setItem(SEED_STORAGE_KEY, JSON.stringify(seed));
 }
 function resetSeed() {
@@ -273,7 +280,7 @@ function OperatorPicker({ value, onChange, label, required, disabled, placeholde
 
   inputEl = el("input", {
     class: "input op-picker-input",
-    placeholder: placeholder || "Search operators…",
+    placeholder: placeholder || "Search supervisors…",
     value: value.name || "",
     disabled: disabled || undefined,
     oninput: (e) => { onChange({ name: e.target.value }); runSearch(e.target.value); },
@@ -413,7 +420,7 @@ function InventorySyncDrawer({ batch, onClose, onSynced }) {
         el("div", {}, el("div", { class: "ws-modal-title" }, "Add to Inventory"), el("div", { class: "ws-modal-sub" }, `Push ${batch.batchNumber}'s actual output into inventory. Expected is what Outcome Verification recorded; a different actual raises a settlement item.`)),
         el("button", { type: "button", class: "ws-modal-close", "aria-label": "Close", disabled: busy || undefined, onclick: close }, "✕")),
       el("div", { class: "ws-modal-inv-body" },
-        el("div", { class: "line-card", style: "margin-bottom:14px" }, OperatorPicker({ value: operator, disabled: busy, required: true, label: "Operator — brought this batch to inventory", onChange: (v) => { operator = v; draw(); } })),
+        el("div", { class: "line-card", style: "margin-bottom:14px" }, OperatorPicker({ value: operator, disabled: busy, required: true, label: "Supervisor — brought this batch to inventory", onChange: (v) => { operator = v; draw(); } })),
         el("table", { class: "bm-table inv-sync-table" },
           el("thead", {}, el("tr", {}, el("th", {}, "Product"), el("th", {}, "Linked Product"), el("th", { class: "num" }, "Expected"), el("th", { class: "num" }, "Actual"), el("th", {}, "Mfg Date"), el("th", {}, "Expiry Date"))),
           el("tbody", {}, ...trs)),
@@ -572,7 +579,7 @@ function describeInventorySyncVariance(lineName, expectedQty, actualQty) {
 // sync) without calling anything real. Session-persisted (see loadSeed/saveSeed above). ──
 const MockApi = (function () {
   let seed = null;
-  async function ensure() { if (!seed) seed = await loadSeed(); return seed; }
+  async function ensure() { if (!seed || window.FB_PRODUCTION) seed = await loadSeed(); return seed; }
 
   const TRANSITIONS = {
     planned: { start: "in-progress" },
@@ -685,6 +692,16 @@ const MockApi = (function () {
       });
     },
     async createBatch(input) {
+      if (window.FB_PRODUCTION) {
+        const rid = Object.keys((await ensure()).recipeHeaders).find((r) => seed.recipeHeaders[r].versions.some((v) => v.id === input.recipeVersionId));
+        const made = window.FB_PRODUCTION.createProductionOrder({
+          recipeId: rid, batchSize: input.batchSize, plannedDate: input.plannedDate, expectedFinishDate: input.expectedFinishDate,
+          supervisor: input.operator, where: "Batch Management", actor: "admin",
+          packs: (input.packagingLines || []).map((l) => ({ skuId: l.packagingConfigId, qty: l.plannedUnits })),
+        });
+        await ensure();
+        return withDerived(seed.batches.find((b) => b.id === made.batch.id));
+      }
       await ensure();
       const seq = seed.batches.length + 200;
       const recipeId = Object.keys(seed.recipeHeaders).find((rid) => seed.recipeHeaders[rid].versions.some((v) => v.id === input.recipeVersionId));

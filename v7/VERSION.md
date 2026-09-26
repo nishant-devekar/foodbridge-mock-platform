@@ -2396,3 +2396,73 @@ clearance, now ends clear of the bar too.
   - The first orders fall on the first day that has deliveries.
 
 Tests: `node --test store-builder/test/*.test.js`, 12 pass.
+
+### 26 September 2026 — Worker Management, the JobFlow apps as HTML
+
+**Asked:** understand the JobFlow admin web and worker app (Nidhimehta9399, received as a zip) and add HTML versions of both, pixel for pixel, under Production.
+
+[`modules/jobflow-worker-management/`](modules/jobflow-worker-management/README.md) adds seven entries to **Production**:
+- **The admin web's six sections:** Shift Dashboard, Shift Batches, Workflow Editor, Shifts, Live Board, Shift Analytics. It opens signed in as the seeded admin.
+- **Worker App:** the phone PWA. It opens on its PIN sign-in: Asha/1111, Ravi/2222, Meena/3333.
+
+**One sidebar** (owner, same day, after seeing JobFlow's own sidebar beside the platform's):
+- The admin's 240px sidebar is clipped away like every other module's, and its sections are platform leaves.
+- The Dashboard's Quick Actions move the platform's sidebar too.
+- The Worker App is no longer `fullBleed`: on a phone it keeps the platform's header and hamburger, and on a big screen it sits in the phone frame beside the sidebar.
+
+- **Same pixels:**
+  - Each page uses its app's own compiled Tailwind CSS, unmodified, and markup ported from the JSX class for class.
+  - Checked in headless Chrome against the apps' shipped builds, 36 screens and states: 0 px different wherever the build matches the source.
+  - The Shifts page and the worker dashboard follow newer, uncommitted source than those builds. They were checked by rewinding a copy to the committed JSX, which is also 0 px.
+- **One backend for both:**
+  - `shared/jobflow-api.js` is the Express API ported into the browser, over `localStorage`. It has the same rules and error messages.
+  - A shift published in the admin is the shift a worker sees. A task a worker completes moves the admin's batch progress.
+- **Seed:** the API's own admin and workers, plus a pickle kitchen mid-shift, dated today.
+- **In the frame:** `shared/frame.css` keeps both apps clear of EXIT DEMO, and applies only when the shell sets its insets.
+
+**No role restriction** (owner, same day): any worker on a live shift sees and can start any available task, whatever the step's role.
+- The React app filters the list by role, and the API refuses a claim for another role; both are lifted here.
+- A step's role stays as a label.
+
+`platform.js?v=` bumped for the `modules.json` change.
+
+### 26 September 2026 — Production, end to end
+
+**Owner:** place the two JobFlow apps in Production with the other modules, so the whole flow works end to end. Understand the UX first, then build. Reference: the frozen-food flow (orders → plan → buy → gate → store → prepare on two lines → big bags → packets → deliver → month end). The proposal (<https://claude.ai/artifact/CKRuWSVsZxCuZixbqywccw>) was approved with every recommendation: all phases in one go, and **zero changes to the Control Tower**.
+
+**One store.** [`assets/production/production-api.js`](assets/production/README.md) is the single store for every Production screen: recipes, batches, the floor, raw-material lots, the freezer's bags and the packets.
+- Its seed is the owner's business (frozen green peas, mixed vegetables, soya chaap), and it is *run*, not typed: a month of goods in, orders, shifts, weighing, bagging, packing and sales.
+- 9 tests: `node --test assets/production/test/*.test.js`.
+
+**Production, in the order of the work.** The sidebar reads: Production Plan · Recipes · Process Steps · Batches · Shifts · Shop Floor · Freezer Stock · Month End. The Worker App leaves the sidebar: it is `#/worker-app`, opened by QR from Shop Floor and Shifts.
+- **Production Plan** (new):
+  - orders in hand + next week's forecast − packets − freezer bags − already planned = batches to make, in each recipe's sizes;
+  - needed − in store − already ordered = buy.
+  - It creates the production orders and records POs.
+- **Recipes** (Configure Recipe): reseeded from the store by `recipe-store.js`. Create Production Order makes a real Planned batch and a packing order per pack. Phones now get this page; the cookie-only `mobile-v4.html` is no longer linked.
+- **Process Steps** (JobFlow's editor): one set of steps per recipe, plus Packing. A step can record weight in/out with a loss limit, take raw material oldest lot first, count sticks, fill big bags, or pack packets.
+- **Batches** (Batch Management) owns every batch number.
+  - Its seed calls read the store, re-read on every call.
+  - The floor moves its states.
+  - A new **Steps** tab shows who · how much · lot · when.
+  - "Operator" is now "Supervisor".
+  - Floor takes appear on its Ingredients tab.
+- **Shifts:** batches from Batches, people from Workforce Management.
+- **Shop Floor** (was JobFlow's Dashboard): every batch on a live shift, by line, step by step. Beside it are the floor's alerts (weight loss over the limit, a step waiting, a batch on hold), the freezer and the worker app QR.
+- **Freezer Stock** (Semifinished Products): one row per big bag, oldest first, with kg left, made and use-by.
+- **Month End** (new): real cost per kg from what was actually issued, and weight lost by step and by worker.
+- **Worker App:** Task detail records the lot or bags taken, kg in/out with a live loss check, bags made or packets packed. A held batch can't be started.
+
+**Neighbours.**
+- **Raw Material Inventory** and **Finished Goods Inventory** show the factory's materials, lots and packets. They merge in through the shared `MockShell.loadSeed`.
+- **Receive Stock** asks for the gate weight and Accept / Send back on production materials. An accepted delivery becomes a lot; a sent-back one adds nothing.
+- **Workforce Management** has the four factory roles and the floor's people. A new staff member with a factory role can sign in to the worker app with the last 4 digits of their phone.
+
+**Not changed.** The Control Tower and `fb.v7.events`: the floor writes its record to its own log, `fb.v7.production.log`.
+
+**Verified.**
+- A click-through in headless Chrome: Production Plan → Shifts (new shift, publish) → worker app (keypad sign-in, weigh 111 → 101.6 kg) → Batch Management (In Progress, set by the floor; Steps tab) → Raw Material Inventory → Shop Floor. All 9 checks pass.
+- Receive Stock (gate weight accepted; truck sent back) and the staff roster: 5 checks pass.
+- JobFlow's unchanged sign-in screens re-checked against the React builds: 7 scenarios, **0 px**.
+- Every leaf loads inside the platform at 1440 px and 390 px.
+- `platform.js?v=` and every changed script's `?v=` bumped to `20260926PR1`.

@@ -307,7 +307,7 @@
             el("input", { class: "input", type: "date", min: state.plannedDate || undefined, value: state.expectedFinishDate, oninput: (e) => { state.expectedFinishDate = e.target.value; markTouched(); render(); } }),
             el("div", { class: "hint" }, "Packaging may run hours or days after production.")),
           el("div", { class: "fld" },
-            OperatorPicker({ value: state.operator, label: "Operator", onChange: (v) => { state.operator = v; markTouched(); render(); } })),
+            OperatorPicker({ value: state.operator, label: "Supervisor", onChange: (v) => { state.operator = v; markTouched(); render(); } })),
           el("div", { class: "fld" },
             el("label", { class: "label" }, "Batch Number"),
             el("div", { class: "auto-field" }, "AUTO · generated on create"))));

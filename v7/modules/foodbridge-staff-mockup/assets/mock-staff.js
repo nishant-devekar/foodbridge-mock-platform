@@ -871,12 +871,24 @@
           return;
         }
         const id = state.drawer.id;
+        /* One roster (Production integration, 26 Sep 2026): a factory role puts the
+           person on the shop floor — in JobFlow's Shifts, and signed in to the worker
+           app with their name and the last 4 digits of their phone. */
+        const P = window.FB_PRODUCTION;
+        const factoryRole = (/^sr-factory-(.+)$/.exec(state.form.subRoleId || "") || [])[1];
+        const role = factoryRole ? factoryRole.replace(/-/g, " ") : null;
+        if (P && id && P.read((D, d) => d.workers.some((w) => w._id === id))) {
+          P.write((D, d) => { const w = d.workers.find((x) => x._id === id); w.name = state.form.name.trim(); w.phone = state.form.phone.trim(); if (role) w.role = role; w.updatedAt = new Date().toISOString(); });
+        }
         if (id) {
           const s = state.staff.find((x) => x._id === id);
           s.name = { en: state.form.name.trim() };
           s.phone = state.form.phone.trim();
           s.email = state.form.email.trim();
           s.subRoleRef = state.form.subRoleId;
+        } else if (P && role) {
+          const w = P.addWorker({ name: state.form.name.trim(), phone: state.form.phone.trim(), role: role });
+          state.staff.unshift({ _id: w._id, name: { en: w.name }, phone: w.phone, email: state.form.email.trim(), subRoleRef: state.form.subRoleId });
         } else {
           state.staff.push({
             _id: "stf-" + Date.now(),

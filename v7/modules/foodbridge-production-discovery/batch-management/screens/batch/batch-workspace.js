@@ -178,14 +178,14 @@
           el("div", { class: "ws-home-avatar", "aria-hidden": "true" }, initials(b.operator)),
           el("div", { class: "ws-home-row-op-meta" },
             el("div", { class: "ws-home-row-op-name" }, b.operator || "Unassigned"),
-            el("div", { class: "ws-home-row-op-label" }, "Operator")))),
+            el("div", { class: "ws-home-row-op-label" }, "Supervisor")))),
       el("td", { class: "ws-home-td-actions", onclick: (e) => e.stopPropagation() },
         el("div", { class: "ws-home-td-actions-inner" },
           rowAction(b),
           b.stateId !== "rejected" ? KebabButton(b.id, "ws-home-row-kebab", `More actions for ${b.batchNumber}`, kebabActionsFor(b)) : null)));
   }
 
-  const TABLE_COLUMNS = ["Batch", "Size", "Due", "Operator", "Actions"];
+  const TABLE_COLUMNS = ["Batch", "Size", "Due", "Supervisor", "Actions"];
   function tableFor(items) {
     const now = new Date();
     // A-140: explicit column shares via <colgroup>, not per-cell width classes — table-layout:fixed
