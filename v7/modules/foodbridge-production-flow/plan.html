@@ -50,7 +50,7 @@
           return "<tr><td><b>" + esc(s.name) + "</b></td><td>" + spark(s.weekly) + ' <span class="muted small">' + s.weekly.join(" · ") + '</span></td><td class="num">' + n(s.open) + '</td><td class="num">' + n(s.forecast) + '</td><td class="num">' + n(s.packets) + '</td><td class="num">' + (s.packing ? n(s.packing) : "—") + '</td><td class="num">' +
             (s.shortPackets ? '<span class="pill short">' + n(s.shortPackets) + " · " + kg(s.shortKg) + "</span>" : '<span class="pill ok">Covered</span>') + "</td></tr>";
         }).join("") + "</tbody></table></div>" +
-        '<div class="body note">Next week = the average of the last four weeks. The weekly sales and orders in hand are this demo's own figures; they are not yet read from Sales Orders or corrected by Stock Audit's distributor counts.</div></section>' +
+        '<div class="body note">Next week = the average of the last four weeks. The weekly sales and orders in hand are this demo\'s own figures; they are not yet read from Sales Orders or corrected by Stock Audit\'s distributor counts.</div></section>' +
 
         '<section class="card"><header><h2><span class="step-no">2</span>What to make this week</h2><span class="sub">Short packets in kg, less what is in the freezer and already planned</span></header><div class="body">' +
         (state.made ? '<p class="done-msg">Created ' + state.made.map(function (b) { return esc(b.batchNumber) + " (" + esc(b.displayName) + ", " + b.batchSize + " kg)"; }).join(", ") + '. They are Planned in Batch Management. <a href="#" data-leaf="production/shifts" style="color:inherit">Put them on a shift ›</a></p>' : "") +

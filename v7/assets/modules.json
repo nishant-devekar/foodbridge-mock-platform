@@ -248,7 +248,7 @@
           "_why": "26 Sep 2026, owner's 'JobFlow in Production' decisions: Production in the order the work happens — plan, define, run, stock, close. Every leaf reads and writes ONE production store (assets/production/production-api.js): recipes, batches, the shop floor, raw-material lots, the freezer's bags and the packets. This one is stage 3 of the reference flow: orders + next week's sales − packets − freezer bags → batches to make → raw material to buy.",
           "id": "production-plan",
           "name": "Production Plan",
-          "url": "modules/foodbridge-production-flow/plan.html?v=20260926PR1",
+          "url": "modules/foodbridge-production-flow/plan.html?v=20260926PR2",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
