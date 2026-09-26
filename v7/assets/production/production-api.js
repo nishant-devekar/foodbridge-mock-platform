@@ -858,6 +858,24 @@
       w.isOnline = true; w.updatedAt = iso(); commit();
       return Object.assign({ worker: workerJSON(w) }, tokens(w));
     });
+    /* The sign-in screen's "Sign in as" picker (owner, 26 Sep 2026): the
+       floor roster, and a sign-in that skips the PIN. A demo shortcut the
+       JobFlow API does not have. */
+    route("GET", "/api/auth/workers", function () {
+      var live = {};
+      db.shifts.forEach(function (s) { if (s.status === "live") s.workers.forEach(function (id) { live[id] = true; }); });
+      var list = db.workers.filter(function (w) { return w.role !== "admin"; });
+      list.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+      return { workers: list.map(function (w) { return { _id: w._id, name: w.name, role: w.role, onShift: !!live[w._id] }; }) };
+    });
+    route("POST", "/api/auth/worker-login-as", function (r) {
+      var b = r.body || {};
+      if (typeof b.worker !== "string" || !ID.test(b.worker)) throw invalid();
+      var w = find(db.workers, b.worker);
+      if (!w || w.role === "admin") throw new ApiError(404, "Worker not found");
+      w.isOnline = true; w.updatedAt = iso(); commit();
+      return Object.assign({ worker: workerJSON(w) }, tokens(w));
+    });
     route("POST", "/api/auth/admin-login", function (r) {
       var b = r.body || {};
       if (typeof b.email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email) || typeof b.password !== "string" || b.password.length < 6) throw invalid();
@@ -1130,6 +1148,8 @@
       loadSession: loadSession, saveSession: saveSession, clearSession: clearSession,
       setUnauthorizedHandler: function (fn) { onUnauthorized = fn; },
       workerLogin: function (name, pin) { return request("POST", "/api/auth/worker-login", { data: { name: name, pin: pin } }); },
+      listSignInWorkers: function () { return request("GET", "/api/auth/workers").then(g("workers")); },
+      workerLoginAs: function (id) { return request("POST", "/api/auth/worker-login-as", { data: { worker: id } }); },
       adminLogin: function (email, password) { return request("POST", "/api/auth/admin-login", { data: { email: email, password: password } }); },
       getMe: function () { return request("GET", "/api/auth/me").then(g("worker")); },
       listShifts: function (status) { return request("GET", "/api/shifts", { params: status ? { status: status } : undefined }).then(g("shifts")); },

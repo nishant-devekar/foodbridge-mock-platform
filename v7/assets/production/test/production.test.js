@@ -124,3 +124,14 @@ test("month end: real cost per kg and loss by step and by worker", () => {
   assert.ok(me.steps.every((s) => s.pct >= 0 && s.kgIn > 0));
   assert.ok(me.workers.some((w) => w.name === "Asha"));
 });
+
+test("sign in as: the floor roster, and straight in without a PIN", () => {
+  const { h } = server();
+  const roster = h("GET", "/api/auth/workers").data.workers;
+  assert.ok(roster.length > 0 && roster.every((w) => w.role !== "admin" && !("pin" in w)));
+  assert.ok(roster.some((w) => w.onShift));
+  const r = h("POST", "/api/auth/worker-login-as", {}, { worker: roster[0]._id });
+  assert.equal(r.data.worker.name, roster[0].name);
+  assert.equal(h("GET", "/api/auth/me", {}, null, "Bearer " + r.data.accessToken).data.worker._id, roster[0]._id);
+  assert.equal(h("POST", "/api/auth/worker-login-as", {}, { worker: "nope" }).status, 404);
+});

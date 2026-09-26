@@ -94,3 +94,21 @@
 .jf-done-rec { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; }
 .jf-done-rec dt { color: var(--jf-muted); }
 .jf-done-rec dd { margin: 0; font-weight: 600; color: var(--jf-ink); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Worker app: sample sign-in ("Don't have an account?") ─────────── */
+.jf-switch { margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--jf-muted); }
+.jf-switch button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--jf-brand-700); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.jf-switch button:hover { color: var(--jf-brand-600); }
+.jf-sample { width: 100%; max-width: 24rem; }
+.jf-sample .jf-switch { margin-top: 12px; }
+.jf-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.jf-people button { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--jf-line); border-radius: 16px; background: #fff; padding: 10px 14px; text-align: left; cursor: pointer; font: inherit; transition: border-color .15s, background-color .15s; }
+.jf-people button:hover { border-color: var(--jf-brand-200); background: var(--jf-brand-50); }
+.jf-people button.on { border-color: var(--jf-brand-500); background: var(--jf-brand-50); }
+.jf-people button:disabled { cursor: default; }
+.jf-people button:disabled:not(.on) { opacity: .5; }
+.jf-people .ring-4 { --tw-ring-shadow: none; box-shadow: none; }
+.jf-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.jf-who b { font-size: 16px; font-weight: 600; color: var(--jf-ink); }
+.jf-who small { font-size: 13px; color: var(--jf-muted); text-transform: capitalize; }
+.jf-on { flex: 0 0 auto; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; background: rgba(34, 197, 94, .15); color: var(--jf-go-600); }

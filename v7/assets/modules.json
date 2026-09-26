@@ -248,7 +248,7 @@
           "_why": "26 Sep 2026, owner's 'JobFlow in Production' decisions: Production in the order the work happens — plan, define, run, stock, close. Every leaf reads and writes ONE production store (assets/production/production-api.js): recipes, batches, the shop floor, raw-material lots, the freezer's bags and the packets. This one is stage 3 of the reference flow: orders + next week's sales − packets − freezer bags → batches to make → raw material to buy.",
           "id": "production-plan",
           "name": "Production Plan",
-          "url": "modules/foodbridge-production-flow/plan.html?v=20260926PR2",
+          "url": "modules/foodbridge-production-flow/plan.html?v=20260926PR4",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -257,7 +257,7 @@
           "_why": "Configure Recipe, re-seeded to the reference business (frozen green peas, mixed vegetables, soya chaap) from the production store by recipe-store.js; its Create Production Order makes a real Planned batch. The phone page (mobile-v4.html) still shows the cookie recipe, so phones get this page too.",
           "id": "configure-recipe",
           "name": "Recipes",
-          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260926PR1",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260926PR4",
           "clipLeft": 212,
           "clipLeftMobile": 212,
           "mHeaderH": 57,
@@ -270,7 +270,7 @@
             "workflow-editor"
           ],
           "name": "Process Steps",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR1&at=steps#/steps",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR4&at=steps#/steps",
           "clipLeft": 240,
           "clipLeftMobile": 240,
           "mHeaderH": 61,
@@ -283,7 +283,7 @@
             "worker-batches"
           ],
           "name": "Batches",
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260926PR1",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260926PR4",
           "clipLeft": 0,
           "exitIn": "nav.bottom-nav",
           "mHeaderH": 0,
@@ -295,7 +295,7 @@
             "worker-shifts"
           ],
           "name": "Shifts",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR1&at=shifts#/shifts",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR4&at=shifts#/shifts",
           "clipLeft": 240,
           "clipLeftMobile": 240,
           "mHeaderH": 61,
@@ -310,7 +310,7 @@
             "worker-analytics"
           ],
           "name": "Shop Floor",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR1&at=floor#/",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926PR4&at=floor#/",
           "clipLeft": 240,
           "clipLeftMobile": 240,
           "mHeaderH": 61,
@@ -323,7 +323,7 @@
             "freezer-stock"
           ],
           "name": "Freezer Stock",
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/semi-finished-products.html?v=20260926PR1",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/semi-finished-products.html?v=20260926PR4",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-production-discovery"
@@ -332,7 +332,7 @@
           "_why": "Stage 15 of the reference flow: real cost per kg from what the floor took, and where weight was lost, by step and by worker.",
           "id": "month-end",
           "name": "Month End",
-          "url": "modules/foodbridge-production-flow/month-end.html?v=20260926PR1",
+          "url": "modules/foodbridge-production-flow/month-end.html?v=20260926PR4",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -432,7 +432,7 @@
       "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
       "id": "worker-app",
       "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260926PR1",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260926PR4",
       "clipLeft": 0,
       "fullBleed": true,
       "deviceFrame": true,

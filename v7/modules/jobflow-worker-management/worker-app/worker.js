@@ -29,6 +29,14 @@
       return data.worker;
     });
   }
+  /* "Sign in as": straight in as a worker, no PIN (owner, 26 Sep 2026). */
+  function loginAs(id) {
+    return api.workerLoginAs(id).then(function (data) {
+      api.saveSession({ worker: data.worker, accessToken: data.accessToken, refreshToken: data.refreshToken });
+      app.worker = data.worker;
+      return data.worker;
+    });
+  }
   function logout() { api.clearSession(); app.worker = null; route(); }
   api.setUnauthorizedHandler(function () { app.worker = null; route(); });
 
@@ -102,7 +110,10 @@
   /* ── pages/Login.jsx ────────────────────────────────────────────────── */
   var PIN_LENGTH = 4;
   var Login = {
-    init: function () { return { name: "", pin: "", error: "", submitting: false }; },
+    init: function () { return { name: "", pin: "", error: "", submitting: false, workers: [], mode: "pin", asId: "" }; },
+    load: function (s) {
+      api.listSignInWorkers().then(function (list) { upd(s, { workers: list }); }).catch(function () {});
+    },
     ready: function (s) { return s.name.trim().length > 0; },
     digit: function (s, d) {
       if (s.submitting || s.pin.length >= PIN_LENGTH) return;
@@ -123,6 +134,34 @@
         .catch(function (err) { upd(s, { error: err.message || "Login failed", pin: "" }); })
         .then(function () { upd(s, { submitting: false }); });
     },
+    signInAs: function (s, id) {
+      if (!id || s.submitting) return;
+      set({ submitting: true, error: "", pin: "", asId: id });
+      loginAs(id)
+        .then(function () { if (app.page === s) navigate("/", true); })
+        .catch(function (err) { upd(s, { error: err.message || "Login failed", asId: "" }); })
+        .then(function () { upd(s, { submitting: false }); });
+    },
+    /* "Don't have an account?": the PIN form gives way to the sample
+       workers, one tap each (owner, 26 Sep 2026). */
+    mode: function (s, mode) {
+      if (s.submitting) return;
+      set({ mode: mode, error: "", pin: "", asId: "" });
+    },
+    sampleView: function (s) {
+      return html`<div class="jf-sample">
+        <div class="mb-6 text-center">
+          <p class="text-sm font-semibold uppercase tracking-widest text-brand-600 lg:hidden">JobFlow</p>
+          <h1 class="mt-1 text-2xl font-bold text-ink">Sign in as</h1>
+          <p class="mt-2 text-sm text-muted">Pick a sample worker. No PIN needed.</p>
+        </div>
+        <ul class="jf-people">${s.workers.map(function (w) {
+          return html`<li><button type="button" data-act="as" data-id="${w._id}"${attrs({ disabled: s.submitting })} class="${s.asId === w._id ? "on" : ""}">${Avatar(w.name, 40)}<span class="jf-who"><b>${w.name}</b><small>${w.role}</small></span>${w.onShift && html`<span class="jf-on">On shift</span>`}</button></li>`;
+        })}</ul>
+        <p class="mt-3 h-5 text-center text-sm font-medium text-red-500">${s.submitting ? "" : s.error}</p>
+        <p class="jf-switch">Have a PIN? <button type="button" data-act="pin">Sign in with your name</button></p>
+      </div>`;
+    },
     view: function (s) {
       var nameReady = Login.ready(s);
       return html`<div class="grid min-h-dvh w-full lg:grid-cols-2">
@@ -136,10 +175,11 @@
           <p class="relative z-10 text-sm text-brand-200">© JobFlow</p>
         </div>
         <div class="flex min-h-dvh flex-col items-center justify-center bg-white px-6 py-10">
-          <div class="w-full max-w-sm">
+          ${s.mode === "sample" ? Login.sampleView(s) : html`<div class="w-full max-w-sm">
             <div class="mb-6 text-center">
               <p class="text-sm font-semibold uppercase tracking-widest text-brand-600 lg:hidden">JobFlow</p>
               <h1 class="mt-1 text-2xl font-bold text-ink">Sign in</h1>
+              ${s.workers.length > 0 && html`<p class="jf-switch">Don't have an account? <button type="button" data-act="sample">Use a sample worker</button></p>`}
             </div>
             <div class="flex flex-col items-center">
               ${Avatar(s.name, 84)}
@@ -152,7 +192,7 @@
                 ${!nameReady && html`<p class="mt-4 text-center text-xs text-muted">Enter your name to begin</p>`}
               </div>
             </div>
-          </div>
+          </div>`}
         </div>
       </div>`;
     },
@@ -481,6 +521,9 @@
     var act = el.getAttribute("data-act");
     if (act === "logout") logout();
     else if (act === "back") back();
+    else if (act === "sample" && app.view === Login) Login.mode(s, "sample");
+    else if (act === "pin" && app.view === Login) Login.mode(s, "pin");
+    else if (act === "as" && app.view === Login) Login.signInAs(s, el.getAttribute("data-id"));
     else if (act === "start") TaskDetail.start(s);
     else if (act === "complete") TaskDetail.complete(s);
   });
