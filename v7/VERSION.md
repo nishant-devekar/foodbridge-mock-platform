@@ -2382,3 +2382,17 @@ Verified at 375×812: the shell does not scroll, the framed page overflows by
 **0px**, the last card clears the sticky bar and the sticky bar clears EXIT
 DEMO. The control tower, which shares the stylesheet and had the same missing
 clearance, now ends clear of the bar too.
+
+### 26 September 2026 — Store Builder, for setting up a distributor by hand
+
+**Product owner:** we set up a distributor by hand after a 40-minute meeting, and he has nothing to export. Give him one tool to fill in during the meeting, easy enough for someone with basic schooling, whose export we set his store up from.
+
+[`store-builder/`](store-builder/README.md) is a standalone page; nothing else in `v7` links to it.
+
+- **Twelve steps, one question each,** in Hindi or English, with 🔊 to read it aloud. He chooses rather than types, and *Next* is never disabled.
+- **Real pack photos:** 182 products, each matched by hand to an India pack photo and barcode in Open Food/Beauty/Products Facts (CC BY-SA). The owner first approved a lean six-step version, then asked to go back to the twelve steps while keeping the photos.
+- **Export:** a zip containing a 15-sheet Excel workbook, the photos and voice notes, and a `setup.json` that reopens the session.
+  - A figure said from memory is flagged for confirmation.
+  - The first orders fall on the first day that has deliveries.
+
+Tests: `node --test store-builder/test/*.test.js`, 12 pass.
