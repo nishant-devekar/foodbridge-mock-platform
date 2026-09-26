@@ -26,7 +26,7 @@
       lang: null,
       startedAt: null,
       updatedAt: null,
-      store: { name: "", owner: "", mobile: "", gst: "", type: "", makes: null, photo: null, loc: null, address: "", godownSame: null, godownAddress: "", areas: [] },
+      store: { name: "", owner: "", mobile: "", gst: "", type: "", makes: null, photo: null, loc: null, address: "", godownAtShop: null, godowns: [], areas: [] },
       companies: {},        // companyId -> { buy, sell, seen? }  (presence = he sells its products; kept by syncCompanies)
       customCompanies: [],  // [{ id, name, color }]
       items: {},            // itemId -> { mrp?, sell?, buy?, unit, caseQty?, speed, gst?, barcode, stockCases, stockLoose, touched:{} }
@@ -317,12 +317,43 @@
     if (!s || typeof s !== "object") return b;
     const out = Object.assign(b, s);
     out.store = Object.assign(blank().store, s.store || {});
+    /* One godown (same place as shop, or one other address) became many on 26 Sep 2026. */
+    if ("godownSame" in out.store) {
+      if (out.store.godownAtShop == null) out.store.godownAtShop = out.store.godownSame;
+      if (out.store.godownSame === false && !out.store.godowns.length) out.store.godowns = [out.store.godownAddress || ""];
+      delete out.store.godownSame;
+      delete out.store.godownAddress;
+    }
+    if (!Array.isArray(out.store.godowns)) out.store.godowns = [];
     out.rules = Object.assign(blank().rules, s.rules || {});
     ["companies", "items", "customItems", "people", "usual", "skipped"].forEach(function (k) { if (!out[k] || typeof out[k] !== "object") out[k] = {}; });
     ["customCompanies", "order", "papers"].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = []; });
     out.order = out.order.filter(function (id) { return out.people[id]; });
     Object.keys(out.people).forEach(function (id) { if (out.order.indexOf(id) < 0) out.order.push(id); });
     out.v = VERSION;
+    return out;
+  }
+
+  /* A shop address from OpenStreetMap's reverse lookup (its "address" object):
+     street, area, city, state and PIN, the way it's written on a bill. The
+     district and zone lines OSM adds ("L Ward", "Mumbai Zone 5") are left out. */
+  function shortAddress(a) {
+    if (!a) return "";
+    const seen = {};
+    const parts = [
+      [a.house_number, a.road].filter(Boolean).join(" "),
+      a.neighbourhood || a.quarter || a.residential || a.hamlet,
+      a.suburb,
+      a.city || a.town || a.village || a.municipality || a.county,
+      a.state,
+    ].filter(function (p) {
+      const k = String(p || "").trim().toLowerCase();
+      if (!k || seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+    let out = parts.join(", ");
+    if (a.postcode) out += (out ? " " : "") + a.postcode;
     return out;
   }
 
@@ -334,7 +365,7 @@
     search: search, findBarcode: findBarcode,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
-    progress: progress, missing: missing,
+    progress: progress, missing: missing, shortAddress: shortAddress,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

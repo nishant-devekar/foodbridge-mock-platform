@@ -226,6 +226,13 @@
   function yn(v) { return v == null ? "" : v ? "Yes" : "No"; }
   function ext(mime) { return /png/.test(mime) ? "png" : /jpe?g/.test(mime) ? "jpg" : /webm/.test(mime) ? "webm" : /mp4|m4a|aac/.test(mime) ? "m4a" : /ogg/.test(mime) ? "ogg" : "bin"; }
   function paperFile(p) { return (p.kind === "voice" ? "voice/" : "photos/") + p.id + "." + ext(p.mime || ""); }
+  /* One row per godown: the shop first when he keeps stock there, then each other address. */
+  function godownRows(st) {
+    const list = (st.godownAtShop ? ["At the shop"] : []).concat((st.godowns || []).map(function (g) { return String(g || "").trim(); }).filter(Boolean));
+    if (!list.length) return [["Godown", "", "Owner"]];
+    return list.map(function (g, i) { return ["Godown " + (i + 1), g, "Owner"]; });
+  }
+
   function slug(s) { return String(s || "store").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "store"; }
   function isoDay(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 
@@ -289,10 +296,10 @@
       ["Shop address", st.address, "Owner"],
       ["Shop location (lat, lng)", st.loc ? st.loc.lat.toFixed(6) + ", " + st.loc.lng.toFixed(6) : "", st.loc ? "Phone GPS" : ""],
       ["Map link", st.loc ? "https://maps.google.com/?q=" + st.loc.lat.toFixed(6) + "," + st.loc.lng.toFixed(6) : "", ""],
-      ["Godown", st.godownSame == null ? "" : st.godownSame ? "Same as shop" : st.godownAddress, "Owner"],
+    ].concat(godownRows(st), [
       ["Areas served", (st.areas || []).join(", "), "Owner"],
       ["Shop photo (logo)", st.photo ? photoOf[st.photo] || "" : "", ""],
-    ] });
+    ]) });
 
     out.push({ name: "Companies", rows: [["Company", "Brands", "He buys at (per ₹100 MRP)", "He sells at (per ₹100 MRP)", "His margin %", "Rate source", "Supplied by", "Products chosen"]]
       .concat(companies.map(function (c) {
@@ -393,6 +400,12 @@
 notCounted: "Products not counted in stock",
       rulesOpen: "How-you-work questions not answered",
     };
+    /* The fresh-produce photos in the Products sheet are Wikimedia Commons files
+       under CC BY / BY-SA and the like: each one's author and licence, as they ask. */
+    const credits = (cat.freshCredits || []).filter(function (c) { return its.some(function (it) { return it.id === c.id; }); });
+    if (credits.length) out.push({ name: "Photo credits", rows: [["Item ID", "Photo (Wikimedia Commons)", "Author", "Licence", "Source"]]
+      .concat(credits.map(function (c) { return [c.id, c.file, c.author || "See source page", c.licence, c.page]; })) });
+
     out.push({ name: "To follow up", rows: [["Screen", "What is missing", "How many"]]
       .concat(M.missing(cat, s).map(function (g) { return [g.step, GAP[g.key] || g.key, g.n]; })) });
 

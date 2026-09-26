@@ -261,3 +261,42 @@ test("one Contacts step: a guess from the name, remove a contact, and gaps that 
   assert.equal(gap.step, "people");
   assert.equal(gap.tab, "shop");
 });
+
+test("use my location: the OpenStreetMap address, short, the way a bill writes it", () => {
+  /* What Nominatim answered for a point in Kurla West, 26 Sep 2026. */
+  const kurla = { neighbourhood: "Netaji Nagar", suburb: "Kurla West", city_district: "Mumbai Zone 5", city: "Mumbai",
+    state_district: "Mumbai Suburban District", state: "Maharashtra", postcode: "400070", country: "India", country_code: "in" };
+  assert.equal(M.shortAddress(kurla), "Netaji Nagar, Kurla West, Mumbai, Maharashtra 400070");
+  assert.equal(M.shortAddress({ house_number: "12", road: "LBS Marg", suburb: "Kurla", city: "Kurla", state: "Maharashtra" }),
+    "12 LBS Marg, Kurla, Maharashtra");
+  assert.equal(M.shortAddress({ village: "Rampur", state: "Uttar Pradesh", postcode: "244901" }), "Rampur, Uttar Pradesh 244901");
+  assert.equal(M.shortAddress(null), "");
+});
+
+test("godowns: one or more, and a save from before 26 Sep keeps its godown", () => {
+  const same = M.migrate({ store: { godownSame: true, godownAddress: "" } }).store;
+  assert.equal(same.godownAtShop, true);
+  assert.deepEqual(same.godowns, []);
+  assert.ok(!("godownSame" in same) && !("godownAddress" in same));
+  const other = M.migrate({ store: { godownSame: false, godownAddress: "Plot 9, MIDC Bhosari" } }).store;
+  assert.equal(other.godownAtShop, false);
+  assert.deepEqual(other.godowns, ["Plot 9, MIDC Bhosari"]);
+  assert.deepEqual(M.blank().store.godowns, []);
+
+  const s = sample();
+  s.store.godownAtShop = true;
+  s.store.godowns = ["Plot 9, MIDC Bhosari", "  ", "Gala 3, Wagholi"];
+  const rows = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Store").rows.filter((r) => /^Godown/.test(r[0]));
+  assert.deepEqual(rows.map((r) => r[0] + ": " + r[1]), ["Godown 1: At the shop", "Godown 2: Plot 9, MIDC Bhosari", "Godown 3: Gala 3, Wagholi"]);
+});
+
+
+test("fresh produce has real photos, and the file credits each one it uses", () => {
+  const loose = CAT.items.filter((i) => i.loose);
+  assert.ok(loose.length > 0 && loose.every((i) => /^https:\/\/upload\.wikimedia\.org\//.test(i.img)));
+  assert.ok(CAT.freshCredits.every((c) => c.licence && !/^GFDL/.test(c.licence) && /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/.test(c.page)));
+  const s = sample();
+  s.items.veg01 = { sell: 30 };
+  const credits = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Photo credits");
+  assert.ok(credits && credits.rows.some((r) => r[0] === "veg01" && r[3] === "Public domain"));
+});

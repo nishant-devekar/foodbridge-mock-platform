@@ -41,6 +41,7 @@
 (function (root) {
   "use strict";
 
+  const WM = "https://upload.wikimedia.org/wikipedia/commons/thumb/";
   const PHOTO = { off: "https://images.openfoodfacts.org/images/products/", obf: "https://images.openbeautyfacts.org/images/products/", opf: "https://images.openproductsfacts.org/images/products/" };
 
   const categories = {
@@ -362,14 +363,76 @@
     ["dry04", "dryfruit", "Peanuts", "मूंगफली", "kg", "🥜"],
   ];
 
+  /* REAL PHOTOS FOR LOOSE GOODS (26 Sep 2026, owner: "use real images here too").
+     From Wikimedia Commons, each picked and checked by eye as the thing itself
+     (no drawings, plants in a field or cooked dishes); only free licences
+     (public domain, CC0, CC BY, CC BY-SA; no GFDL-only). Toor dal shows yellow
+     split peas, which look the same: Commons has no clean toor dal photo.
+     The emoji stays as the fallback when a photo cannot load.
+     [path under commons/thumb, licence, author, file name] */
+  const FRESH = {
+    veg01: ["a/ab/Patates.jpg/330px-Patates.jpg", "Public domain", "Scott Bauer, USDA ARS", "Patates.jpg"],
+    veg02: ["a/a2/Mixed_onions.jpg/330px-Mixed_onions.jpg", "CC BY-SA 3.0", "Colin", "Mixed onions.jpg"],
+    veg03: ["8/89/Tomato_je.jpg/330px-Tomato_je.jpg", "CC BY-SA 3.0", "Softeis", "Tomato je.jpg"],
+    veg04: ["6/61/Garlic_Bulbs_%28Unsplash%29.jpg/330px-Garlic_Bulbs_%28Unsplash%29.jpg", "CC0", "Matthew Pilachowski", "Garlic Bulbs (Unsplash).jpg"],
+    veg05: ["3/3d/Ginger_rhizome.jpg/330px-Ginger_rhizome.jpg", "CC BY-SA 4.0", "Mk2010", "Ginger rhizome.jpg"],
+    veg06: ["a/ae/Green_chillies_variety.jpg/330px-Green_chillies_variety.jpg", "CC BY-SA 4.0", "Medhi jyoti", "Green chillies variety.jpg"],
+    veg07: ["a/a2/Vegetable-Carrot-Bundle-wStalks.jpg/330px-Vegetable-Carrot-Bundle-wStalks.jpg", "Public domain", "Evan-Amos", "Vegetable-Carrot-Bundle-wStalks.jpg"],
+    veg08: ["2/2f/Chou-fleur_02.jpg/330px-Chou-fleur_02.jpg", "CC BY-SA 3.0", "Coyau", "Chou-fleur 02.jpg"],
+    veg09: ["5/52/Cabbage_on_farm.jpg/330px-Cabbage_on_farm.jpg", "CC BY-SA 4.0", "Yusuf Muhammed Thanni", "Cabbage on farm.jpg"],
+    veg10: ["7/76/Solanum_melongena_24_08_2012_%281%29.JPG/330px-Solanum_melongena_24_08_2012_%281%29.JPG", "CC BY-SA 3.0", "Joydeep", "Solanum melongena 24 08 2012 (1).JPG"],
+    veg11: ["4/4d/Cucumbers_harvesting.jpg/330px-Cucumbers_harvesting.jpg", "CC BY-SA 4.0", "Shark2025", "Cucumbers harvesting.jpg"],
+    veg12: ["8/85/Green-Yellow-Red-Pepper-2009.jpg/330px-Green-Yellow-Red-Pepper-2009.jpg", "CC BY-SA 3.0", "Kham Tran", "Green-Yellow-Red-Pepper-2009.jpg"],
+    veg13: ["5/54/Quiabo.jpg/330px-Quiabo.jpg", "CC0", "ArionStar", "Quiabo.jpg"],
+    veg14: ["1/11/Peas_in_pods_-_Studio.jpg/330px-Peas_in_pods_-_Studio.jpg", "CC BY-SA 3.0", "Bill Ebbesen", "Peas in pods - Studio.jpg"],
+    veg15: ["7/7f/Rythu_Vegetables_market%2C_Hyderabad_07.jpg/330px-Rythu_Vegetables_market%2C_Hyderabad_07.jpg", "CC0", "Rajasekhar1961", "Rythu Vegetables market, Hyderabad 07.jpg"],
+    veg16: ["5/56/Fresh_Spinach_leaves.jpg/330px-Fresh_Spinach_leaves.jpg", "CC BY-SA 4.0", "Charipearl", "Fresh Spinach leaves.jpg"],
+    veg17: ["b/b7/Bunches_of_coriander_leaves.jpg/330px-Bunches_of_coriander_leaves.jpg", "CC BY-SA 4.0", "Kpsudeep", "Bunches of coriander leaves.jpg"],
+    veg18: ["e/e4/Lemon.jpg/330px-Lemon.jpg", "CC BY-SA 2.5", "André Karwath aka Aka", "Lemon.jpg"],
+    veg19: ["3/30/Iba%2CZambalesjf9268_12.JPG/330px-Iba%2CZambalesjf9268_12.JPG", "CC BY-SA 3.0", "Ramon FVelasquez", "Iba,Zambalesjf9268 12.JPG"],
+    veg20: ["0/01/ChampignonMushroom.jpg/330px-ChampignonMushroom.jpg", "CC BY-SA 3.0", "chris_73", "ChampignonMushroom.jpg"],
+    fru01: ["d/de/Bananavarieties.jpg/330px-Bananavarieties.jpg", "CC BY-SA 3.0", "TimothyPilgrim", "Bananavarieties.jpg"],
+    fru02: ["1/15/Red_Apple.jpg/330px-Red_Apple.jpg", "CC BY 2.0", "Abhijit Tembhekar", "Red Apple.jpg"],
+    fru03: ["e/e3/Oranges_-_whole-halved-segment.jpg/330px-Oranges_-_whole-halved-segment.jpg", "CC BY-SA 4.0", "Ivar Leidus", "Oranges - whole-halved-segment.jpg"],
+    fru04: ["7/74/Mangos_-_single_and_halved.jpg/330px-Mangos_-_single_and_halved.jpg", "CC BY-SA 4.0", "Ivar Leidus", "Mangos - single and halved.jpg"],
+    fru05: ["5/53/Grapes%2C_Rostov-on-Don%2C_Russia.jpg/330px-Grapes%2C_Rostov-on-Don%2C_Russia.jpg", "CC BY 4.0", "Vyacheslav Argenberg", "Grapes, Rostov-on-Don, Russia.jpg"],
+    fru06: ["c/c0/Papaya_cut_half.jpg/330px-Papaya_cut_half.jpg", "CC BY-SA 4.0", "Maksym Kozlenko", "Papaya cut half.jpg"],
+    fru07: ["8/88/Guava_pink_fruit.jpg/330px-Guava_pink_fruit.jpg", "CC BY-SA 4.0", "Ivar Leidus", "Guava pink fruit.jpg"],
+    fru08: ["4/47/Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg/330px-Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg", "CC BY-SA 3.0", "Fred Hsu", "Taiwan 2009 Tainan City Organic Farm Watermelon FRD 7962.jpg"],
+    fru09: ["7/74/%E0%B4%95%E0%B5%88%E0%B4%A4%E0%B4%9A%E0%B5%8D%E0%B4%9A%E0%B4%95%E0%B5%8D%E0%B4%95.jpg/330px-%E0%B4%95%E0%B5%88%E0%B4%A4%E0%B4%9A%E0%B5%8D%E0%B4%9A%E0%B4%95%E0%B5%8D%E0%B4%95.jpg", "CC BY 3.0", "Suniltg at Malayalam Wikipedia", "കൈതച്ചക്ക.jpg"],
+    fru10: ["e/e1/-365_coconut_husk_%2828072494014%29.jpg/330px--365_coconut_husk_%2828072494014%29.jpg", "CC BY 2.0", "terri_bateman", "-365 coconut husk (28072494014).jpg"],
+    egg01: ["7/7b/Egg_trays_%28Landmarks%3B_2023-08-12%29_E911a_09.jpg/330px-Egg_trays_%28Landmarks%3B_2023-08-12%29_E911a_09.jpg", "CC BY-SA 4.0", "E911a", "Egg trays (Landmarks; 2023-08-12) E911a 09.jpg"],
+    egg02: ["5/56/Eierdoosmet10eierengevuld2010.jpg/330px-Eierdoosmet10eierengevuld2010.jpg", "Public domain", "Ischa1", "Eierdoosmet10eierengevuld2010.jpg"],
+    mea01: ["c/c7/Raw_chicken_for_sale.jpg/330px-Raw_chicken_for_sale.jpg", "CC BY-SA 3.0", "ProjectManhattan", "Raw chicken for sale.jpg"],
+    mea02: ["4/4e/Raw_chicken_thighs.jpg/330px-Raw_chicken_thighs.jpg", "CC BY 3.0", "gran", "Raw chicken thighs.jpg"],
+    mea03: ["3/38/Raw_lamb_cutlets_with_shredded_ginger_and_rosemary.jpg/330px-Raw_lamb_cutlets_with_shredded_ginger_and_rosemary.jpg", "CC BY-SA 3.0", "Salimfadhley", "Raw lamb cutlets with shredded ginger and rosemary.jpg"],
+    mea04: ["e/e0/Rohu_at_Giant_Hypermarket_Kota_Damansara_20230203_105829.jpg/330px-Rohu_at_Giant_Hypermarket_Kota_Damansara_20230203_105829.jpg", "CC0", "Wiki Farazi", "Rohu at Giant Hypermarket Kota Damansara 20230203 105829.jpg"],
+    mea05: ["9/98/Penaeus_monodon.jpg/330px-Penaeus_monodon.jpg", "CC BY-SA 3.0", "", "Penaeus monodon.jpg"],
+    dai01: ["a/a5/Glass_of_Milk_%2833657535532%29.jpg/330px-Glass_of_Milk_%2833657535532%29.jpg", "CC BY 2.0", "NIAID", "Glass of Milk (33657535532).jpg"],
+    dai02: ["3/36/Panir_Paneer_Indian_cheese_fresh.jpg/330px-Panir_Paneer_Indian_cheese_fresh.jpg", "CC BY 2.0 de", "Sonja Pauen", "Panir Paneer Indian cheese fresh.jpg"],
+    dai03: ["4/45/Curd_in_a_traditional_Manipuri_earthen_pot.JPG/330px-Curd_in_a_traditional_Manipuri_earthen_pot.JPG", "CC BY-SA 4.0", "Goumisao", "Curd in a traditional Manipuri earthen pot.JPG"],
+    grn01: ["f/f8/Basmati_Rice_India%2C_raw.jpg/330px-Basmati_Rice_India%2C_raw.jpg", "CC BY 2.0", "cookbookman17", "Basmati Rice India, raw.jpg"],
+    grn02: ["b/b4/Wheat_close-up.JPG/330px-Wheat_close-up.JPG", "CC BY-SA 3.0", "Bluemoose", "Wheat close-up.JPG"],
+    grn03: ["9/90/Goya_yellow_split_peas.jpg/330px-Goya_yellow_split_peas.jpg", "CC0", "Mx. Granger", "Goya yellow split peas.jpg"],
+    grn04: ["2/2a/Moong_Dal.jpg/330px-Moong_Dal.jpg", "CC BY-SA 3.0", "Sudeshna Banerjee", "Moong Dal.jpg"],
+    grn05: ["7/7a/Chana_Ko_Dal.jpg/330px-Chana_Ko_Dal.jpg", "CC BY-SA 4.0", "Gaurav Dhwaj Khadka", "Chana Ko Dal.jpg"],
+    grn06: ["3/38/Masoor_dal.JPG/330px-Masoor_dal.JPG", "CC BY-SA 2.5", "Rydia", "Masoor dal.JPG"],
+    grn07: ["d/d9/Ordinary_chickpeas_in_a_ceramic_bowl.jpg/330px-Ordinary_chickpeas_in_a_ceramic_bowl.jpg", "CC BY-SA 4.0", "AlixSaz", "Ordinary chickpeas in a ceramic bowl.jpg"],
+    grn08: ["8/80/Poha.jpg/330px-Poha.jpg", "CC BY-SA 3.0", "Sanjay Acharya", "Poha.jpg"],
+    dry01: ["3/37/Almonds_-_in_shell%2C_shell_cracked_open%2C_shelled%2C_blanched.jpg/330px-Almonds_-_in_shell%2C_shell_cracked_open%2C_shelled%2C_blanched.jpg", "CC BY-SA 4.0", "Ivar Leidus", "Almonds - in shell, shell cracked open, shelled, blanched.jpg"],
+    dry02: ["3/3c/Roasted_peeled_cashews.jpg/330px-Roasted_peeled_cashews.jpg", "CC0", "Fumikas Sagisavas", "Roasted peeled cashews.jpg"],
+    dry03: ["7/7d/Raisins_01.jpg/330px-Raisins_01.jpg", "CC BY-SA 3.0", "Paweł Kuźniar", "Raisins 01.jpg"],
+    dry04: ["3/36/Roasted_Peanuts_with_shell.jpg/330px-Roasted_Peanuts_with_shell.jpg", "CC BY-SA 4.0", "Sanjay Acharya", "Roasted Peanuts with shell.jpg"],
+  };
+
   /* The aisles of a shop: how "by type" is laid out. Fresh first. Every
      category that has items sits in exactly one aisle. */
   const aisles = [
-    { id: "veg", en: "Vegetables", hi: "सब्ज़ी", icon: "🥕", cats: ["veg"], fresh: true },
-    { id: "fruit", en: "Fruits", hi: "फल", icon: "🍎", cats: ["fruit"], fresh: true },
-    { id: "eggs", en: "Eggs", hi: "अंडे", icon: "🥚", cats: ["eggs"], fresh: true },
-    { id: "meat", en: "Chicken, meat & fish", hi: "चिकन, मटन, मछली", icon: "🍗", cats: ["meat"], fresh: true },
-    { id: "milk", en: "Milk, paneer & cheese", hi: "दूध, पनीर, दही, चीज़", icon: "🥛", cats: ["milk", "freshdairy", "milkpowder", "cheese"], fresh: true },
+    { id: "veg", rep: "veg03", en: "Vegetables", hi: "सब्ज़ी", icon: "🥕", cats: ["veg"], fresh: true },
+    { id: "fruit", rep: "fru02", en: "Fruits", hi: "फल", icon: "🍎", cats: ["fruit"], fresh: true },
+    { id: "eggs", rep: "egg02", en: "Eggs", hi: "अंडे", icon: "🥚", cats: ["eggs"], fresh: true },
+    { id: "meat", rep: "mea01", en: "Chicken, meat & fish", hi: "चिकन, मटन, मछली", icon: "🍗", cats: ["meat"], fresh: true },
+    { id: "milk", rep: "dai01", en: "Milk, paneer & cheese", hi: "दूध, पनीर, दही, चीज़", icon: "🥛", cats: ["milk", "freshdairy", "milkpowder", "cheese"], fresh: true },
     { id: "staples", en: "Atta, rice & dal", hi: "आटा, चावल, दाल", icon: "🌾", cats: ["atta", "grains", "dal"] },
     { id: "oil", en: "Oil, ghee & butter", hi: "तेल, घी, मक्खन", icon: "🛢️", cats: ["oil", "dairy"] },
     { id: "sugar", en: "Sugar & salt", hi: "चीनी, नमक", icon: "🧂", cats: ["sugar", "salt"] },
@@ -388,13 +451,18 @@
     const p = r[9].split(":");
     return { id: r[0], company: r[1], brand: r[2], name: r[3], pack: r[4], mrp: r[5], caseQty: r[6], cat: r[7], barcode: r[8], img: PHOTO[p[0]] + p.slice(1).join(":") };
   }).concat(loose.map(function (r) {
-    return { id: r[0], company: "", brand: "", name: r[2], hi: r[3], pack: r[4], per: r[4], mrp: null, caseQty: 1, cat: r[1], barcode: "", img: null, emoji: r[5], loose: true };
+    const f = FRESH[r[0]];
+    return { id: r[0], company: "", brand: "", name: r[2], hi: r[3], pack: r[4], per: r[4], mrp: null, caseQty: 1, cat: r[1], barcode: "", img: f ? WM + f[0] : null, emoji: r[5], loose: true };
   }));
 
   const catalogue = {
-    version: "2026-09-26d",
+    version: "2026-09-26e",
     note: "MRPs are indicative (check on pack). GST by category under the GST 2.0 slabs from 22 Sep 2025; confirm with your accountant.",
-    credit: "Product photos: Open Food Facts, Open Beauty Facts, Open Products Facts contributors (CC BY-SA)",
+    credit: "Product photos: Open Food Facts, Open Beauty Facts, Open Products Facts contributors (CC BY-SA). Fresh produce photos: Wikimedia Commons contributors (public domain, CC0, CC BY, CC BY-SA; each author in the file).",
+    freshCredits: Object.keys(FRESH).map(function (id) {
+      const f = FRESH[id];
+      return { id: id, file: f[3], author: f[2], licence: f[1], page: "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(f[3].replace(/ /g, "_")) };
+    }),
     categories: categories,
     companies: companies,
     aisles: aisles,

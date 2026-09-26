@@ -45,7 +45,7 @@
   try { canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [new File(["x"], "x.txt", { type: "text/plain" })] })); } catch (e) { canShareFiles = false; }
 
   let S = load();
-  let view = "lang";
+  let view = "welcome";
   let sheet = null;
   const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", stockCo: "", lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
   const urls = {};
@@ -179,8 +179,12 @@
       (o.type ? ' type="' + o.type + '"' : tag === "input" ? ' type="text"' : "") + (o.max ? ' maxlength="' + o.max + '"' : "") +
       (o.upper ? ' autocapitalize="characters" class="upper"' : "") + ' autocomplete="off"';
     const el = tag === "textarea" ? "<textarea rows=\"2\"" + attrs + ">" + h(v) + "</textarea>" : "<input" + attrs + ' value="' + h(v == null ? "" : v) + '">';
-    const mic = o.mic && SR ? '<button type="button" class="sb-icbtn" data-act="dictate" data-path="' + h(path) + '" aria-label="' + h(t("listening")) + '">' + ic("mic") + "</button>" : "";
-    return '<div class="inp">' + el + mic + "</div>";
+    const mic = o.mic ? micBtn(path) : "";
+    return '<div class="inp' + (o.area ? " is-area" : "") + '">' + el + mic + "</div>";
+  }
+
+  function micBtn(path, cls) {
+    return SR && !ui.micOff ? '<button type="button" class="sb-icbtn' + (cls ? " " + cls : "") + '" data-act="dictate" data-path="' + h(path) + '" aria-label="' + h(t("micSpeak")) + '" aria-pressed="false">' + ic("mic") + "</button>" : "";
   }
 
   function field(icon, label, inner, hint) {
@@ -230,8 +234,9 @@
       '<main class="sb-main">' +
       '<p class="sb-step">' + h(t("stepOf", { n: i + 1, total: STEPS.length })) + "</p>" +
       '<h1 class="sb-h1">' + h(t("title_" + step)) + "</h1>" +
-      '<div class="sb-ask"><p class="sb-sub">' + h(t("q_" + step)) + "</p>" +
-      (canSpeak ? '<button class="sb-listen" data-act="speak" data-key="q_' + step + '" aria-label="' + h(t("listen")) + '">' + ic("listen", 18) + "</button>" : "") + "</div>" +
+      /* The spoken-question line is for Hindi readers; in English the title says enough. */
+      (S.lang === "en" ? "" : '<div class="sb-ask"><p class="sb-sub">' + h(t("q_" + step)) + "</p>" +
+        (canSpeak ? '<button class="sb-listen" data-act="speak" data-key="q_' + step + '" aria-label="' + h(t("listen")) + '">' + ic("listen", 18) + "</button>" : "") + "</div>") +
       body + "</main>" +
       /* 26 Sep 2026, the owner: a step ends in Save, back to the steps list,
          never Next into the following step. The list is where he always is. */
@@ -243,26 +248,18 @@
 
   const SCREENS = {};
 
-  SCREENS.lang = function () {
-    return '<p class="sb-wordmark">' + LOGO + "</p>" +
-      '<main class="sb-main">' +
-      '<h1 class="sb-h1 is-center">अपनी भाषा चुनें</h1><p class="sb-sub is-center">Choose your language</p>' +
-      '<div class="sb-list is-top">' +
-      '<button class="sb-row" data-act="lang" data-v="hi"><span class="sb-row-ic">' + ic("langs") + '</span><span class="sb-row-main"><span class="sb-row-t">हिंदी</span><span class="sb-row-s">Hindi</span></span><span class="sb-row-chev">' + ic("chev", 18) + "</span></button>" +
-      '<button class="sb-row" data-act="lang" data-v="en"><span class="sb-row-ic">' + ic("langs") + '</span><span class="sb-row-main"><span class="sb-row-t">English</span><span class="sb-row-s">अंग्रेज़ी</span></span><span class="sb-row-chev">' + ic("chev", 18) + "</span></button>" +
-      "</div></main>";
-  };
-
+  /* Language and welcome on one screen: the FoodBridge mark and title sit in the
+     middle, the language switch sits over Start and changes the words in place. */
   SCREENS.welcome = function () {
-    return '<p class="sb-wordmark">' + LOGO + "</p>" +
-      '<main class="sb-main">' +
-      '<div class="sb-hero">' + ic("store", 44) + "</div>" +
-      '<h1 class="sb-h1 is-center">' + h(t("wTitle")) + '</h1><p class="sb-sub is-center">' + h(t("wSub")) + "</p>" +
-      '<div class="sb-feats">' +
-      '<p class="sb-feat">' + ic("tap", 18) + "<span>" + h(t("tProducts")) + " · " + h(t("tShops")) + " · " + h(t("tStaff")) + "</span></p>" +
-      '<p class="sb-feat">' + ic("camera", 18) + "<span>" + h(t("paPhotoHint")) + "</span></p>" +
-      '<p class="sb-feat">' + ic("lock", 18) + "<span>" + h(t("fiSave")) + "</span></p></div></main>" +
-      '<footer class="sb-foot"><button class="sb-cta" data-act="start">' + h(t("wStart")) + "</button>" +
+    const en = S.lang === "en";
+    return '<main class="sb-main is-welcome">' +
+      '<p class="sb-brand">' + LOGO + "</p>" +
+      '<h1 class="sb-h1 is-center">' + h(t("wTitle")) + "</h1></main>" +
+      '<footer class="sb-foot">' +
+      '<div class="seg sb-langs" role="group" aria-label="भाषा · Language">' +
+      '<button class="' + (en ? "" : "on") + '" data-act="lang" data-v="hi" aria-pressed="' + !en + '">' + ic("langs") + "हिंदी</button>" +
+      '<button class="' + (en ? "on" : "") + '" data-act="lang" data-v="en" aria-pressed="' + en + '">' + ic("langs") + "English</button></div>" +
+      '<button class="sb-cta" data-act="start">' + h(t("wStart")) + "</button>" +
       "</footer>";
   };
 
@@ -301,32 +298,66 @@
       }).join("") + "</ol></main>";   // no Continue button (owner, 26 Sep): he taps a step in the list; the next one is tinted
   };
 
+  /* The Shop step, rebuilt 26 Sep 2026 to feel quick: the basics in one card
+     (the empty box says what goes in it), taps before typing (the phone's own
+     autofill for name, mobile and address; GPS for the address), and no hint
+     lines. A GST that looks wrong is never flagged here (owner, 26 Sep 2026):
+     the Send step lists it as still to fill. */
   SCREENS.store = function () {
     const st = S.store;
-    const gst = st.gst ? (M.gstOk(st.gst) ? '<span class="ok">' + ic("check", 14) + h(t("fGstOk")) + "</span>" : '<span class="warn">' + ic("alert", 14) + h(t("fGstBad")) + "</span>") : "";
-    const loc = st.loc
-      ? '<div class="sb-okrow"><p class="ok">' + ic("pin", 18) + h(t("fLocSaved")) + '</p><button class="sb-btn is-sm" data-act="locate">' + h(t("change")) + "</button></div>"
-      : '<button class="sb-btn is-alt wide" data-act="locate">' + ic("pin", 18) + h(t("fLocBtn")) + "</button>";
-    const areas = ((st.areas || []).length ? '<div class="chips">' + st.areas.map(function (a, i) {
-      return '<span class="chip on"><span>' + h(a) + '</span><button class="x" data-act="delArea" data-i="' + i + '" aria-label="' + h(t("remove")) + '">' + ic("x", 14) + "</button></span>";
-    }).join("") + "</div>" : "") +
-      '<div class="inp row"><input id="areaNew" type="text" placeholder="' + h(t("fAreaPh")) + '" autocomplete="off"><button class="sb-btn" data-act="addArea">' + ic("plus", 18) + h(t("add")) + "</button></div>";
+    /* GPS sits at the end of the "Shop location" label: a link before, a tick after. */
+    const where = '<span class="sb-line">' + (st.loc
+      ? '<span class="ok">' + ic("check", 14) + h(t("fLocSavedS")) + '</span>·<button type="button" class="sb-inlink" data-act="locate">' + h(t("change")) + "</button>"
+      : '<button type="button" class="sb-inlink" data-act="locate">' + ic("pin", 15) + h(t("fLocBtn")) + "</button>") + "</span>";
     return frame("store",
-      field("store", t("fShopName"), input("store.name", { mic: true })) +
-      field("user", t("fOwner"), input("store.owner", { mic: true })) +
-      field("mobile", t("fMobile"), input("store.mobile", { type: "tel", mode: "tel", max: 14 }), h(t("fMobileHint"))) +
-      field("receipt", t("fGst"), input("store.gst", { kind: "upper", upper: true, max: 15, rerender: true }), h(t("fGstHint")) + " " + gst) +
+      '<div class="sb-group fc is-first">' +
+        cardRow("store", "store.name", { ph: t("fShopName"), mic: true, ac: "organization" }) +
+        cardRow("user", "store.owner", { ph: t("fOwner"), mic: true, ac: "name" }) +
+        cardRow("mobile", "store.mobile", { ph: t("fMobile"), type: "tel", mode: "tel", max: 14, ac: "tel-national" }) +
+        cardRow("receipt", "store.gst", { ph: t("fGst"), kind: "upper", upper: true, max: 15 }) +
+      "</div>" +
       field("tag", t("fType"), setChips("store.type", "str", [
         { v: "distributor", label: t("tDistributor") }, { v: "superstockist", label: t("tSuperstockist") },
         { v: "wholesaler", label: t("tWholesaler") }, { v: "cnf", label: t("tCnf") }, { v: "retailer", label: t("tRetailer") }])) +
       field("factory", t("fMakes"), yesNo("store.makes")) +
-      field("pin", t("fLoc"), loc + '<div class="gap"></div>' + input("store.address", { area: true, mic: true, ph: t("fAddress") })) +
-      field("warehouse", t("fGodown"), setChips("store.godownSame", "bool", [{ v: "1", label: t("gSame") }, { v: "0", label: t("gOther") }], "two") +
-        (st.godownSame === false ? '<div class="gap"></div>' + input("store.godownAddress", { area: true, mic: true, ph: t("fGodownAddr") }) : "")) +
-      field("map", t("fAreas"), areas) +
-      field("camera", t("fShopPhoto"), st.photo ? '<div class="photo-row">' + thumb(st.photo) + '<button class="sb-btn" data-act="photo" data-for="store">' + h(t("change")) + "</button></div>"
-        : '<button class="sb-btn wide" data-act="photo" data-for="store">' + ic("camera", 18) + h(t("takePhoto")) + "</button>"));
+      '<section class="sb-field"><div class="sb-label is-row"><span class="sb-label-t">' + ic("map", 18) + "<span>" + h(t("fLoc")) + "</span></span>" + where + "</div>" +
+        '<div class="sb-group fc">' + cardRow("home", "store.address", { ph: t("fAddress"), area: true, mic: true, ac: "street-address" }) + "</div></section>" +
+      field("warehouse", t("fGodown"), godowns(st)));
+    /* Gone 26 Sep 2026 (owner): the shop photo (an older save's still shows on the steps list and in the file), and
+       "Areas you supply to" (areas now come only from each customer's sheet). */
   };
+
+  /* A row in a form card: an icon, a borderless box whose placeholder is its
+     label, and its tools (mic, camera). o.ac is the autofill hint that lets the
+     phone fill it in one tap. */
+  function cardRow(icon, path, o) {
+    const v = getPath(path);
+    const attrs = ' data-bind="' + h(path) + '"' + (o.kind ? ' data-kind="' + o.kind + '"' : "") + (o.rerender ? " data-rerender" : "") +
+      ' placeholder="' + h(o.ph) + '" aria-label="' + h(o.ph) + '"' + (o.mode ? ' inputmode="' + o.mode + '"' : "") +
+      (o.area ? ' rows="1"' : ' type="' + (o.type || "text") + '"') + (o.max ? ' maxlength="' + o.max + '"' : "") +
+      (o.upper ? ' autocapitalize="characters" class="upper"' : "") + ' autocomplete="' + (o.ac || "off") + '"';
+    const el = o.area ? "<textarea" + attrs + ">" + h(v || "") + "</textarea>" : "<input" + attrs + ' value="' + h(v == null ? "" : v) + '">';
+    return '<div class="fc-row"><span class="fc-ic">' + ic(icon, 18) + "</span>" + el + (o.mic ? micBtn(path, "is-plain") : "") + (o.tail || "") + "</div>";
+  }
+
+  /* One or more godowns, as one card: the shop itself (a tick row), then a row per
+     other godown (number, address that grows, mic, remove), then "Add a godown". */
+  function godowns(st) {
+    const first = st.godownAtShop ? 2 : 1;
+    const shop = st.godownAtShop === true;
+    return '<div class="sb-group fc">' +
+      '<button type="button" class="fc-row gd-shop' + (shop ? " on" : "") + '" data-act="set" data-path="store.godownAtShop" data-kind="flip" aria-pressed="' + shop + '">' +
+        '<span class="gd-n">' + ic("store", 16) + '</span><span class="fc-t">' + h(t("gShop")) + '</span><span class="gd-tick">' + ic("check", 14) + "</span></button>" +
+      st.godowns.map(function (g, i) {
+        const path = "store.godowns." + i, name = t("gN", { n: first + i });
+        return '<div class="fc-row"><span class="gd-n">' + (first + i) + "</span>" +
+          '<textarea rows="1" data-bind="' + path + '" placeholder="' + h(t("fGodownAddr")) + '" aria-label="' + h(name) + '" autocomplete="off">' + h(g) + "</textarea>" +
+          micBtn(path, "is-plain") +
+          '<button type="button" class="sb-icbtn is-plain gd-x" data-act="delGodown" data-i="' + i + '" aria-label="' + h(t("remove") + " · " + name) + '">' + ic("x", 18) + "</button></div>";
+      }).join("") +
+      '<button type="button" class="fc-row fc-act" data-act="addGodown"><span class="gd-n">' + ic("plus", 16) + "</span><span>" + h(t("gAdd")) + "</span></button>" +
+      "</div>";
+  }
 
   function selectedNote(text) { return '<span class="foot-note">' + ic("circleCheck", 16) + "<span>" + h(text) + "</span></span>"; }
 
@@ -345,7 +376,7 @@
      if a photo fails to load. */
   function pickImg(it) {
     const img = it.photo ? '<img data-paper="' + h(it.photo) + '" alt="">'
-      : it.img ? '<img src="' + h(it.img) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
+      : it.img ? '<img src="' + h(it.img) + '" alt=""' + (it.loose ? ' class="is-fresh"' : "") + ' loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
     return img + '<span class="pick-emoji">' + it.icon + "</span>";
   }
 
@@ -379,11 +410,19 @@
     }).join("") + "</div>";
   }
 
+  /* An aisle's face: its chosen product's real photo (a.rep), else the first one with a photo, else its picture. */
+  function aisleFace(a, ids) {
+    const rep = a.rep && M.item(CAT, S, a.rep);
+    if (rep && rep.img) return rep;
+    const withImg = ids.map(function (id) { return M.item(CAT, S, id); }).find(function (it) { return it && (it.img || it.photo); });
+    return withImg || { icon: a.icon };
+  }
+
   function typeTiles() {
     const tile = function (a) {
       const ids = groupIds("aisle", a.id);
       return '<button class="tile is-type" data-act="picker" data-by="aisle" data-id="' + a.id + '">' + tileBadge(chosenIn(ids)) +
-        '<span class="tile-img"><span class="pick-emoji">' + a.icon + '</span></span><b>' + h(S.lang === "en" ? a.en : a.hi) + "</b><small>" + h(t("iCount", { n: ids.length })) + "</small></button>";
+        '<span class="tile-img">' + pickImg(aisleFace(a, ids)) + '</span><b>' + h(S.lang === "en" ? a.en : a.hi) + "</b><small>" + h(t("iCount", { n: ids.length })) + "</small></button>";
     };
     const fresh = CAT.aisles.filter(function (a) { return a.fresh; }), packed = CAT.aisles.filter(function (a) { return !a.fresh; });
     return '<p class="sb-glabel">' + h(t("iFresh")) + '</p><div class="tiles">' + fresh.map(tile).join("") + "</div>" +
@@ -431,8 +470,7 @@
       '<input type="search" data-search="itemsQ" value="' + h(ui.itemsQ) + '" placeholder="' + h(t("iSearch")) + '" aria-label="' + h(t("iSearch")) + '">' +
       (canScan ? '<button type="button" class="sb-search-btn" data-act="scan" aria-label="' + h(t("iScan")) + '">' + ic("barcode", 20) + "</button>" : "") + "</label>" +
       '<div id="list">' + itemsBody() + "</div>" +
-      '<button class="sb-link is-sm" data-act="newItem">' + ic("plus", 18) + h(t("iNotFound")) + "</button>" +
-      '<p class="credit">' + h(CAT.credit) + "</p>",
+      '<button class="sb-link is-sm" data-act="newItem">' + ic("plus", 18) + h(t("iNotFound")) + "</button>",   // photo credits: the Menu sheet and the file
       n ? selectedNote(t("iChosen", { n: n })) : "");
   };
 
@@ -654,7 +692,7 @@
     const n = chosenIn(ids);
     let title = "";
     if (sh.by === "co") { const c = M.companyById(CAT, S, sh.id); title = c ? c.short : ""; }
-    else { const a = CAT.aisles.find(function (x) { return x.id === sh.id; }); title = a ? a.icon + " " + (S.lang === "en" ? a.en : a.hi) : ""; }
+    else { const a = CAT.aisles.find(function (x) { return x.id === sh.id; }); title = a ? (S.lang === "en" ? a.en : a.hi) : ""; }
     return sheetWrap(h(title),
       '<div class="pick-bar"><span>' + h(t("iCount", { n: ids.length })) + (n ? " · " + h(t("iChosen", { n: n })) : "") + "</span>" +
       '<button class="sb-more" data-act="pickAll">' + h(n === ids.length ? t("iClearAll") : t("iSelectAll")) + "</button></div>" +
@@ -890,7 +928,12 @@
       paperUrl(a.dataset.paperAudio).then(function (u) { if (u) a.src = u; });
     });
     if (sheet && sheet.kind === "scan" && !ui.stream && !ui.scanStarting) startScan();
+    if (ui.dict) markMic();
+    document.querySelectorAll("textarea[data-bind]").forEach(fitArea);
   }
+
+  /* An address box grows with what's in it, so a found address shows whole. */
+  function fitArea(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + 2 + "px"; }
 
   function syncSave() { M.syncCompanies(CAT, S); save(); }
 
@@ -917,7 +960,7 @@
   window.addEventListener("popstate", function (e) {
     stopMedia();
     if (sheet) { sheet = ui.sheetStack.pop() || null; render(); return; }
-    view = (e.state && e.state.to) || (S.lang ? "home" : "lang");
+    view = (e.state && e.state.to) || (S.startedAt ? "home" : "welcome");
     render();
     window.scrollTo(0, 0);
   });
@@ -928,6 +971,7 @@
     if (ui.stream) { ui.stream.getTracks().forEach(function (tr) { tr.stop(); }); ui.stream = null; }
     clearTimeout(ui.scanTimer);
     if (ui.rec && ui.rec.mr.state !== "inactive") ui.rec.mr.stop();
+    stopDictate();
   }
 
   function compress(file) {
@@ -955,8 +999,7 @@
       const b = await compress(f);
       const id = M.uid("ph");
       await DB.put(id, b);
-      S.papers.push({ id: id, kind: "photo", step: view, at: Date.now(), mime: b.type || "image/jpeg", note: target === "store" ? "shop photo" : target === "draft" ? "product photo" : "" });
-      if (target === "store") S.store.photo = id;
+      S.papers.push({ id: id, kind: "photo", step: view, at: Date.now(), mime: b.type || "image/jpeg", note: target === "draft" ? "product photo" : "" });
       if (target === "draft" && sheet && sheet.draft) sheet.draft.photo = id;
     }
     save();
@@ -1041,35 +1084,123 @@
     }
   }
 
+  /* Use my location: the GPS point, then the address for it from OpenStreetMap's
+     Nominatim (free, no key, the map data the platform already draws). The
+     address is always in English, the way bills and GST papers write it: OSM's
+     Hindi names are patchy and come back half Devanagari, half Latin. It fills
+     the address box when the box is empty or still holds the last found
+     address; anything he typed himself stays. */
   function locate() {
     if (!navigator.geolocation) { toast(t("fLocFail")); return; }
+    if (ui.locating) return;
+    ui.locating = true;
     toast(t("fLocWait"));
     navigator.geolocation.getCurrentPosition(function (pos) {
-      S.store.loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+      const prev = S.store.loc && S.store.loc.address;
+      const loc = S.store.loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
       save();
       render();
-      toast("✓ " + t("fLocSaved"));
-    }, function () { toast(t("fLocFail")); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+      toast(t("fAddrWait"));
+      findAddress(loc.lat, loc.lng).then(function (addr) {
+        ui.locating = false;
+        if (S.store.loc !== loc) return;
+        if (!addr) { toast("✓ " + t("fLocSaved") + " · " + t("fAddrNone")); return; }
+        loc.address = addr;
+        const cur = (S.store.address || "").trim();
+        const fill = !cur || cur === prev;
+        if (fill) S.store.address = addr;
+        save();
+        render();
+        toast("✓ " + t(fill ? "fAddrAdded" : "fAddrKept"));
+      });
+    }, function (e) {
+      ui.locating = false;
+      toast(t(e && e.code === 1 ? "fLocDenied" : "fLocFail"));
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   }
 
+  function findAddress(lat, lng) {
+    const url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=en" +
+      "&lat=" + lat.toFixed(6) + "&lon=" + lng.toFixed(6);
+    const ctl = "AbortController" in window ? new AbortController() : null;
+    const stop = setTimeout(function () { if (ctl) ctl.abort(); }, 10000);
+    return fetch(url, { headers: { Accept: "application/json" }, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j ? M.shortAddress(j.address) : ""; })
+      .catch(function () { return ""; })
+      .then(function (a) { clearTimeout(stop); return a; });
+  }
+
+  /* Speak to type (Web Speech). Chrome and Edge on Android and desktop, Safari
+     14.5+ on iPhone and Mac (only with Siri / Dictation on); not Firefox, not
+     most in-app browsers. One listener at a time, tap the mic again to stop.
+     Every failure says what to do; where the service is missing for good the
+     mics go for the session and the keyboard's own mic key is the way. */
+  const MIC_ERR = { "not-allowed": "micBlocked", "no-speech": "micNoSpeech", "audio-capture": "micNone", network: "micNet" };
+
   function dictate(path) {
-    if (!SR) { toast(t("micUnsupported")); return; }
-    const r = new SR();
+    if (ui.dict) { const same = ui.dict.path === path; stopDictate(); if (same) return; }
+    if (!SR || ui.micOff) { toast(t("micUnsupported")); return; }
+    let r;
+    try { r = new SR(); } catch (e) { micGone(); return; }
     r.lang = S.lang === "en" ? "en-IN" : "hi-IN";
     r.interimResults = false;
     r.maxAlternatives = 1;
-    toast(t("listening"));
+    const d = ui.dict = { r: r, path: path, heard: false };
     r.onresult = function (e) {
-      const said = e.results[0][0].transcript;
-      const cur = getPath(path) || "";
+      const last = e.results[e.results.length - 1];
+      const said = last && last[0] ? last[0].transcript.trim() : "";
+      if (!said) return;
+      d.heard = true;
+      /* A name is said again to fix it; an address is said in parts. */
+      const el = document.querySelector('[data-bind="' + path + '"]');
+      const cur = el && el.tagName === "TEXTAREA" ? getPath(path) || "" : "";
       const v = (cur ? cur + " " : "") + said;
       setPath(path, v);
       if (path[0] !== "@") save();
-      const el = document.querySelector('[data-bind="' + path + '"]');
-      if (el) el.value = v;
+      if (el) { el.value = v; if (el.tagName === "TEXTAREA") fitArea(el); }
     };
-    r.onerror = function () { toast(t("micUnsupported")); };
-    r.start();
+    r.onnomatch = function () { d.err = "no-speech"; };
+    r.onerror = function (e) { if (!d.err || e.error !== "aborted") d.err = e.error; };
+    r.onend = function () {
+      if (ui.dict !== d) return;
+      endDictate();
+      /* Brave and some webviews answer "network" every time while online: twice in a row means no service. */
+      ui.micNetFails = d.err === "network" && navigator.onLine ? (ui.micNetFails || 0) + 1 : 0;
+      if (d.err === "service-not-allowed" || d.err === "language-not-supported" || ui.micNetFails >= 2) micGone();
+      else if (d.err && d.err !== "aborted") toast(t(MIC_ERR[d.err] || "micFail"));
+      else if (!d.heard && !d.stopped) toast(t("micNoSpeech"));
+    };
+    if (canSpeak) speechSynthesis.cancel();
+    try { r.start(); } catch (e) { endDictate(); toast(t("micFail")); return; }
+    /* Some webviews never answer: give up after 15 s rather than listen forever. */
+    d.timer = setTimeout(function () { if (ui.dict === d) { d.err = d.err || "no-speech"; try { r.abort(); } catch (e) { /* gone */ } setTimeout(function () { if (ui.dict === d) r.onend(); }, 400); } }, 15000);
+    markMic();
+    toast(t("listening"));
+  }
+
+  function stopDictate() {
+    const d = ui.dict;
+    if (!d) return;
+    d.stopped = true;
+    try { d.r.stop(); } catch (e) { /* not started */ }
+    endDictate();
+  }
+
+  function endDictate() {
+    if (ui.dict) clearTimeout(ui.dict.timer);
+    ui.dict = null;
+    markMic();
+  }
+
+  function micGone() { endDictate(); ui.micOff = true; render(); toast(t("micUnsupported")); }
+
+  function markMic() {
+    document.querySelectorAll('[data-act="dictate"]').forEach(function (b) {
+      const on = !!ui.dict && ui.dict.path === b.dataset.path;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
   }
 
   function addMany(list, src, type) {
@@ -1116,9 +1247,9 @@
     skip: function (el) { S.skipped[el.dataset.step] = true; save(); if (el.dataset.stay) render(); else go("home"); },
     lang: function (el) {
       S.lang = el.dataset.v; save();
-      if (view === "lang") go(S.startedAt ? "home" : "welcome"); else closeSheet();
+      if (view === "welcome") render(); else closeSheet();
     },
-    start: function () { if (!S.startedAt) S.startedAt = Date.now(); save(); go("store"); },
+    start: function () { if (!S.lang) S.lang = "hi"; if (!S.startedAt) S.startedAt = Date.now(); save(); go("store"); },
     speak: function (el) { speak(t(el.dataset.key)); },
     menu: function () { openSheet({ kind: "menu" }); },
     closeSheet: function () { closeSheet(); },
@@ -1155,6 +1286,14 @@
 
     locate: locate,
     dictate: function (el) { dictate(el.dataset.path); },
+    addGodown: function () {
+      /* An empty one is already waiting: go to it rather than stack another. */
+      const list = S.store.godowns;
+      if (!list.length || String(list[list.length - 1] || "").trim()) { list.push(""); save(); render(); }
+      const boxes = document.querySelectorAll('textarea[data-bind^="store.godowns."]');
+      if (boxes.length) boxes[boxes.length - 1].focus();
+    },
+    delGodown: function (el) { S.store.godowns.splice(Number(el.dataset.i), 1); save(); render(); },
     addArea: function (el) {
       const inp = document.getElementById("areaNew");
       const v = (inp && inp.value || "").trim();
@@ -1165,7 +1304,6 @@
       save();
       render();
     },
-    delArea: function (el) { S.store.areas.splice(Number(el.dataset.i), 1); save(); render(); },
     photo: function (el) { ui.photoFor = el.dataset.for; document.getElementById("filePhoto").click(); },
     gallery: function () { ui.photoFor = "paper"; document.getElementById("fileGallery").click(); },
     recStart: recStart,
@@ -1324,6 +1462,7 @@
   document.addEventListener("input", function (e) {
     const el = e.target;
     if (el.dataset.bind) {
+      if (el.tagName === "TEXTAREA") fitArea(el);
       let v = el.value;
       const kind = el.dataset.kind;
       if (kind === "num") { v = v.replace(/[^\d.]/g, ""); v = v === "" ? null : Number(v); }
@@ -1354,7 +1493,7 @@
 
   M.tidy(CAT, S);   // saves from before 26 Sep: companies chosen on their own step, non-food products
   const hash = location.hash.slice(1);
-  view = !S.lang ? "lang" : STEPS.indexOf(hash) >= 0 || hash === "home" ? hash : S.startedAt ? "home" : "welcome";
+  view = !S.startedAt ? "welcome" : STEPS.indexOf(hash) >= 0 || hash === "home" ? hash : "home";
   history.replaceState({ to: view }, "", "#" + view);
   render();
 })();

@@ -14,7 +14,6 @@
     chooseLang: "Choose your language",
 
     wTitle: "Let's make your FoodBridge store",
-    wSub: "Just tap and choose. About 30 minutes. Everything saves by itself.",
     wStart: "Start",
 
     hTitle: "Your store", hProgress: "{n} of {total} done",
@@ -22,7 +21,7 @@
 
     title_store: "Your shop", q_store: "Tell us about your shop.",
     title_companies: "Companies", title_rates: "Your rates",   // steps until 26 Sep 2026; old photos still name them
-    title_items: "Products", q_items: "Choose by company or by type, or search. Tap a picture to choose it.",
+    title_items: "Products", q_items: "Choose by brand or by category, or search. Tap a picture to choose it.",
     title_people: "Contacts", q_people: "Add people from your phone, then tap who each one is: customer, staff or supplier.",
     title_shops: "Customers", q_shops: "Which day do you deliver to each customer? Tap the star for big customers.",
     title_staff: "Staff",
@@ -38,16 +37,18 @@
     sItems_1: "1 product", sShops_1: "1 customer", sSup_1: "1 supplier",
     pAdded_1: "1 added", pDup_1: "1 was already added", pLeft_1: "1 left",
 
-    fShopName: "Shop name (what customers call you)", fOwner: "Your name", fMobile: "Your mobile number",
-    fMobileHint: "You will log in with this number", fGst: "GST number", fGstHint: "15 letters and numbers, printed on your bill",
-    fGstOk: "Looks correct", fGstBad: "Please check, 15 letters needed",
+    fShopName: "Shop name", fOwner: "Your name", fMobile: "Mobile number (to log in)",
+    fGst: "GST number",
     fType: "What is your business?", tDistributor: "Distributor", tSuperstockist: "Super stockist", tWholesaler: "Wholesaler",
     tCnf: "C&F agent", tRetailer: "Retailer",
     fMakes: "Do you make or pack anything yourself?",
-    fLoc: "Shop location", fLocBtn: "Use my location", fLocSaved: "Location saved", fLocWait: "Finding location…",
+    fLoc: "Shop location", fLocBtn: "Use my location", fLocSaved: "Location saved", fLocSavedS: "Saved", fLocWait: "Finding location…",
     fLocFail: "Could not get location. Turn on GPS and try again.", fAddress: "Shop address",
-    fGodown: "Your godown", gSame: "Same place as shop", gOther: "Different place", fGodownAddr: "Godown address",
-    fAreas: "Areas you supply to", fAreaPh: "Area name, e.g. Kurla", fShopPhoto: "Photo of your shop", takePhoto: "Take photo",
+    fLocDenied: "Allow location for this page, then tap again.", fAddrWait: "Finding the address…",
+    fAddrAdded: "Location and address added. Check the address.", fAddrKept: "Location saved. Your address is kept as you wrote it.",
+    fAddrNone: "Please type the address.",
+    fGodown: "Your godowns", gShop: "At the shop", gN: "Godown {n}", gAdd: "Add a godown", fGodownAddr: "Godown address",
+    fAreaPh: "Area name, e.g. Kurla", takePhoto: "Take photo",
 
     
     cNewName: "Company name", 
@@ -57,23 +58,23 @@
     
 
     iAll: "All", iSearch: "Search: Maggi, atta, potato…", iScan: "Scan", iNew: "New product",
-    iByCompany: "By company", iByType: "By type", iFresh: "Fresh & loose", iPacked: "Packed",
+    iByCompany: "By brand", iByType: "By category", iFresh: "Fresh & loose", iPacked: "Packed",
     iCount: "{n} products", iCount_1: "1 product", iMine: "Your products", iMineSub: "See and change prices",
     iNeedPrice: "{n} need a price", iNeedPrice_1: "1 needs a price", iAddPrice: "Add your price",
     iSelectAll: "Select all", iClearAll: "Remove all", iNotFound: "Can't find it? Add a new product",
     iMore: "Showing {n} of {total}. Type more to find it faster.",
     per_kg: "per kg", per_dozen: "per dozen", per_tray30: "per tray of 30", per_bunch: "per bunch", per_piece: "per piece", per_litre: "per litre", per_pack: "per pack",
     u_kg: "kg", u_dozen: "dozen", u_tray30: "trays", u_bunch: "bunches", u_piece: "pieces", u_litre: "litres", u_pack: "packs",
-    iShopPrice: "Customer price", iCaseOf: "Case of {n}", iChosen: "{n} chosen",
+    iShopPrice: "Customer price", iCaseOf: "Box of {n}", iChosen: "{n} chosen",
     iEmpty: "Nothing found. Add it as a new product.",
     isMrp: "MRP (printed on pack)", isSell: "Your price to customer, 1 piece", isBuy: "Your buying price, 1 piece",
     isSellPer: "Your price to customer, {per}", isBuyPer: "Your buying price, {per}", isLooseHint: "Loose goods have no MRP. Tell us your usual price.",
     isKind: "Packed or loose?", kPacked: "Packed (has MRP)", kLoose: "Loose (by kg, dozen…)", isPer: "How is it sold?",
-    isUnit: "You sell by", uPiece: "Piece", uCase: "Case", isCaseQty: "Pieces in one case",
+    isUnit: "You sell by", uPiece: "Piece", uCase: "Box", isCaseQty: "Pieces in one box",
     isSpeed: "How fast does it sell?", spFast: "Fast", spMed: "Normal", spSlow: "Slow",
     isGst: "GST %", isBarcode: "Barcode number", isRemove: "Remove this product",
     isName: "Product name", isPack: "Pack size, e.g. 500 g", isCompany: "Company", isCategory: "Type of product",
-    isPhoto: "Photo of pack", isCheckMrp: "Check MRP on the pack", isStdPrice: "Worked out at the usual margin. Change it if yours is different.", isCaseTotal: "1 case = ₹{n}",
+    isPhoto: "Photo of pack", isCheckMrp: "Check MRP on the pack", isStdPrice: "Worked out at the usual margin. Change it if yours is different.", isCaseTotal: "1 box = ₹{n}",
     otherCompany: "Other",
 
     scTitle: "Show the barcode to the camera", scNotSupported: "Scanning does not work on this phone. Search by name instead.",
@@ -105,7 +106,7 @@
    
    
 
-    skCases: "Cases", skLoose: "Loose", skNotCounted: "Not counted", skLater: "Count later", skNoItems: "Choose products first.",
+    skCases: "Boxes", skLoose: "Loose", skNotCounted: "Not counted", skLater: "Count later", skNoItems: "Choose products first.",
 
     ruPay: "How do customers pay you?", mCash: "Cash", mUpi: "UPI", mCheque: "Cheque", mCredit: "Credit (udhaar)",
     ruRoutes: "Do you deliver on fixed days by route?", ruSelf: "Should customers order by themselves from their phone?",
@@ -129,7 +130,10 @@
     cfFresh: "Delete everything and start again?", cfFreshYes: "Yes, delete all",
    
    
-    micUnsupported: "Speaking to type does not work on this phone.", listening: "Speak now…",
+    micUnsupported: "Speaking to type does not work here. Use the mic key on your keyboard.", listening: "Speak now…",
+    micSpeak: "Speak to type", micBlocked: "Allow the microphone for this page, then tap the mic again.",
+    micNoSpeech: "Did not hear anything. Tap the mic and speak.", micNone: "No microphone found.",
+    micNet: "Speaking to type needs internet.", micFail: "Could not start the mic. Tap it again.",
 
     gap_noName: "Shop name", gap_noMobile: "Your mobile number", gap_noGst: "GST number", gap_noLocation: "Shop location",
     gap_noItems: "No products chosen", gap_noMrp: "Products without MRP", gap_noPrice: "Loose goods without a price", gap_unsorted: "Contacts not sorted",
@@ -150,7 +154,6 @@
     chooseLang: "अपनी भाषा चुनें",
 
     wTitle: "चलिए आपकी FoodBridge दुकान बनाते हैं",
-    wSub: "बस टैप करें और चुनें। लगभग 30 मिनट। सब अपने आप सेव होता है।",
     wStart: "शुरू करें",
 
     hTitle: "आपकी दुकान", hProgress: "{total} में से {n} पूरे",
@@ -158,7 +161,7 @@
 
     title_store: "आपकी दुकान", q_store: "अपनी दुकान के बारे में बताइए।",
     title_companies: "कंपनियाँ", title_rates: "आपका रेट",
-    title_items: "सामान", q_items: "कंपनी या किस्म से चुनें, या खोजें। चुनने के लिए फ़ोटो पर टैप करें।",
+    title_items: "सामान", q_items: "ब्रांड या कैटेगरी से चुनें, या खोजें। चुनने के लिए फ़ोटो पर टैप करें।",
     title_people: "फ़ोन के नंबर", q_people: "फ़ोन से लोग जोड़ें, फिर हर एक के लिए चुनें: ग्राहक, स्टाफ़ या सप्लायर।",
     title_shops: "ग्राहक", q_shops: "हर ग्राहक को माल किस दिन जाता है? बड़े ग्राहक के लिए स्टार दबाएँ।",
     title_staff: "स्टाफ़",
@@ -171,16 +174,18 @@
     sNone: "शुरू नहीं हुआ", sSkipped: "बाद में", sItems: "{n} सामान", sPeople: "{n} छाँटे",
     sShops: "{n} ग्राहक", sStaff: "{n} स्टाफ़", sSup: "{n} सप्लायर", sStock: "{n} गिने", sRules: "8 में से {n} जवाब",
 
-    fShopName: "दुकान का नाम (जिस नाम से ग्राहक जानते हैं)", fOwner: "आपका नाम", fMobile: "आपका मोबाइल नंबर",
-    fMobileHint: "इसी नंबर से आप लॉगिन करेंगे", fGst: "GST नंबर", fGstHint: "15 अक्षर और अंक, आपके बिल पर छपा होता है",
-    fGstOk: "सही लग रहा है", fGstBad: "कृपया जाँचें, 15 अक्षर चाहिए",
+    fShopName: "दुकान का नाम", fOwner: "आपका नाम", fMobile: "मोबाइल नंबर (लॉगिन के लिए)",
+    fGst: "GST नंबर",
     fType: "आपका काम क्या है?", tDistributor: "डिस्ट्रीब्यूटर", tSuperstockist: "सुपर स्टॉकिस्ट", tWholesaler: "होलसेलर",
     tCnf: "C&F एजेंट", tRetailer: "रिटेलर",
     fMakes: "क्या आप ख़ुद कुछ बनाते या पैक करते हैं?",
-    fLoc: "दुकान की जगह", fLocBtn: "मेरी लोकेशन लें", fLocSaved: "लोकेशन सेव हो गई", fLocWait: "लोकेशन ढूँढ रहे हैं…",
+    fLoc: "दुकान की जगह", fLocBtn: "मेरी लोकेशन लें", fLocSaved: "लोकेशन सेव हो गई", fLocSavedS: "सेव हो गई", fLocWait: "लोकेशन ढूँढ रहे हैं…",
     fLocFail: "लोकेशन नहीं मिली। GPS चालू करके फिर कोशिश करें।", fAddress: "दुकान का पता",
-    fGodown: "आपका गोदाम", gSame: "दुकान वाली जगह", gOther: "दूसरी जगह", fGodownAddr: "गोदाम का पता",
-    fAreas: "किन इलाकों में माल देते हैं", fAreaPh: "इलाके का नाम, जैसे कुर्ला", fShopPhoto: "दुकान की फ़ोटो", takePhoto: "फ़ोटो लें",
+    fLocDenied: "इस पेज को लोकेशन की इजाज़त दें, फिर दोबारा दबाएँ।", fAddrWait: "पता ढूँढ रहे हैं…",
+    fAddrAdded: "लोकेशन और पता जुड़ गया। पता एक बार देख लें।", fAddrKept: "लोकेशन सेव हो गई। आपका लिखा पता वैसा ही रखा है।",
+    fAddrNone: "पता लिख दीजिए।",
+    fGodown: "आपके गोदाम", gShop: "दुकान पर ही", gN: "गोदाम {n}", gAdd: "गोदाम जोड़ें", fGodownAddr: "गोदाम का पता",
+    fAreaPh: "इलाके का नाम, जैसे कुर्ला", takePhoto: "फ़ोटो लें",
 
     
     cNewName: "कंपनी का नाम", 
@@ -190,7 +195,7 @@
     
 
     iAll: "सब", iSearch: "खोजें: मैगी, आटा, आलू…", iScan: "स्कैन", iNew: "नया सामान",
-    iByCompany: "कंपनी से", iByType: "किस्म से", iFresh: "ताज़ा और खुला सामान", iPacked: "पैकेट वाला सामान",
+    iByCompany: "ब्रांड से", iByType: "कैटेगरी से", iFresh: "ताज़ा और खुला सामान", iPacked: "पैकेट वाला सामान",
     iCount: "{n} सामान", iMine: "आपका सामान", iMineSub: "रेट देखें और बदलें",
     iNeedPrice: "{n} का रेट बाकी", iAddPrice: "अपना रेट डालें",
     iSelectAll: "सब चुनें", iClearAll: "सब हटाएँ", iNotFound: "नहीं मिला? नया सामान जोड़ें",
@@ -262,7 +267,10 @@
     cfFresh: "सब मिटा कर फिर से शुरू करें?", cfFreshYes: "हाँ, सब मिटाएँ",
    
    
-    micUnsupported: "इस फ़ोन पर बोल कर लिखना नहीं चलता।", listening: "अब बोलिए…",
+    micUnsupported: "यहाँ बोल कर लिखना नहीं चलता। कीबोर्ड वाला माइक दबाएँ।", listening: "अब बोलिए…",
+    micSpeak: "बोल कर लिखें", micBlocked: "इस पेज को माइक की इजाज़त दें, फिर माइक दोबारा दबाएँ।",
+    micNoSpeech: "कुछ सुनाई नहीं दिया। माइक दबा कर बोलिए।", micNone: "माइक नहीं मिला।",
+    micNet: "बोल कर लिखने के लिए इंटरनेट चाहिए।", micFail: "माइक शुरू नहीं हुआ। दोबारा दबाएँ।",
 
     gap_noName: "दुकान का नाम", gap_noMobile: "आपका मोबाइल नंबर", gap_noGst: "GST नंबर", gap_noLocation: "दुकान की जगह",
     gap_noItems: "कोई सामान नहीं चुना", gap_noMrp: "बिना MRP के सामान", gap_noPrice: "खुले सामान का रेट नहीं", gap_unsorted: "नंबर छाँटने बाकी",
