@@ -7,3 +7,5 @@ node_modules
 
 # Written by the local feedback store (dev only); the deployed bridge uses KV.
 feedback.jsonl
+# Store Builder builds kept by the local stores store (dev only): real customer data, never committed.
+stores-data/

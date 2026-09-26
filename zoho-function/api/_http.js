@@ -12,7 +12,7 @@ export function cors(req, res) {
   if (originAllowed(cfg, origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-FB-Key");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-FB-Key, X-FB-Team");
     res.setHeader("Vary", "Origin");
   }
   if (req.method === "OPTIONS") { res.statusCode = 204; res.end(); return true; }

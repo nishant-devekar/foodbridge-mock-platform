@@ -334,3 +334,61 @@ One is **Give feedback**, and this bridge is where those answers land.
 
 Nothing here ever reports a save that did not happen — the page drops its local
 copy only on a 2xx.
+
+## Store Builder builds
+
+The last step of Store Builder (`v7/store-builder/`) is **Build my store**. It
+sends the build here so FoodBridge's customer success team can open it at any
+time. It is not kept on the distributor's phone: the phone holds a build only
+until it is delivered, then deletes it.
+
+| | |
+| --- | --- |
+| `POST /api/stores` | `{id, meta?, file?: {name, data (base64)}}`: the summary and each file (Excel, `setup.json`, every photo and voice note) arrive one per request, each under 3 MB, so no body nears Vercel's 4.5 MB limit. Open, like the page that calls it. |
+| `GET /api/stores` | every store, newest first, with its files and any still to arrive. Needs `X-FB-Team: <FB_STORES_KEY>`. |
+| `GET /api/stores?id=…&file=…` | one file, same key |
+| `/v7/stores.html` | the team's list: search, then Excel / setup.json / photos / voice per store |
+
+**Where it is stored**, in order of preference:
+
+1. **Vercel Blob, private**, when `BLOB_READ_WRITE_TOKEN` is set. The files hold
+   a distributor's customers, phone numbers and GST, so nothing is public: every
+   read goes through this bridge behind `FB_STORES_KEY`. With Blob but no team
+   key, the list is refused rather than open.
+2. **`stores-data/` next to this README**, when the filesystem is writable, as
+   with `npm run dev`. It is gitignored because it holds real customer data.
+3. **Neither**, which answers `503 not_configured`. The phone keeps the build
+   queued and sends it later, so nothing is lost.
+
+**To turn it on in production** (one-time, needs your Vercel login):
+
+1. Vercel dashboard → the `zoho-function` project → Storage → create a **Blob**
+   store and connect it. Copy its `BLOB_READ_WRITE_TOKEN`.
+2. Choose a team key: any long random string (`openssl rand -hex 24`).
+3. Add both to `.env`: `BLOB_READ_WRITE_TOKEN=…` and `FB_STORES_KEY=…`.
+4. `./deploy.sh`. It pushes every `.env` value and deploys.
+5. Check `/api/health`: `stores.store` should be `"blob"` with `teamKey: true`.
+6. Give the team `/v7/stores.html` and the key. They type it once per browser.
+
+### The email backup
+
+Every build's first request carries the Excel and `setup.json`. When email is
+set up, the bridge also emails both, as attachments with the store's summary, to
+the team (`stores-email.js`, Resend's REST API, no dependency).
+
+- **Backup:** with the file store on, the email goes as well. The build counts as
+  delivered once it is stored. If the store is failing, the phone retries even
+  though the email went, so a repeat email is possible and a missed build is not.
+- **Fallback:** with no file store yet, the email alone counts as delivered for
+  the Excel. Photos and voice notes need the store, so they wait on the phone
+  until it exists.
+
+To turn it on, add to `.env` and run `./deploy.sh`:
+
+| | |
+| --- | --- |
+| `RESEND_API_KEY` | resend.com → API Keys |
+| `FB_STORES_EMAIL_TO` | comma-separated addresses. Keep them here, not in the repo, which is public. |
+| `FB_STORES_EMAIL_FROM` | a sender on a domain verified in Resend, e.g. `FoodBridge Store Builder <stores@foodbridge.io>`. Without it Resend's test sender is used, which only delivers to the Resend account's own address. |
+
+`/api/health` reports `stores.email` once it is set.

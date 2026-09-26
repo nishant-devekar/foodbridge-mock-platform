@@ -76,6 +76,15 @@
         "8005"
       ],
       "port": 8005
+    },
+    {
+      "name": "bridge",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd zoho-function && node dev-server.js"
+      ],
+      "port": 8787
     }
   ]
 }
