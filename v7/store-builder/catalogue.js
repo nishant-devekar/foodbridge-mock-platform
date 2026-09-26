@@ -1,7 +1,14 @@
 /* Store Builder · the product catalogue.
 
-   What a distributor picks from instead of remembering. Companies → brands →
-   items, the way a distributor already thinks ("I am the Parle distributor").
+   What a distributor picks from instead of remembering. FOOD ONLY (26 Sep
+   2026: the owner's store sells food; soap, detergent, shampoo and the rest
+   went, with the eight companies that sold only those).
+
+   Two ways in, the two ways a distributor already thinks:
+   - by company ("I am the Parle distributor"): companies → brands → items;
+   - by type, the aisles of a shop (`aisles` below): Vegetables, Eggs,
+     Biscuits… Fresh and loose goods have no company at all, so this is the
+     only way to them.
 
    REAL PHOTOS. Every item carries a real pack photo and its barcode from the
    open product databases Open Food Facts, Open Beauty Facts and Open Products
@@ -21,6 +28,14 @@
 
    Adding a company or an item is a one-line edit below: nothing else changes.
    Item row: [id, companyId, brand, name, pack, mrp, piecesPerCase, category, barcode, photo]
+   Loose row: [id, category, English name, Hindi name, sold per, picture]
+
+   LOOSE AND FRESH goods (vegetables, fruit, eggs, meat, loose dal…) have no
+   brand, no MRP, no barcode and no pack photo. Each is sold per kg, dozen,
+   tray, bunch, piece, litre or pack, and shows as a picture (an emoji, which
+   needs no internet and carries no licence). The owner gives the price;
+   nothing is guessed. GST for fresh, unbranded food is 0%; paneer and curd
+   are at 5% and dry fruit at 5% — the accountant confirms, as for all GST.
    Photo prefixes: off: / obf: / opf: → images.open{food,beauty,products}facts.org/images/products/ */
 
 (function (root) {
@@ -56,21 +71,13 @@
     water: {"icon": "💧", "hsn": "2201", "gst": 5, "en": "Drinking water", "hi": "पानी की बोतल"},
     juice: {"icon": "🧃", "hsn": "2202", "gst": 5, "en": "Juice & fruit drinks", "hi": "जूस"},
     softdrink: {"icon": "🥤", "hsn": "2202", "gst": 40, "en": "Cold drinks (fizzy)", "hi": "कोल्ड ड्रिंक"},
-    soap: {"icon": "🧼", "hsn": "3401", "gst": 5, "en": "Bath soap", "hi": "नहाने का साबुन"},
-    shampoo: {"icon": "🧴", "hsn": "3305", "gst": 5, "en": "Shampoo", "hi": "शैम्पू"},
-    hairoil: {"icon": "💆", "hsn": "3305", "gst": 5, "en": "Hair oil & hair care", "hi": "बालों का तेल"},
-    toothpaste: {"icon": "🪥", "hsn": "3306", "gst": 5, "en": "Toothpaste & brush", "hi": "टूथपेस्ट / ब्रश"},
-    talc: {"icon": "🌸", "hsn": "3304", "gst": 5, "en": "Talc powder", "hi": "पाउडर"},
-    skincare: {"icon": "🧴", "hsn": "3304", "gst": 18, "en": "Creams & face wash", "hi": "क्रीम / फेसवॉश"},
-    shaving: {"icon": "🪒", "hsn": "8212", "gst": 18, "en": "Shaving", "hi": "शेविंग"},
-    detergent: {"icon": "🫧", "hsn": "3402", "gst": 18, "en": "Detergent & bars", "hi": "सर्फ़ / डिटर्जेंट"},
-    dishwash: {"icon": "🍽️", "hsn": "3402", "gst": 18, "en": "Dishwash", "hi": "बर्तन साबुन"},
-    cleaner: {"icon": "🚽", "hsn": "3402", "gst": 18, "en": "Floor & toilet clean", "hi": "फ़र्श / टॉयलेट क्लीनर"},
-    repellent: {"icon": "🦟", "hsn": "3808", "gst": 18, "en": "Mosquito & insect", "hi": "मच्छर / कीड़े"},
-    baby: {"icon": "👶", "hsn": "9619", "gst": 5, "en": "Diapers", "hi": "डायपर"},
-    sanitary: {"icon": "🌼", "hsn": "9619", "gst": 0, "en": "Sanitary pads", "hi": "सैनिटरी पैड"},
-    ohc: {"icon": "💊", "hsn": "3004", "gst": 5, "en": "Balm & first aid", "hi": "बाम / दवा"},
-    agarbatti: {"icon": "🪔", "hsn": "3307", "gst": 5, "en": "Agarbatti", "hi": "अगरबत्ती"},
+    veg: {"icon": "🥕", "hsn": "0709", "gst": 0, "en": "Vegetables", "hi": "सब्ज़ी"},
+    fruit: {"icon": "🍎", "hsn": "0810", "gst": 0, "en": "Fruits", "hi": "फल"},
+    eggs: {"icon": "🥚", "hsn": "0407", "gst": 0, "en": "Eggs", "hi": "अंडे"},
+    meat: {"icon": "🍗", "hsn": "0207", "gst": 0, "en": "Chicken, meat & fish", "hi": "चिकन, मटन, मछली"},
+    freshdairy: {"icon": "🧀", "hsn": "0406", "gst": 5, "en": "Paneer & curd", "hi": "पनीर / दही"},
+    grains: {"icon": "🍚", "hsn": "1006", "gst": 0, "en": "Loose rice, wheat & dal", "hi": "खुला चावल, गेहूँ, दाल"},
+    dryfruit: {"icon": "🥜", "hsn": "0802", "gst": 5, "en": "Dry fruits & nuts", "hi": "सूखे मेवे"},
     other: {"icon": "📦", "hsn": "", "gst": 18, "en": "Other", "hi": "दूसरा सामान"},
   };
 
@@ -93,17 +100,9 @@
     {"id": "haldiram", "name": "Haldiram's", "short": "Haldiram's", "color": "#B3121B"},
     {"id": "bikaji", "name": "Bikaji", "short": "Bikaji", "color": "#D2232A"},
     {"id": "balaji", "name": "Balaji Wafers", "short": "Balaji", "color": "#C62828"},
-    {"id": "colgate", "name": "Colgate-Palmolive", "short": "Colgate", "color": "#C4000C"},
-    {"id": "pg", "name": "Procter & Gamble", "short": "P&G", "color": "#003DA5"},
-    {"id": "reckitt", "name": "Reckitt", "short": "Reckitt", "color": "#C8005A"},
-    {"id": "godrej", "name": "Godrej Consumer", "short": "Godrej", "color": "#6E2C91"},
-    {"id": "wipro", "name": "Wipro Consumer", "short": "Santoor", "color": "#D9731A"},
-    {"id": "jyothy", "name": "Jyothy Labs", "short": "Jyothy", "color": "#0067B1"},
-    {"id": "emami", "name": "Emami", "short": "Emami", "color": "#B71C1C"},
     {"id": "mdh", "name": "MDH", "short": "MDH", "color": "#A0141E"},
     {"id": "everest", "name": "Everest", "short": "Everest", "color": "#9E1B32"},
     {"id": "bisleri", "name": "Bisleri", "short": "Bisleri", "color": "#00897B"},
-    {"id": "himalaya", "name": "Himalaya", "short": "Himalaya", "color": "#00703C"},
     {"id": "mdairy", "name": "Mother Dairy", "short": "Mother Dairy", "color": "#0C4DA2"},
     {"id": "kelloggs", "name": "Kellogg's", "short": "Kellogg's", "color": "#C62D1F"},
     {"id": "renuka", "name": "Shree Renuka (Madhur)", "short": "Madhur", "color": "#7A5C00"},
@@ -112,17 +111,6 @@
   /* [id, companyId, brand, name, pack, mrp, piecesPerCase, category, barcode, photo] */
   const rows = [
     // Hindustan Unilever
-    ["hul01", "hul", "Surf Excel", "Surf Excel Quick Wash", "1 kg", 225, 12, "detergent", "8909106006478", "opf:890/910/600/6478/front_en.7.200.jpg"],
-    ["hul04", "hul", "Surf Excel", "Surf Excel Detergent Bar", "250 g", 35, 40, "detergent", "8909106040670", "opf:890/910/604/0670/front_en.5.200.jpg"],
-    ["hul05", "hul", "Wheel", "Wheel Detergent Powder", "1 kg", 70, 12, "detergent", "8901030997723", "off:890/103/099/7723/front_en.3.200.jpg"],
-    ["hul07", "hul", "Vim", "Vim Dishwash Liquid", "250 ml", 55, 24, "dishwash", "8901030889875", "off:890/103/088/9875/front_en.3.200.jpg"],
-    ["hul08", "hul", "Lux", "Lux Soft Glow Soap", "100 g", 38, 72, "soap", "8901030539749", "obf:890/103/053/9749/front_en.10.200.jpg"],
-    ["hul10", "hul", "Lifebuoy", "Lifebuoy Soap", "₹10 bar", 10, 144, "soap", "6281006483705", "off:628/100/648/3705/front_en.3.200.jpg"],
-    ["hul13", "hul", "Clinic Plus", "Clinic Plus Shampoo", "175 ml", 110, 24, "shampoo", "8901030984709", "off:890/103/098/4709/front_en.3.200.jpg"],
-    ["hul14", "hul", "Clinic Plus", "Clinic Plus Sachet strip (16)", "16 sachets", 16, 48, "shampoo", "8901030778445", "off:890/103/077/8445/front_en.3.200.jpg"],
-    ["hul15", "hul", "Sunsilk", "Sunsilk Black Shine Shampoo", "180 ml", 150, 24, "shampoo", "6281006424548", "off:628/100/642/4548/front_en.3.200.jpg"],
-    ["hul16", "hul", "Pond's", "Pond's Dreamflower Talc", "100 g", 95, 48, "talc", "8901030869013", "off:890/103/086/9013/front_en.4.200.jpg"],
-    ["hul19", "hul", "Close-Up", "Close-Up Red Hot", "150 g", 115, 48, "toothpaste", "4800888147288", "off:480/088/814/7288/front_en.6.200.jpg"],
     ["hul20", "hul", "Red Label", "Brooke Bond Red Label", "250 g", 150, 36, "tea", "8901030877124", "off:890/103/087/7124/front_en.3.200.jpg"],
     ["hul21", "hul", "Red Label", "Brooke Bond Red Label", "₹10 pack", 10, 200, "tea", "8901030877124", "off:890/103/087/7124/front_en.3.200.jpg"],
     ["hul22", "hul", "Taj Mahal", "Taj Mahal Tea", "250 g", 220, 36, "tea", "8901030815140", "off:890/103/081/5140/front_en.5.200.jpg"],
@@ -249,19 +237,12 @@
     ["tat11", "tata", "Ching's", "Ching's Hakka Noodles", "150 g", 40, 48, "noodles", "8901595972258", "off:890/159/597/2258/front_en.3.200.jpg"],
 
     // Dabur
-    ["dab01", "dabur", "Dabur Red", "Dabur Red Paste", "150 g", 110, 48, "toothpaste", "8901207027383", "off:890/120/702/7383/front_en.4.200.jpg"],
-    ["dab03", "dabur", "Dabur Amla", "Dabur Amla Hair Oil", "275 ml", 135, 24, "hairoil", "8901207038389", "off:890/120/703/8389/front_en.3.200.jpg"],
-    ["dab04", "dabur", "Vatika", "Vatika Shampoo", "180 ml", 145, 24, "shampoo", "6291069208221", "off:629/106/920/8221/front_en.3.200.jpg"],
     ["dab05", "dabur", "Dabur Honey", "Dabur Honey", "500 g", 225, 24, "jam", "8901207047473", "off:890/120/704/7473/front_en.5.200.jpg"],
     ["dab06", "dabur", "Real", "Real Fruit Power Mixed Fruit", "1 L", 125, 12, "juice", "8901207043185", "off:890/120/704/3185/front_en.3.200.jpg"],
     ["dab07", "dabur", "Chyawanprash", "Dabur Chyawanprash", "500 g", 225, 24, "healthdrink", "8901207006241", "off:890/120/700/6241/front_en.5.200.jpg"],
     ["dab08", "dabur", "Hajmola", "Hajmola Regular", "120 tablets", 65, 48, "sweets", "89004869", "off:89004869/front_en.4.200.jpg"],
-    ["dab09", "dabur", "Odomos", "Odomos Cream", "50 g", 85, 48, "repellent", "8901207500053", "off:890/120/750/0053/front_en.3.200.jpg"],
 
     // Marico
-    ["mar01", "marico", "Parachute", "Parachute Coconut Oil", "100 ml", 55, 72, "hairoil", "0856408005013", "off:085/640/800/5013/front_en.3.200.jpg"],
-    ["mar02", "marico", "Parachute", "Parachute Coconut Oil", "200 ml", 105, 36, "hairoil", "0856408005013", "off:085/640/800/5013/front_en.3.200.jpg"],
-    ["mar04", "marico", "Livon", "Livon Hair Serum", "50 ml", 170, 48, "hairoil", "8901088200073", "off:890/108/820/0073/front_en.3.200.jpg"],
     ["mar05", "marico", "Saffola", "Saffola Gold Oil", "1 L", 205, 12, "oil", "8901088017411", "off:890/108/801/7411/front_en.3.200.jpg"],
     ["mar06", "marico", "Saffola", "Saffola Masala Oats", "₹15 pack", 15, 72, "cereal", "8901088194839", "off:890/108/819/4839/front_en.3.200.jpg"],
     ["mar07", "marico", "Saffola", "Saffola Oats", "1 kg", 190, 12, "cereal", "8901088050562", "off:890/108/805/0562/front_en.3.200.jpg"],
@@ -274,7 +255,6 @@
     ["awl05", "awl", "Fortune", "Fortune Rozana Basmati Rice", "5 kg", 450, 4, "atta", "8906007287883", "off:890/600/728/7883/front_en.4.200.jpg"],
 
     // Patanjali
-    ["pat02", "patanjali", "Kesh Kanti", "Kesh Kanti Shampoo", "200 ml", 100, 24, "shampoo", "8904100018816", "off:890/410/001/8816/front_en.14.200.jpg"],
     ["pat03", "patanjali", "Patanjali", "Patanjali Cow Ghee", "1 L", 650, 12, "dairy", "8904109490545", "off:890/410/949/0545/front_en.4.200.jpg"],
     ["pat04", "patanjali", "Patanjali", "Patanjali Honey", "500 g", 180, 24, "jam", "8904109401589", "off:890/410/940/1589/front_en.3.200.jpg"],
 
@@ -295,36 +275,6 @@
     // Balaji Wafers
     ["bal03", "balaji", "Balaji", "Balaji Chataka Pataka", "₹10 pack", 10, 60, "namkeen", "8906010505424", "off:890/601/050/5424/front_en.3.200.jpg"],
 
-    // Colgate-Palmolive
-    ["col03", "colgate", "Colgate", "Colgate MaxFresh", "150 g", 105, 48, "toothpaste", "8901314543653", "off:890/131/454/3653/front_en.6.200.jpg"],
-
-    // Procter & Gamble
-    ["png01", "pg", "Tide", "Tide Detergent Bar", "250 g", 25, 40, "detergent", "4987176099921", "opf:498/717/609/9921/front_en.3.200.jpg"],
-    ["png03", "pg", "Head & Shoulders", "Head & Shoulders Anti-Dandruff", "180 ml", 200, 24, "shampoo", "4987176073099", "off:498/717/607/3099/front_en.3.200.jpg"],
-    ["png06", "pg", "Vicks", "Vicks VapoRub", "10 ml", 50, 96, "ohc", "4987176244987", "off:498/717/624/4987/front_en.3.200.jpg"],
-
-    // Reckitt
-    ["rkt01", "reckitt", "Dettol", "Dettol Antiseptic Liquid", "125 ml", 80, 48, "ohc", "8901396350200", "off:890/139/635/0200/front_en.3.200.jpg"],
-    ["rkt02", "reckitt", "Dettol", "Dettol Original Soap", "75 g", 38, 72, "soap", "50158980", "off:50158980/front_en.3.200.jpg"],
-    ["rkt03", "reckitt", "Harpic", "Harpic Power Plus", "500 ml", 99, 24, "cleaner", "8901396152002", "off:890/139/615/2002/front_en.3.200.jpg"],
-    ["rkt04", "reckitt", "Harpic", "Harpic Power Plus", "1 L", 190, 12, "cleaner", "8901396152002", "off:890/139/615/2002/front_en.3.200.jpg"],
-
-    // Godrej Consumer
-    ["god01", "godrej", "Godrej No.1", "Godrej No.1 Sandal & Turmeric", "100 g", 28, 72, "soap", "8901023028670", "off:890/102/302/8670/front_en.3.200.jpg"],
-    ["god02", "godrej", "Cinthol", "Cinthol Original", "100 g", 42, 72, "soap", "8901023020353", "off:890/102/302/0353/front_en.3.200.jpg"],
-    ["god03", "godrej", "Good Knight", "Good Knight Gold Flash Refill", "45 ml", 85, 48, "repellent", "8901023022968", "off:890/102/302/2968/front_en.3.200.jpg"],
-
-    // Wipro Consumer
-    ["wip01", "wipro", "Santoor", "Santoor Sandal & Turmeric", "100 g", 34, 72, "soap", "8901399005305", "off:890/139/900/5305/front_en.4.200.jpg"],
-    ["wip02", "wipro", "Santoor", "Santoor Soap", "₹10 bar", 10, 144, "soap", "8901399049101", "off:890/139/904/9101/front_en.3.200.jpg"],
-    ["wip03", "wipro", "Chandrika", "Chandrika Ayurvedic Soap", "75 g", 32, 72, "soap", "8901370000015", "off:890/137/000/0015/front_en.5.200.jpg"],
-
-    // Jyothy Labs
-    ["jyo01", "jyothy", "Ujala", "Ujala Supreme Liquid Whitener", "75 ml", 30, 96, "detergent", "8902102194910", "off:890/210/219/4910/front_en.3.200.jpg"],
-
-    // Emami
-    ["ema03", "emami", "Zandu", "Zandu Balm", "8 ml", 40, 144, "ohc", "8901248701488", "off:890/124/870/1488/front_en.3.200.jpg"],
-
     // MDH
     ["mdh01", "mdh", "MDH", "MDH Deggi Mirch", "100 g", 90, 48, "spice", "8902167000034", "off:890/216/700/0034/front_en.3.200.jpg"],
     ["mdh02", "mdh", "MDH", "MDH Kitchen King", "100 g", 88, 48, "spice", "8902167000102", "off:890/216/700/0102/front_en.17.200.jpg"],
@@ -341,9 +291,6 @@
     ["bis02", "bisleri", "Bisleri", "Bisleri Water", "1 L", 20, 12, "water", "8906017290026", "off:890/601/729/0026/front_en.23.200.jpg"],
     ["bis03", "bisleri", "Bisleri", "Bisleri Water", "2 L", 30, 9, "water", "8906017290026", "off:890/601/729/0026/front_en.23.200.jpg"],
 
-    // Himalaya
-    ["him01", "himalaya", "Himalaya", "Himalaya Purifying Neem Face Wash", "100 ml", 170, 48, "skincare", "8901138851248", "off:890/113/885/1248/front_en.3.200.jpg"],
-
     // Mother Dairy
     ["mdy01", "mdairy", "Dhara", "Dhara Kachi Ghani Mustard Oil", "1 L", 165, 12, "oil", "8906004620256", "off:890/600/462/0256/front_en.3.200.jpg"],
     ["mdy02", "mdairy", "Mother Dairy", "Mother Dairy Cow Ghee", "1 L", 600, 12, "dairy", "8901648031147", "off:890/164/803/1147/front_en.4.200.jpg"],
@@ -358,17 +305,99 @@
     ["ren02", "renuka", "Madhur", "Madhur Pure Sugar", "5 kg", 270, 4, "sugar", "8906026900046", "off:890/602/690/0046/front_en.3.200.jpg"],
   ];
 
+  /* [id, category, English name, Hindi name, sold per, picture]
+     sold per: kg · dozen · tray30 · bunch · piece · litre · pack */
+  const loose = [
+    ["veg01", "veg", "Potato", "आलू", "kg", "🥔"],
+    ["veg02", "veg", "Onion", "प्याज़", "kg", "🧅"],
+    ["veg03", "veg", "Tomato", "टमाटर", "kg", "🍅"],
+    ["veg04", "veg", "Garlic", "लहसुन", "kg", "🧄"],
+    ["veg05", "veg", "Ginger", "अदरक", "kg", "🫚"],
+    ["veg06", "veg", "Green chilli", "हरी मिर्च", "kg", "🌶️"],
+    ["veg07", "veg", "Carrot", "गाजर", "kg", "🥕"],
+    ["veg08", "veg", "Cauliflower", "फूलगोभी", "kg", "🥦"],
+    ["veg09", "veg", "Cabbage", "पत्ता गोभी", "kg", "🥬"],
+    ["veg10", "veg", "Brinjal", "बैंगन", "kg", "🍆"],
+    ["veg11", "veg", "Cucumber", "खीरा", "kg", "🥒"],
+    ["veg12", "veg", "Capsicum", "शिमला मिर्च", "kg", "🫑"],
+    ["veg13", "veg", "Lady finger (bhindi)", "भिंडी", "kg", "🫛"],
+    ["veg14", "veg", "Green peas", "हरी मटर", "kg", "🫛"],
+    ["veg15", "veg", "Bottle gourd (lauki)", "लौकी", "kg", "🥒"],
+    ["veg16", "veg", "Spinach (palak)", "पालक", "bunch", "🥬"],
+    ["veg17", "veg", "Coriander (dhania)", "हरा धनिया", "bunch", "🌿"],
+    ["veg18", "veg", "Lemon", "नींबू", "kg", "🍋"],
+    ["veg19", "veg", "Sweet corn", "भुट्टा", "piece", "🌽"],
+    ["veg20", "veg", "Mushroom", "मशरूम", "pack", "🍄"],
+    ["fru01", "fruit", "Banana", "केला", "dozen", "🍌"],
+    ["fru02", "fruit", "Apple", "सेब", "kg", "🍎"],
+    ["fru03", "fruit", "Orange", "संतरा", "kg", "🍊"],
+    ["fru04", "fruit", "Mango", "आम", "kg", "🥭"],
+    ["fru05", "fruit", "Grapes", "अंगूर", "kg", "🍇"],
+    ["fru06", "fruit", "Papaya", "पपीता", "kg", "🍈"],
+    ["fru07", "fruit", "Guava", "अमरूद", "kg", "🍐"],
+    ["fru08", "fruit", "Watermelon", "तरबूज़", "kg", "🍉"],
+    ["fru09", "fruit", "Pineapple", "अनानास", "piece", "🍍"],
+    ["fru10", "fruit", "Coconut", "नारियल", "piece", "🥥"],
+    ["egg01", "eggs", "Eggs, tray of 30", "अंडे, 30 की ट्रे", "tray30", "🥚"],
+    ["egg02", "eggs", "Eggs, dozen", "अंडे, दर्जन", "dozen", "🥚"],
+    ["mea01", "meat", "Chicken (with skin)", "चिकन", "kg", "🍗"],
+    ["mea02", "meat", "Chicken boneless", "बोनलेस चिकन", "kg", "🍗"],
+    ["mea03", "meat", "Mutton", "मटन", "kg", "🥩"],
+    ["mea04", "meat", "Fish (rohu)", "मछली (रोहू)", "kg", "🐟"],
+    ["mea05", "meat", "Prawns", "झींगा", "kg", "🦐"],
+    ["dai01", "milk", "Loose milk", "खुला दूध", "litre", "🥛"],
+    ["dai02", "freshdairy", "Paneer", "पनीर", "kg", "🧀"],
+    ["dai03", "freshdairy", "Curd (dahi)", "दही", "kg", "🥣"],
+    ["grn01", "grains", "Rice (loose)", "खुला चावल", "kg", "🍚"],
+    ["grn02", "grains", "Wheat", "गेहूँ", "kg", "🌾"],
+    ["grn03", "grains", "Toor dal", "अरहर दाल", "kg", "🫘"],
+    ["grn04", "grains", "Moong dal", "मूंग दाल", "kg", "🫘"],
+    ["grn05", "grains", "Chana dal", "चना दाल", "kg", "🫘"],
+    ["grn06", "grains", "Masoor dal", "मसूर दाल", "kg", "🫘"],
+    ["grn07", "grains", "Kabuli chana", "काबुली चना", "kg", "🫘"],
+    ["grn08", "grains", "Poha", "पोहा", "kg", "🍚"],
+    ["dry01", "dryfruit", "Almonds", "बादाम", "kg", "🌰"],
+    ["dry02", "dryfruit", "Cashews", "काजू", "kg", "🥜"],
+    ["dry03", "dryfruit", "Raisins", "किशमिश", "kg", "🍇"],
+    ["dry04", "dryfruit", "Peanuts", "मूंगफली", "kg", "🥜"],
+  ];
+
+  /* The aisles of a shop: how "by type" is laid out. Fresh first. Every
+     category that has items sits in exactly one aisle. */
+  const aisles = [
+    { id: "veg", en: "Vegetables", hi: "सब्ज़ी", icon: "🥕", cats: ["veg"], fresh: true },
+    { id: "fruit", en: "Fruits", hi: "फल", icon: "🍎", cats: ["fruit"], fresh: true },
+    { id: "eggs", en: "Eggs", hi: "अंडे", icon: "🥚", cats: ["eggs"], fresh: true },
+    { id: "meat", en: "Chicken, meat & fish", hi: "चिकन, मटन, मछली", icon: "🍗", cats: ["meat"], fresh: true },
+    { id: "milk", en: "Milk, paneer & cheese", hi: "दूध, पनीर, दही, चीज़", icon: "🥛", cats: ["milk", "freshdairy", "milkpowder", "cheese"], fresh: true },
+    { id: "staples", en: "Atta, rice & dal", hi: "आटा, चावल, दाल", icon: "🌾", cats: ["atta", "grains", "dal"] },
+    { id: "oil", en: "Oil, ghee & butter", hi: "तेल, घी, मक्खन", icon: "🛢️", cats: ["oil", "dairy"] },
+    { id: "sugar", en: "Sugar & salt", hi: "चीनी, नमक", icon: "🧂", cats: ["sugar", "salt"] },
+    { id: "spice", en: "Spices & masala", hi: "मसाले", icon: "🌶️", cats: ["spice"] },
+    { id: "dryfruit", en: "Dry fruits", hi: "सूखे मेवे", icon: "🥜", cats: ["dryfruit"] },
+    { id: "tea", en: "Tea & coffee", hi: "चाय, कॉफ़ी", icon: "🍵", cats: ["tea", "coffee"] },
+    { id: "biscuit", en: "Biscuits & cakes", hi: "बिस्किट, केक", icon: "🍪", cats: ["biscuit"] },
+    { id: "snacks", en: "Namkeen & chips", hi: "नमकीन, चिप्स", icon: "🥨", cats: ["namkeen", "chips"] },
+    { id: "choco", en: "Chocolates & sweets", hi: "चॉकलेट, टॉफ़ी", icon: "🍫", cats: ["choco", "sweets"] },
+    { id: "breakfast", en: "Noodles, sauces & breakfast", hi: "नूडल्स, सॉस, नाश्ता", icon: "🍜", cats: ["noodles", "ready", "sauce", "jam", "cereal"] },
+    { id: "drinks", en: "Cold drinks, juice & water", hi: "कोल्ड ड्रिंक, जूस, पानी", icon: "🥤", cats: ["softdrink", "juice", "water"] },
+    { id: "health", en: "Health drinks & baby food", hi: "हेल्थ ड्रिंक, बेबी फ़ूड", icon: "🍼", cats: ["healthdrink", "babyfood"] },
+  ];
+
   const items = rows.map(function (r) {
     const p = r[9].split(":");
     return { id: r[0], company: r[1], brand: r[2], name: r[3], pack: r[4], mrp: r[5], caseQty: r[6], cat: r[7], barcode: r[8], img: PHOTO[p[0]] + p.slice(1).join(":") };
-  });
+  }).concat(loose.map(function (r) {
+    return { id: r[0], company: "", brand: "", name: r[2], hi: r[3], pack: r[4], per: r[4], mrp: null, caseQty: 1, cat: r[1], barcode: "", img: null, emoji: r[5], loose: true };
+  }));
 
   const catalogue = {
-    version: "2026-09-26c",
+    version: "2026-09-26d",
     note: "MRPs are indicative (check on pack). GST by category under the GST 2.0 slabs from 22 Sep 2025; confirm with your accountant.",
     credit: "Product photos: Open Food Facts, Open Beauty Facts, Open Products Facts contributors (CC BY-SA)",
     categories: categories,
     companies: companies,
+    aisles: aisles,
     items: items,
   };
 

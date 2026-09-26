@@ -2466,3 +2466,176 @@ Tests: `node --test store-builder/test/*.test.js`, 12 pass.
 - JobFlow's unchanged sign-in screens re-checked against the React builds: 7 scenarios, **0 px**.
 - Every leaf loads inside the platform at 1440 px and 390 px.
 - `platform.js?v=` and every changed script's `?v=` bumped to `20260926PR1`.
+
+### 26 September 2026 — Store Builder, dressed like the onboarding flow
+
+**Asked:** the Store Builder's UI, end to end, like the onboarding flow.
+
+Every Store Builder screen and sheet now uses the onboarding's clothes (`modules/foodbridge-onboarding/screens/onboarding.css`): its tokens, its unit (1rem = 10 image px, capped at 402px), Inter, and its parts.
+- **Top bar:** a back arrow to the steps list and a twelve-segment progress bar. A camera at the right keeps photos and voice notes one tap away on every step.
+- **Each step:** a small "Step n of 12", a bold title, the question in grey, and 🔊 as a round green button beside it.
+- **Controls:** fields and choices are hairline boxes, and a choice turns solid green once chosen, like the onboarding's role picker. Next is pinned at the bottom in the onboarding's green.
+- **Home** is a manifest like the onboarding's *Data check*: one row per step, with a tick once it is done. The next step to do is tinted.
+- **Send** reads like *Data found*: counts in one card, anything still to fill in red. Save file is pinned at the bottom.
+- **Icons:** line icons in place of emoji, from the same Lucide set the onboarding uses (`store-builder/icons.js`). Staff and suppliers get initials avatars. The category pictures on packs without a photo stay as they were.
+- **Sheets** rise from the bottom like the onboarding's, with a grip and a round close button.
+
+Nothing a screen asks, saves or exports has changed; only `app.js`'s markup did. `onboarding.css` is not touched: it is locked on phones, and the Store Builder does not load it. All `?v=` bumped to `20260926R2`.
+
+Checked at 320, 375 and desktop width, in Hindi and English, with no console errors. Tests: `node --test store-builder/test/*.test.js`, 12 pass.
+
+### 26 September 2026 — Store Builder: Companies, Your rates and Products are one step
+
+**Asked:** merge the three into one. He searches products or brands and adds them; the brand is only an easy way to find products. The brand-wise Your rates step goes.
+
+Store Builder has **ten steps** now: Shop · Products · Phone contacts · Shops · Staff · Suppliers · Usual orders · Godown stock · How you work · Send.
+- **Products:**
+  - The search finds a product by name, brand, pack, category or company.
+  - Under the search is a row of every company, the ones he sells from first, each with how many of its products he chose. Tapping one shows its range and *Add all*.
+  - The whole catalogue is listed, his products first. He no longer has to pick companies before seeing products.
+- **Companies follow the products** (`SB_MODEL.syncCompanies`). A company arrives with its first product and leaves with its last. Saves from before this change sync when they open. A rate given on the old step is kept and still prices its products.
+- **Prices** start at the standard margin (₹80 buy / ₹87 sell per ₹100 MRP). A product's sheet says so under its price until he changes it.
+  - The export marks those prices *Standard margin — confirm*, both in Products and in a new *Rate source* column in Companies.
+  - It no longer calls them *Worked out*, which implied he gave the rate.
+- **A company not in the catalogue** is named in the New product sheet: choose *Other* and type the company.
+
+Tests: `node --test store-builder/test/*.test.js`, 13 pass (new: companies follow products, company search, price source). `?v=` bumped to `20260926R3`.
+
+### 26 September 2026 — Store Builder: products by company or by type, food only, fresh and loose goods
+
+**Owner:** think of it as the user. No long scroll. Offer "import by brand", then simply show the products with name and image to select. Handle non-brand goods too (vegetables, fruits, meat, eggs…). Food products only, and very easy to search and select.
+
+**The Products step is a short menu now, not a 20,000px list:**
+- **Search**, in English or Hindi: "Maggi", "atta", "आलू". A product's own name ranks above things that only share its company or kind. The barcode scanner sits inside the search box.
+- ***Your products* · n** opens the chosen products with their prices. Anything still needing a price comes first; a pencil opens the product and Done returns to the list.
+- **By company | By type.**
+  - *By company*: a tile per company, each with a real pack photo and a count of what he chose.
+  - *By type*: the aisles of a shop. Fresh & loose first (Vegetables, Fruits, Eggs, Chicken/meat/fish, Milk/paneer/cheese), then Packed (Atta/rice/dal … Health drinks & baby food).
+- **A tile opens a picture grid,** three across: photo or picture, name, pack. A tap chooses it (green border and tick), and *Select all* / *Remove all* acts on the whole tile.
+- **New product** asks *packed or loose* first. Loose asks what it is sold by and his price.
+
+**Food only.** The 36 non-food products (soap, detergent, shampoo, toothpaste…) are gone, with their 15 categories and the 8 companies that sold only those. That leaves 146 packs from 24 companies.
+
+**Loose and fresh goods: 52 of them, with no company or brand.**
+- Each is sold per kg / dozen / tray of 30 / bunch / piece / litre / pack, with a Hindi name and an emoji picture.
+- There is no MRP. The owner gives the price, per unit, and *To follow up* lists any loose good without a price (`noPrice`).
+- Stock counts them in their own unit, and Usual orders use it.
+- The export writes them *Loose — no MRP* and sells them *Per kg* and so on.
+- GST for fresh unbranded food is 0%; paneer, curd and dry fruit are 5%. The accountant confirms these, as for all GST.
+
+`SB_MODEL.tidy` drops products that left the catalogue from older saves, then re-syncs companies. Tests: 15 pass (new: food only with every category in an aisle, loose goods, tidy). `?v=` bumped to `20260926R4`.
+
+### 26 September 2026 — Store Builder: a step ends in Save, back to the list
+
+**Owner:** not Next, but Save or similar: the user should always return to the list.
+
+Every step's pinned button is now **✓ Save**. It saves and goes back to the steps list, with a toast "*Products saved*". It no longer walks on to the next step.
+- The list's own button (*Continue: …*) still opens the next unfinished step.
+- The skip links (*Count later*, *No staff*, *No suppliers*) also return to the list.
+- Send, the last step, is unchanged.
+
+`?v=` bumped to `20260926R5`. Tests: 15 pass.
+
+### 26 September 2026 — Store Builder: no Continue button on the steps list
+
+**Owner:** remove it; a step can be picked straight from the list.
+
+The steps list has no pinned button now: he taps the step he wants. The next unfinished step stays tinted green, and all ten steps, Send included, fit on one phone screen at 375×812. `?v=` bumped to `20260926R6`. Tests: 15 pass.
+
+### 26 September 2026 — Store Builder: they are customers, not shops
+
+**Owner:** reframe the shop context; it's not shops but customers.
+
+Wherever "shop" meant the distributor's buyer, the Store Builder now says **customer** (Hindi **ग्राहक**), the platform's noun (see the onboarding and the Control Tower).
+- **On screen:** the step (*4. Customers*), its question and buttons (*Add a customer*, *Big customer*), contact sorting, Usual orders, How you work (*How do customers pay you?*), the product price (*Customer price*, *Your price to customer*), the counts and every follow-up gap.
+- **Icon:** customers get a people icon in place of the cart and the shopfront.
+- **Export columns:** Customers, Routes, Usual orders, First orders, Settings and To follow up say *Customer*.
+- **Unchanged:** his own business keeps "shop": *Your shop*, shop name, location, address and photo.
+- **Unchanged internally:** step and field names (`shops`, `type: "shop"`), so saves and setup files still open.
+
+`?v=` bumped to `20260926R7`. Tests: 15 pass.
+
+### 26 September 2026 — Store Builder: one Contacts step
+
+**Owner:** merge Phone contacts, Customers, Staff and Suppliers into one. The user imports the relevant contacts from the phone, then tags them customer, staff or supplier, adds more, removes. Make it very easy and quick.
+
+Store Builder has **seven steps** now: Shop · Products · Contacts · Usual orders · Godown stock · How you work · Send.
+
+**Contacts**, one screen:
+- **Add, at the top:** *Add from phone contacts* (Android picker, many at once), *Contacts file*, *Type a name*. Typing a name from inside a tab starts it with that tag.
+- **Tabs with counts:** To sort · Customers · Staff · Suppliers. It opens on *To sort* while anyone is left (amber until the queue is empty), otherwise on Customers.
+- **To sort:** one person at a time, with four big buttons.
+  - A guess from the name marks one button *Looks like*: "… Kirana/Stores/General" → customer, "… Agency/Depot/Stockist" → supplier, "… Driver/Salesman/Helper" → staff (`SB_MODEL.guessType`). It never tags anyone by itself.
+  - **The rest are customers (n)** tags the whole queue in one tap. Most of a distributor's phone book is customers. Undo takes the whole batch back.
+  - *Not needed* people stay in a fold, one tap to re-tag.
+- **Each tab shows only what its kind needs:** customers get the delivery-day row and ⭐ big customer, staff their job, suppliers their companies. *No staff* / *No suppliers* now stay on the screen.
+- **More** opens the person, where they can be re-tagged or **removed** (`SB_MODEL.removePerson`, which also drops their usual order).
+
+The steps list shows Contacts as "2 customers · 1 staff · 1 supplier · 2 to sort". The Send step's counts and *Still to fill* rows open Contacts on the right tab.
+
+Saves and setup files are unchanged: the stored `type: "shop"` / `"staff"` / `"supplier"` is the same. Tests: 16 pass (new: the name guess, removing a contact, gaps pointing at the right tab). `?v=` bumped to `20260926R8`.
+
+### 26 September 2026 — Store Builder: contacts from the phone's contact list only, iPhone and Android
+
+**Owner:** no contacts file. Import from the phone's contacts, the way WhatsApp's share contact does, and it should work on both iOS and Android.
+
+- **One way in:** *Add from phone contacts* opens the phone's own contact list, where he searches, ticks many and taps Add.
+  - Where a contact has several numbers, the mobile is kept.
+  - Everyone added lands in *To sort*, with the name-based hint.
+  - *Type a name* stays beside it.
+- **Contacts files are gone:** the button, the file input and the vCard reader, with its test.
+- **iPhone:** a web page reaches contacts only through the browser's contact picker. Android Chrome has it on. iPhone Safari has the same picker, off until *Settings → Apps → Safari → Advanced → Feature Flags → Contact Picker API* is turned on (older iOS: *Experimental Features*).
+  - The page checks for the picker on each tap, so turning the setting on needs no reload.
+  - Without it, the button opens a sheet with that phone's own steps: iPhone the setting, Android open in Chrome, computer open on the phone. Typing is the fallback.
+  - Only a native app (as WhatsApp is) reaches iPhone contacts with no setting at all.
+- **Checked here:**
+  - The iPhone steps, with an iPhone user agent.
+  - The whole import path, with the phone's picker stood in: names and tel asked for, several at once; the mobile chosen over a landline; *To sort* with the hint.
+  - The real picker needs a real phone.
+
+Tests: 15 pass (the vCard test went with the feature). `?v=` bumped to `20260926R10`.
+
+### 26 September 2026 — Store Builder: Contacts, slicker and denser
+
+**Owner:** make the UI slick and easy, with more people visible and handled at once.
+
+- **Adding** is one row: *Add from phone* and *Type*.
+- **The four tabs** are count tiles (To sort · Customers · Staff · Suppliers), pinned under the top bar while the list scrolls. *To sort* is amber while anyone is left.
+- **To sort is a list, not one card at a time.** Each row shows the name and number, then **Customer · Staff · Supplier · ×** buttons, with the name-based guess highlighted. One tap files the person.
+  - *The rest are customers (n)* and *Undo* sit in a slim bar above the list.
+  - *Not needed* people fold away below, with the same buttons.
+- **Customers** are one compact row each: ⭐, name, number, and a mini Mon–Sun row under the name. About 7 fit on a 375×812 screen, against about 3 cards before.
+- **Staff** get a mini job row. **Suppliers** show their companies, in amber when none are chosen.
+- **Tapping a row** opens the person for everything else: area, payment, re-tag, remove.
+- **Search** (name or number) appears once a tab holds more than 8 people.
+
+`?v=` bumped to `20260926R11`. Tests: 15 pass.
+
+### 26 September 2026 — Store Builder: no Usual orders step
+
+**Owner:** remove Usual orders.
+
+Store Builder has **six steps** now: Shop · Products · Contacts · Godown stock · How you work · Send.
+- **What went with it:**
+  - The step and its order sheet.
+  - The *First orders* count on Send.
+  - The export's *Usual orders* and *First orders* sheets; the workbook has 13 sheets now.
+  - The follow-ups *Big customers without usual order* and *No big customers marked*.
+  - The model's `usualLines`, `firstDay`, `tomorrowOrders` and `tomorrowDay`, with their words.
+- **What stays:** ⭐ big customer on Contacts and the export's *Big customer* column.
+- **Old saves** keep their `usual` field and still open; nothing reads it.
+
+Tests: 15 pass (new: no usual-order sheets or gaps, and an old save with usual orders still opens). `?v=` bumped to `20260926R12`.
+
+### 26 September 2026 — Store Builder: no camera in the top bar, no reopening a setup file
+
+**Owner:** remove the top-bar camera, *Open a setup file* and *I have a setup file*.
+
+- **Camera:** it is gone from the steps list and every step's top bar, and the step progress runs the full width.
+  - Photos of paper and voice notes are still reachable from *How you work* (record a voice note) and *Send* (*Photos & voice*).
+  - The shop and product photo buttons are unchanged.
+- **Setup file:** the ⋯ menu has only the language switch and *Start again*, and Welcome only *Start*.
+  - The file input and the reopen/replace code are gone, with their words.
+  - The export still writes `setup.json` for the onboarder, and `SB_EXPORT.read` still reads it (tested).
+
+`?v=` bumped to `20260926R13`. Tests: 15 pass.

@@ -229,6 +229,10 @@
   function slug(s) { return String(s || "store").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "store"; }
   function isoDay(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 
+  const PER = { kg: "Per kg", dozen: "Per dozen", tray30: "Per tray of 30", bunch: "Per bunch", piece: "Per piece", litre: "Per litre", pack: "Per pack" };
+  /* A loose good is sold by its own unit (kg, dozen…); a pack by the case or the piece. */
+  function unitName(it) { return it.loose ? PER[it.per] || it.per : it.unit === "case" ? "Case" : "Piece"; }
+
   function sheets(cat, s, now) {
     now = now || new Date();
     const st = s.store;
@@ -238,9 +242,6 @@
     const sups = M.peopleOf(s, "supplier");
     const staff = M.peopleOf(s, "staff");
     const r = s.rules;
-    const first = M.firstDay(cat, s, now);
-    const tmr = first.date;
-    const orders = M.tomorrowOrders(cat, s, now);
     const photoOf = {};
     s.papers.forEach(function (p) { if (p.kind === "photo") photoOf[p.id] = paperFile(p); });
 
@@ -252,18 +253,18 @@
       ["Made on", now.toLocaleString("en-IN")],
       ["Started on", s.startedAt ? new Date(s.startedAt).toLocaleString("en-IN") : ""],
       ["Products", its.length],
-      ["Customers (shops)", shops.length],
+      ["Customers", shops.length],
       ["Suppliers", sups.length],
       ["Staff", staff.length],
-      ["First orders (" + DAY_EN[first.day] + " " + isoDay(tmr) + ")", orders.length],
       ["Photos and voice notes", s.papers.length],
       ["", ""],
       ["HOW TO READ THE SOURCE COLUMNS", ""],
       ["Catalogue — check on pack", "MRP came from the FoodBridge catalogue; confirm it on the pack before going live."],
       ["Owner", "The owner entered or changed it himself."],
-      ["Worked out", "Calculated from his per-company rule (price per ₹100 of MRP)."],
+      ["Worked out", "Calculated from the company rate he gave (price per ₹100 of MRP)."],
+      ["Standard margin — confirm", "Not asked: calculated from MRP at the standard margin (buys at ₹" + M.DEFAULT_RULE.buy + ", sells at ₹" + M.DEFAULT_RULE.sell + " per ₹100 MRP). Confirm his real prices before going live."],
       ["Counted", "Counted in the godown during the meeting."],
-      ["Owner said — confirm", "Said from memory. Do NOT load as an opening balance until confirmed (khata photo, or the shop confirms at first visit)."],
+      ["Owner said — confirm", "Said from memory. Do NOT load as an opening balance until confirmed (khata photo, or the customer confirms at first visit)."],
       ["GST", "By category, GST 2.0 slabs from 22 Sep 2025. Confirm with the store's accountant."],
       ["Barcode", "Real barcode of the pack, from Open Food Facts / Open Beauty Facts / Open Products Facts."],
       ["", ""],
@@ -273,7 +274,7 @@
       ["3", "Products, units, tax and price lists (sheets Products, Companies)"],
       ["4", "Customers with areas, delivery days and price list (sheet Customers), then Suppliers"],
       ["5", "Opening stock and opening balances (only rows marked Counted, or confirmed)"],
-      ["6", "Routes (sheet Routes) and the first day's draft orders (sheet First orders)"],
+      ["6", "Routes (sheet Routes)"],
       ["7", "Work through sheet To follow up during week one"],
     ] });
 
@@ -293,14 +294,14 @@
       ["Shop photo (logo)", st.photo ? photoOf[st.photo] || "" : "", ""],
     ] });
 
-    out.push({ name: "Companies", rows: [["Company", "Brands", "He buys at (per ₹100 MRP)", "He sells at (per ₹100 MRP)", "His margin %", "Supplied by", "Products chosen"]]
+    out.push({ name: "Companies", rows: [["Company", "Brands", "He buys at (per ₹100 MRP)", "He sells at (per ₹100 MRP)", "His margin %", "Rate source", "Supplied by", "Products chosen"]]
       .concat(companies.map(function (c) {
         const rule = s.companies[c.id];
         const brands = {};
         cat.items.forEach(function (x) { if (x.company === c.id) brands[x.brand] = 1; });
         const by = sups.filter(function (p) { return (p.companies || []).indexOf(c.id) >= 0; }).map(function (p) { return p.name; }).join(", ");
         const margin = rule.buy ? M.round2((rule.sell - rule.buy) / rule.buy * 100) : "";
-        return [c.name, Object.keys(brands).join(", "), rule.buy, rule.sell, margin, by, its.filter(function (it) { return it.company === c.id; }).length];
+        return [c.name, Object.keys(brands).join(", "), rule.buy, rule.sell, margin, rule.seen ? "Owner" : "Standard margin — confirm", by, its.filter(function (it) { return it.company === c.id; }).length];
       })) });
 
     out.push({ name: "Products", rows: [["Item ID", "Company", "Brand", "Product", "Pack", "Category", "HSN", "GST %", "MRP (₹)", "MRP source",
@@ -310,14 +311,20 @@
         const c = M.companyById(cat, s, it.company);
         const catg = cat.categories[it.cat] || cat.categories.other;
         const t = it.touched || {};
+        if (it.loose) {
+          return [it.id, "", "", it.name + (it.hi ? " (" + it.hi + ")" : ""), unitName(it), catg.en, it.hsn, it.gst, "", "Loose — no MRP",
+            it.sell != null ? it.sell : "", it.buy != null ? it.buy : "", it.sell != null || it.buy != null ? "Owner" : "Not given — ask",
+            unitName(it), "", it.sell != null ? it.sell : "",
+            SPEED[it.speed] || "", "", "", ""];
+        }
         return [it.id, c ? c.name : "", it.brand, it.name, it.pack, catg.en, it.hsn, it.gst, it.mrp,
           it.custom || t.mrp ? "Owner" : "Catalogue — check on pack",
-          it.sell, it.buy, t.sell || t.buy ? "Owner" : "Worked out",
-          it.unit === "case" ? "Case" : "Piece", it.caseQty, M.unitPrice(it, "sell"),
+          it.sell, it.buy, t.sell || t.buy ? "Owner" : (s.companies[it.company] || {}).seen ? "Worked out" : "Standard margin — confirm",
+          unitName(it), it.caseQty, M.unitPrice(it, "sell"),
           SPEED[it.speed] || "", it.barcode, it.photo ? photoOf[it.photo] || "" : it.img || "", it.custom ? "Yes" : ""];
       })) });
 
-    out.push({ name: "Customers", rows: [["Customer ID", "Shop name", "Mobile", "Area", "Delivery days", "Payment", "Price list", "Big shop",
+    out.push({ name: "Customers", rows: [["Customer ID", "Customer name", "Mobile", "Area", "Delivery days", "Payment", "Price list", "Big customer",
       "Orders by", "Owes now (₹)", "Owes — source", "Came from", "Note"]]
       .concat(shops.map(function (p) {
         return [p.id, p.name, M.phone10(p.phone), p.area || "", days(p), PAY[p.pay] || "", RATE[p.rate] || "Standard", p.big ? "Yes" : "",
@@ -337,7 +344,7 @@
         return [p.id, p.name, M.phone10(p.phone), ROLE[p.role] || "", days(p), p.vehicle || "", yn(p.cash), SRC[p.src] || ""];
       })) });
 
-    const routeRows = [["Day", "Route (area)", "Stop", "Shop", "Mobile", "Staff out that day"]];
+    const routeRows = [["Day", "Route (area)", "Stop", "Customer", "Mobile", "Staff out that day"]];
     M.routes(s).forEach(function (rt) {
       rt.shops.forEach(function (p, i) {
         routeRows.push([DAY_EN[rt.day], rt.area || "(no area)", i + 1, p.name, M.phone10(p.phone), rt.staff.map(function (x) { return x.name + " (" + (ROLE[x.role] || "?") + ")"; }).join(", ")]);
@@ -345,28 +352,11 @@
     });
     out.push({ name: "Routes", rows: routeRows });
 
-    const usualRows = [["Shop", "Delivery days", "Product", "Pack", "Qty", "Unit", "Rate (₹)", "Amount (₹)"]];
-    shops.forEach(function (p) {
-      M.usualLines(cat, s, p.id).forEach(function (l) {
-        usualRows.push([p.name, days(p), l.item.name, l.item.pack, l.qty, l.unit === "case" ? "Case" : "Piece", l.rate, l.amount]);
-      });
-    });
-    out.push({ name: "Usual orders", rows: usualRows });
-
-    const tRows = [["Order date", "Shop", "Mobile", "Area", "Product", "Qty", "Unit", "Rate (₹)", "Amount (₹)", "Order total (₹)"]];
-    orders.forEach(function (o) {
-      o.lines.forEach(function (l, i) {
-        tRows.push([isoDay(tmr), o.shop.name, M.phone10(o.shop.phone), o.shop.area || "", l.item.name + " " + l.item.pack, l.qty,
-          l.unit === "case" ? "Case" : "Piece", l.rate, l.amount, i === 0 ? o.total : ""]);
-      });
-    });
-    out.push({ name: "First orders", rows: tRows });
-
     out.push({ name: "Opening stock", rows: [["Item ID", "Product", "Pack", "Cases", "Loose pieces", "Total pieces", "Value at buy price (₹)", "Source"]]
       .concat(its.map(function (it) {
         const counted = it.stockCases != null || it.stockLoose != null;
         const total = counted ? (it.stockCases || 0) * it.caseQty + (it.stockLoose || 0) : "";
-        return [it.id, it.name, it.pack, counted ? it.stockCases || 0 : "", counted ? it.stockLoose || 0 : "", total,
+        return [it.id, it.name, it.loose ? unitName(it) : it.pack, counted ? it.stockCases || 0 : "", counted ? it.stockLoose || 0 : "", total,
           counted && it.buy != null ? M.round2(total * it.buy) : "", counted ? "Counted" : "Not counted — first Stock Audit"];
       })) });
 
@@ -381,7 +371,7 @@
       ["Payment methods he accepts", (r.payMethods || []).map(function (m) { return PAYM[m]; }).join(", "), "paymentConfig.methods"],
       ["Allows part payment", yn(r.partPay), "paymentConfig.allowPartialPayment"],
       ["Delivers by fixed route days", yn(r.routes), "appProp.isRouteDeliveryEnabled"],
-      ["Shops can order themselves (Store QR)", yn(r.selfOrder), "appProp.isStoreQrCode.isEnabled + storefront"],
+      ["Customers can order themselves (Store QR)", yn(r.selfOrder), "appProp.isStoreQrCode.isEnabled + storefront"],
       ["Order steps", r.steps === "simple" ? "Order → Delivered" : r.steps === "dispatch" ? "Order → Dispatched → Delivered (or Skipped)" : "", "globalSetting.orderWorkflow.statusWorkFlow.ORDER"],
       ["Tracks batch and expiry", yn(r.batches), "Product batches (ProductBatch)"],
       ["Returns and damages", { credit: "Takes back, gives credit", replace: "Replaces", none: "Does not take back" }[r.returns] || "", "Returns handling"],
@@ -396,11 +386,11 @@
 
     const GAP = {
       noName: "Store name", noMobile: "Login mobile", noGst: "GST number (missing or wrong format)", noLocation: "Shop location",
-      noItems: "No products chosen", noMrp: "Products without MRP", unsorted: "Contacts not sorted (shop / supplier / staff)",
-      noShops: "No shops added", shopNoDay: "Shops without a delivery day", shopNoPhone: "Shops without a 10-digit mobile",
-      shopNoArea: "Shops without an area", shopNoPay: "Shops without cash/credit", noDelivery: "No delivery person",
+      noItems: "No products chosen", noMrp: "Products without MRP", noPrice: "Loose goods without a price", unsorted: "Contacts not sorted (customer / supplier / staff)",
+      noShops: "No customers added", shopNoDay: "Customers without a delivery day", shopNoPhone: "Customers without a 10-digit mobile",
+      shopNoArea: "Customers without an area", shopNoPay: "Customers without cash/credit", noDelivery: "No delivery person",
       staffNoRole: "Staff without a role", noSuppliers: "No suppliers", supNoCompany: "Suppliers not linked to a company",
-      starNoUsual: "Big shops without a usual order", noStars: "No big shops marked", notCounted: "Products not counted in stock",
+notCounted: "Products not counted in stock",
       rulesOpen: "How-you-work questions not answered",
     };
     out.push({ name: "To follow up", rows: [["Screen", "What is missing", "How many"]]
