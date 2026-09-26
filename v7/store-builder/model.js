@@ -37,6 +37,7 @@
       rules: { payMethods: [], routes: null, selfOrder: null, partPay: null, returns: null, steps: null, batches: null, morning: null },
       skipped: {},          // step -> true when the owner said "none / later"
       papers: [],           // [{ id, kind: photo|voice, step, at, mime }]
+      stockDraft: null,     // the Godown stock count in progress: { sel: [itemId], lines: { itemId: { qty, unit } } }
     };
   }
 
@@ -328,6 +329,7 @@
     out.rules = Object.assign(blank().rules, s.rules || {});
     ["companies", "items", "customItems", "people", "usual", "skipped"].forEach(function (k) { if (!out[k] || typeof out[k] !== "object") out[k] = {}; });
     ["customCompanies", "order", "papers"].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = []; });
+    if (!out.stockDraft || !Array.isArray(out.stockDraft.sel) || typeof out.stockDraft.lines !== "object" || !out.stockDraft.lines) out.stockDraft = null;
     out.order = out.order.filter(function (id) { return out.people[id]; });
     Object.keys(out.people).forEach(function (id) { if (out.order.indexOf(id) < 0) out.order.push(id); });
     out.v = VERSION;
@@ -357,12 +359,67 @@
     return out;
   }
 
+  /* ── Godown stock, counted the way the platform's Stock Audit counts ──
+     27 Sep 2026: one line per product, one number in one unit -- pieces or
+     boxes for a pack, kg / dozen / … for loose goods. Blank is not counted;
+     0 is "looked, none there". The count is a draft until Finish Audit; the
+     export still reads stockCases + stockLoose, so Finish writes into those. */
+  function countUnits(it) {
+    if (it.loose) return [{ k: it.per || "kg", per: 1 }];
+    const u = [{ k: "piece", per: 1 }];
+    if (it.caseQty > 1) u.push({ k: "case", per: it.caseQty });
+    return u;
+  }
+  function countUnit(it) { return !it.loose && it.unit === "case" && it.caseQty > 1 ? "case" : countUnits(it)[0].k; }
+  function unitPer(it, k) { const u = countUnits(it).find(function (x) { return x.k === k; }); return u ? u.per : 1; }
+
+  /* What he counted last time, as a draft to carry on from. */
+  function stockDraft(cat, s) {
+    const d = { sel: [], lines: {} };
+    chosenItems(cat, s).forEach(function (it) {
+      if (it.stockCases == null && it.stockLoose == null) return;
+      let line;
+      if (it.loose) line = { qty: it.stockLoose || 0, unit: countUnits(it)[0].k };
+      else if (it.stockLoose == null && it.caseQty > 1) line = { qty: it.stockCases, unit: "case" };
+      else line = { qty: (it.stockCases || 0) * it.caseQty + (it.stockLoose || 0), unit: "piece" };
+      d.sel.push(it.id);
+      d.lines[it.id] = line;
+    });
+    return d;
+  }
+
+  /* Same products, same numbers, same units: nothing to lose by leaving. */
+  function draftSig(d) {
+    return JSON.stringify(d.sel.slice().sort().map(function (id) {
+      const l = d.lines[id];
+      return l && l.qty != null ? [id, l.qty, l.unit] : [id];
+    }));
+  }
+
+  /* Finish Audit: the draft becomes his opening stock. Returns how many were counted. */
+  function applyCount(cat, s, d) {
+    let n = 0;
+    Object.keys(s.items).forEach(function (id) {
+      const mine = s.items[id];
+      const l = d.sel.indexOf(id) >= 0 ? d.lines[id] : null;
+      const it = item(cat, s, id);
+      delete mine.stockCases;
+      delete mine.stockLoose;
+      if (!it || !l || l.qty == null) return;
+      n++;
+      if (!it.loose && l.unit === "case") mine.stockCases = l.qty;
+      else mine.stockLoose = l.qty;
+    });
+    return n;
+  }
+
   const api = {
     DAYS: DAYS, STEPS: STEPS, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
     blank: blank, migrate: migrate, uid: uid, round2: round2,
     phone10: phone10, phoneShow: phoneShow, gstOk: gstOk,
     companyList: companyList, companyById: companyById, item: item, syncCompanies: syncCompanies, tidy: tidy, aisleOf: aisleOf, chosenItems: chosenItems, unitPrice: unitPrice,
     search: search, findBarcode: findBarcode,
+    countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, stockDraft: stockDraft, draftSig: draftSig, applyCount: applyCount,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
     progress: progress, missing: missing, shortAddress: shortAddress,

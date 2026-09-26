@@ -47,7 +47,7 @@
   let S = load();
   let view = "welcome";
   let sheet = null;
-  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", stockCo: "", lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
+  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", saQ: "", saOpen: false, saAdding: false, saConfirm: false, saFlash: null, lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
   const urls = {};
 
   /* ─────────────────────────────────────────────────────── storage ── */
@@ -247,6 +247,7 @@
   /* ─────────────────────────────────────────────────────── screens ── */
 
   const SCREENS = {};
+  const SHEETS = {};
 
   /* Language and welcome on one screen: the FoodBridge mark and title sit in the
      middle, the language switch sits over Start and changes the words in place. */
@@ -455,14 +456,6 @@
       (by === "type" ? typeTiles() : companyTiles());
   }
 
-  function coFilter(key) {
-    const cos = M.companyList(CAT, S).filter(function (c) { return S.companies[c.id]; });
-    if (!cos.length) return "";
-    return '<div class="chips scroll">' + [{ id: "", short: t("iAll") }].concat(cos).map(function (c) {
-      return '<button class="chip' + (ui[key] === c.id ? " on" : "") + '" data-act="ui" data-k="' + key + '" data-v="' + h(c.id) + '">' + h(c.short) + "</button>";
-    }).join("") + "</div>";
-  }
-
   SCREENS.items = function () {
     const n = Object.keys(S.items).length;
     return frame("items",
@@ -599,25 +592,204 @@
       '<div id="plist">' + peopleList(tab) + "</div>");
   };
 
-  function stockList() {
-    const its = M.chosenItems(CAT, S).filter(function (it) { return !ui.stockCo || it.company === ui.stockCo; });
-    return its.map(function (it) {
-      const counted = it.stockCases != null || it.stockLoose != null;
-      return '<section class="sb-card stock' + (counted ? " counted" : "") + '"><div class="stock-top"><span class="pick-img">' + pickImg(it) + "</span>" +
-        "<div><b>" + h(nm(it)) + '</b><small class="sb-muted">' + h(packLabel(it)) + (it.loose ? "" : " · " + h(t("iCaseOf", { n: it.caseQty }))) + "</small>" +
-        (counted ? "" : '<small class="warn">' + h(t("skNotCounted")) + "</small>") + "</div></div>" +
-        (it.loose
-          ? '<div class="stock-row"><label>' + ic("box", 18) + h(t("u_" + it.per)) + "</label>" + stepper("items." + it.id + ".stockLoose", { min: 0 }) + "</div>"
-          : '<div class="stock-row"><label>' + ic("box", 18) + h(t("skCases")) + "</label>" + stepper("items." + it.id + ".stockCases", { min: 0 }) + "</div>" +
-            '<div class="stock-row"><label>' + ic("grid", 18) + h(t("skLoose")) + "</label>" + stepper("items." + it.id + ".stockLoose", { min: 0, small: true }) + "</div>") + "</section>";
-    }).join("");
+  /* ── Godown stock ────────────────────────────────────────────────────────
+     27 Sep 2026, the owner: the platform's Customer Stock Audit, screen for
+     screen (modules/foodbridge-customer-mockup/v3/screens/customers/
+     stock-audit.js, the Quick Audit loop), with one change of context: he is
+     counting his own godown, not a customer's shelf, so there is no "who are
+     you visiting" and the audit starts at the count. Search → add → count in
+     the row (unit above the − n + stepper) → Finish Audit, asked inline in
+     the footer. The ← asks before throwing an unsaved count away. Its look is
+     the platform's too (the .sa block in sb.css), not the onboarding's. */
+
+  function saDraft() {
+    if (!S.stockDraft) S.stockDraft = M.stockDraft(CAT, S);
+    const d = S.stockDraft;
+    d.sel = d.sel.filter(function (id) { return S.items[id]; });   // a product dropped on the Products step leaves the count too
+    return d;
+  }
+  function saItems() { return saDraft().sel.map(function (id) { return M.item(CAT, S, id); }).filter(Boolean); }
+  function saCounted(id) { const l = saDraft().lines[id]; return !!l && l.qty != null; }
+  function saStats() {
+    const its = saItems();
+    const n = its.filter(function (it) { return saCounted(it.id); }).length;
+    return { its: its, n: n, total: its.length, pct: its.length ? Math.round(n / its.length * 100) : 0 };
+  }
+  function saDirty() { return !!S.stockDraft && M.draftSig(S.stockDraft) !== M.draftSig(M.stockDraft(CAT, S)); }
+  function saUnitLabel(it, k) { return it.loose ? t("u_" + k) : k === "case" ? t("uCase") : t("uPiece"); }
+  function saLineUnit(it) { const l = saDraft().lines[it.id]; return (l && l.unit) || M.countUnit(it); }
+  function saSub(it) {
+    const co = it.company && M.companyById(CAT, S, it.company);
+    return [packLabel(it), co ? co.short : ""].filter(Boolean).join(" · ");
+  }
+  const saSearching = function () { return !!ui.saQ.trim() || ui.saOpen || ui.saAdding; };
+
+  function saHeadHTML() {
+    const s = saStats();
+    return '<button type="button" class="ws-exit" data-act="saExit" aria-label="' + h(t("saExit")) + '">←</button>' +
+      '<span class="ws-who">' + h(t("title_stock")) + "</span>" +
+      (s.total ? '<span class="ws-count">' + h(t("saProg", { n: s.n, total: s.total })) + "</span>" : "") +
+      '<div class="ws-bar"><span style="width:' + s.pct + '%"></span></div>';
+  }
+
+  /* While the box is in use the results own the screen; cleared, the count comes back. */
+  function saBodyHTML() {
+    const q = ui.saQ.trim();
+    const d = saDraft();
+    if (saSearching()) {
+      const mine = Object.keys(S.items).filter(function (id) { return d.sel.indexOf(id) < 0; });
+      let ids, total = 0;
+      if (q) ids = M.search(CAT, S, q, null).filter(function (id) { return d.sel.indexOf(id) < 0; })
+        .sort(function (a, b) { return (S.items[b] ? 1 : 0) - (S.items[a] ? 1 : 0); });   // his own products first
+      else {
+        const pool = (mine.length ? mine : M.search(CAT, S, "", null).filter(function (id) { return d.sel.indexOf(id) < 0; }))
+          .map(function (id) { return M.item(CAT, S, id); }).filter(Boolean).sort(function (a, b) { return nm(a).localeCompare(nm(b)); });
+        total = pool.length;
+        ids = pool.slice(0, 5).map(function (it) { return it.id; });
+      }
+      const rows = ids.map(function (id) { return M.item(CAT, S, id); }).filter(Boolean);
+      return '<div class="picker-list dropdown">' + (rows.length
+        ? rows.map(function (it) {
+          return '<button type="button" class="picker-row" data-act="saAdd" data-id="' + h(it.id) + '">' +
+            '<span><span class="nm">' + h(nm(it)) + '</span><div class="sub">' + h(saSub(it)) + "</div></span>" +
+            '<span class="add-ic" aria-hidden="true">+</span></button>';
+        }).join("")
+        : '<div class="dropdown-empty">' + h(t("saNoFound")) + '<button type="button" class="np-add" data-act="saNew">' + h(t("saAddProduct")) + "</button></div>") +
+        (!q && total > rows.length ? '<div class="suggest-hint">' + h(t("saShowing", { n: rows.length, total: total })) + "</div>" : "") + "</div>";
+    }
+    const its = saItems();
+    return '<div class="section-head-row"><h2>' + h(t("saSelected")) + "</h2></div>" + (its.length
+      ? '<div class="qc-card">' + its.map(saRowHTML).join("") + "</div>"
+      : '<div class="sah-empty"><div class="big">📋</div><p>' + h(t("saEmpty")) + "<br>" + h(t("saEmpty2")) + "</p></div>");
+  }
+
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+  /* An untouched row's box is empty, not 0: blank is "not counted", 0 is "none there". */
+  function saRowHTML(it) {
+    const l = saDraft().lines[it.id];
+    const done = saCounted(it.id);
+    const id = h(it.id);
+    return '<div class="qc-line qc-row' + (done ? " done" : "") + '" data-row="' + id + '">' +
+      '<div class="info"><div class="nm" title="' + h(nm(it)) + '">' + h(nm(it)) + '</div><div class="meta">' + h(saSub(it)) + '</div><div class="meta ask">' + h(t("saRemoveQ")) + "</div></div>" +
+      '<span class="qty-col">' +
+        '<button type="button" class="unit-pick" data-act="saUnit" data-id="' + id + '" aria-label="' + h(saUnitLabel(it, saLineUnit(it))) + '"><span class="lbl">' + h(saUnitLabel(it, saLineUnit(it))) + '</span><span class="chev" aria-hidden="true">⌄</span></button>' +
+        '<span class="pd-stepper"><button type="button" data-act="saStep" data-id="' + id + '" data-d="-1" aria-label="−">−</button>' +
+        '<span class="val"><input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" size="3" data-sa-qty="' + id + '" value="' + (done ? l.qty : "") + '" placeholder="0" aria-label="' + h(nm(it)) + '"></span>' +
+        '<button type="button" data-act="saStep" data-id="' + id + '" data-d="1" aria-label="+">+</button></span></span>' +
+      '<button type="button" class="qc-remove" data-act="saRemove" aria-label="' + h(t("remove")) + " " + h(nm(it)) + '">' + TRASH + "</button>" +
+      '<button type="button" class="ci-btn sm yes" data-act="saRemoveYes" data-id="' + id + '" aria-label="' + h(t("remove")) + '">✓</button>' +
+      '<button type="button" class="ci-btn sm no" data-act="saRemoveNo" aria-label="' + h(t("cancel")) + '">✗</button></div>';
+  }
+
+  /* The footer in its two states; the question is recomputed on every change behind it. */
+  function saFootHTML() {
+    if (!ui.saConfirm) {
+      return (saSearching() ? "" : '<button type="button" class="btn-add" data-act="saAddBtn">' + h(t("saAddProduct")) + "</button>") +
+        '<button type="button" class="btn-wide primary" data-act="saFinish">' + h(t("saFinish")) + "</button>";
+    }
+    const s = saStats();
+    const detail = s.n < s.total ? t("saSomeCounted", { n: s.n, total: s.total }) : t("saAllCounted", { n: s.total });
+    return '<span class="confirm-inline"><span class="ci-copy"><span class="ci-prompt">' + h(t("saFinishQ")) + '</span><span class="ci-detail">' + h(detail) + "</span></span>" +
+      '<button type="button" class="ci-btn yes" data-act="saYes" aria-label="' + h(t("saFinish")) + '">✓</button>' +
+      '<button type="button" class="ci-btn no" data-act="saNo" aria-label="' + h(t("saKeep")) + '">✗</button></span>';
   }
 
   SCREENS.stock = function () {
-    if (!Object.keys(S.items).length) return frame("stock", empty(t("skNoItems"), "go", "items", t("title_items"), "box"));
-    return frame("stock", '<div class="sb-gap"></div>' + coFilter("stockCo") + stockList(),
-      S.skipped.stock ? "" : '<button class="sb-link" data-act="skip" data-step="stock">' + h(t("skLater")) + "</button>");
+    saDraft();
+    return '<main class="sa sa-main"><div class="ws-head" id="saHead">' + saHeadHTML() + "</div>" +
+      '<div class="sah-search-row"><div class="sah-search"><input type="search" id="saQ" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search" value="' + h(ui.saQ) + '" placeholder="' + h(t("saSearch")) + '" aria-label="' + h(t("saSearch")) + '"></div></div>' +
+      '<div id="saBody">' + saBodyHTML() + "</div></main>" +
+      '<footer class="sa sah-foot ws-foot"><div class="inner" id="saFoot">' + saFootHTML() + "</div></footer>";
   };
+
+  /* In place, never a full redraw: a redraw would rebuild the box he is typing in. */
+  function saRefresh(body) {
+    const set = function (id, html) { const n = document.getElementById(id); if (n) n.innerHTML = html; };
+    set("saHead", saHeadHTML());
+    if (body) set("saBody", saBodyHTML());
+    set("saFoot", saFootHTML());
+  }
+
+  function saWrite(id, qty) {
+    const it = M.item(CAT, S, id);
+    if (!it) return;
+    const d = saDraft();
+    const l = d.lines[id] || (d.lines[id] = { qty: null, unit: M.countUnit(it) });
+    l.qty = qty;
+    save();
+    const row = document.querySelector('.qc-row[data-row="' + id + '"]');
+    if (row) {
+      row.classList.add("done");
+      const inp = row.querySelector("input");
+      if (inp && inp.value !== String(qty)) inp.value = qty;
+    }
+    saRefresh(false);
+  }
+
+  function saFlash(id) {
+    const col = document.querySelector('.qc-row[data-row="' + id + '"] .qty-col');
+    if (!col) return;
+    const b = document.createElement("span");
+    b.className = "unit-flash";
+    b.setAttribute("role", "status");
+    b.innerHTML = '<span class="ic" aria-hidden="true">✓</span>' + h(t("saUpdated"));
+    col.insertBefore(b, col.querySelector(".pd-stepper"));
+    setTimeout(function () { b.classList.add("out"); setTimeout(function () { b.remove(); }, 220); }, 1500);
+  }
+
+  /* The platform's unit sheet: his price for one of that unit, and the unit. */
+  function saPrice(it, k) {
+    if (it.sell == null) return null;
+    return M.round2(it.sell * M.unitPer(it, k));
+  }
+  function saMoney(v) { return "₹" + Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function saPriceHTML(it, k) {
+    const v = saPrice(it, k);
+    return v == null ? '<span class="us-price none">' + h(t("saNoPrice")) + "</span>" : '<span class="us-price">' + h(saMoney(v)) + "</span>";
+  }
+
+  SHEETS.saUnit = function (sh) {
+    const it = M.item(CAT, S, sh.id);
+    if (!it) return "";
+    const base = saUnitLabel(it, M.countUnits(it)[0].k);
+    return '<div class="grip"></div><h2 class="us-name">' + h(nm(it)) + '</h2><p class="us-sku">' + h(saSub(it)) + "</p>" +
+      '<div class="us-now"><span class="us-now-copy"><span class="us-label">' + h(t("saPrice")) + '</span><span id="usPrice">' + saPriceHTML(it, sh.picked) + "</span></span>" +
+      '<span class="us-pick"><label class="us-label" for="usUnit">' + h(t("saUnitSel")) + '</label><span class="us-select"><select id="usUnit">' +
+      M.countUnits(it).map(function (u) {
+        return '<option value="' + h(u.k) + '"' + (u.k === sh.picked ? " selected" : "") + ">" + h(saUnitLabel(it, u.k) + (u.per > 1 ? " (" + u.per + " " + base + ")" : "")) + "</option>";
+      }).join("") + '</select><span class="chev" aria-hidden="true">⌄</span></span></span></div>' +
+      '<div class="sheet-acts" id="usActs">' + saUnitActs(it, sh) + "</div>";
+  };
+  SHEETS.saUnit.sa = true;
+
+  function saUnitActs(it, sh) {
+    if (!sh.asking) return '<button type="button" class="sheet-btn primary" data-act="saUnitAsk">' + h(t("save")) + "</button>";
+    const changed = sh.picked !== sh.cur;
+    const v = saPrice(it, sh.picked);
+    const detail = (changed ? saUnitLabel(it, sh.cur) + " → " + saUnitLabel(it, sh.picked) : saUnitLabel(it, sh.picked)) + (v != null ? " · " + saMoney(v) : "");
+    return '<span class="confirm-inline"><span class="ci-copy"><span class="ci-prompt">' + h(t(changed ? "saChangeUnit" : "saSaveUnit")) + '</span><span class="ci-detail">' + h(detail) + "</span></span>" +
+      '<button type="button" class="ci-btn yes" data-act="saUnitYes" aria-label="' + h(t("save")) + '">✓</button>' +
+      '<button type="button" class="ci-btn no" data-act="saUnitNo" aria-label="' + h(t("cancel")) + '">✗</button></span>';
+  }
+  function saUnitRedraw() {
+    const it = M.item(CAT, S, sheet.id);
+    const acts = document.getElementById("usActs");
+    if (!it || !acts) return;
+    acts.classList.toggle("asking", !!sheet.asking);
+    acts.innerHTML = saUnitActs(it, sheet);
+  }
+
+  /* Leaving asks only when there is something to lose (ruthless panes, 24 Sep). */
+  SHEETS.saLeave = function () {
+    const s = saStats();
+    const so = !s.total ? t("saNoneSel") : !s.n ? t("saNoneCounted") : t("saSoFar", { n: s.n, total: s.total });
+    return (S.store.name ? '<div class="eyebrow">' + h(S.store.name) + "</div>" : "") +
+      "<h2>" + h(t("saLeaveQ")) + '</h2><p class="sub">' + h(so + " " + t("saLeaveSub")) + "</p>" +
+      '<div class="sheet-acts"><button type="button" class="sheet-btn primary" data-act="closeSheet">' + h(t("saKeep")) + "</button>" +
+      '<button type="button" class="sheet-btn danger" data-act="saDiscard">' + h(t("saEnd")) + "</button></div>";
+  };
+  SHEETS.saLeave.sa = "center";
 
   SCREENS.rules = function () {
     return frame("rules",
@@ -660,8 +832,6 @@
   };
 
   /* ───────────────────────────────────────────────────────── sheets ── */
-
-  const SHEETS = {};
 
   function sheetWrap(title, body, foot) {
     return '<div class="sheet-grip"></div><div class="sheet-head"><h2>' + title + '</h2><button class="sheet-x" data-act="closeSheet" aria-label="' + h(t("cancel")) + '">' + ic("x", 18) + "</button></div>" +
@@ -890,7 +1060,12 @@
     const prevBody = $sheet.querySelector(".sheet-body");
     const keep = prevBody && sheet && prevBody.dataset.kind === sheet.kind + (sheet.id || "") ? prevBody.scrollTop : 0;
     $app.innerHTML = (SCREENS[view] || SCREENS.home)();
-    if (sheet && SHEETS[sheet.kind]) {
+    $app.classList.toggle("is-sa", view === "stock");
+    const sa = sheet && SHEETS[sheet.kind] && SHEETS[sheet.kind].sa;
+    if (sa) {
+      /* The platform's own sheet (Godown stock): a bottom sheet, or a centred card. */
+      $sheet.innerHTML = '<div class="sa sah-sheet-scrim' + (sa === "center" ? " center" : "") + '" data-act="saScrim"><div class="sah-sheet" role="dialog" aria-modal="true">' + SHEETS[sheet.kind](sheet) + "</div></div>";
+    } else if (sheet && SHEETS[sheet.kind]) {
       $sheet.innerHTML = '<div class="scrim" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true">' + SHEETS[sheet.kind](sheet) + "</div>";
       const body = $sheet.querySelector(".sheet-body");
       if (body) { body.dataset.kind = sheet.kind + (sheet.id || ""); body.scrollTop = keep; }
@@ -907,6 +1082,7 @@
       }
     }
     hydrate();
+    if (ui.saFlash && view === "stock" && !sheet) { saFlash(ui.saFlash); ui.saFlash = null; }
   }
 
   function refreshList(key) {
@@ -1238,7 +1414,11 @@
   /* ──────────────────────────────────────────────────────── actions ── */
 
   const ACT = {
-    go: function (el) { if (el.dataset.to === "people") ui.peopleTab = el.dataset.tab || null; go(el.dataset.to); },
+    go: function (el) {
+      if (el.dataset.to === "people") ui.peopleTab = el.dataset.tab || null;
+      if (el.dataset.to === "stock") { ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false; }
+      go(el.dataset.to);
+    },
     saveStep: function (el) {
       save();
       go("home");
@@ -1352,6 +1532,7 @@
         S.customItems[id] = { name: d.name.trim(), brand: "", company: d.company || "", pack: d.pack || "", mrp: d.mrp || null, caseQty: d.caseQty || 1, cat: d.cat || "other", photo: d.photo || null, barcode: d.barcode || "" };
         S.items[id] = { unit: "case", barcode: d.barcode || "", touched: { mrp: true } };
       }
+      if (sheet.toCount) { saDraft().sel.unshift(id); ui.saQ = ""; ui.saOpen = ui.saAdding = false; }
       syncSave();
       closeSheet();
       toast("✓ " + d.name.trim());
@@ -1436,6 +1617,90 @@
       } catch (e) { if (e.name !== "AbortError") toast(t("fiShareFail")); }
     },
     confirm: function (el) { sheet = { kind: "confirm", what: el.dataset.what }; render(); },
+
+    /* Godown stock: the platform's Stock Audit. */
+    saScrim: function (el, e) { if (e.target === el) closeSheet(); },
+    saExit: function () { if (saDirty()) openSheet({ kind: "saLeave" }); else { S.stockDraft = null; save(); go("home"); } },
+    saDiscard: function () {
+      S.stockDraft = null;
+      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
+      save();
+      go("home");
+      toast(t("saDiscarded"));
+    },
+    saAdd: function (el) {
+      const id = el.dataset.id;
+      if (!S.items[id]) { S.items[id] = { unit: "case" }; M.syncCompanies(CAT, S); }   // counted in his godown, so he sells it
+      const d = saDraft();
+      if (d.sel.indexOf(id) < 0) d.sel.unshift(id);   // newest on top, where he is looking
+      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
+      save();
+      render();
+    },
+    saAddBtn: function () {
+      ui.saOpen = ui.saAdding = true;
+      ui.saConfirm = false;
+      saRefresh(true);
+      const box = document.getElementById("saQ");
+      if (box) box.focus();
+    },
+    saNew: function () {
+      openSheet({ kind: "newItem", toCount: true, draft: { name: ui.saQ.trim(), company: "", cat: "other", caseQty: 1, loose: false, per: "kg" } });
+    },
+    saStep: function (el) {
+      const l = saDraft().lines[el.dataset.id];
+      const cur = l && l.qty != null ? l.qty : 0;
+      saWrite(el.dataset.id, Math.max(0, cur + Number(el.dataset.d)));
+    },
+    /* Remove is asked in the row (✓ / ✗), one row at a time. */
+    saRemove: function (el) {
+      document.querySelectorAll(".qc-row.confirming").forEach(function (r) { r.classList.remove("confirming"); });
+      el.closest(".qc-row").classList.add("confirming");
+    },
+    saRemoveNo: function (el) { el.closest(".qc-row").classList.remove("confirming"); },
+    saRemoveYes: function (el) {
+      const d = saDraft(), id = el.dataset.id;
+      d.sel = d.sel.filter(function (x) { return x !== id; });
+      delete d.lines[id];
+      ui.saConfirm = false;
+      save();
+      saRefresh(true);
+    },
+    saUnit: function (el) {
+      const it = M.item(CAT, S, el.dataset.id);
+      if (!it) return;
+      const cur = saLineUnit(it);
+      openSheet({ kind: "saUnit", id: it.id, cur: cur, picked: cur, asking: false });
+    },
+    saUnitAsk: function () { sheet.asking = true; saUnitRedraw(); },
+    saUnitNo: function () { sheet.asking = false; saUnitRedraw(); },
+    /* A new unit keeps the number and re-reads it: three of something bigger. */
+    saUnitYes: function () {
+      const it = M.item(CAT, S, sheet.id);
+      if (it) {
+        const d = saDraft();
+        const l = d.lines[it.id] || (d.lines[it.id] = { qty: null, unit: M.countUnit(it) });
+        l.unit = sheet.picked;
+        save();
+        ui.saFlash = it.id;
+      }
+      closeSheet();
+    },
+    saFinish: function () {
+      if (!saStats().n) { toast(t("saCountFirst")); return; }
+      ui.saConfirm = true;
+      saRefresh(false);
+    },
+    saNo: function () { ui.saConfirm = false; saRefresh(false); },
+    saYes: function () {
+      if (!S.stockDraft) return;
+      const n = M.applyCount(CAT, S, S.stockDraft);
+      S.stockDraft = null;
+      ui.saQ = ""; ui.saOpen = ui.saAdding = ui.saConfirm = false;
+      save();
+      go("home");
+      toast(t("saSaved", { n: n }));
+    },
     fresh: async function () {
       const lang = S.lang;
       localStorage.removeItem(KEY);
@@ -1455,6 +1720,7 @@
     if (!el) return;
     const a = ACT[el.dataset.act];
     if (!a) return;
+    if (el.dataset.act === "saScrim" && e.target !== el) return;   // a tap inside the sheet, not on the dim
     e.preventDefault();
     a(el, e);
   });
@@ -1473,11 +1739,44 @@
     } else if (el.dataset.search) {
       ui[el.dataset.search] = el.value;
       refreshList(el.dataset.search);
+    } else if (el.id === "saQ") {
+      ui.saQ = el.value;
+      ui.saConfirm = false;
+      saRefresh(true);
+    } else if (el.dataset.saQty != null) {
+      /* Typed over a 0, the 0 goes: "05" is 5. Cleared, it is 0 -- he looked. */
+      saWrite(el.dataset.saQty, Math.max(0, parseInt(el.value.replace(/\D/g, ""), 10) || 0));
     }
+  });
+
+  /* The count's search box opens its list the moment it is tapped, and closes when he taps away.
+     The close waits a beat so a tap on a result lands first. */
+  document.addEventListener("focusin", function (e) {
+    if (e.target.id !== "saQ" || ui.saOpen) return;
+    ui.saOpen = true;
+    ui.saConfirm = false;
+    saRefresh(true);
+  });
+  document.addEventListener("focusout", function (e) {
+    if (e.target.id !== "saQ") return;
+    setTimeout(function () {
+      if (view !== "stock" || document.activeElement === document.getElementById("saQ") || !ui.saOpen) return;
+      ui.saOpen = ui.saAdding = false;
+      saRefresh(true);
+    }, 150);
   });
 
   document.addEventListener("change", function (e) {
     const el = e.target;
+    if (el.id === "usUnit" && sheet && sheet.kind === "saUnit") {
+      const it = M.item(CAT, S, sheet.id);
+      sheet.picked = el.value;
+      sheet.asking = false;
+      const p = document.getElementById("usPrice");
+      if (p && it) p.innerHTML = saPriceHTML(it, el.value);
+      saUnitRedraw();
+      return;
+    }
     if (el.dataset.bind && (el.dataset.rerender !== undefined || el.tagName === "SELECT")) setTimeout(render, 0);
     if (el.id === "filePhoto" || el.id === "fileGallery") { if (el.files.length) addPhotos(Array.from(el.files)); el.value = ""; }
   });

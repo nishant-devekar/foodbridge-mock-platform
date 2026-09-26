@@ -290,6 +290,37 @@ test("godowns: one or more, and a save from before 26 Sep keeps its godown", () 
   assert.deepEqual(rows.map((r) => r[0] + ": " + r[1]), ["Godown 1: At the shop", "Godown 2: Plot 9, MIDC Bhosari", "Godown 3: Gala 3, Wagholi"]);
 });
 
+test("godown stock: a stock audit draft from what he counted, and Finish writes the opening stock", () => {
+  const s = sample();                       // par02: 12 boxes of 72 + 30 loose
+  s.items.veg01 = { unit: "piece" };
+  const d = M.stockDraft(CAT, s);
+  assert.deepEqual(d.sel, ["par02"]);
+  assert.deepEqual(d.lines.par02, { qty: 12 * 72 + 30, unit: "piece" });
+  assert.equal(M.draftSig(d), M.draftSig(M.stockDraft(CAT, s)));
+
+  const par01 = M.item(CAT, s, "par01"), veg = M.item(CAT, s, "veg01");
+  assert.deepEqual(M.countUnits(par01).map((u) => u.k), ["piece", "case"]);
+  assert.equal(M.countUnit(par01), "case");
+  assert.deepEqual(M.countUnits(veg), [{ k: "kg", per: 1 }]);
+
+  d.sel.unshift("veg01", "par01", "hul25");
+  d.lines.par01 = { qty: 5, unit: "case" };
+  d.lines.veg01 = { qty: 0, unit: "kg" };   // looked, none there: counted
+  d.lines.hul25 = { qty: null, unit: "piece" };   // chosen, never counted
+  d.sel = d.sel.filter((id) => id !== "par02");   // taken off the count
+  assert.notEqual(M.draftSig(d), M.draftSig(M.stockDraft(CAT, s)));
+  assert.equal(M.applyCount(CAT, s, d), 2);
+  assert.equal(M.item(CAT, s, "par01").stockCases, 5);
+  assert.equal(M.item(CAT, s, "veg01").stockLoose, 0);
+  assert.equal(M.item(CAT, s, "hul25").stockLoose, null);
+  assert.equal(M.item(CAT, s, "par02").stockCases, null);
+
+  const stock = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Opening stock").rows;
+  assert.equal(stock.find((r) => r[0] === "par01")[5], 5 * M.item(CAT, s, "par01").caseQty);
+  assert.equal(stock.find((r) => r[0] === "veg01")[7], "Counted");
+  assert.deepEqual(M.stockDraft(CAT, s).lines.par01, { qty: 5, unit: "case" });
+  assert.equal(M.migrate(Object.assign({}, s, { stockDraft: { sel: "x" } })).stockDraft, null);
+});
 
 test("fresh produce has real photos, and the file credits each one it uses", () => {
   const loose = CAT.items.filter((i) => i.loose);

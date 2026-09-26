@@ -57,7 +57,7 @@
     
     
 
-    iAll: "All", iSearch: "Search: Maggi, atta, potato…", iScan: "Scan", iNew: "New product",
+    iSearch: "Search: Maggi, atta, potato…", iScan: "Scan", iNew: "New product",
     iByCompany: "By brand", iByType: "By category", iFresh: "Fresh & loose", iPacked: "Packed",
     iCount: "{n} products", iCount_1: "1 product", iMine: "Your products", iMineSub: "See and change prices",
     iNeedPrice: "{n} need a price", iNeedPrice_1: "1 needs a price", iAddPrice: "Add your price",
@@ -106,7 +106,16 @@
    
    
 
-    skCases: "Boxes", skLoose: "Loose", skNotCounted: "Not counted", skLater: "Count later", skNoItems: "Choose products first.",
+    saSearch: "Search product", saSelected: "Selected products", saEmpty: "No products selected.", saEmpty2: "Search above to add one.",
+    saShowing: "Showing {n} of {total} products — keep typing to search all", saNoFound: "No product found", saAddProduct: "+ Add Product",
+    saProg: "{n} / {total} counted", saRemoveQ: "Remove?", saExit: "Exit audit",
+    saFinish: "Finish Audit", saFinishQ: "Finish this audit?", saSomeCounted: "{n} of {total} counted.",
+    saAllCounted: "All {n} products counted.", saAllCounted_1: "All 1 product counted.",
+    saCountFirst: "Count at least one product first.", saSaved: "Audit saved — {n} products counted.", saSaved_1: "Audit saved — 1 product counted.",
+    saLeaveQ: "Leave this audit?", saLeaveSub: "Leaving without finishing does not keep it.", saNoneSel: "You haven't selected any products yet.",
+    saNoneCounted: "No products counted yet.", saSoFar: "{n} of {total} products counted so far.",
+    saKeep: "Keep counting", saEnd: "Leave without saving", saDiscarded: "Audit discarded.",
+    saPrice: "Current unit price", saUnitSel: "Select unit", saNoPrice: "No price set", saSaveUnit: "Save unit?", saChangeUnit: "Change unit?", saUpdated: "Updated",
 
     ruPay: "How do customers pay you?", mCash: "Cash", mUpi: "UPI", mCheque: "Cheque", mCredit: "Credit (udhaar)",
     ruRoutes: "Do you deliver on fixed days by route?", ruSelf: "Should customers order by themselves from their phone?",
@@ -194,7 +203,7 @@
     
     
 
-    iAll: "सब", iSearch: "खोजें: मैगी, आटा, आलू…", iScan: "स्कैन", iNew: "नया सामान",
+    iSearch: "खोजें: मैगी, आटा, आलू…", iScan: "स्कैन", iNew: "नया सामान",
     iByCompany: "ब्रांड से", iByType: "कैटेगरी से", iFresh: "ताज़ा और खुला सामान", iPacked: "पैकेट वाला सामान",
     iCount: "{n} सामान", iMine: "आपका सामान", iMineSub: "रेट देखें और बदलें",
     iNeedPrice: "{n} का रेट बाकी", iAddPrice: "अपना रेट डालें",
@@ -243,7 +252,16 @@
    
    
 
-    skCases: "पेटी", skLoose: "खुले पीस", skNotCounted: "गिना नहीं", skLater: "बाद में गिनेंगे", skNoItems: "पहले सामान चुनें।",
+    saSearch: "सामान खोजें", saSelected: "चुने हुए सामान", saEmpty: "कोई सामान नहीं चुना।", saEmpty2: "ऊपर खोज कर जोड़ें।",
+    saShowing: "{total} में से {n} दिख रहे हैं — सब के लिए लिखते रहें", saNoFound: "कोई सामान नहीं मिला", saAddProduct: "+ सामान जोड़ें",
+    saProg: "{n} / {total} गिने", saRemoveQ: "हटाएँ?", saExit: "ऑडिट से बाहर",
+    saFinish: "ऑडिट पूरा करें", saFinishQ: "ऑडिट पूरा करें?", saSomeCounted: "{total} में से {n} गिने।",
+    saAllCounted: "सभी {n} सामान गिने।", saAllCounted_1: "1 सामान गिना।",
+    saCountFirst: "पहले कम से कम एक सामान गिनें।", saSaved: "ऑडिट सेव हो गया — {n} सामान गिने।", saSaved_1: "ऑडिट सेव हो गया — 1 सामान गिना।",
+    saLeaveQ: "ऑडिट छोड़ें?", saLeaveSub: "पूरा किए बिना छोड़ेंगे तो यह सेव नहीं होगा।", saNoneSel: "अभी कोई सामान नहीं चुना।",
+    saNoneCounted: "अभी कुछ नहीं गिना।", saSoFar: "अब तक {total} में से {n} सामान गिने।",
+    saKeep: "गिनती जारी रखें", saEnd: "बिना सेव किए छोड़ें", saDiscarded: "ऑडिट हटा दिया।",
+    saPrice: "एक यूनिट की कीमत", saUnitSel: "यूनिट चुनें", saNoPrice: "कीमत नहीं डाली", saSaveUnit: "यूनिट सेव करें?", saChangeUnit: "यूनिट बदलें?", saUpdated: "बदल गया",
 
     ruPay: "ग्राहक पैसे कैसे देते हैं?", mCash: "नकद", mUpi: "UPI", mCheque: "चेक", mCredit: "उधार",
     ruRoutes: "क्या माल तय दिनों पर रूट से जाता है?", ruSelf: "क्या ग्राहक अपने फ़ोन से ख़ुद ऑर्डर करें?",

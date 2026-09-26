@@ -2639,3 +2639,22 @@ Tests: 15 pass (new: no usual-order sheets or gaps, and an old save with usual o
   - The export still writes `setup.json` for the onboarder, and `SB_EXPORT.read` still reads it (tested).
 
 `?v=` bumped to `20260926R13`. Tests: 15 pass.
+
+### 27 September 2026 — Store Builder: Godown stock is the platform's Stock Audit
+
+**Asked:** the whole Godown stock flow with the exact UI/UX of the platform's Customer Stock Audit, but for the owner counting stock in his own shop.
+
+The step is now the platform's Quick Audit loop (`modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.js`), screen for screen, and uses its look: teal, system font and px sizes, copied into a `.sa` block in `sb.css`. It is the one Store Builder screen that does not wear the onboarding's clothes.
+- **Changed for his own shop:** no *Who are you visiting?* customer picker; the audit opens on the count, headed *Godown stock*. No bottom nav, because *Create Order* and *Audit History* do not apply here.
+- **Same as the platform:**
+  - The header shows *N / M counted* over a progress rule.
+  - Tapping the search box opens a dropdown (first 5 A–Z, then *keep typing*). His own products come first, then the catalogue. *No product found* offers *+ Add Product*.
+  - *Selected products* is one card. Each row has its unit above a − n + stepper; blank means not counted, 0 means none there. A counted row turns green.
+  - The trash asks *Remove?* ✓ / ✗ in the row.
+  - Tapping a unit opens the platform's unit sheet: his price for one of that unit, a unit select, and *Save unit?* ✓ / ✗. The row shows *✓ Updated* afterwards.
+  - *+ Add Product* and *Finish Audit* sit in the footer. Finish asks *Finish this audit?* in place, and ✓ saves and returns to the steps list.
+  - ← asks *Leave this audit?* (*Keep counting* / *Leave without saving*), but only when something unsaved would be lost.
+- **Data:** the count is a draft (`stockDraft`) until Finish. Finish writes `stockCases` (boxes) or `stockLoose` (pieces, kg…), so the export's *Opening stock* sheet is unchanged. Reopening the step starts from what was saved. A catalogue product counted here joins his products.
+- **Gone:** the per-product cards with Boxes + Loose steppers, the company filter chips and *Count later*, with their words.
+
+`?v=` bumped to `20260927S01`. Tests: 19 pass (new: draft from saved counts, Finish writes opening stock, blank vs 0).
