@@ -28,6 +28,7 @@
 
   const { esc } = window.MockShell.helpers;
   const icon = (name, cls, size) => window.MockIcons.get(name, cls, size);
+  const SELF_SRC = document.currentScript && document.currentScript.src;
 
   /* ── myTheme.js resolved (Batch History tab only) ─────────────────────── */
   const WM = {
@@ -290,6 +291,7 @@
     low: { search: "", sort: "critical:desc", page: 1, sortOpen: false, selected: [] },
     health: { search: "", page: 1, timeFilter: "all", customRange: { from: null, to: null } },
     batchTab: { search: "", page: 1, expanded: [], copied: "", detailTab: {} },
+    stickerSheet: null, // { lots: [lotNo] } — the print sheet for production lots
 
     // AddBatchDrawer ("Receive Stock") — /raw-material-inventory only
     drawer: {
@@ -327,6 +329,7 @@
       _id: b._id,
       batchNumber: b.batchNumber,
       batchName: b.batchName,
+      lots: b.lots || [],
       createdAt: batchCreatedAt(b),
       products: (b.products || []).map((p) => ({
         _id: p._id,
@@ -1658,6 +1661,108 @@
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
+  /* ── Lot stickers (production store) ──────────────────────────────────────
+     The owner's chart: "sticker on every sack · put in store". A lot received
+     at the gate gets one sticker per sack, crate or box — what it is, its lot
+     number, n of N, how much, when it came in and its use-by — so the floor
+     can take the oldest first. The QR carries the lot number and the pack. */
+  function stickerLots() {
+    const P = window.FB_PRODUCTION;
+    const lots = (state.stickerSheet && state.stickerSheet.lots) || [];
+    if (!P) return [];
+    return lots.map((no) => { try { return P.stickers(no); } catch (e) { return []; } }).filter((x) => x.length);
+  }
+  function renderStickerSheet() {
+    if (!state.stickerSheet) return "";
+    const groups = stickerLots();
+    const total = groups.reduce((n, g) => n + g.length, 0);
+    const day = (v) => new Date(v).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    const plural = (w, n) => (n === 1 ? w : w === "box" ? "boxes" : w + "s");
+    const sticker = (x) => `
+      <div class="fb-sticker">
+        <div class="fb-sticker-top">
+          <div class="min-w-0">
+            <p class="fb-sticker-name">${esc(x.material)}</p>
+            <p class="fb-sticker-sub">${esc(x.article)} · ${esc(x.store)}</p>
+          </div>
+          <div class="fb-sticker-qr" data-qr="${esc(x.lotNo + " " + x.n + "/" + x.of)}"></div>
+        </div>
+        <p class="fb-sticker-lot">${esc(x.lotNo)}</p>
+        <p class="fb-sticker-qty"><b>${esc(x.qty)} ${esc(x.unit)}</b><span>${esc(x.packName)} ${x.n} of ${x.of}</span></p>
+        <p class="fb-sticker-dates"><span>In ${esc(day(x.receivedAt))}</span><span><b>Use by ${esc(day(x.useBy))}</b></span></p>
+        <p class="fb-sticker-foot">${esc(x.supplier)}<br>Received by ${esc(x.by)}</p>
+      </div>`;
+    const body = groups.length
+      ? groups
+          .map((g) => `
+        <section class="mb-5">
+          <p class="text-sm font-semibold text-gray-800">${esc(g[0].material)} <span class="font-mono text-gray-500 font-normal">· ${esc(g[0].lotNo)}</span></p>
+          <p class="text-xs text-gray-500 mb-2">${g.length} ${esc(plural(g[0].packName, g.length))} · ${esc(g[0].store)}</p>
+          <div class="fb-sticker-grid">${g.map(sticker).join("")}</div>
+        </section>`)
+          .join("")
+      : `<p class="text-sm text-gray-500 py-6 text-center">Nothing to stick: this truck was sent back at the gate.</p>`;
+    return `
+      <style>
+        .fb-sticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+        .fb-sticker { border: 1.5px dashed #94a3b8; border-radius: 8px; padding: 10px 12px; background: #fff; color: #0f172a; font-family: system-ui, sans-serif; break-inside: avoid; page-break-inside: avoid; }
+        .fb-sticker-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+        .fb-sticker-name { font-size: 15px; font-weight: 700; line-height: 1.2; }
+        .fb-sticker-sub { font-size: 11px; color: #475569; margin-top: 2px; }
+        .fb-sticker-qr { width: 64px; height: 64px; flex-shrink: 0; }
+        .fb-sticker-qr img, .fb-sticker-qr canvas { width: 64px !important; height: 64px !important; }
+        .fb-sticker-lot { font: 700 20px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; margin-top: 4px; }
+        .fb-sticker-qty { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; font-size: 13px; }
+        .fb-sticker-qty b { font-size: 18px; }
+        .fb-sticker-qty span { color: #334155; }
+        .fb-sticker-dates { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; }
+        .fb-sticker-foot { font-size: 10.5px; color: #64748b; margin-top: 4px; line-height: 1.35; }
+        #fb-print-root { display: none; }
+        @media print {
+          @page { margin: 8mm; }
+          body > *:not(#fb-print-root) { display: none !important; }
+          #fb-print-root { display: block; }
+          #fb-print-root .fb-sticker-grid { grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+          #fb-print-root .fb-sticker { border-style: solid; }
+          #fb-print-root .fb-sticker-dates { flex-direction: column; gap: 1px; }
+        }
+      </style>
+      <div class="fixed inset-0 z-[10095] flex items-end bg-black bg-opacity-50 sm:items-center sm:justify-center mock-backdrop is-open" data-stickerbackdrop>
+        <div class="w-full max-h-[92vh] flex flex-col bg-white rounded-t-lg sm:rounded-lg sm:m-4 sm:max-w-4xl custom-modal mock-modal" role="dialog" aria-modal="true" aria-label="Stickers">
+          <div class="px-6 pt-4 pb-3 border-b border-gray-100">
+            <h1 class="text-base font-semibold text-gray-900">${total} sticker${total === 1 ? "" : "s"} to print</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Stick one on every sack, crate and box before it goes in the store. The floor takes the oldest first, by the use-by.</p>
+          </div>
+          <div class="px-6 py-4 overflow-auto" data-stickerbody>${body}</div>
+          <div class="px-6 py-3 border-t border-gray-100 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <button data-stickerclose class="inline-flex h-10 items-center justify-center rounded-md border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700 hover:bg-gray-50">Done</button>
+            ${total ? `<button data-stickerprint class="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-5 text-sm font-medium text-white hover:bg-emerald-700">${icon("qrCode", "w-4 h-4")}Print ${total} sticker${total === 1 ? "" : "s"}</button>` : ""}
+          </div>
+        </div>
+      </div>`;
+  }
+  let qrLoading = null;
+  function drawStickerQRs() {
+    if (!outlet.querySelector("[data-qr]")) return;
+    const draw = () => outlet.querySelectorAll("[data-qr]").forEach((h) => {
+      if (h.firstChild || typeof QRCode === "undefined") return;
+      new QRCode(h, { text: h.getAttribute("data-qr"), width: 128, height: 128, colorDark: "#0f172a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+    });
+    if (typeof QRCode !== "undefined" || !SELF_SRC) return draw();
+    qrLoading = qrLoading || new Promise((resolve) => {
+      const sc = document.createElement("script");
+      sc.src = new URL("../../../assets/qrcode.min.js", SELF_SRC).href;
+      sc.onload = sc.onerror = () => resolve();
+      document.head.appendChild(sc);
+    });
+    qrLoading.then(draw);
+  }
+  const stickerBtn = (batch, small) =>
+    batch.lots && batch.lots.length && window.FB_PRODUCTION
+      ? `<button data-stickers="${esc(batch.lots.join(","))}" title="Print the stickers for ${esc(batch.lots.join(", "))}"
+           class="inline-flex items-center gap-1 ${small ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"} rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 shrink-0">${icon("qrCode", "w-3.5 h-3.5")}Stickers</button>`
+      : "";
+
   function renderBatches() {
     const s = state.batchTab;
     let list = batchListForRoute();
@@ -1739,6 +1844,7 @@
                     batch.batchNumber
                   )}</span>
                   ${copyBtn(batch.batchNumber, true)}
+                  ${stickerBtn(batch, true)}
                 </div>
                 <div class="flex flex-col items-end gap-1 shrink-0 ml-2">
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">${
@@ -1781,6 +1887,7 @@
                           batch.batchNumber
                         )}</span>
                         ${copyBtn(batch.batchNumber, false)}
+                        ${stickerBtn(batch, false)}
                       </div>
                     </td>
                     <td class="${WM.tableCell} py-3.5 px-5"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${
@@ -2432,6 +2539,7 @@
 
     return `
       ${isRM ? renderAddBatchDrawer() : ""}
+      ${renderStickerSheet()}
       <div class="tab tab-enter">
         ${receiveHeader}
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -2445,6 +2553,7 @@
   function render() {
     outlet.innerHTML = renderPage();
     wire();
+    drawStickerQRs();
   }
 
   function debouncedSearchUpdate(which, value, ms) {
@@ -2647,6 +2756,40 @@
         render();
       })
     );
+    $$("[data-stickers]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.stickerSheet = { lots: b.getAttribute("data-stickers").split(",") };
+        render();
+      })
+    );
+    const stClose = $("[data-stickerclose]");
+    if (stClose)
+      stClose.addEventListener("click", () => {
+        state.stickerSheet = null;
+        render();
+      });
+    const stBack = $("[data-stickerbackdrop]");
+    if (stBack)
+      stBack.addEventListener("click", (e) => {
+        if (e.target !== stBack) return;
+        state.stickerSheet = null;
+        render();
+      });
+    const stPrint = $("[data-stickerprint]");
+    /* print a copy of the stickers alone, at the top of the page */
+    if (stPrint)
+      stPrint.addEventListener("click", () => {
+        let root = document.getElementById("fb-print-root");
+        if (!root) {
+          root = document.createElement("div");
+          root.id = "fb-print-root";
+          document.body.appendChild(root);
+        }
+        root.innerHTML = "";
+        root.appendChild($("[data-stickerbody]").cloneNode(true));
+        window.print();
+      });
     $$("[data-copy]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -2910,11 +3053,14 @@
           });
           /* Production materials become lots in the production store — the stock
              the plan and the floor's weigh-out steps take from, oldest first. */
+          const lots = [];
           d.selected.forEach((r) => {
             if (!isProductionMaterial(r)) return;
-            window.FB_PRODUCTION.receive({ materialId: r._id, qty: Number(r.qty) || 0, gateQty: Number(r.gateQty) || Number(r.qty) || 0, qc: r.qc === "returned" ? "returned" : "accepted",
+            const lot = window.FB_PRODUCTION.receive({ materialId: r._id, qty: Number(r.qty) || 0, gateQty: Number(r.gateQty) || Number(r.qty) || 0, qc: r.qc === "returned" ? "returned" : "accepted",
               supplier: r.supplierId || undefined, price: r.price === "" || r.price == null ? undefined : Number(r.price), by: (state.seed.user && state.seed.user.displayName) || "Store" });
+            if (lot) lots.push(lot.lotNo);
           });
+          state.batches[0].lots = lots;
           d.selected.forEach((r) => {
             if (isProductionMaterial(r) && r.qc === "returned") return;
             const p = state.products.find((x) => x._id === r._id);
@@ -2931,6 +3077,8 @@
           d.open = false;
           d.selected = [];
           state.activeTab = "batches";
+          /* the truck is in: print its stickers before it goes in the store */
+          if (lots.length) state.stickerSheet = { lots };
           render();
         }, 800);
       });

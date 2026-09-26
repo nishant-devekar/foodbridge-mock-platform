@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260926PR2", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260926ST1", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -429,7 +429,7 @@
       const rm = [], fg = [], batches = [];
       d.materials.forEach((m) => {
         const lots = d.lots.filter((l) => l.materialId === m.id && l.qc === "accepted");
-        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.receivedAt), batchName: l.lotNo, createdDaysAgo: ago(l.receivedAt),
+        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.receivedAt), batchName: l.lotNo, lots: [l.lotNo], createdDaysAgo: ago(l.receivedAt),
           products: [{ _id: m.id, name: m.name, articleNo: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, stock: l.qty, remainingStock: l.remaining,
             mfgDaysAgo: ago(l.receivedAt), expiryInDays: until(l.useBy), price: l.price, tax: 5, supplierData: d.suppliers.find((x) => x.name === l.supplier) || { name: l.supplier, contact: "" } }] }));
         rm.push({ _id: m.id, productName: m.name, articleNumber: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, availableStock: D.onHand(m.id), requiredStock: D.reserved(m.id),

@@ -117,6 +117,24 @@ test("receiving: an accepted lot is stock, a sent-back truck is not", () => {
   assert.equal(d.lots.slice(-2)[0].gateQty, 51);
 });
 
+test("stickers: one per sack, crate or box of a lot, the last one holds what is left", () => {
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
+  const peas = D.receive({ materialId: "rm-p01", qty: 330, gateQty: 333, by: "Store · Mohan" });
+  const st = D.stickers(peas.lotNo);
+  assert.equal(st.length, 17);
+  assert.deepEqual([st[0].n, st[0].of, st[0].packName, st[0].qty], [1, 17, "crate", 20]);
+  assert.equal(st[16].qty, 10);
+  assert.equal(st.reduce((n, x) => n + x.qty, 0), 330);
+  assert.ok(st.every((x) => x.lotNo === peas.lotNo && x.store === "Cold room" && x.useBy === peas.useBy && x.by === "Store · Mohan"));
+  const flour = D.receive({ materialId: "rm-p05", qty: 100 });
+  assert.deepEqual(D.stickers(flour.lotNo).map((x) => [x.packName, x.qty]), [["sack", 50], ["sack", 50]]);
+  /* a truck sent back at the gate never goes in the store: no stickers */
+  const back = D.receive({ materialId: "rm-p03", qty: 40, qc: "returned" });
+  assert.deepEqual(D.stickers(back.lotNo), []);
+  /* the seeded lots have them too */
+  assert.ok(d.lots.filter((l) => l.qc === "accepted").every((l) => D.stickers(l.lotNo).length === l.packs));
+});
+
 test("month end: real cost per kg and loss by step and by worker", () => {
   const { db } = server(), me = A.Domain(db(), () => new Date(), () => {}).monthEnd();
   assert.ok(me.batches > 0);

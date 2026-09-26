@@ -46,21 +46,22 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 3;
+  var VERSION = 4;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
   /* ── Catalogue: the reference business ─────────────────────────────── */
   var MATERIALS = [
-    // id, name, article, unit, stock unit, store, price ₹ per unit, reorder at, supplier
-    ["rm-p01", "Green Peas (shelled)", "RM-3001", "kg", "Kg-Crate-Pallet", "Cold room", 42, 400, "Azadpur Mandi · Gupta & Sons"],
-    ["rm-p02", "Carrot", "RM-3002", "kg", "Kg-Crate-Pallet", "Cold room", 28, 200, "Ramesh Farms, Sonipat"],
-    ["rm-p03", "Cauliflower", "RM-3003", "kg", "Kg-Crate-Pallet", "Cold room", 22, 120, "Ramesh Farms, Sonipat"],
-    ["rm-p04", "French Beans", "RM-3004", "kg", "Kg-Crate-Pallet", "Cold room", 40, 120, "Azadpur Mandi · Gupta & Sons"],
-    ["rm-p05", "Soya Flour", "RM-3005", "kg", "Kg-Bag-Pallet", "Dry store", 62, 150, "Shree Balaji Traders"],
-    ["rm-p06", "Wheat Flour (Maida)", "RM-3006", "kg", "Kg-Bag-Pallet", "Dry store", 34, 150, "Shree Balaji Traders"],
-    ["rm-p07", "Wooden Sticks", "RM-3007", "pcs", "Pcs-Box-Pallet", "Dry store", 0.35, 3000, "Kanpur Wood Crafts"],
-    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "Delhi Poly Packers"],
-    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "Delhi Poly Packers"],
+    // id, name, article, unit, stock unit, store, price ₹ per unit, reorder at, supplier,
+    // and what one sticker goes on: that many units to a sack / crate / box
+    ["rm-p01", "Green Peas (shelled)", "RM-3001", "kg", "Kg-Crate-Pallet", "Cold room", 42, 400, "Azadpur Mandi · Gupta & Sons", 20, "crate"],
+    ["rm-p02", "Carrot", "RM-3002", "kg", "Kg-Crate-Pallet", "Cold room", 28, 200, "Ramesh Farms, Sonipat", 25, "crate"],
+    ["rm-p03", "Cauliflower", "RM-3003", "kg", "Kg-Crate-Pallet", "Cold room", 22, 120, "Ramesh Farms, Sonipat", 20, "crate"],
+    ["rm-p04", "French Beans", "RM-3004", "kg", "Kg-Crate-Pallet", "Cold room", 40, 120, "Azadpur Mandi · Gupta & Sons", 20, "crate"],
+    ["rm-p05", "Soya Flour", "RM-3005", "kg", "Kg-Bag-Pallet", "Dry store", 62, 150, "Shree Balaji Traders", 50, "sack"],
+    ["rm-p06", "Wheat Flour (Maida)", "RM-3006", "kg", "Kg-Bag-Pallet", "Dry store", 34, 150, "Shree Balaji Traders", 50, "sack"],
+    ["rm-p07", "Wooden Sticks", "RM-3007", "pcs", "Pcs-Box-Pallet", "Dry store", 0.35, 3000, "Kanpur Wood Crafts", 1000, "box"],
+    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "Delhi Poly Packers", 50, "bundle"],
+    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "Delhi Poly Packers", 50, "bundle"],
   ];
   var SUPPLIERS = [
     { name: "Azadpur Mandi · Gupta & Sons", contact: "5550402001" },
@@ -254,12 +255,26 @@
         receivedAt: o.at || iso(), supplier: o.supplier || m.supplier, gateQty: r2(Number(o.gateQty) || kg), qty: kg, remaining: o.qc === "returned" ? 0 : kg,
         store: m.store, qc: o.qc || "accepted", note: o.note || "", price: o.price != null ? Number(o.price) : m.price,
         useBy: new Date(new Date(o.at || iso()).getTime() + (m.unit === "kg" && m.store === "Cold room" ? 10 : 240) * DAY).toISOString(),
+        by: o.by || "Store", packs: Math.max(1, Math.ceil(kg / (m.packQty || kg))), packName: m.packName || "sack",
       };
       db.lots.push(lot);
       if (lot.qc === "accepted") db.ordered[m.id] = Math.max(0, r2(D.ordered(m.id) - kg));
       D.emit(lot.qc === "accepted" ? "production.lot.received" : "production.lot.returned",
-        { where: "Receive stock", how: "store", by: o.by || "Store", data: { lotNo: lot.lotNo, material: m.name, gate: lot.gateQty, accepted: lot.qc === "accepted" ? kg : 0, unit: m.unit } });
+        { where: "Receive stock", how: "store", by: lot.by, data: { lotNo: lot.lotNo, material: m.name, gate: lot.gateQty, accepted: lot.qc === "accepted" ? kg : 0, unit: m.unit, stickers: lot.qc === "accepted" ? lot.packs : 0 } });
       return lot;
+    };
+    /* One sticker per sack, crate or box of a lot. */
+    D.stickers = function (lotNo) {
+      var l = db.lots.filter(function (x) { return x.lotNo === lotNo; })[0];
+      if (!l) throw new ApiError(404, "No such lot");
+      if (l.qc !== "accepted") return [];
+      var m = D.material(l.materialId), per = m.packQty || l.qty, n = l.packs || Math.max(1, Math.ceil(l.qty / per)), out = [];
+      for (var i = 0; i < n; i++) {
+        var q = i < n - 1 ? per : r2(l.qty - per * (n - 1));
+        out.push({ lotNo: l.lotNo, n: i + 1, of: n, packName: l.packName || m.packName || "sack", qty: q, unit: m.unit, material: m.name, article: m.article,
+          supplier: l.supplier, receivedAt: l.receivedAt, useBy: l.useBy, store: l.store, by: l.by || "Store" });
+      }
+      return out;
     };
 
     /* freezer */
@@ -591,7 +606,7 @@
       version: VERSION, seededOn: dayKey(today), seq: 0, lotSeq: 0, ordered: {}, demand: {}, fg: {},
       workers: [], workflows: [], shifts: [], tasks: [], updates: [], lots: [], bags: [],
       recipes: [], recipeHeaders: {}, packagingLines: {}, operators: clone(SUPERVISORS), hostProducts: [], batches: [], book: {}, recipeOrder: [],
-      materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8] }; }),
+      materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10] }; }),
       suppliers: clone(SUPPLIERS),
       skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5] }; }),
     };
@@ -1217,6 +1232,7 @@
       createProductionOrder: function (o) { return withDomain(function (D) { return D.createProductionOrder(o); }); },
       createPackingOrder: function (o) { return withDomain(function (D) { return D.createPackingOrder(o); }); },
       receive: function (o) { return withDomain(function (D) { return D.receive(o); }); },
+      stickers: function (lotNo) { return read(function (D) { return D.stickers(lotNo); }); },
       order: function (materialId, qty) { return withDomain(function (D, d) { d.ordered[materialId] = r2((d.ordered[materialId] || 0) + qty); D.emit("production.po.raised", { where: "Production Plan", how: "office", by: "Admin", data: { material: D.material(materialId).name, qty: qty } }); return d.ordered[materialId]; }); },
       addWorker: function (o) { return withDomain(function (D, d) { var w = { _id: newId(d), key: "stf-" + d.seq, name: o.name, role: o.role, pin: o.pin || String(o.phone || "0000").slice(-4), phone: o.phone || "", isOnline: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), __v: 0, _seq: ++d.seq }; d.workers.push(w); return w; }); },
       FACTORY_ROLES: FACTORY_ROLES,

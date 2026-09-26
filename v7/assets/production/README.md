@@ -9,7 +9,7 @@ Before this, Batch Management, Configure Recipe, JobFlow and the inventories eac
 | `recipes`, `recipeHeaders`, `packagingLines`, `operators`, `hostProducts`, `batches` | **Batch Management**. These use its own `seed.json` shape, and its `loadSeed()` / `saveSeed()` point here. |
 | `book` (line, ingredients, making cost, packs per recipe) | **Configure Recipe**, through `recipe-store.js`. |
 | `workflows`, `shifts`, `tasks`, `workers` | **Process Steps**, **Shifts**, **Shop Floor** and the **Worker App** (JobFlow). |
-| `materials`, `lots`, `ordered` | **Raw Material Inventory** (merged in by `MockShell.loadSeed`), **Receive Stock**, **Production Plan**. |
+| `materials`, `lots`, `ordered` | **Raw Material Inventory** (merged in by `MockShell.loadSeed`), **Receive Stock**, **Production Plan**. Each lot also has its stickers (see below). |
 | `bags` | **Freezer Stock**. The last step on the floor fills bags; packing empties them, oldest first. |
 | `fg`, `skus` | **Finished Goods Inventory**. Packing orders post their packets here. |
 | `demand` | **Production Plan**: weekly sales and orders in hand. |
@@ -35,6 +35,10 @@ So every lot, bag and packet adds up the way live use will. A new day starts a n
 
 ## Rules the screens share (`Domain`)
 
+- **Stickers.** Every lot accepted at the gate gets one sticker per sack, crate or box. The material sets the size: 20 kg crates of peas, 25 kg crates of carrot, 50 kg sacks of flour, boxes of 1000 sticks, bundles of 50 big bags. The last sticker holds what is left over.
+  - Each sticker shows the material, the lot number, "crate 3 of 17", the quantity, the day it came in, its use-by, the store, the supplier and who received it. Its QR code holds the lot number and the pack.
+  - Receive Stock opens the sticker sheet as soon as the truck is booked in. The Batch History Report has a **Stickers** button on every lot for reprinting.
+  - A truck sent back at the gate never enters the store, so it gets no stickers.
 - **Taking from the store.** A weighing step with materials takes from the oldest lot first, splitting what went in by the recipe's ratio. Each take is an *issue* on the batch's Ingredients tab. If the store can't cover a step, the step fails and nothing changes.
 - **Batch status is moved by the floor.** The first step started moves a batch from Planned to In Progress. The last step done moves it to Completed, with the bagged kg as its outcome. A batch On Hold or Rejected can't be started on the floor.
 - **Weight loss.** A loss over the step's limit becomes an alert on Shop Floor.
@@ -61,7 +65,7 @@ Run from `v7/`:
 node --test assets/production/test/*.test.js
 ```
 
-There are 9 tests:
+There are 10 tests:
 - the seeded month balances;
 - the floor moves batches and bags them;
 - packing is first in, first out;
@@ -70,4 +74,5 @@ There are 9 tests:
 - a held batch pauses its steps;
 - the plan's arithmetic;
 - receiving and sending back at the gate;
+- one sticker per sack, crate or box;
 - month end.
