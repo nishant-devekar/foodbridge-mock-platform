@@ -124,7 +124,7 @@
 
     tProducts: "Products", tShops: "Customers", tSuppliers: "Suppliers", tStaff: "Staff", tPapers: "Photos & voice",
     fiNoMissing: "Nothing missing. Well done!", fiLater: "{n} things to fill later", fiLater_1: "1 thing to fill later", fiStock: "Stock counted",
-    fiBuild: "Build my store", fiWorking: "Building your store…", fiBuilt: "Your store is built", fiBuiltSub: "You can close the app now. The FoodBridge team will call you soon to set up your store.",
+    fiBuild: "Build my store", fiWorking: "Building your store…", tyTitle: "Thank you!", tySub: "The FoodBridge team will reach out to you soon.",
     fiSent: "FoodBridge has your store", fiSentAt: "Sent {d}", fiSending: "Sending to FoodBridge…",
     fiWaiting: "Waiting to send", fiWaitingSub: "{n} of {total} files sent", fiWaitingWhy: "No internet right now. It goes by itself when the phone is online.",
     fiSendNow: "Send now",
@@ -263,7 +263,7 @@
 
     tProducts: "सामान", tShops: "ग्राहक", tSuppliers: "सप्लायर", tStaff: "स्टाफ़", tPapers: "फ़ोटो / आवाज़",
     fiNoMissing: "कुछ बाकी नहीं। शाबाश!", fiLater: "{n} चीज़ें बाद में भरनी हैं", fiLater_1: "1 चीज़ बाद में भरनी है", fiStock: "गिना माल",
-    fiBuild: "मेरी दुकान बनाएँ", fiWorking: "दुकान बन रही है…", fiBuilt: "आपकी दुकान बन गई", fiBuiltSub: "अब आप ऐप बंद कर सकते हैं। FoodBridge की टीम जल्द ही आपको कॉल करके दुकान सेट करेगी।",
+    fiBuild: "मेरी दुकान बनाएँ", fiWorking: "दुकान बन रही है…", tyTitle: "धन्यवाद!", tySub: "FoodBridge की टीम जल्द ही आपसे संपर्क करेगी।",
     fiSent: "FoodBridge को आपकी दुकान मिल गई", fiSentAt: "भेजी {d}", fiSending: "FoodBridge को भेज रहे हैं…",
     fiWaiting: "भेजना बाकी", fiWaitingSub: "{total} में से {n} फ़ाइलें गईं", fiWaitingWhy: "अभी इंटरनेट नहीं है। फ़ोन ऑनलाइन होते ही अपने आप चली जाएगी।",
     fiSendNow: "अभी भेजें",

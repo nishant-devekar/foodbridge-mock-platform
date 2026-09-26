@@ -158,7 +158,7 @@
       b.files.shift();
       b.sent += 1;
       await OUTBOX.put(b);
-      if (sheet && sheet.kind === "built") render();
+      if (view === "thanks") render();
     }
     await OUTBOX.del(b.id);
     return true;
@@ -174,7 +174,7 @@
     }
     try { ui.outbox = await OUTBOX.all(); } catch (e) { ui.outbox = []; }
     ui.sending = false;
-    if (view === "finish" || view === "home" || (sheet && sheet.kind === "built")) render();
+    if (view === "finish" || view === "home" || view === "thanks") render();
   }
   window.addEventListener("online", function () { sendAll(); });
 
@@ -351,6 +351,25 @@
       '<button class="' + (en ? "on" : "") + '" data-act="lang" data-v="en" aria-pressed="' + en + '">' + ic("langs") + "English</button></div>" +
       '<button class="sb-cta" data-act="start">' + h(t("wStart")) + "</button>" +
       "</footer>";
+  };
+
+  /* After Build my store, a whole page (owner, 26 Sep 2026): thank you, and
+     the FoodBridge team will reach out. While it is still on its way it says
+     so, and offline it waits with Send now. The FoodBridge mark on top, nothing
+     else to tap: he is done (owner). */
+  SCREENS.thanks = function () {
+    const last = S.lastBuild;
+    const wait = last && (ui.outbox || []).find(function (b) { return b.id === last.id; });
+    let mark, title, sub, act = "";
+    if (!wait) { mark = '<span class="ty-mark">' + ic("check", 44) + "</span>"; title = t("tyTitle"); sub = t("tySub"); }
+    else if (ui.sending) { mark = '<span class="ty-mark is-busy">' + ic("send", 38) + "</span>"; title = t("fiSending"); sub = t("fiWaitingSub", { n: wait.sent, total: wait.total }); }
+    else {
+      mark = '<span class="ty-mark is-wait">' + ic("clock", 40) + "</span>"; title = t("fiWaiting"); sub = t("fiWaitingWhy");
+      act = '<button class="sb-cta" data-act="sendNow">' + ic("repeat", 20) + h(t("fiSendNow")) + "</button>";
+    }
+    return '<header class="ty-top">' + LOGO + '<span>FoodBridge</span></header>' +
+      '<main class="sb-main is-welcome ty">' + mark + '<h1 class="sb-h1 is-center">' + h(title) + '</h1><p class="sb-sub is-center">' + h(sub) + "</p></main>" +
+      (act ? '<footer class="sb-foot">' + act + "</footer>" : "");
   };
 
   function statusText(step, P) {
@@ -891,20 +910,6 @@
       menuRow("lang", "langs", t("menuLang"), { attrs: 'data-v="' + (S.lang === "en" ? "hi" : "en") + '"' }) +
       menuRow("confirm", "trash", t("menuFresh"), { cls: "is-bad", attrs: 'data-what="fresh"' }) + "</div>" +
       '<p class="sb-hint">' + h(CAT.note) + '</p><p class="sb-hint">' + h(CAT.credit) + "</p>");
-  };
-
-  /* Right after Build my store: sending, then sent (or waiting for a network). */
-  SHEETS.built = function (sh) {
-    const wait = (ui.outbox || []).find(function (b) { return b.id === sh.id; });
-    const done = !wait && !ui.sending;
-    const body = done
-      ? '<div class="fi-done">' + ic("check", 30) + '</div><p class="fi-meta"><b>' + h(t("fiBuilt")) + "</b><span>" + h(t("fiBuiltSub")) + "</span></p>"
-      : ui.sending
-        ? '<div class="fi-done is-busy">' + ic("send", 26) + '</div><p class="fi-meta"><b>' + h(t("fiSending")) + "</b><span>" + h(wait ? t("fiWaitingSub", { n: wait.sent, total: wait.total }) : "") + "</span></p>"
-        : '<div class="fi-done is-wait">' + ic("clock", 28) + '</div><p class="fi-meta"><b>' + h(t("fiWaiting")) + "</b><span>" + h(t("fiWaitingWhy")) + "</span></p>";
-    return sheetWrap(h(S.store.name || t("hTitle")), body,
-      (!done && !ui.sending ? '<button class="sb-btn" data-act="sendNow">' + ic("repeat", 18) + h(t("fiSendNow")) + "</button>" : "") +
-      '<button class="sb-cta" data-act="closeSheet">' + h(t("done")) + "</button>");
   };
 
   SHEETS.confirm = function () {
@@ -1668,7 +1673,7 @@
         S.lastBuild = { id: id, at: b.at };
         save();
         ui.building = false;
-        openSheet({ kind: "built", id: id });
+        go("thanks");
         sendAll();
       } catch (e) {
         ui.building = false;
@@ -1790,7 +1795,7 @@
 
   M.tidy(CAT, S);   // saves from before 26 Sep: companies chosen on their own step, non-food products
   const hash = location.hash.slice(1);
-  view = !S.startedAt ? "welcome" : STEPS.indexOf(hash) >= 0 || hash === "home" ? hash : "home";
+  view = !S.startedAt ? "welcome" : STEPS.indexOf(hash) >= 0 || hash === "home" || (hash === "thanks" && S.lastBuild) ? hash : "home";
   history.replaceState({ to: view }, "", "#" + view);
   render();
   OUTBOX.all().then(function (list) { ui.outbox = list || []; if (ui.outbox.length) sendAll(); else if (view === "finish") render(); })

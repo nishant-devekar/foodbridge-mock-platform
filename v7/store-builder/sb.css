@@ -403,6 +403,15 @@ small.warn { display: flex; margin-top: .2rem; font-size: .74rem; }
   padding-top: calc(2.4rem + env(safe-area-inset-top, 0px)); padding-bottom: 3rem;
 }
 .sb-brand { margin: 0; }
+/* Thank you, after Build my store: the welcome screen's layout, a big mark in place of the logo */
+.ty-mark { display: grid; place-items: center; width: 6rem; height: 6rem; border-radius: 50%; background: var(--g); color: #fff; box-shadow: 0 .5rem 1.4rem rgba(14, 138, 60, .25); }
+.ty-mark .ic { width: 2.6rem; height: 2.6rem; }
+.ty-mark.is-busy { background: var(--g-50); color: var(--g); box-shadow: none; animation: sb-listen 1.2s ease-in-out infinite; }
+.ty-mark.is-wait { background: var(--amber-bg); color: var(--amber); box-shadow: none; }
+.ty-top { display: flex; align-items: center; justify-content: center; gap: .55rem; padding: calc(1.6rem + env(safe-area-inset-top, 0px)) 1.5rem 0; font-size: 1.1rem; font-weight: 700; color: var(--ink); }
+.ty-top .sb-logo { width: 2.4rem; height: 2.4rem; border-radius: .6rem; box-shadow: 0 .2rem .6rem rgba(35, 72, 130, .15); }
+.ty .sb-h1.is-center { margin-top: 1.8rem; }
+.ty .sb-sub.is-center { font-size: .95rem; line-height: 1.45rem; }
 .sb-brand .sb-logo { width: 5.2rem; height: 5.2rem; border-radius: 1.3rem; box-shadow: 0 .4rem 1.2rem rgba(35, 72, 130, .18); }
 .sb-brand + .sb-h1.is-center { margin-top: 2rem; }
 .sb-langs { width: 100%; margin: 0 0 .5rem; }
@@ -821,13 +830,6 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
 .fi-sent { margin-top: 1rem; align-items: center; }
 .fi-sent p { flex: 1 1 auto; }
 .fi-sent .sb-more { flex: none; }
-.fi-done { display: grid; place-items: center; width: 3.6rem; height: 3.6rem; margin: .6rem auto .2rem; border-radius: 50%; background: var(--g); color: #fff; }
-.fi-done .ic { width: 1.8rem; height: 1.8rem; }
-.fi-done.is-busy { background: var(--g-50); color: var(--g); animation: sb-listen 1.2s ease-in-out infinite; }
-.fi-done.is-wait { background: var(--amber-bg); color: var(--amber); }
-.fi-meta { display: flex; flex-direction: column; align-items: center; gap: .15rem; margin: .6rem 0 0; text-align: center; }
-.fi-meta b { font-size: .95rem; }
-.fi-meta span { font-size: .78rem; color: var(--muted); }
 .sb-cta[disabled] { opacity: .7; }
 
 /* ── toast ─────────────────────────────────────────────────────────────── */

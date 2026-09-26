@@ -2728,3 +2728,7 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - With no file store yet, the email alone counts as delivered. Photos and voice notes wait for the store.
 - It needs `RESEND_API_KEY`, and a verified sender (`FB_STORES_EMAIL_FROM`) to reach both inboxes; see the bridge README.
 - Bridge tests: 10 pass (new: the email and its attachments, the fallback, a refused email is not a delivery). `?v=` bumped to `20260927S13`.
+
+**Then, owner:** success is a whole page, not a sheet. After *Build my store*, a full *Thank you!* page with a big check reads *The FoodBridge team will reach out to you soon.*, with one quiet link, *Back to my store*. While sending, the same page shows *Sending to FoodBridge…*; offline, *Waiting to send* with *Send now*. The built sheet is gone. `?v=` bumped to `20260927S14`.
+
+**Then, owner:** no *Back to my store*; the FoodBridge logo and name sit centred at the top of the *Thank you!* page, and there is nothing else to tap. The only button is *Send now*, and only while offline. `?v=` bumped to `20260927S15`.
