@@ -75,10 +75,11 @@
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
         },
         {
+          "_why": "28 Sep 2026: Production › Month End retired into Reports as the Production Report tab (manufacturers only); its old addresses land here.",
           "id": "reports",
-          "aliases": ["dashboard"],
+          "aliases": ["dashboard", "month-end", "production/month-end"],
           "name": "Reports",
-          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260921RP1",
+          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260928PR1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
           "hideBurger": true
@@ -319,15 +320,6 @@
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-production-discovery"
-        },
-        {
-          "_why": "Stage 15 of the reference flow: real cost per kg from what the floor took, and where weight was lost, by step and by worker.",
-          "id": "month-end",
-          "name": "Month End",
-          "url": "modules/foodbridge-production-flow/month-end.html?v=20260928HD1",
-          "clipLeft": 0,
-          "hideBurger": true,
-          "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
         }
       ],
       "personas": [

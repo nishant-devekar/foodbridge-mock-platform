@@ -2787,3 +2787,18 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - **Platform:** the leaves use Sales Orders' settings: `hideBurger` on desktop, and the default 56px header under the platform's bar on phones.
 - **Overlays:** the platform's hamburger mask stands down over a page's dimmed dialogs and drawer pages. The page says when one is open, with the existing `overlay` message.
 - Checked at 1440 px: hamburger, title and avatar land on the same pixels as on Sales Orders. Checked at 375 px: one header. `?v=` `20260928HD1`.
+
+### 28 September 2026 — Month End becomes Reports › Production Report
+
+**Owner:** retire the Month End page and move it to the Reports page as a production report.
+
+- **Reports** (Overview › Reports) has a seventh tab, **Production Report**, after Outstanding Recovery. It carries everything Month End showed, with the same figures from `FB_PRODUCTION.monthEnd()`, drawn in Reports' own look:
+  - four stat cards: batches made, into the freezer, weight lost at weighing steps, over the recipe's limit;
+  - Real cost per kg;
+  - Where weight was lost · by step, with the lost-% bar against the limit;
+  - Where weight was lost · by worker;
+  - the notes, a phone card list for each table, and a redraw when the floor writes the store.
+- **Manufacturers only.** The tab shows when `fb-persona` is manufacturer (the default); a distributor makes nothing, so it gets no empty tab.
+- **Retired:** `month-end.html` is deleted, and Production's sidebar loses Month End. `#/month-end` and `#/production/month-end` are aliases of Reports. `D.monthEnd` and its test stay.
+- `pages-parse.test.js` checks Reports in Month End's place, since Reports now loads the store. Tests: 28 pass. `?v=` `20260928PR1`: Reports' URL, its `dashboard.js`, and `platform.js`.
+

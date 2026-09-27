@@ -267,6 +267,15 @@
     { key: 'salesman_route_report', label: 'Salesman Route Report' },
     { key: 'outstanding_recovery', label: 'Outstanding Recovery' }
   ];
+  /* Production Report (28 Sep 2026): what was Production › Month End, now a
+     report among the reports. Only for a business that makes things — the
+     platform keeps the business type in fb-persona (manufacturer by default). */
+  function makesThings() {
+    var p = null;
+    try { p = localStorage.getItem('fb-persona'); } catch (e) {}
+    return !!window.FB_PRODUCTION && (p || 'manufacturer') === 'manufacturer';
+  }
+  if (makesThings()) TABS.push({ key: 'production_report', label: 'Production Report' });
   var C_TAB = 'inline-block px-4 py-3 rounded-t-lg border-b-2 border-transparent whitespace-nowrap focus:outline-none transition-colors';
   var C_TAB_ON = 'text-emerald-600 border-emerald-600';
   var C_TAB_OFF = 'hover:text-gray-600 hover:border-gray-300';
@@ -286,13 +295,19 @@
     else if (active === 'discount_report') host.innerHTML = discountReport();
     else if (active === 'customer_order_pattern') host.innerHTML = orderCycle();
     else if (active === 'salesman_route_report') host.innerHTML = routeReport();
+    else if (active === 'production_report') host.innerHTML = productionReport();
     else host.innerHTML = outstandingRecovery();
     document.querySelectorAll('[data-filters-for]').forEach(function (f) {
       f.hidden = f.dataset.filtersFor !== active;
     });
   }
 
-  function setTab(key) { active = key; renderTabs(); renderPanel(); }
+  function setTab(key) {
+    active = key; renderTabs(); renderPanel();
+    // on a narrow screen the strip scrolls: keep the chosen tab in sight
+    var b = el('tab-list').querySelector('[data-tab="' + key + '"]');
+    if (b && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
 
   /* ================= 1 · Product Sales — Dashboard.jsx:1441-1536 ================= */
 
@@ -1911,6 +1926,136 @@
       '</section>' +
     '</div>';
   }
+
+  /* ================= 7 · Production Report =================
+     Month End retired into Reports (owner, 28 Sep 2026). Every figure is the
+     floor's own record through FB_PRODUCTION.monthEnd(): the raw material each
+     batch actually took, at the lot's price, over the kg that went into bags;
+     and every weighing step's kg in and kg out. Same numbers, Reports' look:
+     white stat cards, the report tables, cards on a phone.                  */
+
+  function pNum(v, d) { return (Math.round(v * (d || 1)) / (d || 1)).toLocaleString('en-IN'); }
+  function pRs(v) { return '₹' + pNum(v, 100); }
+  function pDay(iso) { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); }
+  function pSigned(v) { return (v > 0 ? '+' : '') + pRs(v); }
+  var P_PILL = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ';
+  function pGapPill(gap) {
+    if (gap == null) return '<span class="text-slate-400">—</span>';
+    var tone = gap > 0.5 ? 'bg-amber-50 text-amber-700' : gap < -0.5 ? 'bg-sky-50 text-sky-700' : 'bg-emerald-50 text-emerald-700';
+    return '<span class="' + P_PILL + tone + '">' + pSigned(gap) + '</span>';
+  }
+  function pOverPill(n) {
+    return '<span class="' + P_PILL + (n ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700') + '">' + n + '</span>';
+  }
+  // lost % against the recipe's limit: the bar, and a tick where the limit is
+  function pLossBar(pct, allowed) {
+    var scale = Math.max(15, (allowed || 0) * 1.5, pct);
+    return '<span class="relative inline-block h-2 w-28 rounded-full bg-slate-100 align-middle" title="' + pct + '% lost' + (allowed != null ? ', ' + allowed + '% allowed' : '') + '">' +
+      '<i class="absolute inset-y-0 left-0 rounded-full ' + (allowed != null && pct > allowed ? 'bg-red-400' : 'bg-emerald-400') + '" style="width:' + Math.min(100, pct / scale * 100) + '%"></i>' +
+      (allowed != null ? '<u class="absolute -top-1 -bottom-1 w-0.5 bg-slate-500" style="left:' + Math.min(100, allowed / scale * 100) + '%"></u>' : '') + '</span>';
+  }
+  function pSection(title, sub) {
+    return '<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1 mb-3">' +
+      '<h3 class="text-base font-semibold text-slate-800">' + title + '</h3>' +
+      '<p class="text-xs text-slate-500">' + sub + '</p></div>';
+  }
+  function pCard(title, right, lines) {
+    return '<div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">' +
+      '<div class="flex items-start justify-between gap-3"><p class="text-sm font-semibold text-slate-800">' + title + '</p>' + right + '</div>' +
+      '<p class="text-xs text-slate-500 mt-1">' + lines + '</p></div>';
+  }
+  function pNote(text) { return '<p class="-mt-5 mb-8 text-xs text-slate-500 leading-relaxed">' + text + '</p>'; }
+
+  function productionReport() {
+    var r = FB_PRODUCTION.monthEnd();
+    var made = r.cost.reduce(function (s, c) { return s + c.kgMade; }, 0);
+    var kgIn = r.steps.reduce(function (s, x) { return s + x.kgIn; }, 0);
+    var lost = r.steps.reduce(function (s, x) { return s + x.lost; }, 0);
+    var over = r.steps.reduce(function (s, x) { return s + x.over; }, 0);
+    var gapRs = r.cost.reduce(function (s, c) { return s + (c.gapPerKg || 0) * c.kgMade; }, 0);
+
+    function stat(k, v, h, tone) {
+      return '<div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">' +
+        '<p class="text-xs font-medium text-slate-500">' + k + '</p>' +
+        '<p class="mt-1 text-xl sm:text-2xl font-bold ' + (tone || 'text-slate-800') + '">' + v + '</p>' +
+        '<p class="mt-0.5 text-xs text-slate-500">' + h + '</p></div>';
+    }
+    var head = '<div class="mb-4"><p class="text-sm text-slate-600">Real cost per kg and where weight was lost, from what the floor weighed and the store issued. ' +
+      '<span class="font-medium text-slate-700">' + esc(pDay(r.from)) + ' – ' + esc(pDay(r.to)) + '</span>.</p></div>';
+    var stats = '<div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-8">' +
+      stat('Batches made', r.batches, 'completed on the floor this month') +
+      stat('Into the freezer', pNum(made) + ' kg', 'in big bags') +
+      stat('Weight lost at weighing steps', pNum(lost, 10) + ' kg', (kgIn ? pNum(lost / kgIn * 100, 10) : 0) + '% of ' + pNum(kgIn) + ' kg weighed in') +
+      stat("Over the recipe's limit", over, 'weighing steps lost more than allowed', over ? 'text-red-600' : 'text-slate-800') +
+      '</div>';
+
+    // 1 · real cost per kg
+    var costHead = '<thead class="' + C_THEAD + '"><tr>' + th('Product', 'min-w-[200px]') + th('Batches', 'text-right') + th('Kg made', 'text-right') +
+      th('Recipe cost / kg', 'text-right') + th('Real cost / kg', 'text-right') + th('Difference', 'text-right') + th('On the month', 'text-right') + '</tr></thead>';
+    var costBody = '<tbody class="' + C_TBODY + '">' + (r.cost.length ? r.cost.map(function (c) {
+      return '<tr class="' + C_ROW + '"><td class="' + C_TD + '"><p class="text-sm font-semibold text-slate-800">' + esc(c.name) + '</p></td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + c.batches + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pNum(c.kgMade) + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pRs(c.recipeCostPerKg) + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm font-semibold text-slate-800">' + (c.actualCostPerKg == null ? '—' : pRs(c.actualCostPerKg)) + '</td>' +
+        '<td class="' + C_TD + ' text-right">' + pGapPill(c.gapPerKg) + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm font-semibold text-slate-800">' + (c.gapPerKg == null ? '—' : pSigned(c.gapPerKg * c.kgMade)) + '</td></tr>';
+    }).join('') : empty(7, 'No batch was completed on the floor this month.')) + '</tbody>';
+    var costCards = r.cost.map(function (c) {
+      return pCard(esc(c.name), pGapPill(c.gapPerKg),
+        c.batches + ' batches · ' + pNum(c.kgMade) + ' kg made · recipe ' + pRs(c.recipeCostPerKg) + ' / kg · real ' + (c.actualCostPerKg == null ? '—' : pRs(c.actualCostPerKg)) + ' / kg' +
+        (c.gapPerKg == null ? '' : ' · on the month ' + pSigned(c.gapPerKg * c.kgMade)));
+    }).join('');
+
+    // 2 · where weight was lost, by step
+    var stepHead = '<thead class="' + C_THEAD + '"><tr>' + th('Product · step', 'min-w-[240px]') + th('Times', 'text-right') + th('Kg in', 'text-right') +
+      th('Lost', 'text-right') + th('Lost %, against the limit') + th('Over the limit', 'text-right') + '</tr></thead>';
+    var stepBody = '<tbody class="' + C_TBODY + '">' + (r.steps.length ? r.steps.map(function (x) {
+      return '<tr class="' + C_ROW + '"><td class="' + C_TD + '"><p class="text-sm font-semibold text-slate-800">' + esc(x.product) + '</p><p class="text-xs text-slate-500 mt-0.5">' + esc(x.step) + '</p></td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + x.times + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pNum(x.kgIn) + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pNum(x.lost, 10) + ' kg</td>' +
+        '<td class="' + C_TD + '">' + pLossBar(x.pct, x.allowed) + ' <span class="ml-2 text-sm">' + x.pct + '%' + (x.allowed != null ? ' <span class="text-slate-400">/ ' + x.allowed + '%</span>' : '') + '</span></td>' +
+        '<td class="' + C_TD + ' text-right">' + pOverPill(x.over) + '</td></tr>';
+    }).join('') : empty(6, 'No weighing step was done this month.')) + '</tbody>';
+    var stepCards = r.steps.map(function (x) {
+      return pCard(esc(x.product) + ' <span class="font-normal text-slate-500">· ' + esc(x.step) + '</span>', pOverPill(x.over),
+        pLossBar(x.pct, x.allowed) + ' <span class="ml-1">' + x.pct + '%' + (x.allowed != null ? ' of ' + x.allowed + '% allowed' : '') + '</span><br>' +
+        x.times + ' times · ' + pNum(x.kgIn) + ' kg in · ' + pNum(x.lost, 10) + ' kg lost');
+    }).join('');
+
+    // 3 · where weight was lost, by worker
+    var wHead = '<thead class="' + C_THEAD + '"><tr>' + th('Worker', 'min-w-[200px]') + th('Steps weighed', 'text-right') + th('Kg in', 'text-right') +
+      th('Lost', 'text-right') + th('Lost %', 'text-right') + th('Over the limit', 'text-right') + '</tr></thead>';
+    var wBody = '<tbody class="' + C_TBODY + '">' + (r.workers.length ? r.workers.map(function (w) {
+      return '<tr class="' + C_ROW + '"><td class="' + C_TD + '"><p class="text-sm font-semibold text-slate-800">' + esc(w.name) + '</p></td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + w.steps + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pNum(w.kgIn) + '</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + pNum(w.lost, 10) + ' kg</td>' +
+        '<td class="' + C_TD + ' text-right text-sm">' + w.pct + '%</td>' +
+        '<td class="' + C_TD + ' text-right">' + pOverPill(w.over) + '</td></tr>';
+    }).join('') : empty(6, 'No weighing step was done this month.')) + '</tbody>';
+    var wCards = r.workers.map(function (w) {
+      return pCard(esc(w.name), pOverPill(w.over), w.steps + ' steps weighed · ' + pNum(w.kgIn) + ' kg in · ' + pNum(w.lost, 10) + ' kg lost · ' + w.pct + '%');
+    }).join('');
+
+    function block(title, sub, cards, table, note) {
+      return pSection(title, sub) +
+        '<div class="block sm:hidden mb-8 space-y-2">' + (cards || '<p class="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">Nothing recorded yet this month.</p>') + '</div>' +
+        '<div class="hidden sm:block">' + container(table) + '</div>' + (note ? pNote(note) : '');
+    }
+    return head + stats +
+      block('Real cost per kg', "Raw material actually taken, at the lot's price, plus making cost", costCards, costHead + costBody,
+        'A positive difference means the floor used more raw material per kg than the recipe says, usually because of weight lost at peeling, cutting and washing. On the month: ' + pSigned(gapRs) + '.') +
+      block('Where weight was lost · by step', 'Every weighing step this month', stepCards, stepHead + stepBody) +
+      block('Where weight was lost · by worker', 'Weighing steps each person did', wCards, wHead + wBody,
+        "A washer's loss depends on the crop as much as the hands: compare the same step on the same product before reading anything into a name.") +
+      '<p class="text-xs text-slate-400 mb-6">Every figure here is from the floor\'s record: who did each step, the kg in and out, the lots taken and the bags filled. The kg made are the bags that went into the freezer.</p>';
+  }
+  // the floor moves while the office reads: redraw when another screen writes
+  window.addEventListener('storage', function (e) {
+    if (window.FB_PRODUCTION && e.key === FB_PRODUCTION.KEY && active === 'production_report') renderPanel();
+  });
 
   /* ================= events ================= */
 

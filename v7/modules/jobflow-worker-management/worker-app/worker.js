@@ -357,7 +357,7 @@
     return html`<div class="wk-in-row"><label for="${id}">${label}</label><div class="wk-in"><input id="${id}" inputmode="${mode || "decimal"}" value="${f[key]}" data-f="${key}"><span>${unit}</span></div></div>`;
   }
   /* What was entered, read back as proof — never a verdict (the loss % and
-     its limit are the office's, on Shop Floor and Month End). */
+     its limit are the office's, on Shop Floor and Reports › Production Report). */
   function recordedRows(task) {
     var rows = [];
     if (task.kgIn) rows.push([t("rWeight"), task.kgIn + " → " + t("kgN", { n: task.kgOut })]);
