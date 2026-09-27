@@ -4,7 +4,7 @@ HTML versions of the two JobFlow clients by Nidhimehta9399 (received as a zip, 2
 
 | Production leaf | Page | From |
 | --- | --- | --- |
-| Process Steps | [`admin-web/`](admin-web/index.html) `#/steps` | JobFlow's Workflow Editor, bound to recipes |
+| Process Steps: retired as a leaf 28 Sep 2026, now the Recipes leaf's **Process** tab (`recipe-steps.js`) | [`admin-web/`](admin-web/index.html) `#/steps` still works on its own | JobFlow's Workflow Editor, bound to recipes |
 | Shifts | `admin-web/` `#/shifts` | JobFlow's Shifts |
 | Shop Floor | `admin-web/` `#/` | JobFlow's Dashboard, rebuilt |
 | Worker App (standalone `#/worker-app`, by QR) | [`worker-app/`](worker-app/index.html) | JobFlow's worker PWA |
@@ -28,6 +28,8 @@ The data is the platform's production store, [`v7/assets/production/`](../../ass
   - packets packed from the oldest bags, then into cartons and Finished Goods.
 
   A **Packing** workflow runs every packing order.
+
+  Since 28 Sep 2026 these are edited in **Recipes → Process**, over the same API routes. Packing shows there as a closed section every recipe shares.
 - **The worker app records how much.** Task detail shows:
   - the lot or bags the step will take;
   - kg in and out, with the loss checked live against the limit;

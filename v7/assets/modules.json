@@ -254,27 +254,19 @@
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
         },
         {
-          "_why": "Configure Recipe, re-seeded to the reference business (frozen green peas, mixed vegetables, soya chaap) from the production store by recipe-store.js; its Create Production Order makes a real Planned batch. The phone page (mobile-v4.html) still shows the cookie recipe, so phones get this page too.",
+          "_why": "Configure Recipe, re-seeded to the reference business (frozen green peas, mixed vegetables, soya chaap) from the production store by recipe-store.js; its Create Production Order makes a real Planned batch. The phone page (mobile-v4.html) still shows the cookie recipe, so phones get this page too. 28 Sep 2026: Process Steps (JobFlow's Workflow Editor) moved in as the recipe's Process tab (recipe-steps.js), with Packing as a closed section every recipe shares; its leaf is retired and its old addresses land here.",
           "id": "configure-recipe",
+          "aliases": [
+            "process-steps",
+            "workflow-editor",
+            "production/process-steps"
+          ],
           "name": "Recipes",
-          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260926ST1",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260928PS1",
           "clipLeft": 212,
           "clipLeftMobile": 212,
           "mHeaderH": 57,
           "owner": "nishant-devekar/foodbridge-production-discovery"
-        },
-        {
-          "_why": "JobFlow's Workflow Editor, bound to recipes: the steps each recipe goes through on the floor and what each records (weight in/out, lots taken, bags filled, packets packed). The JobFlow admin's own 240px sidebar is clipped; its pages are these leaves.",
-          "id": "process-steps",
-          "aliases": [
-            "workflow-editor"
-          ],
-          "name": "Process Steps",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926ST1&at=steps#/steps",
-          "clipLeft": 240,
-          "clipLeftMobile": 240,
-          "mHeaderH": 61,
-          "owner": "Nidhimehta9399/jobflow-admin-web"
         },
         {
           "_why": "Batch Management owns every batch number (PB- production, PK- packing). Its seed calls read the production store; the floor moves its states (first step started → In Progress, last step done → Completed) and a Steps tab shows who · how much · when.",

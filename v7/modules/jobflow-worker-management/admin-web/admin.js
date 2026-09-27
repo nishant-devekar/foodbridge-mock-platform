@@ -763,7 +763,8 @@
      its pages are Production leaves (assets/modules.json). A jump between
      them goes through the platform, so its sidebar marks where you are. On
      its own, or if the leaf is not there, it is the app's own hash route. */
-  var PLATFORM_LEAF = { "/": "shop-floor", "/steps": "process-steps", "/shifts": "shifts" };
+  /* Process Steps is the Recipes leaf's Process tab since 28 Sep 2026. */
+  var PLATFORM_LEAF = { "/": "shop-floor", "/steps": "configure-recipe", "/shifts": "shifts" };
   function navigate(to) {
     var leaf = "#/production/" + PLATFORM_LEAF[to];
     try {

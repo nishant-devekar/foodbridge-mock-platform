@@ -349,3 +349,53 @@
 .sl-sell span,.sl-sell b{color:var(--fb-green-700);font-size:14px}
 .sl-status{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px}
 .sl-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 14px;border-top:1px solid var(--fb-border);background:#FAFBFC}
+
+/* ---------- Process tab (recipe-steps.js, 28 Sep 2026) ----------
+   How it's made on the floor. Rows look like ingredient rows and open
+   the same way, one at a time; they are .stp so recipe-v4.js's .ing
+   handlers leave them alone. */
+.v4-head .meta .m-link{color:var(--fb-text-muted);text-decoration:none;cursor:pointer}
+.v4-head .meta .m-link:hover b{text-decoration:underline}
+.stp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.stp{border:1px solid var(--fb-border);border-radius:14px;background:#fff;overflow:hidden;transition:border-color .15s}
+.stp:hover{border-color:var(--fb-teal-600)}
+.stp.open{border-color:var(--fb-teal-800);box-shadow:var(--shadow-card)}
+.stp-row{display:grid;grid-template-columns:auto 28px 1fr auto;gap:12px;align-items:center;padding:12px 16px;cursor:pointer}
+.stp-move{display:flex;flex-direction:column;line-height:1}
+.stp-move button{font-size:10px;color:var(--fb-text-muted);padding:2px 4px;background:none;border:0;cursor:pointer}
+.stp-move button:hover:not(:disabled){color:var(--fb-teal-800)}
+.stp-move button:disabled{opacity:.3;cursor:default}
+.stp-no{width:28px;height:28px;border-radius:999px;background:var(--fb-teal-50);border:1px solid #B3DDE4;color:var(--fb-teal-800);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.stp-nm{font-weight:700;font-size:14px;min-width:0}
+.stp-nm small{display:block;font-weight:500;font-size:11px;color:var(--fb-text-muted);margin-top:1px}
+.stp-flags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.stp-flag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;background:#F1F3F5;color:var(--fb-text-secondary)}
+.stp-flag.store{background:var(--fb-teal-50);color:var(--fb-teal-800)}
+.stp-flag.bag{background:var(--fb-green-50);color:var(--fb-green-700)}
+.stp-edit{border-top:1px dashed var(--fb-border);padding:14px 16px;background:#FAFEFF;display:flex;flex-direction:column;gap:12px}
+.stp-edit .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stp-edit .stp-wide{grid-column:1/-1}
+.stp-edit textarea.input{resize:vertical;font-family:inherit}
+.stp-records{display:flex;flex-direction:column;gap:8px;border:1px solid var(--fb-border);border-radius:12px;padding:12px 14px;background:#fff}
+.stp-records > .label{margin-bottom:0}
+.stp-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fb-text-primary);cursor:pointer}
+.stp-check input{width:16px;height:16px;accent-color:var(--fb-teal-800)}
+.stp-weigh{display:grid;grid-template-columns:140px 1fr;gap:12px;padding:4px 0 4px 24px}
+.stp-weigh[hidden]{display:none}
+.stp-weigh .fld .stp-check{margin-bottom:6px}
+.stp-bags{max-width:260px}
+.stp-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.stp-foot-r{display:flex;gap:8px}
+.stp-del{color:#B91C1C}
+.stp-err{border:1px solid #FECACA;background:#FEF2F2;color:#991B1B;border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.stp-empty{border:1px dashed #FECACA;background:#FEF2F2;color:#991B1B;border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;margin-bottom:10px}
+.stp-shared{margin-top:16px;border:1px solid var(--fb-border);border-radius:14px;background:#FAFBFC}
+.stp-shared-h{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:13px 16px;background:none;border:0;cursor:pointer}
+.stp-shared-h b{display:block;font-size:13.5px;color:var(--fb-text-primary)}
+.stp-shared-h small{display:block;font-size:11px;color:var(--fb-text-muted);margin-top:1px}
+.stp-caret{color:var(--fb-teal-800);font-size:12px;transition:transform .15s}
+.stp-shared.open .stp-caret{transform:rotate(90deg)}
+.stp-shared-b{padding:0 16px 16px}
+#stp-prodwarn{margin-top:12px}
+#stp-prodwarn a{color:inherit;text-decoration:underline;font-weight:700}
+@media (max-width:560px){.stp-edit .grid{grid-template-columns:1fr}.stp-weigh{grid-template-columns:1fr;padding-left:0}}

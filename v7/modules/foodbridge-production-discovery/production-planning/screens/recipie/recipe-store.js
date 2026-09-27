@@ -36,10 +36,14 @@
       mats: d.materials,
       supervisors: d.operators,
       header: d.recipeHeaders[id],
-      hasSteps: d.workflows.some((w) => w.recipeId === id),
+      steps: ((d.workflows.find((w) => w.recipeId === id) || {}).steps || []).slice().sort((a, b) => a.order - b.order),
     };
   });
   const bk = data.bk;
+  /* the floor fills bags by the fill step; the header shows that, not a second copy */
+  const fillStep = data.steps.filter((st) => st.bags).pop();
+  const bagKg = fillStep ? fillStep.bags : bk.bagKg;
+  const stepsLabel = data.steps.length ? data.steps.length + ' step' + (data.steps.length === 1 ? '' : 's') : 'No steps yet';
   const priceOf = (i) => { const m = i.rmId && data.mats.find((x) => x.id === i.rmId); return m ? m.price : 0; };
 
   /* recipe-v4.js reads these instead of its cookie constants */
@@ -73,7 +77,7 @@
     const ver = $('.v4-ver select');
     if (ver) ver.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)} (Latest)</option>`;
     const meta = $('.v4-head .meta');
-    if (meta) meta.innerHTML = `<span class="m">Line <b>${esc(bk.line)}</b></span><span class="m">Batch sizes <b>${bk.sizes.join(' / ')} kg</b></span><span class="m">Best before <b>${bk.bestBeforeDays} days</b></span><span class="m">Big bags <b>${bk.bagKg} kg</b></span><span class="m">Process <b style="color:var(--fb-green-700)">${data.hasSteps ? 'Steps set' : 'No steps yet'}</b></span>`;
+    if (meta) meta.innerHTML = `<span class="m">Line <b>${esc(bk.line)}</b></span><span class="m">Batch sizes <b>${bk.sizes.join(' / ')} kg</b></span><span class="m">Best before <b>${bk.bestBeforeDays} days</b></span><span class="m">Big bags <b data-bag-kg>${bagKg} kg</b></span><a class="m m-link" href="#" data-v4tab="process" title="See how it's made">Process <b data-steps-count style="color:${data.steps.length ? 'var(--fb-green-700)' : 'var(--fb-red-700,#B91C1C)'}">${stepsLabel}</b> ›</a>`;
     const bs = $('#batch-size');
     if (bs) bs.innerHTML = bk.sizes.map((z) => `<option value="${z}"${z === bk.base ? ' selected' : ''}>${z} kg</option>`).join('');
     const hint = $('.batch-prev .bp-hint'); if (hint) hint.textContent = `Base = ${bk.base} kg · quantities & costs scale for preview only; edits change the base recipe.`;
@@ -120,7 +124,7 @@
     /* production tab: the floor's words */
     const pv = $('#pb-ver'); if (pv) pv.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)}</option>`;
     const sub = $('[data-prodpanel="batch"] .stage-sub');
-    if (sub) sub.innerHTML = `Made on the floor by its <b>Process Steps</b> — ${esc(bk.line.toLowerCase())} line, into ${bk.bagKg} kg bags in the freezer. Planned in <b>kg</b>, never in pieces.`;
+    if (sub) sub.innerHTML = `Made on the floor by its <b>Process</b> steps — ${esc(bk.line.toLowerCase())} line, into <span data-bag-kg>${bagKg} kg</span> bags in the freezer. Planned in <b>kg</b>, never in pieces.`;
     const band = $('#pb-band .band-row span');
     if (band) band.innerHTML = `Quality band <b>${r2(bk.base * 0.9)}–${r2(bk.base * 1.1)} kg</b> · nominal ${bk.base} (±10%)`;
     const size = $('#pb-size'); if (size) size.value = bk.base;
@@ -140,12 +144,15 @@
     const note = $('#pb-actnote'); if (note) note.textContent = 'Creates a Planned batch in Batch Management and a packing order for each pack. Add it to a shift to put it on the floor.';
   }
 
-  /* a rail click opens that recipe (the page is built for one recipe at a time) */
+  /* a rail click opens that recipe (the page is built for one recipe at a time),
+     on the tab you were on: walking the recipes' Process tabs stays on Process */
   document.addEventListener('click', (e) => {
     const item = e.target.closest('.rl-item[data-rid]');
     if (!item) return;
     e.preventDefault(); e.stopImmediatePropagation();
-    location.search = '?recipe=' + encodeURIComponent(item.getAttribute('data-rid'));
+    const tab = document.querySelector('.v4-tabs .t.on');
+    const on = tab ? tab.getAttribute('data-v4tab') : 'ingredients';
+    location.search = '?recipe=' + encodeURIComponent(item.getAttribute('data-rid')) + (on !== 'ingredients' ? '&tab=' + on : '');
   }, true);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rewrite);

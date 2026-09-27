@@ -2736,3 +2736,20 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 ### 26 September 2026 — Store Builder opens in English
 
 **Owner:** keep English as the default language. A new session starts in English, as does an older save that never chose a language. Welcome still switches to हिंदी in one tap, as does ⋯ later, and a save that chose Hindi stays in Hindi. `?v=` bumped to `20260927S18`.
+
+### 28 September 2026 — Production: Process Steps moves into Recipes
+
+**Owner:** a recipe is what goes in *and* how it's made, so Process Steps lives inside Recipes. Packing is a closed section every recipe shares, and the Process Steps leaf is retired.
+
+- **Recipes has four tabs:** Ingredients · **Process** · Cost · Production.
+- **Process** lists this recipe's floor steps, with who does each one, its time and what it records. A step opens in place, like an ingredient row: name, done by, minutes, instructions, what the worker records, and whether it unlocks the next step.
+  - *Takes from the store* offers only this recipe's stocked ingredients. *Sticks used* only appears when the recipe uses sticks.
+  - Under the recipe's steps, *Then packed into packets*, closed by default, holds the shared Packing steps, marked as changing packing for every product.
+  - One line: changes apply to batches put on a shift after you save.
+- **Header:** *Process · N steps ›* opens the tab. *Big bags* is read from the fill step, which is what the floor fills.
+- **No steps:** the tab warns that batches of this recipe won't reach the floor, and offers *Add first step*. The Production tab shows the same warning above *Create Production Order*.
+- **Deleting a step renumbers the rest.** The floor unlocks step n+1 when step n is done, so a gap left by a delete stalled every batch at it. The old editor had the same gap.
+- **Switching recipe keeps the tab** (`?tab=`).
+- **Wiring:** new `recipe-steps.js` uses the same JobFlow API routes and the same store as the old page, signed in as the seeded admin. No store change.
+- **Sidebar:** Production Plan · Recipes · Batches · Shifts · Shop Floor · Freezer Stock · Month End. `#/process-steps`, `#/production/process-steps` and `#/workflow-editor` land on Recipes. JobFlow's own `#/steps` still works when it runs on its own.
+- `?v=` `20260928PS1` on the Recipes page, its `modules.json` URL, `admin.js` and `platform.js` (for the `modules.json` change). Tests: 21 pass.

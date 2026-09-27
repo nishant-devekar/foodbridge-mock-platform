@@ -8,7 +8,7 @@ Before this, Batch Management, Configure Recipe, JobFlow and the inventories eac
 | --- | --- |
 | `recipes`, `recipeHeaders`, `packagingLines`, `operators`, `hostProducts`, `batches` | **Batch Management**. These use its own `seed.json` shape, and its `loadSeed()` / `saveSeed()` point here. |
 | `book` (line, ingredients, making cost, packs per recipe) | **Configure Recipe**, through `recipe-store.js`. |
-| `workflows`, `shifts`, `tasks`, `workers` | **Process Steps**, **Shifts**, **Shop Floor** and the **Worker App** (JobFlow). |
+| `workflows`, `shifts`, `tasks`, `workers` | **Recipes → Process** (the steps, through the JobFlow API), **Shifts**, **Shop Floor** and the **Worker App** (JobFlow). |
 | `materials`, `lots`, `ordered` | **Raw Material Inventory** (merged in by `MockShell.loadSeed`), **Receive Stock**, **Production Plan**. Each lot also has its stickers (see below). |
 | `bags` | **Freezer Stock**. The last step on the floor fills bags; packing empties them, oldest first. |
 | `fg`, `skus` | **Finished Goods Inventory**. Packing orders post their packets here. |

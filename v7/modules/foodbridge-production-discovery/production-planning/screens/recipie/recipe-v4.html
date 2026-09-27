@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Premium Butter Cookies — Recipe (feedback-4 · desktop)</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="recipe-v4.css">
+<link rel="stylesheet" href="recipe-v4.css?v=20260928PS1">
 </head>
 <body>
 <div class="app">
@@ -92,9 +92,10 @@
         </div>
       </div>
 
-      <!-- 3 tabs -->
+      <!-- 4 tabs: what goes in · how it's made · what it costs · make it -->
       <div class="v4-tabs">
         <a class="t" href="#" data-v4tab="ingredients">Ingredients</a>
+        <a class="t" href="#" data-v4tab="process">Process</a>
         <a class="t" href="#" data-v4tab="cost">Cost</a>
         <a class="t" href="#" data-v4tab="production">Production</a>
       </div>
@@ -186,7 +187,12 @@
           </div>
         </section>
 
-        <!-- ============ TAB 2: COST ============ -->
+        <!-- ============ TAB 2: PROCESS ============ -->
+        <!-- How it's made on the floor: the steps the shop floor runs for this recipe,
+             then the packing steps every product shares. Drawn by recipe-steps.js. -->
+        <section class="v4-panel" data-v4panel="process" hidden></section>
+
+        <!-- ============ TAB 3: COST ============ -->
         <section class="v4-panel" data-v4panel="cost" hidden>
           <!-- sub-tabs -->
           <div class="cost-subtabs">
@@ -338,7 +344,7 @@
           <div class="muted small mt8">Totals recalculate automatically on every edit. Ingredients &amp; making scale with the previewed batch size; packaging is per pack.</div>
         </section>
 
-        <!-- ============ TAB 3: PRODUCTION ============ -->
+        <!-- ============ TAB 4: PRODUCTION ============ -->
         <!-- Two stages, never one form (feedback-02): Section A plans the PROCESS in kg;
              Section B plans PACKAGING in pcs. Rule 1/2 — a production order is never
              expressed in SKU quantities, a packaging order never in recipe quantities. -->
@@ -550,8 +556,9 @@
 </aside>
 
 <script src="../../../../../assets/production/production-api.js?v=20260926ST1" defer></script>
-<script src="recipe-store.js?v=20260926PR1" defer></script>
+<script src="recipe-store.js?v=20260928PS1" defer></script>
 <script src="recipe.js" defer></script>
 <script src="recipe-v4.js?v=20260926PR1" defer></script>
+<script src="recipe-steps.js?v=20260928PS1" defer></script>
 </body>
 </html>
