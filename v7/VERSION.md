@@ -2802,3 +2802,19 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - **Retired:** `month-end.html` is deleted, and Production's sidebar loses Month End. `#/month-end` and `#/production/month-end` are aliases of Reports. `D.monthEnd` and its test stay.
 - `pages-parse.test.js` checks Reports in Month End's place, since Reports now loads the store. Tests: 28 pass. `?v=` `20260928PR1`: Reports' URL, its `dashboard.js`, and `platform.js`.
 
+
+### 28 September 2026 — Inventory: Semi-Finished Inventory, where Freezer Stock was
+
+**Owner:** Freezer Stock is just stock, and its words differ from business to business on a SaaS platform. Move it under Inventory, where it fits.
+
+- **Inventory reads Raw Material → Semi-Finished → Finished Goods**, in the order material moves through the factory. Production keeps making and packing (Plan · Recipes · Batches · Shifts · Shop Floor). `#/production/semifinished-products` and `#/freezer-stock` land on the new page.
+- **Semi-Finished Inventory** (made, not packed yet) is the Inventory module's own engine with a third stock type (`SEMI-FINISHED`):
+  - **Current Stock:** Total · Reserved (held for packing orders not packed yet) · Available · Shortfall (what the short packets need, less what's available). Each product has a line saying what is held and where, e.g. *5 big bags · Freezer · packs next from 00200/4*.
+  - **Expiry report:** use-by dates, as for finished goods.
+  - **Batch History Report:** a lot per container, from the batch that filled it to the packing orders that took from it.
+  - There's no Receive or Upload: the floor makes this stock.
+- **SaaS:** Recipes › Process's fill step now reads *Fills [Big bags / Drums / Crates / Tanks / Trays / Barrels] of [size] [kg / litre] into [Freezer / Cold room / Chiller / Dry store / Tank room]*. Each container records how it was filled, so a change affects only what is filled next. A recipe with no fill step holds nothing here. Existing steps read as big bags in kg in the freezer.
+- **Linked from Production:** the Plan's "Semi-finished" figure, Batch detail's "Left unpacked", and the Recipes split notice.
+- **Store:** `D.fillOf`, `D.semiFinished`, `D.bagHistory`; the fill step's `container` / `unit` / `store`, copied to tasks and bags. No data reset.
+- **Fixed:** Raw Material Inventory showed *Available 69.80000000000001 kg* (the subtraction wasn't rounded).
+- Tests: 32 pass (4 new in `semi-finished.test.js`). `?v=` `20260928SF1`.

@@ -79,7 +79,7 @@
           "id": "reports",
           "aliases": ["dashboard", "month-end", "production/month-end"],
           "name": "Reports",
-          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260928PR1",
+          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260928SF1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
           "hideBurger": true
@@ -249,7 +249,7 @@
           "_why": "26 Sep 2026, owner's 'JobFlow in Production' decisions: Production in the order the work happens — plan, define, run, stock, close. Every leaf reads and writes ONE production store (assets/production/production-api.js): recipes, batches, the shop floor, raw-material lots, the freezer's bags and the packets. This one is stage 3 of the reference flow: orders + next week's sales − packets − freezer bags → batches to make → raw material to buy.",
           "id": "production-plan",
           "name": "Production Plan",
-          "url": "modules/foodbridge-production-flow/plan.html?v=20260928HD1",
+          "url": "modules/foodbridge-production-flow/plan.html?v=20260928SF1",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -263,7 +263,7 @@
             "production/process-steps"
           ],
           "name": "Recipes",
-          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260928HD1",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260928SF1",
           "clipLeft": 212,
           "hideBurger": true,
           "clipLeftMobile": 212,
@@ -276,7 +276,7 @@
             "worker-batches"
           ],
           "name": "Batches",
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260928HD1",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260928SF1",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
@@ -288,7 +288,7 @@
             "worker-shifts"
           ],
           "name": "Shifts",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928HD1&at=shifts#/shifts",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928SF1&at=shifts#/shifts",
           "clipLeft": 240,
           "hideBurger": true,
           "clipLeftMobile": 240,
@@ -303,23 +303,11 @@
             "worker-analytics"
           ],
           "name": "Shop Floor",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928HD1&at=floor#/",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928SF1&at=floor#/",
           "clipLeft": 240,
           "hideBurger": true,
           "clipLeftMobile": 240,
           "owner": "Nidhimehta9399/jobflow-admin-web"
-        },
-        {
-          "_why": "Semifinished Products as the freezer: one row per big bag (30 / 35 kg), oldest first, with kg left, date made and use-by — what the last step on the floor fills and packing takes.",
-          "id": "semifinished-products",
-          "aliases": [
-            "freezer-stock"
-          ],
-          "name": "Freezer Stock",
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/semi-finished-products.html?v=20260928HD1",
-          "clipLeft": 0,
-          "hideBurger": true,
-          "owner": "nishant-devekar/foodbridge-production-discovery"
         }
       ],
       "personas": [
@@ -332,23 +320,40 @@
       "icon": "warehouse",
       "submenus": [
         {
-          "id": "finished-goods-inventory",
-          "name": "Finished Goods Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260928PK1",
-          "clipLeft": 256,
-          "owner": "nishant-devekar/foodbridge-inventory-mockup",
-          "hideBurger": true
-        },
-        {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260928PK1",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260928SF1",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
           "personas": [
             "manufacturer"
           ]
+        },
+        {
+          "_why": "28 Sep 2026: the third stock, made but not packed yet — Production's Freezer Stock moved here, where stock lives (owner). Same engine as the other two (catalogueType SEMI-FINISHED): Current Stock with Total · Reserved (held for packing orders) · Available · Shortfall, Expiry report, Batch History Report (a lot per container, from its batch to the packing orders that took from it). What it's held in and where comes from each recipe's fill step, so it reads right for any business.",
+          "id": "semi-finished-inventory",
+          "aliases": [
+            "semifinished-products",
+            "production/semifinished-products",
+            "freezer-stock"
+          ],
+          "name": "Semi-Finished Inventory",
+          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20260928SF1",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
+        },
+        {
+          "id": "finished-goods-inventory",
+          "name": "Finished Goods Inventory",
+          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260928SF1",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true
         }
       ]
     },
@@ -416,7 +421,7 @@
       "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
       "id": "worker-app",
       "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928PK1",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928SF1",
       "clipLeft": 0,
       "fullBleed": true,
       "deviceFrame": true,

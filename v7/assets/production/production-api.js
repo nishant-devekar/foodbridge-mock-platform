@@ -142,13 +142,13 @@
       ["Peel · cut · wash", "washer", 40, { weigh: true, takes: ["rm-p01"], loss: 10, instructions: "Weigh the crates before you start and the washed peas after. Take the oldest crates in the cold room first." }],
       ["Boil (blanch)", "blancher", 20, { instructions: "90 °C for 90 seconds, then straight into chilled water." }],
       ["Freeze", "blancher", 45, { instructions: "Spread thin on the blast-freezer trays. −30 °C until free-flowing." }],
-      ["Fill big bags · into freezer", "packer", 30, { bags: 30, instructions: "30 kg to a bag. Write the batch number, date made and use-by on every bag." }],
+      ["Fill big bags · into freezer", "packer", 30, { bags: 30, container: "Big bags", unit: "kg", store: "Freezer", instructions: "30 kg to a bag. Write the batch number, date made and use-by on every bag." }],
     ],
     "mixed-veg": [
       ["Peel · cut · wash", "washer", 60, { weigh: true, takes: ["rm-p02", "rm-p03", "rm-p01", "rm-p04"], loss: 10, instructions: "Weigh all the vegetables before, and the cut and washed mix after. Oldest crates first." }],
       ["Boil (blanch)", "blancher", 25, { instructions: "Carrot and beans 2 minutes, cauliflower 3, peas 90 seconds. Chill at once." }],
       ["Freeze", "blancher", 45, { instructions: "Mix by the recipe ratio on the trays: carrot 40 · cauli 20 · peas 20 · beans 20." }],
-      ["Fill big bags · into freezer", "packer", 30, { bags: 30, instructions: "30 kg to a bag. Batch number, date made and use-by on every bag." }],
+      ["Fill big bags · into freezer", "packer", 30, { bags: 30, container: "Big bags", unit: "kg", store: "Freezer", instructions: "30 kg to a bag. Batch number, date made and use-by on every bag." }],
     ],
     "soya-chaap": [
       ["Weigh out flour + water", "dough maker", 20, { weigh: true, takes: ["rm-p05", "rm-p06"], loss: 2, instructions: "Take flour from the oldest sack first. Weigh flour + water in, dough out." }],
@@ -156,7 +156,7 @@
       ["Cut pieces · flatten", "dough maker", 45, { instructions: "50 g pieces, pressed flat." }],
       ["Put on stick / no stick", "dough maker", 40, { sticks: true, instructions: "One stick a piece. The 5 kg catering pack goes without sticks." }],
       ["Boil · cool · chill", "blancher", 60, { weigh: true, loss: 3, instructions: "Boil 20 minutes, cool, chill to 4 °C. Weigh before boiling and after chilling." }],
-      ["Fill big bags · into freezer", "packer", 30, { bags: 35, instructions: "35 kg to a bag. Batch number, date made and use-by on every bag." }],
+      ["Fill big bags · into freezer", "packer", 30, { bags: 35, container: "Big bags", unit: "kg", store: "Freezer", instructions: "35 kg to a bag. Batch number, date made and use-by on every bag." }],
     ],
     packing: [
       ["Pack small packets", "packer", 60, { pack: true, instructions: "Oldest bags first. Seal and date every packet." }],
@@ -298,19 +298,28 @@
       return out;
     };
 
-    /* freezer */
+    /* semi-finished: made, not packed yet. What it is held in and where comes
+       from the recipe's fill step (Recipes › Process): big bags in a freezer
+       here, drums in a dry store or tanks in a chiller elsewhere. A step saved
+       before these fields existed reads as big bags in kg in the freezer. */
+    D.fillOf = function (step) {
+      step = step || {};
+      return { size: step.bags || null, container: step.container || "Big bags", unit: step.unit || "kg", store: step.store || "Freezer" };
+    };
     D.bagsFIFO = function (recipeId) {
       return db.bags.filter(function (g) { return g.recipeId === recipeId && g.remaining > 0.0001; })
         .sort(function (a, b) { return a.madeAt < b.madeAt ? -1 : a.madeAt > b.madeAt ? 1 : a.bagNo < b.bagNo ? -1 : 1; });
     };
     D.inFreezer = function (recipeId) { return r2(D.bagsFIFO(recipeId).reduce(function (s, g) { return s + g.remaining; }, 0)); };
-    D.fillBags = function (b, kg, bagKg) {
+    D.fillBags = function (b, kg, bagKg, fill) {
+      var f = D.fillOf(Object.assign({ bags: bagKg }, fill || {}));
       var made = [], left = r2(kg), n = 0, useBy = new Date(now().getTime() + D.book(b.recipeId).bestBeforeDays * DAY).toISOString();
       while (left > 0.0001) {
         n += 1;
         var k = r2(Math.min(bagKg, left)); left = r2(left - k);
         var g = { id: "bag-" + b.batchNumber + "-" + n, bagNo: b.batchNumber.replace("PB-2026-", "") + "/" + n, batchId: b.id, batchNumber: b.batchNumber,
-          recipeId: b.recipeId, product: b.displayName, kg: k, remaining: k, madeAt: iso(), useBy: useBy, _seq: ++db.seq };
+          recipeId: b.recipeId, product: b.displayName, kg: k, remaining: k, madeAt: iso(), useBy: useBy,
+          container: f.container, unit: f.unit, store: f.store, _seq: ++db.seq };
         db.bags.push(g); made.push(g);
       }
       var bagMat = bagKg === 35 ? "rm-p09" : "rm-p08";
@@ -526,6 +535,7 @@
             _id: newId(db), batch: b.id, shift: shift._id, stepOrder: step.order, stepName: step.name, role: step.role,
             expectedMinutes: step.expectedMinutes, instructions: step.instructions, unlocksNext: step.unlocksNext,
             weigh: !!step.weigh, takes: step.takes || [], loss: step.loss == null ? null : step.loss, sticks: !!step.sticks, bags: step.bags || null,
+            container: step.container || null, unit: step.unit || null, store: step.store || null,
             pack: !!step.pack, cartons: !!step.cartons,
             assignedTo: null, status: next && step.order === next.order ? "available" : "locked",
             availableAt: next && step.order === next.order ? iso() : null,
@@ -582,7 +592,7 @@
         var kb = num(input.kgOut);
         if (!(kb > 0)) throw invalid("Enter the kg that went into bags");
         rec.kgOut = r2(kb);
-        rec.bagsMade = D.fillBags(b, kb, task.bags).map(function (g) { return { bagNo: g.bagNo, kg: g.kg }; });
+        rec.bagsMade = D.fillBags(b, kb, task.bags, { container: task.container, unit: task.unit, store: task.store }).map(function (g) { return { bagNo: g.bagNo, kg: g.kg }; });
       }
       if (task.pack) {
         var s = D.sku(b.skuId), p = Math.round(num(input.packets));
@@ -690,6 +700,52 @@
       return { skus: rows, products: products, materials: materials };
     };
 
+    /* ── Semi-Finished Inventory (Inventory, 28 Sep 2026) ──────────────────
+       Stock made but not packed yet, per product, in Inventory's terms:
+         total      what the containers hold
+         reserved   what open packing orders will take (not packed yet)
+         available  total − reserved
+         shortfall  kg the short packets need (the plan's) − available
+       A product with no fill step is packed in the same run: it holds
+       nothing here and is left out. */
+    D.semiFinished = function () {
+      var plan = D.plan();
+      return db.recipeOrder.map(function (rid, i) {
+        var bk = D.book(rid), wf = db.workflows.filter(function (w) { return w.recipeId === rid; })[0];
+        var fill = wf && wf.steps.filter(function (st) { return st.bags; }).pop();
+        var bags = D.bagsFIFO(rid);
+        if (!fill && !bags.length) return null;
+        var f = D.fillOf(fill), total = D.inFreezer(rid);
+        var reserved = r2(Math.min(total, db.batches.filter(function (b) {
+          return b.kind === "packing" && b.recipeId === rid && ["planned", "in-progress"].indexOf(b.stateId) !== -1 && !b.packedPackets;
+        }).reduce(function (t, b) { return t + b.batchSize; }, 0)));
+        var available = r2(total - reserved), p = plan.products.filter(function (x) { return x.recipeId === rid; })[0] || {};
+        return { recipeId: rid, name: bk.name, article: "SF-" + pad(i + 1, 2).padStart(4, "40"), container: f.container, size: f.size || bk.bagKg, unit: f.unit, store: f.store,
+          totalKg: total, bags: bags.length, reservedKg: reserved, availableKg: available, shortfallKg: r2(Math.max(0, (p.needKg || 0) - available)),
+          plannedKg: p.plannedKg || 0, next: bags[0] ? bags[0].bagNo : null,
+          /* what is held now, as each container was filled — a changed fill step
+             only changes the containers filled after it */
+          held: bags.reduce(function (out, g) {
+            var gf = D.fillOf({ container: g.container, unit: g.unit, store: g.store });
+            var k = out.filter(function (x) { return x.container === gf.container && x.store === gf.store; })[0];
+            if (k) k.count += 1; else out.push({ container: gf.container, store: gf.store, count: 1 });
+            return out;
+          }, []) };
+      }).filter(Boolean);
+    };
+    /* every bag ever filled, and which packing orders took from it */
+    D.bagHistory = function () {
+      var taken = {};
+      db.batches.forEach(function (b) {
+        (b.bagsTaken || []).forEach(function (t) { (taken[t.bagNo] = taken[t.bagNo] || []).push({ order: b.batchNumber, kg: t.kg }); });
+      });
+      return db.bags.slice().sort(function (a, b) { return a.madeAt < b.madeAt ? 1 : -1; }).map(function (g) {
+        var f = D.fillOf({ bags: g.kg, container: g.container, unit: g.unit, store: g.store });
+        return { id: g.id, bagNo: g.bagNo, batchNumber: g.batchNumber, recipeId: g.recipeId, product: g.product, kg: g.kg, remaining: g.remaining, madeAt: g.madeAt, useBy: g.useBy,
+          container: f.container, unit: f.unit, store: f.store, takenBy: taken[g.bagNo] || [] };
+      });
+    };
+
     /* ── Month end: real cost and where weight was lost ───────────────── */
     D.monthEnd = function (from) {
       var start = from || new Date(now().getFullYear(), now().getMonth(), 1).toISOString();
@@ -760,7 +816,8 @@
     function stepOf(s, i) {
       var f = s[3] || {};
       return { order: i + 1, name: s[0], role: s[1], expectedMinutes: s[2], instructions: f.instructions || "", unlocksNext: true, _id: newId(db),
-        weigh: !!f.weigh, takes: f.takes || [], loss: f.loss == null ? null : f.loss, sticks: !!f.sticks, bags: f.bags || null, pack: !!f.pack, cartons: !!f.cartons };
+        weigh: !!f.weigh, takes: f.takes || [], loss: f.loss == null ? null : f.loss, sticks: !!f.sticks, bags: f.bags || null, pack: !!f.pack, cartons: !!f.cartons,
+        container: f.container || null, unit: f.unit || null, store: f.store || null };
     }
     WORKERS.forEach(function (w) {
       db.workers.push(stamp({ _id: newId(db), key: w[0], name: w[1], role: w[2], pin: w[3], phone: w[4], isOnline: w[5] }));
@@ -991,10 +1048,11 @@
       if (b.takes !== undefined) { if (!Array.isArray(b.takes)) throw invalid(); out.takes = b.takes.filter(function (x) { return D.material(x); }); }
       if (b.loss !== undefined) out.loss = b.loss === null || b.loss === "" ? null : Math.max(0, Number(b.loss));
       if (b.bags !== undefined) out.bags = b.bags ? Number(b.bags) : null;
+      ["container", "unit", "store"].forEach(function (k) { if (b[k] !== undefined) { if (b[k] !== null && typeof b[k] !== "string") throw invalid(); out[k] = b[k] ? b[k].trim() : null; } });
       if (!requireAll && !Object.keys(out).length) throw invalid();
       return out;
     }
-    function stepDefaults(st) { return Object.assign({ expectedMinutes: 45, unlocksNext: true, weigh: false, takes: [], loss: null, sticks: false, bags: null, pack: false, cartons: false }, st, { _id: newId(db) }); }
+    function stepDefaults(st) { return Object.assign({ expectedMinutes: 45, unlocksNext: true, weigh: false, takes: [], loss: null, sticks: false, bags: null, container: null, unit: null, store: null, pack: false, cartons: false }, st, { _id: newId(db) }); }
 
     var routes = [];
     function route(method, pattern, fn) {
@@ -1399,6 +1457,9 @@
         return d;
       },
       plan: function () { return read(function (D) { return D.plan(); }); },
+      /* Inventory › Semi-Finished Inventory */
+      semiFinished: function () { return read(function (D) { return D.semiFinished(); }); },
+      bagHistory: function () { return read(function (D) { return D.bagHistory(); }); },
       monthEnd: function () { return read(function (D) { return D.monthEnd(); }); },
       createProductionOrder: function (o) { return withDomain(function (D) { return D.createProductionOrder(o); }); },
       createPackingOrder: function (o) { return withDomain(function (D) { return D.createPackingOrder(o); }); },

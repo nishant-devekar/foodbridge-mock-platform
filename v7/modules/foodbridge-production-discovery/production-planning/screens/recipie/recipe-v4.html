@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Premium Butter Cookies — Recipe (feedback-4 · desktop)</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="recipe-v4.css?v=20260928HD1">
+<link rel="stylesheet" href="recipe-v4.css?v=20260928SF1">
 </head>
 <body>
 <div class="app">
@@ -467,7 +467,7 @@
               ⚠ Over-allocated by <b id="over-kg">0 kg</b> — this batch holds <b id="over-cap">100 kg</b>. Reduce quantities until the plan fits.
             </div>
             <div class="nb" id="semi-note" hidden>
-              <b id="semi-kg">0 kg</b> of the batch is unallocated — it becomes <b>Semi Finished Inventory</b> and can be packed later (Rule 5). Leaving residual is allowed.
+              <b id="semi-kg">0 kg</b> of the batch is unallocated — it becomes <a href="#" style="color:inherit;font-weight:700;text-decoration:underline" onclick="try{if(window.parent!==window)window.parent.location.hash='#/inventory/semi-finished-inventory'}catch(e){}return false">Semi-Finished Inventory</a> and can be packed later (Rule 5). Leaving residual is allowed.
             </div>
             <div class="nb nb-act" id="n-out" hidden>
               <span><b id="out-pcs">0 pcs</b> of demand won't fit this batch.</span>
@@ -568,11 +568,11 @@
 <!-- the platform's page header in place of this page's own bar, the same as Sales Orders (28 Sep 2026) -->
 <script src="../../../../../assets/app-header.js?v=20260928HD1"></script>
 <script>FBAppHeader.mount({ title: "Recipes", replace: "header.topbar" });</script>
-<script src="../../../../../assets/production/production-api.js?v=20260928PK1" defer></script>
+<script src="../../../../../assets/production/production-api.js?v=20260928SF1" defer></script>
 <script src="recipe-store.js?v=20260928PK1" defer></script>
 <script src="recipe.js" defer></script>
 <script src="recipe-v4.js?v=20260926PR1" defer></script>
 <script src="recipe-packaging.js?v=20260928PK1" defer></script>
-<script src="recipe-steps.js?v=20260928PK1" defer></script>
+<script src="recipe-steps.js?v=20260928SF1" defer></script>
 </body>
 </html>

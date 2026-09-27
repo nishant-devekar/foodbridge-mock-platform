@@ -453,7 +453,9 @@
       el("div", { class: "ov-block" },
         el("div", { class: "ds-label" }, "Packaging Mix ", el("span", { class: "ds-label-note" }, `— ${b.packagingLines.length} line${b.packagingLines.length === 1 ? "" : "s"}`)),
         packagingBlock,
-        b.semiFinishedKg ? el("div", { class: "kv" }, el("span", { class: "k" }, "Left unpacked (semi-finished)"), el("span", { class: "v" }, `${b.semiFinishedKg.toFixed(2)} ${batchUnit}`)) : null),
+        b.semiFinishedKg ? el("div", { class: "kv" }, el("span", { class: "k" }, "Left unpacked (semi-finished)"), el("span", { class: "v" }, `${b.semiFinishedKg.toFixed(2)} ${batchUnit} · `,
+          /* it is stock now: Inventory › Semi-Finished Inventory (28 Sep 2026) */
+          el("a", { href: "#", style: "color:var(--app-green,#15803d);font-weight:600", onclick: (e) => { e.preventDefault(); try { if (window.parent !== window) window.parent.location.hash = "#/inventory/semi-finished-inventory"; } catch (err) {} } }, "Semi-Finished Inventory ›"))) : null),
       outcomeBlock,
       inventorySyncBlock(),
       el("div", { class: "ov-block" },

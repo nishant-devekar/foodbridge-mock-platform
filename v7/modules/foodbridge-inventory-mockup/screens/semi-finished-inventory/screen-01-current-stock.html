@@ -1,31 +1,33 @@
 <!doctype html>
 <!--
-  DISCOVERY SCREEN — Foodbridge Module Inventory Management — "Current Stock"
+  DISCOVERY SCREEN — Foodbridge Module Inventory Management — "Semi-Finished Inventory"
+  (FoodBridge v7, 28 Sep 2026)
 
-  Standalone-openable: serve discovery/ over HTTP and open this file directly.
-  Also reachable from the wiring hub (../../index.html).
+  The third stock, between Raw Material and Finished Goods: made, not packed
+  yet. It was Production › Freezer Stock (Batch Management's port of the
+  product's Semi-Finished Products screen, relabelled for one frozen-food
+  business). Here it is stock like the other two, on the same engine:
 
-  Tab 1 of 4 — the landing tab. Per-product stock with Total / Reserved /
-  Available / Shortfall columns, searchable and sortable eight ways.
+    Current Stock          per product: Total · Reserved (held for packing
+                           orders not packed yet) · Available · Shortfall
+                           (what the short packets need, less what's available)
+    Expiry report          the containers' use-by, as for finished goods
+    Batch History Report   a lot per container: the batch that filled it and
+                           the packing orders that took from it
 
-  Outgoing transitions (proto-FSM feeding SSOT-1 / SSOT-5):
-    - Quick Stock Upload tab  -> screen-02-quick-stock-upload.html
-    - Expiry report tab       -> screen-03-expiry-report.html
-    - Batch History tab       -> screen-04-batch-history.html
-    - Search matches nothing  -> screen-07-no-results.html
+  What the containers are and where they're kept comes from each recipe's
+  fill step (Recipes › Process): big bags in a freezer for frozen food, drums
+  in a dry store or tanks in a chiller for others. A recipe packed in the
+  same run holds nothing here. No Receive Stock and no upload: the floor
+  makes this stock and packing takes it.
 
-  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
-  Data comes from ../../seed-data/seed.json. Disposable — informs the SSOTs, not
-  imported by development/.
-
-  Ported from storefront-frontend@develop, route /inventory (src/pages/Inventory.jsx).
-  See ../../instructions/addendum-002-live-inventory-port.md.
+  Data: the production store, merged in by ../../assets/mock-shell.js.
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inventory — Current Stock</title>
+  <title>Semi-Finished Inventory</title>
 
   <!-- Tailwind, vendored (no build step, no network dependency at view time).
        Downloaded once from https://cdn.tailwindcss.com/3.4.16 -->
@@ -75,7 +77,7 @@
   <script src="../../assets/mock-shell.js?v=20260928SF1"></script>
   <script src="../../assets/mock-inventory.js?v=20260928SF1"></script>
   <script>
-    window.MockInventory.mount({ tab: "live" });
+    window.MockInventory.mount({ tab: "live", route: "/semi-finished-inventory", catalogueType: "SEMI-FINISHED", tabs: window.MockInventory.TABS_SF, title: "Semi-Finished Inventory" });
   </script>
 </body>
 </html>

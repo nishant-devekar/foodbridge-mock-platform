@@ -383,7 +383,9 @@
 .stp-weigh{display:grid;grid-template-columns:140px 1fr;gap:12px;padding:4px 0 4px 24px}
 .stp-weigh[hidden]{display:none}
 .stp-weigh .fld .stp-check{margin-bottom:6px}
-.stp-bags{max-width:260px}
+.stp-fill-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--fb-text-secondary)}
+.stp-fill-line .input{width:auto;min-width:0}
+.stp-fill-line input.input{width:80px}
 .stp-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .stp-foot-r{display:flex;gap:8px}
 .stp-del{color:#B91C1C}

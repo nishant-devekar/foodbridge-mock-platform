@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260928PK1", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260928SF1", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -444,6 +444,29 @@
         fg.push({ _id: k.id, productName: k.name, articleNumber: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
           availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null });
       });
+      /* Semi-Finished Inventory (28 Sep 2026): made, not packed yet. A product
+         per recipe that fills containers on the floor, and a lot per container,
+         from the batch that filled it to the packing orders that took from it.
+         What the containers are and where they're kept is the recipe's fill
+         step: big bags in a freezer here. */
+      const sf = [];
+      const hist = D.bagHistory();
+      const count = (n, c) => n + " " + (n === 1 ? c.replace(/s$/, "") : c).toLowerCase();
+      D.semiFinished().forEach((x) => {
+        const id = "sf-" + x.recipeId, cost = Math.round(D.costPerKg(x.recipeId) * 100) / 100;
+        const unit = (x.unit === "litre" ? "Ltr" : "Kg") + "-" + x.container.replace(/s$/, "").replace(/\s+/g, "") + "-Store";
+        const bags = hist.filter((g) => g.recipeId === x.recipeId);
+        bags.forEach((g) => batches.push({ _id: g.id, batchNumber: g.container.replace(/s$/, "") + " " + g.bagNo,
+          batchName: "From " + g.batchNumber + (g.takenBy.length ? " · packed by " + g.takenBy.map((t) => t.order + " (" + t.kg + " " + g.unit + ")").join(", ") : ""), createdDaysAgo: ago(g.madeAt),
+          products: [{ _id: id, name: x.name, articleNo: x.article, unit, boxes: x.size, pallets: 1, stock: g.kg, remainingStock: g.remaining,
+            mfgDaysAgo: ago(g.madeAt), expiryInDays: until(g.useBy), price: cost, tax: 0, supplierData: null }] }));
+        sf.push({ _id: id, productName: x.name, articleNumber: x.article, unit, boxes: x.size, pallets: 1,
+          availableStock: x.totalKg, requiredStock: x.reservedKg, outstandingStock: x.shortfallKg, imagesUrl: [], stockThreshold: null,
+          batchStock: bags.map((g) => ({ batchId: g.id, stock: g.kg, remainingStock: g.remaining })),
+          note: x.bags ? x.held.map((h) => count(h.count, h.container) + " · " + h.store).join(" + ") + (x.next ? " · packs next from " + x.next : "")
+            : "No " + x.container.toLowerCase() + " · " + (x.plannedKg ? x.plannedKg + " " + x.unit + " planned" : "make a batch") });
+      });
+      seed.stockSummary["SEMI-FINISHED"] = sf;
       seed.stockSummary["RAW-MATERIAL"] = rm.concat(seed.stockSummary["RAW-MATERIAL"] || []);
       seed.stockSummary["FINISHED-GOODS"] = fg.concat(seed.stockSummary["FINISHED-GOODS"] || []);
       seed.batches = batches.concat(seed.batches || []);
@@ -456,6 +479,7 @@
         /* pouches and cartons: set per pack in Recipes › Packaging */
         { _id: "cat-rm-pouch", name: "Dry store · pouches & cartons", productIds: d.materials.filter((m) => m.kind === "packaging" && m.id.indexOf("rm-k") === 0).map((m) => m.id) },
       ].concat(seed.categoryTree["RAW-MATERIAL"] || []);
+      seed.categoryTree["SEMI-FINISHED"] = [{ _id: "cat-sf", name: "Made, not packed yet", productIds: sf.map((p) => p._id) }];
       seed.categoryTree["FINISHED-GOODS"] = [{ _id: "cat-fg-frozen", name: "Frozen foods · our packs", productIds: d.skus.map((k) => k.id) }].concat(seed.categoryTree["FINISHED-GOODS"] || []);
       return seed;
     });

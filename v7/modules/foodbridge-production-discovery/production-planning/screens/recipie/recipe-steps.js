@@ -67,12 +67,19 @@
 
   /* ---------- view ---------- */
   function mins(n) { const h = Math.floor(n / 60), m = n % 60; return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : m + ' min'; }
+  /* The fill step: what it fills, how big, and where they are kept — what
+     Inventory › Semi-Finished Inventory reads for this product. A step saved
+     before these existed reads as big bags in kg in the freezer. */
+  const CONTAINERS = ['Big bags', 'Drums', 'Crates', 'Tanks', 'Trays', 'Barrels'];
+  const STORES = ['Freezer', 'Cold room', 'Chiller', 'Dry store', 'Tank room'];
+  const fillOf = (st) => ({ container: (st && st.container) || 'Big bags', unit: (st && st.unit) || 'kg', store: (st && st.store) || 'Freezer' });
+  const opts = (list, on) => list.concat(list.indexOf(on) === -1 ? [on] : []).map((x) => `<option${x === on ? ' selected' : ''}>${esc(x)}</option>`).join('');
   function flags(st) {
     const out = [];
     if (st.weigh) out.push(`<span class="stp-flag">kg in → out${st.loss != null ? ' · ≤' + st.loss + '% loss' : ''}</span>`);
     if (st.takes && st.takes.length) out.push(`<span class="stp-flag store">takes ${esc(st.takes.map((id) => s.names[id] || id).join(', '))}</span>`);
     if (st.sticks) out.push('<span class="stp-flag store">counts sticks</span>');
-    if (st.bags) out.push(`<span class="stp-flag bag">fills ${st.bags} kg bags</span>`);
+    if (st.bags) { const f = fillOf(st); out.push(`<span class="stp-flag bag">fills ${st.bags} ${esc(f.unit)} ${esc(f.container.toLowerCase())} · ${esc(f.store)}</span>`); }
     if (st.pack) out.push('<span class="stp-flag bag">packs from oldest bags</span>');
     if (st.cartons) out.push('<span class="stp-flag bag">cartons → finished goods</span>');
     return out.length ? `<span class="stp-flags">${out.join('')}</span>` : '';
@@ -92,7 +99,8 @@
               : '<span class="muted small">This recipe lists no stocked materials.</span>'}</div>
           </div>`
         + (sticks ? check(f.sticks, 'data-sf="sticks"', 'Sticks used (taken from the store)') : '')
-        + `<div class="fld stp-bags"><label class="label">Fills big bags of (kg) <span class="muted">· leave empty if it doesn't</span></label><input class="input" data-sf="bags" type="number" min="1" value="${f.bags || ''}" placeholder="30"></div>`;
+        + (() => { const fl = fillOf(f); return `<div class="fld stp-fill"><label class="label">Fills <span class="muted">· leave the size empty if it doesn't; Semi-Finished Inventory shows what it fills</span></label>
+            <div class="stp-fill-line"><select class="input" data-sf="container">${opts(CONTAINERS, fl.container)}</select><span>of</span><input class="input" data-sf="bags" type="number" min="1" value="${f.bags || ''}" placeholder="30"><select class="input" data-sf="unit">${opts(['kg', 'litre'], fl.unit)}</select><span>into</span><select class="input" data-sf="store">${opts(STORES, fl.store)}</select></div></div>`; })();
     return `<div class="stp-edit">
       <div class="grid">
         <div class="fld stp-wide"><label class="label">Step name</label><input class="input" data-sf="name" value="${esc(f.name)}" placeholder="${packing ? 'Pack small packets' : 'Peel · cut · wash'}"></div>
@@ -175,12 +183,12 @@
     if (!Number.isInteger(minutes) || minutes < 1) throw new Error('Time is whole minutes, 1 or more.');
     const p = { name, role: v('role'), expectedMinutes: minutes, instructions: String(v('instructions') || '').trim(), unlocksNext: !!v('unlocksNext') };
     if (packing) return Object.assign(p, { pack: !!v('pack'), cartons: !!v('cartons') });
-    const weigh = !!v('weigh'), loss = v('loss'), bags = v('bags');
+    const weigh = !!v('weigh'), loss = v('loss'), bags = v('bags'), fill = bags ? { container: v('container'), unit: v('unit'), store: v('store') } : { container: null, unit: null, store: null };
     return Object.assign(p, {
       weigh, loss: weigh && loss !== '' ? Number(loss) : null,
       takes: weigh ? $$('[data-take]', li).filter((c) => c.checked).map((c) => c.getAttribute('data-take')) : [],
       sticks: !!v('sticks'), bags: bags ? Number(bags) : null,
-    });
+    }, fill);
   }
   function save(li) {
     const key = li.getAttribute('data-wf'), id = li.getAttribute('data-stp');

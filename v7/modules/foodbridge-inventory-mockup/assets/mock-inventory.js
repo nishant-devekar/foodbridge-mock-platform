@@ -267,6 +267,21 @@
     { id: "batches", label: "Batch History Report", icon: "archive" },
   ];
 
+  // Semi-Finished Inventory (FoodBridge v7, 28 Sep 2026): stock made but not
+  // packed yet. Nothing is received or uploaded — the floor makes it and
+  // packing takes it — so the tabs are the stock, its expiry and its lots.
+  const TABS_SF = [
+    { id: "live", label: "Current Stock", icon: "activity" },
+    { id: "inventory-health", label: "Expiry report", icon: "packageSearch" },
+    { id: "batches", label: "Batch History Report", icon: "archive" },
+  ];
+
+  // The three stocks: raw material, semi-finished, finished goods (the default).
+  const typeKey = () =>
+    state.catalogueType === "RAW-MATERIAL" || state.catalogueType === "SEMI-FINISHED"
+      ? state.catalogueType
+      : "FINISHED-GOODS";
+
   const LOW_SORT_OPTIONS = [
     { value: "critical:desc", label: "Most critical first" },
     { value: "name:asc", label: "Product name A → Z", icon: "arrowDownAZ" },
@@ -590,7 +605,7 @@
           pallets: p.pallets,
         }),
         totalStockQty: wrap(Math.max(0, p.availableStock || 0)),
-        idealQty: wrap(Math.max(0, p.availableStock - p.requiredStock)),
+        idealQty: wrap(Math.max(0, Math.round((p.availableStock - p.requiredStock) * 100) / 100)),
         reservedQty: wrap(Math.max(0, Math.min(p.availableStock, p.requiredStock))),
         outstandingQty: wrap(Math.max(0, p.outstandingStock || 0)),
       };
@@ -611,17 +626,21 @@
               <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">${colInfo(
                 "col-reserved",
                 "Reserved",
-                "Stock reserved for customer orders waiting to be delivered."
+                typeKey() === "SEMI-FINISHED"
+                  ? "Held for packing orders that haven't been packed yet."
+                  : "Stock reserved for customer orders waiting to be delivered."
               )}</th>
               <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">${colInfo(
                 "col-available",
                 "Available",
-                "Stock ready for new sales."
+                typeKey() === "SEMI-FINISHED" ? "Free to pack into the packs orders need." : "Stock ready for new sales."
               )}</th>
               <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">${colInfo(
                 "col-shortfall",
                 "Shortfall",
-                "Quantity still needed to fulfil confirmed orders — must be procured, produced, or transferred.",
+                typeKey() === "SEMI-FINISHED"
+                  ? "What the short packets need, less what's available — to make. Batches already planned cover some of it (Production Plan)."
+                  : "Quantity still needed to fulfil confirmed orders — must be procured, produced, or transferred.",
                 "30 boxes short; need to restock before dispatch."
               )}</th>
             </tr>
@@ -647,7 +666,7 @@
                       c.conversionHint.length > 0
                         ? `<p class="text-xs text-slate-400 mt-0.5 italic">${esc(c.conversionHint[0])}</p>`
                         : ""
-                    }
+                    }${p.note ? `<p class="text-xs text-slate-500 mt-0.5">${esc(p.note)}</p>` : ""}
                   </td>
                   <td class="px-4 py-3 text-center"><span class="text-sm font-medium text-slate-700 tabular-nums">${
                     c.totalStockQty
@@ -683,7 +702,9 @@
                 )}</div>
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium text-slate-800 leading-tight">${esc(p.productName)}</p>
-                  <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}</p>
+                  <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}</p>${
+                    p.note ? `<p class="text-xs text-slate-500 mt-0.5">${esc(p.note)}</p>` : ""
+                  }
                 </div>
                 ${outstandingBadge(c.outstandingQty, p.outstandingStock > 0 ? c.displayUnit : null)}
               </div>
@@ -1647,14 +1668,15 @@
   function batchListForRoute() {
     // Live: /inventory strips raw-material products out of every batch and drops
     // batches left empty; /raw-material-inventory keeps only raw-material lines.
-    const rmIds = new Set((state.seed.stockSummary["RAW-MATERIAL"] || []).map((p) => String(p._id)));
-    const keepRaw = state.catalogueType === "RAW-MATERIAL";
+    // Semi-finished lines are kept on their own page and out of the other two.
+    const idsOf = (k) => new Set((state.seed.stockSummary[k] || []).map((p) => String(p._id)));
+    const rmIds = idsOf("RAW-MATERIAL"), sfIds = idsOf("SEMI-FINISHED"), key = typeKey();
+    const keep = (id) =>
+      key === "RAW-MATERIAL" ? rmIds.has(id) : key === "SEMI-FINISHED" ? sfIds.has(id) : !rmIds.has(id) && !sfIds.has(id);
     return state.batches
       .map((b) =>
         Object.assign({}, b, {
-          products: (b.products || []).filter((p) =>
-            keepRaw ? rmIds.has(String(p._id)) : !rmIds.has(String(p._id))
-          ),
+          products: (b.products || []).filter((p) => keep(String(p._id))),
         })
       )
       .filter((b) => b.products.length > 0)
@@ -1821,6 +1843,13 @@
       );
     }
 
+    // Semi-finished: under the container's number, the batch that filled it
+    // and the packing orders that took from it (its trail, FoodBridge v7).
+    const trail = (batch, small) =>
+      typeKey() === "SEMI-FINISHED" && batch.batchName
+        ? `<p class="${small ? "text-xs" : "text-xs"} text-slate-500 mt-1 ${small ? "" : "ml-8"} whitespace-normal">${esc(batch.batchName)}</p>`
+        : "";
+
     const copyBtn = (bn, small) =>
       `<button data-copy="${esc(bn)}" class="${
         small ? "p-1 rounded hover:bg-slate-200 shrink-0 transition-colors" : "p-1 rounded-md hover:bg-slate-100 transition-colors"
@@ -1852,7 +1881,7 @@
                   } item${batch.products.length !== 1 ? "s" : ""}</span>
                   <span class="text-xs text-slate-400">${fmtD(batch.createdAt)}</span>
                 </div>
-              </div>
+              </div>${trail(batch, true) ? `<div class="px-4 pb-3 -mt-2 bg-white">${trail(batch, true)}</div>` : ""}
               ${isExpanded ? `<div class="bg-slate-50">${renderBatchDetail(batch)}</div>` : ""}`;
             })
             .join("")}
@@ -1888,7 +1917,7 @@
                         )}</span>
                         ${copyBtn(batch.batchNumber, false)}
                         ${stickerBtn(batch, false)}
-                      </div>
+                      </div>${trail(batch, false)}
                     </td>
                     <td class="${WM.tableCell} py-3.5 px-5"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${
                     batch.products.length
@@ -2170,7 +2199,7 @@
 
   /* ── AddBatchDrawer.jsx — "Receive Stock" ─────────────────────────────── */
   function drawerProductPool() {
-    const key = state.catalogueType === "RAW-MATERIAL" ? "RAW-MATERIAL" : "FINISHED-GOODS";
+    const key = typeKey();
     const byId = {};
     (state.seed.stockSummary[key] || []).forEach((p) => (byId[p._id] = p));
     return { byId, categories: (state.seed.categoryTree || {})[key] || [] };
@@ -3139,7 +3168,7 @@
     state.activeTab = opts.tab || "live";
     state.loading = !!opts.loading;
 
-    const key = state.catalogueType === "RAW-MATERIAL" ? "RAW-MATERIAL" : "FINISHED-GOODS";
+    const key = typeKey();
     state.products = JSON.parse(JSON.stringify(seed.stockSummary[key] || []));
     if (opts.dataset === "empty") state.products = [];
     state.batches = opts.dataset === "empty" ? [] : materialiseBatches(seed);
@@ -3149,7 +3178,7 @@
     if (opts.openDrawer) state.drawer.open = true;
     if (opts.preselect) {
       const { byId, categories } = (function () {
-        const key = state.catalogueType === "RAW-MATERIAL" ? "RAW-MATERIAL" : "FINISHED-GOODS";
+        const key = typeKey();
         const m = {};
         (seed.stockSummary[key] || []).forEach((p) => (m[p._id] = p));
         return { byId: m, categories: (seed.categoryTree || {})[key] || [] };
@@ -3182,7 +3211,7 @@
       (m.submenus || []).some((s) => s.path === state.route)
     );
     const sub = menu && (menu.submenus || []).find((s) => s.path === state.route);
-    const pageTitle = (sub && sub.name) || "Inventory";
+    const pageTitle = opts.title || (sub && sub.name) || "Inventory";
 
     outlet = window.MockShell.renderShell(document.getElementById("root"), seed, {
       activePath: state.route,
@@ -3192,5 +3221,5 @@
     render();
   }
 
-  window.MockInventory = { mount, TABS_FG, TABS_RM };
+  window.MockInventory = { mount, TABS_FG, TABS_RM, TABS_SF };
 })();

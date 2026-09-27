@@ -20,7 +20,7 @@
   <script src="../../assets/app-header.js?v=20260928HD1"></script>
   <script>FBAppHeader.mount({ title: "Production Plan" });</script>
   <div class="page" id="app"></div>
-  <script src="../../assets/production/production-api.js?v=20260928PK1"></script>
+  <script src="../../assets/production/production-api.js?v=20260928SF1"></script>
   <script>
   (function () {
     "use strict";
@@ -55,11 +55,11 @@
         }).join("") + "</tbody></table></div>" +
         '<div class="body note">Next week = the average of the last four weeks. The weekly sales and orders in hand are this demo\'s own figures; they are not yet read from Sales Orders or corrected by Stock Audit\'s distributor counts.</div></section>' +
 
-        '<section class="card"><header><h2><span class="step-no">2</span>What to make this week</h2><span class="sub">Short packets in kg, less what is in the freezer and already planned</span></header><div class="body">' +
+        '<section class="card"><header><h2><span class="step-no">2</span>What to make this week</h2><span class="sub">Short packets in kg, less what is made and not packed yet, and already planned</span></header><div class="body">' +
         (state.made ? '<p class="done-msg">Created ' + state.made.map(function (b) { return esc(b.batchNumber) + " (" + esc(b.displayName) + ", " + b.batchSize + " kg)"; }).join(", ") + '. They are Planned in Batch Management. <a href="#" data-leaf="production/shifts" style="color:inherit">Put them on a shift ›</a></p>' : "") +
         '<div class="products">' + p.products.map(function (x) {
           return '<div class="prod"><div><h3>' + esc(x.name) + '</h3><span class="line">' + esc(x.line) + ' line</span></div>' +
-            '<div class="sum"><span>Short packets</span><b>' + kg(x.needKg) + "</b><span>In the freezer</span><b>− " + kg(x.freezerKg) + "</b><span>Already planned</span><b>− " + kg(x.plannedKg) + '</b><span class="eq">To make</span><b class="eq">' + kg(x.toMakeKg) + "</b></div>" +
+            '<div class="sum"><span>Short packets</span><b>' + kg(x.needKg) + "</b><span><a href=\"#\" data-leaf=\"inventory/semi-finished-inventory\">Semi-finished</a></span><b>− " + kg(x.freezerKg) + "</b><span>Already planned</span><b>− " + kg(x.plannedKg) + '</b><span class="eq">To make</span><b class="eq">' + kg(x.toMakeKg) + "</b></div>" +
             (x.batches.length ? '<div class="chips">' + x.batches.map(function (z) { return '<span class="chip">' + z + " kg batch</span>"; }).join("") + "</div>" : '<span class="pill ok">Nothing to make</span>') +
             "</div>";
         }).join("") + "</div>" +

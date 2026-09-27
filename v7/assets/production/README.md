@@ -11,7 +11,7 @@ Before this, Batch Management, Configure Recipe, JobFlow and the inventories eac
 | `skus` (the packs: size, per carton, price, pouch, split, retired) | Changed only in **Recipes → Packaging** (`D.savePack` / `D.retirePack`). Read by the header, Cost, the Production split, Production Plan, Batch Management, the Worker App's pack step and Finished Goods. |
 | `workflows`, `shifts`, `tasks`, `workers` | **Recipes → Process** (the steps, through the JobFlow API), **Shifts**, **Shop Floor** and the **Worker App** (JobFlow). |
 | `materials`, `lots`, `ordered` (raw material, and packaging: pouches, cartons, big bags) | **Raw Material Inventory** (merged in by `MockShell.loadSeed`), **Receive Stock**, **Production Plan**. Each lot also has its stickers (see below). |
-| `bags` | **Freezer Stock**. The last step on the floor fills bags; packing empties them, oldest first. |
+| `bags` | **Inventory → Semi-Finished Inventory** (merged in by the Inventory module's `mock-shell.js`, via `D.semiFinished` and `D.bagHistory`). The recipe's fill step fills them (what they are and where they're kept: its container, unit and store); packing empties them, oldest first. |
 | `fg` | **Finished Goods Inventory**. Packing orders post their packets here. |
 | `demand` | **Production Plan**: weekly sales and orders in hand. |
 
