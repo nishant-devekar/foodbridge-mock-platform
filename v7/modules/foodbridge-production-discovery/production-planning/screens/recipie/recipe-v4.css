@@ -8,7 +8,7 @@
 
 /* ---------- F1: master-detail layout + recipe rail ---------- */
 .v4-layout{display:flex;gap:16px;align-items:flex-start;width:100%}
-.recipe-rail{flex:0 0 258px;width:258px;position:sticky;top:58px;display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid var(--fb-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:14px}
+.recipe-rail{flex:0 0 258px;width:258px;position:sticky;top:56px;display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid var(--fb-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:14px}
 .recipe-rail .rail-create{width:100%;justify-content:center}
 .recipe-rail .rail-search{width:100%}
 .rail-list{display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:60vh}
@@ -21,7 +21,7 @@
 @media (max-width:820px){.v4-layout{flex-direction:column}.recipe-rail{width:100%;flex-basis:auto;position:static}.rail-list{max-height:220px}}
 
 /* ---------- persistent header ---------- */
-.v4-head{position:sticky;top:58px;z-index:4;background:#fff;border:1px solid var(--fb-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:16px 20px;margin-bottom:14px}
+.v4-head{position:sticky;top:56px;z-index:4;background:#fff;border:1px solid var(--fb-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:16px 20px;margin-bottom:14px}
 .v4-head h1{font-size:20px;font-weight:800}
 .v4-head .linked{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .v4-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--fb-teal-800);background:var(--fb-teal-50);border:1px solid #B3DDE4;border-radius:999px;padding:3px 10px}

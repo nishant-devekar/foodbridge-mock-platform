@@ -186,18 +186,15 @@
   }
 
   /* ── components/AdminLayout.jsx ─────────────────────────────────────── */
+  /* The header is the platform's, the same as Sales Orders (owner, 28 Sep
+     2026; ../../../assets/app-header.js) in place of JobFlow's "Signed in
+     as · Sign out" bar. Its Log Out signs out, as Sign out did. */
+  var PAGE_TITLE = { "/": "Shop Floor", "/steps": "Process Steps", "/shifts": "Shifts" };
   function AdminLayout(outlet) {
-    var initial = (app.admin && app.admin.name && app.admin.name[0] ? app.admin.name[0].toUpperCase() : "A");
     return html`<div class="flex h-dvh w-full overflow-hidden">
       ${Sidebar()}
       <div class="flex min-w-0 flex-1 flex-col">
-        <header class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-          <div class="text-sm text-slate-500">Signed in as <span class="font-medium text-slate-700">${app.admin && app.admin.name}</span></div>
-          <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">${initial}</div>
-            <button class="text-sm font-medium text-slate-500 hover:text-slate-900" data-act="logout">Sign out</button>
-          </div>
-        </header>
+        ${raw(FBAppHeader.html(PAGE_TITLE[app.pageName] || "Shop Floor", { logout: 'data-act="logout"' }))}
         <main class="flex-1 overflow-y-auto p-6">${outlet}</main>
       </div>
     </div>`;

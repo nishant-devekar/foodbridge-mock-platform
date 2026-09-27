@@ -2774,3 +2774,16 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
   - Finished Goods: article numbers, and pouches and cartons get their own store category.
 - **Store (`VERSION 5`):** pouches (one per pack) and a carton are packaging materials, received at the gate like any material. The pack step takes pouches, and the cartons step takes whole cartons; both are checked before anything moves. A packing order keeps the carton size it was made with. `D.savePack` / `D.retirePack` / `D.packCost` / `D.costPerKg` (Month End uses the same cost per kg).
 - Tests: 28 pass (6 new in `packaging.test.js`). `?v=` `20260928PK1` on every screen that loads the store, their `modules.json` URLs and `platform.js`.
+
+### 28 September 2026 — Production: the same header as Sales Orders
+
+**Owner:** every Production page gets the same header as Sales Orders.
+
+- New `assets/app-header.js`: the Sales Orders header in plain CSS, with every value measured off that page. It has the hamburger, the page title, avatar · Mahesh · Admin · chevron, and the profile menu (My Network · Edit Profile · Log Out).
+- **Mounted on:**
+  - Production Plan, Batches (with Batch detail and Create batch), Freezer Stock and Month End, which had no header;
+  - Recipes, in place of its "Recipes · Minimal" bar;
+  - Shifts and Shop Floor, in place of JobFlow's "Signed in as · Sign out" bar. Their Log Out still signs out.
+- **Platform:** the leaves use Sales Orders' settings: `hideBurger` on desktop, and the default 56px header under the platform's bar on phones.
+- **Overlays:** the platform's hamburger mask stands down over a page's dimmed dialogs and drawer pages. The page says when one is open, with the existing `overlay` message.
+- Checked at 1440 px: hamburger, title and avatar land on the same pixels as on Sales Orders. Checked at 375 px: one header. `?v=` `20260928HD1`.
