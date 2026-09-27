@@ -287,7 +287,7 @@
             "worker-shifts"
           ],
           "name": "Shifts",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926ST1&at=shifts#/shifts",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928WK2&at=shifts#/shifts",
           "clipLeft": 240,
           "clipLeftMobile": 240,
           "mHeaderH": 61,
@@ -302,7 +302,7 @@
             "worker-analytics"
           ],
           "name": "Shop Floor",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260926ST1&at=floor#/",
+          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928WK2&at=floor#/",
           "clipLeft": 240,
           "clipLeftMobile": 240,
           "mHeaderH": 61,
@@ -424,7 +424,7 @@
       "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
       "id": "worker-app",
       "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928WK1",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928WK2",
       "clipLeft": 0,
       "fullBleed": true,
       "deviceFrame": true,

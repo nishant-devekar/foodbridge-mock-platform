@@ -424,13 +424,16 @@
       });
       return created;
     };
-    D.claim = function (task, worker) {
+    D.claim = function (task, worker, input) {
       var b = D.batch(task.batch);
       if (task.status !== "available") throw new ApiError(409, "Task is not available to claim");
       if (b && b.stateId === "on-hold") throw new ApiError(409, "This batch is on hold. Ask your supervisor.");
       if (b && b.stateId === "rejected") throw new ApiError(409, "This batch was rejected");
       if (db.tasks.some(function (x) { return x.assignedTo === worker._id && x.status === "in_progress"; })) throw new ApiError(409, "Finish your current task before starting another");
       task.assignedTo = worker._id; task.assignedName = worker.name; task.status = "in_progress"; task.startedAt = iso(); task.updatedAt = iso();
+      /* a weighed step takes its weight before at the start, while it is on the scale (28 Sep 2026) */
+      var kgStart = Number(input && input.kgIn);
+      if (task.weigh && kgStart > 0) task.kgInStart = r2(kgStart);
       if (b && b.stateId === "planned") D.move(b, "in-progress", "start", worker.name, "Started on the floor: " + task.stepName);
       D.emit("production.step.started", { by: worker.name, data: { batch: b ? b.batchNumber : null, step: task.stepName, taskId: task._id } });
     };
@@ -443,7 +446,7 @@
       var rec = {};
       var num = function (v) { var n = Number(v); return isFinite(n) ? n : NaN; };
       if (task.weigh) {
-        var kin = num(input.kgIn), kout = num(input.kgOut);
+        var kin = num(input.kgIn != null && input.kgIn !== "" ? input.kgIn : task.kgInStart), kout = num(input.kgOut);
         if (!(kin > 0) || !(kout > 0)) throw invalid("Enter the weight before and after");
         if (kout > kin) throw invalid("The weight after can't be more than before");
         rec.kgIn = r2(kin); rec.kgOut = r2(kout); rec.lossPct = r1((kin - kout) / kin * 100);
@@ -821,6 +824,15 @@
       return c;
     }
     function workflowJSON(wf) { var c = strip(wf); c.steps.sort(byOrder); return c; }
+    /* A worker's call for help stays open while the step runs, until they
+       say it is sorted (worker app, 28 Sep 2026). */
+    var HELP = { need_materials: "Material finished", issue_found: "Machine problem", need_help: "Needs the supervisor" };
+    function openHelp(t) {
+      if (t.status !== "in_progress") return null;
+      var last = db.updates.filter(function (u) { return u.task === t._id && (HELP[u.quickSelect] || u.quickSelect === "sorted"); })
+        .sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })[0];
+      return last && HELP[last.quickSelect] ? { kind: last.quickSelect, label: HELP[last.quickSelect], at: last.createdAt } : null;
+    }
     function populateTask(t) {
       var c = strip(t), b = D.batch(t.batch);
       c.batch = b ? { _id: b.id, code: b.batchNumber, product: b.displayName, totalSteps: jfBatch(b).totalSteps, stateId: b.stateId, statusLabel: b.statusLabel, kind: b.kind, line: b.line,
@@ -1063,6 +1075,7 @@
       /* the worker app: the step this one hands on to, and the check-ins on it */
       var wf = b && D.workflowFor(b), nx = wf && wf.steps.filter(function (st) { return st.order === t.stepOrder + 1; })[0];
       c.nextStep = nx ? { order: nx.order, name: nx.name, role: nx.role } : null;
+      c.help = openHelp(t);
       c.updates = db.updates.filter(function (u) { return u.task === t._id; }).sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })
         .map(function (u) { var w = find(db.workers, u.worker); return { _id: u._id, quickSelect: u.quickSelect, note: u.note || "", createdAt: u.createdAt, by: w ? w.name : "" }; });
       return { task: c };
@@ -1071,12 +1084,12 @@
       var user = auth(r.token), t = find(db.tasks, r.params.id);
       if (!t) throw new ApiError(404, "Task not found");
       /* No role restriction (owner, 26 Sep 2026): any worker takes any available task. */
-      D.claim(t, user); commit();
+      D.claim(t, user, r.body || {}); commit();
       return { task: populateTask(t) };
     });
     route("POST", "/api/tasks/:id/updates", function (r) {
       var user = auth(r.token), b = r.body || {}, t = find(db.tasks, r.params.id);
-      var quick = ["just_started", "halfway", "almost_done", "need_materials", "issue_found", "need_help"];
+      var quick = ["just_started", "halfway", "almost_done", "need_materials", "issue_found", "need_help", "sorted"];
       if (quick.indexOf(b.quickSelect) === -1) throw invalid();
       if (!t) throw new ApiError(404, "Task not found");
       var u = { _id: newId(db), task: t._id, worker: user._id, quickSelect: b.quickSelect, note: b.note && String(b.note).trim(), createdAt: iso(), updatedAt: iso(), __v: 0 };
@@ -1108,6 +1121,12 @@
         if (!b || ["on-hold", "rejected"].indexOf(b.stateId) !== -1) return;
         out.push({ _id: "idle-" + t._id, type: "waiting", isRead: false, createdAt: t.availableAt, batch: b.id,
           message: t.stepName + " on " + b.batchNumber + " has waited " + Math.round((nowT - new Date(t.availableAt).getTime()) / MIN) + " min and no one has started it." });
+      });
+      db.tasks.forEach(function (t) {
+        var h = openHelp(t), b = h && D.batch(t.batch);
+        if (!h) return;
+        out.push({ _id: "help-" + t._id, type: "help", isRead: false, createdAt: h.at, batch: b ? b.id : null,
+          message: (t.assignedName || "A worker") + " on " + t.stepName + (b ? " · " + b.batchNumber : "") + ": " + h.label.toLowerCase() + "." });
       });
       db.batches.filter(function (b) { return b.stateId === "on-hold"; }).forEach(function (b) {
         out.push({ _id: "hold-" + b.id, type: "on_hold", isRead: false, createdAt: b.statusHistory[b.statusHistory.length - 1].timestamp, batch: b.id, message: b.batchNumber + " · " + b.displayName + " is on hold. Its steps are paused on the floor." });
@@ -1195,7 +1214,7 @@
       listTasks: function (q) { q = q || {}; return request("GET", "/api/tasks", { params: q }).then(g("tasks")); },
       getTask: function (id) { return request("GET", "/api/tasks/" + id).then(g("task")); },
       getMyTask: function () { return request("GET", "/api/tasks/mine").then(function (d) { return d.task || null; }); },
-      claimTask: function (id) { return request("POST", "/api/tasks/" + id + "/claim").then(g("task")); },
+      claimTask: function (id, input) { return request("POST", "/api/tasks/" + id + "/claim", { data: input || {} }).then(g("task")); },
       postTaskUpdate: function (id, o) { o = o || {}; return request("POST", "/api/tasks/" + id + "/updates", { data: { quickSelect: o.quickSelect, note: o.note } }); },
       completeTask: function (id, input) { return request("POST", "/api/tasks/" + id + "/complete", { data: input || {} }).then(g("task")); },
     };

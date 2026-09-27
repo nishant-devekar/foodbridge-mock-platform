@@ -41,26 +41,40 @@ The data is the platform's production store, [`v7/assets/production/`](../../ass
 - **No role restriction** (owner). Any worker on a live shift can take any available step; the step's role is a label.
 - **Live and Analytics are gone.** They were placeholders.
 
-## The worker app's look (28 Sep 2026)
+## The worker app (28 Sep 2026)
 
-The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jobwork-worker-app.html`). It no longer matches the React build; the admin still does.
+The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jobwork-worker-app.html`). The same day it was cut down after a review from the worker's side. It no longer matches the React build; the admin still does.
 
-- **Loop:** PIN → Shift dashboard → Task detail → In progress ⇄ Add update → Step complete → … → My shift → Close shift. One main action per screen, in a white bar at the foot.
-- **Look:** plain CSS in [`worker-app/app.css`](worker-app/app.css). Petrol teal `#1B6272`, go green `#43A047`, grey canvas `#f0f2f5` under white cards, Inter. The compiled Tailwind `worker.css` is gone.
-- **Sign in:** the phone remembers its last worker, so it asks only for the PIN ("Not Asha? Switch worker"). The keypad is ⌫ · 0 · ✓, and the 4th digit signs in. The sample sign-in list is unchanged in behaviour.
-- **Dashboard:** the shift's progress and time left stay in the header. My current task (teal edge) sits over the pool (green edge). While a task is in hand, the pool is greyed out, because the API refuses a second claim.
-- **In progress:** a live timer against the expected minutes. After 20 minutes with no update, an "Update due" nudge appears. The last update is shown, then the Record card (weights, lots, bags, packets), then the instructions. The actions are ✅ Mark done and 💬 Add update.
-- **Add update:** the six quick checks the API takes, plus an optional note (`POST /api/tasks/:id/updates`).
-- **Step complete:** a full green screen showing what was recorded and the next step it opened, or "Batch complete".
-- **My shift:** your tasks done, time on tasks, batches and updates, all from the record. Close shift signs out on the phone; the shift itself stays live for the office.
-- **API additions** (`GET /api/tasks/:id`): `nextStep` and `updates`. Every task also carries `updateCount`.
-- **Left out of the mockup on purpose:**
-  - The Hindi toggle: step names and instructions are English data.
-  - Pause: there is no pause in the domain.
-  - Undo: completing a step moves stock.
-  - The photo: there is nowhere to store it.
-  - The score ring and "Top 15%": there is no data behind them.
-  - The tab bar: only Home would work.
+**Rule:** the worker app helps, it never judges. Loss %, time taken and waiting alerts belong on the office screens.
+
+- **Loop:** PIN → Home → Work → Done → Next work → … → My day → End my day. From Work, "Need help" goes out and back.
+- **Home:**
+  - While working: only that work, with Continue.
+  - When free: one card, "Your next work", with the worker's own role first. The rest sit folded under "Other work (n)".
+  - The header shows the shift and "n done ✓". A strip appears only when there is no internet.
+- **Work:**
+  - The step name is the title, with the product and kg under it.
+  - Then how to do it, and what to take (lot, or bags oldest first).
+  - A weighed step asks for **weight before at Start**, stored as `kgInStart` on the task, and **weight after at Done**.
+  - Start and Done stay locked until the numbers are in, and the button says what's missing.
+  - There is no timer, no nag, and no loss verdict.
+- **Need help:** three big buttons: Material finished, Machine problem, Call supervisor. One tap sends it, and the worker sees "Supervisor told". It shows on Shop Floor → Needs you as **needs help** until the worker taps "Sorted" or finishes the work.
+- **Done:** "Well done!", "n done today", what you entered read back, then **Next: …** straight into the next work.
+- **My day:**
+  - "n works done today" and "Signed in at …", which is the first sign-in of the day on this phone.
+  - The list of what you did.
+  - "End my day" signs out. It stays locked while work is running.
+- **Look:** plain CSS in [`worker-app/app.css`](worker-app/app.css): teal `#1B6272`, green `#43A047`, canvas `#f0f2f5`, Inter. Everything a worker must read is at least 13px and dark.
+- **API additions:**
+  - Claim takes `{ kgIn }`, and complete falls back to it.
+  - `GET /api/tasks/:id` adds `nextStep`, `updates` and `help`.
+  - Every task carries `updateCount`.
+  - Updates also take `sorted`.
+  - `/api/alerts` raises `help` alerts.
+- **Not built yet:**
+  - Sign-in and language, both left as they are for now.
+  - A voice note per step, which needs a recorder on Process Steps.
+  - Pause, Undo, photos.
 
 ## Inside the platform
 

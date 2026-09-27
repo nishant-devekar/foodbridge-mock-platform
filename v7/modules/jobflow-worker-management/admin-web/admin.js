@@ -238,7 +238,7 @@
   };
 
   /* ── Shop Floor (was pages/Dashboard.jsx) ───────────────────────────── */
-  var ALERT_TAG = { weight_loss: ["weight loss", "bad"], waiting: ["waiting", "warn"], on_hold: ["on hold", "warn"] };
+  var ALERT_TAG = { help: ["needs help", "bad"], weight_loss: ["weight loss", "bad"], waiting: ["waiting", "warn"], on_hold: ["on hold", "warn"] };
   function stepChip(t) {
     var over = t.status === "done" && t.weigh && t.loss != null && t.lossPct > t.loss;
     var cls = t.status === "done" ? (over ? "done over" : "done") : t.status === "in_progress" ? "now" : t.status === "available" ? "avail" : "lock";
