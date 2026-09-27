@@ -132,10 +132,12 @@ button:disabled { cursor: default; }
 .wk-lang { display: inline-flex; gap: 2px; padding: 3px; border-radius: 20px; background: rgba(255, 255, 255, .15); }
 .wk-lang button { padding: 6px 12px; border-radius: 17px; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .85); }
 .wk-lang button.on { background: #fff; color: var(--teal); }
-.wk-lang-card { margin: 0 12px 10px; }
-.wk-lang-card .wk-lang { display: flex; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); padding: 4px; }
-.wk-lang-card .wk-lang button { flex: 1; padding: 12px 8px; font-size: 16px; color: var(--ink3); }
-.wk-lang-card .wk-lang button.on { background: var(--teal); color: #fff; }
+/* My day: back link left, the small language switch right */
+.wk-head-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.wk-head-top .wk-back { margin-bottom: 0; }
+.wk-head-top .wk-lang button { padding: 5px 10px; font-size: 12px; }
+/* open work as a list of tappable rows */
+.wk-list { margin: 0 12px 10px; }
 .wk-pin { display: flex; gap: 16px; justify-content: center; margin: 20px 0 6px; }
 .wk-pin i { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--teal); transition: background-color .15s; }
 .wk-pin i.on { background: var(--teal); }

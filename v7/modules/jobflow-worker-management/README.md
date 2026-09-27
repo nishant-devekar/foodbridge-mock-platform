@@ -67,10 +67,10 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
   - Load errors have **↻ Try again**.
   - If someone else takes the work first, Start shows who has it instead of a Start button that keeps failing.
   - After a wrong PIN: "Forgot your PIN? Ask your supervisor."
-- **My day:**
+- **My day:** the worker's own work comes first. While working, the work in hand shows with **Continue →**. When free, all open work is listed and one tap opens it. Language is only the small pill in the header.
   - "n works done today" and "Signed in at …", which is the first sign-in of the day on this phone.
   - The list of what you did.
-  - "End my day" signs out. It stays locked while work is running.
+  - "End my day" signs out. While work is running the button is "Sign out", and its confirmation says the work stays open in their name.
 - **Look:** plain CSS in [`worker-app/app.css`](worker-app/app.css): teal `#1B6272`, green `#43A047`, canvas `#f0f2f5`, Inter. Everything a worker must read is at least 13px and dark.
 - **API additions:**
   - Claim takes `{ kgIn }`, and complete falls back to it.
@@ -87,7 +87,7 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
 
   Editing a number cancels a question already asked, so what is confirmed is what is saved.
 - **Languages:** English, हिंदी and मराठी. Every fixed word is in [`worker-app/i18n.js`](worker-app/i18n.js) (one table per language, English as the fallback), including role names and the API messages a worker can meet.
-  - The switch is on sign-in (top right, as in the mockup) and on My day. The phone remembers the choice (`fb.v7.jobflow.lang`).
+  - The switch is a small pill at the top right of sign-in (as in the mockup) and of My day. The phone remembers the choice (`fb.v7.jobflow.lang`).
   - Times and dates follow the language but keep 0–9 digits, as on the scale and the stickers. Devanagari uses Noto Sans Devanagari.
   - Step names, instructions and product names are data: they show as the office typed them. Type them in Hindi or Marathi in Process Steps to have them read that way.
 - **Not built yet:**

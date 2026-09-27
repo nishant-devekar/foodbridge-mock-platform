@@ -268,6 +268,20 @@
     },
   };
 
+  /* The work in hand, and one row of open work — Home and My day share them. */
+  function NowCard(x) {
+    return html`<article class="wk-task">
+      <p class="wk-live">${t("working")}</p>
+      <p class="wk-name">${x.stepName}</p>
+      <p class="wk-meta">${productLine(x)}</p>
+      <p class="wk-when">${t("started", { time: timeOf(x.startedAt) })}${about(x) ? " · " + about(x) : ""}</p>
+      <button type="button" class="wk-btn teal" data-open="${x._id}">${t("continue")}</button>
+    </article>`;
+  }
+  function WorkRow(x) {
+    return html`<button type="button" class="wk-other" data-open="${x._id}"><span><b>${x.stepName}</b><small>${productLine(x)}${about(x) ? " · " + about(x) : ""}</small></span><i aria-hidden="true">›</i></button>`;
+  }
+
   /* ── 2 · Home ───────────────────────────────────────────────────────── */
   /* Working: only that work. Free: one card, my next work; the rest folded. */
   var Dashboard = {
@@ -301,14 +315,7 @@
       else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;"><span class="grow">${s.error}</span><button type="button" class="wk-mini" data-act="retry">${t("retry")}</button></div>`;
       else if (!sections.length) body = html`<p class="wk-note">${t("noShiftLong")}</p>`;
       else if (current) {
-        body = html`<h2 class="wk-sec">${t("workNow")}</h2>
-          <article class="wk-task">
-            <p class="wk-live">${t("working")}</p>
-            <p class="wk-name">${current.stepName}</p>
-            <p class="wk-meta">${productLine(current)}</p>
-            <p class="wk-when">${t("started", { time: timeOf(current.startedAt) })}${about(current) ? " · " + about(current) : ""}</p>
-            <button type="button" class="wk-btn teal" data-open="${current._id}">${t("continue")}</button>
-          </article>`;
+        body = html`<h2 class="wk-sec">${t("workNow")}</h2>${NowCard(current)}`;
       } else {
         var open = openWork(s.data, w), next = open[0], rest = open.slice(1);
         body = next
@@ -318,9 +325,7 @@
               <p class="wk-meta">${productLine(next)}${about(next) ? " · " + about(next) : ""}</p>
               <button type="button" class="wk-btn go" data-open="${next._id}">${t("start")}</button>
             </article>
-            ${rest.length > 0 && html`<details class="wk-more"><summary>${t("otherWork", { n: rest.length })}</summary>${rest.map(function (x) {
-              return html`<button type="button" class="wk-other" data-open="${x._id}"><span><b>${x.stepName}</b><small>${productLine(x)}</small></span><i aria-hidden="true">›</i></button>`;
-            })}</details>`}`
+            ${rest.length > 0 && html`<details class="wk-more"><summary>${t("otherWork", { n: rest.length })}</summary>${rest.map(WorkRow)}</details>`}`
           : html`<div class="wk-card wk-empty" style="margin-top: 12px;"><b>${t("noWork")}</b>${t("checkAgain")}<button type="button" class="wk-btn2 plain wk-again" data-act="retry">${t("checkNow")}</button></div>`;
       }
       /* Always a way to My day — sign out, language — whatever Home shows. */
@@ -563,19 +568,22 @@
     view: function (s) {
       var w = app.worker || {};
       var current = s.data && s.data.currentTask;
-      var mine = doneByMe(s.data, w);
+      var mine = doneByMe(s.data, w), open = current ? [] : openWork(s.data, w);
       var first = (w.name || "").split(" ")[0];
       var dayName = new Date().toLocaleDateString(I18N.LOCALE[lang], { weekday: "long", day: "numeric", month: "long" });
-      var top = Head(t("home"), mine.length ? t("wellDoneName", { name: first }) : t("yourDay"), dayName);
+      /* Language is a small switch up top (set once, rarely changed); the
+         body is the worker's own work — tap it to carry on (owner, 28 Sep). */
+      var top = html`<div class="wk-head"><div class="wk-head-top"><button type="button" class="wk-back" data-act="back">← ${t("home")}</button>${LangSwitch()}</div><h1>${mine.length ? t("wellDoneName", { name: first }) : t("yourDay")}</h1><p class="wk-sub">${dayName}</p></div>`;
       var body;
       if (s.loading) body = html`<p class="wk-note">${t("loadingDay")}</p>`;
       else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;"><span class="grow">${s.error}</span><button type="button" class="wk-mini" data-act="retry">${t("retry")}</button></div>`;
       else {
         var at = since();
         body = html`<section class="wk-hero wk-count"><b>${mine.length}</b><span>${mine.length === 1 ? t("workDone1") : t("worksDone")}</span>${at && html`<small>${t("signedAt", { time: timeOf(at) })}</small>`}</section>
-          ${current && html`<div class="wk-banner o"><span>⏳</span><span>${t("stillGoing", { name: current.stepName })}</span></div>`}
-          ${mine.length > 0 && html`<h2 class="wk-sec">${t("whatYouDid")}</h2><div class="wk-card rows">${mine.map(function (x) { return Row(html`${x.stepName}<small>${productLine(x)}</small>`, timeOf(x.completedAt)); })}</div>`}
-          <h2 class="wk-sec">${t("language")}</h2><div class="wk-lang-card">${LangSwitch()}</div>`;
+          ${current
+            ? html`<h2 class="wk-sec">${t("workNow")}</h2>${NowCard(current)}`
+            : open.length > 0 && html`<h2 class="wk-sec">${t("openWork", { n: open.length })}</h2><div class="wk-list">${open.map(WorkRow)}</div>`}
+          ${mine.length > 0 && html`<h2 class="wk-sec">${t("whatYouDid")}</h2><div class="wk-card rows">${mine.map(function (x) { return Row(html`${x.stepName}<small>${productLine(x)}</small>`, timeOf(x.completedAt)); })}</div>`}`;
       }
       /* Signing out is never locked (owner, 28 Sep 2026: "he is stuck").
          With work running it says what happens to it: it stays open in
@@ -585,7 +593,7 @@
           ? Confirm(t("cSignOut", { name: current.stepName }), null, t("yesSignOut"), "end-yes", "warn")
           : Confirm(t("cEnd"), [[t("cWorks"), mine.length + ""]], t("yesEnd"), "end-yes", "teal"))
         : current
-          ? html`<button type="button" class="wk-btn teal" data-open="${current._id}">${t("continue")}</button><button type="button" class="wk-btn2 plain" data-act="end">${t("signOut")}</button>`
+          ? html`<button type="button" class="wk-btn2 plain" data-act="end">${t("signOut")}</button>`
           : html`<button type="button" class="wk-btn teal" data-act="end">${t("endDay")}</button>`;
       return Screen("", top, body, bar);
     },
