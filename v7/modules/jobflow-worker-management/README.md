@@ -60,6 +60,13 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
   - There is no timer, no nag, and no loss verdict.
 - **Need help:** three big buttons: Material finished, Machine problem, Call supervisor. One tap sends it, and the worker sees "Supervisor told". It shows on Shop Floor → Needs you as **needs help** until the worker taps "Sorted" or finishes the work.
 - **Done:** "Well done!", "n done today", what you entered read back, then **Next: …** straight into the next work.
+- **No dead ends** (owner, 28 Sep 2026: "he is stuck"):
+  - Home always has **My day** at the foot, even while working, with no shift, or after an error. From My day the worker can sign out and change language.
+  - Signing out is never locked. With work running, My day offers Continue or Sign out, and the confirmation says the work stays open in their name, where the supervisor can see it.
+  - Home looks for new work every 30 s, when the phone wakes, and when another screen writes the store. "No work open" also has **↻ Check again**.
+  - Load errors have **↻ Try again**.
+  - If someone else takes the work first, Start shows who has it instead of a Start button that keeps failing.
+  - After a wrong PIN: "Forgot your PIN? Ask your supervisor."
 - **My day:**
   - "n works done today" and "Signed in at …", which is the first sign-in of the day on this phone.
   - The list of what you did.
@@ -71,6 +78,14 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
   - Every task carries `updateCount`.
   - Updates also take `sorted`.
   - `/api/alerts` raises `help` alerts.
+- **Every submit is confirmed in place** (no pop-ups). The button the worker tapped turns into the question, with what will be saved read back, then **Change / ✓ Yes**:
+  - Start: "Start this work now?" (with the weight before)
+  - Done: "Is this work finished?" (with every number entered)
+  - Need help: the tapped problem opens "Send this to your supervisor?" under it
+  - Sorted: "Is the problem sorted?" inside the banner
+  - End my day: "End your day and sign out?"
+
+  Editing a number cancels a question already asked, so what is confirmed is what is saved.
 - **Languages:** English, हिंदी and मराठी. Every fixed word is in [`worker-app/i18n.js`](worker-app/i18n.js) (one table per language, English as the fallback), including role names and the API messages a worker can meet.
   - The switch is on sign-in (top right, as in the mockup) and on My day. The phone remembers the choice (`fb.v7.jobflow.lang`).
   - Times and dates follow the language but keep 0–9 digits, as on the scale and the stickers. Devanagari uses Noto Sans Devanagari.

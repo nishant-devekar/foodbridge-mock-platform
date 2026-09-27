@@ -140,6 +140,12 @@
     return html`<div class="wk-av" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.39)}px;" aria-hidden="true">${initials(name)}</div>`;
   }
   function Row(label, value) { return html`<div class="wk-row"><span>${label}</span><b>${value}</b></div>`; }
+  /* Every submit asks once, in place (owner, 28 Sep 2026): the question,
+     what will be saved read back, then Change / Yes. No pop-up — the
+     buttons the worker just tapped turn into the question. */
+  function Confirm(question, rows, yesLabel, yesAct, tone) {
+    return html`<div class="wk-confirm" role="group" aria-label="${question}"><p class="wk-confirm-q">${question}</p>${rows && rows.length > 0 && html`<div class="wk-confirm-rows">${rows.map(function (r) { return Row(r[0], r[1]); })}</div>`}<div class="wk-confirm-btns"><button type="button" class="wk-btn2 plain" data-act="cancel">${t("change")}</button><button type="button" class="wk-btn ${tone || "go"}" data-act="${yesAct}">${yesLabel}</button></div></div>`;
+  }
   function Offline() {
     return navigator.onLine === false ? html`<div class="wk-sync"><i class="off"></i>${t("offline")}</div>` : "";
   }
@@ -249,6 +255,7 @@
         <div class="wk-pin ${s.error ? "err" : ""}" role="status" aria-label="${t("digits", { n: s.pin.length, m: PIN_LENGTH })}">${dots}</div>
         <p class="wk-msg">${s.submitting ? "" : s.error}</p>
         ${Login.pad(s)}
+        ${s.error && !s.submitting && html`<p class="wk-hint">${t("forgotPin")}</p>`}
         ${!Login.ready(s) && html`<p class="wk-hint">${t("phoneFirst")}</p>`}
         <p class="wk-switch">${s.known
           ? html`<button type="button" class="wk-link" data-act="switch">${t("notYou", { name: first })}</button>`
@@ -267,9 +274,20 @@
     init: function () { return { data: null, error: "", loading: true }; },
     load: function (s) {
       getDashboard(app.worker)
-        .then(function (payload) { s.data = payload; })
+        .then(function (payload) { s.data = payload; s.error = ""; })
         .catch(function (err) { s.error = said(err, "loadWorkFail"); })
         .then(function () { upd(s, { loading: false }); });
+    },
+    /* New work appears on its own: Home looks again every 30 s, when the
+       phone wakes, and when another screen writes the store. Quietly —
+       what is on screen stays until the new answer is in. */
+    refresh: function (s) {
+      if (s.loading || s.refreshing) return;
+      s.refreshing = true;
+      getDashboard(app.worker)
+        .then(function (payload) { upd(s, { data: payload, error: "" }); })
+        .catch(function () {})
+        .then(function () { s.refreshing = false; });
     },
     view: function (s) {
       var w = app.worker || {};
@@ -278,9 +296,9 @@
       var done = doneByMe(s.data, w).length;
       var sub = s.loading ? "" : sections.length ? sections.map(function (sec) { return sec.shift.name; }).join(" · ") + (done ? " · " + t("doneN", { n: done }) : "") : t("noShiftShort");
       var top = html`${Offline()}<div class="wk-head"><p class="wk-hi">${greeting()} 👋</p><h1>${w.name}</h1>${sub && html`<p class="wk-sub">${sub}</p>`}</div>`;
-      var body, bar = null;
+      var body;
       if (s.loading) body = html`<p class="wk-note">${t("loadingWork")}</p>`;
-      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
+      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;"><span class="grow">${s.error}</span><button type="button" class="wk-mini" data-act="retry">${t("retry")}</button></div>`;
       else if (!sections.length) body = html`<p class="wk-note">${t("noShiftLong")}</p>`;
       else if (current) {
         body = html`<h2 class="wk-sec">${t("workNow")}</h2>
@@ -303,9 +321,10 @@
             ${rest.length > 0 && html`<details class="wk-more"><summary>${t("otherWork", { n: rest.length })}</summary>${rest.map(function (x) {
               return html`<button type="button" class="wk-other" data-open="${x._id}"><span><b>${x.stepName}</b><small>${productLine(x)}</small></span><i aria-hidden="true">›</i></button>`;
             })}</details>`}`
-          : html`<div class="wk-card wk-empty" style="margin-top: 12px;"><b>${t("noWork")}</b>${t("checkAgain")}</div>`;
-        bar = html`<button type="button" class="wk-btn2 plain" data-act="shift">${t("endDay")}</button>`;
+          : html`<div class="wk-card wk-empty" style="margin-top: 12px;"><b>${t("noWork")}</b>${t("checkAgain")}<button type="button" class="wk-btn2 plain wk-again" data-act="retry">${t("checkNow")}</button></div>`;
       }
+      /* Always a way to My day — sign out, language — whatever Home shows. */
+      var bar = !s.loading && html`<button type="button" class="wk-btn2 plain" data-act="shift">${t("myDay")}</button>`;
       return Screen("", top, body, bar);
     },
   };
@@ -347,7 +366,7 @@
   }
 
   var TaskDetail = {
-    init: function () { return { task: null, loading: true, error: "", acting: false, form: { kgIn: "", kgOut: "", sticks: "", packets: "" } }; },
+    init: function () { return { task: null, loading: true, error: "", acting: false, confirm: "", form: { kgIn: "", kgOut: "", sticks: "", packets: "" } }; },
     load: function (s) {
       api.getTask(app.params.id)
         .then(function (x) { s.task = x; TaskDetail.prefill(s); })
@@ -379,25 +398,40 @@
       if (x.pack && !(num(f.packets) > 0)) return t("mPackets");
       return "";
     },
+    /* First tap asks; "Yes" does it. */
+    ask: function (s, what) {
+      if (what === "start" && TaskDetail.missingToStart(s)) return;
+      if (what === "done" && TaskDetail.missingToFinish(s)) return;
+      set({ confirm: what, error: "" });
+    },
+    /* The numbers Done will save, read back before the worker says yes. */
+    finishRows: function (s) {
+      var x = s.task, f = s.form, rows = [];
+      if (x.weigh) rows.push([t("wBefore"), t("kgN", { n: x.kgInStart || num(f.kgIn) })], [t("wAfter"), t("kgN", { n: num(f.kgOut) })]);
+      if (x.sticks) rows.push([t("sticksUsed"), t("pcsN", { n: num(f.sticks) })]);
+      if (x.bags) rows.push([t("kgBags"), t("kgN", { n: num(f.kgOut) })], [t("rBagsMade"), Math.ceil(num(f.kgOut) / x.bags) + ""]);
+      if (x.pack) rows.push([t("packetsPacked"), t("pcsN", { n: num(f.packets) })]);
+      return rows;
+    },
     start: function (s) {
       if (TaskDetail.missingToStart(s)) return;
-      set({ acting: true, error: "" });
+      set({ acting: true, error: "", confirm: "" });
       api.claimTask(app.params.id, s.task.weigh ? { kgIn: Number(s.form.kgIn) } : {})
         .then(function () { return TaskDetail.reload(s); })
-        .catch(function (err) { s.error = said(err, "startFail"); })
+        .catch(function (err) { s.error = said(err, "startFail"); return TaskDetail.reload(s).catch(function () {}); })
         .then(function () { upd(s, { acting: false }); });
     },
     complete: function (s) {
       if (TaskDetail.missingToFinish(s)) return;
       var f = s.form, input = {};
       ["kgIn", "kgOut", "sticks", "packets"].forEach(function (k) { if (f[k] !== "") input[k] = Number(f[k]); });
-      set({ acting: true, error: "" });
+      set({ acting: true, error: "", confirm: "" });
       api.completeTask(app.params.id, input)
         .then(function () { if (app.page === s) navigate("/done/" + app.params.id, true); })
         .catch(function (err) { upd(s, { error: said(err, "saveFail"), acting: false }); });
     },
     sorted: function (s) {
-      set({ acting: true });
+      set({ acting: true, confirm: "" });
       api.postTaskUpdate(app.params.id, { quickSelect: "sorted" })
         .then(function () { return TaskDetail.reload(s); })
         .catch(function () {})
@@ -424,7 +458,9 @@
         ${canStart && task.weigh && html`<h2 class="wk-sec">${t("beforeStart")}</h2><section class="wk-card wk-rec">${Field("kg-in", t("wBefore"), s.form, "kgIn", t("unitKg"))}</section>`}
         ${rows.length > 0 && html`<h2 class="wk-sec">${t("whatEntered")}</h2><section class="wk-card rows">${rows.map(function (r) { return Row(r[0], r[1]); })}</section>`}
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
-      var bar = canStart && html`<button type="button" class="wk-btn go" data-act="start"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("starting") : missing || t("startNow")}</button>`;
+      var bar = canStart && (s.confirm === "start" && !missing
+        ? Confirm(t("cStart"), task.weigh ? [[t("wBefore"), t("kgN", { n: num(s.form.kgIn) })]] : null, t("yesStart"), "start-yes")
+        : html`<button type="button" class="wk-btn go" data-act="start"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("starting") : missing || t("startNow")}</button>`);
       return Screen("", top, body, bar);
     },
     working: function (s, top) {
@@ -444,26 +480,31 @@
       if (task.cartons && task.cartonPlan) fields.push(html`<p class="wk-plan">${t("cartonPlan", { p: task.cartonPlan.packets, per: task.cartonPlan.perCarton, n: Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton) })}</p>`);
       var missing = TaskDetail.missingToFinish(s);
       var body = html`<section class="wk-hero slim"><p class="wk-live">${t("working")}</p><p class="wk-when">${t("started", { time: timeOf(task.startedAt) })}${about(task) ? " · " + about(task) : ""}</p></section>
-        ${h && html`<div class="wk-banner g"><span>✅</span><span class="grow">${t("told", { label: t(helpOf(h.kind)[3]), time: timeOf(h.at) })}</span><button type="button" class="wk-mini" data-act="sorted"${attrs({ disabled: s.acting })}>${t("sorted")}</button></div>`}
+        ${h && (s.confirm === "sorted"
+          ? html`<div class="wk-banner g ask"><span class="grow">${t("cSorted")}</span><button type="button" class="wk-mini" data-act="cancel">${t("no")}</button><button type="button" class="wk-mini yes" data-act="sorted-yes"${attrs({ disabled: s.acting })}>${t("yesSorted")}</button></div>`
+          : html`<div class="wk-banner g"><span>✅</span><span class="grow">${t("told", { label: t(helpOf(h.kind)[3]), time: timeOf(h.at) })}</span><button type="button" class="wk-mini" data-act="sorted"${attrs({ disabled: s.acting })}>${t("sorted")}</button></div>`)}
         ${How(task, false)}
         ${TakeList(task)}
         ${fields.length > 0 && html`<h2 class="wk-sec">${t("enter")}</h2><section class="wk-card wk-rec">${fields}</section>`}
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
-      var bar = html`<button type="button" class="wk-btn go" data-act="complete"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("saving") : missing || t("doneBtn")}</button>${!h && html`<button type="button" class="wk-btn2 warn" data-act="help"${attrs({ disabled: s.acting })}>${t("needHelp")}</button>`}`;
+      var bar = s.confirm === "done" && !missing
+        ? Confirm(t("cDone"), TaskDetail.finishRows(s), t("yesDone"), "complete-yes")
+        : html`<button type="button" class="wk-btn go" data-act="complete"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("saving") : missing || t("doneBtn")}</button>${!h && html`<button type="button" class="wk-btn2 warn" data-act="help"${attrs({ disabled: s.acting })}>${t("needHelp")}</button>`}`;
       return Screen("", top, body, bar);
     },
   };
 
   /* ── 4 · Need help ──────────────────────────────────────────────────── */
-  /* One tap sends it — nothing to confirm (Ruthless panes, 24 Sep 2026). */
+  /* Tap a problem, then "Yes, send" right under it (owner, 28 Sep 2026:
+     every submit is confirmed in place). */
   var Help = {
-    init: function () { return { task: null, sent: "", sending: "", error: "" }; },
+    init: function () { return { task: null, pick: "", sent: "", sending: "", error: "" }; },
     load: function (s) {
       api.getTask(app.params.id).then(function (x) { upd(s, { task: x }); }).catch(function () {});
     },
     send: function (s, key) {
       if (s.sending || s.sent) return;
-      set({ sending: key, error: "" });
+      set({ sending: key, pick: "", error: "" });
       api.postTaskUpdate(app.params.id, { quickSelect: key })
         .then(function () { upd(s, { sent: key, sending: "" }); })
         .catch(function () { upd(s, { error: t("sendFail"), sending: "" }); });
@@ -476,7 +517,8 @@
       }
       var top = Head(s.task ? s.task.stepName : t("back"), t("problem"), "");
       var body = html`<div class="wk-opts">${HELP.map(function (h) {
-          return html`<button type="button" class="wk-opt" data-help="${h[0]}"${attrs({ disabled: !!s.sending })}><span aria-hidden="true">${h[1]}</span>${s.sending === h[0] ? t("sending") : t(h[2])}</button>`;
+          var picked = s.pick === h[0];
+          return html`<div class="wk-opt-wrap ${picked ? "on" : s.pick ? "dim" : ""}"><button type="button" class="wk-opt" data-help="${h[0]}"${attrs({ disabled: !!s.sending })} aria-expanded="${picked ? "true" : "false"}"><span aria-hidden="true">${h[1]}</span>${s.sending === h[0] ? t("sending") : t(h[2])}</button>${picked && html`<div class="wk-opt-ask"><p>${t("cHelp")}</p><div class="wk-confirm-btns"><button type="button" class="wk-btn2 plain" data-act="cancel">${t("no")}</button><button type="button" class="wk-btn warn" data-act="help-yes">${t("yesSend")}</button></div></div>`}</div>`;
         })}</div>
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
       return Screen("", top, body);
@@ -511,10 +553,10 @@
 
   /* ── 6 · My day ─────────────────────────────────────────────────────── */
   var Shift = {
-    init: function () { return { data: null, loading: true, error: "" }; },
+    init: function () { return { data: null, loading: true, error: "", confirm: false }; },
     load: function (s) {
       getDashboard(app.worker)
-        .then(function (payload) { s.data = payload; })
+        .then(function (payload) { s.data = payload; s.error = ""; })
         .catch(function (err) { s.error = said(err, "loadDayFail"); })
         .then(function () { upd(s, { loading: false }); });
     },
@@ -527,15 +569,24 @@
       var top = Head(t("home"), mine.length ? t("wellDoneName", { name: first }) : t("yourDay"), dayName);
       var body;
       if (s.loading) body = html`<p class="wk-note">${t("loadingDay")}</p>`;
-      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
+      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;"><span class="grow">${s.error}</span><button type="button" class="wk-mini" data-act="retry">${t("retry")}</button></div>`;
       else {
         var at = since();
         body = html`<section class="wk-hero wk-count"><b>${mine.length}</b><span>${mine.length === 1 ? t("workDone1") : t("worksDone")}</span>${at && html`<small>${t("signedAt", { time: timeOf(at) })}</small>`}</section>
-          ${current && html`<div class="wk-banner o"><span>⏳</span><span>${t("finishFirst", { name: current.stepName })}</span></div>`}
+          ${current && html`<div class="wk-banner o"><span>⏳</span><span>${t("stillGoing", { name: current.stepName })}</span></div>`}
           ${mine.length > 0 && html`<h2 class="wk-sec">${t("whatYouDid")}</h2><div class="wk-card rows">${mine.map(function (x) { return Row(html`${x.stepName}<small>${productLine(x)}</small>`, timeOf(x.completedAt)); })}</div>`}
           <h2 class="wk-sec">${t("language")}</h2><div class="wk-lang-card">${LangSwitch()}</div>`;
       }
-      var bar = html`<button type="button" class="wk-btn teal" data-act="logout"${attrs({ disabled: !!current || s.loading })}>${current ? t("finishWork") : t("endDay")}</button>`;
+      /* Signing out is never locked (owner, 28 Sep 2026: "he is stuck").
+         With work running it says what happens to it: it stays open in
+         the worker's name, where the supervisor sees it. */
+      var bar = s.loading ? null
+        : s.confirm ? (current
+          ? Confirm(t("cSignOut", { name: current.stepName }), null, t("yesSignOut"), "end-yes", "warn")
+          : Confirm(t("cEnd"), [[t("cWorks"), mine.length + ""]], t("yesEnd"), "end-yes", "teal"))
+        : current
+          ? html`<button type="button" class="wk-btn teal" data-open="${current._id}">${t("continue")}</button><button type="button" class="wk-btn2 plain" data-act="end">${t("signOut")}</button>`
+          : html`<button type="button" class="wk-btn teal" data-act="end">${t("endDay")}</button>`;
       return Screen("", top, body, bar);
     },
   };
@@ -578,7 +629,8 @@
   /* ── events ─────────────────────────────────────────────────────────── */
   rootEl.addEventListener("input", function (e) {
     var el = e.target, f = el.getAttribute("data-f");
-    if (f && app.view === TaskDetail) { app.page.form[f] = el.value; render(); return; }
+    /* a number changed: any question already asked is about old numbers */
+    if (f && app.view === TaskDetail) { app.page.form[f] = el.value; app.page.confirm = ""; render(); return; }
     if (el.getAttribute("data-model") === "phone" && app.view === Login) {
       var v = digitsOnly(el.value).slice(0, PHONE_LENGTH);
       if (el.value !== v) el.value = v;
@@ -601,14 +653,17 @@
       return;
     }
     var help = e.target.closest("[data-help]");
-    if (help && !help.disabled && app.view === Help) { Help.send(s, help.getAttribute("data-help")); return; }
+    if (help && !help.disabled && app.view === Help) { if (!s.sending && !s.sent) set({ pick: help.getAttribute("data-help"), error: "" }); return; }
     var el = e.target.closest("[data-act]");
     if (!el || el.disabled) return;
     var act = el.getAttribute("data-act");
-    if (act === "logout") logout();
+    if (act === "cancel") { if (app.view === Help) set({ pick: "" }); else set({ confirm: app.view === Shift ? false : "" }); return; }
+    if (act === "end-yes") logout();
+    else if (act === "end") set({ confirm: true });
     else if (act === "back") back();
     else if (act === "home") { depth = 0; JF.go("/", true); }
     else if (act === "shift") navigate("/shift");
+    else if (act === "retry") { if (app.view === Dashboard) { set({ error: "" }); Dashboard.refresh(s); } else { set({ loading: true, error: "" }); app.view.load(s); } }
     else if (app.view === Login) {
       if (act === "submit") Login.submit(s);
       else if (act === "switch") Login.switchWorker(s);
@@ -616,9 +671,13 @@
       else if (act === "pin") Login.mode(s, "pin");
       else if (act === "as") Login.signInAs(s, el.getAttribute("data-id"));
     }
-    else if (act === "start") TaskDetail.start(s);
-    else if (act === "complete") TaskDetail.complete(s);
-    else if (act === "sorted") TaskDetail.sorted(s);
+    else if (act === "start") TaskDetail.ask(s, "start");
+    else if (act === "start-yes") TaskDetail.start(s);
+    else if (act === "complete") TaskDetail.ask(s, "done");
+    else if (act === "complete-yes") TaskDetail.complete(s);
+    else if (act === "sorted") TaskDetail.ask(s, "sorted");
+    else if (act === "sorted-yes") TaskDetail.sorted(s);
+    else if (act === "help-yes") Help.send(s, s.pick);
     else if (act === "help") navigate("/task/" + app.params.id + "/help");
     else if (act === "next") navigate("/task/" + el.getAttribute("data-id"), true);
   });
@@ -632,6 +691,10 @@
     else if (e.key === "Enter") { e.preventDefault(); Login.submit(s); }
   });
   window.addEventListener("hashchange", route);
+  function refreshHome() { if (app.view === Dashboard && app.page) Dashboard.refresh(app.page); }
+  setInterval(function () { if (document.visibilityState === "visible") refreshHome(); }, 30000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshHome(); });
+  window.addEventListener("storage", function (e) { if (e.key === FB_PRODUCTION.KEY) refreshHome(); });
   window.addEventListener("online", render);
   window.addEventListener("offline", render);
 

@@ -424,7 +424,7 @@
       "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
       "id": "worker-app",
       "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928WK3",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928WK5",
       "clipLeft": 0,
       "fullBleed": true,
       "deviceFrame": true,
