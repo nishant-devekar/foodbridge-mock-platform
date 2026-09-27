@@ -399,3 +399,40 @@
 #stp-prodwarn{margin-top:12px}
 #stp-prodwarn a{color:inherit;text-decoration:underline;font-weight:700}
 @media (max-width:560px){.stp-edit .grid{grid-template-columns:1fr}.stp-weigh{grid-template-columns:1fr;padding-left:0}}
+
+/* ---------- Packaging tab (recipe-packaging.js, 28 Sep 2026) ----------
+   The one place a product's packs change. Rows look like ingredient and
+   step rows and open the same way. */
+.v4-head .linked a.v4-chip{text-decoration:none;cursor:pointer}
+.v4-head .linked a.v4-chip:hover{border-color:var(--fb-teal-600)}
+.pkr-head,.pkr-row{display:grid;grid-template-columns:64px minmax(0,1fr) 56px 84px 120px;gap:12px;align-items:center}
+.pkr-head{padding:0 16px 6px;font-size:11px;font-weight:700;color:var(--fb-text-muted);text-transform:uppercase;letter-spacing:.3px}
+.pkr-head span:nth-child(3),.pkr-head span:nth-child(4){text-align:right}
+.pkr-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pkr{border:1px solid var(--fb-border);border-radius:14px;background:#fff;overflow:hidden;transition:border-color .15s}
+.pkr:hover{border-color:var(--fb-teal-600)}
+.pkr.open{border-color:var(--fb-teal-800);box-shadow:var(--shadow-card)}
+.pkr.off{background:#FAFBFC;opacity:.85}
+.pkr-row{padding:12px 16px;cursor:pointer}
+.pkr.off .pkr-row{cursor:default}
+.pkr-row b{font-size:14px;font-weight:800}
+.pkr-sub{font-size:12px;color:var(--fb-text-secondary);min-width:0}
+.pkr-sub small{display:block;font-size:11px;color:var(--fb-text-muted);margin-top:2px}
+.pkr-split,.pkr-price{text-align:right;font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums}
+.pkr-row > :last-child{justify-self:end}
+.pkr-edit{border-top:1px dashed var(--fb-border);padding:14px 16px;background:#FAFEFF;display:flex;flex-direction:column;gap:10px}
+.pkr-edit .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.pkr-edit .pkr-wide{grid-column:span 2}
+.pkr-edit .fld[hidden]{display:none}
+.pkr-edit input[readonly]{background:#F1F3F5;color:var(--fb-text-muted)}
+.pkr-note{font-size:11.5px;color:var(--fb-text-muted)}
+.pkr-cost{font-size:13px;color:var(--fb-text-secondary)}
+.pkr-cost:empty{display:none}
+.pkr-cost b{color:var(--fb-text-primary)}
+.pkr-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pkr-foot-r{display:flex;gap:8px}
+#pack-steps:empty{display:none}
+.stp-next{display:block;margin-top:14px;padding:12px 16px;border:1px dashed var(--fb-border);border-radius:14px;font-size:13px;color:var(--fb-text-secondary);text-decoration:none}
+.stp-next b{color:var(--fb-teal-800)}
+.stp-next:hover{border-color:var(--fb-teal-600)}
+@media (max-width:560px){.pkr-head{display:none}.pkr-row{grid-template-columns:56px minmax(0,1fr) auto}.pkr-split{display:none}.pkr-row > :last-child{grid-column:1/-1;justify-self:start}.pkr-edit .grid{grid-template-columns:1fr 1fr}.pkr-edit .pkr-wide{grid-column:1/-1}}

@@ -22,6 +22,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const money = (n) => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const rupees = (n) => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const r2 = (n) => Math.round(n * 100) / 100;
 
   const data = FB_PRODUCTION.read((D, d) => {
@@ -31,7 +32,8 @@
     return {
       id, bk,
       rail: d.recipeOrder.map((rid) => { const b = D.book(rid); return { id: rid, name: b.name, sub: b.line + ' · ' + b.ingredients.length + ' ingredients', emoji: b.emoji }; }),
-      skus: d.skus.filter((s) => s.recipeId === id),
+      /* the packs on sale, as Recipes › Packaging keeps them, with what a packet costs */
+      skus: D.packs(id).map((s) => Object.assign({}, s, { cost: D.packCost(s), pouchName: s.pouchId ? D.material(s.pouchId).name : '' })),
       demand: d.demand,
       mats: d.materials,
       supervisors: d.operators,
@@ -50,11 +52,8 @@
   window.FB_RECIPE = {
     id: data.id, name: bk.name, nominal: bk.base, sizes: bk.sizes,
     variants: data.skus.map((s) => ({ id: s.id, name: s.name.replace(bk.name + ' ', ''), sku: s.name, net: s.grams / 1000, multiple: s.perCarton, demand: (data.demand[s.id] || {}).open || 0 })),
-    strategies: {
-      default: bk.strategy,
-      festive: Object.fromEntries(data.skus.map((s, i, all) => [s.id, i === all.length - 1 ? 100 - Math.round(100 / all.length) * (all.length - 1) : Math.round(100 / all.length)])),
-      bulk: Object.fromEntries(data.skus.map((s) => [s.id, s.grams >= 1000 ? Math.round(100 / Math.max(1, data.skus.filter((x) => x.grams >= 1000).length)) : 0])),
-    },
+    /* one split, set per pack in Packaging */
+    strategies: { default: Object.fromEntries(data.skus.map((s) => [s.id, s.split])) },
     sheet: {
       name: bk.name, basis: 'batch', batchKg: bk.base, markup: 25, target: Math.round((data.skus[0] ? data.skus[0].price / (data.skus[0].grams / 1000) : 100) * 0.9),
       ing: bk.ingredients.map((i) => ({ name: i.name, rate: priceOf(i), qty: i.qty, unit: i.unit })),
@@ -73,7 +72,7 @@
     const h1 = $('.v4-head h1'); if (h1) h1.textContent = bk.name;
     document.title = bk.name + ' — Recipes';
     const linked = $('.v4-head .linked');
-    if (linked) linked.innerHTML = data.skus.map((s) => `<span class="v4-chip">${bk.emoji} ${esc(s.name.replace(bk.name + ' ', ''))}</span>`).join('');
+    if (linked) linked.innerHTML = data.skus.map((s) => `<a class="v4-chip" href="#" data-v4tab="packaging" title="Open in Packaging">${bk.emoji} ${esc(s.name.replace(bk.name + ' ', ''))}</a>`).join('');
     const ver = $('.v4-ver select');
     if (ver) ver.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)} (Latest)</option>`;
     const meta = $('.v4-head .meta');
@@ -118,6 +117,16 @@
     if (ml) ml.innerHTML = bk.making.map((m) => `<div class="cost-line" data-amount="${m.amount}"><div class="cn">${esc(m.name)}</div><input class="input" type="number" value="${m.amount}" style="width:110px" data-cost-amt><button class="btn btn-sm" data-cost-del>✕</button></div>`).join('');
     const mlNote = ml && ml.nextElementSibling; if (mlNote && mlNote.classList.contains('muted')) mlNote.textContent = `Line inputs are per the ${bk.base} kg base; the total below scales for the previewed batch size.`;
 
+    /* cost › packaging: per packet, from the packs (edited in Packaging). Not a
+       batch cost, so it stays out of the grand total. */
+    const pc = $('[data-costpanel="pack"]');
+    if (pc) {
+      pc.removeAttribute('data-cost-sec');
+      pc.innerHTML = `<div class="h"><span class="section-eyebrow">Packaging Cost</span><span class="muted small">Per packet · pouch + its share of a carton</span></div>`
+        + data.skus.map((s) => `<div class="cost-line"><div class="cn">${esc(s.name.replace(bk.name + ' ', ''))}<small>${esc(s.pouchName || 'no pouch')} ${rupees(s.cost.pouch)} + carton ${rupees(s.cost.carton)} · packet ${rupees(s.cost.total)} · margin ${s.cost.marginPct}%</small></div><div class="cv">${rupees(s.cost.packaging)}</div><span></span></div>`).join('')
+        + `<div class="muted small mt8">Packs, pouches and prices are set in <a href="#" data-v4tab="packaging">Packaging</a>. The grand total below is the batch: ingredients and making.</div>`;
+    }
+
     /* target sheet: one product, this recipe */
     const tp = $('#ti-prod'); if (tp) tp.innerHTML = `<button class="chip sel" data-ti-prod="store">${bk.emoji} ${esc(bk.name)}</button>`;
 
@@ -141,6 +150,13 @@
     const tmr = new Date(today.getTime() + 86400000);
     const pd = $('#pb-date'); if (pd && !pd.value) pd.value = iso(tmr);
     const pf = $('#pb-finish'); if (pf && !pf.value) pf.value = iso(tmr);
+    /* SKU planning: the one split from Packaging */
+    const ms = $('#mix-strategy');
+    if (ms) {
+      ms.innerHTML = `<option value="default" selected>Split from Packaging · ${data.skus.map((s) => s.split).join(' / ')}</option>`;
+      const lab = ms.closest('.fld') && ms.closest('.fld').querySelector('.label'); if (lab) lab.textContent = 'Split';
+      const h = ms.closest('.fld') && ms.closest('.fld').querySelector('.hint'); if (h) h.innerHTML = 'Each pack\'s share, set in <a href="#" data-v4tab="packaging">Packaging</a>. Editing a row here rebalances the others for this order; lock a row to hold it.';
+    }
     const note = $('#pb-actnote'); if (note) note.textContent = 'Creates a Planned batch in Batch Management and a packing order for each pack. Add it to a shift to put it on the floor.';
   }
 

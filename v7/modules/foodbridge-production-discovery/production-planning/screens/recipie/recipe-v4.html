@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Premium Butter Cookies — Recipe (feedback-4 · desktop)</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="recipe-v4.css?v=20260928PS1">
+<link rel="stylesheet" href="recipe-v4.css?v=20260928PK1">
 </head>
 <body>
 <div class="app">
@@ -92,10 +92,11 @@
         </div>
       </div>
 
-      <!-- 4 tabs: what goes in · how it's made · what it costs · make it -->
+      <!-- 5 tabs: what goes in · how it's made · how it's packed · what it costs · make it -->
       <div class="v4-tabs">
         <a class="t" href="#" data-v4tab="ingredients">Ingredients</a>
         <a class="t" href="#" data-v4tab="process">Process</a>
+        <a class="t" href="#" data-v4tab="packaging">Packaging</a>
         <a class="t" href="#" data-v4tab="cost">Cost</a>
         <a class="t" href="#" data-v4tab="production">Production</a>
       </div>
@@ -192,7 +193,16 @@
              then the packing steps every product shares. Drawn by recipe-steps.js. -->
         <section class="v4-panel" data-v4panel="process" hidden></section>
 
-        <!-- ============ TAB 3: COST ============ -->
+        <!-- ============ TAB 3: PACKAGING ============ -->
+        <!-- The one place a product's packs are added, changed and retired
+             (recipe-packaging.js); the shared packing steps below them
+             (recipe-steps.js, into #pack-steps). Every other screen reads. -->
+        <section class="v4-panel" data-v4panel="packaging" hidden>
+          <div data-packs></div>
+          <div id="pack-steps"></div>
+        </section>
+
+        <!-- ============ TAB 4: COST ============ -->
         <section class="v4-panel" data-v4panel="cost" hidden>
           <!-- sub-tabs -->
           <div class="cost-subtabs">
@@ -344,7 +354,7 @@
           <div class="muted small mt8">Totals recalculate automatically on every edit. Ingredients &amp; making scale with the previewed batch size; packaging is per pack.</div>
         </section>
 
-        <!-- ============ TAB 4: PRODUCTION ============ -->
+        <!-- ============ TAB 5: PRODUCTION ============ -->
         <!-- Two stages, never one form (feedback-02): Section A plans the PROCESS in kg;
              Section B plans PACKAGING in pcs. Rule 1/2 — a production order is never
              expressed in SKU quantities, a packaging order never in recipe quantities. -->
@@ -555,10 +565,11 @@
   <div class="dfoot"><button class="btn" data-drawer-close>Cancel</button><button class="btn btn-primary" data-drawer-close>Create Recipe</button></div>
 </aside>
 
-<script src="../../../../../assets/production/production-api.js?v=20260926ST1" defer></script>
-<script src="recipe-store.js?v=20260928PS1" defer></script>
+<script src="../../../../../assets/production/production-api.js?v=20260928PK1" defer></script>
+<script src="recipe-store.js?v=20260928PK1" defer></script>
 <script src="recipe.js" defer></script>
 <script src="recipe-v4.js?v=20260926PR1" defer></script>
-<script src="recipe-steps.js?v=20260928PS1" defer></script>
+<script src="recipe-packaging.js?v=20260928PK1" defer></script>
+<script src="recipe-steps.js?v=20260928PK1" defer></script>
 </body>
 </html>

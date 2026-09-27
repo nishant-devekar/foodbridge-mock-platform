@@ -2753,3 +2753,24 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - **Wiring:** new `recipe-steps.js` uses the same JobFlow API routes and the same store as the old page, signed in as the seeded admin. No store change.
 - **Sidebar:** Production Plan · Recipes · Batches · Shifts · Shop Floor · Freezer Stock · Month End. `#/process-steps`, `#/production/process-steps` and `#/workflow-editor` land on Recipes. JobFlow's own `#/steps` still works when it runs on its own.
 - `?v=` `20260928PS1` on the Recipes page, its `modules.json` URL, `admin.js` and `platform.js` (for the `modules.json` change). Tests: 21 pass.
+
+### 28 September 2026 — Recipes: a Packaging tab, the one place packs change
+
+**Owner:** packaging details were scattered; unify them in one simple tab, in line with Ingredients · Process · Cost · Production, and keep the Production tab and its flow.
+
+- **Recipes has five tabs:** Ingredients · Process · **Packaging** · Cost · Production.
+- **Packaging:** the product's packs as rows that open in place, the same as ingredient rows. Each has size, per carton, pouch, price and split %, and shows its cost a packet and margin as you type.
+  - *＋ Add pack*; *Retire pack* (it moves to *Off sale* and can be put back).
+  - A pack that has been made keeps its size: a new size is a new pack.
+  - Changing one split rebalances the others to 100%.
+  - *How it's packed*, the shared packing steps, moved here from Process. Process keeps one line that points to it.
+- **Every other screen reads the packs:**
+  - the header chips (which open Packaging);
+  - Cost › Packaging: per packet, pouch + carton share, out of the batch's grand total, with no more cookie pouches;
+  - the Production tab's split: one split from Packaging, replacing the cookie Default / Festive / Bulk-led;
+  - Production Plan: retired packs are skipped; pouches and cartons are counted;
+  - Batch Management: its pack options are built from the packs each time it loads. The old copy used the selling price as the cost per pack.
+  - the Worker App: the pack step lists the pack's pouches, the cartons step lists cartons;
+  - Finished Goods: article numbers, and pouches and cartons get their own store category.
+- **Store (`VERSION 5`):** pouches (one per pack) and a carton are packaging materials, received at the gate like any material. The pack step takes pouches, and the cartons step takes whole cartons; both are checked before anything moves. A packing order keeps the carton size it was made with. `D.savePack` / `D.retirePack` / `D.packCost` / `D.costPerKg` (Month End uses the same cost per kg).
+- Tests: 28 pass (6 new in `packaging.test.js`). `?v=` `20260928PK1` on every screen that loads the store, their `modules.json` URLs and `platform.js`.

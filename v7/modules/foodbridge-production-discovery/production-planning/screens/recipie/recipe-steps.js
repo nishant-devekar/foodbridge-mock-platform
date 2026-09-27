@@ -4,9 +4,9 @@
    Process Steps used to be its own Production leaf: JobFlow's
    Workflow Editor, listing the same recipes as this rail. The owner
    moved it here — a recipe is what goes in AND how it is made — and
-   retired the leaf. Packing is one set of steps for every product,
-   so it sits under each recipe's own steps as a closed, shared
-   section.
+   retired the leaf. Packing is one set of steps for every product;
+   since the Packaging tab (same day) it is drawn there, as a closed
+   shared section, into #pack-steps — Process only points to it.
 
    Same store, same routes: this talks to the JobFlow API in
    production-api.js (getWorkflow / addStep / updateStep /
@@ -49,13 +49,14 @@
   /* A change in flight only disables the buttons: redrawing would wipe a
      form the save may hand back with an error. A step's error shows in
      its own form (li), anything else above the list. */
+  const AREAS = '[data-v4panel="process"], #pack-steps';
   function run(fn, li) {
-    const panel = $('[data-v4panel="process"]');
+    const panel = $$(AREAS);
     s.busy = true; s.error = '';
-    $$('button', panel).forEach((b) => { b.disabled = true; });
+    panel.forEach((p) => $$('button', p).forEach((b) => { b.disabled = true; }));
     return fn().then(() => { s.open = null; return load(); }).then(() => { s.busy = false; render(); }, (err) => {
       s.busy = false;
-      if (li && li.isConnected) { showErr(li, err.message); $$('button', panel).forEach((b) => { b.disabled = false; }); }
+      if (li && li.isConnected) { showErr(li, err.message); panel.forEach((p) => $$('button', p).forEach((b) => { b.disabled = false; })); }
       else { s.error = err.message; render(); }
     });
   }
@@ -133,16 +134,19 @@
     const steps = s.wf ? s.wf.steps : [];
     const total = steps.reduce((t, st) => t + (st.expectedMinutes || 0), 0);
     const pk = s.packing ? s.packing.steps : [];
+    const pack = $('#pack-steps');
     panel.innerHTML = `
       <div class="section-eyebrow mb8">How it's made on the floor${steps.length ? ' · ' + steps.length + ' steps · ' + mins(total) + ' a batch' : ''}</div>
       ${steps.length || (s.open && s.open.wf === 'recipe') ? '' : '<div class="stp-empty">No steps yet. Batches of this recipe won\'t reach the floor until it has them.</div>'}
       ${s.error ? `<div class="stp-err">${esc(s.error)}</div>` : ''}
       ${list(s.wf, false)}
-      ${s.packing ? `<div class="stp-shared${s.packOpen ? ' open' : ''}">
-        <button class="stp-shared-h" data-stp-pack aria-expanded="${s.packOpen}"><span class="stp-caret">▸</span><span><b>Then packed into packets</b><small>Same steps for every product · ${pk.length} step${pk.length === 1 ? '' : 's'}</small></span></button>
-        ${s.packOpen ? `<div class="stp-shared-b"><div class="muted small mb8">Changing these changes packing for every product.</div>${list(s.packing, true)}</div>` : ''}
-      </div>` : ''}
+      ${s.packing ? `<a class="stp-next" href="#" data-v4tab="packaging">Then packed into packets · ${pk.length} step${pk.length === 1 ? '' : 's'}, same for every product · <b>Packaging ›</b></a>` : ''}
       <div class="muted small mt16">Changes apply to batches put on a shift after you save. Batches already on the floor keep their steps.</div>`;
+    if (pack && s.packing) {
+      pack.className = 'stp-shared' + (s.packOpen ? ' open' : '');
+      pack.innerHTML = `<button class="stp-shared-h" data-stp-pack aria-expanded="${s.packOpen}"><span class="stp-caret">▸</span><span><b>How it's packed</b><small>${pk.length} step${pk.length === 1 ? '' : 's'}, same for every product · ${esc(pk.map((st) => st.name).join(' → '))}</small></span></button>
+        ${s.packOpen ? `<div class="stp-shared-b"><div class="muted small mb8">Changing these changes packing for every product. Packing orders put on a shift after you save get them.</div>${list(s.packing, true)}</div>` : ''}`;
+    }
     sync(steps);
   }
 
@@ -205,7 +209,7 @@
 
   document.addEventListener('click', (e) => {
     const t = e.target;
-    if (!t.closest('[data-v4panel="process"]')) return;
+    if (!t.closest(AREAS)) return;
     const li = t.closest('.stp');
     if (t.closest('[data-stp-pack]')) { e.preventDefault(); s.packOpen = !s.packOpen; if (!s.packOpen && s.open && s.open.wf === 'packing') s.open = null; render(); return; }
     const add = t.closest('[data-stp-add]');

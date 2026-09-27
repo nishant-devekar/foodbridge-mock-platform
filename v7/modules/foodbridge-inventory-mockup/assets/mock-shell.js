@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260926ST1", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260928PK1", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -438,10 +438,10 @@
       d.skus.forEach((k) => {
         const lots = (d.fg[k.id] ? d.fg[k.id].lots : []).map((l, i) => Object.assign({ id: k.id + "-" + i }, l));
         lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.at), batchName: l.ref, createdDaysAgo: ago(l.at),
-          products: [{ _id: k.id, name: k.name, articleNo: "FG-" + k.id.slice(-2).padStart(4, "40"), unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40, stock: l.qty, remainingStock: l.remaining,
+          products: [{ _id: k.id, name: k.name, articleNo: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40, stock: l.qty, remainingStock: l.remaining,
             mfgDaysAgo: ago(l.madeAt), expiryInDays: until(l.useBy), price: k.price, tax: 5, supplierData: null }] }));
         const open = (d.demand[k.id] || {}).open || 0, have = D.packetsOf(k.id);
-        fg.push({ _id: k.id, productName: k.name, articleNumber: "FG-" + k.id.slice(-2).padStart(4, "40"), unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
+        fg.push({ _id: k.id, productName: k.name, articleNumber: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
           availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null });
       });
       seed.stockSummary["RAW-MATERIAL"] = rm.concat(seed.stockSummary["RAW-MATERIAL"] || []);
@@ -453,6 +453,8 @@
         { _id: "cat-rm-cold", name: "Cold room · peas & vegetables", productIds: ["rm-p01", "rm-p02", "rm-p03", "rm-p04"] },
         { _id: "cat-rm-dry", name: "Dry store · flours", productIds: ["rm-p05", "rm-p06"] },
         { _id: "cat-rm-pack", name: "Dry store · sticks & big bags", productIds: ["rm-p07", "rm-p08", "rm-p09"] },
+        /* pouches and cartons: set per pack in Recipes › Packaging */
+        { _id: "cat-rm-pouch", name: "Dry store · pouches & cartons", productIds: d.materials.filter((m) => m.kind === "packaging" && m.id.indexOf("rm-k") === 0).map((m) => m.id) },
       ].concat(seed.categoryTree["RAW-MATERIAL"] || []);
       seed.categoryTree["FINISHED-GOODS"] = [{ _id: "cat-fg-frozen", name: "Frozen foods · our packs", productIds: d.skus.map((k) => k.id) }].concat(seed.categoryTree["FINISHED-GOODS"] || []);
       return seed;

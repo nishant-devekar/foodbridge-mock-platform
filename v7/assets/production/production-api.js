@@ -6,12 +6,17 @@
    the inventories each kept their own copy of the factory. Now they read and
    write this one:
 
-     recipes · recipeHeaders · packagingLines · operators · hostProducts ·
+     recipes · recipeHeaders · operators ·
      batches           the shape Batch Management renders (its seed.json
                        shape, so its screens need no rewrite)
-     book              per recipe: line, ingredients, making cost, packs,
-                       process — what Configure Recipe shows
-     materials · lots  raw material and every sack / crate received
+     book              per recipe: line, ingredients, making cost, process —
+                       what Configure Recipe shows
+     skus              the packs: size, per carton, price, pouch, split. Changed
+                       only in Recipes › Packaging (D.savePack / D.retirePack);
+                       every other screen reads them, and Batch Management's
+                       pack options are made from them when it loads
+     materials · lots  raw material, packaging (pouches, cartons, big bags)
+                       and every sack / crate / bundle received
      bags              the 30 / 35 kg bags in the freezer (Freezer Stock)
      fg                packets in cartons (Finished Goods)
      demand            open orders and weekly sales per pack (Production Plan)
@@ -46,13 +51,14 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 4;
+  var VERSION = 5;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
   /* ── Catalogue: the reference business ─────────────────────────────── */
   var MATERIALS = [
     // id, name, article, unit, stock unit, store, price ₹ per unit, reorder at, supplier,
-    // and what one sticker goes on: that many units to a sack / crate / box
+    // and what one sticker goes on: that many units to a sack / crate / box,
+    // and "packaging" for what a product is packed in (Recipes › Packaging)
     ["rm-p01", "Green Peas (shelled)", "RM-3001", "kg", "Kg-Crate-Pallet", "Cold room", 42, 400, "Azadpur Mandi · Gupta & Sons", 20, "crate"],
     ["rm-p02", "Carrot", "RM-3002", "kg", "Kg-Crate-Pallet", "Cold room", 28, 200, "Ramesh Farms, Sonipat", 25, "crate"],
     ["rm-p03", "Cauliflower", "RM-3003", "kg", "Kg-Crate-Pallet", "Cold room", 22, 120, "Ramesh Farms, Sonipat", 20, "crate"],
@@ -60,9 +66,22 @@
     ["rm-p05", "Soya Flour", "RM-3005", "kg", "Kg-Bag-Pallet", "Dry store", 62, 150, "Shree Balaji Traders", 50, "sack"],
     ["rm-p06", "Wheat Flour (Maida)", "RM-3006", "kg", "Kg-Bag-Pallet", "Dry store", 34, 150, "Shree Balaji Traders", 50, "sack"],
     ["rm-p07", "Wooden Sticks", "RM-3007", "pcs", "Pcs-Box-Pallet", "Dry store", 0.35, 3000, "Kanpur Wood Crafts", 1000, "box"],
-    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "Delhi Poly Packers", 50, "bundle"],
-    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "Delhi Poly Packers", 50, "bundle"],
+    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "Delhi Poly Packers", 50, "bundle", "packaging"],
+    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "Delhi Poly Packers", 50, "bundle", "packaging"],
+    /* a pouch per pack, and one carton for every pack (28 Sep 2026) */
+    ["rm-k01", "Pouch 200 g · Frozen Green Peas", "RM-5001", "pcs", "Pcs-Box-Pallet", "Dry store", 1.8, 1000, "Delhi Poly Packers", 500, "bundle", "packaging"],
+    ["rm-k02", "Pouch 500 g · Frozen Green Peas", "RM-5002", "pcs", "Pcs-Box-Pallet", "Dry store", 2.6, 600, "Delhi Poly Packers", 500, "bundle", "packaging"],
+    ["rm-k03", "Pouch 1 kg · Frozen Green Peas", "RM-5003", "pcs", "Pcs-Box-Pallet", "Dry store", 3.8, 300, "Delhi Poly Packers", 250, "bundle", "packaging"],
+    ["rm-k04", "Pouch 5 kg · Frozen Green Peas", "RM-5004", "pcs", "Pcs-Box-Pallet", "Dry store", 9, 30, "Delhi Poly Packers", 100, "bundle", "packaging"],
+    ["rm-k05", "Pouch 500 g · Mixed Vegetables", "RM-5005", "pcs", "Pcs-Box-Pallet", "Dry store", 2.7, 500, "Delhi Poly Packers", 500, "bundle", "packaging"],
+    ["rm-k06", "Pouch 1 kg · Mixed Vegetables", "RM-5006", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 250, "Delhi Poly Packers", 250, "bundle", "packaging"],
+    ["rm-k07", "Pouch 250 g · Soya Chaap", "RM-5007", "pcs", "Pcs-Box-Pallet", "Dry store", 2.2, 600, "Delhi Poly Packers", 500, "bundle", "packaging"],
+    ["rm-k08", "Pouch 500 g · Soya Chaap", "RM-5008", "pcs", "Pcs-Box-Pallet", "Dry store", 2.8, 300, "Delhi Poly Packers", 500, "bundle", "packaging"],
+    ["rm-k09", "Pouch 1 kg · Soya Chaap", "RM-5009", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 150, "Delhi Poly Packers", 250, "bundle", "packaging"],
+    ["rm-k10", "Pouch 5 kg · Soya Chaap", "RM-5010", "pcs", "Pcs-Box-Pallet", "Dry store", 9.5, 30, "Delhi Poly Packers", 100, "bundle", "packaging"],
+    ["rm-k11", "Carton 5-ply", "RM-5011", "pcs", "Pcs-Box-Pallet", "Dry store", 28, 100, "Delhi Poly Packers", 50, "bundle", "packaging"],
   ];
+  var CARTON = "rm-k11";
   var SUPPLIERS = [
     { name: "Azadpur Mandi · Gupta & Sons", contact: "5550402001" },
     { name: "Ramesh Farms, Sonipat", contact: "5550402002" },
@@ -70,18 +89,20 @@
     { name: "Kanpur Wood Crafts", contact: "5550402004" },
     { name: "Delhi Poly Packers", contact: "5550402005" },
   ];
-  /* Packs: id, recipe, name, grams, per carton, price ₹ per packet. */
+  /* Packs: id, recipe, name, grams, per carton, price ₹ per packet, pouch.
+     Seeded here; from then on Recipes › Packaging adds, edits and retires
+     them, and every screen reads the one record (D.savePack). */
   var SKUS = [
-    ["fg-p01", "frozen-peas", "Frozen Green Peas 200 g", 200, 50, 30],
-    ["fg-p02", "frozen-peas", "Frozen Green Peas 500 g", 500, 24, 70],
-    ["fg-p03", "frozen-peas", "Frozen Green Peas 1 kg", 1000, 12, 135],
-    ["fg-p04", "frozen-peas", "Frozen Green Peas 5 kg", 5000, 2, 640],
-    ["fg-p05", "mixed-veg", "Mixed Vegetables 500 g", 500, 24, 80],
-    ["fg-p06", "mixed-veg", "Mixed Vegetables 1 kg", 1000, 12, 150],
-    ["fg-p07", "soya-chaap", "Soya Chaap 250 g", 250, 40, 60],
-    ["fg-p08", "soya-chaap", "Soya Chaap 500 g", 500, 20, 110],
-    ["fg-p09", "soya-chaap", "Soya Chaap 1 kg", 1000, 10, 210],
-    ["fg-p10", "soya-chaap", "Soya Chaap 5 kg (no stick)", 5000, 2, 980],
+    ["fg-p01", "frozen-peas", "Frozen Green Peas 200 g", 200, 50, 30, "rm-k01"],
+    ["fg-p02", "frozen-peas", "Frozen Green Peas 500 g", 500, 24, 70, "rm-k02"],
+    ["fg-p03", "frozen-peas", "Frozen Green Peas 1 kg", 1000, 12, 135, "rm-k03"],
+    ["fg-p04", "frozen-peas", "Frozen Green Peas 5 kg", 5000, 2, 640, "rm-k04"],
+    ["fg-p05", "mixed-veg", "Mixed Vegetables 500 g", 500, 24, 80, "rm-k05"],
+    ["fg-p06", "mixed-veg", "Mixed Vegetables 1 kg", 1000, 12, 150, "rm-k06"],
+    ["fg-p07", "soya-chaap", "Soya Chaap 250 g", 250, 40, 60, "rm-k07"],
+    ["fg-p08", "soya-chaap", "Soya Chaap 500 g", 500, 20, 110, "rm-k08"],
+    ["fg-p09", "soya-chaap", "Soya Chaap 1 kg", 1000, 10, 210, "rm-k09"],
+    ["fg-p10", "soya-chaap", "Soya Chaap 5 kg (no stick)", 5000, 2, 980, "rm-k10"],
   ];
   /* Recipes: ingredients are per the base batch (kg out). A material with
      no rmId (water) is used but not stocked. */
@@ -324,6 +345,98 @@
       return qty - left;
     };
 
+    /* ── packs: Recipes › Packaging is the one place they change ────── */
+    /* what a kg costs by the recipe: priced ingredients + making, per kg out */
+    D.costPerKg = function (recipeId) {
+      var bk = D.book(recipeId);
+      var mat = bk.ingredients.reduce(function (s, i) { var m = i.rmId && D.material(i.rmId); return s + (m ? m.price * i.qty : 0); }, 0);
+      return (mat + bk.making.reduce(function (s, m) { return s + m.amount; }, 0)) / bk.base;
+    };
+    D.packs = function (recipeId, withRetired) {
+      return db.skus.filter(function (s) { return s.recipeId === recipeId && (withRetired || !s.retired); }).sort(function (a, b) { return a.grams - b.grams; });
+    };
+    /* a packet: the product in it, its pouch, and its share of a carton */
+    D.packCost = function (s) {
+      var pouch = s.pouchId && D.material(s.pouchId), carton = D.material(CARTON);
+      var c = { product: r2(D.costPerKg(s.recipeId) * kgOf(s)), pouch: pouch ? pouch.price : 0, carton: carton ? r2(carton.price / s.perCarton) : 0 };
+      c.packaging = r2(c.pouch + c.carton); c.total = r2(c.product + c.packaging);
+      c.margin = r2(s.price - c.total); c.marginPct = s.price ? Math.round(c.margin / s.price * 100) : 0;
+      return c;
+    };
+    /* made, packed or stocked: its size is part of the record from then on */
+    D.packUsed = function (id) {
+      return db.batches.some(function (b) { return b.skuId === id || (b.packagingLines || []).some(function (l) { return l.packagingConfigId === id; }); }) ||
+        !!(db.fg[id] && db.fg[id].lots.length);
+    };
+    function sizeLabel(g) { return g >= 1000 && g % 1000 === 0 ? g / 1000 + " kg" : g + " g"; }
+    /* the rest of the product's packs take up what one pack's split gave or left */
+    function rebalance(recipeId, keep) {
+      var others = D.packs(recipeId).filter(function (x) { return x !== keep; });
+      if (!others.length) { if (keep) keep.split = 100; return; }
+      var left = 100 - (keep && !keep.retired ? keep.split : 0), had = others.reduce(function (t, x) { return t + x.split; }, 0);
+      others.forEach(function (x) { x.split = Math.round(had ? x.split * left / had : left / others.length); });
+      var drift = left - others.reduce(function (t, x) { return t + x.split; }, 0);
+      others.sort(function (a, b) { return b.split - a.split; })[0].split += drift;
+    }
+    D.savePack = function (o) {
+      o = o || {};
+      var s = o.id ? D.sku(o.id) : null;
+      if (o.id && !s) throw new ApiError(404, "No such pack");
+      var bk = D.book(s ? s.recipeId : o.recipeId);
+      if (!bk) throw invalid("Pick a product");
+      var num = function (k) { return o[k] === undefined || o[k] === "" ? undefined : Number(o[k]); };
+      var grams = num("grams"), perCarton = num("perCarton"), price = num("price"), split = num("split");
+      if (grams !== undefined && !(Number.isInteger(grams) && grams > 0)) throw invalid("Size is whole grams");
+      if (perCarton !== undefined && !(Number.isInteger(perCarton) && perCarton > 0)) throw invalid("Per carton is a whole number");
+      if (price !== undefined && !(price > 0)) throw invalid("Enter a price");
+      if (split !== undefined && !(split >= 0 && split <= 100)) throw invalid("Split is 0 to 100%");
+      if (!s && (grams === undefined || perCarton === undefined || price === undefined)) throw invalid("Size, per carton and price are needed");
+      if (s && grams !== undefined && grams !== s.grams && D.packUsed(s.id)) throw invalid("This pack has been made, so its size stays. Add a new pack and retire this one.");
+      var size = grams !== undefined ? grams : s.grams;
+      if (D.packs(bk.id).some(function (x) { return x !== s && x.grams === size; })) throw invalid("There is already a " + sizeLabel(size) + " pack");
+      /* the pouch: one of the store's, or a new one made here */
+      var pouchId = o.pouchId !== undefined ? o.pouchId : s && s.pouchId;
+      if (o.newPouchPrice !== undefined && o.newPouchPrice !== "") {
+        var pp = Number(o.newPouchPrice);
+        if (!(pp > 0)) throw invalid("Enter the pouch price");
+        var n = db.materials.filter(function (m) { return /^rm-k\d+$/.test(m.id); }).reduce(function (mx, m) { return Math.max(mx, +m.id.slice(4)); }, 0) + 1;
+        var pouch = { id: "rm-k" + pad(n), name: "Pouch " + sizeLabel(size) + " · " + bk.name, article: "RM-" + (5000 + n), unit: "pcs", stockUnit: "Pcs-Box-Pallet", store: "Dry store",
+          price: r2(pp), threshold: 200, supplier: "Delhi Poly Packers", packQty: 500, packName: "bundle", kind: "packaging" };
+        db.materials.push(pouch); pouchId = pouch.id;
+      }
+      if (pouchId && !D.material(pouchId)) throw invalid("Unknown pouch");
+      if (!s) {
+        var next = db.skus.reduce(function (mx, x) { return Math.max(mx, parseInt(x.id.slice(4), 10) || 0); }, 0) + 1;
+        s = { id: "fg-p" + pad(next), recipeId: bk.id, name: "", grams: size, perCarton: perCarton, price: price, pouchId: pouchId || null, split: 0, retired: false, article: "FG-" + pad(next, 2).padStart(4, "40") };
+        db.skus.push(s);
+        db.demand[s.id] = { weekly: [0, 0, 0, 0], open: 0, season: 1 };
+      }
+      if (grams !== undefined && (grams !== s.grams || !s.name)) { s.grams = grams; s.name = bk.name + " " + sizeLabel(grams); }
+      if (perCarton !== undefined) s.perCarton = perCarton;
+      if (price !== undefined) s.price = r2(price);
+      s.pouchId = pouchId || null;
+      if (o.retired === false) s.retired = false;
+      if (split !== undefined) { s.split = Math.round(split); rebalance(bk.id, s); }
+      D.emit("production.pack.saved", { where: "Recipes", how: "office", by: o.actor || "admin", data: { pack: s.name } });
+      return s;
+    };
+    D.retirePack = function (id, o) {
+      var s = D.sku(id);
+      if (!s) throw new ApiError(404, "No such pack");
+      if (!s.retired && D.packs(s.recipeId).length === 1) throw invalid("A product needs one pack on sale");
+      s.retired = true; rebalance(s.recipeId, null); s.split = 0;
+      D.emit("production.pack.retired", { where: "Recipes", how: "office", by: (o && o.actor) || "admin", data: { pack: s.name } });
+      return s;
+    };
+    /* Batch Management's shapes, made from the packs whenever it loads */
+    D.packagingLines = function (recipeId) {
+      return D.packs(recipeId).map(function (s) {
+        var c = D.packCost(s);
+        return { id: s.id, productRef: s.id, packTitle: s.name, name: s.name, packSize: s.grams, packUnit: "g", productName: s.name, costPerPack: c.packaging,
+          attributable: true, costPerPackDisplay: "₹" + c.packaging.toFixed(2), variantMassDisplay: kgOf(s) + " kg" };
+      });
+    };
+
     /* batches */
     var LABEL = { planned: "Planned", "in-progress": "In Progress", "on-hold": "On Hold", completed: "Completed", closed: "Closed", rejected: "Rejected" };
     var TRIGGER = { start: "Start", hold: "Hold", resume: "Resume", complete: "Complete", close: "Close", reject: "Reject" };
@@ -385,7 +498,7 @@
       var b = batchShell({
         id: no.toLowerCase(), batchNumber: no, kind: "packing", recipeId: bk.id, line: "Packing", recipeVersionId: bk.version, displayName: "Packing · " + s.name,
         batchSize: kg, plannedDate: planned, expectedFinishDate: planned, operator: o.supervisor || SUPERVISORS[1].name, semiFinishedKg: 0, skuId: s.id, packets: qty,
-        sourceBatch: o.from || null, actor: o.actor,
+        sourceBatch: o.from || null, perCarton: s.perCarton, actor: o.actor,
       });
       b.packagingLines = [{ packagingConfigId: s.id, productRef: s.id, name: s.name, plannedUnits: qty, weightKg: kg, ratioPct: 100 }];
       db.batches.push(b);
@@ -475,12 +588,18 @@
         var s = D.sku(b.skuId), p = Math.round(num(input.packets));
         if (!(p > 0)) throw invalid("Enter how many packets were packed");
         rec.packets = p;
+        /* the freezer, then one pouch a packet: both checked before anything moves */
+        var needKg = r2(p * kgOf(s)), have = D.inFreezer(s.recipeId);
+        if (have + 0.0001 < needKg) throw new ApiError(409, "Only " + have + " kg of " + D.book(s.recipeId).name + " in the freezer");
+        if (s.pouchId && D.onHand(s.pouchId) < p) throw new ApiError(409, "Only " + D.onHand(s.pouchId) + " of " + D.material(s.pouchId).name + " in the store");
         rec.bagsTaken = D.takeBags(s.recipeId, r2(p * kgOf(s)));
+        if (s.pouchId) rec.lots = D.take(s.pouchId, p, b, worker.name);
         b.packedPackets = p; b.bagsTaken = rec.bagsTaken;
       }
       if (task.cartons) {
         var sk = D.sku(b.skuId), pk = b.packedPackets || 0;
-        rec.cartonsPacked = Math.ceil(pk / sk.perCarton);
+        rec.cartonsPacked = Math.ceil(pk / (b.perCarton || sk.perCarton));
+        if (rec.cartonsPacked) rec.lots = D.take(CARTON, rec.cartonsPacked, b, worker.name);
         var oldest = (b.bagsTaken || [])[0];
         D.addPackets(sk.id, pk, b.batchNumber + (oldest ? " · from " + oldest.batchNumber : ""), oldest ? oldest.madeAt : iso(), oldest ? oldest.useBy : iso());
         b.inventorySync = { status: "synced", syncedAt: iso(), lines: [{ lineRef: sk.id, status: "synced", expectedQty: b.packets, actualQty: pk, hostProductId: sk.id,
@@ -519,7 +638,7 @@
 
     /* ── Production Plan: orders + forecast − packets − bags − planned ── */
     D.plan = function () {
-      var rows = db.skus.map(function (s) {
+      var rows = db.skus.filter(function (s) { return !s.retired; }).map(function (s) {
         var d = db.demand[s.id] || { weekly: [0, 0, 0, 0], open: 0 };
         var avg = d.weekly.reduce(function (a, b) { return a + b; }, 0) / d.weekly.length;
         var forecast = Math.round(avg * (d.season || 1));
@@ -556,6 +675,13 @@
         var bagMat = bk.bagKg === 35 ? "rm-p09" : "rm-p08";
         if (kg) needMat[bagMat] = (needMat[bagMat] || 0) + bags;
       });
+      /* a pouch for every short packet, and the cartons they fill */
+      rows.forEach(function (r) {
+        var sk = D.sku(r.skuId);
+        if (!r.shortPackets) return;
+        if (sk.pouchId) needMat[sk.pouchId] = (needMat[sk.pouchId] || 0) + r.shortPackets;
+        needMat[CARTON] = (needMat[CARTON] || 0) + Math.ceil(r.shortPackets / sk.perCarton);
+      });
       var materials = db.materials.map(function (m) {
         var need = r2(needMat[m.id] || 0), onHand = D.onHand(m.id), reserved = D.reserved(m.id), ordered = D.ordered(m.id);
         var free = r2(onHand - reserved);
@@ -571,8 +697,8 @@
       var tasks = db.tasks.filter(function (t) { return t.status === "done" && t.completedAt >= start; });
       var costRows = db.recipeOrder.map(function (rid) {
         var bk = D.book(rid), mine = batches.filter(function (b) { return b.recipeId === rid; });
-        var matPerKg = bk.ingredients.reduce(function (s, i) { var m = i.rmId && D.material(i.rmId); return s + (m ? m.price * i.qty : 0); }, 0) / bk.base;
         var makePerKg = bk.making.reduce(function (s, m) { return s + m.amount; }, 0) / bk.base;
+        var matPerKg = D.costPerKg(rid) - makePerKg;
         var out = 0, used = 0;
         mine.forEach(function (b) {
           out += b.semiFinishedKg || 0;
@@ -608,10 +734,11 @@
     var db = {
       version: VERSION, seededOn: dayKey(today), seq: 0, lotSeq: 0, ordered: {}, demand: {}, fg: {},
       workers: [], workflows: [], shifts: [], tasks: [], updates: [], lots: [], bags: [],
-      recipes: [], recipeHeaders: {}, packagingLines: {}, operators: clone(SUPERVISORS), hostProducts: [], batches: [], book: {}, recipeOrder: [],
-      materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10] }; }),
+      recipes: [], recipeHeaders: {}, operators: clone(SUPERVISORS), batches: [], book: {}, recipeOrder: [],
+      materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10], kind: m[11] || "raw" }; }),
       suppliers: clone(SUPPLIERS),
-      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5] }; }),
+      /* split: the pack's share of a batch in the Production tab's default split */
+      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40") }; }),
     };
     var D = Domain(db, clock, log);
     var stamp = function (o) { o.createdAt = o.updatedAt = clock().toISOString(); o.__v = 0; o._seq = ++db.seq; return o; };
@@ -623,14 +750,10 @@
       db.recipeHeaders[r.id] = { recipeId: r.id, name: r.name, versions: [{ id: r.version, label: r.label, subLabel: r.sizes.join("/") + " kg" }], activeVersionId: r.version,
         statusLabel: "published", allowedBatchSizes: r.sizes.slice(), bestBeforeDays: r.bestBeforeDays, batchBaseSize: r.base, referenceBatchQty: r.base, batchYieldPct: 100,
         batchBaseUnit: "kg", isLocked: true, branchActions: [] };
-      db.packagingLines[r.version] = skus.map(function (s) {
-        return { id: s.id, productRef: s.id, packTitle: s.name, name: s.name, packSize: s.grams, packUnit: "g", productName: s.name, costPerPack: s.price,
-          attributable: true, costPerPackDisplay: "₹" + s.price.toFixed(2), variantMassDisplay: kgOf(s) + " kg" };
-      });
-      skus.forEach(function (s) { db.hostProducts.push({ id: s.id, name: s.name, articleNo: "FG-" + s.id.slice(-2).padStart(4, "40") }); });
+      skus.forEach(function (s) { s.split = r.strategy[s.id] || 0; });
       db.book[r.id] = { id: r.id, name: r.name, line: r.line, version: r.version, label: r.label, sizes: r.sizes, base: r.base, bestBeforeDays: r.bestBeforeDays, bagKg: r.bagKg, emoji: r.emoji,
         ingredients: r.ingredients.map(function (i) { return { rmId: i[0], name: i[1], brand: i[2], qty: i[3], unit: i[4], yield: i[5] }; }),
-        making: r.making.map(function (m) { return { name: m[0], amount: m[1] }; }), strategy: clone(r.strategy) };
+        making: r.making.map(function (m) { return { name: m[0], amount: m[1] }; }) };
       db.workflows.push(stamp({ _id: newId(db), product: r.name, recipeId: r.id, kind: "production", steps: PROCESS[r.id].map(stepOf) }));
     });
     db.workflows.push(stamp({ _id: newId(db), product: "Packing (all products)", recipeId: null, kind: "packing", steps: PROCESS.packing.map(stepOf) }));
@@ -651,6 +774,9 @@
     /* goods in: raw material over the month, oldest first */
     function receive(dayOff, materialId, qty, h) { clk.t = at(today, dayOff, h || 9).getTime(); return D.receive({ materialId: materialId, qty: qty, gateQty: qty + (qty > 50 ? Math.round(qty * 0.01) : 0), by: "Store · Mohan" }); }
     receive(-28, "rm-p05", 150); receive(-28, "rm-p06", 150); receive(-28, "rm-p07", 12000); receive(-28, "rm-p08", 120); receive(-28, "rm-p09", 60);
+    /* pouches for about eight weeks of sales, and cartons */
+    [["rm-k01", 2200], ["rm-k02", 1600], ["rm-k03", 900], ["rm-k04", 100], ["rm-k05", 1200], ["rm-k06", 600], ["rm-k07", 1400], ["rm-k08", 800], ["rm-k09", 400], ["rm-k10", 80], [CARTON, 400]]
+      .forEach(function (k) { receive(-28, k[0], k[1], 11); });
     [-27, -21, -14, -7, -2].forEach(function (d) { receive(d, "rm-p01", d === -2 ? 360 : 330); receive(d, "rm-p02", 160); receive(d, "rm-p03", 90); receive(d, "rm-p04", 90); });
     receive(-12, "rm-p05", 150); receive(-12, "rm-p06", 150);
     receive(-1, "rm-p02", 60);
@@ -723,7 +849,7 @@
        already in the freezer. */
     function packWhatsShort(day) {
       var planned = {};
-      return db.skus.map(function (s) {
+      return db.skus.filter(function (s) { return !s.retired; }).map(function (s) {
         var d = db.demand[s.id], week = d.weekly.reduce(function (a, b) { return a + b; }, 0) / d.weekly.length, have = D.packetsOf(s.id);
         if (have >= week * 0.35) return null;
         var qty = Math.ceil((week * 1.5 - have) / s.perCarton) * s.perCarton, kg = qty * kgOf(s);
@@ -1082,7 +1208,10 @@
       if (t.sticks) { var sl = D.lotsFIFO("rm-p07")[0]; c.store.push({ materialId: "rm-p07", name: "Wooden Sticks", unit: "pcs", onHand: D.onHand("rm-p07"), oldest: sl ? { lotNo: sl.lotNo, remaining: sl.remaining, receivedAt: sl.receivedAt, store: sl.store } : null }); }
       if (t.pack && b) { var sk = D.sku(b.skuId); c.freezer = { product: D.book(sk.recipeId).name, needKg: r2(b.packets * kgOf(sk)), onHand: D.inFreezer(sk.recipeId), oldest: D.bagsFIFO(sk.recipeId).slice(0, 3).map(function (g) { return { bagNo: g.bagNo, remaining: g.remaining, madeAt: g.madeAt, useBy: g.useBy }; }) }; }
       if (t.bags && b) c.bagPlan = { bagKg: t.bags, expectedKg: b.batchSize, bestBeforeDays: D.book(b.recipeId).bestBeforeDays };
-      if (t.cartons && b) { var sk2 = D.sku(b.skuId); c.cartonPlan = { packets: b.packedPackets || 0, perCarton: sk2.perCarton }; }
+      if (t.cartons && b) { var sk2 = D.sku(b.skuId); c.cartonPlan = { packets: b.packedPackets || 0, perCarton: b.perCarton || sk2.perCarton }; }
+      /* the pack step takes the pack's pouches, the cartons step takes cartons (Recipes › Packaging) */
+      var pk = t.pack && b && D.sku(b.skuId), pmat = t.cartons ? CARTON : pk && pk.pouchId;
+      if (pmat && D.material(pmat)) { var pl = D.lotsFIFO(pmat)[0], pm = D.material(pmat); c.store.push({ materialId: pmat, name: pm.name, unit: pm.unit, onHand: D.onHand(pmat), oldest: pl ? { lotNo: pl.lotNo, remaining: pl.remaining, receivedAt: pl.receivedAt, store: pl.store } : null }); }
       /* the worker app: the step this one hands on to, and the check-ins on it */
       var wf = b && D.workflowFor(b), nx = wf && wf.steps.filter(function (st) { return st.order === t.stepOrder + 1; })[0];
       c.nextStep = nx ? { order: nx.order, name: nx.name, role: nx.role } : null;
@@ -1262,12 +1391,20 @@
           return { id: "sfp-" + id, name: b.displayName + " · " + gs.length + " bag" + (gs.length > 1 ? "s" : ""), batchNumber: b.batchNumber, stock: r2(gs.reduce(function (s, g) { return s + g.remaining; }, 0)),
             measurement: "kg-Bag-Freezer", status: "ACTIVE", createdAt: gs[0].madeAt };
         });
+        /* its pack options and host catalogue, from the packs as they are now:
+           nothing to keep in step with Recipes › Packaging */
+        d.packagingLines = {}; d.hostProducts = [];
+        d.recipeOrder.forEach(function (rid) { d.packagingLines[D.book(rid).version] = D.packagingLines(rid); });
+        d.skus.forEach(function (s) { d.hostProducts.push({ id: s.id, name: s.name, articleNo: s.article }); });
         return d;
       },
       plan: function () { return read(function (D) { return D.plan(); }); },
       monthEnd: function () { return read(function (D) { return D.monthEnd(); }); },
       createProductionOrder: function (o) { return withDomain(function (D) { return D.createProductionOrder(o); }); },
       createPackingOrder: function (o) { return withDomain(function (D) { return D.createPackingOrder(o); }); },
+      /* Recipes › Packaging: the one place a pack is added, changed or retired */
+      savePack: function (o) { return withDomain(function (D) { return clone(D.savePack(o)); }); },
+      retirePack: function (id) { return withDomain(function (D) { return clone(D.retirePack(id)); }); },
       receive: function (o) { return withDomain(function (D) { return D.receive(o); }); },
       stickers: function (lotNo) { return read(function (D) { return D.stickers(lotNo); }); },
       order: function (materialId, qty) { return withDomain(function (D, d) { d.ordered[materialId] = r2((d.ordered[materialId] || 0) + qty); D.emit("production.po.raised", { where: "Production Plan", how: "office", by: "Admin", data: { material: D.material(materialId).name, qty: qty } }); return d.ordered[materialId]; }); },
