@@ -825,6 +825,7 @@
       var c = strip(t), b = D.batch(t.batch);
       c.batch = b ? { _id: b.id, code: b.batchNumber, product: b.displayName, totalSteps: jfBatch(b).totalSteps, stateId: b.stateId, statusLabel: b.statusLabel, kind: b.kind, line: b.line,
         batchSize: b.batchSize, packets: b.packets || null, skuName: b.skuId ? D.sku(b.skuId).name : null } : null;
+      c.updateCount = db.updates.filter(function (u) { return u.task === t._id; }).length;
       return c;
     }
 
@@ -1059,6 +1060,11 @@
       if (t.pack && b) { var sk = D.sku(b.skuId); c.freezer = { product: D.book(sk.recipeId).name, needKg: r2(b.packets * kgOf(sk)), onHand: D.inFreezer(sk.recipeId), oldest: D.bagsFIFO(sk.recipeId).slice(0, 3).map(function (g) { return { bagNo: g.bagNo, remaining: g.remaining, madeAt: g.madeAt, useBy: g.useBy }; }) }; }
       if (t.bags && b) c.bagPlan = { bagKg: t.bags, expectedKg: b.batchSize, bestBeforeDays: D.book(b.recipeId).bestBeforeDays };
       if (t.cartons && b) { var sk2 = D.sku(b.skuId); c.cartonPlan = { packets: b.packedPackets || 0, perCarton: sk2.perCarton }; }
+      /* the worker app: the step this one hands on to, and the check-ins on it */
+      var wf = b && D.workflowFor(b), nx = wf && wf.steps.filter(function (st) { return st.order === t.stepOrder + 1; })[0];
+      c.nextStep = nx ? { order: nx.order, name: nx.name, role: nx.role } : null;
+      c.updates = db.updates.filter(function (u) { return u.task === t._id; }).sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })
+        .map(function (u) { var w = find(db.workers, u.worker); return { _id: u._id, quickSelect: u.quickSelect, note: u.note || "", createdAt: u.createdAt, by: w ? w.name : "" }; });
       return { task: c };
     });
     route("POST", "/api/tasks/:id/claim", function (r) {

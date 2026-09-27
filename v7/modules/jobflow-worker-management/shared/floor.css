@@ -1,8 +1,8 @@
 /* The shop floor, added to JobFlow's own look (26 Sep 2026).
  *
- * admin.css and worker.css are the React builds' compiled Tailwind, and only
- * hold the classes those builds used. Everything the Production integration
- * added — batch lanes, step chips, weights, bags, the worker-app QR — is
+ * admin.css is the React build's compiled Tailwind, and only
+ * holds the classes that build used. Everything the Production integration
+ * added — batch lanes, step chips, the worker-app QR — is
  * styled here, in plain CSS on the same palette (teal brand, green go, slate
  * ink), so nothing depends on a utility class the build does not have.
  */
@@ -72,43 +72,3 @@
 .jf-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .jf-mats { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .jf-hint { font-size: 12px; color: var(--jf-muted); }
-
-/* ── Worker app: recording the step ──────────────────────────────── */
-.jf-rec { border: 1px solid var(--jf-line); border-radius: 16px; background: #fff; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-.jf-rec h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--jf-muted); }
-.jf-in-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.jf-in-row label { font-size: 14px; color: var(--jf-ink2); font-weight: 500; }
-.jf-in { display: flex; align-items: center; border: 1.5px solid var(--jf-brand-200); border-radius: 12px; background: #fff; overflow: hidden; width: 150px; }
-.jf-in:focus-within { border-color: var(--jf-brand-500); box-shadow: 0 0 0 3px var(--jf-brand-100); }
-.jf-in input { border: 0; outline: 0; width: 100%; padding: 10px 4px 10px 12px; font: 600 18px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--jf-ink); text-align: right; background: transparent; min-width: 0; }
-.jf-in span { padding: 0 12px 0 4px; font-size: 13px; color: var(--jf-muted); }
-.jf-lot { display: flex; gap: 10px; align-items: flex-start; border: 1px dashed var(--jf-brand-200); background: var(--jf-brand-50); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: var(--jf-ink2); }
-.jf-lot b { font: 600 12.5px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--jf-ink); }
-.jf-lot small { display: block; color: var(--jf-muted); font-size: 12px; }
-.jf-loss { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 12px; font-size: 14px; background: var(--jf-go-50); color: var(--jf-go-600); font-weight: 600; }
-.jf-loss.over { background: var(--jf-warn-50); color: var(--jf-warn); }
-.jf-loss small { font-weight: 500; font-size: 12px; }
-.jf-bags { display: flex; flex-wrap: wrap; gap: 6px; }
-.jf-bag { border: 1px solid var(--jf-go-200); background: var(--jf-go-50); color: var(--jf-go-600); border-radius: 8px; padding: 4px 8px; font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.jf-held { border: 1px solid var(--jf-warn-200); background: var(--jf-warn-50); color: var(--jf-warn); border-radius: 16px; padding: 14px; font-size: 14px; font-weight: 600; text-align: center; }
-.jf-done-rec { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; }
-.jf-done-rec dt { color: var(--jf-muted); }
-.jf-done-rec dd { margin: 0; font-weight: 600; color: var(--jf-ink); text-align: right; font-variant-numeric: tabular-nums; }
-
-/* ── Worker app: sample sign-in ("Don't have an account?") ─────────── */
-.jf-switch { margin: 10px 0 0; text-align: center; font-size: 13px; color: var(--jf-muted); }
-.jf-switch button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--jf-brand-700); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.jf-switch button:hover { color: var(--jf-brand-600); }
-.jf-sample { width: 100%; max-width: 24rem; }
-.jf-sample .jf-switch { margin-top: 12px; }
-.jf-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.jf-people button { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--jf-line); border-radius: 16px; background: #fff; padding: 10px 14px; text-align: left; cursor: pointer; font: inherit; transition: border-color .15s, background-color .15s; }
-.jf-people button:hover { border-color: var(--jf-brand-200); background: var(--jf-brand-50); }
-.jf-people button.on { border-color: var(--jf-brand-500); background: var(--jf-brand-50); }
-.jf-people button:disabled { cursor: default; }
-.jf-people button:disabled:not(.on) { opacity: .5; }
-.jf-people .ring-4 { --tw-ring-shadow: none; box-shadow: none; }
-.jf-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.jf-who b { font-size: 16px; font-weight: 600; color: var(--jf-ink); }
-.jf-who small { font-size: 13px; color: var(--jf-muted); text-transform: capitalize; }
-.jf-on { flex: 0 0 auto; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; background: rgba(34, 197, 94, .15); color: var(--jf-go-600); }

@@ -1,0 +1,224 @@
+/* JobFlow Worker — the look of the Job Workflow worker mockup
+ * (jobwork-worker-app.html, 28 Sep 2026): petrol teal, go green, a grey
+ * canvas under white cards, one big thumb-height action at the foot.
+ *
+ * Plain CSS, no build. Inside the FoodBridge platform the shell writes
+ * --fb-bottom-inset onto <html> (EXIT DEMO's depth); the screen reserves it
+ * and the action bar sticks just above it. Opened on its own it is 0.
+ */
+:root {
+  --teal: #1B6272; --teal-d: #154e5b; --teal-50: #e8f5f7; --teal-200: #b3dde4;
+  --go: #43A047; --go-d: #388e3c; --go-50: #f0fdf4; --go-200: #bbf7d0; --go-600: #16a34a; --go-800: #166534;
+  --blue: #2563eb; --blue-50: #eff6ff; --blue-200: #bfdbfe; --blue-800: #1e40af;
+  --orange: #c2410c; --orange-50: #fff7ed; --orange-200: #fed7aa; --orange-800: #9a3412;
+  --red: #dc2626; --red-50: #fef2f2; --red-200: #fecaca;
+  --ink: #111; --ink2: #444; --ink3: #555; --muted: #888; --faint: #bbb;
+  --line: #e5e7eb; --line2: #f0f0f0; --bg: #f0f2f5;
+  --inset: var(--fb-bottom-inset, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #dfe3e8; color: var(--ink); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+button:disabled { cursor: default; }
+
+/* ── the screen ─────────────────────────────────────────────────── */
+.wk { min-height: 100dvh; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; background: var(--bg); padding-bottom: var(--inset); }
+.wk-body { flex: 1; padding-bottom: 16px; }
+.wk-top { position: sticky; top: 0; z-index: 10; background: var(--teal); color: #fff; padding-top: env(safe-area-inset-top); }
+.wk-sync { display: flex; align-items: center; justify-content: flex-end; gap: 5px; background: #111; padding: 4px 16px; font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, .7); }
+.wk-sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--go); }
+.wk-sync i.off { background: #f59e0b; }
+.wk-head { padding: 12px 16px 14px; }
+.wk-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wk-head h1 { font-size: 20px; font-weight: 700; line-height: 1.25; }
+.wk-hi { font-size: 14px; color: rgba(255, 255, 255, .75); margin-bottom: 2px; }
+.wk-sub { font-size: 13px; color: rgba(255, 255, 255, .75); margin-top: 2px; text-transform: none; }
+.wk-sub span { text-transform: capitalize; }
+.wk-back { display: block; font-size: 13px; color: rgba(255, 255, 255, .75); margin-bottom: 4px; padding: 2px 0; }
+.wk-back:hover { color: #fff; }
+.wk-pill { flex: 0 0 auto; margin-top: 4px; padding: 7px 13px; border-radius: 20px; background: rgba(255, 255, 255, .15); color: #fff; font-size: 13px; font-weight: 600; }
+.wk-pill:hover { background: rgba(255, 255, 255, .25); }
+
+/* shift progress, always in the header */
+.wk-prog { padding: 0 16px 12px; }
+.wk-prog-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, .9); }
+.wk-track { height: 5px; background: rgba(255, 255, 255, .25); border-radius: 3px; overflow: hidden; }
+.wk-track i { display: block; height: 100%; background: var(--go); border-radius: 3px; transition: width .5s; }
+
+/* the action bar: thumb height, above EXIT DEMO */
+.wk-bar { position: sticky; bottom: var(--inset); z-index: 10; background: #fff; border-top: 1px solid var(--line2); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+
+/* ── type & blocks ──────────────────────────────────────────────── */
+.wk-sec { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding: 14px 16px 6px; }
+.wk-sec small { font-size: 11px; font-weight: 400; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.wk-card { background: #fff; border-radius: 16px; margin: 0 12px 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); }
+.wk-hero { background: #fff; border-radius: 20px; margin: 12px 12px 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0, 0, 0, .08); }
+.wk-empty { text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.wk-empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 2px; }
+.wk-note { padding: 64px 24px; text-align: center; font-size: 14px; color: var(--muted); }
+.wk-hr { height: 1px; background: var(--line2); margin: 14px 0; border: 0; }
+
+/* task cards: the left edge says whose it is */
+.wk-task { background: #fff; border-radius: 16px; margin: 0 12px 10px; padding: 16px; box-shadow: 0 2px 12px rgba(0, 0, 0, .08); border-left: 4px solid var(--teal); }
+.wk-task.pool { border-left-color: var(--go); }
+.wk-task.dim { opacity: .65; }
+.wk-task-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.wk-name { font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 4px; line-height: 1.3; }
+.wk-meta { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.wk-when { display: flex; flex-wrap: wrap; gap: 0 6px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.wk-when b { color: var(--blue); font-weight: 600; }
+.wk-task .wk-btn { margin-top: 12px; }
+.wk-big { font-size: 26px; font-weight: 800; color: var(--ink); line-height: 1.2; margin-bottom: 6px; }
+.wk-big.sm { font-size: 22px; margin-bottom: 4px; }
+.wk-instr { font-size: 15px; color: var(--ink2); line-height: 1.6; }
+.wk-live { font-size: 11px; font-weight: 700; color: var(--go); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+
+/* badges */
+.wk-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; background: var(--teal-50); color: var(--teal); }
+.wk-badge.green { background: var(--go-50); color: var(--go-600); }
+.wk-st { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.wk-st.run { background: var(--blue-50); color: var(--blue); }
+.wk-st.avail, .wk-st.done { background: var(--go-50); color: var(--go-600); }
+.wk-st.pool, .wk-st.held { background: var(--orange-50); color: var(--orange); }
+.wk-st.wait { background: #f3f4f6; color: #6b7280; }
+
+/* rows: label left, value right */
+.wk-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.wk-row:last-child { border-bottom: 0; }
+.wk-row > span { font-size: 14px; color: var(--ink3); }
+.wk-hero .wk-row > span { white-space: nowrap; }
+.wk-row > b { font-size: 15px; font-weight: 700; color: var(--ink); text-align: right; }
+.wk-row > span small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.wk-row > b.teal { color: var(--teal); }
+.wk-row > b.go { color: var(--go-600); white-space: nowrap; }
+.wk-card.rows { padding: 2px 16px; }
+
+/* banners */
+.wk-banner { margin: 0 12px 10px; padding: 12px 14px; border-radius: 14px; font-size: 13px; font-weight: 600; line-height: 1.45; display: flex; align-items: flex-start; gap: 10px; border: 1px solid; }
+.wk-banner.b { background: var(--blue-50); color: var(--blue-800); border-color: var(--blue-200); }
+.wk-banner.o { background: var(--orange-50); color: var(--orange-800); border-color: var(--orange-200); }
+.wk-banner.g { background: var(--go-50); color: var(--go-800); border-color: var(--go-200); }
+.wk-banner.r { background: var(--red-50); color: var(--red); border-color: var(--red-200); }
+
+/* ── buttons ────────────────────────────────────────────────────── */
+.wk-btn { width: 100%; padding: 18px; border-radius: 16px; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background-color .15s, opacity .15s; }
+.wk-btn.md { padding: 14px; font-size: 15px; }
+.wk-btn.sm { padding: 12px; font-size: 14px; }
+.wk-btn.go { background: var(--go); color: #fff; }
+.wk-btn.go:not(:disabled):active, .wk-btn.go:not(:disabled):hover { background: var(--go-d); }
+.wk-btn.teal { background: var(--teal); color: #fff; }
+.wk-btn.teal:not(:disabled):active, .wk-btn.teal:not(:disabled):hover { background: var(--teal-d); }
+.wk-btn.white { background: #fff; color: var(--teal); }
+.wk-btn.grey, .wk-btn:disabled { background: #f3f4f6; color: #9ca3af; }
+.wk-btn2 { width: 100%; padding: 12px 16px; border-radius: 12px; font-size: 15px; font-weight: 600; border: 2px solid; }
+.wk-btn2.blue { background: var(--blue-50); color: var(--blue); border-color: var(--blue-200); }
+.wk-link { font-size: 13px; font-weight: 600; color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── sign in ────────────────────────────────────────────────────── */
+.wk-hello { padding: 22px 16px 26px; text-align: center; }
+.wk-hello-i { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+.wk-hello h1 { font-size: 24px; font-weight: 800; }
+.wk-hello p { font-size: 13px; color: rgba(255, 255, 255, .75); margin-top: 4px; }
+.wk-me { text-align: center; padding: 22px 16px 4px; }
+.wk-av { border-radius: 50%; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; margin: 0 auto; flex: 0 0 auto; user-select: none; }
+.wk-me .wk-av { margin-bottom: 10px; }
+.wk-me b { display: block; font-size: 18px; font-weight: 700; }
+.wk-me small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
+.wk-me label { display: block; font-size: 13px; font-weight: 600; color: var(--ink3); margin-bottom: 8px; }
+.wk-name-in { width: 100%; max-width: 280px; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px; font-size: 17px; font-weight: 600; text-align: center; background: #fafafa; outline: none; }
+.wk-name-in:focus { border-color: var(--teal); background: #fff; }
+.wk-pin { display: flex; gap: 16px; justify-content: center; margin: 20px 0 6px; }
+.wk-pin i { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--teal); transition: background-color .15s; }
+.wk-pin i.on { background: var(--teal); }
+.wk-pin.err i { border-color: var(--red); background: var(--red); }
+.wk-pin.err { animation: wk-shake .35s; }
+@keyframes wk-shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.wk-msg { min-height: 20px; text-align: center; font-size: 13px; font-weight: 600; color: var(--red); margin: 4px 16px 8px; }
+.wk-hint { text-align: center; font-size: 12px; color: var(--muted); margin: 10px 16px 0; }
+.wk-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--line); border-radius: 16px; overflow: hidden; margin: 0 24px; }
+.wk-pad button { padding: 18px 0; text-align: center; font-size: 22px; font-weight: 600; color: var(--ink); background: #fff; }
+.wk-pad button:not(:disabled):active { background: #f3f4f6; }
+.wk-pad button:disabled { color: #c7cbd1; }
+.wk-pad .del { font-size: 18px; color: var(--muted); }
+.wk-pad .ok { font-size: 20px; font-weight: 800; color: var(--teal); }
+.wk-pad .ok:disabled { color: #c7cbd1; }
+.wk-switch { text-align: center; padding: 16px; font-size: 13px; color: var(--muted); }
+.wk-people { list-style: none; margin: 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.wk-people button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); border: 2px solid transparent; text-align: left; transition: border-color .15s; }
+.wk-people button:hover, .wk-people button.on { border-color: var(--teal); }
+.wk-people button:disabled:not(.on) { opacity: .5; }
+.wk-people span { flex: 1; min-width: 0; }
+.wk-people b { display: block; font-size: 16px; font-weight: 600; }
+.wk-people small { display: block; font-size: 13px; color: var(--muted); text-transform: capitalize; }
+.wk-people em { font-style: normal; border-radius: 12px; padding: 3px 10px; font-size: 12px; font-weight: 700; background: var(--go-50); color: var(--go-600); }
+
+/* ── in progress ────────────────────────────────────────────────── */
+.wk-timer { background: #f8fafc; border-radius: 14px; padding: 16px; text-align: center; margin: 16px 0 14px; }
+.wk-timer b { display: block; font-size: 40px; font-weight: 800; color: var(--teal); letter-spacing: 2px; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.wk-timer small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+.wk-timer.over b { color: var(--orange); }
+.wk-nudge { background: var(--orange-50); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+.wk-nudge > span { font-size: 20px; }
+.wk-nudge b { display: block; font-size: 13px; font-weight: 700; color: var(--orange); }
+.wk-nudge small { display: block; font-size: 12px; color: var(--orange-800); margin-top: 2px; }
+.wk-upd small { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.wk-upd b { display: block; font-size: 15px; font-weight: 600; }
+.wk-upd q { display: block; font-size: 15px; font-weight: 500; color: var(--ink); margin-top: 4px; }
+
+/* ── add update ─────────────────────────────────────────────────── */
+.wk-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px; }
+.wk-chip { padding: 11px 14px; background: #fff; border: 2px solid var(--line); border-radius: 12px; font-size: 14px; font-weight: 600; color: var(--ink3); }
+.wk-chip.on { border-color: var(--teal); background: var(--teal-50); color: var(--teal); }
+.wk-gap { height: 8px; background: var(--bg); border-top: 1px solid var(--line2); margin: 16px 0 0; }
+.wk-area { padding: 0 12px 12px; }
+.wk-area textarea { width: 100%; height: 88px; resize: none; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px; font-size: 14px; line-height: 1.5; background: #fafafa; outline: none; }
+.wk-area textarea:focus { border-color: var(--teal); background: #fff; }
+
+/* ── step complete ──────────────────────────────────────────────── */
+.wk.win { background: var(--go); }
+.wk.win .wk-body { display: flex; flex-direction: column; padding-bottom: 0; }
+.wk-win { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; text-align: center; color: #fff; }
+.wk-win-i { font-size: 72px; line-height: 1; margin-bottom: 16px; }
+.wk-win h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+.wk-win > p { font-size: 16px; color: rgba(255, 255, 255, .85); line-height: 1.5; margin-bottom: 24px; }
+.wk-glass { width: 100%; text-align: left; background: rgba(255, 255, 255, .15); border: 1.5px solid rgba(255, 255, 255, .3); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+.wk-glass h2 { font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, .75); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.wk-glass p { font-size: 13px; color: rgba(255, 255, 255, .8); }
+.wk-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.wk-flow span { background: rgba(255, 255, 255, .2); border: 1.5px solid rgba(255, 255, 255, .4); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; }
+.wk-flow span.next { background: rgba(255, 255, 255, .3); border-color: rgba(255, 255, 255, .5); font-weight: 700; }
+.wk-flow i { font-style: normal; font-size: 20px; color: rgba(255, 255, 255, .7); }
+.wk-glass .wk-row { border-bottom-color: rgba(255, 255, 255, .25); padding: 7px 0; }
+.wk-glass .wk-row > span { color: rgba(255, 255, 255, .8); font-size: 13px; }
+.wk-glass .wk-row > b { color: #fff; font-size: 14px; }
+.wk-win .wk-btn { margin-top: 10px; }
+
+/* ── shift summary ──────────────────────────────────────────────── */
+.wk-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 12px 0; }
+.wk-tile { background: #fff; border-radius: 14px; padding: 14px 12px; min-width: 0; }
+.wk-tile b { display: block; font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1.2; overflow-wrap: anywhere; }
+.wk-tile b.sm { font-size: 16px; line-height: 1.5; }
+.wk-tile small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 3px; }
+.wk-tile.teal { background: var(--teal); }
+.wk-tile.teal b, .wk-tile.teal small { color: #fff; }
+.wk-tile.go { background: var(--go); }
+.wk-tile.go b { color: #fff; }
+.wk-tile.go small { color: rgba(255, 255, 255, .8); }
+
+/* ── what the step records (the Production integration) ─────────── */
+.wk-rec { display: flex; flex-direction: column; gap: 12px; }
+.wk-lot { display: flex; gap: 10px; align-items: flex-start; border: 1.5px dashed var(--teal-200); background: var(--teal-50); border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.45; color: var(--ink2); }
+.wk-lot b { font-weight: 700; color: var(--ink); }
+.wk-lot small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.wk-in-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wk-in-row label { font-size: 14px; font-weight: 600; color: var(--ink3); }
+.wk-in { display: flex; align-items: center; border: 2px solid var(--line); border-radius: 14px; background: #fafafa; overflow: hidden; width: 150px; flex: 0 0 auto; }
+.wk-in:focus-within { border-color: var(--teal); background: #fff; }
+.wk-in input { border: 0; outline: 0; width: 100%; min-width: 0; padding: 12px 4px 12px 14px; font-size: 18px; font-weight: 700; text-align: right; background: transparent; font-variant-numeric: tabular-nums; }
+.wk-in span { padding: 0 14px 0 4px; font-size: 13px; color: var(--muted); }
+.wk-loss { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; background: var(--go-50); color: var(--go-600); }
+.wk-loss.over { background: var(--orange-50); color: var(--orange); }
+.wk-loss small { font-weight: 500; font-size: 12px; text-align: right; }
+.wk-plan { font-size: 13px; color: var(--muted); line-height: 1.5; }

@@ -1,9 +1,11 @@
-/* JobFlow Worker, without React.
+/* JobFlow Worker — the Job Workflow worker mockup (28 Sep 2026), on the
+ * JobFlow API in ../../../assets/production/production-api.js.
  *
- * Port of jobflow-worker-app/src: every component below is the JSX of the
- * file named in its comment, class for class and text for text, so the
- * compiled Tailwind build (worker.css) styles it exactly as it styles the
- * React app. Routes are hash routes (#/task/<id> for /task/<id>).
+ * One screen, one action, the action at the thumb:
+ *   PIN → Shift dashboard → Task detail → In progress ⇄ Add update
+ *       → Step complete → … → My shift (close shift)
+ * Routes are hash routes: #/login, #/, #/task/<id>, #/task/<id>/update,
+ * #/done/<id>, #/shift. Styles are app.css.
  *
  * Keep tags on one line: the html`` tag drops line breaks the way JSX does,
  * and a break inside a tag would join its attributes.
@@ -15,33 +17,32 @@
   var api = JobFlowAPI.createClient({ server: FB_PRODUCTION.server, sessionKey: "fb.v7.jobflow.session", logoutOn401: true });
 
   var rootEl = document.getElementById("root");
-  var app = { worker: null, ready: false, page: null, pageName: null, taskId: null };
+  var app = { worker: null, ready: false, page: null, pageName: null, view: null, params: null };
 
   function render() { JF.morph(rootEl, App()); }
   function set(patch) { Object.assign(app.page, patch); render(); }
   function upd(s, patch) { Object.assign(s, patch); if (s === app.page) render(); }
 
-  /* ── context/AuthContext.jsx ────────────────────────────────────────── */
-  function login(name, pin) {
-    return api.workerLogin(name, pin).then(function (data) {
-      api.saveSession({ worker: data.worker, accessToken: data.accessToken, refreshToken: data.refreshToken });
-      app.worker = data.worker;
-      return data.worker;
-    });
+  /* ── session ────────────────────────────────────────────────────────── */
+  /* The phone remembers who last signed in on it, so next time it asks only
+     for the PIN (mockup: "Not Ramesh? Switch worker"). */
+  var LAST_KEY = "fb.v7.jobflow.lastWorker";
+  function lastWorker() { try { var w = JSON.parse(localStorage.getItem(LAST_KEY)); return w && w.name ? w : null; } catch (e) { return null; } }
+  function remember(w) { try { if (w) localStorage.setItem(LAST_KEY, JSON.stringify({ name: w.name, role: w.role })); else localStorage.removeItem(LAST_KEY); } catch (e) { /* private window */ } }
+  function signedIn(data) {
+    api.saveSession({ worker: data.worker, accessToken: data.accessToken, refreshToken: data.refreshToken });
+    app.worker = data.worker;
+    remember(data.worker);
+    return data.worker;
   }
+  function login(name, pin) { return api.workerLogin(name, pin).then(signedIn); }
   /* "Sign in as": straight in as a worker, no PIN (owner, 26 Sep 2026). */
-  function loginAs(id) {
-    return api.workerLoginAs(id).then(function (data) {
-      api.saveSession({ worker: data.worker, accessToken: data.accessToken, refreshToken: data.refreshToken });
-      app.worker = data.worker;
-      return data.worker;
-    });
-  }
-  function logout() { api.clearSession(); app.worker = null; route(); }
+  function loginAs(id) { return api.workerLoginAs(id).then(signedIn); }
+  function logout() { api.clearSession(); app.worker = null; depth = 0; JF.go("/login", true); }
   api.setUnauthorizedHandler(function () { app.worker = null; route(); });
 
   /* In-app history, so Back never walks out of the frame into the page
-     around it (navigate(-1) in the React app). */
+     around it. */
   var depth = 0;
   function navigate(to, replace) { if (!replace) depth += 1; JF.go(to, replace); }
   function back() { if (depth > 0) { depth -= 1; history.back(); } else JF.go("/", true); }
@@ -56,61 +57,110 @@
     return raw(out);
   }
 
-  /* ── components/AppShell.jsx ────────────────────────────────────────── */
-  function AppShell(header, children, footer) {
-    return html`<div class="flex min-h-dvh w-full flex-col bg-slate-50">
-      ${header && html`<header class="safe-top sticky top-0 z-10 bg-brand-600 text-white shadow-sm"><div class="w-full px-4 sm:px-6">${header}</div></header>`}
-      <main class="w-full flex-1 px-4 py-6 sm:px-6 sm:py-8">${children}</main>
-      ${footer && html`<footer class="safe-bottom w-full border-t border-slate-200 bg-white"><div class="w-full px-4 py-4 sm:px-6">${footer}</div></footer>`}
-    </div>`;
+  /* ── little formatters ──────────────────────────────────────────────── */
+  function initials(name) {
+    var p = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return ((p[0] || "?").charAt(0) + (p[1] ? p[1].charAt(0) : "")).toUpperCase();
   }
+  function dur(mins) {
+    mins = Math.max(0, Math.round(mins || 0));
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return h > 0 ? h + "h " + (m < 10 ? "0" : "") + m + "m" : m + " min";
+  }
+  function clock(ms) {
+    var t = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60;
+    return [h, m, s].map(function (n) { return (n < 10 ? "0" : "") + n; }).join(":");
+  }
+  function sinceMin(iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 60000 : 0; }
+  function timeOf(iso) { return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true }); }
+  function dt(iso) { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : NaN; }
+  function cap(s) { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function greeting() {
+    var h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  }
+  function batchLine(task) {
+    var b = task.batch || {};
+    return [b.product, b.code].filter(Boolean).join(" — ") + (b.kind === "production" && b.batchSize ? " · " + b.batchSize + " kg" : b.packets ? " · " + b.packets + " packets" : "");
+  }
+  function stepLabel(task) { return "Step " + task.stepOrder + ": " + task.stepName; }
 
-  /* ── components/Avatar.jsx ──────────────────────────────────────────── */
+  /* The six quick check-ins the API takes (POST /api/tasks/:id/updates). */
+  var QUICK = [
+    ["just_started", "🆕", "Just started"], ["halfway", "⏳", "Halfway done"], ["almost_done", "✅", "Almost done"],
+    ["need_materials", "📦", "Need materials"], ["issue_found", "⚠️", "Issue found"], ["need_help", "🙋", "Need help"],
+  ];
+  function quick(key) { for (var i = 0; i < QUICK.length; i++) if (QUICK[i][0] === key) return QUICK[i]; return ["", "💬", "Update"]; }
+  /* No check-in for this long on a running task, and the app asks for one. */
+  var UPDATE_DUE_MIN = 20;
+
+  /* ── shared pieces ──────────────────────────────────────────────────── */
+  function Screen(cls, top, body, bar) {
+    return html`<div class="wk ${cls || ""}">${top && html`<header class="wk-top">${top}</header>`}<main class="wk-body">${body}</main>${bar && html`<footer class="wk-bar">${bar}</footer>`}</div>`;
+  }
+  function Head(backLabel, title, sub) {
+    return html`<div class="wk-head">${backLabel && html`<button type="button" class="wk-back" data-act="back">← ${backLabel}</button>`}<h1>${title}</h1>${sub && html`<p class="wk-sub">${sub}</p>`}</div>`;
+  }
   function Avatar(name, size) {
-    name = name || ""; size = size || 72;
-    var initial = name.trim().charAt(0).toUpperCase() || "?";
-    return html`<div class="flex items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700 ring-4 ring-white shadow-md select-none" style="width: ${size}px; height: ${size}px; font-size: ${size * 0.4}px;" aria-hidden="true">${initial}</div>`;
+    size = size || 56;
+    return html`<div class="wk-av" style="width: ${size}px; height: ${size}px; font-size: ${Math.round(size * 0.39)}px;" aria-hidden="true">${initials(name)}</div>`;
+  }
+  function Progress(done, total, left) {
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return html`<div class="wk-prog"><div class="wk-prog-row"><span>${done} / ${total} tasks done</span><span>${left ? left + " left" : ""}</span></div><div class="wk-track"><i style="width: ${pct}%;"></i></div></div>`;
+  }
+  function Row(label, value, tone) { return html`<div class="wk-row"><span>${label}</span><b class="${tone || ""}">${value}</b></div>`; }
+  function Status(task, held) {
+    if (held) return html`<span class="wk-st held">On hold</span>`;
+    if (task.status === "available") return html`<span class="wk-st avail">Available</span>`;
+    if (task.status === "in_progress") return html`<span class="wk-st run">● In progress${task.assignedName ? " · " + task.assignedName : ""}</span>`;
+    if (task.status === "done") return html`<span class="wk-st done">Done ✓</span>`;
+    return html`<span class="wk-st wait">Waiting</span>`;
+  }
+  function timeLeft(endTime) {
+    if (!endTime) return null;
+    var mins = (new Date(endTime).getTime() - Date.now()) / 60000;
+    return mins > 0 ? dur(mins).replace(" min", "m") : null;
+  }
+  /* Shift progress across the live shifts I'm on: tasks done of all, and
+     the time left on the one that ends first. */
+  function shiftProgress(sections) {
+    var done = 0, total = 0, ends = [];
+    sections.forEach(function (sec) { done += sec.progress.done; total += sec.progress.total; if (sec.shift.endTime) ends.push(sec.shift.endTime); });
+    ends.sort(function (a, b) { return new Date(a) - new Date(b); });
+    return { done: done, total: total, left: timeLeft(ends[0]) };
   }
 
-  /* ── components/Button.jsx ──────────────────────────────────────────── */
-  var VARIANTS = {
-    primary: "bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:bg-slate-200 disabled:text-slate-400",
-    go: "bg-accent-500 text-white hover:bg-accent-600 active:bg-accent-600 disabled:bg-slate-200 disabled:text-slate-400",
-    ghost: "bg-transparent text-brand-700 hover:bg-brand-50 active:bg-brand-100 disabled:text-slate-300",
-  };
-  function Button(p, children) {
-    var variant = p.variant || "primary", className = p.className || "";
-    var a = Object.assign({}, p); delete a.variant; delete a.className;
-    return html`<button class="w-full rounded-cta px-5 py-4 text-base font-semibold transition-colors disabled:cursor-not-allowed ${VARIANTS[variant]} ${className}"${attrs(a)}>${children}</button>`;
+  /* lib/api.js getDashboard(): one section per live shift I'm on. */
+  function getDashboard(worker) {
+    return api.listShifts("live").then(function (liveShifts) {
+      var mine = (liveShifts || []).filter(function (s) {
+        return (s.workers || []).some(function (w) { return String(w._id || w) === String(worker && worker._id); });
+      }).sort(function (a, b) { return new Date(b.startTime) - new Date(a.startTime); });
+      return api.getMyTask().catch(function () { return null; }).then(function (currentTask) {
+        return Promise.all(mine.map(function (shift) {
+          /* No role filter (owner, 26 Sep 2026): every available task on the
+             shift is open to every worker on it. */
+          return Promise.all([
+            api.listTasks({ shift: shift._id, status: "available", open: "1" }),
+            api.listTasks({ shift: shift._id }),
+          ]).then(function (r) {
+            var done = r[1].filter(function (t) { return t.status === "done"; }).length;
+            return { shift: shift, pool: r[0], all: r[1], progress: { done: done, total: r[1].length } };
+          });
+        })).then(function (sections) { return { currentTask: currentTask, sections: sections }; });
+      });
+    });
   }
 
-  /* ── components/Keypad.jsx ──────────────────────────────────────────── */
-  var BACKSPACE = raw('<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"></path><path d="m18 9-6 6"></path><path d="m12 9 6 6"></path></svg>');
-  function Key(label, digit, disabled, children) {
-    return html`<button type="button"${attrs({ disabled: disabled })} aria-label="${label}" data-digit="${digit}" class="flex h-16 items-center justify-center rounded-2xl bg-slate-50 text-2xl font-semibold text-ink transition-colors hover:bg-brand-50 active:bg-brand-100 disabled:opacity-40">${children}</button>`;
-  }
-  function Keypad(disabled) {
-    return html`<div class="grid grid-cols-3 gap-3">
-      ${["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(function (k) { return Key(k, k, disabled, k); })}
-      <div aria-hidden="true"></div>
-      ${Key("0", "0", disabled, "0")}
-      ${Key("Delete", "back", disabled, BACKSPACE)}
-    </div>`;
-  }
-
-  /* ── components/PinDots.jsx ─────────────────────────────────────────── */
-  function PinDots(length, filled, error) {
-    var dots = [];
-    for (var i = 0; i < length; i++) {
-      dots.push(html`<span class="h-4 w-4 rounded-full border-2 transition-colors ${error ? "border-red-400 bg-red-400" : i < filled ? "border-brand-600 bg-brand-600" : "border-slate-300 bg-transparent"}"></span>`);
-    }
-    return html`<div class="flex items-center justify-center gap-4 ${error ? "animate-pulse" : ""}" role="status" aria-label="${filled} of ${length} digits entered">${dots}</div>`;
-  }
-
-  /* ── pages/Login.jsx ────────────────────────────────────────────────── */
+  /* ── 1 · Sign in ────────────────────────────────────────────────────── */
   var PIN_LENGTH = 4;
   var Login = {
-    init: function () { return { name: "", pin: "", error: "", submitting: false, workers: [], mode: "pin", asId: "" }; },
+    init: function () {
+      var known = lastWorker();
+      return { known: known, name: known ? known.name : "", pin: "", error: "", submitting: false, workers: [], mode: "pin", asId: "" };
+    },
     load: function (s) {
       api.listSignInWorkers().then(function (list) { upd(s, { workers: list }); }).catch(function () {});
     },
@@ -119,15 +169,15 @@
       if (s.submitting || s.pin.length >= PIN_LENGTH) return;
       s.error = ""; s.pin += d;
       render();
-      Login.maybeSubmit(s);
+      if (s.pin.length === PIN_LENGTH) Login.submit(s);
     },
     backspace: function (s) {
       if (s.submitting) return;
       set({ error: "", pin: s.pin.slice(0, -1) });
     },
-    /* Auto-submit once the 4-digit PIN is complete. */
-    maybeSubmit: function (s) {
-      if (s.pin.length !== PIN_LENGTH || !Login.ready(s)) return;
+    /* Signs in as soon as the 4th digit lands; ✓ does the same. */
+    submit: function (s) {
+      if (s.submitting || s.pin.length !== PIN_LENGTH || !Login.ready(s)) return;
       set({ submitting: true });
       login(s.name.trim(), s.pin)
         .then(function () { if (app.page === s) navigate("/", true); })
@@ -142,158 +192,76 @@
         .catch(function (err) { upd(s, { error: err.message || "Login failed", asId: "" }); })
         .then(function () { upd(s, { submitting: false }); });
     },
+    /* "Not Asha? Switch worker": forget this phone's worker, ask for a name. */
+    switchWorker: function (s) {
+      if (s.submitting) return;
+      remember(null);
+      set({ known: null, name: "", pin: "", error: "" });
+    },
     /* "Don't have an account?": the PIN form gives way to the sample
-       workers, one tap each (owner, 26 Sep 2026). */
+       workers, one tap each — never both at once (owner, 26 Sep 2026). */
     mode: function (s, mode) {
       if (s.submitting) return;
       set({ mode: mode, error: "", pin: "", asId: "" });
     },
+    pad: function (s) {
+      var off = s.submitting || !Login.ready(s);
+      function key(d) { return html`<button type="button" data-digit="${d}" aria-label="${d}"${attrs({ disabled: off })}>${d}</button>`; }
+      return html`<div class="wk-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(key)}<button type="button" class="del" data-digit="back" aria-label="Delete"${attrs({ disabled: off || !s.pin })}>⌫</button>${key("0")}<button type="button" class="ok" data-act="submit" aria-label="Sign in"${attrs({ disabled: off || s.pin.length !== PIN_LENGTH })}>✓</button></div>`;
+    },
     sampleView: function (s) {
-      return html`<div class="jf-sample">
-        <div class="mb-6 text-center">
-          <p class="text-sm font-semibold uppercase tracking-widest text-brand-600 lg:hidden">JobFlow</p>
-          <h1 class="mt-1 text-2xl font-bold text-ink">Sign in as</h1>
-          <p class="mt-2 text-sm text-muted">Pick a sample worker. No PIN needed.</p>
-        </div>
-        <ul class="jf-people">${s.workers.map(function (w) {
-          return html`<li><button type="button" data-act="as" data-id="${w._id}"${attrs({ disabled: s.submitting })} class="${s.asId === w._id ? "on" : ""}">${Avatar(w.name, 40)}<span class="jf-who"><b>${w.name}</b><small>${w.role}</small></span>${w.onShift && html`<span class="jf-on">On shift</span>`}</button></li>`;
+      return html`<h2 class="wk-sec">Sign in as</h2>
+        <ul class="wk-people">${s.workers.map(function (w) {
+          return html`<li><button type="button" data-act="as" data-id="${w._id}"${attrs({ disabled: s.submitting })} class="${s.asId === w._id ? "on" : ""}">${Avatar(w.name, 40)}<span><b>${w.name}</b><small>${w.role}</small></span>${w.onShift && html`<em>On shift</em>`}</button></li>`;
         })}</ul>
-        <p class="mt-3 h-5 text-center text-sm font-medium text-red-500">${s.submitting ? "" : s.error}</p>
-        <p class="jf-switch">Have a PIN? <button type="button" data-act="pin">Sign in with your name</button></p>
-      </div>`;
+        <p class="wk-msg">${s.submitting ? "" : s.error}</p>
+        <p class="wk-switch">Have a PIN? <button type="button" class="wk-link" data-act="pin">Sign in with your name</button></p>`;
+    },
+    pinView: function (s) {
+      var dots = [];
+      for (var i = 0; i < PIN_LENGTH; i++) dots.push(html`<i class="${i < s.pin.length ? "on" : ""}"></i>`);
+      var first = s.known ? s.known.name.split(" ")[0] : "";
+      return html`<div class="wk-me">${s.known
+          ? html`${Avatar(s.known.name, 56)}<b>${s.known.name}</b><small>${s.known.role}</small>`
+          : html`<label for="wk-name">Your name</label><input id="wk-name" class="wk-name-in" value="${s.name}" data-model="name" placeholder="Type your name" autocomplete="off" autocapitalize="words"${attrs({ disabled: s.submitting })}>`}</div>
+        <div class="wk-pin ${s.error ? "err" : ""}" role="status" aria-label="${s.pin.length} of ${PIN_LENGTH} digits entered">${dots}</div>
+        <p class="wk-msg">${s.submitting ? "" : s.error}</p>
+        ${Login.pad(s)}
+        ${!Login.ready(s) && html`<p class="wk-hint">Type your name to begin</p>`}
+        <p class="wk-switch">${s.known
+          ? html`<button type="button" class="wk-link" data-act="switch">Not ${first}? Switch worker</button>`
+          : s.workers.length > 0 && html`Don't have an account? <button type="button" class="wk-link" data-act="sample">Use a sample worker</button>`}</p>`;
     },
     view: function (s) {
-      var nameReady = Login.ready(s);
-      return html`<div class="grid min-h-dvh w-full lg:grid-cols-2">
-        <div class="relative hidden flex-col overflow-hidden bg-linear-to-br from-brand-600 to-brand-800 p-12 text-white lg:flex">
-          <p class="relative z-10 text-lg font-bold uppercase tracking-widest">JobFlow</p>
-          <div class="relative z-10 flex flex-1 flex-col justify-end pb-10">
-            <img src="login-illustration.svg" alt="" class="w-full max-w-md drop-shadow-xl pb-20">
-            <h2 class="mt-10 text-4xl font-bold leading-tight">Run your shift.</h2>
-            <p class="mt-3 max-w-sm text-brand-100">Sign in to view today's tasks, batches and updates.</p>
-          </div>
-          <p class="relative z-10 text-sm text-brand-200">© JobFlow</p>
-        </div>
-        <div class="flex min-h-dvh flex-col items-center justify-center bg-white px-6 py-10">
-          ${s.mode === "sample" ? Login.sampleView(s) : html`<div class="w-full max-w-sm">
-            <div class="mb-6 text-center">
-              <p class="text-sm font-semibold uppercase tracking-widest text-brand-600 lg:hidden">JobFlow</p>
-              <h1 class="mt-1 text-2xl font-bold text-ink">Sign in</h1>
-              ${s.workers.length > 0 && html`<p class="jf-switch">Don't have an account? <button type="button" data-act="sample">Use a sample worker</button></p>`}
-            </div>
-            <div class="flex flex-col items-center">
-              ${Avatar(s.name, 84)}
-              <input value="${s.name}" data-model="name" placeholder="Your name" autocomplete="off" autocapitalize="words"${attrs({ disabled: s.submitting })} class="mt-4 w-56 rounded-xl border border-brand-200 bg-white px-4 py-2 text-center text-lg font-semibold text-ink outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200">
-              <p class="mt-7 text-sm text-muted">Enter your 4-digit PIN</p>
-              <div class="mt-4">${PinDots(PIN_LENGTH, s.pin.length, !!s.error)}</div>
-              <p class="mt-3 h-5 text-sm font-medium text-red-500">${s.submitting ? "" : s.error}</p>
-              <div class="mt-4 w-full max-w-xs">
-                ${Keypad(s.submitting || !nameReady)}
-                ${!nameReady && html`<p class="mt-4 text-center text-xs text-muted">Enter your name to begin</p>`}
-              </div>
-            </div>
-          </div>`}
-        </div>
-      </div>`;
+      var sample = s.mode === "sample";
+      var top = html`<div class="wk-hello"><div class="wk-hello-i" aria-hidden="true">🏭</div><h1>नमस्ते</h1><p>${sample ? "Pick a sample worker. No PIN needed." : "Enter your PIN to start your shift"}</p></div>`;
+      return Screen("login", top, sample ? Login.sampleView(s) : Login.pinView(s));
     },
   };
 
-  /* ── pages/Dashboard.jsx ────────────────────────────────────────────── */
-  function greeting(now) {
-    var h = (now || new Date()).getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
-  }
-  function timeLeft(endTime) {
-    if (!endTime) return null;
-    var ms = new Date(endTime).getTime() - Date.now();
-    if (ms <= 0) return null;
-    var mins = Math.round(ms / 60000), h = Math.floor(mins / 60), m = mins % 60;
-    return h > 0 ? h + "h " + m + "m" : m + "m";
-  }
-  function timeLeftSince(startedAt) {
-    if (!startedAt) return null;
-    var mins = Math.round((Date.now() - new Date(startedAt).getTime()) / 60000);
-    if (mins <= 0) return null;
-    var h = Math.floor(mins / 60), m = mins % 60;
-    return h > 0 ? h + "h " + m + "m" : m + "m";
-  }
-  function StatusChip(tone, children) {
-    var tones = { brand: "bg-brand-100 text-brand-700", accent: "bg-accent-500/15 text-accent-600", muted: "bg-slate-100 text-slate-500" };
-    return html`<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone || "brand"]}">${children}</span>`;
-  }
-  function ProgressCard(progress, endTime) {
-    var done = (progress && progress.done) || 0, total = (progress && progress.total) || 0;
-    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    var left = timeLeft(endTime);
-    return html`<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div class="flex items-end justify-between">
-        <div>
-          <p class="text-sm text-muted">Shift progress</p>
-          <p class="mt-0.5 text-2xl font-bold text-ink">${done}<span class="text-base font-semibold text-muted"> / ${total} tasks</span></p>
-        </div>
-        <div class="text-right">
-          <p class="text-sm text-muted">Time left</p>
-          <p class="mt-0.5 text-2xl font-bold text-ink">${left || "—"}</p>
-        </div>
-      </div>
-      <div class="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-accent-500 transition-[width] duration-500" style="width: ${pct}%;"></div></div>
-    </section>`;
-  }
-  function CurrentTaskCard(task) {
+  /* ── 2 · Shift dashboard ────────────────────────────────────────────── */
+  function CurrentTask(task) {
     if (!task) {
-      return html`<section class="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-center">
-        <p class="text-sm font-medium text-ink">No active task</p>
-        <p class="mt-1 text-sm text-muted">Pick one from the available list below to get started.</p>
-      </section>`;
+      return html`<div class="wk-card wk-empty"><b>No task in hand</b>Pick one up from the list below to get started.</div>`;
     }
-    var elapsed = timeLeftSince(task.startedAt);
-    return html`<section class="rounded-2xl border border-brand-200 bg-brand-50 p-5 shadow-sm">
-      <div class="flex items-center justify-between">
-        ${StatusChip("brand", "In progress")}
-        ${task.batch && task.batch.code && html`<span class="text-xs font-semibold text-muted">${task.batch.code}</span>`}
-      </div>
-      <h2 class="mt-3 text-xl font-bold text-ink">${task.stepName}</h2>
-      <p class="mt-1 text-sm text-muted">${task.batch && task.batch.product}${task.expectedMinutes ? " · expected " + task.expectedMinutes + " min" : ""}${elapsed ? " · " + elapsed + " elapsed" : ""}</p>
-      <div class="mt-4">${Button({ variant: "go", "data-open": task._id }, "Continue task")}</div>
-    </section>`;
+    var mins = sinceMin(task.startedAt);
+    return html`<article class="wk-task">
+      <div class="wk-task-h"><span class="wk-badge">${task.role}</span><span class="wk-st run">● In progress</span></div>
+      <p class="wk-name">${stepLabel(task)}</p>
+      <p class="wk-meta">${batchLine(task)}</p>
+      ${task.startedAt && html`<p class="wk-when"><span>Started ${timeOf(task.startedAt)}</span><b>· ${dur(mins)} elapsed</b></p>`}
+      <button type="button" class="wk-btn teal md" data-open="${task._id}">Continue task →</button>
+    </article>`;
   }
-  function PoolList(tasks) {
-    if (!tasks || !tasks.length) {
-      return html`<p class="rounded-2xl border border-slate-200 bg-white p-5 text-center text-sm text-muted">Nothing available right now. Check back soon.</p>`;
-    }
-    return html`<ul class="flex flex-col gap-3">${tasks.map(function (task) {
-      return html`<li class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="min-w-0">
-          <p class="truncate font-semibold text-ink">${task.stepName}</p>
-          <p class="mt-0.5 truncate text-sm text-muted">${task.batch && task.batch.code ? task.batch.code + " · " : ""}${task.batch && task.batch.product}${task.expectedMinutes ? " · " + task.expectedMinutes + " min" : ""}</p>
-        </div>
-        <button type="button" data-open="${task._id}" class="shrink-0 rounded-cta bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 active:bg-brand-800">Start</button>
-      </li>`;
-    })}</ul>`;
-  }
-  /* lib/api.js getDashboard(): one section per live shift I'm on. */
-  function getDashboard(worker) {
-    return api.listShifts("live").then(function (liveShifts) {
-      var mine = (liveShifts || []).filter(function (s) {
-        return (s.workers || []).some(function (w) { return String(w._id || w) === String(worker && worker._id); });
-      }).sort(function (a, b) { return new Date(b.startTime) - new Date(a.startTime); });
-      return api.getMyTask().catch(function () { return null; }).then(function (currentTask) {
-        return Promise.all(mine.map(function (shift) {
-          return Promise.all([
-            /* No role filter (owner, 26 Sep 2026): every available task on the
-               shift is open to every worker on it. The React app asks for
-               role: worker.role here. */
-            api.listTasks({ shift: shift._id, status: "available", open: "1" }),
-            api.listTasks({ shift: shift._id }),
-          ]).then(function (r) {
-            var done = r[1].filter(function (t) { return t.status === "done"; }).length;
-            return { shift: shift, pool: r[0], progress: { done: done, total: r[1].length } };
-          });
-        })).then(function (sections) { return { currentTask: currentTask, sections: sections }; });
-      });
-    });
+  function PoolTask(task, busy) {
+    return html`<article class="wk-task pool ${busy ? "dim" : ""}">
+      <div class="wk-task-h"><span class="wk-badge green">${task.role}</span><span class="wk-st pool">Pool task</span></div>
+      <p class="wk-name">${stepLabel(task)}</p>
+      <p class="wk-meta">${batchLine(task)}${task.expectedMinutes ? " · ~" + task.expectedMinutes + " min" : ""}</p>
+      ${busy
+        ? html`<button type="button" class="wk-btn grey sm" disabled>Finish your current task first</button>`
+        : html`<button type="button" class="wk-btn go sm" data-open="${task._id}">Pick up task</button>`}
+    </article>`;
   }
   var Dashboard = {
     init: function () { return { data: null, error: "", loading: true }; },
@@ -303,126 +271,109 @@
         .catch(function (err) { s.error = err.message || "Couldn't load your shift."; })
         .then(function () { upd(s, { loading: false }); });
     },
+    tick: function (s) { return !!(s.data && s.data.currentTask); },
     view: function (s) {
       var w = app.worker || {};
-      var header = html`<div class="flex items-center justify-between py-3">
-        <div class="flex items-center gap-3">
-          ${Avatar(w.name, 40)}
-          <div>
-            <p class="text-base font-semibold leading-tight">${w.name}</p>
-            <p class="text-xs capitalize text-brand-100">${w.role}</p>
-          </div>
-        </div>
-        <button data-act="logout" class="rounded-lg px-3 py-1.5 text-sm font-semibold text-white/90 hover:bg-white/10">Log out</button>
-      </div>`;
       var sections = (s.data && s.data.sections) || [];
-      var first = (w.name && w.name.split(" ")[0]) || "there";
-      return AppShell(header, html`<div class="mx-auto w-full max-w-2xl">
-        <div class="mb-5">
-          <h1 class="text-2xl font-bold text-ink sm:text-3xl">${greeting()}, ${first} 👋</h1>
-          ${sections.length > 0 && html`<p class="mt-1 text-sm text-muted">${sections.length === 1 ? sections[0].shift.name : sections.length + " live shifts"}</p>`}
-        </div>
-        ${s.loading && html`<p class="py-16 text-center text-sm text-muted">Loading your shift…</p>`}
-        ${!s.loading && s.error && html`<p class="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-sm font-medium text-red-600">${s.error}</p>`}
-        ${!s.loading && !s.error && sections.length === 0 && html`<p class="py-16 text-center text-sm text-muted">No live shift right now. Your tasks will appear here once a shift starts.</p>`}
-        ${!s.loading && !s.error && sections.length > 0 && html`<div class="flex flex-col gap-6">
-          <div>
-            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Current task</h2>
-            ${CurrentTaskCard(s.data.currentTask)}
-          </div>
+      var current = s.data && s.data.currentTask;
+      var online = navigator.onLine !== false;
+      var sub = s.loading ? "" : sections.length === 1 ? sections[0].shift.name : sections.length > 1 ? sections.length + " live shifts" : "No live shift";
+      var p = shiftProgress(sections);
+      var top = html`<div class="wk-sync"><i class="${online ? "" : "off"}"></i>${online ? "Synced" : "Offline · saved on this phone"}</div>
+        <div class="wk-head wk-head-row"><div><p class="wk-hi">${greeting()} 👋</p><h1>${w.name}</h1><p class="wk-sub">${sub ? sub + " · " : ""}<span>${w.role}</span></p></div><button type="button" class="wk-pill" data-act="shift">My shift</button></div>
+        ${sections.length > 0 && Progress(p.done, p.total, p.left)}`;
+      var body;
+      if (s.loading) body = html`<p class="wk-note">Loading your shift…</p>`;
+      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
+      else if (!sections.length) body = html`<p class="wk-note">No live shift right now. Your tasks will appear here once a shift starts.</p>`;
+      else {
+        body = html`<h2 class="wk-sec">My current task</h2>${CurrentTask(current)}
           ${sections.map(function (sec) {
-            return html`<section class="flex flex-col gap-3">
-              <div class="flex items-center gap-2">
-                <h2 class="text-sm font-semibold text-ink">${sec.shift.name}</h2>
-                ${StatusChip(sec.shift.status === "live" ? "accent" : "muted", sec.shift.status)}
-              </div>
-              ${ProgressCard(sec.progress, sec.shift.endTime)}
-              <div>
-                <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Available for you</h3>
-                ${PoolList(sec.pool)}
-              </div>
-            </section>`;
-          })}
-        </div>`}
-      </div>`);
+            var n = sec.pool.length;
+            return html`<h2 class="wk-sec">Available for you${sections.length > 1 ? " · " + sec.shift.name : ""} · ${n}</h2>
+              ${n ? sec.pool.map(function (t) { return PoolTask(t, !!current); }) : html`<div class="wk-card wk-empty">Nothing open right now. Check back soon.</div>`}`;
+          })}`;
+      }
+      return Screen("", top, body);
     },
   };
 
-  /* ── pages/TaskDetail.jsx ───────────────────────────────────────────── */
-  function InfoRow(label, value) {
-    return html`<div class="flex items-center justify-between border-b border-slate-100 py-3 last:border-0"><span class="text-sm text-muted">${label}</span><span class="text-sm font-semibold text-ink">${value}</span></div>`;
-  }
-  function WorkersOnThis(workers) {
-    if (!workers || !workers.length) return "";
-    return html`<section>
-      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Workers on this step</h2>
-      <ul class="flex flex-col gap-2">${workers.map(function (w) {
-        return html`<li class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">${Avatar(w.name, 32)}<span class="flex-1 font-medium text-ink">${w.name}</span><span class="inline-flex items-center gap-1.5 text-xs font-medium ${w.isOnline ? "text-accent-600" : "text-slate-400"}"><span class="h-2 w-2 rounded-full ${w.isOnline ? "bg-accent-500" : "bg-slate-300"}"></span>${w.isOnline ? "Online" : "Offline"}</span></li>`;
-      })}</ul>
-    </section>`;
-  }
-  function dt(iso) { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
-  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : NaN; }
+  /* ── 3 · Task detail  /  4 · In progress ────────────────────────────── */
   /* What this step records, and what it will take — the Production
      integration (owner, 26 Sep 2026): who did it · how much · when. */
   function Record(task, s) {
     var f = s.form, mine = task.status === "in_progress";
     var parts = [];
     (task.store || []).forEach(function (m) {
-      parts.push(html`<div class="jf-lot"><span aria-hidden="true">🏷️</span><div>Take <b>${m.name}</b> from lot <b>${m.oldest ? m.oldest.lotNo : "—"}</b><small>${m.oldest ? "Oldest in the " + m.oldest.store.toLowerCase() + " · received " + dt(m.oldest.receivedAt) + " · " + m.oldest.remaining + " " + m.unit + " left" : "None in the store"} · ${m.onHand} ${m.unit} in all</small></div></div>`);
+      parts.push(html`<div class="wk-lot"><span aria-hidden="true">🏷️</span><div>Take <b>${m.name}</b> from lot <b>${m.oldest ? m.oldest.lotNo : "—"}</b><small>${m.oldest ? "Oldest in the " + m.oldest.store.toLowerCase() + " · received " + dt(m.oldest.receivedAt) + " · " + m.oldest.remaining + " " + m.unit + " left" : "None in the store"} · ${m.onHand} ${m.unit} in all</small></div></div>`);
     });
     if (task.freezer) {
       var fz = task.freezer;
-      parts.push(html`<div class="jf-lot"><span aria-hidden="true">🧊</span><div>Take <b>${fz.needKg} kg</b> of ${fz.product} from the oldest bags<small>${fz.oldest.map(function (g) { return "Bag " + g.bagNo + " · " + g.remaining + " kg · made " + dt(g.madeAt); }).join(" · ") || "No bags in the freezer"} · ${fz.onHand} kg in all</small></div></div>`);
+      parts.push(html`<div class="wk-lot"><span aria-hidden="true">🧊</span><div>Take <b>${fz.needKg} kg</b> of ${fz.product} from the oldest bags<small>${fz.oldest.map(function (g) { return "Bag " + g.bagNo + " · " + g.remaining + " kg · made " + dt(g.madeAt); }).join(" · ") || "No bags in the freezer"} · ${fz.onHand} kg in all</small></div></div>`);
     }
     if (mine && task.weigh) {
       var kin = num(f.kgIn), kout = num(f.kgOut), loss = kin > 0 && kout > 0 ? Math.round((kin - kout) / kin * 1000) / 10 : null;
       var over = loss != null && task.loss != null && loss > task.loss;
-      parts.push(html`<div class="jf-in-row"><label for="kg-in">Weight before</label><div class="jf-in"><input id="kg-in" inputmode="decimal" value="${f.kgIn}" data-f="kgIn" placeholder="0.0"><span>kg</span></div></div>`);
-      parts.push(html`<div class="jf-in-row"><label for="kg-out">Weight after</label><div class="jf-in"><input id="kg-out" inputmode="decimal" value="${f.kgOut}" data-f="kgOut" placeholder="0.0"><span>kg</span></div></div>`);
-      if (loss != null) parts.push(html`<div class="jf-loss ${over ? "over" : ""}"><span>Lost ${Math.round((kin - kout) * 10) / 10} kg · ${loss}%</span><small>${task.loss != null ? (over ? "Over the " + task.loss + "% the recipe allows. The office will see it." : "Within the " + task.loss + "% allowed") : ""}</small></div>`);
+      parts.push(html`<div class="wk-in-row"><label for="kg-in">Weight before</label><div class="wk-in"><input id="kg-in" inputmode="decimal" value="${f.kgIn}" data-f="kgIn" placeholder="0.0"><span>kg</span></div></div>`);
+      parts.push(html`<div class="wk-in-row"><label for="kg-out">Weight after</label><div class="wk-in"><input id="kg-out" inputmode="decimal" value="${f.kgOut}" data-f="kgOut" placeholder="0.0"><span>kg</span></div></div>`);
+      if (loss != null) parts.push(html`<div class="wk-loss ${over ? "over" : ""}"><span>Lost ${Math.round((kin - kout) * 10) / 10} kg · ${loss}%</span><small>${task.loss != null ? (over ? "Over the " + task.loss + "% the recipe allows. The office will see it." : "Within the " + task.loss + "% allowed") : ""}</small></div>`);
     }
-    if (mine && task.sticks) parts.push(html`<div class="jf-in-row"><label for="sticks">Sticks used</label><div class="jf-in"><input id="sticks" inputmode="numeric" value="${f.sticks}" data-f="sticks" placeholder="0"><span>pcs</span></div></div>`);
+    if (mine && task.sticks) parts.push(html`<div class="wk-in-row"><label for="sticks">Sticks used</label><div class="wk-in"><input id="sticks" inputmode="numeric" value="${f.sticks}" data-f="sticks" placeholder="0"><span>pcs</span></div></div>`);
     if (mine && task.bags) {
       var kb = num(f.kgOut), n = kb > 0 ? Math.ceil(kb / task.bags) : 0, last = kb > 0 ? Math.round((kb - (n - 1) * task.bags) * 10) / 10 : 0;
-      parts.push(html`<div class="jf-in-row"><label for="kg-bag">Kg into bags</label><div class="jf-in"><input id="kg-bag" inputmode="decimal" value="${f.kgOut}" data-f="kgOut" placeholder="0.0"><span>kg</span></div></div>`);
-      parts.push(html`<p class="text-sm text-muted">${task.bagPlan ? "About " + task.bagPlan.expectedKg + " kg expected · " : ""}${task.bags} kg to a bag${n ? " · makes " + n + " bag" + (n > 1 ? "s" : "") + (n > 1 && last < task.bags ? ", the last " + last + " kg" : "") : ""}. Each bag gets the batch, date made and use-by.</p>`);
+      parts.push(html`<div class="wk-in-row"><label for="kg-bag">Kg into bags</label><div class="wk-in"><input id="kg-bag" inputmode="decimal" value="${f.kgOut}" data-f="kgOut" placeholder="0.0"><span>kg</span></div></div>`);
+      parts.push(html`<p class="wk-plan">${task.bagPlan ? "About " + task.bagPlan.expectedKg + " kg expected · " : ""}${task.bags} kg to a bag${n ? " · makes " + n + " bag" + (n > 1 ? "s" : "") + (n > 1 && last < task.bags ? ", the last " + last + " kg" : "") : ""}. Each bag gets the batch, date made and use-by.</p>`);
     }
-    if (mine && task.pack) parts.push(html`<div class="jf-in-row"><label for="packets">Packets packed</label><div class="jf-in"><input id="packets" inputmode="numeric" value="${f.packets}" data-f="packets" placeholder="0"><span>pcs</span></div></div>`);
-    if (task.cartons && task.cartonPlan) parts.push(html`<p class="text-sm text-muted">${task.cartonPlan.packets} packets · ${task.cartonPlan.perCarton} to a carton · ${Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton)} cartons into the freezer.</p>`);
+    if (mine && task.pack) parts.push(html`<div class="wk-in-row"><label for="packets">Packets packed</label><div class="wk-in"><input id="packets" inputmode="numeric" value="${f.packets}" data-f="packets" placeholder="0"><span>pcs</span></div></div>`);
+    if (task.cartons && task.cartonPlan) parts.push(html`<p class="wk-plan">${task.cartonPlan.packets} packets · ${task.cartonPlan.perCarton} to a carton · ${Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton)} cartons into the freezer.</p>`);
     if (task.status === "done") {
-      var rows = [];
-      if (task.kgIn) rows.push(["Weight", task.kgIn + " → " + task.kgOut + " kg"], ["Lost", task.lossPct + "%" + (task.loss != null ? " (allowed " + task.loss + "%)" : "")]);
-      if (task.lots && task.lots.length) rows.push(["From lots", task.lots.map(function (l) { return l.lotNo; }).join(", ")]);
-      if (task.sticksUsed) rows.push(["Sticks", task.sticksUsed + " pcs"]);
-      if (task.bagsMade) rows.push(["Bags", task.bagsMade.map(function (g) { return g.bagNo; }).join(", ")]);
-      if (task.packets) rows.push(["Packets", task.packets + ""]);
-      if (task.bagsTaken) rows.push(["From bags", task.bagsTaken.map(function (g) { return g.bagNo; }).join(", ")]);
-      if (task.cartonsPacked) rows.push(["Cartons", task.cartonsPacked + ""]);
-      rows.push(["By", (task.assignedName || "—") + " · " + new Date(task.completedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })]);
-      parts.push(html`<dl class="jf-done-rec">${rows.map(function (r) { return html`<dt>${r[0]}</dt><dd>${r[1]}</dd>`; })}</dl>`);
+      var rows = recordedRows(task);
+      rows.push(["By", (task.assignedName || "—") + " · " + timeOf(task.completedAt)]);
+      parts.push(html`<div>${rows.map(function (r) { return Row(r[0], r[1]); })}</div>`);
     }
     if (!parts.length) return "";
-    return html`<section class="jf-rec"><h2>${task.status === "done" ? "Recorded" : mine ? "Record" : "This step"}</h2>${parts}</section>`;
+    return html`<h2 class="wk-sec">${task.status === "done" ? "Recorded" : mine ? "Record" : "This step takes"}</h2><section class="wk-card wk-rec">${parts}</section>`;
   }
+  function recordedRows(task) {
+    var rows = [];
+    if (task.kgIn) rows.push(["Weight", task.kgIn + " → " + task.kgOut + " kg"], ["Lost", task.lossPct + "%" + (task.loss != null ? " (allowed " + task.loss + "%)" : "")]);
+    if (task.lots && task.lots.length) rows.push(["From lots", task.lots.map(function (l) { return l.lotNo; }).join(", ")]);
+    if (task.sticksUsed) rows.push(["Sticks", task.sticksUsed + " pcs"]);
+    if (task.bagsMade) rows.push(["Bags", task.bagsMade.map(function (g) { return g.bagNo; }).join(", ")]);
+    if (task.packets) rows.push(["Packets", task.packets + ""]);
+    if (task.bagsTaken) rows.push(["From bags", task.bagsTaken.map(function (g) { return g.bagNo; }).join(", ")]);
+    if (task.cartonsPacked) rows.push(["Cartons", task.cartonsPacked + ""]);
+    return rows;
+  }
+
   var TaskDetail = {
-    init: function () { return { task: null, loading: true, error: "", acting: false, form: { kgIn: "", kgOut: "", sticks: "", packets: "" } }; },
+    init: function () { return { task: null, loading: true, error: "", acting: false, form: { kgIn: "", kgOut: "", sticks: "", packets: "" }, shift: null }; },
     load: function (s) {
-      api.getTask(app.taskId)
-        .then(function (t) { s.task = t; TaskDetail.prefill(s); })
+      api.getTask(app.params.id)
+        .then(function (t) { s.task = t; TaskDetail.prefill(s); TaskDetail.loadShift(s); })
         .catch(function (err) { s.error = err.message || "Couldn't load this task."; })
         .then(function () { upd(s, { loading: false }); });
+    },
+    /* The header's shift progress while a task runs. */
+    loadShift: function (s) {
+      var t = s.task;
+      if (!t || !t.shift) return;
+      Promise.all([api.getShift(t.shift), api.listTasks({ shift: t.shift })]).then(function (r) {
+        upd(s, { shift: { endTime: r[0].endTime, done: r[1].filter(function (x) { return x.status === "done"; }).length, total: r[1].length } });
+      }).catch(function () {});
     },
     /* The planned quantity is the likely one: packets default to the order. */
     prefill: function (s) {
       var t = s.task;
       if (t && t.pack && !s.form.packets && t.batch && t.batch.packets) s.form.packets = String(t.batch.packets);
     },
+    mine: function (s) { var t = s.task; return t && t.status === "in_progress" && t.assignedTo === (app.worker && app.worker._id); },
+    tick: function (s) { return TaskDetail.mine(s); },
     start: function (s) {
       set({ acting: true, error: "" });
-      api.claimTask(app.taskId)
-        .then(function () { return api.getTask(app.taskId); })
-        .then(function (t) { s.task = t; TaskDetail.prefill(s); })
+      api.claimTask(app.params.id)
+        .then(function () { return api.getTask(app.params.id); })
+        .then(function (t) { s.task = t; TaskDetail.prefill(s); TaskDetail.loadShift(s); })
         .catch(function (err) { s.error = err.message || "Couldn't start the task."; })
         .then(function () { upd(s, { acting: false }); });
     },
@@ -430,65 +381,191 @@
       var f = s.form, input = {};
       ["kgIn", "kgOut", "sticks", "packets"].forEach(function (k) { if (f[k] !== "") input[k] = Number(f[k]); });
       set({ acting: true, error: "" });
-      api.completeTask(app.taskId, input)
-        .then(function () { if (app.page === s) navigate("/", true); })
+      api.completeTask(app.params.id, input)
+        .then(function () { if (app.page === s) navigate("/done/" + app.params.id, true); })
         .catch(function (err) { upd(s, { error: err.message || "Couldn't complete the task.", acting: false }); });
     },
-    view: function (s) {
+    detailView: function (s) {
       var task = s.task;
-      var header = html`<div class="flex items-center gap-3 py-3"><button data-act="back" aria-label="Back" class="-ml-2 rounded-lg px-2 py-1 text-2xl leading-none text-white/90 hover:bg-white/10">‹</button><p class="text-base font-semibold">Task detail</p></div>`;
-      var isMine = task && (!task.assignedTo || task.assignedTo === (app.worker && app.worker._id));
       var held = task && task.batch && ["on-hold", "rejected"].indexOf(task.batch.stateId) !== -1;
-      var cta = null;
-      if (task && task.status === "available" && !held) cta = Button({ "data-act": "start", disabled: s.acting }, s.acting ? "Starting…" : "Start task");
-      else if (task && task.status === "in_progress" && isMine) cta = Button({ variant: "go", "data-act": "complete", disabled: s.acting }, s.acting ? "Completing…" : "Mark complete");
-      return AppShell(header, html`<div class="mx-auto w-full max-w-2xl">
-        ${s.loading && html`<p class="py-16 text-center text-sm text-muted">Loading task…</p>`}
-        ${!s.loading && s.error && !task && html`<p class="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-sm font-medium text-red-600">${s.error}</p>`}
-        ${!s.loading && task && html`<div class="flex flex-col gap-6">
-          <div>
-            ${task.stepCount > 0 && html`<p class="text-sm font-semibold text-brand-600">Step ${task.stepOrder} of ${task.stepCount}</p>`}
-            <h1 class="mt-1 text-2xl font-bold text-ink sm:text-3xl">${task.stepName}</h1>
-            <p class="mt-1 text-sm text-muted">${task.batch && task.batch.code ? task.batch.code + " · " : ""}${task.batch && task.batch.product}${task.batch && task.batch.kind === "production" ? " · " + task.batch.batchSize + " kg" : ""}</p>
-          </div>
-          ${held && html`<p class="jf-held">This batch is ${task.batch.statusLabel.toLowerCase()}. Its steps are paused. Ask your supervisor.</p>`}
-          ${task.instructions && html`<section>
-            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Instructions</h2>
-            <p class="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-ink">${task.instructions}</p>
-          </section>`}
-          ${Record(task, s)}
-          <section class="rounded-2xl border border-slate-200 bg-white px-4">
-            ${task.expectedMinutes != null && InfoRow("Expected time", task.expectedMinutes + " min")}
-            ${InfoRow("Unlocks next step", task.unlocksNext ? "Yes" : "No")}
-            ${InfoRow("Role", html`<span class="capitalize">${task.role}</span>`)}
+      var sub = task ? (task.stepCount > 0 ? "Step " + task.stepOrder + " of " + task.stepCount : "") + (task.batch && task.batch.code ? " · " + task.batch.code : "") : "";
+      var top = Head("Shift dashboard", "Task detail", sub);
+      var body;
+      if (s.loading) body = html`<p class="wk-note">Loading task…</p>`;
+      else if (!task) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
+      else {
+        var mates = (task.workersOnThis || []).filter(function (w) { return w._id !== (app.worker && app.worker._id); });
+        body = html`<section class="wk-hero">
+            <div class="wk-task-h"><span class="wk-badge">${task.role}</span>${Status(task, held)}</div>
+            <h2 class="wk-big">${task.stepName}</h2>
+            <p class="wk-meta">${batchLine(task)}</p>
+            ${task.instructions && html`<hr class="wk-hr"><p class="wk-instr">${task.instructions}</p>`}
+            <hr class="wk-hr">
+            <div>
+              ${task.stepCount > 0 && Row("Step", task.stepOrder + " of " + task.stepCount)}
+              ${task.expectedMinutes != null && Row("Expected time", "~" + task.expectedMinutes + " min")}
+              ${Row("Unlocks next", task.unlocksNext === false ? "Nothing" : task.nextStep ? "Step " + task.nextStep.order + ": " + task.nextStep.name + " →" : "Batch done 🎉", "teal")}
+              ${mates.length > 0 && Row("Also " + (/^[aeiou]/i.test(task.role) ? "an " : "a ") + task.role + " on shift", mates.map(function (w) { return w.name.split(" ")[0]; }).join(", "))}
+            </div>
           </section>
-          ${WorkersOnThis(task.workersOnThis)}
-          ${s.error && task && html`<p class="text-center text-sm font-medium text-red-600">${s.error}</p>`}
-          ${task.status === "done" && html`<p class="rounded-2xl border border-accent-500/30 bg-accent-500/10 p-4 text-center text-sm font-semibold text-accent-600">This task is complete. 🎉</p>`}
-        </div>`}
-      </div>`, cta);
+          ${held && html`<div class="wk-banner o"><span>⏸</span><span>This batch is ${task.batch.statusLabel.toLowerCase()}. Its steps are paused. Ask your supervisor.</span></div>`}
+          ${task.status === "available" && !held && html`<div class="wk-banner b"><span>ℹ️</span><span>Once started, this task is yours. Mark it done when complete — the next step opens for the team.</span></div>`}
+          ${task.status === "done" && html`<div class="wk-banner g"><span>✅</span><span>This task is complete.</span></div>`}
+          ${Record(task, s)}
+          ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
+      }
+      var bar = task && task.status === "available" && !held && html`<button type="button" class="wk-btn go" data-act="start"${attrs({ disabled: s.acting })}>${s.acting ? "Starting…" : "▶ Start this task"}</button>`;
+      return Screen("", top, body, bar);
+    },
+    progressView: function (s) {
+      var task = s.task, ms = Date.now() - new Date(task.startedAt).getTime();
+      var over = task.expectedMinutes && ms / 60000 > task.expectedMinutes;
+      var lastU = (task.updates || [])[0];
+      var quiet = sinceMin(lastU ? lastU.createdAt : task.startedAt);
+      var sh = s.shift;
+      var top = html`<div class="wk-head" style="padding-bottom: 10px;"><button type="button" class="wk-back" data-act="back">← Shift dashboard</button></div>${sh && Progress(sh.done, sh.total, timeLeft(sh.endTime))}`;
+      var q = lastU && quick(lastU.quickSelect);
+      var body = html`<section class="wk-hero">
+          <p class="wk-live">● In progress</p>
+          <h2 class="wk-big sm">${task.stepName}</h2>
+          <p class="wk-meta">${batchLine(task)}${task.stepCount > 0 ? " · Step " + task.stepOrder + " of " + task.stepCount : ""}</p>
+          <div class="wk-timer ${over ? "over" : ""}"><b>${clock(ms)}</b><small>Time on this task${task.expectedMinutes ? " · expected " + task.expectedMinutes + " min" : ""}</small></div>
+          ${quiet >= UPDATE_DUE_MIN && html`<div class="wk-nudge"><span aria-hidden="true">🔔</span><div><b>Update due</b><small>No update for ${dur(quiet)}. Tap “Add update” to log your progress.</small></div></div>`}
+        </section>
+        ${lastU && html`<h2 class="wk-sec">Last update</h2><div class="wk-card wk-upd"><small>${timeOf(lastU.createdAt)} · ${lastU.by}</small><b>${q[1]} ${q[2]}</b>${lastU.note && html`<q>${lastU.note}</q>`}</div>`}
+        ${Record(task, s)}
+        ${task.instructions && html`<h2 class="wk-sec">How to do it</h2><div class="wk-card wk-instr">${task.instructions}</div>`}
+        ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
+      var bar = html`<button type="button" class="wk-btn go" data-act="complete"${attrs({ disabled: s.acting })}>${s.acting ? "Saving…" : "✅ Mark done"}</button><button type="button" class="wk-btn2 blue" data-act="update"${attrs({ disabled: s.acting })}>💬 Add update</button>`;
+      return Screen("", top, body, bar);
+    },
+    view: function (s) { return TaskDetail.mine(s) ? TaskDetail.progressView(s) : TaskDetail.detailView(s); },
+  };
+
+  /* ── 5 · Add update ─────────────────────────────────────────────────── */
+  var AddUpdate = {
+    init: function () { return { task: null, pick: "", note: "", saving: false, error: "" }; },
+    load: function (s) {
+      api.getTask(app.params.id).then(function (t) { upd(s, { task: t }); }).catch(function (err) { upd(s, { error: err.message || "Couldn't load this task." }); });
+    },
+    save: function (s) {
+      if (!s.pick || s.saving) return;
+      set({ saving: true, error: "" });
+      api.postTaskUpdate(app.params.id, { quickSelect: s.pick, note: s.note.trim() || undefined })
+        .then(function () { if (app.page === s) back(); })
+        .catch(function (err) { upd(s, { error: err.message || "Couldn't save the update.", saving: false }); });
+    },
+    view: function (s) {
+      var top = Head(s.task ? s.task.stepName : "Back", "Add update", "What's happening with this task?");
+      var body = html`<h2 class="wk-sec">Quick select</h2>
+        <div class="wk-chips">${QUICK.map(function (q) { return html`<button type="button" class="wk-chip ${s.pick === q[0] ? "on" : ""}" data-q="${q[0]}" aria-pressed="${s.pick === q[0] ? "true" : "false"}">${q[1]} ${q[2]}</button>`; })}</div>
+        <div class="wk-gap"></div>
+        <h2 class="wk-sec">Note <small>· optional</small></h2>
+        <div class="wk-area"><textarea data-f="note" placeholder="Type a note… (optional)" maxlength="280">${s.note}</textarea></div>
+        ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
+      var bar = html`<button type="button" class="wk-btn teal" data-act="save"${attrs({ disabled: !s.pick || s.saving })}>${s.saving ? "Saving…" : s.pick ? "💾 Save update" : "Pick what's happening"}</button>`;
+      return Screen("", top, body, bar);
     },
   };
 
-  /* ── App.jsx: routes ────────────────────────────────────────────────── */
+  /* ── 6 · Step complete ──────────────────────────────────────────────── */
+  var Done = {
+    init: function () { return { task: null, error: "" }; },
+    load: function (s) {
+      api.getTask(app.params.id).then(function (t) { upd(s, { task: t }); }).catch(function (err) { upd(s, { error: err.message || "Couldn't load this task." }); });
+    },
+    view: function (s) {
+      var t = s.task;
+      if (!t) return Screen("win", null, html`<div class="wk-win">${s.error ? html`<p>${s.error}</p><button type="button" class="wk-btn white" data-act="back">Back to dashboard →</button>` : ""}</div>`);
+      var took = t.durationMinutes != null ? t.durationMinutes : t.startedAt && t.completedAt ? (new Date(t.completedAt) - new Date(t.startedAt)) / 60000 : null;
+      var rows = recordedRows(t).slice(0, 3);
+      var code = t.batch && t.batch.code;
+      var next = t.unlocksNext === false ? "" : t.nextStep
+        ? html`<div class="wk-glass"><h2>Next step unlocked</h2><div class="wk-flow"><span>Step ${t.stepOrder} ✓</span><i>→</i><span class="next">Step ${t.nextStep.order}: ${t.nextStep.name}</span></div><p>For: <span style="text-transform: capitalize;">${t.nextStep.role}</span>${code ? " · " + code : ""}</p></div>`
+        : html`<div class="wk-glass"><h2>Batch complete</h2><p>That was the last step${code ? " of " + code : ""}. 🎉</p></div>`;
+      return Screen("win", null, html`<div class="wk-win">
+        <div class="wk-win-i" aria-hidden="true">✅</div>
+        <h1>Step complete!</h1>
+        <p>${t.stepName}<br>${code || ""}${took != null ? (code ? " · " : "") + (took < 1 ? "Took under a minute" : "Took " + dur(took)) : ""}</p>
+        ${rows.length > 0 && html`<div class="wk-glass"><h2>Recorded</h2>${rows.map(function (r) { return Row(r[0], r[1]); })}</div>`}
+        ${next}
+        <button type="button" class="wk-btn white" data-act="back">Back to dashboard →</button>
+      </div>`);
+    },
+  };
+
+  /* ── 7 · My shift ───────────────────────────────────────────────────── */
+  var Shift = {
+    init: function () { return { data: null, loading: true, error: "" }; },
+    load: function (s) {
+      getDashboard(app.worker)
+        .then(function (payload) { s.data = payload; })
+        .catch(function (err) { s.error = err.message || "Couldn't load your shift."; })
+        .then(function () { upd(s, { loading: false }); });
+    },
+    view: function (s) {
+      var w = app.worker || {}, me = w._id;
+      var sections = (s.data && s.data.sections) || [];
+      var current = s.data && s.data.currentTask;
+      var mine = [];
+      sections.forEach(function (sec) { sec.all.forEach(function (t) { if (t.status === "done" && t.assignedTo === me) mine.push(t); }); });
+      mine.sort(function (a, b) { return new Date(b.completedAt) - new Date(a.completedAt); });
+      var worked = mine.reduce(function (m, t) { return m + (t.durationMinutes || 0); }, 0) + (current ? sinceMin(current.startedAt) : 0);
+      var batches = {};
+      mine.concat(current ? [current] : []).forEach(function (t) { if (t.batch && t.batch.code) batches[t.batch.code] = true; });
+      var codes = Object.keys(batches);
+      var updates = mine.reduce(function (n, t) { return n + (t.updateCount || 0); }, 0) + (current ? current.updateCount || 0 : 0);
+      var first = (w.name || "").split(" ")[0];
+      var names = sections.map(function (sec) { return sec.shift.name; }).join(" · ");
+      var today = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+      var top = Head("Shift dashboard", mine.length ? "Well done, " + first + " 🎉" : "Your shift", (names ? names + " · " : "") + today);
+      var body;
+      if (s.loading) body = html`<p class="wk-note">Loading your shift…</p>`;
+      else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
+      else {
+        body = html`<div class="wk-stats">
+            <div class="wk-tile teal"><b>${mine.length}</b><small>Tasks done</small></div>
+            <div class="wk-tile go"><b>${dur(worked).replace(" min", "m")}</b><small>Time on tasks</small></div>
+            <div class="wk-tile"><b class="${codes.length === 1 ? "sm" : ""}">${codes.length === 1 ? codes[0] : codes.length}</b><small>${codes.length === 1 ? "Batch" : "Batches"}</small></div>
+            <div class="wk-tile"><b>${updates}</b><small>Updates logged</small></div>
+          </div>
+          ${current && html`<div class="wk-banner o" style="margin-top: 12px;"><span>⏳</span><span>${current.stepName} is still in your hands. Mark it done first, or it stays open under your name.</span></div>`}
+          <h2 class="wk-sec">Tasks you did</h2>
+          ${mine.length
+            ? html`<div class="wk-card rows">${mine.map(function (t) { return Row(html`✅ ${stepLabel(t)}${t.batch && t.batch.code && html`<small>${t.batch.product} · ${t.batch.code}</small>`}`, t.durationMinutes != null ? dur(t.durationMinutes) : "—", "go"); })}</div>`
+            : html`<div class="wk-card wk-empty">No tasks done yet on this shift.</div>`}`;
+      }
+      var bar = html`<button type="button" class="wk-btn teal" data-act="logout">✅ Close shift</button>`;
+      return Screen("", top, body, bar);
+    },
+  };
+
+  /* ── routes ─────────────────────────────────────────────────────────── */
+  var ROUTES = [
+    [/^\/login$/, "login", Login],
+    [/^\/$/, "dashboard", Dashboard],
+    [/^\/shift$/, "shift", Shift],
+    [/^\/task\/([^/]+)\/update$/, "update", AddUpdate],
+    [/^\/task\/([^/]+)$/, "task", TaskDetail],
+    [/^\/done\/([^/]+)$/, "done", Done],
+  ];
   function route() {
     var p = JF.path();
     if (!app.ready) return render();
-    var m = /^\/task\/([^/]+)$/.exec(p);
-    var name = p === "/login" ? "login" : p === "/" ? "dashboard" : m ? "task" : null;
-    if (!name) return JF.go("/", true);
-    if (name === "login" && app.worker) return JF.go("/", true);
-    if (name !== "login" && !app.worker) return JF.go("/login", true);
-    var Page = name === "login" ? Login : name === "task" ? TaskDetail : Dashboard;
-    var key = name + (m ? ":" + m[1] : "");
+    var hit = null;
+    for (var i = 0; i < ROUTES.length && !hit; i++) { var m = ROUTES[i][0].exec(p); if (m) hit = { name: ROUTES[i][1], Page: ROUTES[i][2], id: m[1] || null }; }
+    if (!hit) return JF.go("/", true);
+    if (hit.name === "login" && app.worker) return JF.go("/", true);
+    if (hit.name !== "login" && !app.worker) return JF.go("/login", true);
+    var key = hit.name + (hit.id ? ":" + hit.id : "");
     if (app.pageName !== key || !app.page) {
       app.pageName = key;
-      app.taskId = m ? m[1] : null;
-      app.page = Page.init();
-      app.view = Page;
+      app.params = { id: hit.id };
+      app.page = hit.Page.init();
+      app.view = hit.Page;
       window.scrollTo(0, 0);
       render();
-      if (Page.load) Page.load(app.page);
+      if (hit.Page.load) hit.Page.load(app.page);
       return;
     }
     render();
@@ -498,44 +575,57 @@
     return app.view.view(app.page);
   }
 
-  /* ── Events ─────────────────────────────────────────────────────────── */
+  /* ── events ─────────────────────────────────────────────────────────── */
   rootEl.addEventListener("input", function (e) {
-    var el = e.target;
-    if (el.getAttribute("data-f") && app.view === TaskDetail) { app.page.form[el.getAttribute("data-f")] = el.value; render(); return; }
-    if (el.getAttribute("data-model") !== "name" || app.view !== Login) return;
-    app.page.name = el.value;
-    render();
+    var el = e.target, f = el.getAttribute("data-f");
+    if (f && app.view === TaskDetail) { app.page.form[f] = el.value; render(); return; }
+    if (f === "note" && app.view === AddUpdate) { app.page.note = el.value; render(); return; }
+    if (el.getAttribute("data-model") === "name" && app.view === Login) { app.page.name = el.value; render(); }
   });
   rootEl.addEventListener("click", function (e) {
     var s = app.page;
     var open = e.target.closest("[data-open]");
-    if (open) { navigate("/task/" + open.getAttribute("data-open")); return; }
+    if (open && !open.disabled) { navigate("/task/" + open.getAttribute("data-open")); return; }
     var key = e.target.closest("[data-digit]");
     if (key && !key.disabled && app.view === Login) {
       var k = key.getAttribute("data-digit");
       if (k === "back") Login.backspace(s); else Login.digit(s, k);
       return;
     }
+    var chip = e.target.closest("[data-q]");
+    if (chip && app.view === AddUpdate) { set({ pick: chip.getAttribute("data-q"), error: "" }); return; }
     var el = e.target.closest("[data-act]");
     if (!el || el.disabled) return;
     var act = el.getAttribute("data-act");
     if (act === "logout") logout();
     else if (act === "back") back();
-    else if (act === "sample" && app.view === Login) Login.mode(s, "sample");
-    else if (act === "pin" && app.view === Login) Login.mode(s, "pin");
-    else if (act === "as" && app.view === Login) Login.signInAs(s, el.getAttribute("data-id"));
+    else if (act === "shift") navigate("/shift");
+    else if (app.view === Login) {
+      if (act === "submit") Login.submit(s);
+      else if (act === "switch") Login.switchWorker(s);
+      else if (act === "sample") Login.mode(s, "sample");
+      else if (act === "pin") Login.mode(s, "pin");
+      else if (act === "as") Login.signInAs(s, el.getAttribute("data-id"));
+    }
     else if (act === "start") TaskDetail.start(s);
     else if (act === "complete") TaskDetail.complete(s);
+    else if (act === "update") navigate("/task/" + app.params.id + "/update");
+    else if (act === "save") AddUpdate.save(s);
   });
   /* Type the PIN on a physical keyboard, not just the on-screen keypad. */
   window.addEventListener("keydown", function (e) {
     var s = app.page;
-    if (app.view !== Login || s.submitting || !Login.ready(s)) return;
+    if (app.view !== Login || s.mode !== "pin" || s.submitting || !Login.ready(s)) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key >= "0" && e.key <= "9" && e.key.length === 1) { e.preventDefault(); Login.digit(s, e.key); }
     else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); Login.backspace(s); }
+    else if (e.key === "Enter") { e.preventDefault(); Login.submit(s); }
   });
   window.addEventListener("hashchange", route);
+  window.addEventListener("online", render);
+  window.addEventListener("offline", render);
+  /* Clocks: the running task's timer, the dashboard's "elapsed". */
+  setInterval(function () { if (app.page && app.view && app.view.tick && app.view.tick(app.page)) render(); }, 1000);
 
   var session = api.loadSession();
   if (session && session.worker) app.worker = session.worker;
