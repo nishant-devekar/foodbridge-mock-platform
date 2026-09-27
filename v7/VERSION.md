@@ -2818,3 +2818,19 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - **Store:** `D.fillOf`, `D.semiFinished`, `D.bagHistory`; the fill step's `container` / `unit` / `store`, copied to tasks and bags. No data reset.
 - **Fixed:** Raw Material Inventory showed *Available 69.80000000000001 kg* (the subtraction wasn't rounded).
 - Tests: 32 pass (4 new in `semi-finished.test.js`). `?v=` `20260928SF1`.
+
+### 28 September 2026 — Sales Orders: the rebuilt, production-identical screen
+
+**Owner:** bring v7's Sales Orders up to the version updated a day ago.
+
+- `modules/foodbridge-sales-orders-mockup` is now v6's rebuild (`a81377f`, 27 Sep 2026), copied file for file. That's a vanilla HTML/CSS/JS replica of production's `/orders` screen and every flow it opens:
+  - the list and status audit;
+  - Create Sales Order;
+  - Follow-up Reminders and Create Delivery;
+  - Bulk and Route Bulk orders;
+  - Thermal Print;
+  - Forecast, Generate Demand, Google Sheet and Download All, for tenants that switch them on.
+- It was pixel-diffed against the production module over 88 states and 4 widths (272 of 278 captures identical). v7's copy was the old hand-ported mock; those screens stay as `legacy-hub.html` for reference.
+- The sidebar opens `index.html`. Its sidebar and header are the same shared shell as before, so the Production pages' copy of the header (`assets/app-header.js`) still matches.
+- EXIT DEMO still lands in the screen's own phone bar (`exitIn`), checked at 375 px.
+- `?v=` `20260928SO1`.
