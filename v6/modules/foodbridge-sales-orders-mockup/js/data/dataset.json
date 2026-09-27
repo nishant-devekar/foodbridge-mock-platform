@@ -1,0 +1,2432 @@
+{
+ "_about": [
+  "The Sales Orders mockup dataset. Everything on the screen is derived from these records — the",
+  "fulfilment chips, the allocation %, the locked status on dispatched rows, Smart Insights and the",
+  "row amounts are all computed, never stored, the same way the production app derives them.",
+  "Dates are OFFSETS (placedMinutesAgo), resolved against the moment the page opens, so \"today\" is",
+  "always today. Names and phone numbers are invented; nothing here is tenant data."
+ ],
+ "seller": {
+  "storeName": "QA store",
+  "admin": {
+   "name": "Mahesh",
+   "role": "Admin"
+  }
+ },
+ "creditGroups": [
+  {
+   "id": "crg-001",
+   "name": "Standard 30-day",
+   "creditLimit": 50000,
+   "creditDays": 30
+  },
+  {
+   "id": "crg-002",
+   "name": "Premium 45-day",
+   "creditLimit": 200000,
+   "creditDays": 45
+  }
+ ],
+ "customers": [
+  {
+   "id": "cus-001",
+   "name": "Dinesh Store",
+   "phone": "5550401001",
+   "email": "dinesh.store@example.com",
+   "type": "RETAILER",
+   "area": "Kothrud",
+   "address": "12, Market Road, Kothrud, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-002",
+   "name": "Rakesh",
+   "phone": "5550401002",
+   "email": "rakesh@example.com",
+   "type": "RETAILER",
+   "area": "Aundh",
+   "address": "19, Market Road, Aundh, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-003",
+   "name": "Rana Store",
+   "phone": "5550401003",
+   "email": "rana.store@example.com",
+   "type": "RETAILER",
+   "area": "Baner",
+   "address": "26, Market Road, Baner, Pune",
+   "creditGroupId": "crg-002"
+  },
+  {
+   "id": "cus-004",
+   "name": "Suresh Kumar",
+   "phone": "5550401004",
+   "email": "suresh.kumar@example.com",
+   "type": "RETAILER",
+   "area": "Wakad",
+   "address": "33, Market Road, Wakad, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-005",
+   "name": "Anand Store",
+   "phone": "5550401005",
+   "email": "anand.store@example.com",
+   "type": "WHOLESALER",
+   "area": "Hadapsar",
+   "address": "40, Market Road, Hadapsar, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-006",
+   "name": "Naveen",
+   "phone": "5550401006",
+   "email": "naveen@example.com",
+   "type": "HORECA",
+   "area": "Viman Nagar",
+   "address": "47, Market Road, Viman Nagar, Pune",
+   "creditGroupId": "crg-002"
+  },
+  {
+   "id": "cus-007",
+   "name": "Bharat Store",
+   "phone": "5550401007",
+   "email": "bharat.store@example.com",
+   "type": "RETAILER",
+   "area": "Kharadi",
+   "address": "54, Market Road, Kharadi, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-008",
+   "name": "Kiran",
+   "phone": "5550401008",
+   "email": "kiran@example.com",
+   "type": "RETAILER",
+   "area": "Wagholi",
+   "address": "61, Market Road, Wagholi, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-009",
+   "name": "Maruti General Stores",
+   "phone": "5550401009",
+   "email": "maruti.general.stores@example.com",
+   "type": "RETAILER",
+   "area": "Camp",
+   "address": "68, Market Road, Camp, Pune",
+   "creditGroupId": "crg-002"
+  },
+  {
+   "id": "cus-010",
+   "name": "Shree Ganesh Kirana",
+   "phone": "5550401010",
+   "email": "shree.ganesh.kirana@example.com",
+   "type": "RETAILER",
+   "area": "Katraj",
+   "address": "75, Market Road, Katraj, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-011",
+   "name": "Lakshmi Traders",
+   "phone": "5550401011",
+   "email": "lakshmi.traders@example.com",
+   "type": "RETAILER",
+   "area": "Hadapsar",
+   "address": "14, Station Road, Hadapsar, Pune",
+   "creditGroupId": "crg-001"
+  },
+  {
+   "id": "cus-012",
+   "name": "Om Sai Provisions",
+   "phone": "5550401012",
+   "email": "om.sai.provisions@example.com",
+   "type": "WHOLESALER",
+   "area": "Wakad",
+   "address": "9, Datta Mandir Road, Wakad, Pune",
+   "creditGroupId": "crg-002"
+  }
+ ],
+ "products": [
+  {
+   "id": "prd-001",
+   "articleNo": "FG-1001",
+   "name": "Amul Taaza Toned Milk 1L",
+   "category": "Dairy",
+   "subCategory": "Milk",
+   "price": 32,
+   "unit": "Pouch",
+   "tax": 5,
+   "stock": 420
+  },
+  {
+   "id": "prd-002",
+   "articleNo": "FG-1002",
+   "name": "Britannia Brown Bread 400g",
+   "category": "Bakery",
+   "subCategory": "Bread",
+   "price": 42,
+   "unit": "Pack",
+   "tax": 5,
+   "stock": 180
+  },
+  {
+   "id": "prd-003",
+   "articleNo": "FG-1003",
+   "name": "Nandini Curd 500g",
+   "category": "Dairy",
+   "subCategory": "Curd",
+   "price": 28.5,
+   "unit": "Cup",
+   "tax": 5,
+   "stock": 240
+  },
+  {
+   "id": "prd-004",
+   "articleNo": "FG-1004",
+   "name": "Farm Fresh Paneer 200g",
+   "category": "Dairy",
+   "subCategory": "Paneer",
+   "price": 88,
+   "unit": "Pack",
+   "tax": 5,
+   "stock": 95
+  },
+  {
+   "id": "prd-005",
+   "articleNo": "FG-1005",
+   "name": "Aashirvaad Atta 5kg",
+   "category": "Staples",
+   "subCategory": "Flour",
+   "price": 265,
+   "unit": "Bag",
+   "tax": 5,
+   "stock": 140
+  },
+  {
+   "id": "prd-006",
+   "articleNo": "FG-1006",
+   "name": "Fortune Sunflower Oil 1L",
+   "category": "Staples",
+   "subCategory": "Oil",
+   "price": 155,
+   "unit": "Bottle",
+   "tax": 5,
+   "stock": 210
+  },
+  {
+   "id": "prd-007",
+   "articleNo": "FG-1007",
+   "name": "Tata Salt 1kg",
+   "category": "Staples",
+   "subCategory": "Salt & Sugar",
+   "price": 22,
+   "unit": "Pack",
+   "tax": 5,
+   "stock": 600
+  },
+  {
+   "id": "prd-008",
+   "articleNo": "FG-1008",
+   "name": "Toor Dal 1kg",
+   "category": "Staples",
+   "subCategory": "Pulses",
+   "price": 165,
+   "unit": "Pack",
+   "tax": 5,
+   "stock": 160
+  },
+  {
+   "id": "prd-009",
+   "articleNo": "FG-1009",
+   "name": "Maggi Noodles 70g x12",
+   "category": "Packaged Food",
+   "subCategory": "Noodles",
+   "price": 14,
+   "unit": "Pkt",
+   "tax": 18,
+   "stock": 900
+  },
+  {
+   "id": "prd-010",
+   "articleNo": "FG-1010",
+   "name": "Amul Butter 100g",
+   "category": "Dairy",
+   "subCategory": "Butter",
+   "price": 58,
+   "unit": "Pack",
+   "tax": 12,
+   "stock": 130
+  },
+  {
+   "id": "prd-011",
+   "articleNo": "FG-1011",
+   "name": "Red Label Tea 500g",
+   "category": "Beverages",
+   "subCategory": "Tea",
+   "price": 280,
+   "unit": "Pack",
+   "tax": 5,
+   "stock": 75
+  },
+  {
+   "id": "prd-012",
+   "articleNo": "FG-1012",
+   "name": "Surf Excel 1kg",
+   "category": "Household",
+   "subCategory": "Detergent",
+   "price": 140,
+   "unit": "Pack",
+   "tax": 18,
+   "stock": 110
+  },
+  {
+   "id": "prd-013",
+   "articleNo": "FG-1013",
+   "name": "Haldiram Aloo Bhujia 400g",
+   "category": "Packaged Food",
+   "subCategory": "Snacks",
+   "price": 72,
+   "unit": "Pkt",
+   "tax": 12,
+   "stock": 260
+  },
+  {
+   "id": "prd-014",
+   "articleNo": "FG-1014",
+   "name": "Good Day Cashew 200g",
+   "category": "Packaged Food",
+   "subCategory": "Biscuits",
+   "price": 40,
+   "unit": "Pkt",
+   "tax": 18,
+   "stock": 340
+  },
+  {
+   "id": "prd-015",
+   "articleNo": "FG-1015",
+   "name": "Kissan Ketchup 950g",
+   "category": "Packaged Food",
+   "subCategory": "Sauces",
+   "price": 130,
+   "unit": "Bottle",
+   "tax": 12,
+   "stock": 85
+  },
+  {
+   "id": "prd-016",
+   "articleNo": "FG-1022",
+   "name": "Parle-G Gold 1kg",
+   "category": "Packaged Food",
+   "subCategory": "Biscuits",
+   "price": 60,
+   "unit": "Pack",
+   "tax": 18,
+   "stock": 380
+  }
+ ],
+ "staff": [
+  {
+   "id": "stf-001",
+   "name": "Ramesh Pawar",
+   "phone": "5550409001",
+   "role": "DRIVER"
+  },
+  {
+   "id": "stf-002",
+   "name": "Sunil Jadhav",
+   "phone": "5550409002",
+   "role": "DRIVER"
+  },
+  {
+   "id": "stf-003",
+   "name": "Prakash More",
+   "phone": "5550409003",
+   "role": "DRIVER"
+  }
+ ],
+ "routeTemplates": [
+  {
+   "id": "rtt-001",
+   "name": "Kothrud – Baner Morning",
+   "customerIds": [
+    "cus-001",
+    "cus-003",
+    "cus-009"
+   ],
+   "staffIds": [
+    "stf-001"
+   ]
+  },
+  {
+   "id": "rtt-002",
+   "name": "Hadapsar – Kharadi Evening",
+   "customerIds": [
+    "cus-005",
+    "cus-007",
+    "cus-010"
+   ],
+   "staffIds": [
+    "stf-002"
+   ]
+  }
+ ],
+ "orders": [
+  {
+   "id": "ord-001",
+   "numberSuffix": "7534374",
+   "placedMinutesAgo": 7,
+   "customerId": "cus-001",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 25.5,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 5
+    },
+    {
+     "productId": "prd-016",
+     "qty": 5
+    }
+   ],
+   "comment": "Call on arrival, gate is locked."
+  },
+  {
+   "id": "ord-002",
+   "numberSuffix": "7493167",
+   "placedMinutesAgo": 9,
+   "customerId": "cus-002",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-003",
+   "numberSuffix": "7451960",
+   "placedMinutesAgo": 15,
+   "customerId": "cus-003",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 5
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-004",
+   "numberSuffix": "7410753",
+   "placedMinutesAgo": 24,
+   "customerId": "cus-004",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 3
+    },
+    {
+     "productId": "prd-004",
+     "qty": 5
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-005",
+   "numberSuffix": "7369546",
+   "placedMinutesAgo": 34,
+   "customerId": "cus-005",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 2
+    }
+   ],
+   "comment": "Call on arrival, gate is locked."
+  },
+  {
+   "id": "ord-006",
+   "numberSuffix": "7328339",
+   "placedMinutesAgo": 44,
+   "customerId": "cus-006",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 1
+    },
+    {
+     "productId": "prd-004",
+     "qty": 1
+    },
+    {
+     "productId": "prd-001",
+     "qty": 3
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-007",
+   "numberSuffix": "7287132",
+   "placedMinutesAgo": 45,
+   "customerId": "cus-007",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 22,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 4
+    },
+    {
+     "productId": "prd-007",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-008",
+   "numberSuffix": "7245925",
+   "placedMinutesAgo": 65,
+   "customerId": "cus-008",
+   "status": "Cancelled",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-009",
+   "numberSuffix": "7204718",
+   "placedMinutesAgo": 71,
+   "customerId": "cus-001",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 5
+    },
+    {
+     "productId": "prd-013",
+     "qty": 5
+    },
+    {
+     "productId": "prd-003",
+     "qty": 1
+    }
+   ],
+   "comment": "Repeat order — same as last week."
+  },
+  {
+   "id": "ord-010",
+   "numberSuffix": "7163511",
+   "placedMinutesAgo": 76,
+   "customerId": "cus-002",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 1
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-011",
+   "numberSuffix": "7122304",
+   "placedMinutesAgo": 95,
+   "customerId": "cus-003",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 2
+    },
+    {
+     "productId": "prd-003",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-012",
+   "numberSuffix": "7081097",
+   "placedMinutesAgo": 120,
+   "customerId": "cus-004",
+   "status": "Pending",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 3
+    },
+    {
+     "productId": "prd-001",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-013",
+   "numberSuffix": "7039890",
+   "placedMinutesAgo": 1450,
+   "customerId": "cus-005",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 9.7,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    },
+    {
+     "productId": "prd-004",
+     "qty": 1
+    },
+    {
+     "productId": "prd-009",
+     "qty": 3
+    }
+   ],
+   "comment": "Repeat order — same as last week."
+  },
+  {
+   "id": "ord-014",
+   "numberSuffix": "6998683",
+   "placedMinutesAgo": 1490,
+   "customerId": "cus-006",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 2
+    },
+    {
+     "productId": "prd-004",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-015",
+   "numberSuffix": "6957476",
+   "placedMinutesAgo": 2900,
+   "customerId": "cus-007",
+   "status": "Cancelled",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 5
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-016",
+   "numberSuffix": "6916269",
+   "placedMinutesAgo": 2950,
+   "customerId": "cus-008",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 4
+    },
+    {
+     "productId": "prd-013",
+     "qty": 3
+    },
+    {
+     "productId": "prd-009",
+     "qty": 3
+    },
+    {
+     "productId": "prd-002",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-017",
+   "numberSuffix": "6875062",
+   "placedMinutesAgo": 4300,
+   "customerId": "cus-001",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 1
+    },
+    {
+     "productId": "prd-001",
+     "qty": 5
+    }
+   ],
+   "comment": "Customer asked for delivery before noon."
+  },
+  {
+   "id": "ord-018",
+   "numberSuffix": "6833855",
+   "placedMinutesAgo": 4380,
+   "customerId": "cus-002",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 1
+    },
+    {
+     "productId": "prd-013",
+     "qty": 5
+    },
+    {
+     "productId": "prd-007",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-019",
+   "numberSuffix": "6792648",
+   "placedMinutesAgo": 5800,
+   "customerId": "cus-003",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 10.5,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 4
+    },
+    {
+     "productId": "prd-001",
+     "qty": 3
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-020",
+   "numberSuffix": "6751441",
+   "placedMinutesAgo": 5900,
+   "customerId": "cus-004",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 5
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-021",
+   "numberSuffix": "6710234",
+   "placedMinutesAgo": 7300,
+   "customerId": "cus-005",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 3
+    },
+    {
+     "productId": "prd-013",
+     "qty": 4
+    },
+    {
+     "productId": "prd-004",
+     "qty": 4
+    }
+   ],
+   "comment": "Please pack fragile items separately."
+  },
+  {
+   "id": "ord-022",
+   "numberSuffix": "6669027",
+   "placedMinutesAgo": 8700,
+   "customerId": "cus-006",
+   "status": "Cancelled",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-023",
+   "numberSuffix": "6627820",
+   "placedMinutesAgo": 10100,
+   "customerId": "cus-007",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 4
+    },
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-024",
+   "numberSuffix": "6586613",
+   "placedMinutesAgo": 11600,
+   "customerId": "cus-008",
+   "status": "Pending",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-025",
+   "numberSuffix": "1197975",
+   "placedMinutesAgo": 72,
+   "customerId": "cus-009",
+   "status": "Pending",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 2
+    },
+    {
+     "productId": "prd-006",
+     "qty": 3
+    },
+    {
+     "productId": "prd-008",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-026",
+   "numberSuffix": "1205894",
+   "placedMinutesAgo": 288,
+   "customerId": "cus-010",
+   "status": "Pending",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 12
+    },
+    {
+     "productId": "prd-003",
+     "qty": 10
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-027",
+   "numberSuffix": "1213813",
+   "placedMinutesAgo": 1728,
+   "customerId": "cus-001",
+   "status": "Pending",
+   "paymentMethod": "payOnline",
+   "shippingCost": 40,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-011",
+     "qty": 3
+    },
+    {
+     "productId": "prd-012",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-028",
+   "numberSuffix": "1221732",
+   "placedMinutesAgo": 4464,
+   "customerId": "cus-005",
+   "status": "Pending",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 150,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 10
+    },
+    {
+     "productId": "prd-006",
+     "qty": 12
+    },
+    {
+     "productId": "prd-008",
+     "qty": 8
+    }
+   ],
+   "comment": "Deliver before 10 AM — shop opens early on Saturdays."
+  },
+  {
+   "id": "ord-029",
+   "numberSuffix": "1229651",
+   "placedMinutesAgo": 13680,
+   "customerId": "cus-003",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 24
+    },
+    {
+     "productId": "prd-016",
+     "qty": 6
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-030",
+   "numberSuffix": "1237570",
+   "placedMinutesAgo": 14688,
+   "customerId": "cus-004",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 10
+    },
+    {
+     "productId": "prd-013",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-031",
+   "numberSuffix": "1245489",
+   "placedMinutesAgo": 15840,
+   "customerId": "cus-006",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 20,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 6
+    },
+    {
+     "productId": "prd-010",
+     "qty": 5
+    },
+    {
+     "productId": "prd-002",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-032",
+   "numberSuffix": "1253408",
+   "placedMinutesAgo": 17856,
+   "customerId": "cus-007",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-014",
+     "qty": 10
+    },
+    {
+     "productId": "prd-015",
+     "qty": 3
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-033",
+   "numberSuffix": "1261327",
+   "placedMinutesAgo": 18720,
+   "customerId": "cus-008",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 20
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-034",
+   "numberSuffix": "1269246",
+   "placedMinutesAgo": 21024,
+   "customerId": "cus-009",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 60,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 4
+    },
+    {
+     "productId": "prd-008",
+     "qty": 4
+    },
+    {
+     "productId": "prd-011",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-035",
+   "numberSuffix": "1277165",
+   "placedMinutesAgo": 22032,
+   "customerId": "cus-010",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 12
+    },
+    {
+     "productId": "prd-009",
+     "qty": 12
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-036",
+   "numberSuffix": "1285084",
+   "placedMinutesAgo": 23040,
+   "customerId": "cus-002",
+   "status": "Cancelled",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-012",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-037",
+   "numberSuffix": "1293003",
+   "placedMinutesAgo": 24768,
+   "customerId": "cus-001",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 6
+    },
+    {
+     "productId": "prd-003",
+     "qty": 6
+    },
+    {
+     "productId": "prd-004",
+     "qty": 3
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-038",
+   "numberSuffix": "1300922",
+   "placedMinutesAgo": 27072,
+   "customerId": "cus-005",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 500,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 20
+    },
+    {
+     "productId": "prd-006",
+     "qty": 24
+    },
+    {
+     "productId": "prd-007",
+     "qty": 30
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-039",
+   "numberSuffix": "1308841",
+   "placedMinutesAgo": 28944,
+   "customerId": "cus-003",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 6
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-040",
+   "numberSuffix": "1316760",
+   "placedMinutesAgo": 30960,
+   "customerId": "cus-004",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-010",
+     "qty": 8
+    },
+    {
+     "productId": "prd-014",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-041",
+   "numberSuffix": "1324679",
+   "placedMinutesAgo": 33120,
+   "customerId": "cus-006",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 30
+    },
+    {
+     "productId": "prd-003",
+     "qty": 20
+    },
+    {
+     "productId": "prd-010",
+     "qty": 10
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-042",
+   "numberSuffix": "1332598",
+   "placedMinutesAgo": 35136,
+   "customerId": "cus-007",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-015",
+     "qty": 5
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-043",
+   "numberSuffix": "1340517",
+   "placedMinutesAgo": 37440,
+   "customerId": "cus-008",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 36
+    },
+    {
+     "productId": "prd-016",
+     "qty": 10
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-044",
+   "numberSuffix": "1348436",
+   "placedMinutesAgo": 40752,
+   "customerId": "cus-009",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-011",
+     "qty": 2
+    },
+    {
+     "productId": "prd-012",
+     "qty": 2
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-045",
+   "numberSuffix": "1356355",
+   "placedMinutesAgo": 43200,
+   "customerId": "cus-010",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 15
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-046",
+   "numberSuffix": "1364274",
+   "placedMinutesAgo": 48384,
+   "customerId": "cus-002",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 45,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 3
+    },
+    {
+     "productId": "prd-008",
+     "qty": 3
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-047",
+   "numberSuffix": "1372193",
+   "placedMinutesAgo": 51840,
+   "customerId": "cus-001",
+   "status": "Ready for dispatch",
+   "paymentMethod": "pod",
+   "shippingCost": 0,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 8
+    },
+    {
+     "productId": "prd-016",
+     "qty": 4
+    }
+   ],
+   "comment": ""
+  },
+  {
+   "id": "ord-048",
+   "numberSuffix": "1380112",
+   "placedMinutesAgo": 56880,
+   "customerId": "cus-005",
+   "status": "Ready for dispatch",
+   "paymentMethod": "payOnline",
+   "shippingCost": 120,
+   "discount": 0,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 25
+    },
+    {
+     "productId": "prd-006",
+     "qty": 20
+    }
+   ],
+   "comment": ""
+  }
+ ],
+ "dispatches": [
+  {
+   "id": "dsp-001",
+   "orderId": "ord-001",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 5
+    },
+    {
+     "productId": "prd-016",
+     "qty": 5
+    }
+   ]
+  },
+  {
+   "id": "dsp-002",
+   "orderId": "ord-002",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "dsp-003",
+   "orderId": "ord-003",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 5
+    }
+   ]
+  },
+  {
+   "id": "dsp-004",
+   "orderId": "ord-004",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 3
+    },
+    {
+     "productId": "prd-004",
+     "qty": 5
+    }
+   ]
+  },
+  {
+   "id": "dsp-005",
+   "orderId": "ord-005",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "dsp-006",
+   "orderId": "ord-006",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 1
+    },
+    {
+     "productId": "prd-004",
+     "qty": 1
+    },
+    {
+     "productId": "prd-001",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-007",
+   "orderId": "ord-007",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 4
+    },
+    {
+     "productId": "prd-007",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-008",
+   "orderId": "ord-009",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 3
+    },
+    {
+     "productId": "prd-013",
+     "qty": 3
+    },
+    {
+     "productId": "prd-003",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-009",
+   "orderId": "ord-010",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-010",
+   "orderId": "ord-011",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 2
+    },
+    {
+     "productId": "prd-003",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "dsp-011",
+   "orderId": "ord-013",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    },
+    {
+     "productId": "prd-004",
+     "qty": 1
+    },
+    {
+     "productId": "prd-009",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-012",
+   "orderId": "ord-014",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 2
+    },
+    {
+     "productId": "prd-004",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-013",
+   "orderId": "ord-016",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 4
+    },
+    {
+     "productId": "prd-013",
+     "qty": 3
+    },
+    {
+     "productId": "prd-009",
+     "qty": 3
+    },
+    {
+     "productId": "prd-002",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "dsp-014",
+   "orderId": "ord-018",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 1
+    },
+    {
+     "productId": "prd-013",
+     "qty": 3
+    },
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-015",
+   "orderId": "ord-018",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 1
+    },
+    {
+     "productId": "prd-013",
+     "qty": 3
+    },
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-016",
+   "orderId": "ord-019",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 4
+    },
+    {
+     "productId": "prd-001",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-017",
+   "orderId": "ord-020",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 5
+    }
+   ]
+  },
+  {
+   "id": "dsp-018",
+   "orderId": "ord-021",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-003",
+     "qty": 3
+    },
+    {
+     "productId": "prd-013",
+     "qty": 4
+    },
+    {
+     "productId": "prd-004",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-019",
+   "orderId": "ord-023",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    },
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-020",
+   "orderId": "ord-023",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 2
+    },
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-021",
+   "orderId": "ord-029",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 24
+    },
+    {
+     "productId": "prd-016",
+     "qty": 6
+    }
+   ]
+  },
+  {
+   "id": "dsp-022",
+   "orderId": "ord-030",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 10
+    },
+    {
+     "productId": "prd-013",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-023",
+   "orderId": "ord-031",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 6
+    },
+    {
+     "productId": "prd-010",
+     "qty": 5
+    },
+    {
+     "productId": "prd-002",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-024",
+   "orderId": "ord-032",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-014",
+     "qty": 10
+    },
+    {
+     "productId": "prd-015",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-025",
+   "orderId": "ord-033",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 20
+    }
+   ]
+  },
+  {
+   "id": "dsp-026",
+   "orderId": "ord-034",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 2
+    },
+    {
+     "productId": "prd-008",
+     "qty": 2
+    },
+    {
+     "productId": "prd-011",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "dsp-027",
+   "orderId": "ord-035",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 12
+    },
+    {
+     "productId": "prd-009",
+     "qty": 12
+    }
+   ]
+  },
+  {
+   "id": "dsp-028",
+   "orderId": "ord-037",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 6
+    },
+    {
+     "productId": "prd-003",
+     "qty": 6
+    },
+    {
+     "productId": "prd-004",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-029",
+   "orderId": "ord-038",
+   "status": "Delivered",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 7
+    },
+    {
+     "productId": "prd-006",
+     "qty": 8
+    },
+    {
+     "productId": "prd-007",
+     "qty": 10
+    }
+   ]
+  },
+  {
+   "id": "dsp-030",
+   "orderId": "ord-038",
+   "status": "Delivered",
+   "minutesAfterOrder": 180,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 7
+    },
+    {
+     "productId": "prd-006",
+     "qty": 8
+    },
+    {
+     "productId": "prd-007",
+     "qty": 10
+    }
+   ]
+  },
+  {
+   "id": "dsp-031",
+   "orderId": "ord-038",
+   "status": "Dispatch Created",
+   "minutesAfterOrder": 300,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 7
+    },
+    {
+     "productId": "prd-006",
+     "qty": 8
+    },
+    {
+     "productId": "prd-007",
+     "qty": 10
+    }
+   ]
+  },
+  {
+   "id": "dsp-032",
+   "orderId": "ord-039",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-013",
+     "qty": 6
+    }
+   ]
+  },
+  {
+   "id": "dsp-033",
+   "orderId": "ord-040",
+   "status": "Rejected",
+   "minutesAfterOrder": 60,
+   "items": [
+    {
+     "productId": "prd-010",
+     "qty": 8
+    },
+    {
+     "productId": "prd-014",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-034",
+   "orderId": "ord-040",
+   "status": "Rejected",
+   "minutesAfterOrder": 240,
+   "items": [
+    {
+     "productId": "prd-010",
+     "qty": 8
+    },
+    {
+     "productId": "prd-014",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-035",
+   "orderId": "ord-041",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-001",
+     "qty": 30
+    },
+    {
+     "productId": "prd-003",
+     "qty": 20
+    },
+    {
+     "productId": "prd-010",
+     "qty": 10
+    }
+   ]
+  },
+  {
+   "id": "dsp-036",
+   "orderId": "ord-042",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-015",
+     "qty": 5
+    }
+   ]
+  },
+  {
+   "id": "dsp-037",
+   "orderId": "ord-043",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 36
+    },
+    {
+     "productId": "prd-016",
+     "qty": 10
+    }
+   ]
+  },
+  {
+   "id": "dsp-038",
+   "orderId": "ord-044",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-011",
+     "qty": 2
+    },
+    {
+     "productId": "prd-012",
+     "qty": 2
+    }
+   ]
+  },
+  {
+   "id": "dsp-039",
+   "orderId": "ord-045",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 15
+    }
+   ]
+  },
+  {
+   "id": "dsp-040",
+   "orderId": "ord-046",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 3
+    },
+    {
+     "productId": "prd-008",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "dsp-041",
+   "orderId": "ord-047",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-002",
+     "qty": 8
+    },
+    {
+     "productId": "prd-016",
+     "qty": 4
+    }
+   ]
+  },
+  {
+   "id": "dsp-042",
+   "orderId": "ord-048",
+   "status": "Delivered",
+   "minutesAfterOrder": 90,
+   "items": [
+    {
+     "productId": "prd-005",
+     "qty": 25
+    },
+    {
+     "productId": "prd-006",
+     "qty": 20
+    }
+   ]
+  }
+ ],
+ "deliveries": [
+  {
+   "id": "dlv-001",
+   "dispatchIds": [
+    "dsp-001"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-002",
+   "dispatchIds": [
+    "dsp-002"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-003",
+   "dispatchIds": [
+    "dsp-003"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-004",
+   "dispatchIds": [
+    "dsp-004"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-005",
+   "dispatchIds": [
+    "dsp-005"
+   ],
+   "status": "Out for Delivery",
+   "progress": 60,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-006",
+   "dispatchIds": [
+    "dsp-006"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-007",
+   "dispatchIds": [
+    "dsp-007"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-008",
+   "dispatchIds": [
+    "dsp-010"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-009",
+   "dispatchIds": [
+    "dsp-011"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-010",
+   "dispatchIds": [
+    "dsp-012"
+   ],
+   "status": "Vehicle Loading Completed",
+   "progress": 20,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-011",
+   "dispatchIds": [
+    "dsp-013"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-012",
+   "dispatchIds": [
+    "dsp-014",
+    "dsp-015"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-013",
+   "dispatchIds": [
+    "dsp-016"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-014",
+   "dispatchIds": [
+    "dsp-018"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-015",
+   "dispatchIds": [
+    "dsp-019",
+    "dsp-020"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-016",
+   "dispatchIds": [
+    "dsp-021"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-017",
+   "dispatchIds": [
+    "dsp-022"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-018",
+   "dispatchIds": [
+    "dsp-023"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-019",
+   "dispatchIds": [
+    "dsp-025"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-020",
+   "dispatchIds": [
+    "dsp-026"
+   ],
+   "status": "Delivery Created",
+   "progress": 0,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-021",
+   "dispatchIds": [
+    "dsp-027"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-022",
+   "dispatchIds": [
+    "dsp-028"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-023",
+   "dispatchIds": [
+    "dsp-029",
+    "dsp-030"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-024",
+   "dispatchIds": [
+    "dsp-031"
+   ],
+   "status": "Vehicle Loading Completed",
+   "progress": 30,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-025",
+   "dispatchIds": [
+    "dsp-032"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-026",
+   "dispatchIds": [
+    "dsp-035"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-027",
+   "dispatchIds": [
+    "dsp-036"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-028",
+   "dispatchIds": [
+    "dsp-037"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-029",
+   "dispatchIds": [
+    "dsp-038"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-030",
+   "dispatchIds": [
+    "dsp-039"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-031",
+   "dispatchIds": [
+    "dsp-040"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  },
+  {
+   "id": "dlv-032",
+   "dispatchIds": [
+    "dsp-041"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-002"
+  },
+  {
+   "id": "dlv-033",
+   "dispatchIds": [
+    "dsp-042"
+   ],
+   "status": "Out for Delivery",
+   "progress": 100,
+   "staffId": "stf-001"
+  }
+ ],
+ "returns": [
+  {
+   "id": "ret-001",
+   "dispatchId": "dsp-010",
+   "status": "Return Created",
+   "items": [
+    {
+     "productId": "prd-007",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "ret-002",
+   "dispatchId": "dsp-014",
+   "status": "Return Accepted",
+   "items": [
+    {
+     "productId": "prd-016",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "id": "ret-003",
+   "dispatchId": "dsp-023",
+   "status": "Return Created",
+   "items": [
+    {
+     "productId": "prd-004",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "id": "ret-004",
+   "dispatchId": "dsp-037",
+   "status": "Return Created",
+   "items": [
+    {
+     "productId": "prd-009",
+     "qty": 18
+    }
+   ]
+  }
+ ]
+}

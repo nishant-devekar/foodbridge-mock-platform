@@ -1,0 +1,44 @@
+/*
+  Shared overlay widgets the product takes from libraries, restyled here with the values the
+  production screen computes: the side drawer (rc-drawer + the product's overrides) and hover
+  tooltips (react-tooltip). Screen-specific styling stays in sales-orders.css.
+*/
+
+/* ── Side drawer (rc-drawer, placement right) ────────────────────────────────────────────── */
+/* rc-drawer never unmounts a closed drawer: it collapses to zero width and its panel slides off —
+   but the panel's absolutely-positioned close button stays painted at the top right. That is what
+   the product shows after any drawer closes, and so it is reproduced. */
+.so-root .drawer { position: fixed; overflow: visible; z-index: 9989 !important; top: 0; right: 0; width: 0%; height: 100%; }
+.so-root .drawer.drawer-open { width: 100%; }
+.so-root .drawer .drawer-mask {
+  background: #000; opacity: 0; width: 100%; height: 0; position: absolute; top: 0; left: 0;
+  transition: opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86), height 0s ease 0.3s;
+}
+.so-root .drawer.drawer-open .drawer-mask { opacity: 0.3; height: 100%; transition: opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86); }
+.so-root .drawer .drawer-content-wrapper {
+  position: absolute; right: 0; height: 100%; background: #fff; transform: translateX(0px);
+  transition: transform 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86), box-shadow 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86);
+}
+.so-root .drawer.drawer-open .drawer-content-wrapper { box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15); }
+.so-root .drawer .drawer-content { overflow: auto; z-index: 1; position: relative; height: 100%; }
+@keyframes so-drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.so-root .drawer.is-entering .drawer-content-wrapper { animation: so-drawer-in 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86); }
+/* rc-drawer locks the page behind an open drawer. */
+.so-root.ant-scrolling-effect { overflow: hidden; }
+
+/* ── Hover tooltip (react-tooltip, dark, 90% text, 8px arrow) ────────────────────────────── */
+.so-root .rt-tooltip {
+  position: absolute; top: 0; left: 0; pointer-events: none; opacity: 0; will-change: opacity;
+  border-radius: 3px; font-size: 90%; width: max-content; background: #222; color: #fff;
+  transition: opacity 0.15s ease-out;
+}
+.so-root .rt-tooltip.react-tooltip__show { opacity: 0.9; }
+.so-root .rt-tooltip__content { position: relative; z-index: 1; background: inherit; border-radius: inherit; padding: 8px 16px; }
+.so-root .rt-tooltip__arrow {
+  position: absolute; background: inherit; z-index: -1; backface-visibility: hidden;
+  width: var(--rt-arrow-size, 8px); height: var(--rt-arrow-size, 8px);
+}
+.so-root .react-tooltip__place-top > .rt-tooltip__arrow { transform: rotate(45deg); }
+.so-root .react-tooltip__place-right > .rt-tooltip__arrow { transform: rotate(135deg); }
+.so-root .react-tooltip__place-bottom > .rt-tooltip__arrow { transform: rotate(225deg); }
+.so-root .react-tooltip__place-left > .rt-tooltip__arrow { transform: rotate(315deg); }

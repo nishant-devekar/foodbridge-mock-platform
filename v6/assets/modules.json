@@ -150,7 +150,7 @@
       "id": "sales-orders",
       "name": "Sales Orders",
       "icon": "shoppingCart",
-      "url": "modules/foodbridge-sales-orders-mockup/screens/orders/screen-01-orders-list.html",
+      "url": "modules/foodbridge-sales-orders-mockup/index.html",
       "clipLeft": 256,
       "owner": "nishant-devekar/foodbridge-sales-orders-mockup",
       "hideBurger": true
