@@ -4,8 +4,9 @@
  * Written for the worker, not the office (review, 28 Sep 2026): what to do
  * now, proof of what I did, help when I ask. No timers, no nags, no loss
  * verdicts, no codes — the office screens judge; this one helps.
- *   PIN → Home (my work, or my next work) → Work → Done → Next work …
+ *   Phone + PIN → Home (my work, or my next work) → Work → Done → Next …
  *       Work ⇄ Need help;  Home → My day → End my day
+ * In English, Hindi or Marathi: every fixed word is in i18n.js, through t().
  * Routes are hash routes: #/login, #/, #/task/<id>, #/task/<id>/help,
  * #/done/<id>, #/shift. Styles are app.css.
  *
@@ -25,12 +26,45 @@
   function set(patch) { Object.assign(app.page, patch); render(); }
   function upd(s, patch) { Object.assign(s, patch); if (s === app.page) render(); }
 
+  /* ── language ───────────────────────────────────────────────────────── */
+  /* The phone keeps the worker's language; English until one is picked. */
+  var I18N = WK_I18N, LANG_KEY = "fb.v7.jobflow.lang";
+  var lang = (function () { try { var l = localStorage.getItem(LANG_KEY); return I18N.dict[l] ? l : "en"; } catch (e) { return "en"; } })();
+  function setLang(l) {
+    if (!I18N.dict[l]) return;
+    lang = l;
+    try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* private window */ }
+    document.documentElement.lang = l;
+    render();
+  }
+  document.documentElement.lang = lang;
+  function t(key, vars) {
+    var s = I18N.dict[lang][key];
+    if (s == null) s = I18N.dict.en[key];
+    if (s == null) return key;
+    return vars ? s.replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }) : s;
+  }
+  function role(r) { var k = "role:" + r; return I18N.dict.en[k] ? t(k) : r; }
+  /* An API message as the worker's words: a known one translated, any
+     other replaced by the screen's own "couldn't …" line (English keeps the
+     API's own words, which say more). */
+  function said(err, fallback) {
+    var m = err && err.message, k = m && I18N.API[m];
+    if (k) return t(k);
+    return lang === "en" && m ? m : t(fallback);
+  }
+  function LangSwitch() {
+    return html`<div class="wk-lang" role="group" aria-label="${t("language")}">${I18N.LANGS.map(function (l) {
+      return html`<button type="button" data-lang="${l[0]}" class="${l[0] === lang ? "on" : ""}" lang="${l[0]}" aria-pressed="${l[0] === lang ? "true" : "false"}">${l[1]}</button>`;
+    })}</div>`;
+  }
+
   /* ── session ────────────────────────────────────────────────────────── */
-  /* The phone remembers who last signed in on it, so next time it asks only
-     for the PIN (mockup: "Not Ramesh? Switch worker"). */
+  /* The phone remembers who last signed in on it, and their number, so next
+     time it asks only for the PIN (mockup: "Not Ramesh? Switch worker"). */
   var LAST_KEY = "fb.v7.jobflow.lastWorker";
-  function lastWorker() { try { var w = JSON.parse(localStorage.getItem(LAST_KEY)); return w && w.name ? w : null; } catch (e) { return null; } }
-  function remember(w) { try { if (w) localStorage.setItem(LAST_KEY, JSON.stringify({ name: w.name, role: w.role })); else localStorage.removeItem(LAST_KEY); } catch (e) { /* private window */ } }
+  function lastWorker() { try { var w = JSON.parse(localStorage.getItem(LAST_KEY)); return w && w.name && w.phone ? w : null; } catch (e) { return null; } }
+  function remember(w) { try { if (w && w.phone) localStorage.setItem(LAST_KEY, JSON.stringify({ name: w.name, role: w.role, phone: w.phone })); else localStorage.removeItem(LAST_KEY); } catch (e) { /* private window */ } }
   /* When this worker first signed in today: "My day" shows it as proof of
      attendance. A second sign-in the same day keeps the first time. */
   var SINCE_KEY = "fb.v7.jobflow.since";
@@ -44,7 +78,9 @@
     markSince(data.worker);
     return data.worker;
   }
-  function login(name, pin) { return api.workerLogin(name, pin).then(signedIn); }
+  /* Phone number + PIN (28 Sep 2026): names were typed in English and
+     spelt many ways; a phone number is one thing every worker knows. */
+  function login(phone, pin) { return api.workerLoginPhone(phone, pin).then(signedIn); }
   /* "Sign in as": straight in as a worker, no PIN (owner, 26 Sep 2026). */
   function loginAs(id) { return api.workerLoginAs(id).then(signedIn); }
   function logout() { api.clearSession(); app.worker = null; depth = 0; JF.go("/login", true); }
@@ -71,23 +107,25 @@
     var p = String(name || "").trim().split(/\s+/).filter(Boolean);
     return ((p[0] || "?").charAt(0) + (p[1] ? p[1].charAt(0) : "")).toUpperCase();
   }
-  function timeOf(iso) { return new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true }); }
+  function timeOf(iso) { return new Date(iso).toLocaleTimeString(I18N.LOCALE[lang], { hour: "numeric", minute: "2-digit", hour12: true }); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : NaN; }
+  function digitsOnly(v) { return String(v || "").replace(/\D/g, ""); }
   function greeting() {
     var h = new Date().getHours();
-    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+    return t(h < 12 ? "morning" : h < 17 ? "afternoon" : "evening");
   }
   /* What the worker knows the work by: the product and how much. No batch
      codes, no step numbers — those are the office's words. */
   function productLine(task) {
     var b = task.batch || {};
-    return (b.product || "") + (b.kind === "production" && b.batchSize ? " · " + b.batchSize + " kg" : b.packets ? " · " + b.packets + " packets" : "");
+    return (b.product || "") + (b.kind === "production" && b.batchSize ? " · " + t("kgN", { n: b.batchSize }) : b.packets ? " · " + t("packetsN", { n: b.packets }) : "");
   }
-  function about(task) { return task.expectedMinutes ? "about " + task.expectedMinutes + " min" : ""; }
+  function about(task) { return task.expectedMinutes ? t("aboutMin", { n: task.expectedMinutes }) : ""; }
 
   /* "Problem? Need help": three calls, each an alert on Shop Floor until the
      worker says it is sorted (POST /api/tasks/:id/updates). */
-  var HELP = [["need_materials", "📦", "Material finished"], ["issue_found", "⚙️", "Machine problem"], ["need_help", "🙋", "Call supervisor"]];
+  /* [kind, icon, the button's words, what was asked once sent] */
+  var HELP = [["need_materials", "📦", "hMat", "tMat"], ["issue_found", "⚙️", "hMach", "tMach"], ["need_help", "🙋", "hSup", "tSup"]];
   function helpOf(key) { for (var i = 0; i < HELP.length; i++) if (HELP[i][0] === key) return HELP[i]; return HELP[2]; }
 
   /* ── shared pieces ──────────────────────────────────────────────────── */
@@ -103,7 +141,7 @@
   }
   function Row(label, value) { return html`<div class="wk-row"><span>${label}</span><b>${value}</b></div>`; }
   function Offline() {
-    return navigator.onLine === false ? html`<div class="wk-sync"><i class="off"></i>No internet · your work is saved on this phone</div>` : "";
+    return navigator.onLine === false ? html`<div class="wk-sync"><i class="off"></i>${t("offline")}</div>` : "";
   }
 
   /* lib/api.js getDashboard(): one section per live shift I'm on. */
@@ -129,26 +167,26 @@
   function openWork(data, worker) {
     var list = [];
     ((data && data.sections) || []).forEach(function (sec) { list = list.concat(sec.pool); });
-    var role = worker && worker.role;
-    return list.filter(function (t) { return t.role === role; }).concat(list.filter(function (t) { return t.role !== role; }));
+    var r = worker && worker.role;
+    return list.filter(function (x) { return x.role === r; }).concat(list.filter(function (x) { return x.role !== r; }));
   }
   function doneByMe(data, worker) {
     var out = [], me = worker && worker._id;
-    ((data && data.sections) || []).forEach(function (sec) { sec.all.forEach(function (t) { if (t.status === "done" && t.assignedTo === me) out.push(t); }); });
+    ((data && data.sections) || []).forEach(function (sec) { sec.all.forEach(function (x) { if (x.status === "done" && x.assignedTo === me) out.push(x); }); });
     return out.sort(function (a, b) { return new Date(b.completedAt) - new Date(a.completedAt); });
   }
 
   /* ── 1 · Sign in ────────────────────────────────────────────────────── */
-  var PIN_LENGTH = 4;
+  var PIN_LENGTH = 4, PHONE_LENGTH = 10;
   var Login = {
     init: function () {
       var known = lastWorker();
-      return { known: known, name: known ? known.name : "", pin: "", error: "", submitting: false, workers: [], mode: "pin", asId: "" };
+      return { known: known, phone: known ? known.phone : "", pin: "", error: "", submitting: false, workers: [], mode: "pin", asId: "" };
     },
     load: function (s) {
       api.listSignInWorkers().then(function (list) { upd(s, { workers: list }); }).catch(function () {});
     },
-    ready: function (s) { return s.name.trim().length > 0; },
+    ready: function (s) { return digitsOnly(s.phone).slice(-PHONE_LENGTH).length === PHONE_LENGTH; },
     digit: function (s, d) {
       if (s.submitting || s.pin.length >= PIN_LENGTH) return;
       s.error = ""; s.pin += d;
@@ -163,9 +201,9 @@
     submit: function (s) {
       if (s.submitting || s.pin.length !== PIN_LENGTH || !Login.ready(s)) return;
       set({ submitting: true });
-      login(s.name.trim(), s.pin)
+      login(digitsOnly(s.phone).slice(-PHONE_LENGTH), s.pin)
         .then(function () { if (app.page === s) navigate("/", true); })
-        .catch(function (err) { upd(s, { error: err.message || "Login failed", pin: "" }); })
+        .catch(function (err) { upd(s, { error: said(err, "loginFail"), pin: "" }); })
         .then(function () { upd(s, { submitting: false }); });
     },
     signInAs: function (s, id) {
@@ -173,14 +211,14 @@
       set({ submitting: true, error: "", pin: "", asId: id });
       loginAs(id)
         .then(function () { if (app.page === s) navigate("/", true); })
-        .catch(function (err) { upd(s, { error: err.message || "Login failed", asId: "" }); })
+        .catch(function (err) { upd(s, { error: said(err, "loginFail"), asId: "" }); })
         .then(function () { upd(s, { submitting: false }); });
     },
-    /* "Not Asha? Switch worker": forget this phone's worker, ask for a name. */
+    /* "Not Asha? Switch worker": forget this phone's worker, ask for a number. */
     switchWorker: function (s) {
       if (s.submitting) return;
       remember(null);
-      set({ known: null, name: "", pin: "", error: "" });
+      set({ known: null, phone: "", pin: "", error: "" });
     },
     /* "Don't have an account?": the PIN form gives way to the sample
        workers, one tap each — never both at once (owner, 26 Sep 2026). */
@@ -191,38 +229,37 @@
     pad: function (s) {
       var off = s.submitting || !Login.ready(s);
       function key(d) { return html`<button type="button" data-digit="${d}" aria-label="${d}"${attrs({ disabled: off })}>${d}</button>`; }
-      return html`<div class="wk-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(key)}<button type="button" class="del" data-digit="back" aria-label="Delete"${attrs({ disabled: off || !s.pin })}>⌫</button>${key("0")}<button type="button" class="ok" data-act="submit" aria-label="Sign in"${attrs({ disabled: off || s.pin.length !== PIN_LENGTH })}>✓</button></div>`;
+      return html`<div class="wk-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9"].map(key)}<button type="button" class="del" data-digit="back" aria-label="${t("del")}"${attrs({ disabled: off || !s.pin })}>⌫</button>${key("0")}<button type="button" class="ok" data-act="submit" aria-label="${t("signIn")}"${attrs({ disabled: off || s.pin.length !== PIN_LENGTH })}>✓</button></div>`;
     },
     sampleView: function (s) {
-      return html`<h2 class="wk-sec">Sign in as</h2>
+      return html`<h2 class="wk-sec">${t("signInAs")}</h2>
         <ul class="wk-people">${s.workers.map(function (w) {
-          return html`<li><button type="button" data-act="as" data-id="${w._id}"${attrs({ disabled: s.submitting })} class="${s.asId === w._id ? "on" : ""}">${Avatar(w.name, 40)}<span><b>${w.name}</b><small>${w.role}</small></span>${w.onShift && html`<em>On shift</em>`}</button></li>`;
+          return html`<li><button type="button" data-act="as" data-id="${w._id}"${attrs({ disabled: s.submitting })} class="${s.asId === w._id ? "on" : ""}">${Avatar(w.name, 40)}<span><b>${w.name}</b><small>${role(w.role)}</small></span>${w.onShift && html`<em>${t("onShift")}</em>`}</button></li>`;
         })}</ul>
         <p class="wk-msg">${s.submitting ? "" : s.error}</p>
-        <p class="wk-switch">Have a PIN? <button type="button" class="wk-link" data-act="pin">Sign in with your name</button></p>`;
+        <p class="wk-switch">${t("havePin")} <button type="button" class="wk-link" data-act="pin">${t("signInPhone")}</button></p>`;
     },
     pinView: function (s) {
       var dots = [];
       for (var i = 0; i < PIN_LENGTH; i++) dots.push(html`<i class="${i < s.pin.length ? "on" : ""}"></i>`);
       var first = s.known ? s.known.name.split(" ")[0] : "";
       return html`<div class="wk-me">${s.known
-          ? html`${Avatar(s.known.name, 56)}<b>${s.known.name}</b><small>${s.known.role}</small>`
-          : html`<label for="wk-name">Your name</label><input id="wk-name" class="wk-name-in" value="${s.name}" data-model="name" placeholder="Type your name" autocomplete="off" autocapitalize="words"${attrs({ disabled: s.submitting })}>`}</div>
-        <div class="wk-pin ${s.error ? "err" : ""}" role="status" aria-label="${s.pin.length} of ${PIN_LENGTH} digits entered">${dots}</div>
+          ? html`${Avatar(s.known.name, 56)}<b>${s.known.name}</b><small>${role(s.known.role)}</small>`
+          : html`<label for="wk-phone">${t("yourPhone")}</label><div class="wk-phone"><span>+91</span><input id="wk-phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" value="${s.phone}" data-model="phone" placeholder="98XXXXXXXX"${attrs({ disabled: s.submitting })}></div>`}</div>
+        <div class="wk-pin ${s.error ? "err" : ""}" role="status" aria-label="${t("digits", { n: s.pin.length, m: PIN_LENGTH })}">${dots}</div>
         <p class="wk-msg">${s.submitting ? "" : s.error}</p>
         ${Login.pad(s)}
-        ${!Login.ready(s) && html`<p class="wk-hint">Type your name to begin</p>`}
+        ${!Login.ready(s) && html`<p class="wk-hint">${t("phoneFirst")}</p>`}
         <p class="wk-switch">${s.known
-          ? html`<button type="button" class="wk-link" data-act="switch">Not ${first}? Switch worker</button>`
-          : s.workers.length > 0 && html`Don't have an account? <button type="button" class="wk-link" data-act="sample">Use a sample worker</button>`}</p>`;
+          ? html`<button type="button" class="wk-link" data-act="switch">${t("notYou", { name: first })}</button>`
+          : s.workers.length > 0 && html`${t("noAccount")} <button type="button" class="wk-link" data-act="sample">${t("useSample")}</button>`}</p>`;
     },
     view: function (s) {
       var sample = s.mode === "sample";
-      var top = html`<div class="wk-hello"><div class="wk-hello-i" aria-hidden="true">🏭</div><h1>नमस्ते</h1><p>${sample ? "Pick a sample worker. No PIN needed." : "Enter your PIN to start your shift"}</p></div>`;
+      var top = html`<div class="wk-lang-row">${LangSwitch()}</div><div class="wk-hello"><div class="wk-hello-i" aria-hidden="true">🏭</div><h1>${t("hello")}</h1><p>${sample ? t("pickSample") : t("enterPin")}</p></div>`;
       return Screen("login", top, sample ? Login.sampleView(s) : Login.pinView(s));
     },
   };
-
 
   /* ── 2 · Home ───────────────────────────────────────────────────────── */
   /* Working: only that work. Free: one card, my next work; the rest folded. */
@@ -231,7 +268,7 @@
     load: function (s) {
       getDashboard(app.worker)
         .then(function (payload) { s.data = payload; })
-        .catch(function (err) { s.error = err.message || "Couldn't load your work."; })
+        .catch(function (err) { s.error = said(err, "loadWorkFail"); })
         .then(function () { upd(s, { loading: false }); });
     },
     view: function (s) {
@@ -239,35 +276,35 @@
       var sections = (s.data && s.data.sections) || [];
       var current = s.data && s.data.currentTask;
       var done = doneByMe(s.data, w).length;
-      var sub = s.loading ? "" : sections.length ? sections.map(function (sec) { return sec.shift.name; }).join(" · ") + (done ? " · " + done + " done ✓" : "") : "No shift right now";
+      var sub = s.loading ? "" : sections.length ? sections.map(function (sec) { return sec.shift.name; }).join(" · ") + (done ? " · " + t("doneN", { n: done }) : "") : t("noShiftShort");
       var top = html`${Offline()}<div class="wk-head"><p class="wk-hi">${greeting()} 👋</p><h1>${w.name}</h1>${sub && html`<p class="wk-sub">${sub}</p>`}</div>`;
       var body, bar = null;
-      if (s.loading) body = html`<p class="wk-note">Loading your work…</p>`;
+      if (s.loading) body = html`<p class="wk-note">${t("loadingWork")}</p>`;
       else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
-      else if (!sections.length) body = html`<p class="wk-note">No shift right now. Your work will show here when your shift starts.</p>`;
+      else if (!sections.length) body = html`<p class="wk-note">${t("noShiftLong")}</p>`;
       else if (current) {
-        body = html`<h2 class="wk-sec">Your work now</h2>
+        body = html`<h2 class="wk-sec">${t("workNow")}</h2>
           <article class="wk-task">
-            <p class="wk-live">● Working</p>
+            <p class="wk-live">${t("working")}</p>
             <p class="wk-name">${current.stepName}</p>
             <p class="wk-meta">${productLine(current)}</p>
-            <p class="wk-when">Started ${timeOf(current.startedAt)}${about(current) ? " · " + about(current) : ""}</p>
-            <button type="button" class="wk-btn teal" data-open="${current._id}">Continue →</button>
+            <p class="wk-when">${t("started", { time: timeOf(current.startedAt) })}${about(current) ? " · " + about(current) : ""}</p>
+            <button type="button" class="wk-btn teal" data-open="${current._id}">${t("continue")}</button>
           </article>`;
       } else {
         var open = openWork(s.data, w), next = open[0], rest = open.slice(1);
         body = next
-          ? html`<h2 class="wk-sec">Your next work</h2>
+          ? html`<h2 class="wk-sec">${t("nextWork")}</h2>
             <article class="wk-task pool">
               <p class="wk-name">${next.stepName}</p>
               <p class="wk-meta">${productLine(next)}${about(next) ? " · " + about(next) : ""}</p>
-              <button type="button" class="wk-btn go" data-open="${next._id}">Start →</button>
+              <button type="button" class="wk-btn go" data-open="${next._id}">${t("start")}</button>
             </article>
-            ${rest.length > 0 && html`<details class="wk-more"><summary>Other work (${rest.length})</summary>${rest.map(function (t) {
-              return html`<button type="button" class="wk-other" data-open="${t._id}"><span><b>${t.stepName}</b><small>${productLine(t)}</small></span><i aria-hidden="true">›</i></button>`;
+            ${rest.length > 0 && html`<details class="wk-more"><summary>${t("otherWork", { n: rest.length })}</summary>${rest.map(function (x) {
+              return html`<button type="button" class="wk-other" data-open="${x._id}"><span><b>${x.stepName}</b><small>${productLine(x)}</small></span><i aria-hidden="true">›</i></button>`;
             })}</details>`}`
-          : html`<div class="wk-card wk-empty" style="margin-top: 12px;"><b>No work open right now</b>Check again in a few minutes.</div>`;
-        bar = html`<button type="button" class="wk-btn2 plain" data-act="shift">End my day</button>`;
+          : html`<div class="wk-card wk-empty" style="margin-top: 12px;"><b>${t("noWork")}</b>${t("checkAgain")}</div>`;
+        bar = html`<button type="button" class="wk-btn2 plain" data-act="shift">${t("endDay")}</button>`;
       }
       return Screen("", top, body, bar);
     },
@@ -277,22 +314,21 @@
   function TakeList(task) {
     var lines = [];
     (task.store || []).forEach(function (m) {
-      lines.push(html`<div class="wk-take"><span aria-hidden="true">🏷️</span><div><b>${m.name}</b>${m.oldest ? html`<small>Lot ${m.oldest.lotNo} · oldest first</small>` : html`<small>None in the store — tell your supervisor</small>`}</div></div>`);
+      lines.push(html`<div class="wk-take"><span aria-hidden="true">🏷️</span><div><b>${m.name}</b><small>${m.oldest ? t("lotOldest", { lot: m.oldest.lotNo }) : t("noneStore")}</small></div></div>`);
     });
     if (task.freezer) {
       var fz = task.freezer, bags = fz.oldest.map(function (g) { return g.bagNo; });
-      lines.push(html`<div class="wk-take"><span aria-hidden="true">🧊</span><div><b>${fz.needKg} kg ${fz.product}</b><small>${bags.length ? "Bags " + bags.join(", ") + " · oldest first" : "No bags in the freezer — tell your supervisor"}</small></div></div>`);
+      lines.push(html`<div class="wk-take"><span aria-hidden="true">🧊</span><div><b>${t("kgN", { n: fz.needKg })} · ${fz.product}</b><small>${bags.length ? t("bagsOldest", { list: bags.join(", ") }) : t("noBags")}</small></div></div>`);
     }
     if (!lines.length) return "";
-    return html`<h2 class="wk-sec">Take</h2><section class="wk-card wk-takes">${lines}</section>`;
+    return html`<h2 class="wk-sec">${t("take")}</h2><section class="wk-card wk-takes">${lines}</section>`;
   }
   /* The time is shown once: here before starting, beside "Started" after. */
   function How(task, withTime) {
     withTime = withTime && task.expectedMinutes > 0;
     if (!task.instructions && !withTime) return "";
-    return html`<h2 class="wk-sec">How to do it</h2><section class="wk-card">${task.instructions && html`<p class="wk-instr">${task.instructions}</p>`}${withTime && html`<p class="wk-time">⏱ ${cap(about(task))}</p>`}</section>`;
+    return html`<h2 class="wk-sec">${t("howTo")}</h2><section class="wk-card">${task.instructions && html`<p class="wk-instr">${task.instructions}</p>`}${withTime && html`<p class="wk-time">⏱ ${t("aboutMinCap", { n: task.expectedMinutes })}</p>`}</section>`;
   }
-  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
   function Field(id, label, f, key, unit, mode) {
     return html`<div class="wk-in-row"><label for="${id}">${label}</label><div class="wk-in"><input id="${id}" inputmode="${mode || "decimal"}" value="${f[key]}" data-f="${key}"><span>${unit}</span></div></div>`;
   }
@@ -300,13 +336,13 @@
      its limit are the office's, on Shop Floor and Month End). */
   function recordedRows(task) {
     var rows = [];
-    if (task.kgIn) rows.push(["Weight", task.kgIn + " → " + task.kgOut + " kg"]);
-    if (task.lots && task.lots.length) rows.push(["Lots", task.lots.map(function (l) { return l.lotNo; }).join(", ")]);
-    if (task.sticksUsed) rows.push(["Sticks", task.sticksUsed + " pcs"]);
-    if (task.bagsMade) rows.push(["Bags made", task.bagsMade.map(function (g) { return g.bagNo; }).join(", ")]);
-    if (task.packets) rows.push(["Packets", task.packets + ""]);
-    if (task.bagsTaken) rows.push(["Bags used", task.bagsTaken.map(function (g) { return g.bagNo; }).join(", ")]);
-    if (task.cartonsPacked) rows.push(["Cartons", task.cartonsPacked + ""]);
+    if (task.kgIn) rows.push([t("rWeight"), task.kgIn + " → " + t("kgN", { n: task.kgOut })]);
+    if (task.lots && task.lots.length) rows.push([t("rLots"), task.lots.map(function (l) { return l.lotNo; }).join(", ")]);
+    if (task.sticksUsed) rows.push([t("rSticks"), t("pcsN", { n: task.sticksUsed })]);
+    if (task.bagsMade) rows.push([t("rBagsMade"), task.bagsMade.map(function (g) { return g.bagNo; }).join(", ")]);
+    if (task.packets) rows.push([t("rPackets"), task.packets + ""]);
+    if (task.bagsTaken) rows.push([t("rBagsUsed"), task.bagsTaken.map(function (g) { return g.bagNo; }).join(", ")]);
+    if (task.cartonsPacked) rows.push([t("rCartons"), task.cartonsPacked + ""]);
     return rows;
   }
 
@@ -314,33 +350,33 @@
     init: function () { return { task: null, loading: true, error: "", acting: false, form: { kgIn: "", kgOut: "", sticks: "", packets: "" } }; },
     load: function (s) {
       api.getTask(app.params.id)
-        .then(function (t) { s.task = t; TaskDetail.prefill(s); })
-        .catch(function (err) { s.error = err.message || "Couldn't load this work."; })
+        .then(function (x) { s.task = x; TaskDetail.prefill(s); })
+        .catch(function (err) { s.error = said(err, "loadFail"); })
         .then(function () { upd(s, { loading: false }); });
     },
     reload: function (s) {
-      return api.getTask(app.params.id).then(function (t) { s.task = t; TaskDetail.prefill(s); render(); });
+      return api.getTask(app.params.id).then(function (x) { s.task = x; TaskDetail.prefill(s); render(); });
     },
     /* The planned quantity is the likely one: packets default to the order. */
     prefill: function (s) {
-      var t = s.task;
-      if (t && t.pack && !s.form.packets && t.batch && t.batch.packets) s.form.packets = String(t.batch.packets);
+      var x = s.task;
+      if (x && x.pack && !s.form.packets && x.batch && x.batch.packets) s.form.packets = String(x.batch.packets);
     },
-    mine: function (s) { var t = s.task; return t && t.status === "in_progress" && t.assignedTo === (app.worker && app.worker._id); },
-    held: function (t) { return t && t.batch && ["on-hold", "rejected"].indexOf(t.batch.stateId) !== -1; },
+    mine: function (s) { var x = s.task; return x && x.status === "in_progress" && x.assignedTo === (app.worker && app.worker._id); },
+    held: function (x) { return x && x.batch && ["on-hold", "rejected"].indexOf(x.batch.stateId) !== -1; },
     /* What still has to be filled before Start / Done — the button says it. */
-    missingToStart: function (s) { var t = s.task; return t.weigh && !(num(s.form.kgIn) > 0) ? "Enter weight before" : ""; },
+    missingToStart: function (s) { return s.task.weigh && !(num(s.form.kgIn) > 0) ? t("mBefore") : ""; },
     missingToFinish: function (s) {
-      var t = s.task, f = s.form;
-      if (t.weigh) {
-        var kin = t.kgInStart || num(f.kgIn);
-        if (!(kin > 0)) return "Enter weight before";
-        if (!(num(f.kgOut) > 0)) return "Enter weight after";
-        if (num(f.kgOut) > kin) return "Weight after is more than before";
+      var x = s.task, f = s.form;
+      if (x.weigh) {
+        var kin = x.kgInStart || num(f.kgIn);
+        if (!(kin > 0)) return t("mBefore");
+        if (!(num(f.kgOut) > 0)) return t("mAfter");
+        if (num(f.kgOut) > kin) return t("mMore");
       }
-      if (t.bags && !(num(f.kgOut) > 0)) return "Enter kg into bags";
-      if (t.sticks && !(num(f.sticks) >= 0)) return "Enter sticks used";
-      if (t.pack && !(num(f.packets) > 0)) return "Enter packets packed";
+      if (x.bags && !(num(f.kgOut) > 0)) return t("mBags");
+      if (x.sticks && !(num(f.sticks) >= 0)) return t("mSticks");
+      if (x.pack && !(num(f.packets) > 0)) return t("mPackets");
       return "";
     },
     start: function (s) {
@@ -348,7 +384,7 @@
       set({ acting: true, error: "" });
       api.claimTask(app.params.id, s.task.weigh ? { kgIn: Number(s.form.kgIn) } : {})
         .then(function () { return TaskDetail.reload(s); })
-        .catch(function (err) { s.error = err.message || "Couldn't start. Try again."; })
+        .catch(function (err) { s.error = said(err, "startFail"); })
         .then(function () { upd(s, { acting: false }); });
     },
     complete: function (s) {
@@ -358,7 +394,7 @@
       set({ acting: true, error: "" });
       api.completeTask(app.params.id, input)
         .then(function () { if (app.page === s) navigate("/done/" + app.params.id, true); })
-        .catch(function (err) { upd(s, { error: err.message || "Couldn't save. Try again.", acting: false }); });
+        .catch(function (err) { upd(s, { error: said(err, "saveFail"), acting: false }); });
     },
     sorted: function (s) {
       set({ acting: true });
@@ -369,50 +405,51 @@
     },
     view: function (s) {
       var task = s.task;
-      var top = Head("Home", task ? task.stepName : "", task ? productLine(task) : "");
-      if (s.loading) return Screen("", top, html`<p class="wk-note">Loading…</p>`);
+      var top = Head(t("home"), task ? task.stepName : "", task ? productLine(task) : "");
+      if (s.loading) return Screen("", top, html`<p class="wk-note">${t("loading")}</p>`);
       if (!task) return Screen("", top, html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`);
       return TaskDetail.mine(s) ? TaskDetail.working(s, top) : TaskDetail.toStart(s, top);
     },
     toStart: function (s, top) {
       var task = s.task, held = TaskDetail.held(task), canStart = task.status === "available" && !held;
-      var state = held ? html`<div class="wk-banner o" style="margin-top: 12px;"><span>✋</span><span>Stop. This batch is on hold. Ask your supervisor.</span></div>`
-        : task.status === "in_progress" ? html`<div class="wk-banner b" style="margin-top: 12px;"><span>👷</span><span>${task.assignedName || "Someone"} is doing this.</span></div>`
-        : task.status === "done" ? html`<div class="wk-banner g" style="margin-top: 12px;"><span>✅</span><span>Done by ${task.assignedName || "—"} at ${timeOf(task.completedAt)}.</span></div>`
-        : task.status !== "available" ? html`<div class="wk-banner o" style="margin-top: 12px;"><span>⏳</span><span>Not ready yet. The work before this is still going.</span></div>` : "";
+      var state = held ? html`<div class="wk-banner o" style="margin-top: 12px;"><span>✋</span><span>${t("held")}</span></div>`
+        : task.status === "in_progress" ? html`<div class="wk-banner b" style="margin-top: 12px;"><span>👷</span><span>${t("doing", { name: task.assignedName || t("someone") })}</span></div>`
+        : task.status === "done" ? html`<div class="wk-banner g" style="margin-top: 12px;"><span>✅</span><span>${t("doneBy", { name: task.assignedName || "—", time: timeOf(task.completedAt) })}</span></div>`
+        : task.status !== "available" ? html`<div class="wk-banner o" style="margin-top: 12px;"><span>⏳</span><span>${t("notReady")}</span></div>` : "";
       var missing = canStart && TaskDetail.missingToStart(s);
+      var rows = task.status === "done" ? recordedRows(task) : [];
       var body = html`${state}
         ${How(task, true)}
         ${task.status !== "done" && TakeList(task)}
-        ${canStart && task.weigh && html`<h2 class="wk-sec">Before you start</h2><section class="wk-card wk-rec">${Field("kg-in", "Weight before", s.form, "kgIn", "kg")}</section>`}
-        ${task.status === "done" && recordedRows(task).length > 0 && html`<h2 class="wk-sec">What was entered</h2><section class="wk-card rows">${recordedRows(task).map(function (r) { return Row(r[0], r[1]); })}</section>`}
+        ${canStart && task.weigh && html`<h2 class="wk-sec">${t("beforeStart")}</h2><section class="wk-card wk-rec">${Field("kg-in", t("wBefore"), s.form, "kgIn", t("unitKg"))}</section>`}
+        ${rows.length > 0 && html`<h2 class="wk-sec">${t("whatEntered")}</h2><section class="wk-card rows">${rows.map(function (r) { return Row(r[0], r[1]); })}</section>`}
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
-      var bar = canStart && html`<button type="button" class="wk-btn go" data-act="start"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? "Starting…" : missing || "▶ Start now"}</button>`;
+      var bar = canStart && html`<button type="button" class="wk-btn go" data-act="start"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("starting") : missing || t("startNow")}</button>`;
       return Screen("", top, body, bar);
     },
     working: function (s, top) {
       var task = s.task, f = s.form, h = task.help;
       var fields = [];
       if (task.weigh) {
-        fields.push(task.kgInStart ? Row("Weight before", task.kgInStart + " kg") : Field("kg-in", "Weight before", f, "kgIn", "kg"));
-        fields.push(Field("kg-out", "Weight after", f, "kgOut", "kg"));
+        fields.push(task.kgInStart ? Row(t("wBefore"), t("kgN", { n: task.kgInStart })) : Field("kg-in", t("wBefore"), f, "kgIn", t("unitKg")));
+        fields.push(Field("kg-out", t("wAfter"), f, "kgOut", t("unitKg")));
       }
-      if (task.sticks) fields.push(Field("sticks", "Sticks used", f, "sticks", "pcs", "numeric"));
+      if (task.sticks) fields.push(Field("sticks", t("sticksUsed"), f, "sticks", t("unitPcs"), "numeric"));
       if (task.bags) {
         var kb = num(f.kgOut), n = kb > 0 ? Math.ceil(kb / task.bags) : 0;
-        fields.push(Field("kg-bag", "Kg into bags", f, "kgOut", "kg"));
-        fields.push(html`<p class="wk-plan">${task.bags} kg in each bag${n ? " · makes " + n + " bag" + (n > 1 ? "s" : "") : ""}. The bag stickers print after Done.</p>`);
+        fields.push(Field("kg-bag", t("kgBags"), f, "kgOut", t("unitKg")));
+        fields.push(html`<p class="wk-plan">${t("eachBag", { kg: task.bags })}${n ? (n === 1 ? t("makesBag") : t("makesBags", { n: n })) : ""}. ${t("stickers")}</p>`);
       }
-      if (task.pack) fields.push(Field("packets", "Packets packed", f, "packets", "pcs", "numeric"));
-      if (task.cartons && task.cartonPlan) fields.push(html`<p class="wk-plan">${task.cartonPlan.packets} packets · ${task.cartonPlan.perCarton} in each carton · ${Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton)} cartons into the freezer.</p>`);
+      if (task.pack) fields.push(Field("packets", t("packetsPacked"), f, "packets", t("unitPcs"), "numeric"));
+      if (task.cartons && task.cartonPlan) fields.push(html`<p class="wk-plan">${t("cartonPlan", { p: task.cartonPlan.packets, per: task.cartonPlan.perCarton, n: Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton) })}</p>`);
       var missing = TaskDetail.missingToFinish(s);
-      var body = html`<section class="wk-hero slim"><p class="wk-live">● Working</p><p class="wk-when">Started ${timeOf(task.startedAt)}${about(task) ? " · " + about(task) : ""}</p></section>
-        ${h && html`<div class="wk-banner g"><span>✅</span><span class="grow">Supervisor told: ${h.label.toLowerCase()} · ${timeOf(h.at)}</span><button type="button" class="wk-mini" data-act="sorted"${attrs({ disabled: s.acting })}>Sorted</button></div>`}
+      var body = html`<section class="wk-hero slim"><p class="wk-live">${t("working")}</p><p class="wk-when">${t("started", { time: timeOf(task.startedAt) })}${about(task) ? " · " + about(task) : ""}</p></section>
+        ${h && html`<div class="wk-banner g"><span>✅</span><span class="grow">${t("told", { label: t(helpOf(h.kind)[3]), time: timeOf(h.at) })}</span><button type="button" class="wk-mini" data-act="sorted"${attrs({ disabled: s.acting })}>${t("sorted")}</button></div>`}
         ${How(task, false)}
         ${TakeList(task)}
-        ${fields.length > 0 && html`<h2 class="wk-sec">Enter</h2><section class="wk-card wk-rec">${fields}</section>`}
+        ${fields.length > 0 && html`<h2 class="wk-sec">${t("enter")}</h2><section class="wk-card wk-rec">${fields}</section>`}
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
-      var bar = html`<button type="button" class="wk-btn go" data-act="complete"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? "Saving…" : missing || "✅ Done"}</button>${!h && html`<button type="button" class="wk-btn2 warn" data-act="help"${attrs({ disabled: s.acting })}>🙋 Problem? Need help</button>`}`;
+      var bar = html`<button type="button" class="wk-btn go" data-act="complete"${attrs({ disabled: s.acting || !!missing })}>${s.acting ? t("saving") : missing || t("doneBtn")}</button>${!h && html`<button type="button" class="wk-btn2 warn" data-act="help"${attrs({ disabled: s.acting })}>${t("needHelp")}</button>`}`;
       return Screen("", top, body, bar);
     },
   };
@@ -422,24 +459,24 @@
   var Help = {
     init: function () { return { task: null, sent: "", sending: "", error: "" }; },
     load: function (s) {
-      api.getTask(app.params.id).then(function (t) { upd(s, { task: t }); }).catch(function () {});
+      api.getTask(app.params.id).then(function (x) { upd(s, { task: x }); }).catch(function () {});
     },
     send: function (s, key) {
       if (s.sending || s.sent) return;
       set({ sending: key, error: "" });
       api.postTaskUpdate(app.params.id, { quickSelect: key })
         .then(function () { upd(s, { sent: key, sending: "" }); })
-        .catch(function () { upd(s, { error: "Couldn't send. Try again.", sending: "" }); });
+        .catch(function () { upd(s, { error: t("sendFail"), sending: "" }); });
     },
     view: function (s) {
       if (s.sent) {
         var h = helpOf(s.sent);
-        return Screen("", null, html`<div class="wk-sent"><div class="wk-win-i" aria-hidden="true">✅</div><h1>Supervisor told</h1><p>${h[1]} ${h[2]}</p><p class="wk-sent-sub">Keep working if you can. They will come to you.</p></div>`,
-          html`<button type="button" class="wk-btn teal" data-act="back">Back to work</button>`);
+        return Screen("", null, html`<div class="wk-sent"><div class="wk-win-i" aria-hidden="true">✅</div><h1>${t("toldTitle")}</h1><p>${h[1]} ${t(h[3])}</p><p class="wk-sent-sub">${t("keepWorking")}</p></div>`,
+          html`<button type="button" class="wk-btn teal" data-act="back">${t("backToWork")}</button>`);
       }
-      var top = Head(s.task ? s.task.stepName : "Back", "What's the problem?", "");
+      var top = Head(s.task ? s.task.stepName : t("back"), t("problem"), "");
       var body = html`<div class="wk-opts">${HELP.map(function (h) {
-          return html`<button type="button" class="wk-opt" data-help="${h[0]}"${attrs({ disabled: !!s.sending })}><span aria-hidden="true">${h[1]}</span>${s.sending === h[0] ? "Sending…" : h[2]}</button>`;
+          return html`<button type="button" class="wk-opt" data-help="${h[0]}"${attrs({ disabled: !!s.sending })}><span aria-hidden="true">${h[1]}</span>${s.sending === h[0] ? t("sending") : t(h[2])}</button>`;
         })}</div>
         ${s.error && html`<div class="wk-banner r">${s.error}</div>`}`;
       return Screen("", top, body);
@@ -451,23 +488,23 @@
   var Done = {
     init: function () { return { task: null, error: "", count: null, next: null, ready: false }; },
     load: function (s) {
-      api.getTask(app.params.id).then(function (t) { upd(s, { task: t }); }).catch(function (err) { upd(s, { error: err.message || "Couldn't load this work." }); });
+      api.getTask(app.params.id).then(function (x) { upd(s, { task: x }); }).catch(function (err) { upd(s, { error: said(err, "loadFail") }); });
       getDashboard(app.worker).then(function (d) {
         upd(s, { count: doneByMe(d, app.worker).length, next: d.currentTask ? null : openWork(d, app.worker)[0] || null, ready: true });
       }).catch(function () { upd(s, { ready: true }); });
     },
     view: function (s) {
-      var t = s.task;
-      if (!t) return Screen("win", null, html`<div class="wk-win">${s.error ? html`<p>${s.error}</p><button type="button" class="wk-btn white" data-act="home">Home →</button>` : ""}</div>`);
-      var rows = recordedRows(t);
+      var x = s.task;
+      if (!x) return Screen("win", null, html`<div class="wk-win">${s.error ? html`<p>${s.error}</p><button type="button" class="wk-btn white" data-act="home">${t("homeArrow")}</button>` : ""}</div>`);
+      var rows = recordedRows(x);
       return Screen("win", null, html`<div class="wk-win">
         <div class="wk-win-i" aria-hidden="true">✅</div>
-        <h1>Well done!</h1>
-        <p>${t.stepName}${s.count ? html`<br><b>${s.count} done today</b>` : ""}</p>
-        ${rows.length > 0 && html`<div class="wk-glass"><h2>What you entered</h2>${rows.map(function (r) { return Row(r[0], r[1]); })}</div>`}
+        <h1>${t("wellDone")}</h1>
+        <p>${x.stepName}${s.count ? html`<br><b>${s.count === 1 ? t("doneToday1") : t("doneToday", { n: s.count })}</b>` : ""}</p>
+        ${rows.length > 0 && html`<div class="wk-glass"><h2>${t("youEntered")}</h2>${rows.map(function (r) { return Row(r[0], r[1]); })}</div>`}
         ${!s.ready ? "" : s.next
-          ? html`<button type="button" class="wk-btn white" data-act="next" data-id="${s.next._id}">Next: ${s.next.stepName} →</button><button type="button" class="wk-btn ghost-light" data-act="home">Home</button>`
-          : html`<button type="button" class="wk-btn white" data-act="home">Home →</button>`}
+          ? html`<button type="button" class="wk-btn white" data-act="next" data-id="${s.next._id}">${t("nextName", { name: s.next.stepName })}</button><button type="button" class="wk-btn ghost-light" data-act="home">${t("home")}</button>`
+          : html`<button type="button" class="wk-btn white" data-act="home">${t("homeArrow")}</button>`}
       </div>`);
     },
   };
@@ -478,7 +515,7 @@
     load: function (s) {
       getDashboard(app.worker)
         .then(function (payload) { s.data = payload; })
-        .catch(function (err) { s.error = err.message || "Couldn't load your day."; })
+        .catch(function (err) { s.error = said(err, "loadDayFail"); })
         .then(function () { upd(s, { loading: false }); });
     },
     view: function (s) {
@@ -486,18 +523,19 @@
       var current = s.data && s.data.currentTask;
       var mine = doneByMe(s.data, w);
       var first = (w.name || "").split(" ")[0];
-      var dayName = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      var top = Head("Home", mine.length ? "Well done, " + first + " 🎉" : "Your day", dayName);
+      var dayName = new Date().toLocaleDateString(I18N.LOCALE[lang], { weekday: "long", day: "numeric", month: "long" });
+      var top = Head(t("home"), mine.length ? t("wellDoneName", { name: first }) : t("yourDay"), dayName);
       var body;
-      if (s.loading) body = html`<p class="wk-note">Loading your day…</p>`;
+      if (s.loading) body = html`<p class="wk-note">${t("loadingDay")}</p>`;
       else if (s.error) body = html`<div class="wk-banner r" style="margin-top: 12px;">${s.error}</div>`;
       else {
         var at = since();
-        body = html`<section class="wk-hero wk-count"><b>${mine.length}</b><span>${mine.length === 1 ? "work" : "works"} done today</span>${at && html`<small>Signed in at ${timeOf(at)}</small>`}</section>
-          ${current && html`<div class="wk-banner o"><span>⏳</span><span>Finish ${current.stepName} first.</span></div>`}
-          ${mine.length > 0 && html`<h2 class="wk-sec">What you did</h2><div class="wk-card rows">${mine.map(function (t) { return Row(html`${t.stepName}<small>${productLine(t)}</small>`, timeOf(t.completedAt)); })}</div>`}`;
+        body = html`<section class="wk-hero wk-count"><b>${mine.length}</b><span>${mine.length === 1 ? t("workDone1") : t("worksDone")}</span>${at && html`<small>${t("signedAt", { time: timeOf(at) })}</small>`}</section>
+          ${current && html`<div class="wk-banner o"><span>⏳</span><span>${t("finishFirst", { name: current.stepName })}</span></div>`}
+          ${mine.length > 0 && html`<h2 class="wk-sec">${t("whatYouDid")}</h2><div class="wk-card rows">${mine.map(function (x) { return Row(html`${x.stepName}<small>${productLine(x)}</small>`, timeOf(x.completedAt)); })}</div>`}
+          <h2 class="wk-sec">${t("language")}</h2><div class="wk-lang-card">${LangSwitch()}</div>`;
       }
-      var bar = html`<button type="button" class="wk-btn teal" data-act="logout"${attrs({ disabled: !!current || s.loading })}>${current ? "Finish your work first" : "End my day"}</button>`;
+      var bar = html`<button type="button" class="wk-btn teal" data-act="logout"${attrs({ disabled: !!current || s.loading })}>${current ? t("finishWork") : t("endDay")}</button>`;
       return Screen("", top, body, bar);
     },
   };
@@ -541,10 +579,19 @@
   rootEl.addEventListener("input", function (e) {
     var el = e.target, f = el.getAttribute("data-f");
     if (f && app.view === TaskDetail) { app.page.form[f] = el.value; render(); return; }
-    if (el.getAttribute("data-model") === "name" && app.view === Login) { app.page.name = el.value; render(); }
+    if (el.getAttribute("data-model") === "phone" && app.view === Login) {
+      var v = digitsOnly(el.value).slice(0, PHONE_LENGTH);
+      if (el.value !== v) el.value = v;
+      app.page.phone = v; app.page.error = "";
+      /* all 10 digits in: put the phone's keyboard away so the PIN pad shows */
+      if (v.length === PHONE_LENGTH) el.blur();
+      render();
+    }
   });
   rootEl.addEventListener("click", function (e) {
     var s = app.page;
+    var lg = e.target.closest("[data-lang]");
+    if (lg) { setLang(lg.getAttribute("data-lang")); return; }
     var open = e.target.closest("[data-open]");
     if (open && !open.disabled) { navigate("/task/" + open.getAttribute("data-open")); return; }
     var key = e.target.closest("[data-digit]");

@@ -879,10 +879,21 @@
 
     route("POST", "/api/auth/worker-login", function (r) {
       var b = r.body || {};
-      if (typeof b.name !== "string" || !b.name.trim() || typeof b.pin !== "string" || b.pin.length < 3 || b.pin.length > 10) throw invalid();
-      var name = b.name.trim().toLowerCase();
-      var w = db.workers.filter(function (x) { return x.name.toLowerCase() === name; })[0];
-      if (!w || w.role === "admin" || w.pin !== b.pin) throw new ApiError(401, "Invalid name or PIN");
+      if (typeof b.pin !== "string" || b.pin.length < 3 || b.pin.length > 10) throw invalid();
+      var w;
+      /* The worker app signs in by phone number + PIN (28 Sep 2026): the
+         last 10 digits, so "+91 98…" and "98…" are the same phone. */
+      if (b.phone != null) {
+        var ph = String(b.phone).replace(/\D/g, "").slice(-10);
+        if (ph.length !== 10) throw invalid();
+        w = db.workers.filter(function (x) { return String(x.phone || "").replace(/\D/g, "").slice(-10) === ph; })[0];
+        if (!w || w.role === "admin" || w.pin !== b.pin) throw new ApiError(401, "Wrong phone number or PIN");
+      } else {
+        if (typeof b.name !== "string" || !b.name.trim()) throw invalid();
+        var name = b.name.trim().toLowerCase();
+        w = db.workers.filter(function (x) { return x.name.toLowerCase() === name; })[0];
+        if (!w || w.role === "admin" || w.pin !== b.pin) throw new ApiError(401, "Invalid name or PIN");
+      }
       w.isOnline = true; w.updatedAt = iso(); commit();
       return Object.assign({ worker: workerJSON(w) }, tokens(w));
     });
@@ -1187,6 +1198,7 @@
     return {
       loadSession: loadSession, saveSession: saveSession, clearSession: clearSession,
       setUnauthorizedHandler: function (fn) { onUnauthorized = fn; },
+      workerLoginPhone: function (phone, pin) { return request("POST", "/api/auth/worker-login", { data: { phone: phone, pin: pin } }); },
       workerLogin: function (name, pin) { return request("POST", "/api/auth/worker-login", { data: { name: name, pin: pin } }); },
       listSignInWorkers: function () { return request("GET", "/api/auth/workers").then(g("workers")); },
       workerLoginAs: function (id) { return request("POST", "/api/auth/worker-login-as", { data: { worker: id } }); },

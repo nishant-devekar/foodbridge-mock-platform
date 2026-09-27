@@ -153,3 +153,14 @@ test("sign in as: the floor roster, and straight in without a PIN", () => {
   assert.equal(h("GET", "/api/auth/me", {}, null, "Bearer " + r.data.accessToken).data.worker._id, roster[0]._id);
   assert.equal(h("POST", "/api/auth/worker-login-as", {}, { worker: "nope" }).status, 404);
 });
+
+test("worker app signs in by phone number + PIN, any formatting of the number", () => {
+  const { h } = server();
+  const ok = h("POST", "/api/auth/worker-login", {}, { phone: "+91 55505 10001", pin: "1111" });
+  assert.equal(ok.data.worker.name, "Asha");
+  assert.equal(ok.data.worker.phone, "5550510001");
+  assert.equal(h("POST", "/api/auth/worker-login", {}, { phone: "5550510001", pin: "9999" }).status, 401);
+  assert.equal(h("POST", "/api/auth/worker-login", {}, { phone: "5550510009", pin: "1111" }).status, 401);
+  assert.equal(h("POST", "/api/auth/worker-login", {}, { phone: "123", pin: "1111" }).status, 400);
+});
+

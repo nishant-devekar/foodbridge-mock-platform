@@ -21,7 +21,7 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #dfe3e8; color: var(--ink); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+body { font-family: "Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #dfe3e8; color: var(--ink); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; border: 0; background: none; }
 button:disabled { cursor: default; }
@@ -120,8 +120,22 @@ button:disabled { cursor: default; }
 .wk-me b { display: block; font-size: 18px; font-weight: 700; }
 .wk-me small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
 .wk-me label { display: block; font-size: 13px; font-weight: 600; color: var(--ink3); margin-bottom: 8px; }
-.wk-name-in { width: 100%; max-width: 280px; padding: 14px 16px; border: 2px solid var(--line); border-radius: 14px; font-size: 17px; font-weight: 600; text-align: center; background: #fafafa; outline: none; }
-.wk-name-in:focus { border-color: var(--teal); background: #fff; }
+/* phone number: +91 then 10 digits, big and spaced like on a card */
+.wk-phone { display: flex; align-items: center; width: 100%; max-width: 300px; margin: 0 auto; border: 2px solid var(--line); border-radius: 14px; background: #fafafa; overflow: hidden; }
+.wk-phone:focus-within { border-color: var(--teal); background: #fff; }
+.wk-phone span { padding: 0 4px 0 16px; font-size: 18px; font-weight: 700; color: var(--muted); }
+.wk-phone input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 14px 16px 14px 6px; font-size: 20px; font-weight: 700; letter-spacing: 1.5px; font-variant-numeric: tabular-nums; }
+.wk-phone input::placeholder { color: #b8bcc3; letter-spacing: 1px; font-weight: 600; }
+
+/* language: English · हिंदी · मराठी */
+.wk-lang-row { display: flex; justify-content: flex-end; padding: 10px 12px 0; }
+.wk-lang { display: inline-flex; gap: 2px; padding: 3px; border-radius: 20px; background: rgba(255, 255, 255, .15); }
+.wk-lang button { padding: 6px 12px; border-radius: 17px; font-size: 13px; font-weight: 700; color: rgba(255, 255, 255, .85); }
+.wk-lang button.on { background: #fff; color: var(--teal); }
+.wk-lang-card { margin: 0 12px 10px; }
+.wk-lang-card .wk-lang { display: flex; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); padding: 4px; }
+.wk-lang-card .wk-lang button { flex: 1; padding: 12px 8px; font-size: 16px; color: var(--ink3); }
+.wk-lang-card .wk-lang button.on { background: var(--teal); color: #fff; }
 .wk-pin { display: flex; gap: 16px; justify-content: center; margin: 20px 0 6px; }
 .wk-pin i { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--teal); transition: background-color .15s; }
 .wk-pin i.on { background: var(--teal); }

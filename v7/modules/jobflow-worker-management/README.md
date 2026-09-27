@@ -71,8 +71,11 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
   - Every task carries `updateCount`.
   - Updates also take `sorted`.
   - `/api/alerts` raises `help` alerts.
+- **Languages:** English, हिंदी and मराठी. Every fixed word is in [`worker-app/i18n.js`](worker-app/i18n.js) (one table per language, English as the fallback), including role names and the API messages a worker can meet.
+  - The switch is on sign-in (top right, as in the mockup) and on My day. The phone remembers the choice (`fb.v7.jobflow.lang`).
+  - Times and dates follow the language but keep 0–9 digits, as on the scale and the stickers. Devanagari uses Noto Sans Devanagari.
+  - Step names, instructions and product names are data: they show as the office typed them. Type them in Hindi or Marathi in Process Steps to have them read that way.
 - **Not built yet:**
-  - Sign-in and language, both left as they are for now.
   - A voice note per step, which needs a recorder on Process Steps.
   - Pause, Undo, photos.
 
@@ -86,18 +89,18 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
 ## Signing in
 
 - **Admin:** opens signed in as the seeded admin. After Sign out, use `admin@jobflow.local` / `admin1234`.
-- **Worker app:** name + PIN (names are matched without case). After the first sign-in, the phone remembers the worker and asks only for the PIN.
+- **Worker app:** phone number + PIN. Any formatting of the number works; the last 10 digits are matched. After the first sign-in, the phone remembers the worker and their number, and asks only for the PIN. "Use a sample worker" signs in with one tap and no PIN.
 
-| Name | PIN | Role |
-| --- | --- | --- |
-| Asha | 1111 | washer |
-| Ravi | 2222 | dough maker (making dough now) |
-| Meena | 3333 | packer (a packing order waiting) |
-| Suresh | 4444 | washer |
-| Farida | 5555 | blancher (blanch waiting) |
-| Kiran | 6666 | packer |
+| Phone | PIN | Name | Role |
+| --- | --- | --- | --- |
+| 5550510001 | 1111 | Asha | washer |
+| 5550510002 | 2222 | Ravi | dough maker (making dough now) |
+| 5550510003 | 3333 | Meena | packer (a packing order waiting) |
+| 5550510004 | 4444 | Suresh | washer |
+| 5550510005 | 5555 | Farida | blancher (blanch waiting) |
+| 5550510006 | 6666 | Kiran | packer |
 
-Staff added in Workforce Management with a factory role sign in with their name and the last 4 digits of their phone.
+Staff added in Workforce Management with a factory role sign in with their phone number. Their PIN is the last 4 digits of that number.
 
 ## Pixel parity with the React builds
 
