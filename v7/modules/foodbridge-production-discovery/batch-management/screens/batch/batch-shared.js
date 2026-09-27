@@ -657,6 +657,11 @@ const MockApi = (function () {
         b.operator = newOperator.name;
       }
       saveSeed(seed);
+      /* Start is where production begins (owner, 28 Sep 2026): the batch's
+         steps go to today's shift on the floor, for the crew who are in. */
+      if (trigger === "start" && window.FB_PRODUCTION && window.FB_PRODUCTION.releaseToFloor) {
+        try { window.FB_PRODUCTION.releaseToFloor(b.id, "admin"); } catch (e) { console.warn("Not put on the floor:", e); }
+      }
       return withDerived(b);
     },
     async editBatchDates(id, { plannedDate, expectedFinishDate, note }) {

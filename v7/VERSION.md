@@ -2819,18 +2819,21 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 - **Fixed:** Raw Material Inventory showed *Available 69.80000000000001 kg* (the subtraction wasn't rounded).
 - Tests: 32 pass (4 new in `semi-finished.test.js`). `?v=` `20260928SF1`.
 
-### 28 September 2026 — Sales Orders: the rebuilt, production-identical screen
+### 28 September 2026 — Production board: one page instead of Plan, Shifts and Shop Floor
 
-**Owner:** bring v7's Sales Orders up to the version updated a day ago.
+**Owner:** challenge the three pages and build the one-page redesign end to end. Then a ruthless review: only must-haves at a glance; no quick buttons (Raise PO, Going, Seen), just a call to the person who can sort it; starting follows the batch's own workflow.
 
-- `modules/foodbridge-sales-orders-mockup` is now v6's rebuild (`a81377f`, 27 Sep 2026), copied file for file. That's a vanilla HTML/CSS/JS replica of production's `/orders` screen and every flow it opens:
-  - the list and status audit;
-  - Create Sales Order;
-  - Follow-up Reminders and Create Delivery;
-  - Bulk and Route Bulk orders;
-  - Thermal Print;
-  - Forecast, Generate Demand, Google Sheet and Download All, for tenants that switch them on.
-- It was pixel-diffed against the production module over 88 states and 4 widths (272 of 278 captures identical). v7's copy was the old hand-ported mock; those screens stay as `legacy-hub.html` for reference.
-- The sidebar opens `index.html`. Its sidebar and header are the same shared shell as before, so the Production pages' copy of the header (`assets/app-header.js`) still matches.
-- EXIT DEMO still lands in the screen's own phone bar (`exitIn`), checked at 375 px.
-- `?v=` `20260928SO1`.
+- **Production › Production board** (`modules/foodbridge-production-flow/production.html`).
+  - **Today:** a one-line glance, then **Needs you** (each line one **Call** with a name and a `tel:` number), then *On the floor → To start → Done today* (a progress bar and one line of what's happening per batch), then **Crew today** with the worker-app QR.
+  - **This week:** the old Production Plan (sell · make · buy).
+- **The board starts nothing.**
+  - To start cards and every batch card open the batch in **Batches** (`#/production/batch-management?batch=…`). There, Batches' own **Start → Update Status → Confirm Update** begins production. That Start now puts the batch's steps on today's shift for the crew who are in (`batch-shared.js` → `FB_PRODUCTION.releaseToFloor` → `D.releaseToFloor` → `D.startOnFloor`).
+  - The plan's **Create N kg batch ›** opens Batches' **Create batch** with the recipe and size filled in (`?create=…&size=…`; `create-batch.js` reads `?recipe=&size=`).
+- **Who to call**, carried on every alert as `call` in `D.alerts`:
+  - a help call or a loss over the limit → the worker;
+  - a step nobody picked up or a batch on hold → the batch's supervisor (`D.supervisorOf`);
+  - short material → the purchase person, a new demo contact (`purchase` in the store, `D.purchase()`), with all shortages in one line.
+
+  Lines clear themselves when the floor moves on.
+- **Retired:** the Production Plan, Shifts and Shop Floor leaves (sidebar: Production board · Recipes · Batches); `plan.html`; the JobFlow admin app `admin-web/` with `shared/floor.css` and `shared/frame.css`. Old addresses land on the board.
+- Tests: 35 pass (`board.test.js`: joining today's shift, who to call, Start in Batches reaching the floor). `?v=` `20260928PB2`–`PB4`: the board, Batches' pages and their store, the Worker App.

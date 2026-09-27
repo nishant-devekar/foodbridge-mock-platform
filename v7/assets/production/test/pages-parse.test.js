@@ -15,9 +15,8 @@ const vm = require("vm");
 
 const V7 = path.join(__dirname, "..", "..", "..");
 const PAGES = [
-  "modules/foodbridge-production-flow/plan.html",
+  "modules/foodbridge-production-flow/production.html",
   "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html",
-  "modules/jobflow-worker-management/admin-web/index.html",
   "modules/jobflow-worker-management/worker-app/index.html",
   "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html",
   "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-detail.html",

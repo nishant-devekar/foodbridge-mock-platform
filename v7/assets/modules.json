@@ -246,10 +246,22 @@
       "icon": "factory",
       "submenus": [
         {
-          "_why": "26 Sep 2026, owner's 'JobFlow in Production' decisions: Production in the order the work happens — plan, define, run, stock, close. Every leaf reads and writes ONE production store (assets/production/production-api.js): recipes, batches, the shop floor, raw-material lots, the freezer's bags and the packets. This one is stage 3 of the reference flow: orders + next week's sales − packets − freezer bags → batches to make → raw material to buy.",
-          "id": "production-plan",
-          "name": "Production Plan",
-          "url": "modules/foodbridge-production-flow/plan.html?v=20260928SF1",
+          "_why": "28 Sep 2026, owner: one page instead of Production Plan, Shifts and Shop Floor. Needs you on top; To make → On the floor → Done along a batch's life; Crew today at the foot with the worker-app QR; a This week lens for the plan. 'Put on the floor' makes or joins today's shift itself. Reads and writes the one production store (assets/production/production-api.js). The three old leaves are retired and their addresses land here.",
+          "id": "production-board",
+          "aliases": [
+            "production-plan",
+            "production/production-plan",
+            "shifts",
+            "production/shifts",
+            "worker-shifts",
+            "shop-floor",
+            "production/shop-floor",
+            "worker-management",
+            "worker-live",
+            "worker-analytics"
+          ],
+          "name": "Production board",
+          "url": "modules/foodbridge-production-flow/production.html?v=20260928PB4",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -276,38 +288,11 @@
             "worker-batches"
           ],
           "name": "Batches",
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260928SF1",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260928PB2",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
           "owner": "nishant-devekar/foodbridge-production-discovery"
-        },
-        {
-          "id": "shifts",
-          "aliases": [
-            "worker-shifts"
-          ],
-          "name": "Shifts",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928SF1&at=shifts#/shifts",
-          "clipLeft": 240,
-          "hideBurger": true,
-          "clipLeftMobile": 240,
-          "owner": "Nidhimehta9399/jobflow-admin-web"
-        },
-        {
-          "_why": "JobFlow's Dashboard, rebuilt as the Shop Floor: every batch on a live shift, step by step, by line, with the floor's alerts and the freezer. Opens the Worker App by QR.",
-          "id": "shop-floor",
-          "aliases": [
-            "worker-management",
-            "worker-live",
-            "worker-analytics"
-          ],
-          "name": "Shop Floor",
-          "url": "modules/jobflow-worker-management/admin-web/index.html?v=20260928SF1&at=floor#/",
-          "clipLeft": 240,
-          "hideBurger": true,
-          "clipLeftMobile": 240,
-          "owner": "Nidhimehta9399/jobflow-admin-web"
         }
       ],
       "personas": [
@@ -421,7 +406,7 @@
       "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
       "id": "worker-app",
       "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928SF1",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260928PB2",
       "clipLeft": 0,
       "fullBleed": true,
       "deviceFrame": true,

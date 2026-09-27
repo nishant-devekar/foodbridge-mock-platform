@@ -9,11 +9,11 @@ Before this, Batch Management, Configure Recipe, JobFlow and the inventories eac
 | `recipes`, `recipeHeaders`, `operators`, `batches` | **Batch Management**. These use its own `seed.json` shape, and its `loadSeed()` / `saveSeed()` point here. Its `packagingLines` and `hostProducts` are not stored: `batchSeed()` makes them from `skus` each time it loads. |
 | `book` (line, ingredients, making cost) | **Configure Recipe**, through `recipe-store.js`. |
 | `skus` (the packs: size, per carton, price, pouch, split, retired) | Changed only in **Recipes → Packaging** (`D.savePack` / `D.retirePack`). Read by the header, Cost, the Production split, Production Plan, Batch Management, the Worker App's pack step and Finished Goods. |
-| `workflows`, `shifts`, `tasks`, `workers` | **Recipes → Process** (the steps, through the JobFlow API), **Shifts**, **Shop Floor** and the **Worker App** (JobFlow). |
+| `workflows`, `shifts`, `tasks`, `workers` | **Recipes → Process** (the steps, through the JobFlow API), **Batch Management**'s Start (which puts the batch's steps on today's shift: `D.releaseToFloor` → `D.startOnFloor`) and the **Worker App**. The **Production board** reads them. |
 | `materials`, `lots`, `ordered` (raw material, and packaging: pouches, cartons, big bags) | **Raw Material Inventory** (merged in by `MockShell.loadSeed`), **Receive Stock**, **Production Plan**. Each lot also has its stickers (see below). |
 | `bags` | **Inventory → Semi-Finished Inventory** (merged in by the Inventory module's `mock-shell.js`, via `D.semiFinished` and `D.bagHistory`). The recipe's fill step fills them (what they are and where they're kept: its container, unit and store); packing empties them, oldest first. |
 | `fg` | **Finished Goods Inventory**. Packing orders post their packets here. |
-| `demand` | **Production Plan**: weekly sales and orders in hand. |
+| `demand` | **Production board › This week**: weekly sales and orders in hand. |
 
 ## The business
 
@@ -42,7 +42,7 @@ So every lot, bag and packet adds up the way live use will. A new day starts a n
   - A truck sent back at the gate never enters the store, so it gets no stickers.
 - **Taking from the store.** A weighing step with materials takes from the oldest lot first, splitting what went in by the recipe's ratio. Each take is an *issue* on the batch's Ingredients tab. If the store can't cover a step, the step fails and nothing changes.
 - **Batch status is moved by the floor.** The first step started moves a batch from Planned to In Progress. The last step done moves it to Completed, with the bagged kg as its outcome. A batch On Hold or Rejected can't be started on the floor.
-- **Weight loss.** A loss over the step's limit becomes an alert on Shop Floor.
+- **Weight loss.** A loss over the step's limit becomes a line on the Production board's **Needs you** (`D.alerts`, which `/api/alerts` also serves). Help calls, steps nobody picked up and batches on hold join it. Each line says who to call (`call`: the worker, the batch's supervisor via `D.supervisorOf`, or `D.purchase()` for short material) and clears itself when the floor moves on.
 - **Packing** takes kg from the oldest bags and one pouch a packet. Its cartons step takes whole cartons, posts the packets to Finished Goods and marks the order synced. A packing order keeps the carton size it was made with.
 - **Packs** (Recipes → Packaging): a pack that has been made keeps its size (a new size is a new pack). Changing one pack's split rebalances the others to 100%; retiring a pack gives its split to the rest. A cost per packet = the recipe's cost per kg × kg + pouch + carton ÷ per carton.
 - **Plan:**

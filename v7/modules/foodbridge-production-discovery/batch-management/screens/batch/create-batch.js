@@ -426,6 +426,15 @@
       render();
       state.recipes = await MockApi.listRecipes();
       render();
+      /* From the Production board's plan (28 Sep 2026): ?recipe=<id>&size=<kg>
+         opens with the recipe picked and the size filled; the rest is this
+         form's own steps. */
+      const want = params.get("recipe");
+      const pick = want && state.recipes.find((r) => r.id === want);
+      if (pick) {
+        if (params.get("size")) state.batchSize = String(params.get("size"));
+        selectRecipe(pick.id, pick.name);
+      }
     }
   })();
 

@@ -2,12 +2,13 @@
 
 HTML versions of the two JobFlow clients by Nidhimehta9399 (received as a zip, 26 Sep 2026), made part of **Production** that same day under the owner's "JobFlow in Production" decisions.
 
-| Production leaf | Page | From |
+| Now | Page | From |
 | --- | --- | --- |
-| Process Steps: retired as a leaf 28 Sep 2026, now the Recipes leaf's **Process** tab (`recipe-steps.js`) | [`admin-web/`](admin-web/index.html) `#/steps` still works on its own | JobFlow's Workflow Editor, bound to recipes |
-| Shifts | `admin-web/` `#/shifts` | JobFlow's Shifts |
-| Shop Floor | `admin-web/` `#/` | JobFlow's Dashboard, rebuilt |
+| Process Steps → the Recipes leaf's **Process** tab (28 Sep 2026) | `recipe-steps.js` in Recipes | JobFlow's Workflow Editor, bound to recipes |
+| Shifts and Shop Floor → **Production › Production board** (28 Sep 2026) | [`foodbridge-production-flow/production.html`](../foodbridge-production-flow/production.html) | JobFlow's Shifts and Dashboard |
 | Worker App (standalone `#/worker-app`, by QR) | [`worker-app/`](worker-app/index.html) | JobFlow's worker PWA |
+
+**The admin app is retired (28 Sep 2026).** `admin-web/` (its Shifts, Shop Floor, sign-in and Process Steps), `shared/floor.css` and `shared/frame.css` are deleted. Its jobs moved to the Production board (plan, crew, floor, alerts, worker-app QR) and to Recipes › Process. A shift is no longer made by hand: a batch's **Start** in Batches puts its steps on today's morning or evening shift (`D.releaseToFloor`). What is left here is the Worker App and `shared/ui.js`, which it uses.
 
 The data is the platform's production store, [`v7/assets/production/`](../../assets/production/README.md), shared with:
 - Recipes
@@ -96,14 +97,10 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
 
 ## Inside the platform
 
-- The admin's own 240px sidebar is clipped (`clipLeft` / `clipLeftMobile` 240). Its pages are Production leaves, which differ by `?at=`, so every switch is a real page load. On a phone, its "Signed in as" bar sits under the platform header (`mHeaderH` 61).
-- The worker app is standalone and full-bleed, drawn in a phone frame on a big screen, and opened from the QR on Shop Floor and Shifts.
-- `shared/frame.css` fits both to the shell (the EXIT DEMO inset, and dialogs between the bands), and only when the shell sets its insets.
-- `shared/floor.css` styles everything the integration added, in plain CSS on JobFlow's palette.
+- The worker app is standalone and full-bleed, drawn in a phone frame on a big screen, and opened from the QR in the Production board's **Crew today**.
 
 ## Signing in
 
-- **Admin:** opens signed in as the seeded admin. After Sign out, use `admin@jobflow.local` / `admin1234`.
 - **Worker app:** phone number + PIN. Any formatting of the number works; the last 10 digits are matched. After the first sign-in, the phone remembers the worker and their number, and asks only for the PIN. "Use a sample worker" signs in with one tap and no PIN.
 
 | Phone | PIN | Name | Role |

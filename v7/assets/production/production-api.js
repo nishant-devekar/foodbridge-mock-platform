@@ -177,6 +177,9 @@
     { id: "op-priya", name: "Priya Sharma", contact: "9800011122" },
     { id: "op-suresh", name: "Suresh Kumar", contact: "9876543210" },
   ];
+  /* Who buys: short material on the Production board is a call to this
+     person (owner, 28 Sep 2026). A demo contact, like the supervisors. */
+  var PURCHASE = { name: "Vikas Mehra", role: "Purchase", contact: "5550403001" };
   /* Weekly packets sold, last four weeks (oldest first), open orders now. */
   var DEMAND = {
     "fg-p01": [260, 240, 280, 300, 180], "fg-p02": [180, 200, 190, 220, 140], "fg-p03": [90, 110, 100, 120, 70], "fg-p04": [8, 10, 6, 12, 6],
@@ -547,6 +550,101 @@
       });
       return created;
     };
+    /* ── the Production board (28 Sep 2026) ────────────────────────────
+       One page replaces Production Plan, Shifts and Shop Floor. A shift is
+       no longer made by hand: "Put on the floor" makes or joins today's
+       morning or evening shift, adds the crew and the batch, and makes the
+       batch's tasks — the Shifts page's create · tick · tick · publish. */
+    function sameDay(a, b) { return isoDay(a) === isoDay(b); }
+    D.slotOf = function (shift) { return new Date(shift.startTime).getHours() < 14 ? "morning" : "evening"; };
+    D.todayShift = function (slot) {
+      var t = now();
+      return db.shifts.filter(function (s) { return s.status !== "ended" && sameDay(new Date(s.startTime).getTime(), t.getTime()) && D.slotOf(s) === slot; })
+        .sort(function (a, b) { return (b.status === "live") - (a.status === "live") || a._seq - b._seq; })[0] || null;
+    };
+    D.startOnFloor = function (batchId, o) {
+      o = o || {};
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (["planned", "in-progress"].indexOf(b.stateId) === -1) throw new ApiError(409, b.batchNumber + " is " + b.statusLabel.toLowerCase() + " and can't go on the floor");
+      var slot = o.slot === "evening" ? "evening" : "morning";
+      var crew = (o.crew || []).filter(function (id) { var w = D.worker(id); return w && w.role !== "admin"; });
+      if (!crew.length) throw invalid("Pick at least one person for the crew");
+      var sh = D.todayShift(slot);
+      if (!sh) {
+        var t = now(), start = new Date(t.getFullYear(), t.getMonth(), t.getDate(), slot === "morning" ? 7 : 15);
+        sh = { _id: newId(db), name: (slot === "morning" ? "Morning" : "Evening") + " Shift — Today", startTime: start.toISOString(), status: "live", workers: [], batches: [],
+          createdAt: iso(), updatedAt: iso(), __v: 0, _seq: ++db.seq };
+        db.shifts.push(sh);
+      }
+      crew.forEach(function (id) { if (sh.workers.indexOf(id) === -1) sh.workers.push(id); });
+      if (sh.batches.indexOf(b.id) === -1) sh.batches.push(b.id);
+      sh.status = "live"; sh.updatedAt = iso();
+      var made = D.generateTasks(sh);
+      D.emit("production.shift.live", { where: "Production", how: "office", by: o.actor || "admin", data: { shift: sh.name, batch: b.batchNumber, crew: crew.length } });
+      return { shift: sh, tasks: made };
+    };
+    /* Starting a batch is Batch Management's own step (owner, 28 Sep 2026:
+       no quick start on the board). Its Start puts the batch's steps on the
+       floor: the shift for the time of day, the crew who are in today (or
+       today's shift, or everyone, so the steps always reach someone). */
+    D.releaseToFloor = function (batchId, actor) {
+      var t = now(), slot = t.getHours() < 14 ? "morning" : "evening";
+      var people = db.workers.filter(function (w) { return w.role !== "admin"; });
+      var sh = D.todayShift(slot);
+      var crew = people.filter(function (w) { return w.isOnline; }).map(function (w) { return w._id; });
+      if (!crew.length && sh) crew = sh.workers.slice();
+      if (!crew.length) crew = people.map(function (w) { return w._id; });
+      return D.startOnFloor(batchId, { slot: slot, crew: crew, actor: actor });
+    };
+    /* Who to call about something: a worker by their phone, a batch's
+       supervisor, the purchase person. */
+    D.purchase = function () { return db.purchase || clone(PURCHASE); };
+    D.supervisorOf = function (b) {
+      var op = (db.operators || []).filter(function (o) { return b && o.name === b.operator; })[0];
+      return op ? { name: op.name, role: "Supervisor", contact: op.contact } : null;
+    };
+    function workerContact(id) { var w = D.worker(id); return w && w.phone ? { name: w.name, role: w.role, contact: w.phone } : null; }
+    /* A worker's call for help stays open while the step runs, until they
+       say it is sorted. */
+    var HELP = { need_materials: "Material finished", issue_found: "Machine problem", need_help: "Needs the supervisor" };
+    D.openHelp = function (t) {
+      if (t.status !== "in_progress") return null;
+      var last = db.updates.filter(function (u) { return u.task === t._id && (HELP[u.quickSelect] || u.quickSelect === "sorted"); })
+        .sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })[0];
+      return last && HELP[last.quickSelect] ? { kind: last.quickSelect, label: HELP[last.quickSelect], at: last.createdAt } : null;
+    };
+    /* What needs the office, from the floor's record: help calls, loss over
+       the limit (today), steps nobody has picked up, batches on hold. Each
+       says who to call; each clears itself when the floor moves on. */
+    D.alerts = function () {
+      var out = [], nowT = now().getTime();
+      var live = db.shifts.filter(function (s) { return s.status === "live"; }).map(function (s) { return s._id; });
+      db.tasks.forEach(function (t) {
+        var h = D.openHelp(t), b = h && D.batch(t.batch);
+        if (!h) return;
+        out.push({ _id: "help-" + t._id, type: "help", kind: h.kind, createdAt: h.at, batch: b ? b.id : null, worker: t.assignedName || null, step: t.stepName, product: b ? b.displayName : "", call: workerContact(t.assignedTo),
+          message: (t.assignedName || "A worker") + " on " + t.stepName + (b ? " · " + b.batchNumber : "") + ": " + h.label.toLowerCase() + "." });
+      });
+      db.tasks.filter(function (t) { return t.status === "done" && t.weigh && t.loss != null && t.lossPct > t.loss && nowT - new Date(t.completedAt).getTime() < DAY; }).forEach(function (t) {
+        var b = D.batch(t.batch);
+        out.push({ _id: "loss-" + t._id, type: "weight_loss", isRead: false, createdAt: t.completedAt, batch: b.id, worker: t.assignedName || null, step: t.stepName, product: b.displayName, lossPct: t.lossPct, allowed: t.loss, call: workerContact(t.assignedTo),
+          message: t.stepName + " on " + b.batchNumber + " lost " + t.lossPct + "% (" + t.kgIn + " → " + t.kgOut + " kg). The recipe allows " + t.loss + "%." });
+      });
+      db.tasks.filter(function (t) { return t.status === "available" && live.indexOf(t.shift) !== -1 && t.availableAt && nowT - new Date(t.availableAt).getTime() > 20 * MIN; }).forEach(function (t) {
+        var b = D.batch(t.batch);
+        if (!b || ["on-hold", "rejected"].indexOf(b.stateId) !== -1) return;
+        var mins = Math.round((nowT - new Date(t.availableAt).getTime()) / MIN);
+        out.push({ _id: "idle-" + t._id, type: "waiting", isRead: false, createdAt: t.availableAt, batch: b.id, step: t.stepName, product: b.displayName, minutes: mins, call: D.supervisorOf(b),
+          message: t.stepName + " on " + b.batchNumber + " has waited " + mins + " min and no one has started it." });
+      });
+      db.batches.filter(function (b) { return b.stateId === "on-hold"; }).forEach(function (b) {
+        out.push({ _id: "hold-" + b.id, type: "on_hold", isRead: false, createdAt: b.statusHistory[b.statusHistory.length - 1].timestamp, batch: b.id, product: b.displayName, call: D.supervisorOf(b),
+          message: b.batchNumber + " · " + b.displayName + " is on hold. Its steps are paused on the floor." });
+      });
+      out.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+      return out;
+    };
     D.claim = function (task, worker, input) {
       var b = D.batch(task.batch);
       if (task.status !== "available") throw new ApiError(409, "Task is not available to claim");
@@ -792,7 +890,7 @@
       workers: [], workflows: [], shifts: [], tasks: [], updates: [], lots: [], bags: [],
       recipes: [], recipeHeaders: {}, operators: clone(SUPERVISORS), batches: [], book: {}, recipeOrder: [],
       materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10], kind: m[11] || "raw" }; }),
-      suppliers: clone(SUPPLIERS),
+      suppliers: clone(SUPPLIERS), purchase: clone(PURCHASE),
       /* split: the pack's share of a batch in the Production tab's default split */
       skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40") }; }),
     };
@@ -1009,13 +1107,7 @@
     function workflowJSON(wf) { var c = strip(wf); c.steps.sort(byOrder); return c; }
     /* A worker's call for help stays open while the step runs, until they
        say it is sorted (worker app, 28 Sep 2026). */
-    var HELP = { need_materials: "Material finished", issue_found: "Machine problem", need_help: "Needs the supervisor" };
-    function openHelp(t) {
-      if (t.status !== "in_progress") return null;
-      var last = db.updates.filter(function (u) { return u.task === t._id && (HELP[u.quickSelect] || u.quickSelect === "sorted"); })
-        .sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })[0];
-      return last && HELP[last.quickSelect] ? { kind: last.quickSelect, label: HELP[last.quickSelect], at: last.createdAt } : null;
-    }
+    function openHelp(t) { return D.openHelp(t); }
     function populateTask(t) {
       var c = strip(t), b = D.batch(t.batch);
       c.batch = b ? { _id: b.id, code: b.batchNumber, product: b.displayName, totalSteps: jfBatch(b).totalSteps, stateId: b.stateId, statusLabel: b.statusLabel, kind: b.kind, line: b.line,
@@ -1308,29 +1400,7 @@
     /* Alerts: what needs the office, from the floor's record. */
     route("GET", "/api/alerts", function (r) {
       auth(r.token);
-      var out = [], nowT = now().getTime(), live = db.shifts.filter(function (s) { return s.status === "live"; }).map(function (s) { return s._id; });
-      db.tasks.filter(function (t) { return t.status === "done" && t.weigh && t.loss != null && t.lossPct > t.loss && nowT - new Date(t.completedAt).getTime() < DAY; }).forEach(function (t) {
-        var b = D.batch(t.batch);
-        out.push({ _id: "loss-" + t._id, type: "weight_loss", isRead: false, createdAt: t.completedAt, batch: b.id,
-          message: t.stepName + " on " + b.batchNumber + " lost " + t.lossPct + "% (" + t.kgIn + " → " + t.kgOut + " kg). The recipe allows " + t.loss + "%." });
-      });
-      db.tasks.filter(function (t) { return t.status === "available" && live.indexOf(t.shift) !== -1 && t.availableAt && nowT - new Date(t.availableAt).getTime() > 20 * MIN; }).forEach(function (t) {
-        var b = D.batch(t.batch);
-        if (!b || ["on-hold", "rejected"].indexOf(b.stateId) !== -1) return;
-        out.push({ _id: "idle-" + t._id, type: "waiting", isRead: false, createdAt: t.availableAt, batch: b.id,
-          message: t.stepName + " on " + b.batchNumber + " has waited " + Math.round((nowT - new Date(t.availableAt).getTime()) / MIN) + " min and no one has started it." });
-      });
-      db.tasks.forEach(function (t) {
-        var h = openHelp(t), b = h && D.batch(t.batch);
-        if (!h) return;
-        out.push({ _id: "help-" + t._id, type: "help", isRead: false, createdAt: h.at, batch: b ? b.id : null,
-          message: (t.assignedName || "A worker") + " on " + t.stepName + (b ? " · " + b.batchNumber : "") + ": " + h.label.toLowerCase() + "." });
-      });
-      db.batches.filter(function (b) { return b.stateId === "on-hold"; }).forEach(function (b) {
-        out.push({ _id: "hold-" + b.id, type: "on_hold", isRead: false, createdAt: b.statusHistory[b.statusHistory.length - 1].timestamp, batch: b.id, message: b.batchNumber + " · " + b.displayName + " is on hold. Its steps are paused on the floor." });
-      });
-      out.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
-      return { alerts: out };
+      return { alerts: D.alerts() };
     });
 
     function handle(method, path, query, body, token) {
@@ -1457,6 +1527,7 @@
         return d;
       },
       plan: function () { return read(function (D) { return D.plan(); }); },
+      releaseToFloor: function (batchId, actor) { return withDomain(function (D) { return D.releaseToFloor(batchId, actor); }); },
       /* Inventory › Semi-Finished Inventory */
       semiFinished: function () { return read(function (D) { return D.semiFinished(); }); },
       bagHistory: function () { return read(function (D) { return D.bagHistory(); }); },

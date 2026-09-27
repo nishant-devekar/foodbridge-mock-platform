@@ -357,7 +357,7 @@
     return html`<div class="wk-in-row"><label for="${id}">${label}</label><div class="wk-in"><input id="${id}" inputmode="${mode || "decimal"}" value="${f[key]}" data-f="${key}"><span>${unit}</span></div></div>`;
   }
   /* What was entered, read back as proof — never a verdict (the loss % and
-     its limit are the office's, on Shop Floor and Reports › Production Report). */
+     its limit are the office's, on the Production board and Reports › Production Report). */
   function recordedRows(task) {
     var rows = [];
     if (task.kgIn) rows.push([t("rWeight"), task.kgIn + " → " + t("kgN", { n: task.kgOut })]);
@@ -700,9 +700,16 @@
   });
   window.addEventListener("hashchange", route);
   function refreshHome() { if (app.view === Dashboard && app.page) Dashboard.refresh(app.page); }
-  setInterval(function () { if (document.visibilityState === "visible") refreshHome(); }, 30000);
+  setInterval(function () { if (document.visibilityState === "visible") { refreshHome(); refreshWork(); } }, 30000);
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshHome(); });
-  window.addEventListener("storage", function (e) { if (e.key === FB_PRODUCTION.KEY) refreshHome(); });
+  /* The floor moves while a worker is on a step (the office, another
+     phone): the work screen picks it up without a reload. */
+  function refreshWork() {
+    var s = app.page;
+    if (app.view !== TaskDetail || !s || !s.task || s.acting || s.confirm) return;
+    TaskDetail.reload(s).catch(function () {});
+  }
+  window.addEventListener("storage", function (e) { if (e.key === FB_PRODUCTION.KEY) { refreshHome(); refreshWork(); } });
   window.addEventListener("online", render);
   window.addEventListener("offline", render);
 

@@ -56,6 +56,22 @@
   function openCreate() {
     window.location.href = "create-batch.html";
   }
+  /* The Production board hands a batch to this page's own workflow
+     (28 Sep 2026): #/production/batch-management?batch=<id> opens it;
+     ?create=<recipe>&size=<kg> opens Create batch with those filled. The
+     query is read once and cleared, so Back lands on the list. */
+  (function fromBoard() {
+    try {
+      if (window.parent === window) return;
+      var h = window.parent.location.hash, q = h.indexOf("?") === -1 ? "" : h.slice(h.indexOf("?") + 1);
+      if (!q) return;
+      var p = new URLSearchParams(q), id = p.get("batch"), recipe = p.get("create");
+      if (!id && !recipe) return;
+      window.parent.history.replaceState(null, "", window.parent.location.pathname + window.parent.location.search + h.split("?")[0]);
+      if (id) window.location.replace("batch-detail.html?id=" + encodeURIComponent(id));
+      else window.location.replace("create-batch.html?recipe=" + encodeURIComponent(recipe) + (p.get("size") ? "&size=" + encodeURIComponent(p.get("size")) : ""));
+    } catch (e) { /* not inside the platform */ }
+  })();
   function openEdit(id) {
     window.location.href = "create-batch.html?edit=" + encodeURIComponent(id);
   }
