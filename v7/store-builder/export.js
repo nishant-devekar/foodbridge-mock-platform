@@ -220,17 +220,20 @@
   const HOW = { salesman: "Salesman visit", phone: "Phone call", whatsapp: "WhatsApp", self: "Orders himself (app)" };
   const SPEED = { fast: "Fast", med: "Medium", slow: "Slow" };
   const SRC = { contact: "Phone contacts", vcf: "Contacts file", typed: "Typed in meeting" };
-  const TYPE = { distributor: "Distributor", superstockist: "Super stockist", wholesaler: "Wholesaler", cnf: "C&F agent", retailer: "Retailer" };
+  const TYPE = { distributor: "Distributor", superstockist: "Super stockist", wholesaler: "Wholesaler", retailer: "Retailer", manufacturer: "Manufacturer" };
+  function typeText(st) { return st.type === "other" ? "Other: " + (String(st.typeOther || "").trim() || "(not said)") : TYPE[st.type] || ""; }
 
   function days(p) { return M.DAYS.filter(function (d) { return (p.days || []).indexOf(d) >= 0; }).map(function (d) { return DAY_EN[d]; }).join(", "); }
   function yn(v) { return v == null ? "" : v ? "Yes" : "No"; }
+  /* Not asked since 28 Sep 2026: a Manufacturer makes; otherwise an older save's answer, if any. */
+  function makes(st) { return st.type === "manufacturer" ? true : st.makes; }
   function ext(mime) { return /png/.test(mime) ? "png" : /jpe?g/.test(mime) ? "jpg" : /webm/.test(mime) ? "webm" : /mp4|m4a|aac/.test(mime) ? "m4a" : /ogg/.test(mime) ? "ogg" : "bin"; }
   function paperFile(p) { return (p.kind === "voice" ? "voice/" : "photos/") + p.id + "." + ext(p.mime || ""); }
-  /* One row per godown: the shop first when he keeps stock there, then each other address. */
+  /* How many warehouses he has; an older save's godown list (the shop, then each address) follows it. */
   function godownRows(st) {
     const list = (st.godownAtShop ? ["At the shop"] : []).concat((st.godowns || []).map(function (g) { return String(g || "").trim(); }).filter(Boolean));
-    if (!list.length) return [["Godown", "", "Owner"]];
-    return list.map(function (g, i) { return ["Godown " + (i + 1), g, "Owner"]; });
+    return [["Warehouses", st.warehouses == null ? "" : st.warehouses, "Owner"]]
+      .concat(list.map(function (g, i) { return ["Warehouse " + (i + 1), g, "Owner (older save)"]; }));
   }
 
   function slug(s) { return String(s || "store").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "store"; }
@@ -291,12 +294,13 @@
       ["Owner name", st.owner, "Owner"],
       ["Login mobile (WhatsApp)", M.phone10(st.mobile), "Owner"],
       ["GST number", String(st.gst || "").toUpperCase(), st.gst ? (M.gstOk(st.gst) ? "Owner (format OK)" : "Owner (format looks wrong — check)") : ""],
-      ["Business type", TYPE[st.type] || "", "Owner"],
-      ["Makes or packs anything", yn(st.makes), "Owner"],
+      ["Business type", typeText(st), "Owner"],
+      ["Makes or packs anything", yn(makes(st)), "Owner"],
+    ].concat(st.address || st.loc ? [   // no longer asked (28 Sep 2026); an older save's still comes through
       ["Shop address", st.address, "Owner"],
       ["Shop location (lat, lng)", st.loc ? st.loc.lat.toFixed(6) + ", " + st.loc.lng.toFixed(6) : "", st.loc ? "Phone GPS" : ""],
       ["Map link", st.loc ? "https://maps.google.com/?q=" + st.loc.lat.toFixed(6) + "," + st.loc.lng.toFixed(6) : "", ""],
-    ].concat(godownRows(st), [
+    ] : [], godownRows(st), [
       ["Areas served", (st.areas || []).join(", "), "Owner"],
       ["Shop photo (logo)", st.photo ? photoOf[st.photo] || "" : "", ""],
     ]) });
@@ -373,18 +377,22 @@
     out.push({ name: "Opening balances", rows: bal });
 
     const PAYM = { cash: "Cash", upi: "UPI", cheque: "Cheque", credit: "Credit (udhaar)" };
+    const other = function (typed) { return "Other: " + (String(typed || "").trim() || "(not said)"); };
+    const pick = function (map, v, typed) { return v === "other" ? other(typed) : map[v] || ""; };
     out.push({ name: "Settings", rows: [
       ["Question", "Answer", "Platform setting"],
-      ["Payment methods he accepts", (r.payMethods || []).map(function (m) { return PAYM[m]; }).join(", "), "paymentConfig.methods"],
+      ["Payment methods he accepts", (r.payMethods || []).map(function (m) { return pick(PAYM, m, r.payMethodsOther); }).join(", "), "paymentConfig.methods"],
       ["Allows part payment", yn(r.partPay), "paymentConfig.allowPartialPayment"],
       ["Delivers by fixed route days", yn(r.routes), "appProp.isRouteDeliveryEnabled"],
       ["Customers can order themselves (Store QR)", yn(r.selfOrder), "appProp.isStoreQrCode.isEnabled + storefront"],
+    ].concat(r.batches != null ? [   // no longer asked (28 Sep 2026); an older save's answer still comes through
       ["Tracks batch and expiry", yn(r.batches), "Product batches (ProductBatch)"],
-      ["Returns and damages", { credit: "Takes back, gives credit", replace: "Replaces", none: "Does not take back" }[r.returns] || "", "Returns handling"],
-      ["First thing he checks each morning", { orders: "Orders", money: "Money to collect", stock: "Stock", trucks: "Trucks and delivery" }[r.morning] || "", "Home screen focus / first recommendation"],
-      ["Makes or packs anything", yn(st.makes), "storefrontMenus: Production and raw material on/off"],
+    ] : [], [
+      ["Returns and damages", pick({ credit: "Takes back, gives credit", replace: "Replaces", none: "Does not take back" }, r.returns, r.returnsOther), "Returns handling"],
+      ["First thing he checks each morning", pick({ orders: "Orders", money: "Money to collect", stock: "Stock", trucks: "Trucks and delivery" }, r.morning, r.morningOther), "Home screen focus / first recommendation"],
+      ["Makes or packs anything", yn(makes(st)), "storefrontMenus: Production and raw material on/off"],
       ["Anything else he said", String(r.note || "").trim(), "Onboarder to read"],
-    ] });
+    ]) });
 
     out.push({ name: "Papers", rows: [["File", "Type", "Screen", "Time", "Note"]]
       .concat(s.papers.map(function (p) {
@@ -392,13 +400,13 @@
       })) });
 
     const GAP = {
-      noName: "Store name", noMobile: "Login mobile", noGst: "GST number (missing or wrong format)", noLocation: "Shop location",
+      noMobile: "Login mobile", noGst: "GST number (format looks wrong)",
       noItems: "No products chosen", noMrp: "Products without MRP", noPrice: "Loose goods without a price", unsorted: "Contacts not sorted (customer / supplier / staff)",
       noShops: "No customers added", shopNoDay: "Customers without a delivery day", shopNoPhone: "Customers without a 10-digit mobile",
       shopNoArea: "Customers without an area", shopNoPay: "Customers without cash/credit", noDelivery: "No delivery person",
       staffNoRole: "Staff without a role", noSuppliers: "No suppliers", supNoCompany: "Suppliers not linked to a company",
 notCounted: "Products not counted in stock",
-      rulesOpen: "How-you-work questions not answered",
+      rulesOpen: "Daily operation questions not answered",
     };
     /* The fresh-produce photos in the Products sheet are Wikimedia Commons files
        under CC BY / BY-SA and the like: each one's author and licence, as they ask. */
@@ -452,7 +460,7 @@ notCounted: "Products not counted in stock",
     const P = M.progress(cat, s);
     return {
       at: (now || new Date()).toISOString(), shop: s.store.name || "", owner: s.store.owner || "", mobile: s.store.mobile || "",
-      gst: s.store.gst || "", type: s.store.type || "", lang: s.lang || "", version: "store-builder " + M.VERSION,
+      gst: s.store.gst || "", type: s.store.type || "", typeOther: s.store.typeOther || "", lang: s.lang || "", version: "store-builder " + M.VERSION,
       counts: { products: Object.keys(s.items).length, customers: M.peopleOf(s, "shop").length, suppliers: M.peopleOf(s, "supplier").length,
         staff: M.peopleOf(s, "staff").length, counted: P.stock.n, answered: P.rules.n, photos: s.papers.length, gaps: M.missing(cat, s).length },
       files: files || [],

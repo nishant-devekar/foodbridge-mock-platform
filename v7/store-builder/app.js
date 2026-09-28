@@ -4,8 +4,8 @@
    - one question per screen, spoken aloud on 🔊, in Hindi or English;
    - choose, don't type: chips, big + / − buttons, phone contacts, a catalogue
      of real pack photos;
-   - every screen can always go on ("Next" is never disabled), and home shows
-     what is done;
+   - every screen can always go on, and home shows what is done; the one
+     exception is the Shop step's Save, which waits for the login mobile;
    - everything saves by itself, on this phone (localStorage for answers,
      IndexedDB for photos and voice notes). Nothing is sent anywhere until
      the owner saves or shares the file himself.
@@ -180,6 +180,9 @@
 
   /* ─────────────────────────────────────────────────────── helpers ── */
 
+  /* A step's name on the steps list and in "… saved": its short name when its heading is a whole question. */
+  function stepName(step) { const k = "short_" + step; return t(t(k) !== k ? k : "title_" + step); }
+
   function t(k, v) {
     const L = I18N[S.lang || "en"] || I18N.en;
     if (v && v.n === 1 && L[k + "_1"] != null) k = k + "_1";   // "1 shop", not "1 shops"
@@ -312,6 +315,22 @@
       (icon ? ic(icon, 18) : "") + h(label) + "</button></div>";
   }
 
+  function saveBlocked(step) { return step === "store" && !M.storeReady(S); }
+
+  /* As he types the mobile: the Required tag becomes a tick at 10 digits, the red and the
+     line under the card go, and Save turns green -- without a re-render under his thumb. */
+  function syncMobile() {
+    const ok = M.storeReady(S);
+    if (ok) ui.needMobile = false;
+    const row = document.querySelector(".fc-row.is-mob"), tag = row && row.querySelector(".fc-req");
+    if (row) row.classList.toggle("is-bad", !!ui.needMobile && !ok);
+    if (tag) { tag.classList.toggle("is-ok", ok); tag.innerHTML = ok ? ic("check", 14) : h(t("required")); }
+    const err = document.querySelector(".fc-err");
+    if (err) err.hidden = !ui.needMobile || ok;
+    const cta = document.querySelector('.sb-foot [data-act="saveStep"]');
+    if (cta) { if (saveBlocked(cta.dataset.step)) cta.setAttribute("aria-disabled", "true"); else cta.removeAttribute("aria-disabled"); }
+  }
+
   function frame(step, body, foot) {
     const i = STEPS.indexOf(step);
     const next = STEPS[i + 1];
@@ -329,7 +348,7 @@
       body + "</main>" +
       /* 26 Sep 2026, the owner: a step ends in Save, back to the steps list,
          never Next into the following step. The list is where he always is. */
-      (next ? '<footer class="sb-foot">' + (foot || "") + '<button class="sb-cta" data-act="saveStep" data-step="' + step + '">' + ic("check", 20) + h(t("save")) + "</button></footer>"
+      (next ? '<footer class="sb-foot">' + (foot || "") + '<button class="sb-cta" data-act="saveStep" data-step="' + step + '"' + (saveBlocked(step) ? ' aria-disabled="true"' : "") + ">" + ic("check", 20) + h(t("save")) + "</button></footer>"
         : foot ? '<footer class="sb-foot">' + foot + "</footer>" : "");
   }
 
@@ -375,14 +394,14 @@
   function statusText(step, P) {
     const p = P[step];
     switch (step) {
-      case "store": return S.store.name || t("sNone");
+      case "store": return S.store.name || (M.storeReady(S) ? M.phoneShow(S.store.mobile) : t("sNone"));
       case "items": return p.n ? t("sItems", { n: p.n }) : t("sNone");
       case "people": {
         const bits = [p.shops ? t("sShops", { n: p.shops }) : "", p.staff ? t("sStaff", { n: p.staff }) : "", p.suppliers ? t("sSup", { n: p.suppliers }) : "", p.left ? t("pToSort", { n: p.left }) : ""].filter(Boolean);
         return bits.length ? bits.join(" · ") : t("sNone");
       }
       case "stock": return p.n ? t("sStock", { n: p.n }) : S.skipped.stock ? t("sSkipped") : t("sNone");
-      case "rules": return p.n ? t("sRules", { n: p.n }) : t("sNone");
+      case "rules": return p.n ? t("sRules", { n: p.n, total: M.RULES_N }) : t("sNone");
       case "finish": return !S.lastBuild ? "" : (ui.outbox || []).some(function (b) { return b.id === S.lastBuild.id; }) ? t("fiWaiting") : t("fiSentAt", { d: when(S.lastBuild.at) });
       default: return "";
     }
@@ -403,7 +422,7 @@
         const d = P[s].done;
         return '<li><button class="sb-grow' + (d ? " is-done" : "") + (s === nextStep ? " is-next" : "") + '" data-act="go" data-to="' + s + '">' +
           '<span class="sb-grow-ic">' + ic(ICON[s], 18) + "</span>" +
-          '<span class="sb-grow-main"><span class="sb-grow-t">' + (i + 1) + ". " + h(t("title_" + s)) + '</span><span class="sb-grow-s">' + h(statusText(s, P)) + "</span></span>" +
+          '<span class="sb-grow-main"><span class="sb-grow-t">' + (i + 1) + ". " + h(stepName(s)) + '</span><span class="sb-grow-s">' + h(statusText(s, P)) + "</span></span>" +
           (d ? '<span class="sb-grow-tick">' + ic("check", 18) + "</span>" : '<span class="sb-grow-go">' + ic("chev", 16) + "</span>") + "</button></li>";
       }).join("") + "</ol></main>";   // no Continue button (owner, 26 Sep): he taps a step in the list; the next one is tinted
   };
@@ -415,26 +434,29 @@
      the Send step lists it as still to fill. */
   SCREENS.store = function () {
     const st = S.store;
-    /* GPS sits at the end of the "Shop location" label: a link before, a tick after. */
-    const where = '<span class="sb-line">' + (st.loc
-      ? '<span class="ok">' + ic("check", 14) + h(t("fLocSavedS")) + '</span>·<button type="button" class="sb-inlink" data-act="locate">' + h(t("change")) + "</button>"
-      : '<button type="button" class="sb-inlink" data-act="locate">' + ic("pin", 15) + h(t("fLocBtn")) + "</button>") + "</span>";
+    const ok = M.storeReady(S), bad = ui.needMobile && !ok;
+    /* 28 Sep 2026 (owner): the card is only the login mobile (Save waits for it) and an
+       optional GST. Shop name and Your name went; an older save's name still heads the steps list. */
     return frame("store",
       '<div class="sb-group fc is-first">' +
-        cardRow("store", "store.name", { ph: t("fShopName"), mic: true, ac: "organization" }) +
-        cardRow("user", "store.owner", { ph: t("fOwner"), mic: true, ac: "name" }) +
-        cardRow("mobile", "store.mobile", { ph: t("fMobile"), type: "tel", mode: "tel", max: 14, ac: "tel-national" }) +
+        cardRow("mobile", "store.mobile", { ph: t("fMobile"), type: "tel", mode: "tel", max: 14, ac: "tel-national",
+          cls: "is-mob" + (bad ? " is-bad" : ""), tail: '<span class="fc-req' + (ok ? " is-ok" : "") + '">' + (ok ? ic("check", 14) : h(t("required"))) + "</span>" }) +
         cardRow("receipt", "store.gst", { ph: t("fGst"), kind: "upper", upper: true, max: 15 }) +
       "</div>" +
+      '<p class="fc-err"' + (bad ? "" : " hidden") + ">" + ic("alert", 15) + "<span>" + h(t("mobNeed")) + "</span></p>" +
+      /* 28 Sep 2026 (owner): Manufacturer and Other (he types it) added, C&F agent gone. */
       field("tag", t("fType"), setChips("store.type", "str", [
         { v: "distributor", label: t("tDistributor") }, { v: "superstockist", label: t("tSuperstockist") },
-        { v: "wholesaler", label: t("tWholesaler") }, { v: "cnf", label: t("tCnf") }, { v: "retailer", label: t("tRetailer") }])) +
-      field("factory", t("fMakes"), yesNo("store.makes")) +
-      '<section class="sb-field"><div class="sb-label is-row"><span class="sb-label-t">' + ic("map", 18) + "<span>" + h(t("fLoc")) + "</span></span>" + where + "</div>" +
-        '<div class="sb-group fc">' + cardRow("home", "store.address", { ph: t("fAddress"), area: true, mic: true, ac: "street-address" }) + "</div></section>" +
-      field("warehouse", t("fGodown"), godowns(st)));
+        { v: "wholesaler", label: t("tWholesaler") }, { v: "retailer", label: t("tRetailer") },
+        { v: "manufacturer", label: t("tManufacturer") }, { v: "other", label: t("tOther") }]) +
+        (st.type === "other" ? input("store.typeOther", { ph: t("fTypeOther"), mic: true }) : "")) +
+      /* 28 Sep 2026 (owner): just how many warehouses, a counter; no addresses, no "at the shop". */
+      field("warehouse", t("fWarehouses"), '<div class="sb-group fc"><div class="fc-row"><span class="fc-t">' + h(t("whHowMany")) + "</span>" +
+        stepper("store.warehouses", { small: true }) + "</div></div>"));
     /* Gone 26 Sep 2026 (owner): the shop photo (an older save's still shows on the steps list and in the file), and
-       "Areas you supply to" (areas now come only from each customer's sheet). */
+       "Areas you supply to" (areas now come only from each customer's sheet).
+       Gone 28 Sep 2026 (owner): "Do you make or pack anything yourself?" (Manufacturer says it) and
+       Shop location with its GPS and address (an older save's still goes in the file). */
   };
 
   /* A row in a form card: an icon, a borderless box whose placeholder is its
@@ -447,26 +469,7 @@
       (o.area ? ' rows="1"' : ' type="' + (o.type || "text") + '"') + (o.max ? ' maxlength="' + o.max + '"' : "") +
       (o.upper ? ' autocapitalize="characters" class="upper"' : "") + ' autocomplete="' + (o.ac || "off") + '"';
     const el = o.area ? "<textarea" + attrs + ">" + h(v || "") + "</textarea>" : "<input" + attrs + ' value="' + h(v == null ? "" : v) + '">';
-    return '<div class="fc-row"><span class="fc-ic">' + ic(icon, 18) + "</span>" + el + (o.mic ? micBtn(path, "is-plain") : "") + (o.tail || "") + "</div>";
-  }
-
-  /* One or more godowns, as one card: the shop itself (a tick row), then a row per
-     other godown (number, address that grows, mic, remove), then "Add a godown". */
-  function godowns(st) {
-    const first = st.godownAtShop ? 2 : 1;
-    const shop = st.godownAtShop === true;
-    return '<div class="sb-group fc">' +
-      '<button type="button" class="fc-row gd-shop' + (shop ? " on" : "") + '" data-act="set" data-path="store.godownAtShop" data-kind="flip" aria-pressed="' + shop + '">' +
-        '<span class="gd-n">' + ic("store", 16) + '</span><span class="fc-t">' + h(t("gShop")) + '</span><span class="gd-tick">' + ic("check", 14) + "</span></button>" +
-      st.godowns.map(function (g, i) {
-        const path = "store.godowns." + i, name = t("gN", { n: first + i });
-        return '<div class="fc-row"><span class="gd-n">' + (first + i) + "</span>" +
-          '<textarea rows="1" data-bind="' + path + '" placeholder="' + h(t("fGodownAddr")) + '" aria-label="' + h(name) + '" autocomplete="off">' + h(g) + "</textarea>" +
-          micBtn(path, "is-plain") +
-          '<button type="button" class="sb-icbtn is-plain gd-x" data-act="delGodown" data-i="' + i + '" aria-label="' + h(t("remove") + " · " + name) + '">' + ic("x", 18) + "</button></div>";
-      }).join("") +
-      '<button type="button" class="fc-row fc-act" data-act="addGodown"><span class="gd-n">' + ic("plus", 16) + "</span><span>" + h(t("gAdd")) + "</span></button>" +
-      "</div>";
+    return '<div class="fc-row' + (o.cls ? " " + o.cls : "") + '"><span class="fc-ic">' + ic(icon, 18) + "</span>" + el + (o.mic ? micBtn(path, "is-plain") : "") + (o.tail || "") + "</div>";
   }
 
   function selectedNote(text) { return '<span class="foot-note">' + ic("circleCheck", 16) + "<span>" + h(text) + "</span></span>"; }
@@ -571,8 +574,9 @@
       '<label class="sb-search">' + ic("search", 18) +
       '<input type="search" data-search="itemsQ" value="' + h(ui.itemsQ) + '" placeholder="' + h(t("iSearch")) + '" aria-label="' + h(t("iSearch")) + '">' +
       (canScan ? '<button type="button" class="sb-search-btn" data-act="scan" aria-label="' + h(t("iScan")) + '">' + ic("barcode", 20) + "</button>" : "") + "</label>" +
-      '<div id="list">' + itemsBody() + "</div>" +
-      '<button class="sb-link is-sm" data-act="newItem">' + ic("plus", 18) + h(t("iNotFound")) + "</button>",   // photo credits: the Menu sheet and the file
+      /* 28 Sep 2026 (owner): no "Can't find it? Add a new product" under the tiles; a search that
+         finds nothing still offers New product. Photo credits: the Menu sheet and the file. */
+      '<div id="list">' + itemsBody() + "</div>",
       n ? selectedNote(t("iChosen", { n: n })) : "");
   };
 
@@ -833,19 +837,27 @@
       '<span class="seg ru-seg" role="group" aria-label="' + h(t(label)) + '">' + b(v === true, "yes", "1") + b(v === false, "no", "0") + "</span></li>";
   }
 
+  /* Other, typed (owner, 28 Sep 2026): the box shows once Other is picked, and keeps what he types in <path>Other. */
+  function otherBox(path) {
+    const v = getPath(path), on = Array.isArray(v) ? v.indexOf("other") >= 0 : v === "other";
+    return on ? input(path + "Other", { ph: t("otherPh"), mic: true }) : "";
+  }
+
   SCREENS.rules = function () {
     const n = M.progress(CAT, S).rules.n;
+    const other = function () { return { v: "other", label: t("tOther") }; };
     return frame("rules",
       '<ul class="sb-group ru-card">' +
         ynRow("calendar", "ruRoutes", "rules.routes") + ynRow("mobile", "ruSelf", "rules.selfOrder") +
-        ynRow("divide", "ruPart", "rules.partPay") + ynRow("hourglass", "ruBatches", "rules.batches") + "</ul>" +
+        ynRow("divide", "ruPart", "rules.partPay") + "</ul>" +   // "Check expiry dates?" went 28 Sep 2026 (owner)
       field("cash", t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") },
-        { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }])) +
-      field("returns", t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }])) +
+        { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }, other()]) + otherBox("rules.payMethods")) +
+      field("returns", t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") },
+        { v: "none", label: t("retNone") }, other()]) + otherBox("rules.returns")) +
       field("sunrise", t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") },
-        { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }])) +
+        { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other()]) + otherBox("rules.morning")) +
       field("note", t("ruNote"), input("rules.note", { area: true, mic: true, ph: t("ruNotePh") })),   // a note, typed or spoken (26 Sep 2026, owner)
-      n ? selectedNote(t("sRules", { n: n })) : "");
+      n ? selectedNote(t("sRules", { n: n, total: M.RULES_N })) : "");
   };
 
   /* ── Build your store ────────────────────────────────────────────────────
@@ -918,17 +930,63 @@
       '<button class="sb-cta is-bad" data-act="fresh">' + h(t("cfFreshYes")) + "</button>");
   };
 
-  /* A tile's products as pictures: tap to choose, or take them all. */
-  SHEETS.picker = function (sh) {
+  /* The tiles a picker can switch between: the companies, or the aisles (fresh first, then packed). */
+  function pickerGroups(by) {
+    if (by === "co") return M.companyList(CAT, S).map(function (c) {
+      const ids = groupIds("co", c.id);
+      return ids.length ? { id: c.id, name: c.short, q: c.short + " " + (c.name || ""), ids: ids, face: M.item(CAT, S, ids[0]) } : null;
+    }).filter(Boolean);
+    return CAT.aisles.filter(function (a) { return a.fresh; }).concat(CAT.aisles.filter(function (a) { return !a.fresh; })).map(function (a) {
+      const ids = groupIds("aisle", a.id);
+      return { id: a.id, name: S.lang === "en" ? a.en : a.hi, q: a.en + " " + a.hi, ids: ids, face: aisleFace(a, ids), fresh: !!a.fresh };
+    });
+  }
+
+  /* The title's dropdown rows: one line each, the name and its count; what he types narrows them
+     (English or Hindi, a company's full name too). */
+  function comboRows(sh, q) {
+    q = String(q || "").trim().toLowerCase();
+    const rows = pickerGroups(sh.by).filter(function (x) { return !q || x.q.toLowerCase().indexOf(q) >= 0; });
+    if (!rows.length) return '<p class="combo-none">' + h(t("iComboNone")) + "</p>";
+    return rows.map(function (x) {
+      const cur = x.id === sh.id;
+      return '<button type="button" class="combo-row' + (cur ? " is-cur" : "") + '" data-act="pickGo" data-id="' + h(x.id) + '" role="option" aria-selected="' + cur + '">' +
+        "<span>" + h(x.name) + "</span><small>" + x.ids.length + "</small>" + (cur ? ic("check", 16) : "") + "</button>";
+    }).join("");
+  }
+
+  /* A tile's products as pictures: tap to choose, or take them all. The title is a search-and-select
+     dropdown (owner, 28 Sep 2026): tap it, type a few letters, tap one; the sheet switches in place. */
+  /* The picker's products, narrowed by its own search (same matching as the step's search). */
+  function pickerIds(sh) {
     const ids = groupIds(sh.by, sh.id);
+    if (!String(sh.q || "").trim()) return ids;
+    const hits = {};
+    M.search(CAT, S, sh.q, null).forEach(function (id) { hits[id] = 1; });
+    return ids.filter(function (id) { return hits[id]; });
+  }
+  function pickerBar(ids) {
     const n = chosenIn(ids);
-    let title = "";
-    if (sh.by === "co") { const c = M.companyById(CAT, S, sh.id); title = c ? c.short : ""; }
-    else { const a = CAT.aisles.find(function (x) { return x.id === sh.id; }); title = a ? (S.lang === "en" ? a.en : a.hi) : ""; }
-    return sheetWrap(h(title),
-      '<div class="pick-bar"><span>' + h(t("iCount", { n: ids.length })) + (n ? " · " + h(t("iChosen", { n: n })) : "") + "</span>" +
-      '<button class="sb-more" data-act="pickAll">' + h(n === ids.length ? t("iClearAll") : t("iSelectAll")) + "</button></div>" +
-      pickGrid(ids),
+    return "<span>" + h(t("iCount", { n: ids.length })) + (n ? " · " + h(t("iChosen", { n: n })) : "") + "</span>" +
+      (ids.length ? '<button class="sb-more" data-act="pickAll">' + h(n === ids.length ? t("iClearAll") : t("iSelectAll")) + "</button>" : "");
+  }
+  function pickerGrid(ids) { return ids.length ? pickGrid(ids) : '<p class="sb-hint center-text">' + h(t("iComboNone")) + "</p>"; }
+
+  SHEETS.picker = function (sh) {
+    const groups = pickerGroups(sh.by);
+    const g = groups.find(function (x) { return x.id === sh.id; });
+    const ids = pickerIds(sh);
+    const title = '<button type="button" class="pick-title' + (sh.combo ? " is-open" : "") + '" data-act="pickOpen" aria-haspopup="listbox" aria-expanded="' + !!sh.combo + '">' +
+      "<span>" + h(g ? g.name : "") + "</span>" + ic("chev", 18) + "</button>";
+    const combo = sh.combo ? '<div class="combo-scrim" data-act="pickOpen"></div><div class="combo">' +
+      '<label class="combo-q">' + ic("search", 16) + '<input id="comboQ" type="search" autocomplete="off" placeholder="' + h(t(sh.by === "co" ? "iPickCo" : "iPickCat")) + '"></label>' +
+      '<div class="combo-list" id="comboList" role="listbox">' + comboRows(sh, "") + "</div></div>" : "";
+    /* The search, the count and Select all stay pinned while the pictures scroll (owner, 28 Sep 2026). */
+    return combo + sheetWrap(title,
+      '<div class="pick-top"><label class="sb-search">' + ic("search", 18) +
+        '<input id="pickQ" type="search" autocomplete="off" value="' + h(sh.q || "") + '" placeholder="' + h(t("iPickSearch", { name: g ? g.name : "" })) + '"></label>' +
+        '<div class="pick-bar" id="pickBar">' + pickerBar(ids) + "</div></div>" +
+      '<div id="pickGrid">' + pickerGrid(ids) + "</div>",
       '<button class="sb-cta" data-act="closeSheet">' + h(t("done")) + "</button>");
   };
 
@@ -1123,11 +1181,15 @@
     const keep = prevBody && sheet && prevBody.dataset.kind === sheet.kind + (sheet.id || "") ? prevBody.scrollTop : 0;
     $app.innerHTML = (SCREENS[view] || SCREENS.home)();
     if (sheet && SHEETS[sheet.kind]) {
-      $sheet.innerHTML = '<div class="scrim" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true">' + SHEETS[sheet.kind](sheet) + "</div>";
+      /* The sheet rises once, when it opens; a tap inside it redraws it in place. */
+      const still = ui.shownSheet === sheet ? " is-still" : "";
+      ui.shownSheet = sheet;
+      $sheet.innerHTML = '<div class="scrim' + still + '" data-act="closeSheet"></div><div class="sheet' + still + '" role="dialog" aria-modal="true"' + (sheet.lockH ? ' style="min-height:' + sheet.lockH + 'px"' : "") + ">" + SHEETS[sheet.kind](sheet) + "</div>";
       const body = $sheet.querySelector(".sheet-body");
       if (body) { body.dataset.kind = sheet.kind + (sheet.id || ""); body.scrollTop = keep; }
     } else {
       $sheet.innerHTML = "";
+      ui.shownSheet = null;
     }
     document.body.classList.toggle("has-sheet", !!sheet);
     if (fk) {
@@ -1171,6 +1233,7 @@
 
   function go(to) {
     stopMedia();
+    ui.needMobile = false;
     sheet = null;
     ui.sheetStack = [];
     view = to;
@@ -1316,53 +1379,6 @@
     }
   }
 
-  /* Use my location: the GPS point, then the address for it from OpenStreetMap's
-     Nominatim (free, no key, the map data the platform already draws). The
-     address is always in English, the way bills and GST papers write it: OSM's
-     Hindi names are patchy and come back half Devanagari, half Latin. It fills
-     the address box when the box is empty or still holds the last found
-     address; anything he typed himself stays. */
-  function locate() {
-    if (!navigator.geolocation) { toast(t("fLocFail")); return; }
-    if (ui.locating) return;
-    ui.locating = true;
-    toast(t("fLocWait"));
-    navigator.geolocation.getCurrentPosition(function (pos) {
-      const prev = S.store.loc && S.store.loc.address;
-      const loc = S.store.loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
-      save();
-      render();
-      toast(t("fAddrWait"));
-      findAddress(loc.lat, loc.lng).then(function (addr) {
-        ui.locating = false;
-        if (S.store.loc !== loc) return;
-        if (!addr) { toast("✓ " + t("fLocSaved") + " · " + t("fAddrNone")); return; }
-        loc.address = addr;
-        const cur = (S.store.address || "").trim();
-        const fill = !cur || cur === prev;
-        if (fill) S.store.address = addr;
-        save();
-        render();
-        toast("✓ " + t(fill ? "fAddrAdded" : "fAddrKept"));
-      });
-    }, function (e) {
-      ui.locating = false;
-      toast(t(e && e.code === 1 ? "fLocDenied" : "fLocFail"));
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
-  }
-
-  function findAddress(lat, lng) {
-    const url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=en" +
-      "&lat=" + lat.toFixed(6) + "&lon=" + lng.toFixed(6);
-    const ctl = "AbortController" in window ? new AbortController() : null;
-    const stop = setTimeout(function () { if (ctl) ctl.abort(); }, 10000);
-    return fetch(url, { headers: { Accept: "application/json" }, signal: ctl ? ctl.signal : undefined })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return j ? M.shortAddress(j.address) : ""; })
-      .catch(function () { return ""; })
-      .then(function (a) { clearTimeout(stop); return a; });
-  }
-
   /* Speak to type (Web Speech). Chrome and Edge on Android and desktop, Safari
      14.5+ on iPhone and Mac (only with Siri / Dictation on); not Firefox, not
      most in-app browsers. One listener at a time, tap the mic again to stop.
@@ -1476,9 +1492,18 @@
       go(el.dataset.to);
     },
     saveStep: function (el) {
+      /* The Shop step without its mobile: point at the box and say why, rather than a dead button. */
+      if (saveBlocked(el.dataset.step)) {
+        ui.needMobile = true;
+        render();
+        const box = document.querySelector('[data-bind="store.mobile"]');
+        if (box) { box.focus(); box.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        if (navigator.vibrate) navigator.vibrate(60);
+        return;
+      }
       save();
       go("home");
-      toast("✓ " + t("savedStep", { step: t("title_" + el.dataset.step) }));
+      toast("✓ " + t("savedStep", { step: stepName(el.dataset.step) }));
     },
     skip: function (el) { S.skipped[el.dataset.step] = true; save(); if (el.dataset.stay) render(); else go("home"); },
     lang: function (el) {
@@ -1504,6 +1529,7 @@
       } else setPath(path, kind === "bool" ? raw === "1" : kind === "num" ? Number(raw) : kind === "auto" ? (/^\d+$/.test(raw) ? Number(raw) : raw) : raw);
       if (path[0] !== "@") save();
       render();
+      if (raw === "other") { const box = document.querySelector('[data-bind="' + (path === "store.type" ? "store.typeOther" : path + "Other") + '"]'); if (box) box.focus(); }
     },
     step: function (el) {
       const path = el.dataset.path;
@@ -1520,16 +1546,7 @@
       render();
     },
 
-    locate: locate,
     dictate: function (el) { dictate(el.dataset.path); },
-    addGodown: function () {
-      /* An empty one is already waiting: go to it rather than stack another. */
-      const list = S.store.godowns;
-      if (!list.length || String(list[list.length - 1] || "").trim()) { list.push(""); save(); render(); }
-      const boxes = document.querySelectorAll('textarea[data-bind^="store.godowns."]');
-      if (boxes.length) boxes[boxes.length - 1].focus();
-    },
-    delGodown: function (el) { S.store.godowns.splice(Number(el.dataset.i), 1); save(); render(); },
     addArea: function (el) {
       const inp = document.getElementById("areaNew");
       const v = (inp && inp.value || "").trim();
@@ -1561,13 +1578,23 @@
       render();
     },
     pickAll: function () {
-      const ids = groupIds(sheet.by, sheet.id);
+      const ids = pickerIds(sheet);   // what the search shows
       const all = ids.every(function (id) { return S.items[id]; });
       ids.forEach(function (id) { if (all) delete S.items[id]; else if (!S.items[id]) S.items[id] = { unit: "case" }; });
       syncSave();
       render();
     },
     picker: function (el) { openSheet({ kind: "picker", by: el.dataset.by, id: el.dataset.id }); },
+    pickOpen: function () {
+      sheet.combo = !sheet.combo;
+      render();
+      /* Just under the title bar, whatever its height. */
+      const box = $sheet.querySelector(".combo"), head = $sheet.querySelector(".sheet-head");
+      if (box && head) box.style.top = (head.offsetTop + head.offsetHeight) + "px";
+      const q = document.getElementById("comboQ");
+      if (q) q.focus();
+    },
+    pickGo: function (el) { sheet.id = el.dataset.id; sheet.combo = false; sheet.q = ""; sheet.lockH = 0; render(); },
     mine: function () { openSheet({ kind: "mine" }); },
     itemSheet: function (el) { openSheet({ kind: "item", id: el.dataset.id }); },
     removeItem: function (el) { delete S.items[el.dataset.id]; syncSave(); closeSheet(); },
@@ -1750,9 +1777,22 @@
       setPath(el.dataset.bind, v);
       if (el.dataset.touch) setPath(el.dataset.touch, true);
       if (el.dataset.bind[0] !== "@") save();
+      if (el.dataset.bind === "store.mobile") syncMobile();
     } else if (el.dataset.search) {
       ui[el.dataset.search] = el.value;
       refreshList(el.dataset.search);
+    } else if (el.id === "pickQ") {
+      if (!sheet) return;
+      sheet.q = el.value;
+      /* The sheet keeps its height while he types, so it doesn't jump as the pictures narrow. */
+      const box = $sheet.querySelector(".sheet");
+      if (box && !sheet.lockH) { sheet.lockH = box.offsetHeight; box.style.minHeight = sheet.lockH + "px"; }
+      const ids = pickerIds(sheet);
+      document.getElementById("pickBar").innerHTML = pickerBar(ids);
+      document.getElementById("pickGrid").innerHTML = pickerGrid(ids);
+    } else if (el.id === "comboQ") {
+      const list = document.getElementById("comboList");
+      if (list && sheet) list.innerHTML = comboRows(sheet, el.value);
     } else if (el.id === "gsQ") {
       ui.gsQ = el.value;
       gsRefresh(true);
@@ -1786,6 +1826,8 @@
 
   document.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.id === "areaNew") { e.preventDefault(); const b = e.target.parentElement.querySelector('[data-act="addArea"]'); if (b) b.click(); }
+    if (e.key === "Enter" && e.target.id === "comboQ") { e.preventDefault(); const first = document.querySelector("#comboList .combo-row"); if (first) first.click(); return; }
+    if (e.key === "Escape" && sheet && sheet.combo) { sheet.combo = false; render(); return; }
     if (e.key === "Escape" && sheet) closeSheet();
   });
 

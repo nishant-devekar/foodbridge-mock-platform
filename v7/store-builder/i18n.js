@@ -28,26 +28,20 @@
     title_suppliers: "Suppliers",
     title_usual: "Usual orders",
     title_stock: "Godown stock", q_stock: "How much stock do you have now? Count the main products.",
-    title_rules: "How you work", q_rules: "A few questions about how you work.",
+    title_rules: "How does your daily operation look like?", short_rules: "Daily operation", q_rules: "A few questions about your day.",
     title_finish: "Build your store", q_finish: "Check it once, then build your store.",
 
     sNone: "Not started", sSkipped: "Later", sItems: "{n} products", sPeople: "{n} sorted",
-    sShops: "{n} customers", sStaff: "{n} staff", sSup: "{n} suppliers", sStock: "{n} counted", sRules: "{n} of 7 answered",
+    sShops: "{n} customers", sStaff: "{n} staff", sSup: "{n} suppliers", sStock: "{n} counted", sRules: "{n} of {total} answered",
     /* English singulars: t() uses key_1 when n is 1. Hindi needs none here. */
     sItems_1: "1 product", sShops_1: "1 customer", sSup_1: "1 supplier",
     pAdded_1: "1 added", pDup_1: "1 was already added", pLeft_1: "1 left",
 
-    fShopName: "Shop name", fOwner: "Your name", fMobile: "Mobile number (to log in)",
-    fGst: "GST number",
+    fMobile: "Mobile number (to log in)", required: "Required", mobNeed: "Type your 10-digit mobile number to save.",
+    fGst: "GST number (optional)",
     fType: "What is your business?", tDistributor: "Distributor", tSuperstockist: "Super stockist", tWholesaler: "Wholesaler",
-    tCnf: "C&F agent", tRetailer: "Retailer",
-    fMakes: "Do you make or pack anything yourself?",
-    fLoc: "Shop location", fLocBtn: "Use my location", fLocSaved: "Location saved", fLocSavedS: "Saved", fLocWait: "Finding location…",
-    fLocFail: "Could not get location. Turn on GPS and try again.", fAddress: "Shop address",
-    fLocDenied: "Allow location for this page, then tap again.", fAddrWait: "Finding the address…",
-    fAddrAdded: "Location and address added. Check the address.", fAddrKept: "Location saved. Your address is kept as you wrote it.",
-    fAddrNone: "Please type the address.",
-    fGodown: "Your godowns", gShop: "At the shop", gN: "Godown {n}", gAdd: "Add a godown", fGodownAddr: "Godown address",
+    tRetailer: "Retailer", tManufacturer: "Manufacturer", tOther: "Other", fTypeOther: "Type your business",
+    fWarehouses: "Warehouses", whHowMany: "How many?",
     fAreaPh: "Area name, e.g. Kurla", takePhoto: "Take photo",
 
     
@@ -58,10 +52,10 @@
     
 
     iSearch: "Search: Maggi, atta, potato…", iScan: "Scan", iNew: "New product",
-    iByCompany: "By brand", iByType: "By category", iFresh: "Fresh & loose", iPacked: "Packed",
+    iByCompany: "By brand", iByType: "By category", iFresh: "Fresh & loose", iPacked: "Packed", iPickCat: "Search a category", iPickCo: "Search a brand", iComboNone: "Nothing found", iPickSearch: "Search in {name}",
     iCount: "{n} products", iCount_1: "1 product", iMine: "Your products", iMineSub: "See and change prices",
     iNeedPrice: "{n} need a price", iNeedPrice_1: "1 needs a price", iAddPrice: "Add your price",
-    iSelectAll: "Select all", iClearAll: "Remove all", iNotFound: "Can't find it? Add a new product",
+    iSelectAll: "Select all", iClearAll: "Remove all",
     iMore: "Showing {n} of {total}. Type more to find it faster.",
     per_kg: "per kg", per_dozen: "per dozen", per_tray30: "per tray of 30", per_bunch: "per bunch", per_piece: "per piece", per_litre: "per litre", per_pack: "per pack",
     u_kg: "kg", u_dozen: "dozen", u_tray30: "trays", u_bunch: "bunches", u_piece: "pieces", u_litre: "litres", u_pack: "packs",
@@ -113,10 +107,10 @@
 
     ruPay: "Customers pay by", mCash: "Cash", mUpi: "UPI", mCheque: "Cheque", mCredit: "Credit (udhaar)",
     ruRoutes: "Fixed route days?", ruSelf: "Customers order on phone?",
-    ruPart: "Part now, rest later?", ruReturns: "Damaged goods come back",
+    ruPart: "Customers pay a bill in parts?", ruReturns: "Damaged goods come back",
     retCredit: "Give credit", retReplace: "Replace", retNone: "Don't take back",
-    ruBatches: "Check expiry dates?", ruMorning: "First thing each morning",
-    mnOrders: "Orders", mnMoney: "Money to collect", mnStock: "Stock", mnTrucks: "Trucks", ruNote: "Anything else?", ruNotePh: "Type, or tap the mic and speak",
+    ruMorning: "First thing each morning",
+    mnOrders: "Orders", mnMoney: "Money to collect", mnStock: "Stock", mnTrucks: "Trucks", ruNote: "Anything else?", ruNotePh: "Type, or tap the mic and speak", otherPh: "Type it here",
 
     paTitle: "Photos and voice notes", paPhoto: "Take photo of paper", paPhotoHint: "Bills, khata, rate list, route chart",
     paVoice: "Record voice note", paStop: "Stop", paRecording: "Recording… {s}s", paNone: "Nothing yet",
@@ -137,8 +131,7 @@
     micNoSpeech: "Did not hear anything. Tap the mic and speak.", micNone: "No microphone found.",
     micNet: "Speaking to type needs internet.", micFail: "Could not start the mic. Tap it again.",
 
-    gap_noName: "Shop name", gap_noMobile: "Your mobile number", gap_noGst: "GST number", gap_noLocation: "Shop location",
-    gap_noItems: "No products chosen", gap_noMrp: "Products without MRP", gap_noPrice: "Loose goods without a price", gap_unsorted: "Contacts not sorted",
+    gap_noMobile: "Your mobile number", gap_noGst: "GST number looks wrong", gap_noItems: "No products chosen", gap_noMrp: "Products without MRP", gap_noPrice: "Loose goods without a price", gap_unsorted: "Contacts not sorted",
     gap_noShops: "No customers added", gap_shopNoDay: "Customers without delivery day", gap_shopNoPhone: "Customers without mobile number",
     gap_shopNoArea: "Customers without area", gap_shopNoPay: "Customers without cash / credit", gap_noDelivery: "No delivery person",
     gap_staffNoRole: "Staff without a job", gap_noSuppliers: "No suppliers", gap_supNoCompany: "Suppliers without company",
@@ -170,23 +163,17 @@
     title_suppliers: "सप्लायर",
     title_usual: "रोज़ का ऑर्डर",
     title_stock: "गोदाम का माल", q_stock: "अभी गोदाम में कितना माल है? मुख्य सामान गिनें।",
-    title_rules: "आपका काम", q_rules: "आपके काम के बारे में कुछ सवाल।",
+    title_rules: "आपका रोज़ का काम कैसे चलता है?", short_rules: "रोज़ का काम", q_rules: "आपके रोज़ के काम के बारे में कुछ सवाल।",
     title_finish: "दुकान बनाएँ", q_finish: "एक बार देख लें, फिर अपनी दुकान बनाएँ।",
 
     sNone: "शुरू नहीं हुआ", sSkipped: "बाद में", sItems: "{n} सामान", sPeople: "{n} छाँटे",
-    sShops: "{n} ग्राहक", sStaff: "{n} स्टाफ़", sSup: "{n} सप्लायर", sStock: "{n} गिने", sRules: "7 में से {n} जवाब",
+    sShops: "{n} ग्राहक", sStaff: "{n} स्टाफ़", sSup: "{n} सप्लायर", sStock: "{n} गिने", sRules: "{total} में से {n} जवाब",
 
-    fShopName: "दुकान का नाम", fOwner: "आपका नाम", fMobile: "मोबाइल नंबर (लॉगिन के लिए)",
-    fGst: "GST नंबर",
+    fMobile: "मोबाइल नंबर (लॉगिन के लिए)", required: "ज़रूरी", mobNeed: "सेव करने के लिए 10 अंकों का मोबाइल नंबर लिखिए।",
+    fGst: "GST नंबर (ज़रूरी नहीं)",
     fType: "आपका काम क्या है?", tDistributor: "डिस्ट्रीब्यूटर", tSuperstockist: "सुपर स्टॉकिस्ट", tWholesaler: "होलसेलर",
-    tCnf: "C&F एजेंट", tRetailer: "रिटेलर",
-    fMakes: "क्या आप ख़ुद कुछ बनाते या पैक करते हैं?",
-    fLoc: "दुकान की जगह", fLocBtn: "मेरी लोकेशन लें", fLocSaved: "लोकेशन सेव हो गई", fLocSavedS: "सेव हो गई", fLocWait: "लोकेशन ढूँढ रहे हैं…",
-    fLocFail: "लोकेशन नहीं मिली। GPS चालू करके फिर कोशिश करें।", fAddress: "दुकान का पता",
-    fLocDenied: "इस पेज को लोकेशन की इजाज़त दें, फिर दोबारा दबाएँ।", fAddrWait: "पता ढूँढ रहे हैं…",
-    fAddrAdded: "लोकेशन और पता जुड़ गया। पता एक बार देख लें।", fAddrKept: "लोकेशन सेव हो गई। आपका लिखा पता वैसा ही रखा है।",
-    fAddrNone: "पता लिख दीजिए।",
-    fGodown: "आपके गोदाम", gShop: "दुकान पर ही", gN: "गोदाम {n}", gAdd: "गोदाम जोड़ें", fGodownAddr: "गोदाम का पता",
+    tRetailer: "रिटेलर", tManufacturer: "मैन्युफैक्चरर", tOther: "कुछ और", fTypeOther: "अपना काम लिखिए",
+    fWarehouses: "गोदाम", whHowMany: "कितने हैं?",
     fAreaPh: "इलाके का नाम, जैसे कुर्ला", takePhoto: "फ़ोटो लें",
 
     
@@ -197,10 +184,10 @@
     
 
     iSearch: "खोजें: मैगी, आटा, आलू…", iScan: "स्कैन", iNew: "नया सामान",
-    iByCompany: "ब्रांड से", iByType: "कैटेगरी से", iFresh: "ताज़ा और खुला सामान", iPacked: "पैकेट वाला सामान",
+    iByCompany: "ब्रांड से", iByType: "कैटेगरी से", iFresh: "ताज़ा और खुला सामान", iPacked: "पैकेट वाला सामान", iPickCat: "कैटेगरी खोजें", iPickCo: "ब्रांड खोजें", iComboNone: "कुछ नहीं मिला", iPickSearch: "{name} में खोजें",
     iCount: "{n} सामान", iMine: "आपका सामान", iMineSub: "रेट देखें और बदलें",
     iNeedPrice: "{n} का रेट बाकी", iAddPrice: "अपना रेट डालें",
-    iSelectAll: "सब चुनें", iClearAll: "सब हटाएँ", iNotFound: "नहीं मिला? नया सामान जोड़ें",
+    iSelectAll: "सब चुनें", iClearAll: "सब हटाएँ",
     iMore: "{total} में से {n} दिख रहे हैं। जल्दी ढूँढने के लिए और लिखें।",
     per_kg: "प्रति किलो", per_dozen: "प्रति दर्जन", per_tray30: "प्रति ट्रे (30)", per_bunch: "प्रति गड्डी", per_piece: "प्रति नग", per_litre: "प्रति लीटर", per_pack: "प्रति पैकेट",
     u_kg: "किलो", u_dozen: "दर्जन", u_tray30: "ट्रे", u_bunch: "गड्डी", u_piece: "नग", u_litre: "लीटर", u_pack: "पैकेट",
@@ -252,10 +239,10 @@
 
     ruPay: "ग्राहक पैसे देते हैं", mCash: "नकद", mUpi: "UPI", mCheque: "चेक", mCredit: "उधार",
     ruRoutes: "तय दिन, तय रूट?", ruSelf: "ग्राहक फ़ोन से ऑर्डर करें?",
-    ruPart: "थोड़ा अभी, बाकी बाद में?", ruReturns: "ख़राब माल वापस आए तो",
+    ruPart: "ग्राहक बिल टुकड़ों में चुकाते हैं?", ruReturns: "ख़राब माल वापस आए तो",
     retCredit: "क्रेडिट देते हैं", retReplace: "बदल देते हैं", retNone: "वापस नहीं लेते",
-    ruBatches: "एक्सपायरी देखते हैं?", ruMorning: "रोज़ सुबह सबसे पहले",
-    mnOrders: "ऑर्डर", mnMoney: "वसूली", mnStock: "माल", mnTrucks: "गाड़ियाँ", ruNote: "और कुछ?", ruNotePh: "लिखें, या माइक दबा कर बोलें",
+    ruMorning: "रोज़ सुबह सबसे पहले",
+    mnOrders: "ऑर्डर", mnMoney: "वसूली", mnStock: "माल", mnTrucks: "गाड़ियाँ", ruNote: "और कुछ?", ruNotePh: "लिखें, या माइक दबा कर बोलें", otherPh: "यहाँ लिखिए",
 
     paTitle: "फ़ोटो और आवाज़", paPhoto: "कागज़ की फ़ोटो लें", paPhotoHint: "बिल, खाता, रेट लिस्ट, रूट चार्ट",
     paVoice: "आवाज़ रिकॉर्ड करें", paStop: "रोकें", paRecording: "रिकॉर्ड हो रहा है… {s} सेकंड", paNone: "अभी कुछ नहीं",
@@ -276,8 +263,7 @@
     micNoSpeech: "कुछ सुनाई नहीं दिया। माइक दबा कर बोलिए।", micNone: "माइक नहीं मिला।",
     micNet: "बोल कर लिखने के लिए इंटरनेट चाहिए।", micFail: "माइक शुरू नहीं हुआ। दोबारा दबाएँ।",
 
-    gap_noName: "दुकान का नाम", gap_noMobile: "आपका मोबाइल नंबर", gap_noGst: "GST नंबर", gap_noLocation: "दुकान की जगह",
-    gap_noItems: "कोई सामान नहीं चुना", gap_noMrp: "बिना MRP के सामान", gap_noPrice: "खुले सामान का रेट नहीं", gap_unsorted: "नंबर छाँटने बाकी",
+    gap_noMobile: "आपका मोबाइल नंबर", gap_noGst: "GST नंबर गलत लगता है", gap_noItems: "कोई सामान नहीं चुना", gap_noMrp: "बिना MRP के सामान", gap_noPrice: "खुले सामान का रेट नहीं", gap_unsorted: "नंबर छाँटने बाकी",
     gap_noShops: "कोई ग्राहक नहीं", gap_shopNoDay: "ग्राहक जिनका दिन नहीं चुना", gap_shopNoPhone: "ग्राहक बिना मोबाइल नंबर",
     gap_shopNoArea: "ग्राहक बिना इलाका", gap_shopNoPay: "ग्राहक बिना नकद / उधार", gap_noDelivery: "कोई डिलीवरी वाला नहीं",
     gap_staffNoRole: "स्टाफ़ बिना काम", gap_noSuppliers: "कोई सप्लायर नहीं", gap_supNoCompany: "सप्लायर बिना कंपनी",

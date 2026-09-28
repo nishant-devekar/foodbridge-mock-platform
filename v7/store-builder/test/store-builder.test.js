@@ -148,7 +148,41 @@ test("progress and missing name the gaps without blocking anything", () => {
   assert.ok(keys.includes("notCounted"));
   assert.ok(!keys.includes("noDelivery"));
   const empty = M.missing(CAT, M.blank()).map((g) => g.key);
-  assert.ok(empty.includes("noName") && empty.includes("noItems") && empty.includes("noShops"));
+  assert.ok(empty.includes("noMobile") && empty.includes("noItems") && empty.includes("noShops"));
+});
+
+test("Shop step: only the login mobile is required; GST is optional, flagged only if it looks wrong", () => {
+  const s = M.blank();
+  assert.equal(M.progress(CAT, s).store.done, false);
+  s.store.mobile = "98765 43210";
+  assert.equal(M.progress(CAT, s).store.done, true);          // no shop name needed
+  let keys = M.missing(CAT, s).map((g) => g.key);
+  assert.ok(!keys.includes("noMobile") && !keys.includes("noGst") && !keys.includes("noName"));
+  s.store.gst = "27ABCDE";
+  keys = M.missing(CAT, s).map((g) => g.key);
+  assert.ok(keys.includes("noGst"));
+});
+
+test("business type: Manufacturer and Other (typed) are in, C&F agent becomes Other", () => {
+  const s = sample();
+  s.store.type = "manufacturer";
+  const row = () => X.sheets(CAT, s, NOW).find((x) => x.name === "Store").rows.find((r) => r[0] === "Business type")[1];
+  assert.equal(row(), "Manufacturer");
+  Object.assign(s.store, { type: "other", typeOther: "Caterer" });
+  assert.equal(row(), "Other: Caterer");
+  const old = M.migrate({ store: { type: "cnf" } }).store;
+  assert.equal(old.type, "other");
+  assert.equal(old.typeOther, "C&F agent");
+});
+
+test("daily operation: Other, typed, on pay methods, returns and the morning check", () => {
+  const s = sample();
+  Object.assign(s.rules, { payMethods: ["cash", "other"], payMethodsOther: "NEFT", returns: "other", returnsOther: "Half credit", morning: "other", morningOther: "" });
+  const rows = X.sheets(CAT, s, NOW).find((x) => x.name === "Settings").rows;
+  const ans = (q) => rows.find((r) => r[0] === q)[1];
+  assert.equal(ans("Payment methods he accepts"), "Cash, Other: NEFT");
+  assert.equal(ans("Returns and damages"), "Other: Half credit");
+  assert.equal(ans("First thing he checks each morning"), "Other: (not said)");
 });
 
 test("migrate: an old or broken save opens as a working state", () => {
@@ -262,17 +296,6 @@ test("one Contacts step: a guess from the name, remove a contact, and gaps that 
   assert.equal(gap.tab, "shop");
 });
 
-test("use my location: the OpenStreetMap address, short, the way a bill writes it", () => {
-  /* What Nominatim answered for a point in Kurla West, 26 Sep 2026. */
-  const kurla = { neighbourhood: "Netaji Nagar", suburb: "Kurla West", city_district: "Mumbai Zone 5", city: "Mumbai",
-    state_district: "Mumbai Suburban District", state: "Maharashtra", postcode: "400070", country: "India", country_code: "in" };
-  assert.equal(M.shortAddress(kurla), "Netaji Nagar, Kurla West, Mumbai, Maharashtra 400070");
-  assert.equal(M.shortAddress({ house_number: "12", road: "LBS Marg", suburb: "Kurla", city: "Kurla", state: "Maharashtra" }),
-    "12 LBS Marg, Kurla, Maharashtra");
-  assert.equal(M.shortAddress({ village: "Rampur", state: "Uttar Pradesh", postcode: "244901" }), "Rampur, Uttar Pradesh 244901");
-  assert.equal(M.shortAddress(null), "");
-});
-
 test("godowns: one or more, and a save from before 26 Sep keeps its godown", () => {
   const same = M.migrate({ store: { godownSame: true, godownAddress: "" } }).store;
   assert.equal(same.godownAtShop, true);
@@ -282,12 +305,16 @@ test("godowns: one or more, and a save from before 26 Sep keeps its godown", () 
   assert.equal(other.godownAtShop, false);
   assert.deepEqual(other.godowns, ["Plot 9, MIDC Bhosari"]);
   assert.deepEqual(M.blank().store.godowns, []);
+  assert.equal(same.warehouses, 1);          // 28 Sep: the list became a count
+  assert.equal(other.warehouses, 1);
+  assert.equal(M.blank().store.warehouses, null);
 
   const s = sample();
   s.store.godownAtShop = true;
   s.store.godowns = ["Plot 9, MIDC Bhosari", "  ", "Gala 3, Wagholi"];
-  const rows = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Store").rows.filter((r) => /^Godown/.test(r[0]));
-  assert.deepEqual(rows.map((r) => r[0] + ": " + r[1]), ["Godown 1: At the shop", "Godown 2: Plot 9, MIDC Bhosari", "Godown 3: Gala 3, Wagholi"]);
+  s.store.warehouses = 3;
+  const rows = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Store").rows.filter((r) => /^Warehouse/.test(r[0]));
+  assert.deepEqual(rows.map((r) => r[0] + ": " + r[1]), ["Warehouses: 3", "Warehouse 1: At the shop", "Warehouse 2: Plot 9, MIDC Bhosari", "Warehouse 3: Gala 3, Wagholi"]);
 });
 
 test("godown stock: counts save as he taps, one number in one unit, into the opening stock", () => {

@@ -166,7 +166,7 @@ small.warn { display: flex; margin-top: .2rem; font-size: .74rem; }
 .fc-ic .ic { width: 1.1rem; height: 1.1rem; }
 .fc-t { flex: 1 1 auto; font-weight: 500; }
 .fc-act { color: var(--g); font-weight: 600; }
-.fc-act:active, .gd-shop:active { background: var(--line-2); }
+.fc-act:active { background: var(--line-2); }
 .fc-row input, .fc-row textarea {
   flex: 1 1 auto; min-width: 0; min-height: 0; padding: .45rem 0; border: 0; background: none; resize: none; outline: none; box-shadow: none;
   font: inherit; font-size: max(16px, .85rem); font-weight: 500; line-height: 1.35; color: var(--ink);
@@ -175,14 +175,17 @@ small.warn { display: flex; margin-top: .2rem; font-size: .74rem; }
 .fc-row input:-webkit-autofill, .fc-row textarea:-webkit-autofill { -webkit-text-fill-color: var(--ink); box-shadow: 0 0 0 100px var(--card) inset; }
 .fc-row .sb-icbtn.is-plain { width: 36px; min-width: 36px; color: var(--g); }
 .fc-row .sb-icbtn.is-plain.is-on { height: 36px; min-height: 36px; border-radius: 50%; background: var(--g); color: #fff; }
-.fc-row .sb-icbtn.gd-x { color: var(--muted-2); }
 .fc.is-first { margin-top: 1.3rem; }
-/* godowns: the number badge and the shop's tick */
-.gd-n { flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--g-50); color: var(--g); font-size: .74rem; font-weight: 700; }
-.gd-n .ic { width: .95rem; height: .95rem; }
-.gd-tick { flex: none; display: grid; place-items: center; width: 1.35rem; height: 1.35rem; margin-right: .5rem; border: 1.5px solid var(--line); border-radius: 50%; color: transparent; }
-.gd-tick .ic { width: .85rem; height: .85rem; stroke-width: 3; }
-.gd-shop.on .gd-tick { background: var(--g); border-color: var(--g); color: #fff; }
+/* the one required box: a Required tag that turns into a tick; red, with a line under the card, after a tap on Save */
+.fc-req { flex: none; margin-right: .45rem; padding: .12rem .45rem; border-radius: 1rem; background: var(--amber-bg); color: var(--amber); font-size: .68rem; font-weight: 600; }
+.fc-req.is-ok { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; padding: 0; background: var(--g); color: #fff; }
+.fc-req.is-ok .ic { width: .85rem; height: .85rem; stroke-width: 3; }
+.fc-row.is-bad { background: var(--red-bg); box-shadow: inset 3px 0 0 var(--red); }
+.fc-row.is-bad .fc-ic, .fc-row.is-bad .fc-req { color: var(--red); }
+.fc-row.is-bad .fc-req { background: #fff; }
+.fc-err { display: flex; align-items: center; gap: .35rem; margin: .45rem .2rem 0; font-size: .78rem; font-weight: 500; color: var(--red); }
+.fc-err[hidden] { display: none; }
+.fc-err .ic { flex: none; width: .95rem; height: .95rem; }
 .sb-label.is-row { justify-content: space-between; }
 .sb-label-t { display: flex; align-items: center; gap: .55rem; }
 .sb-label .sb-line { flex: none; font-size: .78rem; white-space: nowrap; }
@@ -249,6 +252,7 @@ small.warn { display: flex; margin-top: .2rem; font-size: .74rem; }
    A choice is a quiet box that turns solid green once chosen -- the
    onboarding's role picker. */
 .chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+.chips + .inp { margin-top: .6rem; }
 .chip {
   display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
   min-height: 44px; padding: .45rem .85rem;
@@ -550,6 +554,32 @@ small.warn { display: flex; margin-top: .2rem; font-size: .74rem; }
 .pick.on { border: 2px solid var(--g); padding: calc(.35rem - 1px) calc(.35rem - 1px) calc(.5rem - 1px); background: var(--g-tint); }
 .pick.on .pick-tick { background: var(--g); border-color: var(--g); color: #fff; }
 .pick:active { transform: scale(.98); }
+/* the picker's title opens a search-and-select dropdown: a search box and one-line rows, over the grid */
+.pick-title { display: inline-flex; align-items: center; gap: .3rem; max-width: 100%; margin: -.25rem 0 -.25rem -.45rem; padding: .25rem .45rem; border: 0; border-radius: .4rem; background: none; font: inherit; color: inherit; text-align: left; }
+.pick-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pick-title .ic { flex: none; width: 1.05rem; height: 1.05rem; color: var(--g); transform: rotate(90deg); transition: transform .15s ease; }
+.pick-title.is-open .ic { transform: rotate(-90deg); }
+.pick-title:active, .pick-title.is-open { background: var(--line-2); }
+.combo-scrim { position: absolute; inset: 0; z-index: 3; }
+.combo {
+  position: absolute; z-index: 4; top: 3.6rem; left: 1rem; right: 1rem; display: flex; flex-direction: column; max-height: min(22rem, 60%);
+  background: var(--card); border: 1px solid var(--line); border-radius: .6rem; box-shadow: 0 .6rem 1.6rem -.4rem rgba(13, 15, 18, .22); overflow: hidden;
+}
+.combo-q { flex: none; display: flex; align-items: center; gap: .5rem; padding: 0 .75rem; border-bottom: 1px solid var(--line-2); color: var(--muted); }
+.combo-q input { flex: 1 1 auto; min-width: 0; height: 2.75rem; border: 0; outline: none; background: none; font: inherit; font-size: max(16px, .88rem); color: var(--ink); }
+.combo-list { overflow-y: auto; overscroll-behavior: contain; padding: .25rem 0; }
+.combo-row { display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 2.6rem; padding: 0 .85rem; border: 0; background: none; font: inherit; font-size: .88rem; color: var(--ink); text-align: left; }
+.combo-row span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo-row small { flex: none; font-size: .74rem; color: var(--muted-2); }
+.combo-row .ic { flex: none; width: 1rem; height: 1rem; color: var(--g); stroke-width: 2.5; }
+.combo-row.is-cur { color: var(--g-d); font-weight: 600; }
+.combo-row:active, .combo-row:focus-visible { background: var(--g-tint); outline: none; }
+@media (hover: hover) { .combo-row:hover { background: var(--line-2); } }
+.combo-none { margin: 0; padding: .8rem .85rem; font-size: .82rem; color: var(--muted); }
+.pick-top { position: sticky; top: -.3rem; z-index: 2; margin: -.3rem -1.5rem 0; padding: .3rem 1.5rem .15rem; background: var(--card); }
+.pick-top .sb-search { margin-top: 0; min-height: 2.6rem; box-shadow: none; }
+.pick-top .sb-search input { min-height: 2.5rem; }
+.pick-top .pick-bar { min-height: 2.2rem; margin-top: .15rem; }
 .pick-bar { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .2rem; font-size: .8rem; color: var(--muted); }
 
 .item-head { display: flex; align-items: center; gap: .9rem; margin-top: .4rem; }
@@ -792,6 +822,7 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @keyframes sb-fade { from { opacity: 0; } }
+.sheet.is-still, .scrim.is-still { animation: none; }
 @keyframes sb-rise { from { transform: translateY(14px); opacity: .6; } }
 .sheet-grip { flex: none; width: 2.2rem; height: .25rem; border-radius: 99px; background: #dfe1e5; margin: .6rem auto 0; }
 .sheet-head { flex: none; display: flex; align-items: center; gap: .8rem; padding: .9rem 1.5rem .5rem; }
@@ -831,6 +862,7 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
 .fi-sent p { flex: 1 1 auto; }
 .fi-sent .sb-more { flex: none; }
 .sb-cta[disabled] { opacity: .7; }
+.sb-cta[data-act="saveStep"][aria-disabled="true"] { background: var(--prog); color: var(--muted); box-shadow: none; }
 
 /* ── toast ─────────────────────────────────────────────────────────────── */
 #toast {

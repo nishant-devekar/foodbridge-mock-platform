@@ -18,7 +18,7 @@
 
   /* 26 Sep 2026: Phone contacts, Customers, Staff and Suppliers are one step,
      "people": he brings contacts in once and tags each one. */
-  const RULES_N = 7;   // How you work questions (Order steps went 26 Sep 2026)
+  const RULES_N = 6;   // Daily operation questions (Order steps went 26 Sep 2026; expiry dates 28 Sep 2026)
   const STEPS = ["store", "items", "people", "stock", "rules", "finish"];   // Usual orders went 26 Sep 2026 (owner)
 
   function blank() {
@@ -27,7 +27,7 @@
       lang: "en",           // English first (owner, 26 Sep 2026); हिंदी one tap away on Welcome and in ⋯
       startedAt: null,
       updatedAt: null,
-      store: { name: "", owner: "", mobile: "", gst: "", type: "", makes: null, photo: null, loc: null, address: "", godownAtShop: null, godowns: [], areas: [] },
+      store: { name: "", owner: "", mobile: "", gst: "", type: "", typeOther: "", makes: null, photo: null, loc: null, address: "", godownAtShop: null, godowns: [], warehouses: null, areas: [] },
       companies: {},        // companyId -> { buy, sell, seen? }  (presence = he sells its products; kept by syncCompanies)
       customCompanies: [],  // [{ id, name, color }]
       items: {},            // itemId -> { mrp?, sell?, buy?, unit, caseQty?, speed, gst?, barcode, stockCases, stockLoose, touched:{} }
@@ -35,7 +35,7 @@
       people: {},           // id -> person
       order: [],            // people ids in the order they were added
       usual: {},            // shopId -> { itemId: qty }; no longer asked (26 Sep 2026), kept so old saves open
-      rules: { payMethods: [], routes: null, selfOrder: null, partPay: null, returns: null, batches: null, morning: null, note: "" },   // Order steps went 26 Sep 2026 (owner)
+      rules: { payMethods: [], routes: null, selfOrder: null, partPay: null, returns: null, batches: null, morning: null, note: "", payMethodsOther: "", returnsOther: "", morningOther: "" },   // Order steps went 26 Sep 2026 (owner)
       skipped: {},          // step -> true when the owner said "none / later"
       papers: [],           // [{ id, kind: photo|voice, step, at, mime }]
       stockSel: null,       // Godown stock: the products on his count, newest first (null: not opened yet)
@@ -65,6 +65,9 @@
 
   const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
   function gstOk(g) { return GSTIN_RE.test(String(g || "").toUpperCase().trim()); }
+  /* The login mobile is the one thing the Shop step must have (owner, 28 Sep 2026):
+     its Save waits for 10 digits. Everything else on it is optional. */
+  function storeReady(s) { return phone10(s.store.mobile).length === 10; }
 
   /* ──────────────────────────── catalogue ── */
 
@@ -264,10 +267,10 @@
     const sups = peopleOf(s, "supplier");
     const counted = chosenItems(cat, s).filter(function (it) { return it.stockCases != null || it.stockLoose != null; }).length;
     const r = s.rules;
-    const rulesAnswered = [r.payMethods.length > 0, r.routes != null, r.selfOrder != null, r.partPay != null, r.returns != null, r.batches != null, r.morning != null].filter(Boolean).length;
+    const rulesAnswered = [r.payMethods.length > 0, r.routes != null, r.selfOrder != null, r.partPay != null, r.returns != null, r.morning != null].filter(Boolean).length;
     const sorted = s.order.filter(function (id) { return s.people[id] && s.people[id].type; }).length;
     return {
-      store:     { done: !!(s.store.name && phone10(s.store.mobile).length === 10), n: null },
+      store:     { done: storeReady(s), n: null },
       items:     { done: items > 0, n: items },
       people:    { done: sorted > 0 && unsorted(s).length === 0 && shops.length > 0 && shops.every(function (p) { return (p.days || []).length; }) &&
                    (staff.length > 0 && staff.every(function (p) { return p.role; }) || !!s.skipped.staff) && (sups.length > 0 || !!s.skipped.suppliers),
@@ -287,10 +290,9 @@
       const tab = { shops: "shop", staff: "staff", suppliers: "supplier" }[step];
       gaps.push(tab ? { step: "people", tab: tab, key: key, n: n } : { step: step, key: key, n: n });
     }
-    add("store", "noName", s.store.name ? 0 : 1);
-    add("store", "noMobile", phone10(s.store.mobile).length === 10 ? 0 : 1);
-    add("store", "noGst", gstOk(s.store.gst) ? 0 : 1);
-    add("store", "noLocation", s.store.loc ? 0 : 1);
+    /* No shop name is asked any more; GST is optional, so only one that looks wrong is a gap. */
+    add("store", "noMobile", storeReady(s) ? 0 : 1);
+    add("store", "noGst", s.store.gst && !gstOk(s.store.gst) ? 1 : 0);
     add("items", "noItems", Object.keys(s.items).length ? 0 : 1);
     const its = chosenItems(cat, s);
     add("items", "noMrp", its.filter(function (it) { return !it.loose && !it.mrp; }).length);
@@ -328,6 +330,13 @@
       delete out.store.godownAddress;
     }
     if (!Array.isArray(out.store.godowns)) out.store.godowns = [];
+    /* The godown list (the shop and each address) became a count of warehouses on 28 Sep 2026. */
+    if (out.store.warehouses == null) {
+      const n = (out.store.godownAtShop ? 1 : 0) + out.store.godowns.filter(function (g) { return String(g || "").trim(); }).length;
+      if (n) out.store.warehouses = n;
+    }
+    /* C&F agent left the business types on 28 Sep 2026: an older save's becomes Other, typed. */
+    if (out.store.type === "cnf") { out.store.type = "other"; out.store.typeOther = out.store.typeOther || "C&F agent"; }
     out.rules = Object.assign(blank().rules, s.rules || {});
     ["companies", "items", "customItems", "people", "usual", "skipped"].forEach(function (k) { if (!out[k] || typeof out[k] !== "object") out[k] = {}; });
     ["customCompanies", "order", "papers"].forEach(function (k) { if (!Array.isArray(out[k])) out[k] = []; });
@@ -336,29 +345,6 @@
     out.order = out.order.filter(function (id) { return out.people[id]; });
     Object.keys(out.people).forEach(function (id) { if (out.order.indexOf(id) < 0) out.order.push(id); });
     out.v = VERSION;
-    return out;
-  }
-
-  /* A shop address from OpenStreetMap's reverse lookup (its "address" object):
-     street, area, city, state and PIN, the way it's written on a bill. The
-     district and zone lines OSM adds ("L Ward", "Mumbai Zone 5") are left out. */
-  function shortAddress(a) {
-    if (!a) return "";
-    const seen = {};
-    const parts = [
-      [a.house_number, a.road].filter(Boolean).join(" "),
-      a.neighbourhood || a.quarter || a.residential || a.hamlet,
-      a.suburb,
-      a.city || a.town || a.village || a.municipality || a.county,
-      a.state,
-    ].filter(function (p) {
-      const k = String(p || "").trim().toLowerCase();
-      if (!k || seen[k]) return false;
-      seen[k] = true;
-      return true;
-    });
-    let out = parts.join(", ");
-    if (a.postcode) out += (out ? " " : "") + a.postcode;
     return out;
   }
 
@@ -411,13 +397,13 @@
   const api = {
     DAYS: DAYS, STEPS: STEPS, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
     blank: blank, migrate: migrate, uid: uid, round2: round2,
-    phone10: phone10, phoneShow: phoneShow, gstOk: gstOk,
+    phone10: phone10, phoneShow: phoneShow, gstOk: gstOk, storeReady: storeReady,
     companyList: companyList, companyById: companyById, item: item, syncCompanies: syncCompanies, tidy: tidy, aisleOf: aisleOf, chosenItems: chosenItems, unitPrice: unitPrice,
     search: search, findBarcode: findBarcode,
     countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, countOf: countOf, lineUnit: lineUnit, setCount: setCount, stockSel: stockSel,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
-    progress: progress, missing: missing, shortAddress: shortAddress,
+    progress: progress, missing: missing, RULES_N: RULES_N,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
