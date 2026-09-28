@@ -46,7 +46,7 @@
   let S = load();
   let view = "welcome";
   let sheet = null;
-  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", gsQ: "", gsOpen: false, outbox: [], building: false, sending: false, lastSorted: [], photoFor: null, rec: null, stream: null, scanTimer: null };
+  const ui = { peopleTab: null, peopleQ: "", pickBy: "company", sheetStack: [], itemsQ: "", compQ: "", gsQ: "", gsOpen: false, outbox: [], building: false, sending: false, lastSorted: [], sortedHere: [], photoFor: null, rec: null, stream: null, scanTimer: null };
   const urls = {};
 
   /* ─────────────────────────────────────────────────────── storage ── */
@@ -239,7 +239,8 @@
      under it, hairline rows, line icons, one green button pinned at the
      bottom. What each screen asks and does is unchanged. */
 
-  const LOGO = '<img class="sb-logo" src="../assets/foodbridge-mark.png" alt="FoodBridge" width="28" height="28">';
+  /* The FoodBridge mark in the theme green (owner, 28 Sep 2026): a Store Builder copy; the shared blue one in assets/ stays as it is. */
+  const LOGO = '<img class="sb-logo" src="foodbridge-mark-green.png?v=1" alt="FoodBridge" width="28" height="28">';
 
   function chips(opts, isOn, attrs, cls) {
     return '<div class="chips ' + (cls || "") + '">' + opts.map(function (o) {
@@ -335,9 +336,12 @@
     const i = STEPS.indexOf(step);
     const next = STEPS[i + 1];
     const bars = STEPS.map(function (s, k) { return '<i class="' + (k <= i ? "on" : "") + '"></i>'; }).join("");
-    return '<header class="sb-top">' +
+    /* Sample (owner, 28 Sep 2026): fill this step with made-up answers, after a confirm. */
+    const sample = M.SAMPLE_STEPS.indexOf(step) >= 0;
+    return '<header class="sb-top' + (sample ? " has-sample" : "") + '">' +
       '<button class="sb-back" data-act="go" data-to="home" aria-label="' + h(t("home")) + '">' + ic("back", 22) + "</button>" +
       '<div class="sb-prog" role="progressbar" aria-valuemin="1" aria-valuemax="' + STEPS.length + '" aria-valuenow="' + (i + 1) + '">' + bars + "</div>" +
+      (sample ? '<button class="sb-sample" data-act="sampleAsk" data-step="' + step + '">' + ic("sparkle", 15) + "<span>" + h(t("sampleBtn")) + "</span></button>" : "") +
       "</header>" +
       '<main class="sb-main">' +
       '<p class="sb-step">' + h(t("stepOf", { n: i + 1, total: STEPS.length })) + "</p>" +
@@ -615,7 +619,8 @@
 
   function tagBtns(p, guess, withX) {
     return '<div class="ptags">' + TAGS.map(function (x) {
-      return '<button class="ptag ' + x[0] + (guess === x[0] ? " is-guess" : "") + '" data-act="sort" data-id="' + h(p.id) + '" data-v="' + x[0] + '" aria-label="' + h(t(x[2])) + '">' +
+      const on = p.type === x[0];
+      return '<button class="ptag ' + x[0] + (on ? " on" : !p.type && guess === x[0] ? " is-guess" : "") + '" data-act="sort" data-id="' + h(p.id) + '" data-v="' + x[0] + '" aria-pressed="' + on + '" aria-label="' + h(t(x[2])) + '">' +
         ic(x[1], 18) + "<span>" + h(t(x[2])) + "</span></button>";
     }).join("") +
       (withX ? '<button class="ptag is-x" data-act="sort" data-id="' + h(p.id) + '" data-v="skip" aria-label="' + h(t("pSkip")) + '">' + ic("x", 18) + "</button>" : "") + "</div>";
@@ -631,12 +636,17 @@
     return !q || (p.name + " " + p.phone).toLowerCase().indexOf(q) >= 0 || M.phone10(p.phone).indexOf(q.replace(/\D/g, "") || "~") >= 0;
   }
 
+  /* 28 Sep 2026 (owner: "if I select it the user gets removed"): a contact tagged here stays in
+     the list with its tag lit until he leaves the tab, so he sees the choice and can change it. */
   function sortRows() {
-    const u = M.unsorted(S).filter(matchQ);
+    const u = S.order.map(function (id) { return S.people[id]; }).filter(function (p) {
+      return p && (!p.type || (p.type !== "skip" && ui.sortedHere.indexOf(p.id) >= 0));
+    }).filter(matchQ);
     const skipped = M.peopleOf(S, "skip").filter(matchQ);
     let out = u.length ? '<div class="plist">' + u.map(function (p) {
       return '<div class="prow is-sort">' + rowMain(p, M.phoneShow(p.phone)) + tagBtns(p, M.guessType(p.name), true) + "</div>";
     }).join("") + "</div>" : "";
+    if (u.length && !M.unsorted(S).length) out = '<div class="sb-callout">' + ic("circleCheck", 18) + "<p>" + h(t("pAllSorted")) + "</p></div>" + out;
     if (!u.length && !ui.peopleQ) out = S.order.length ? '<div class="sb-callout">' + ic("circleCheck", 18) + "<p>" + h(t("pAllSorted")) + "</p></div>" : '<div class="empty"><p>' + h(t("pNone")) + "</p></div>";
     if (skipped.length) {
       out += '<details class="pskip"><summary>' + h(t("pSkippedList")) + " · " + skipped.length + ic("chev", 16) + "</summary>" +
@@ -922,6 +932,15 @@
       menuRow("lang", "langs", t("menuLang"), { attrs: 'data-v="' + (S.lang === "en" ? "hi" : "en") + '"' }) +
       menuRow("confirm", "trash", t("menuFresh"), { cls: "is-bad", attrs: 'data-what="fresh"' }) + "</div>" +
       '<p class="sb-hint">' + h(CAT.note) + '</p><p class="sb-hint">' + h(CAT.credit) + "</p>");
+  };
+
+  SHEETS.sample = function (sh) {
+    const needItems = sh.step === "stock" && !Object.keys(S.items).length;
+    return sheetWrap(h(t("sampleTitle")),
+      '<div class="sb-callout">' + ic("sparkle", 18) + "<p>" + h(t("sampleBody", { step: stepName(sh.step) })) +
+        (needItems ? " " + h(t("sampleItemsToo")) : "") + "</p></div>",
+      '<button class="sb-btn" data-act="closeSheet">' + h(t("cancel")) + "</button>" +
+      '<button class="sb-cta" data-act="sampleFill" data-step="' + sh.step + '">' + ic("sparkle", 18) + h(t("sampleYes")) + "</button>");
   };
 
   SHEETS.confirm = function () {
@@ -1234,6 +1253,7 @@
   function go(to) {
     stopMedia();
     ui.needMobile = false;
+    ui.sortedHere = [];
     sheet = null;
     ui.sheetStack = [];
     view = to;
@@ -1515,7 +1535,7 @@
     menu: function () { openSheet({ kind: "menu" }); },
     closeSheet: function () { closeSheet(); },
     papers: function (el) { openSheet({ kind: "papers" }); if (el.dataset.rec && canRecord) recStart(); },
-    ui: function (el) { ui[el.dataset.k] = el.dataset.v; render(); },
+    ui: function (el) { if (el.dataset.k === "peopleTab") ui.sortedHere = []; ui[el.dataset.k] = el.dataset.v; render(); },
 
     set: function (el) {
       const path = el.dataset.path, kind = el.dataset.kind || "str", raw = el.dataset.v;
@@ -1658,7 +1678,11 @@
     sort: function (el) {
       const p = S.people[el.dataset.id];
       if (!p) return;
-      p.type = el.dataset.v;
+      /* Tagging keeps him on To sort, even after the last one (it used to jump to Customers). */
+      if (peopleTab() === "sort") ui.peopleTab = "sort";
+      /* The lit tag again takes it back to "to sort". */
+      p.type = p.type === el.dataset.v && el.dataset.v !== "skip" ? null : el.dataset.v;
+      if (p.type && ui.sortedHere.indexOf(p.id) < 0) ui.sortedHere.push(p.id);
       ui.lastSorted.push(p.id);
       save();
       render();
@@ -1710,6 +1734,16 @@
     },
     sendNow: function () { sendAll(); render(); },
     confirm: function (el) { sheet = { kind: "confirm", what: el.dataset.what }; render(); },
+    sampleAsk: function (el) { openSheet({ kind: "sample", step: el.dataset.step }); },
+    sampleFill: function (el) {
+      M.fillSample(CAT, S, el.dataset.step);
+      ui.needMobile = false;
+      ui.sortedHere = [];
+      if (el.dataset.step === "people") ui.peopleTab = null;
+      syncSave();
+      closeSheet();
+      toast("✓ " + t("sampleDone"));
+    },
 
     /* Godown stock */
     gsAdd: function (el) {

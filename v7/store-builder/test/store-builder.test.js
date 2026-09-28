@@ -185,6 +185,37 @@ test("daily operation: Other, typed, on pay methods, returns and the morning che
   assert.equal(ans("First thing he checks each morning"), "Other: (not said)");
 });
 
+test("sample data: each step fills only what is empty, adds beside what he has, and makes the step done", () => {
+  const s = M.blank();
+  for (const step of M.SAMPLE_STEPS) M.fillSample(CAT, s, step);
+  const p = M.progress(CAT, s);
+  for (const step of M.SAMPLE_STEPS) assert.equal(p[step].done, true, step);
+  assert.equal(M.missing(CAT, s).filter((g) => ["noPrice", "noMobile", "noGst", "unsorted", "notCounted", "rulesOpen"].includes(g.key)).length, 0);
+  /* Warehouse stock with no products chosen fills Products too. */
+  const t = M.fillSample(CAT, M.blank(), "stock");
+  assert.ok(Object.keys(t.items).length > 0 && M.progress(CAT, t).stock.done);
+  /* Only what is empty: his own answers, products, contacts and counts stay. */
+  const u = M.blank();
+  Object.assign(u.store, { mobile: "91111 22222", type: "retailer" });
+  u.items.par03 = { unit: "case", stockCases: 1 };
+  const mine = M.addPerson(u, { name: "My Customer", phone: "9111133333", src: "typed" }).id;
+  u.people[mine].type = "shop";
+  u.rules.routes = false;
+  for (const step of M.SAMPLE_STEPS) M.fillSample(CAT, u, step);
+  assert.equal(u.store.mobile, "91111 22222");
+  assert.equal(u.store.type, "retailer");
+  assert.equal(u.store.gst, "27AAPFG1234K1Z5");                 // it was empty
+  assert.equal(u.items.par03.stockCases, 1);                     // his count stays
+  assert.ok(u.items.par01 && u.items.hul20);                     // sample products added beside his
+  assert.equal(u.people[mine].name, "My Customer");
+  assert.equal(Object.keys(u.people).length, 10);
+  assert.equal(u.rules.routes, false);
+  assert.equal(u.rules.returns, "credit");
+  /* Twice is the same as once. */
+  M.fillSample(CAT, u, "people");
+  assert.equal(Object.keys(u.people).length, 10);
+});
+
 test("migrate: an old or broken save opens as a working state", () => {
   const s = M.migrate({ store: { name: "X" }, people: { a: { id: "a", name: "A" } } });
   assert.equal(s.store.name, "X");

@@ -394,6 +394,54 @@
     return list;
   }
 
+  /* ── Sample data, one step at a time (owner, 28 Sep 2026) ──
+     A step's Sample button fills only what is still empty on that step: what he
+     entered or picked stays as it is (owner: "additive, not replacing"). Warehouse
+     stock counts the chosen products, so with none chosen it adds sample products
+     first. Every name and number here is made up. */
+  const SAMPLE_STEPS = ["store", "items", "people", "stock", "rules"];
+  const SAMPLE_PACKS = ["par01", "par02", "par04", "bri01", "nes01", "nes04", "itc01", "itc04", "amu01", "amu05", "hul20", "hul24"];
+  const SAMPLE_LOOSE = { veg01: 30, veg02: 40, veg03: 35 };   // ₹ a kg
+  const SAMPLE_PEOPLE = [
+    ["Sharma Kirana", "9820011001", { type: "shop", area: "Kurla", days: ["tue", "fri"], pay: 15, big: true }],
+    ["Balaji Stores", "9820011002", { type: "shop", area: "Sion", days: ["mon", "thu"], pay: "cash" }],
+    ["Om Sai Provision", "9820011003", { type: "shop", area: "Kurla", days: ["tue", "fri"], pay: 7 }],
+    ["New Ganesh Mart", "9820011004", { type: "shop", area: "Chembur", days: ["wed", "sat"], pay: "cash" }],
+    ["Patel General Store", "9820011005", { type: "shop", area: "Sion", days: ["mon", "thu"], pay: 15 }],
+    ["Raju", "9820011006", { type: "staff", role: "delivery", days: ["mon", "tue", "wed", "thu", "fri", "sat"], cash: true }],
+    ["Suresh", "9820011007", { type: "staff", role: "salesman", days: ["mon", "tue", "wed", "thu", "fri", "sat"] }],
+    ["Parle Super Stockist", "9820011008", { type: "supplier", companies: ["parle"] }],
+    ["Metro Agencies", "9820011009", { type: "supplier", companies: ["nestle", "hul"] }]];
+  function blankish(v) { return v == null || v === "" || (Array.isArray(v) && !v.length); }
+  function fillEmpty(obj, vals) { Object.keys(vals).forEach(function (k) { if (blankish(obj[k])) obj[k] = vals[k]; }); }
+  function fillSample(cat, s, step) {
+    const inCat = function (id) { return cat.items.some(function (x) { return x.id === id; }); };
+    if (step === "store") {
+      if (phone10(s.store.mobile).length !== 10 && !String(s.store.mobile || "").trim()) s.store.mobile = "98200 11223";
+      fillEmpty(s.store, { gst: "27AAPFG1234K1Z5", type: "distributor", warehouses: 2 });
+    } else if (step === "items") {
+      SAMPLE_PACKS.forEach(function (id) { if (inCat(id) && !s.items[id]) s.items[id] = { unit: "case" }; });
+      Object.keys(SAMPLE_LOOSE).forEach(function (id) { if (inCat(id) && !s.items[id]) s.items[id] = { unit: "case", sell: SAMPLE_LOOSE[id] }; });
+      syncCompanies(cat, s);
+    } else if (step === "people") {
+      SAMPLE_PEOPLE.forEach(function (x) {
+        const r = addPerson(s, { name: x[0], phone: x[1], src: "typed" });
+        if (!r.dup) Object.assign(s.people[r.id], x[2]);   // a number already on his list is left as he has it
+      });
+    } else if (step === "stock") {
+      if (!Object.keys(s.items).length) fillSample(cat, s, "items");
+      const sel = stockSel(cat, s);
+      chosenItems(cat, s).forEach(function (it, i) {
+        if (countOf(it)) return;   // what he counted stays
+        setCount(s, it, it.loose ? 20 + (i % 4) * 10 : 3 + (i * 5) % 13, countUnit(it));
+        if (sel.indexOf(it.id) < 0) sel.unshift(it.id);
+      });
+    } else if (step === "rules") {
+      fillEmpty(s.rules, { payMethods: ["cash", "upi", "credit"], routes: true, selfOrder: false, partPay: true, returns: "credit", morning: "money" });
+    }
+    return s;
+  }
+
   const api = {
     DAYS: DAYS, STEPS: STEPS, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
     blank: blank, migrate: migrate, uid: uid, round2: round2,
@@ -403,7 +451,7 @@
     countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, countOf: countOf, lineUnit: lineUnit, setCount: setCount, stockSel: stockSel,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
-    progress: progress, missing: missing, RULES_N: RULES_N,
+    progress: progress, missing: missing, RULES_N: RULES_N, SAMPLE_STEPS: SAMPLE_STEPS, fillSample: fillSample,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

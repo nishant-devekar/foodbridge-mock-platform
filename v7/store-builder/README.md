@@ -10,7 +10,7 @@ Tests: from `v7/`, run `node --test store-builder/test/*.test.js`.
 1. Shop
 2. Products: a short menu, not a list. Search (English or Hindi, by product, brand, company or kind), *Your products* with their prices, then tiles **By company** (a pack photo each) or **By type** (the aisles of a shop, fresh and loose goods first). A tile opens a picture grid; a tap chooses, *Select all* takes the lot.
 3. Contacts: add from the phone's contact list (search, tick many, Add, as WhatsApp's share contact) or type a name; then tag each one customer / staff / supplier / not needed. The tag is suggested from the name ("… Kirana" → customer, "… Agency" → supplier, "… Driver" → staff), and "The rest are customers" tags the whole queue in one tap. Tabs hold what each kind needs: customers' delivery days and ⭐, staff jobs, suppliers' companies. More edits, re-tags or removes a contact.
-4. Godown stock
+4. Warehouse stock (was *Godown stock*, renamed 28 Sep 2026)
 5. How does your daily operation look like? (was *How you work*, renamed 28 Sep 2026)
 6. Send
 

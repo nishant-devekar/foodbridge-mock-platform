@@ -273,7 +273,7 @@
       ["Owner", "The owner entered or changed it himself."],
       ["Worked out", "Calculated from the company rate he gave (price per ₹100 of MRP)."],
       ["Standard margin — confirm", "Not asked: calculated from MRP at the standard margin (buys at ₹" + M.DEFAULT_RULE.buy + ", sells at ₹" + M.DEFAULT_RULE.sell + " per ₹100 MRP). Confirm his real prices before going live."],
-      ["Counted", "Counted in the godown during the meeting."],
+      ["Counted", "Counted in the warehouse during the meeting."],
       ["Owner said — confirm", "Said from memory. Do NOT load as an opening balance until confirmed (khata photo, or the customer confirms at first visit)."],
       ["GST", "By category, GST 2.0 slabs from 22 Sep 2025. Confirm with the store's accountant."],
       ["Barcode", "Real barcode of the pack, from Open Food Facts / Open Beauty Facts / Open Products Facts."],

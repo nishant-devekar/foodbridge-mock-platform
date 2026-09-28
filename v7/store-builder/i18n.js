@@ -27,7 +27,7 @@
     title_staff: "Staff",
     title_suppliers: "Suppliers",
     title_usual: "Usual orders",
-    title_stock: "Godown stock", q_stock: "How much stock do you have now? Count the main products.",
+    title_stock: "Warehouse stock", q_stock: "How much stock do you have now? Count the main products.",
     title_rules: "How does your daily operation look like?", short_rules: "Daily operation", q_rules: "A few questions about your day.",
     title_finish: "Build your store", q_finish: "Check it once, then build your store.",
 
@@ -37,6 +37,9 @@
     sItems_1: "1 product", sShops_1: "1 customer", sSup_1: "1 supplier",
     pAdded_1: "1 added", pDup_1: "1 was already added", pLeft_1: "1 left",
 
+    sampleBtn: "Sample", sampleTitle: "Fill with sample data?", sampleYes: "Fill sample", sampleDone: "Sample data added",
+    sampleBody: "Fills what is still empty on {step} with sample answers. What you entered stays.",
+    sampleItemsToo: "Sample products are added too, so there is something to count.",
     fMobile: "Mobile number (to log in)", required: "Required", mobNeed: "Type your 10-digit mobile number to save.",
     fGst: "GST number (optional)",
     fType: "What is your business?", tDistributor: "Distributor", tSuperstockist: "Super stockist", tWholesaler: "Wholesaler",
@@ -100,7 +103,7 @@
    
    
 
-    gsSearch: "Search a product to count", gsList: "Your count", gsEmpty: "Search above and add what is in your godown.",
+    gsSearch: "Search a product to count", gsList: "Your count", gsEmpty: "Search above and add what is in your warehouse.",
     gsAllMine: "All my products · {n}", gsShowing: "Showing {n} of {total} — keep typing to find the rest", gsNoFound: "No product found",
     gsCounted: "{n} of {total} counted", gsUnit: "Count in", gsPrice: "Your price: {p} per {u}", gsNoPrice: "No price yet. Add it on Products.",
     gsRemove: "Take off the count",
@@ -169,6 +172,9 @@
     sNone: "शुरू नहीं हुआ", sSkipped: "बाद में", sItems: "{n} सामान", sPeople: "{n} छाँटे",
     sShops: "{n} ग्राहक", sStaff: "{n} स्टाफ़", sSup: "{n} सप्लायर", sStock: "{n} गिने", sRules: "{total} में से {n} जवाब",
 
+    sampleBtn: "नमूना", sampleTitle: "नमूना डेटा भरें?", sampleYes: "नमूना भरें", sampleDone: "नमूना डेटा भर गया",
+    sampleBody: "{step} में जो खाली है, उसमें नमूना जवाब भर जाएँगे। आपका भरा हुआ वैसा ही रहेगा।",
+    sampleItemsToo: "गिनने के लिए नमूना सामान भी जुड़ जाएगा।",
     fMobile: "मोबाइल नंबर (लॉगिन के लिए)", required: "ज़रूरी", mobNeed: "सेव करने के लिए 10 अंकों का मोबाइल नंबर लिखिए।",
     fGst: "GST नंबर (ज़रूरी नहीं)",
     fType: "आपका काम क्या है?", tDistributor: "डिस्ट्रीब्यूटर", tSuperstockist: "सुपर स्टॉकिस्ट", tWholesaler: "होलसेलर",
