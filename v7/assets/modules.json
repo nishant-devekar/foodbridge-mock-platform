@@ -289,7 +289,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929SL6",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929SB1",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
