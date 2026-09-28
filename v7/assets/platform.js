@@ -585,7 +585,14 @@
       return b.id.indexOf("fbx-") !== 0 &&
         !/primary|accent|cta|create|add|emerald-600|bg-green|is-on|active/i.test(b.className + " " + (b.getAttribute("data-mf") || ""));
     });
-    var model = plain[plain.length - 1] || null;
+    /* No plain sibling, but the main action wears its colour as a class of its own (the footer
+       spec's `mf-btn primary`, Batch Management's `bn-item-primary`): clone it — the strip below
+       takes that class off — so EXIT DEMO is one of the bar's own tabs, not a box beside them
+       (owner, 29 Sep 2026: "fix this styling"). */
+    var ACTIVE = /(^|-)(active|primary|selected|current|on)$/;
+    var model = plain[plain.length - 1] || kids.filter(function (b) {
+      return b.id.indexOf("fbx-") !== 0 && String(b.className || "").split(/\s+/).some(function (c) { return ACTIVE.test(c); });
+    })[0] || null;
     var btn;
     if (model) btn = model.cloneNode(true);
     else {
@@ -603,8 +610,16 @@
       if (a.name.indexOf("data-") === 0 || a.name === "href" || a.name === "id" || a.name === "title" || a.name === "aria-current") btn.removeAttribute(a.name);
     });
     btn.className = String(btn.className || "").split(/\s+/).filter(function (c) {
-      return c && !/^(is-)?(active|primary|selected|current|on)$/.test(c);
+      return c && !ACTIVE.test(c);
     }).join(" ");
+    /* A main action whose colour is a green chip INSIDE it (Tailwind footers: Purchase Orders'
+       Create, Workforce's Add Staff): the chip keeps its shape, loses its fill, and the tab goes
+       grey — EXIT DEMO is a plain tab like every other footer's. */
+    Array.prototype.slice.call(btn.querySelectorAll('[class*="bg-emerald-6"], [class*="bg-green-6"]')).forEach(function (chip) {
+      chip.style.background = "transparent";
+      chip.style.color = "inherit";
+      btn.style.color = "#6b7280";
+    });
     var svg = model ? btn.querySelector("svg") : null;
     if (!model) { /* already built */ }
     else if (svg) svg.outerHTML = icon.replace("<svg", '<svg class="' + (svg.getAttribute("class") || "") + '" width="' + (svg.getAttribute("width") || 22) + '" height="' + (svg.getAttribute("height") || 22) + '"');
@@ -626,8 +641,21 @@
       onClick();
     }, true);
     var host = (model && model.parentElement ? model.parentElement : bar);
-    if (before && before.parentElement === host) host.insertBefore(btn, before);
-    else host.appendChild(btn);
+    var node = btn;
+    /* The model sits alone in a cell of the bar (Purchase Orders: <div class="flex-1 …"><button>):
+       EXIT DEMO gets a cell of its own, a bare copy of that one, so the bar spreads its tabs
+       evenly instead of squeezing two into one. The cell carries the id, so removing it takes
+       the button too. */
+    var row = host !== bar && host.parentElement ? frame.contentWindow.getComputedStyle(host.parentElement) : null;
+    if (model && row && /flex/.test(row.display) && !/column/.test(row.flexDirection) && host.children.length === 1) {
+      node = host.cloneNode(false);
+      node.id = id;
+      btn.removeAttribute("id");
+      node.appendChild(btn);
+      host = host.parentElement;
+    }
+    if (before && before.parentElement === host) host.insertBefore(node, before);
+    else host.appendChild(node);
     return btn;
   }
 

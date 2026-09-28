@@ -1,0 +1,55 @@
+{
+  "_about": [
+    "Tenant variants: overrides deep-merged over tenant.json, for what production ships OFF by default.",
+    "The prototype takes one with ?tenant=<name>; the parity oracle serves the same merged tenant, so both",
+    "screens are compared under the same configuration.",
+    "  all-features   the Raw Material Calculator (appProp.productRawMaterialMapping: which raw materials,",
+    "                 in base units, a batch of each finished product takes) and the create",
+    "                 drawer's barcode scanner flag, spelled as the tenant configs spell it",
+    "                 (productManagementFeatures.qrCodeScanerEnabled) — which the drawer, reading",
+    "                 qrCodeScannerEnabled, never sees: its scan button does not render (README, defects)",
+    "  no-forecast    the purchase forecast banner switched off",
+    "  three-part-units  one unitMap entry with a three-part label (Jar/Box/Pallet): the default tenant's",
+    "                 labels are all two-part, and Add New Item's unit picker lists only three-part ones",
+    "  raw-calc-unmapped  the Raw Material Calculator switched on with no mapping entries yet: its report says so"
+  ],
+  "all-features": {
+    "appProp": {
+      "productRawMaterialMapping": {
+        "6a6000000000000000000001:6a6000000000000000000053:6a6000000000000000000054": "300:1:25",
+        "6a6000000000000000000005:6a6000000000000000000052:6a6000000000000000000051": "10:1:0.1",
+        "6a6000000000000000000006:6a6000000000000000000052:6a6000000000000000000051:6a6000000000000000000054": "8:1:1:2",
+        "6a6000000000000000000014:6a6000000000000000000051:6a6000000000000000000054": "200:1:9"
+      },
+      "productManagementFeatures": {
+        "qrCodeScanerEnabled": true
+      }
+    }
+  },
+  "no-forecast": {
+    "appProp": {
+      "sourcingOrderManagementFeature": {
+        "finishedGoodsPurchaseForecastEnabled": false
+      }
+    }
+  },
+  "three-part-units": {
+    "appProp": {
+      "unitMap": {
+        "Jar": {
+          "units": [
+            "Jar",
+            "Box",
+            "Pallet"
+          ],
+          "strUnits": "Jar/Box/Pallet"
+        }
+      }
+    }
+  },
+  "raw-calc-unmapped": {
+    "appProp": {
+      "productRawMaterialMapping": {}
+    }
+  }
+}

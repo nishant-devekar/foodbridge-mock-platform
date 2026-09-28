@@ -371,9 +371,14 @@
   .fbp-root .list-date-filter{margin:0 14px 10px;width:auto}
   .fbp-root .list-date-filter input[type="date"]{width:100%;box-shadow:var(--shadow-card)}
   .fbp-root .op-list-pane{padding:10px 14px 80px}
-  .fbp-root .bottom-nav{display:flex;gap:10px;position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:1px solid var(--fb-border);z-index:30;padding:8px 14px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
-  .fbp-root .bn-item{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:7px;color:var(--fb-text-secondary);font-size:13px;font-weight:700;font-family:inherit;background:#F6F8FA;border:1px solid var(--fb-border);border-radius:12px;cursor:pointer}
-  .fbp-root .bn-item-primary{background:var(--app-green);border-color:var(--app-green);color:#fff}
+  /* The platform's footer pattern (Products, Customers, Route Planning): tabs of icon over label,
+     the main action green with its icon on a green chip — so EXIT DEMO, added by the platform, is
+     one more tab of this bar (owner, 29 Sep 2026). */
+  .fbp-root .bottom-nav{display:flex;align-items:flex-end;justify-content:space-around;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--fb-border);box-shadow:0 -2px 12px rgba(0,0,0,.08);z-index:30;padding:6px 2px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .fbp-root .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;color:#6b7280;font-size:11px;font-weight:600;font-family:inherit;background:transparent;border:none;cursor:pointer}
+  .fbp-root .bn-item > span:first-child{width:24px;height:24px;display:grid;place-items:center}
+  .fbp-root .bn-item-primary{color:#047857;font-weight:700}
+  .fbp-root .bn-item-primary > span:first-child{width:44px;height:28px;border-radius:10px;background:var(--app-green);color:#fff}
   .fbp-root .chip-row{display:flex;gap:8px;overflow-x:auto;padding:10px 14px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .fbp-root .chip-row::-webkit-scrollbar{display:none}
   .fbp-root .kpi-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--fb-border);color:var(--fb-text-secondary);font-size:12.5px;font-weight:600;white-space:nowrap}

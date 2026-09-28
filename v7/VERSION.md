@@ -2865,3 +2865,23 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
 ### 29 September 2026 — Batch Management: no more styles-b.css 404
 
 - `screens/batch/styles.css` imported `./styles-b.css` (Screen B, an A/B layout variant), which was never vendored — not in v7, v6 or any commit — so batch-workspace, batch-detail, create-batch and semi-finished-products each 404'd on load. v6 dropped the import on 31 Aug (`64f492a`); v7 was carried over from the PMF repo on 16 Sep with it still in place. Nothing in v7 sets `[data-screen-variant="B"]`, so the import is dropped the same way, not reconstructed. No visual change. `?v=` `20260929SB1`.
+
+### 29 September 2026 — Purchase Orders: the rebuilt, production-identical screen
+
+**Owner:** port Purchase Orders like Sales Orders, and update v7; EXIT DEMO must be one of the actions in whatever footer is already there, styled like the rest of the pages.
+
+- `modules/foodbridge-module-procurement` is now v6's rebuild, copied file for file: a vanilla HTML/CSS/JS replica of production's `/sourcing-orders` and every flow it opens:
+  - the list, row panel, status change and goods receipt;
+  - PO and GRN documents (download, print), supplier invoices, payments and documents;
+  - the purchase forecast and its seeding gate;
+  - Create Purchase Order (catalogues, units, prices, policies, cart, payment step), Register Supplier, Add New Item;
+  - the Raw Material Calculator and Create Raw Material Requests, for tenants that map raw materials.
+- It was pixel-diffed against the production module over 200 states and 4 widths (590 of 610 captures identical, the rest one known text-rasterisation residual on phone; PO/GRN downloads and all three prints identical). The old hand-ported screens stay as `legacy-hub.html`.
+- The sidebar opens `index.html`. EXIT DEMO is a tab of the screen's own phone bar (`exitIn`); the selector skips the hidden element that carries every Tailwind class in production's order.
+- **One v7-only change to the copy:** the host's `.fixed.bottom-0` rule pads the phone bar twice, so the tabs sat high over ~20px of white. v7 cancels it (`css/purchase-orders.css` §3); v6 keeps production's look.
+- **EXIT DEMO in footers, platform-side (`platform.js`):**
+  - a footer whose only button is its main action (`mf-btn primary`: Route Planning, Live Tracking) now gets EXIT DEMO as one of its own tabs, cloned without the primary class — not a bordered box beside it;
+  - a cloned main action's green chip (Purchase Orders' Create, Workforce's Add Staff) loses its fill, so EXIT DEMO is a grey tab;
+  - a button alone in a cell of a flex row gets EXIT DEMO a cell of its own, so the tabs spread evenly.
+- **Batch Management's phone bar** is now the footer pattern (tabs of icon over label, Create Batch on a green chip), so its EXIT DEMO is a tab like every other page's.
+- Checked at 375 px on every destination with `exitIn`. `?v=` `20260929PO11`; Batch Management's pages `20260929PO12` (after the `SB1` fix above).

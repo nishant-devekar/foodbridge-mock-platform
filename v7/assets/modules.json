@@ -289,7 +289,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929SB1",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO12",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
@@ -350,11 +350,10 @@
       "submenus": [
         {
           "id": "purchase-orders",
+          "exitIn": "div.fixed.bottom-0.z-40:not([data-tailwind-order])",
           "name": "Purchase Orders",
-          "url": "modules/foodbridge-module-procurement/screens/screen-02.html",
+          "url": "modules/foodbridge-module-procurement/index.html?v=20260929PO11",
           "clipLeft": 256,
-          "clipLeftMobile": 256,
-          "mHeaderH": 56,
           "owner": "love-scripter/foodbridge-module-procurement",
           "hideBurger": true
         },
