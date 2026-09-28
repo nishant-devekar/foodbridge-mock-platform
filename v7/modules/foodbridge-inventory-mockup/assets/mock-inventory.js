@@ -30,6 +30,27 @@
   const icon = (name, cls, size) => window.MockIcons.get(name, cls, size);
   const SELF_SRC = document.currentScript && document.currentScript.src;
 
+  /* v7 only: inside the platform the shell covers this page's dead hamburger with a
+     white mask, which painted over an open drawer's title ("Add Batch"). Say when a
+     drawer or modal is open (the platform's `overlay` message) and the shell stands
+     the mask down. */
+  (function tellPlatformAboutOverlays() {
+    if (window.parent === window || !window.MutationObserver) return;
+    const OVERLAYS = ".rc-drawer.is-open, .mock-backdrop.is-open";
+    let sent = null;
+    const tell = () => {
+      const on = !!document.querySelector(OVERLAYS);
+      if (on === sent) return;
+      sent = on;
+      try { window.parent.postMessage({ source: "fb-module", type: "overlay", active: on }, "*"); } catch (e) { /* no parent */ }
+    };
+    const watch = () => {
+      new MutationObserver(tell).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"] });
+      tell();
+    };
+    if (document.body) watch(); else document.addEventListener("DOMContentLoaded", watch);
+  })();
+
   /* ── myTheme.js resolved (Batch History tab only) ─────────────────────── */
   const WM = {
     tableContainer:
@@ -339,6 +360,19 @@
   }
 
   function isProductionMaterial(p) { return !!(window.FB_PRODUCTION && /^rm-p\d+$/.test(String(p._id))); }
+
+  /* The batch matrix no longer asks for price, tax or supplier (owner, 29 Sep 2026):
+     they come from the product — a production material's own price and usual
+     supplier in the store, else what its last batch carried. */
+  function batchDefaults(r) {
+    const last = (state.batches || []).map((b) => (b.products || []).find((x) => x._id === r._id)).find(Boolean) || {};
+    const out = { price: last.price != null ? last.price : "", tax: last.tax != null ? last.tax : "", supplierId: last.supplierData ? last.supplierData.name : "" };
+    if (isProductionMaterial(r)) {
+      const m = window.FB_PRODUCTION.read((D) => D.material(r._id));
+      if (m) { out.price = m.price; out.supplierId = m.supplier || out.supplierId; }
+    }
+    return out;
+  }
 
   function materialiseBatches(seed) {
     return (seed.batches || []).map((b) => ({
@@ -2293,10 +2327,10 @@
       .join("");
 
     // RIGHT — the batch matrix
-    const suppliers = state.seed.suppliers || [];
+    /* Owner, 29 Sep 2026: only what the store keys in — quantity and dates. Price,
+       tax and supplier are filled in the background (batchDefaults); what comes in
+       is what is accepted (gate weight = quantity, QC accepted). */
     const matrixRow = (p, i) => {
-      const supplier = suppliers.find((s) => s.name === p.supplierId);
-      const menuOpen = d.supplierMenuFor === p._id;
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50/60">
           <td class="px-3 py-2.5 min-w-[180px]">
@@ -2311,20 +2345,6 @@
                 }" />
               <span class="text-xs text-gray-400 whitespace-nowrap">${esc(getDisplayUnit(p))}</span>
             </div>
-            ${
-              /* Production materials (owner, 26 Sep 2026): the truck at the gate — weigh,
-                 check quality, accept or send back. Quantity above is what is accepted. */
-              isProductionMaterial(p)
-                ? `<div class="flex items-center gap-1.5 mt-1.5">
-                     <input type="number" min="0" step="0.1" data-mrow="${esc(p._id)}" data-mfield="gateQty" value="${esc(p.gateQty || "")}" placeholder="Gate"
-                       class="w-20 h-7 px-2 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 tabular-nums" title="Weight on the gate scale" />
-                     <select data-mrow="${esc(p._id)}" data-mfield="qc" class="h-7 px-1.5 text-xs border border-gray-200 rounded-lg bg-white ${p.qc === "returned" ? "text-red-600" : "text-emerald-700"}" title="Quality check at the gate">
-                       <option value="accepted"${p.qc !== "returned" ? " selected" : ""}>Accept</option>
-                       <option value="returned"${p.qc === "returned" ? " selected" : ""}>Send back</option>
-                     </select>
-                   </div>`
-                : ""
-            }
           </td>
           <td class="px-3 py-2.5">
             <input type="date" data-mrow="${esc(p._id)}" data-mfield="mfgDate" value="${esc(p.mfgDate)}"
@@ -2333,47 +2353,6 @@
           <td class="px-3 py-2.5">
             <input type="date" data-mrow="${esc(p._id)}" data-mfield="expDate" value="${esc(p.expDate)}"
               class="h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent" />
-          </td>
-          <td class="px-3 py-2.5">
-            <input type="number" min="0" step="0.01" data-mrow="${esc(p._id)}" data-mfield="price" value="${esc(p.price)}" placeholder="0.00"
-              class="w-24 h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent tabular-nums" />
-          </td>
-          <td class="px-3 py-2.5">
-            <input type="number" min="0" data-mrow="${esc(p._id)}" data-mfield="tax" value="${esc(p.tax)}" placeholder="0"
-              class="w-16 h-8 px-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent tabular-nums" />
-          </td>
-          <td class="px-3 py-2.5 relative min-w-[170px]">
-            <button data-suppliertoggle="${esc(p._id)}"
-              class="w-full inline-flex items-center justify-between gap-1.5 h-8 px-2 text-xs border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-gray-50 transition-colors">
-              <span class="truncate ${supplier ? "" : "text-gray-400"}">${
-        supplier ? esc(supplier.name) : "Select supplier"
-      }</span>
-              ${icon("chevronDown", "w-3.5 h-3.5 text-gray-400 shrink-0")}
-            </button>
-            ${
-              menuOpen
-                ? `<div class="absolute right-3 left-3 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 max-h-56 overflow-auto">
-                     ${suppliers
-                       .map(
-                         (s) =>
-                           `<button data-pickSupplier="${esc(p._id)}" data-suppliername="${esc(
-                             s.name
-                           )}" class="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50 ${
-                             supplier && supplier.name === s.name
-                               ? "bg-emerald-50 text-emerald-700 font-semibold"
-                               : "text-gray-700"
-                           }">${esc(s.name)}<span class="block text-[10px] text-gray-400">${esc(
-                             s.contact
-                           )}</span></button>`
-                       )
-                       .join("")}
-                     <button data-addsupplier="${esc(p._id)}"
-                       class="w-full text-left px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border-t border-gray-100 flex items-center gap-1.5">
-                       ${icon("plus", "text-blue-700 flex-shrink-0", 13)}Add new supplier
-                     </button>
-                   </div>`
-                : ""
-            }
           </td>
           <td class="px-3 py-2.5 text-right">
             <button data-mremove="${esc(p._id)}" class="p-1.5 rounded-md text-red-500 hover:bg-red-50 transition-colors" aria-label="Remove">
@@ -2393,10 +2372,10 @@
           </h2>
         </div>
         <div class="flex-1 min-h-0 overflow-auto">
-          <table class="w-full text-sm min-w-[900px]">
+          <table class="w-full text-sm min-w-[560px]">
             <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
               <tr>
-                ${["Product", "Quantity", "Mfg Date", "Exp Date", "Price", "Tax %", "Supplier", ""]
+                ${["Product", "Quantity", "Mfg Date", "Exp Date", ""]
                   .map(
                     (h) =>
                       `<th class="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">${h}</th>`
@@ -2436,7 +2415,7 @@
              <div class="max-h-80 overflow-auto border border-gray-200 rounded-lg">
                <table class="w-full text-sm">
                  <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
-                   <tr>${["Product", "Qty", "Mfg", "Exp", "Supplier"]
+                   <tr>${["Product", "Qty", "Mfg", "Exp"]
                      .map(
                        (h) =>
                          `<th class="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">${h}</th>`
@@ -2448,10 +2427,9 @@
                      .map(
                        (p) => `<tr>
                      <td class="px-3 py-2 text-gray-800">${esc(p.productName)}</td>
-                     <td class="px-3 py-2 tabular-nums">${p.qc === "returned" ? `<span class="text-red-600 font-medium">Sent back</span>` : `${esc(p.qty || "—")} ${esc(getDisplayUnit(p))}`}${p.gateQty ? `<span class="block text-[11px] text-gray-400">gate ${esc(p.gateQty)}</span>` : ""}</td>
+                     <td class="px-3 py-2 tabular-nums">${esc(p.qty || "—")} ${esc(getDisplayUnit(p))}</td>
                      <td class="px-3 py-2 text-gray-600">${p.mfgDate ? fmtDate(p.mfgDate) : "—"}</td>
                      <td class="px-3 py-2 text-gray-600">${p.expDate ? fmtDate(p.expDate) : "—"}</td>
-                     <td class="px-3 py-2 text-gray-600">${esc(p.supplierId || "—")}</td>
                    </tr>`
                      )
                      .join("")}
@@ -3105,6 +3083,7 @@
         setTimeout(() => {
           const stamp = new Date();
           const bid = "batch-local-" + Date.now();
+          d.selected.forEach((r) => Object.assign(r, batchDefaults(r)));
           state.batches.unshift({
             _id: bid,
             batchNumber:
@@ -3135,13 +3114,12 @@
           const lots = [];
           d.selected.forEach((r) => {
             if (!isProductionMaterial(r)) return;
-            const lot = window.FB_PRODUCTION.receive({ materialId: r._id, qty: Number(r.qty) || 0, gateQty: Number(r.gateQty) || Number(r.qty) || 0, qc: r.qc === "returned" ? "returned" : "accepted",
+            const lot = window.FB_PRODUCTION.receive({ materialId: r._id, qty: Number(r.qty) || 0, gateQty: Number(r.qty) || 0, qc: "accepted",
               supplier: r.supplierId || undefined, price: r.price === "" || r.price == null ? undefined : Number(r.price), by: (state.seed.user && state.seed.user.displayName) || "Store" });
             if (lot) lots.push(lot.lotNo);
           });
           state.batches[0].lots = lots;
           d.selected.forEach((r) => {
-            if (isProductionMaterial(r) && r.qc === "returned") return;
             const p = state.products.find((x) => x._id === r._id);
             if (!p) return;
             p.availableStock += Number(r.qty) || 0;

@@ -72,6 +72,7 @@ export function resolveDataset(data, now) {
       createdAt: at(po.minutesAgo),
       lines,
       received: po.received ? { ...po.received, at: at(po.received.minutesAgo) } : null,
+      decided: po.decided ? { ...po.decided, at: at(po.decided.minutesAgo) } : null,
       dispatch: po.dispatch ? { ...po.dispatch, at: at(po.dispatch.minutesAgo) } : null,
       documents: (po.documents || []).map((d) => ({ ...d, uploadedAt: at(d.minutesAgo) })),
     };

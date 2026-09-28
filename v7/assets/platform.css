@@ -177,6 +177,12 @@
 .fb-module-overlay .fb-burger-mask {
   display: none !important;
 }
+/* The EXIT DEMO bar too: it hangs off <body>, not the root, and below lg it sat
+   over a drawer's own Cancel / submit row (Purchase Orders' Approve, Reject). */
+html:has(.fb-module-overlay) #fbx-foot,
+html:has(.fb-module-overlay) .fbx-onmore {
+  display: none !important;
+}
 .fb-mhead-brand {
   display: inline-flex;
   align-items: center;

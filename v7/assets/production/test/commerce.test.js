@@ -76,6 +76,49 @@ test("goods in against a purchase order: lots with stickers, the bill booked, th
   refuses(() => D.receivePO(po.id, {}), /delivered/);
 });
 
+test("internal approval: a purchase order waits for the owner, who approves it or rejects it with a reason", () => {
+  const { D } = fresh();
+  const onOrder = D.ordered("rm-p05");
+  const po = D.raisePO({ supplierId: "sup-balaji", lines: [{ materialId: "rm-p05", qty: 100 }], status: "Pending Approval" });
+  assert.equal(po.status, "Pending Approval");
+  assert.equal(D.ordered("rm-p05"), onOrder + 100, "the plan does not ask for it twice");
+  refuses(() => D.receivePO(po.id, {}), /pending approval/);
+  /* approving, the owner cuts it to 80 kg */
+  D.amendPO(po.id, [{ materialId: "rm-p05", qty: 80 }]);
+  assert.equal(po.lines[0].qty, 80);
+  assert.equal(po.amount, Math.round(80 * 62 * 1.05));
+  assert.equal(D.ordered("rm-p05"), onOrder + 80);
+  refuses(() => D.amendPO(po.id, [{ materialId: "rm-p05", qty: 0 }]), /Reject it instead/);
+  D.setPOStatus(po.id, "InProgress", "Chanchal Sachdeva");
+  assert.deepEqual(po.history.map((h) => h.status), ["Pending Approval", "InProgress"]);
+  refuses(() => D.amendPO(po.id, [{ materialId: "rm-p05", qty: 90 }]), /waiting for approval/);
+  refuses(() => D.setPOStatus(po.id, "Rejected", "Chanchal Sachdeva", "Too dear"), /not waiting for approval/);
+  D.receivePO(po.id, {});
+  assert.equal(po.status, "Delivered");
+
+  const no = D.raisePO({ supplierId: "sup-balaji", lines: [{ materialId: "rm-p05", qty: 50 }], status: "Pending Approval" });
+  refuses(() => D.setPOStatus(no.id, "Rejected", "Chanchal Sachdeva", " "), /reason/);
+  D.setPOStatus(no.id, "Rejected", "Chanchal Sachdeva", "Enough flour for the week");
+  assert.equal(no.status, "Rejected");
+  assert.equal(D.ordered("rm-p05"), onOrder, "a rejected order is off the plan");
+});
+
+test("packs bought in: a lot of their own, a sticker per master carton, in on the day given", () => {
+  const { D } = fresh();
+  const sku = D.sku("fg-p07"), before = D.packetsOf("fg-p07");
+  const po = D.raisePO({ supplierId: "sup-balaji", lines: [{ skuId: "fg-p07", qty: sku.perCarton + 5 }] });
+  const at = new Date(Date.now() - 3600000).toISOString();
+  const r = D.receivePO(po.id, { at, by: "Store · Mohan" });
+  assert.equal(D.packetsOf("fg-p07"), before + sku.perCarton + 5);
+  const lotNo = r.lots[0].lotNo;
+  assert.match(lotNo, /^P\d{4}-\d{4}$/);
+  const st = D.stickers(lotNo);
+  assert.deepEqual(st.map((x) => x.qty), [sku.perCarton, 5]);
+  assert.equal(st[0].packName, "carton");
+  assert.equal(st[0].receivedAt, at);
+  assert.equal(st[0].supplier, D.supplier("sup-balaji").name);
+});
+
 test("money: receipts settle the oldest invoices first; payments the oldest bills", () => {
   const { D } = fresh();
   const acc = D.account("cus-rajpura-cold");

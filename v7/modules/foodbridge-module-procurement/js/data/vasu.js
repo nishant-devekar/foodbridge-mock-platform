@@ -17,7 +17,7 @@
 */
 import { oid } from './resolve.js';
 
-const STORE_SRC = '../../assets/production/production-api.js?v=20260929VF2';
+const STORE_SRC = '../../assets/production/production-api.js?v=20260929PO20';
 const DAY = 86400000;
 
 /** The store, loaded once per page (the platform's other screens load the same file). */
@@ -56,7 +56,8 @@ export function vasuDataset(P, now) {
   return P.read((D, d) => {
     const biz = d.business;
     const maps = { sup: {}, supBack: {}, prd: {}, po: {} };
-    const ago = (iso) => Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
+    /* not rounded: two orders raised in the same minute still sort newest first */
+    const ago = (iso) => Math.max(0, (now - new Date(iso).getTime()) / 60000);
 
     const products = d.skus.filter((s) => !s.retired).map((s) => {
       const id = prdOfSku(s.id);
@@ -84,11 +85,16 @@ export function vasuDataset(P, now) {
       const id = `po-${num(p.id)}`;
       maps.po[oid('po', id)] = p.number;
       const got = (p.receipts || []).slice(-1)[0];
+      /* internal approval: the order opened at Pending Approval, and the owner's decision if made */
+      const hist = p.history || [];
+      const opening = hist[0]?.status === 'Pending Approval' ? 'Pending Approval' : undefined;
+      const dec = opening && hist[1] && ['InProgress', 'Rejected'].includes(hist[1].status) ? hist[1] : null;
       const short = {};
       p.lines.forEach((l) => { if (l.qty - l.received > 0.001 && got) short[l.skuId ? prdOfSku(l.skuId) : prdOfMaterial(l.materialId)] = Math.round((l.qty - l.received) * 100) / 100; });
       return {
         id, number: p.number, minutesAgo: ago(p.createdAt), supplier: maps.sup[p.supplierId], status: p.status, lines: p.lines.map(lineOf), comments: p.comments || '',
         received: got && /Delivered/.test(p.status) ? { minutesAgo: ago(got.at), short } : undefined,
+        opening, decided: dec ? { status: dec.status, minutesAgo: ago(dec.at), comment: dec.note || '' } : undefined,
         documents: (p.bills || []).map((b, k) => ({ id: `doc-${num(p.id)}0${k + 1}`, type: 'SUPPLIER_INVOICE', name: b.no, amount: b.amount, remarks: b.poNumber ? `Booked at the gate · PO ${b.poNumber}` : '', minutesAgo: ago(b.at) })),
       };
     });
@@ -166,17 +172,26 @@ export function wireToStore(server, P, maps, host) {
     const lines = (payload.products || []).map((p) => lineBack(p)).filter(Boolean);
     const price = {};
     (payload.products || []).forEach((p) => { const l = lineBack(p); if (l) price[l.skuId || l.materialId] = Number(p.offerPrice ?? p.price); });
-    P.write((D) => D.raisePO({ supplierId, number: po.order_number, lines: lines.map((l) => ({ ...l, price: undefined })), comments: payload.orderComments || '', where: 'Purchase Orders', by: 'Chanchal Sachdeva', via: 'office' }));
+    P.write((D) => D.raisePO({ supplierId, number: po.order_number, lines: lines.map((l) => ({ ...l, price: undefined })), comments: payload.orderComments || '', where: 'Purchase Orders', by: 'Chanchal Sachdeva', via: 'office', status: po.status }));
     maps.po[String(po._id)] = po.order_number;
   });
 
-  /* a status change: Delivered is goods in — this delivery's quantities, in base units */
+  /* a status change: Delivered is goods in — this delivery's quantities, in base units; an
+     internal approval decision (Approve → InProgress, Reject → Rejected) is the owner's */
   wrap('updateNodeStageAudit', (res, nodes) => {
-    (nodes || []).forEach(({ nodeId, stageAudit }) => {
+    const received = [];
+    (nodes || []).forEach(({ nodeId, stageAudit, metaData }) => {
       const st = stageAudit && stageAudit[0];
       const number = maps.po[String(nodeId)] || poNode(nodeId)?.order_number;
       if (!st || !number) return;
-      if (/Delivered/.test(st.status)) {
+      if (['InProgress', 'Rejected'].includes(st.status)) {
+        P.write((D) => {
+          const p = D.po(number);
+          if (!p || p.status !== 'Pending Approval') return;
+          if (st.status === 'InProgress') D.amendPO(p.id, (st.challan || []).map((c) => lineBack(c)).filter(Boolean));
+          D.setPOStatus(p.id, st.status, 'Chanchal Sachdeva', st.comment);
+        });
+      } else if (/Delivered/.test(st.status)) {
         const lines = (st.challan || []).map((c) => {
           const hit = maps.prd[String(c._id || c.id)];
           if (!hit) return null;
@@ -185,11 +200,17 @@ export function wireToStore(server, P, maps, host) {
           const qty = Math.round(receiving * factor * 100) / 100;
           return qty > 0 ? (hit.skuId ? { skuId: hit.skuId, qty } : { materialId: hit.materialId, qty }) : null;
         }).filter(Boolean);
-        P.write((D) => { const p = D.po(number); if (p && ['InProgress', 'Pending', 'Partial Delivered'].includes(p.status)) D.receivePO(p.id, { lines, by: 'Store · Mohan' }); });
+        /* in at the received date and time the office gave (never later than now); each line a lot */
+        const t = new Date(metaData?.receivedDate || '').getTime();
+        const at = Number.isFinite(t) && t <= Date.now() ? new Date(t).toISOString() : undefined;
+        const r = P.write((D) => { const p = D.po(number); return p && ['InProgress', 'Pending', 'Partial Delivered'].includes(p.status) ? D.receivePO(p.id, { lines, by: 'Store · Mohan', at }) : null; });
+        (r?.lots || []).forEach((l) => { if (l.qc === 'accepted') received.push(l.lotNo); });
       } else if (/Not accepted|Cancel/i.test(st.status)) {
         P.write((D) => { const p = D.po(number); if (p && !p.receipts.length) D.setPOStatus(p.id, 'Not accepted', 'Chanchal Sachdeva', st.comment); });
       }
     });
+    /* the goods are in: a batch per line, and its stickers to print before it goes in the store */
+    if (received.length) host?.showLotStickers?.(received);
   });
 
   wrap('recordSupplierPayment', (res, entry) => {

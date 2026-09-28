@@ -514,7 +514,18 @@
     /* One sticker per sack, crate or box of a lot. */
     D.stickers = function (lotNo) {
       var l = db.lots.filter(function (x) { return x.lotNo === lotNo; })[0];
-      if (!l) throw new ApiError(404, "No such lot");
+      if (!l) {
+        /* packs bought in against a purchase order: one sticker per master carton */
+        var hit = null;
+        Object.keys(db.fg || {}).some(function (k) { var f = db.fg[k].lots.filter(function (x) { return x.lotNo === lotNo; })[0]; if (f) hit = { skuId: k, lot: f }; return !!f; });
+        if (!hit) throw new ApiError(404, "No such lot");
+        var sk = D.sku(hit.skuId), per = sk.perCarton || hit.lot.qty, cn = Math.max(1, Math.ceil(hit.lot.qty / per)), cartons = [];
+        for (var c = 0; c < cn; c++) {
+          cartons.push({ lotNo: lotNo, n: c + 1, of: cn, packName: "carton", qty: c < cn - 1 ? per : hit.lot.qty - per * (cn - 1), unit: "Pkt", material: sk.name, article: sk.article,
+            supplier: hit.lot.supplier || "", receivedAt: hit.lot.receivedAt || hit.lot.at, useBy: hit.lot.useBy, store: "Finished goods", by: hit.lot.by || "Store" });
+        }
+        return cartons;
+      }
       if (l.qc !== "accepted") return [];
       var m = D.material(l.materialId), per = m.packQty || l.qty, n = l.packs || Math.max(1, Math.ceil(l.qty / per)), out = [];
       for (var i = 0; i < n; i++) {
@@ -1629,6 +1640,9 @@
          delivery  Delivery Created → Vehicle Loading Completed → Out for Delivery
          return    Return Created → Return Accepted: the packets come back
          purchase  InProgress → Delivered / Partial Delivered (or Not accepted).
+                   One raised in Purchase Orders waits at Pending Approval
+                   first: the owner approves it (→ InProgress, off to the
+                   supplier) or rejects it (→ Rejected, with a reason).
                    What the gate accepts becomes lots (with stickers), and the
                    supplier's bill is booked against it.
        Money: an invoice or a bill is owed after its credit days; a receipt or
@@ -1881,8 +1895,9 @@
       if (!lines.length) throw invalid("Add at least one item");
       var at = o.at || iso();
       if (o.number) { db.numbers = db.numbers || {}; db.numbers[o.number] = 1; }
-      var p = { id: "po-" + nextSeq("po"), number: o.number || stampNo(at), supplierId: sup.id, createdAt: at, expectedAt: o.expectedAt || null, status: "InProgress", lines: lines,
-        comments: o.comments || "", by: o.by || "Rohit Sachdeva", via: o.via || "office", receipts: [], bills: [], history: [{ status: "InProgress", at: at, by: o.by || "Rohit Sachdeva" }] };
+      var status = o.status === "Pending Approval" ? "Pending Approval" : "InProgress";
+      var p = { id: "po-" + nextSeq("po"), number: o.number || stampNo(at), supplierId: sup.id, createdAt: at, expectedAt: o.expectedAt || null, status: status, lines: lines,
+        comments: o.comments || "", by: o.by || "Rohit Sachdeva", via: o.via || "office", receipts: [], bills: [], history: [{ status: status, at: at, by: o.by || "Rohit Sachdeva" }] };
       var t = totals(lines.map(function (l) { return { qty: l.qty, price: l.price, tax: l.tax }; }));
       p.taxable = t.taxable; p.gst = t.gst; p.amount = t.amount;
       db.purchaseOrders.push(p);
@@ -1911,8 +1926,9 @@
       if (b) { b.no = o.name || b.no; if (Number(o.amount) > 0) b.amount = Math.round(Number(o.amount)); b.named = true; }
       return p;
     };
+    /* an order waiting for approval is still on order: planning must not ask for it twice */
     D.openOnPO = function (p, materialId) {
-      if (["InProgress", "Pending", "Partial Delivered"].indexOf(p.status) === -1) return 0;
+      if (["Pending Approval", "InProgress", "Pending", "Partial Delivered"].indexOf(p.status) === -1) return 0;
       return p.lines.filter(function (l) { return l.materialId === materialId; }).reduce(function (t, l) { return t + Math.max(0, l.qty - l.received); }, 0);
     };
     /* Goods in against a purchase order: every line weighed at the gate,
@@ -1922,15 +1938,17 @@
       var p = D.po(id);
       if (!p) throw new ApiError(404, "No such purchase order");
       if (["InProgress", "Pending", "Partial Delivered"].indexOf(p.status) === -1) throw new ApiError(409, "This order is " + p.status.toLowerCase());
-      var sup = D.supplier(p.supplierId), got = o.lines || p.lines.map(function (l) { return { materialId: l.materialId, qty: r2(l.qty - l.received) }; });
+      var sup = D.supplier(p.supplierId), got = o.lines || p.lines.map(function (l) { return { materialId: l.materialId, skuId: l.skuId, qty: r2(l.qty - l.received) }; });
       var lots = [], billed = [];
       got.forEach(function (g) {
         var l = p.lines.filter(function (x) { return (g.materialId && x.materialId === g.materialId) || (g.skuId && x.skuId === g.skuId); })[0];
         if (!l || !(Number(g.qty) > 0)) return;
         if (l.skuId && !o.history) {
           /* finished goods bought in: packets onto the shelf */
-          var sk = D.sku(l.skuId), bb = D.book(sk.recipeId).bestBeforeDays;
-          D.as({ via: "store", what: "received", by: o.by || "Store · Mohan", doc: p.number }, function () { D.addPackets(l.skuId, Number(g.qty), "PO-" + p.number, iso(), new Date(now().getTime() + bb * DAY).toISOString()); });
+          var sk = D.sku(l.skuId), bb = D.book(sk.recipeId).bestBeforeDays, inAt = o.at || iso();
+          var fl = D.as({ via: "store", what: "received", by: o.by || "Store · Mohan", doc: p.number }, function () { return D.addPackets(l.skuId, Number(g.qty), "PO-" + p.number, inAt, new Date(new Date(inAt).getTime() + bb * DAY).toISOString()); });
+          /* a batch of its own, with a lot number and a sticker per master carton (D.stickers) */
+          if (fl) { db.lotSeq += 1; fl.lotNo = sk.article.replace("FG-", "P") + "-" + pad(db.lotSeq, 4); fl.supplier = sup.name; fl.po = p.number; fl.by = o.by || "Store · Mohan"; fl.receivedAt = inAt; lots.push({ lotNo: fl.lotNo, qc: "accepted", skuId: l.skuId, qty: Number(g.qty) }); }
           l.received = r2(l.received + Number(g.qty)); billed.push({ qty: Number(g.qty), price: l.price, tax: l.tax });
           return;
         }
@@ -1953,9 +1971,31 @@
     D.setPOStatus = function (id, status, by, note) {
       var p = D.po(id);
       if (!p) throw new ApiError(404, "No such purchase order");
-      if (["Not accepted", "Cancelled"].indexOf(status) === -1) throw invalid("Unknown status");
+      /* internal approval: only an order waiting for it can be approved (→ InProgress) or rejected */
+      var decision = status === "InProgress" || status === "Rejected";
+      if (!decision && ["Not accepted", "Cancelled"].indexOf(status) === -1) throw invalid("Unknown status");
+      if (decision && p.status !== "Pending Approval") throw new ApiError(409, "This order is not waiting for approval");
+      if (status === "Rejected" && !String(note || "").trim()) throw invalid("Give a reason to reject");
       if (p.receipts.length) throw new ApiError(409, "Goods have come in on this order");
       track(p, status, by, note);
+      if (decision) D.emit(status === "InProgress" ? "purchase.po.approved" : "purchase.po.rejected", { where: "Purchase Orders", how: "office", by: by, data: { po: p.number, supplier: (D.supplier(p.supplierId) || {}).name, amount: p.amount, note: note || undefined } });
+      return p;
+    };
+    /* internal approval: the owner changes what is ordered before approving — the quantities
+       given are the order now; a line left out, or at 0, leaves it */
+    D.amendPO = function (id, lines) {
+      var p = D.po(id);
+      if (!p) throw new ApiError(404, "No such purchase order");
+      if (p.status !== "Pending Approval") throw new ApiError(409, "Only an order waiting for approval can be changed");
+      var kept = p.lines.map(function (l) {
+        var g = (lines || []).filter(function (x) { return (x.materialId && x.materialId === l.materialId) || (x.skuId && x.skuId === l.skuId); })[0];
+        var qty = g ? Number(g.qty) : 0;
+        return qty > 0 ? Object.assign({}, l, { qty: l.skuId ? Math.round(qty) : r2(qty) }) : null;
+      }).filter(Boolean);
+      if (!kept.length) throw invalid("Nothing is left on this order. Reject it instead.");
+      p.lines = kept;
+      var t = totals(kept.map(function (l) { return { qty: l.qty, price: l.price, tax: l.tax }; }));
+      p.taxable = t.taxable; p.gst = t.gst; p.amount = t.amount;
       return p;
     };
     D.bills = function (supplierId) {
@@ -3027,7 +3067,7 @@
             creditNotes.push({ id: r.creditNote.no, number: r.creditNote.no, customerId: r.customerId, date: day(r.creditNote.at), total: r.creditNote.amount, balance: 0, status: "closed" });
           });
           d.purchaseOrders.forEach(function (p) {
-            purchaseOrders.push({ id: p.number, number: p.number, vendorId: p.supplierId, date: day(p.createdAt), total: p.amount, status: p.status === "Delivered" ? "billed" : p.status === "Not accepted" ? "cancelled" : "open" });
+            purchaseOrders.push({ id: p.number, number: p.number, vendorId: p.supplierId, date: day(p.createdAt), total: p.amount, status: p.status === "Delivered" ? "billed" : p.status === "Not accepted" || p.status === "Rejected" ? "cancelled" : "open" });
             (p.bills || []).forEach(function (b) {
               var bal = Math.max(0, Math.round((b.amount - (b.paid || 0)) * 100) / 100);
               bills.push({ id: b.no, number: b.no, vendorId: p.supplierId, date: day(b.at), dueDate: day(b.dueAt), total: b.amount, balance: bal,

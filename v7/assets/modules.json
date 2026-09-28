@@ -308,7 +308,7 @@
         {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929VF1",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929PO21",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
@@ -325,7 +325,7 @@
             "freezer-stock"
           ],
           "name": "Semi-Finished Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20260929VF1",
+          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20260929PO21",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
@@ -336,7 +336,7 @@
         {
           "id": "finished-goods-inventory",
           "name": "Finished Goods Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260929VF1",
+          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260929PO21",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true
@@ -352,7 +352,7 @@
           "id": "purchase-orders",
           "exitIn": "div.fixed.bottom-0.z-40:not([data-tailwind-order])",
           "name": "Purchase Orders",
-          "url": "modules/foodbridge-module-procurement/index.html?v=20260929VF1",
+          "url": "modules/foodbridge-module-procurement/index.html?v=20260929PO21",
           "clipLeft": 256,
           "owner": "love-scripter/foodbridge-module-procurement",
           "hideBurger": true

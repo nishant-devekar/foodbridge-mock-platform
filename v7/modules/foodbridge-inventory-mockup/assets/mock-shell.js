@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260929VF2", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260929PO20", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -442,7 +442,8 @@
       });
       d.skus.forEach((k) => {
         const lots = (d.fg[k.id] ? d.fg[k.id].lots : []).map((l, i) => Object.assign({ id: k.id + "-" + i }, l));
-        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.at), batchName: l.ref, createdDaysAgo: ago(l.at),
+        /* packs bought in against a purchase order carry a lot number: their stickers can be printed again */
+        lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.at), batchName: l.lotNo ? l.lotNo + " · " + l.ref : l.ref, lots: l.lotNo ? [l.lotNo] : undefined, createdDaysAgo: ago(l.at),
           products: [{ _id: k.id, name: k.name, articleNo: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40, stock: l.qty, remainingStock: l.remaining,
             mfgDaysAgo: ago(l.madeAt), expiryInDays: until(l.useBy), price: k.price, tax: 5, supplierData: null }] }));
         /* waiting: what customers' open orders still need (Sales Orders) */

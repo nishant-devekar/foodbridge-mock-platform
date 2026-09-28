@@ -147,8 +147,12 @@ function catalogueService(cat) {
   };
 }
 
-export function createServer(dataset, { now, scenario }) {
+export function createServer(dataset, { now, scenario, tenant, clock = () => now }) {
   const docs = toModuleDocs(dataset, now);
+  // v7: what is written while the screen runs is stamped by `clock` — the real time on the live
+  // business, so a new order sorts first and reads "now"; the frozen `now` for the parity fixture.
+  // v7: a new purchase order to a supplier starts at its workflow's first step (Pending Approval).
+  const placeOrderStatus = tenant?.orderWorkflow?.statusWorkFlow?.PURCHASE_ORDER?.[0]?.status || 'InProgress';
   const catalogue = catalogueService(docs.catalogue);
   // Records created while the screen runs, each kind from its own sequence (the oracle's too).
   const minters = { po: createMinter('po', 900), ord: createMinter('ord', 900), sup: createMinter('sup', 900), prd: createMinter('prd', 900), cat: createMinter('cat', 900), ctl: createMinter('ctl', 900) };
@@ -342,7 +346,7 @@ export function createServer(dataset, { now, scenario }) {
      * orderPropogateUpHandler), which answers the envelope itself. The new nodes join the graph.
      */
     createPurchaseOrder(payload) {
-      const out = createPurchaseOrder(docs, json(payload), { now, random, newId: newRecordId });
+      const out = createPurchaseOrder(docs, json(payload), { now: clock(), random, newId: newRecordId, placeOrderStatus });
       if (out.status >= 400) return reject(out.status, out.body.message);
       for (const n of [...docs.purchaseOrders, ...docs.orders]) nodes.set(String(n._id), n);
       return later(out.body);
@@ -357,7 +361,7 @@ export function createServer(dataset, { now, scenario }) {
       const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
       if (!nonEmpty(name) || !nonEmpty(contact)) return reject(400, 'Name, Contact is required');
       if (!['EXTERNAL', 'DEPARTMENT'].includes(supplierType)) return reject(400, 'Invalid Supplier Type');
-      const repo = supplierRepo(docs, newRecordId, now);
+      const repo = supplierRepo(docs, newRecordId, clock());
       const existing = (await repo.findByContact(contact))[0];
       let id;
       if (existing) { await repo.addOrganisation(existing._id, IDS.org); id = existing._id; }
@@ -376,7 +380,7 @@ export function createServer(dataset, { now, scenario }) {
         removeAttachmentId: field('removeAttachmentId'), name: field('name'), amount: field('amount'), remarks: field('remarks'), expenses: field('expenses'),
       };
       const files = fd.getAll('files');
-      const at = new Date(now);
+      const at = new Date(clock());
       const store = (list) => list.map((f) => { const url = URL.createObjectURL(f); uploads.set(url, f); return { url }; });
       try {
         if (!r.purchaseOrderId) throw [400, 'purchaseOrderId is required'];
@@ -492,12 +496,12 @@ export function createServer(dataset, { now, scenario }) {
           continue;
         }
         const first = stageAudit[0];
-        const at = new Date(now);
+        const at = new Date(clock());
         node.stageAudit = [...(node.stageAudit || []), ...stageAudit.map((st) => ({ ...st, updatedAt: at, updatedBy: IDS.user }))];
         node.modified_date = at;
         if (first.status) node.status = first.status;
         if (metaData) node.metaData = { ...(node.metaData || {}), ...metaData };
-        if (Array.isArray(first.challan)) node.itemListAudit = [...(node.itemListAudit || []), { userId: IDS.user, date: now, itemList: first.challan }];
+        if (Array.isArray(first.challan)) node.itemListAudit = [...(node.itemListAudit || []), { userId: IDS.user, date: at.getTime(), itemList: first.challan }];
         if (first.status) node.statusAudit = [...(node.statusAudit || []), { userId: IDS.user, roleId: IDS.role, date: at, status: first.status }];
         if (Array.isArray(first.freeItemChallan) && first.freeItemChallan.length) node.freeItems = first.freeItemChallan;
         results.successCount += 1;

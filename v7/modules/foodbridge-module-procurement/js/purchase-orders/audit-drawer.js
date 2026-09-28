@@ -6,12 +6,18 @@
   submit writes one stage-audit entry through the order graph (POST /v3/purchase/order/stage-audit)
   whose challan carries the received quantities — and from then on those ARE the order's lines.
   Closing with unsaved changes asks first (DiscardChangesModal), whichever way the close came.
+
+  v7 — Internal approval: a move out of a step that names its moves as actions (Pending Approval:
+  Approve / Reject) is a decision, not a delivery. Approving, the owner can change what is ordered —
+  a line set to 0 leaves the order — and those quantities are what goes to the supplier. Rejecting
+  shows the order read only and asks for a reason, where the step requires one.
 */
 import { esc } from '../components/dom.js';
 import { fi, lucide } from '../components/icons.js';
 import { createMainDrawer } from '../components/drawer.js';
 import { discardChangesModal } from '../components/modal.js';
 import { buttonClass, inputClass, displayImage } from '../components/windmill.js';
+import { approvalStep } from './model.js';
 
 const T = '<!---->';
 const COMMENT_PREFIX = 'shippingAddressUpdate::';
@@ -27,6 +33,9 @@ function badge(expected, input) {
   return { label: diff > 0 ? `+${diff}` : `${diff}`, className: VARIANCE };
 }
 
+/** v7: now, as a datetime-local value ("2026-09-29T10:25") — the goods came in now unless told otherwise. */
+const localNow = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+
 /** The drawer's accordion date: en-US, "Sep 28, 2026, 10:25 AM". */
 const auditDate = (d) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '');
 
@@ -38,7 +47,7 @@ export function createAuditDrawer(host, server, { onClosed }) {
   const humanStages = (node) => (node.stageAudit || []).filter((a) => !(typeof a?.comment === 'string' && a.comment.startsWith(COMMENT_PREFIX)));
   const stages = () => humanStages(st.node);
   const unitPriceOf = (p) => host.roundPrice(host.calculateItemPrice({ ...p, qty: 1 }));
-  const hasVariance = () => st.products.some((p) => (Number(p.receiving) || 0) !== (Number(p.received) || 0));
+  const hasVariance = () => !st.approval && st.products.some((p) => (Number(p.receiving) || 0) !== (Number(p.received) || 0));
   const hasUnsaved = () => Boolean(st.comment.trim()) || st.products.some((p) => Number(p.receiving) !== Number(p.received));
   const showVoucher = () => Boolean(st.node.supplier_id) && host.getDeliveryAllowedStatuses().includes(st.node.status);
   const t = (s) => host.toTitleCase(s);
@@ -46,7 +55,7 @@ export function createAuditDrawer(host, server, { onClosed }) {
   function open(node, newStatus) {
     const last = humanStages(node).at(-1);
     st = {
-      node, newStatus, comment: '', commentError: false, voucher: '', receivedDate: '', accordion: null, submitting: false, discard: false, details: {},
+      node, newStatus, approval: approvalStep(node, newStatus, host), comment: '', commentError: false, voucher: '', receivedDate: localNow(), accordion: null, submitting: false, discard: false, details: {},
       products: (node.item_list || []).map((item) => {
         const prev = last?.challan?.find((p) => p.id === item.id) || null;
         const expected = prev ? Number(prev.verifiedQty) : Number(item.qty) || 0;
@@ -106,7 +115,28 @@ export function createAuditDrawer(host, server, { onClosed }) {
   const qtyCell = (q, unit) => `<div class="flex flex-col items-center text-gray-700 font-medium text-xs"><span>${esc(q)}</span>${unit ? `<span class="text-[10px] text-gray-400 leading-tight">${esc(unit)}</span>` : ''}</div>`;
   const productCell = (name, art) => `<td class="px-3 py-3 align-middle"><div class="flex items-center gap-2 min-w-0"><div class="flex-shrink-0">${displayImage()}</div><div class="min-w-0"><div class="font-medium text-gray-900 text-xs leading-tight break-words">${esc(name)}</div><div class="text-xs text-gray-500 truncate">${art}</div></div></div></td>`;
 
+  /** v7 — the order as raised, for an approval decision: the quantities editable when approving. */
+  function approvalItems() {
+    const n = st.products.length;
+    const editable = !st.approval.reject;
+    const rows = st.products.map((p, i) => { const unitPrice = unitPriceOf(p); return { p, i, unitPrice, totalValue: unitPrice * (Number(p.received) || 0) }; });
+    const none = { label: '', className: 'hidden' };
+    const was = (p) => (Number(p.received) !== Number(p.receiving) ? `<span class="text-[10px] text-amber-600 leading-tight">was ${esc(p.receiving)}</span>` : '');
+    const orderedCell = (p) => (editable
+      ? `<div class="flex flex-col items-center gap-0.5"><input class="${inputClass('text-center text-xs')}" type="number" min="0" data-testid="audit-drawer-item-qty-input-desktop-${esc(p.id)}" value="${esc(p.received)}" style="width: 106px; min-height: 32px;" data-au-qty="${esc(p.id)}">${p.orderingUnit ? `<span class="text-[10px] text-gray-400 leading-tight">${esc(p.orderingUnit)}</span>` : ''}${was(p)}</div>`
+      : qtyCell(p.received || 0, p.orderingUnit));
+    return `<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">`
+      + `<div class="sm:hidden"><div class="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between"><span class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Items</span><span class="text-[10px] text-gray-400">${n}${T} ${T}${n === 1 ? 'item' : 'items'}</span></div>`
+      + `<div class="divide-y divide-gray-100">${rows.map(({ p, i, unitPrice, totalValue }) => cardRow({ id: p.id || i, name: p.name, articleNumber: p.articleNumber, unit: p.orderingUnit, expectedQty: p.receiving || 0, value: p.received, editable, status: none, unitPrice, totalValue })).join('')}</div></div>`
+      + `<div class="hidden sm:block overflow-x-auto"><table class="w-full text-xs" style="min-width: 520px;"><thead><tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wide">${th('Product', 200, 'left', 'px-3')}${th('Ordered', 90)}${th('Unit Price', 100)}${th('Total Value', 100)}</tr></thead>`
+      + `<tbody class="divide-y divide-gray-100">${rows.map(({ p, i, unitPrice, totalValue }) => `<tr data-testid="audit-drawer-item-row-desktop-${esc(p.id || i)}" class="hover:bg-gray-50">`
+        + productCell(p.name, `Art No: ${T}${esc(p.articleNumber)}`)
+        + `<td class="px-2 py-3 text-center align-middle">${orderedCell(p)}</td>`
+        + `<td class="px-2 py-3 text-center align-middle text-xs font-medium text-gray-700">${esc(host.formatCurrency(unitPrice))}</td><td class="px-2 py-3 text-center align-middle text-xs font-semibold text-gray-900">${esc(host.formatCurrency(totalValue))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+
   function items() {
+    if (st.approval) return approvalItems();
     const n = st.products.length;
     const rows = st.products.map((p, i) => {
       const status = badge(p.receiving, p.received);
@@ -137,18 +167,17 @@ export function createAuditDrawer(host, server, { onClosed }) {
 
   function receipt() {
     if (!showVoucher()) return '';
-    const now = new Date();
-    const max = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const max = localNow();
     return `<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6"><div class="px-4 py-3 bg-gray-50 border-b border-gray-200"><h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Receipt Details</h3></div><div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">`
       + `<div><label class="block text-xs font-medium text-gray-500 mb-1">Voucher Number</label><input class="${inputClass()}" type="text" placeholder="Enter voucher number" data-testid="audit-drawer-voucher-number-input" value="${esc(st.voucher)}" data-au-field="voucher"></div>`
-      + `<div><label class="block text-xs font-medium text-gray-500 mb-1">Received Date</label><input class="${inputClass()}" type="date" max="${max}" data-testid="audit-drawer-received-date-input" value="${esc(st.receivedDate)}" data-au-field="receivedDate"></div>`
+      + `<div><label class="block text-xs font-medium text-gray-500 mb-1">Received Date</label><input class="${inputClass()}" type="datetime-local" max="${max}" data-testid="audit-drawer-received-date-input" value="${esc(st.receivedDate)}" data-au-field="receivedDate"></div>`
       + `</div></div>`;
   }
 
   function comment() {
-    return `<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6"><div class="px-4 py-3 bg-gray-50 border-b border-gray-200"><h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Comment for this stage${hasVariance() ? '<span class="text-red-500 ml-1">*</span>' : ''}</h3></div><div class="p-4">`
-      + `<textarea placeholder="Comment for this stage" rows="3" aria-invalid="${st.commentError}" data-testid="audit-drawer-comment-textarea" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 resize-none ${st.commentError ? 'border-red-400 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-green-500 focus:border-green-500'}" data-au-field="comment">${esc(st.comment)}</textarea>`
-      + (st.commentError ? '<p class="mt-1.5 text-xs text-red-600">Please enter a reason for the variance</p>' : '')
+    return `<div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6"><div class="px-4 py-3 bg-gray-50 border-b border-gray-200"><h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">${st.approval?.commentRequired ? 'Reason' : 'Comment for this stage'}${hasVariance() || st.approval?.commentRequired ? '<span class="text-red-500 ml-1">*</span>' : ''}</h3></div><div class="p-4">`
+      + `<textarea placeholder="${st.approval?.commentRequired ? `Reason to ${esc(st.approval.action.toLowerCase())} this order` : 'Comment for this stage'}" rows="3" aria-invalid="${st.commentError}" data-testid="audit-drawer-comment-textarea" class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 resize-none ${st.commentError ? 'border-red-400 focus:ring-red-500 focus:border-red-500' : 'border-gray-200 focus:ring-green-500 focus:border-green-500'}" data-au-field="comment">${esc(st.comment)}</textarea>`
+      + (st.commentError ? `<p class="mt-1.5 text-xs text-red-600">${esc(commentMessage())}</p>` : '')
       + `</div></div>`;
   }
 
@@ -179,17 +208,19 @@ export function createAuditDrawer(host, server, { onClosed }) {
 
   function content() {
     const n = st.node;
+    const title = st.approval ? st.approval.action : t(st.newStatus);
     const submit = st.submitting
       ? '<span>Submitting...</span><div class="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>'
-      : `<span>${esc(t(st.newStatus))}</span>${lucide('ArrowRight', { cls: 'w-4 h-4' })}`;
+      : `<span>${esc(title)}</span>${lucide('ArrowRight', { cls: 'w-4 h-4' })}`;
+    const tone = st.approval?.reject ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700';
     return (st.discard ? discardChangesModal({ title: 'Discard Changes', description: 'Are you sure you want to discard the changes ?', waitAct: 'au-discard-wait', discardAct: 'au-discard-confirm' }) : '')
       + `<div class="w-full flex flex-col h-full bg-white" data-testid="audit-drawer">`
-      + `<div class="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200"><h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-1">${esc(t(st.newStatus))}</h2><p class="text-xs sm:text-sm text-gray-500 break-all leading-snug">Purchase Order${T} #${T}${esc(n.order_number || n._id)}${T} • Updating to:${T} ${T}${esc(t(st.newStatus))}</p></div>`
+      + `<div class="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200"><h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-1">${esc(title)}</h2><p class="text-xs sm:text-sm text-gray-500 break-all leading-snug">Purchase Order${T} #${T}${esc(n.order_number || n._id)}${T} • Updating to:${T} ${T}${esc(t(st.newStatus))}</p></div>`
       + `<div class="px-6 py-3 border-b border-gray-100 bg-gray-50"><div class="flex items-center gap-2 flex-wrap text-sm">${breadcrumb()}</div></div>`
       + `<div class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6" data-au-scroll><div class="pb-20 md:pb-20">${items()}${total()}${receipt()}${comment()}${history()}</div></div>`
       + `<div class="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 bg-gray-50 border-t border-gray-200 sm:justify-end">`
       + `<button data-testid="audit-drawer-cancel-btn" class="flex-1 sm:flex-initial text-sm h-11 sm:h-10 px-4 sm:px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 font-medium transition-colors" data-au-act="cancel">Cancel</button>`
-      + `<button class="${buttonClass({ disabled: st.submitting, cls: 'flex-[2] sm:flex-initial text-sm h-11 sm:h-10 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors' })}" type="button"${st.submitting ? ' disabled=""' : ''} data-testid="audit-drawer-submit-btn" data-au-act="submit">${submit}</button>`
+      + `<button class="${buttonClass({ disabled: st.submitting, cls: 'flex-[2] sm:flex-initial text-sm h-11 sm:h-10 px-4 py-2 ${tone} text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors' })}" type="button"${st.submitting ? ' disabled=""' : ''} data-testid="audit-drawer-submit-btn" data-au-act="submit">${submit}</button>`
       + `</div></div>`;
   }
 
@@ -209,7 +240,7 @@ export function createAuditDrawer(host, server, { onClosed }) {
     }
     const field = e.target.dataset.auField;
     if (field === 'voucher') { st.voucher = e.target.value; render(); }
-    if (field === 'receivedDate') { const now = new Date(); const max = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; st.receivedDate = e.target.value > max ? max : e.target.value; render(); }
+    if (field === 'receivedDate') { const max = localNow(); st.receivedDate = e.target.value > max ? max : e.target.value; render(); }
     if (field === 'comment') { st.comment = e.target.value; st.commentError = false; render(); }
   });
   drawer.host.addEventListener('focusout', (e) => {
@@ -237,14 +268,16 @@ export function createAuditDrawer(host, server, { onClosed }) {
     }
   });
 
+  const commentMessage = () => (st.approval?.commentRequired ? `Please give a reason to ${st.approval.action.toLowerCase()} this order` : 'Please enter a reason for the variance');
+
   async function submit() {
-    if (hasVariance() && !st.comment.trim()) {
+    if ((hasVariance() || st.approval?.commentRequired) && !st.comment.trim()) {
       st.commentError = true;
       render();
       const ta = drawer.host.querySelector('[data-testid="audit-drawer-comment-textarea"]');
       ta?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       ta?.focus();
-      host.notify('error', 'Please enter a reason for the variance');
+      host.notify('error', commentMessage());
       return;
     }
     st.commentError = false;
@@ -259,7 +292,10 @@ export function createAuditDrawer(host, server, { onClosed }) {
       const user = host.getUserInfo();
       if (!user) { host.notify('error', 'Cannot fetch user details'); return; }
       const isDeliveryStatus = host.getDeliveryAllowedStatuses().includes(st.node.status);
-      const challan = st.products.map((item) => {
+      // v7 — approving: the owner's quantities are the order from now on; a line at 0 leaves it.
+      const kept = st.approval && !st.approval.reject ? st.products.filter((p) => Number(p.received) > 0) : st.products;
+      if (!kept.length) { host.notify('error', 'Nothing is left on this order. Reject it instead.'); return; }
+      const challan = kept.map((item) => {
         const qtyReceiving = Number(item.received);
         const qtyReceived = item.qtyReceived ? Number(item.qtyReceived) + qtyReceiving : qtyReceiving;
         const expectedQty = Number(item.receiving);
@@ -273,6 +309,7 @@ export function createAuditDrawer(host, server, { onClosed }) {
           totalPrice: (unitPriceOf(item) * qtyReceiving).toFixed(2),
           ...(sources && { sources }),
         };
+        if (st.approval) return { ...base, baseUnitQty: host.getBaseUnitQuantityFromQuantity(qtyReceiving, Number(item.boxes || 1) || 1, Number(item.pallets || 1) || 1, orderedUnitIndex) };
         return isDeliveryStatus ? { ...base, qtyReceived, qtyReceiving, qtyRemaining, baseQtyReceived } : base;
       });
       const stageAudit = [{
@@ -284,7 +321,7 @@ export function createAuditDrawer(host, server, { onClosed }) {
         nodeId: st.node._id, nodeType: 'PURCHASE_ORDER', newStatus: st.newStatus, stageAudit,
         ...(showVoucher() && { metaData: { voucherNumber: st.voucher, receivedDate: st.receivedDate } }),
       }]);
-      host.notify('success', 'Purchase Order audit updated successfully');
+      host.notify('success', st.approval ? `Purchase Order ${st.approval.reject ? 'rejected' : 'approved'}` : 'Purchase Order audit updated successfully');
       close();
     } catch (err) {
       host.notify('error', err?.response?.data?.message || 'Failed to update purchase order audit. Please try again.');

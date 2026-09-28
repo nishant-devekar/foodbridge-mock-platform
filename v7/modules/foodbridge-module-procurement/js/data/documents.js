@@ -80,11 +80,20 @@ export function toModuleDocs(dataset, now) {
   for (const po of d.purchaseOrders) {
     const _id = oid('po', po.id);
     const created = po.createdAt;
+    // v7: an order raised for internal approval opens at Pending Approval; the decision is its next stage.
+    const opening = po.opening || 'InProgress';
     const stageAudit = [{
-      userId: IDS.user, roleId: IDS.role, status: 'InProgress', documents: [], comment: '',
+      userId: IDS.user, roleId: IDS.role, status: opening, documents: [], comment: '',
       challan: openingChallan(po.lines), created_date: created, updatedAt: created, updatedBy: IDS.user,
     }];
-    const statusAudit = [{ userId: IDS.user, roleId: IDS.role, date: created, status: 'InProgress' }];
+    const statusAudit = [{ userId: IDS.user, roleId: IDS.role, date: created, status: opening }];
+    if (po.decided) {
+      stageAudit.push({
+        userId: IDS.user, roleId: IDS.role, status: po.decided.status, documents: [], comment: po.decided.comment || '',
+        challan: openingChallan(po.lines), created_date: po.decided.at, updatedAt: po.decided.at, updatedBy: IDS.user,
+      });
+      statusAudit.push({ userId: IDS.user, roleId: IDS.role, date: po.decided.at, status: po.decided.status });
+    }
     if (po.received) {
       stageAudit.push({
         userId: IDS.user, roleId: IDS.role, status: 'Delivered', documents: [], comment: po.received.comment || '',

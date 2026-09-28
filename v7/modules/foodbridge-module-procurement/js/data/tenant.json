@@ -216,6 +216,21 @@
    ],
    "PURCHASE_ORDER": [
     {
+     "status": "Pending Approval",
+     "nextStatuses": [
+      "InProgress",
+      "Rejected"
+     ],
+     "actionLabels": {
+      "InProgress": "Approve",
+      "Rejected": "Reject"
+     },
+     "commentRequired": [
+      "Rejected"
+     ],
+     "isAuditAllowed": true
+    },
+    {
      "status": "InProgress",
      "nextStatuses": [
       "Delivered"
@@ -224,6 +239,10 @@
     },
     {
      "status": "Delivered",
+     "nextStatuses": []
+    },
+    {
+     "status": "Rejected",
      "nextStatuses": []
     }
    ]

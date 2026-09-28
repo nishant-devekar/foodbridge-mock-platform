@@ -132,6 +132,8 @@ export function createHost(tenant) {
   };
   const orderStatusRules = {
     getNextAllowedStatuses: (nodeType) => workflowFor(nodeType).map((w) => ({ status: w.status, nextStatuses: w.nextStatuses })),
+    // v7: a step can name its moves as actions ("Approve", not "InProgress") and ask for a reason.
+    getStep: (status, nodeType) => workflowFor(nodeType).find((w) => w.status === status) || null,
     isAuditAllowedForStatus: (status, nodeType) => workflowFor(nodeType).find((w) => w.status === status)?.isAuditAllowed === true,
     getDeliveredStageAudit,
     isPurchaseOrderDelivered: (order) => getDeliveredStageAudit(order) != null,

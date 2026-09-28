@@ -78,11 +78,26 @@ export function statusControl(order, host) {
   const next = isExternal ? rules.getNextAllowedStatuses('PURCHASE_ORDER').find((w) => w.status === order.status)?.nextStatuses || [] : [];
   const options = isExternal ? [order.status, ...next] : [order.dispatchStatus || order.status];
   const auditAllowed = isExternal && rules.isAuditAllowedForStatus(order.status, 'PURCHASE_ORDER');
+  const actions = (isExternal && rules.getStep(order.status, 'PURCHASE_ORDER')?.actionLabels) || {};
   return {
     options,
     value: isExternal ? order.status : order.dispatchStatus || order.status,
     disabled: !isExternal || options.length <= 1 || !auditAllowed,
+    // v7: a move the step names as an action reads as that action ("Approve", "Reject").
+    label: (s) => (s !== order.status && actions[s]) || host.toTitleCase(s),
   };
+}
+
+/**
+ * v7 — Internal approval: the step a new purchase order waits at before it goes to the supplier.
+ * Its moves are decisions, not deliveries: nothing is received, so the drawer shows the order as
+ * raised and asks only for a comment (a reason, where the step requires one).
+ */
+export function approvalStep(order, newStatus, host) {
+  const step = host.orderStatusRules.getStep(order?.status, 'PURCHASE_ORDER');
+  const action = step?.actionLabels?.[newStatus];
+  if (!action) return null;
+  return { action, reject: /reject/i.test(action), commentRequired: (step.commentRequired || []).includes(newStatus) };
 }
 
 /** F17 — which document actions a row offers, and whether its invoice is overdue (docMode PURCHASE_ORDER). */
@@ -117,6 +132,8 @@ export const STATUS_THEME = {
   inprogress: 'bg-purple-50 text-purple-700',
   pending: 'bg-gray-50 text-gray-500',
   'not accepted': 'bg-red-50 text-red-700',
+  'pending approval': 'bg-amber-50 text-amber-700',
+  rejected: 'bg-red-50 text-red-700',
 };
 
 /** PurchaseForecastTable.deriveForecastRow */
