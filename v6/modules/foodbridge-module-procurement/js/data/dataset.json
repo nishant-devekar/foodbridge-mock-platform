@@ -1,0 +1,1574 @@
+{
+ "_about": [
+  "The Purchase Orders prototype's data. Every organisation, supplier, product and order here is invented.",
+  "Times are AGES, not dates (minutesAgo / daysAgo), resolved against the moment the page opens,",
+  "so the list always opens on \"today\". js/data/resolve.js turns them into records.",
+  "  products        the store's catalogue: units (secondary-base), price per secondary unit, GST, stock",
+  "  rawMaterials    inputs the store buys but does not sell: in its MASTER and RAW-MATERIAL catalogues only",
+  "  suppliers       external suppliers (sup-09 is a DEPARTMENT source: hidden from this screen)",
+  "  locations       other locations of this organisation the store can buy from (internal sources)",
+  "  purchaseOrders  one per row; `received` marks a delivered order's goods-received audit",
+  "  customers       the organisations the store sells to, each in one customer-type catalogue",
+  "  salesOrders     this store's own sales (to `customers`), which the purchase forecast reads as demand",
+  "  catalogue       what each location sells: the store's own catalogue (every product), and the two",
+  "                  internal locations' catalogues — their own product records, matched to the store's",
+  "                  by article number, at their own base price and stock: { product: [price, stock] }",
+  "  customerCatalogues  the store's customer-type catalogues besides DEFAULT: { name: [products] }",
+  "  policies        guarantee / warranty templates the store attaches to products (a product's `policy`)"
+ ],
+ "store": {
+  "id": "loc-01",
+  "name": "QA Store — Pune Depot",
+  "orgName": "QA Store",
+  "user": "Mahesh"
+ },
+ "policies": [
+  {
+   "id": "pol-01",
+   "name": "Freshness Guarantee",
+   "type": "GUARANTEE",
+   "days": 7,
+   "unit": "days",
+   "terms": "Replaced free if the curd turns sour before its use-by date. Keep refrigerated at 2–4 °C and report it within 24 hours of delivery, with the pack."
+  },
+  {
+   "id": "pol-02",
+   "name": "Leak-Proof Pack Warranty",
+   "type": "WARRANTY",
+   "days": 90,
+   "unit": "months",
+   "terms": "A pouch or bottle that leaks in storage within three months of delivery is replaced. The seal must be intact and the pack stored upright, away from heat."
+  }
+ ],
+ "categories": [
+  {
+   "id": "cat-01",
+   "name": "Dairy",
+   "parent": "cat-11"
+  },
+  {
+   "id": "cat-02",
+   "name": "Bakery",
+   "parent": "cat-11"
+  },
+  {
+   "id": "cat-03",
+   "name": "Grains & Pulses",
+   "parent": "cat-12"
+  },
+  {
+   "id": "cat-04",
+   "name": "Oils & Ghee",
+   "parent": "cat-12"
+  },
+  {
+   "id": "cat-05",
+   "name": "Beverages",
+   "parent": "cat-13"
+  },
+  {
+   "id": "cat-06",
+   "name": "Sauces & Pickles",
+   "parent": "cat-12"
+  },
+  {
+   "id": "cat-07",
+   "name": "Snacks",
+   "parent": "cat-13"
+  },
+  {
+   "id": "cat-08",
+   "name": "Sweeteners & Flours",
+   "parent": "cat-14"
+  },
+  {
+   "id": "cat-09",
+   "name": "Packaging Material",
+   "parent": "cat-14"
+  },
+  {
+   "id": "cat-11",
+   "name": "Fresh",
+   "parent": null
+  },
+  {
+   "id": "cat-12",
+   "name": "Pantry",
+   "parent": null
+  },
+  {
+   "id": "cat-13",
+   "name": "Beverages & Snacks",
+   "parent": null
+  },
+  {
+   "id": "cat-14",
+   "name": "Ingredients",
+   "parent": null
+  }
+ ],
+ "products": [
+  {
+   "id": "prd-01",
+   "articleNo": "FB-1001",
+   "name": "Toned Milk 500 ml",
+   "categoryId": "cat-01",
+   "measurement": "Pouch-Crate-Pallet",
+   "boxes": 24,
+   "pallets": 10,
+   "price": 27,
+   "tax": 0,
+   "stock": 120,
+   "moq": 1,
+   "priceMap": {
+    "Pouch": 27,
+    "Crate": 648,
+    "Pallet": 6480
+   }
+  },
+  {
+   "id": "prd-02",
+   "articleNo": "FB-1002",
+   "name": "Fresh Curd 400 g",
+   "categoryId": "cat-01",
+   "measurement": "Cup-Crate-Pallet",
+   "boxes": 12,
+   "pallets": 10,
+   "price": 35,
+   "tax": 5,
+   "stock": 36,
+   "moq": 1,
+   "priceMap": {
+    "Cup": 35,
+    "Crate": 420,
+    "Pallet": 4200
+   },
+   "policy": "pol-01"
+  },
+  {
+   "id": "prd-03",
+   "articleNo": "FB-1003",
+   "name": "Malai Paneer 200 g",
+   "categoryId": "cat-01",
+   "measurement": "Pack-Box-Pallet",
+   "boxes": 10,
+   "pallets": 10,
+   "price": 90,
+   "tax": 5,
+   "stock": 18,
+   "moq": 1,
+   "priceMap": {
+    "Pack": 90,
+    "Box": 900,
+    "Pallet": 9000
+   }
+  },
+  {
+   "id": "prd-04",
+   "articleNo": "FB-1004",
+   "name": "Salted Butter 100 g",
+   "categoryId": "cat-01",
+   "measurement": "Pack-Box",
+   "boxes": 20,
+   "pallets": 1,
+   "price": 56,
+   "tax": 12,
+   "stock": 40,
+   "moq": 1,
+   "priceMap": {
+    "Pack": 56,
+    "Box": 1120
+   }
+  },
+  {
+   "id": "prd-05",
+   "articleNo": "FB-2001",
+   "name": "Whole Wheat Bread",
+   "categoryId": "cat-02",
+   "measurement": "Pack-Box",
+   "boxes": 12,
+   "pallets": 1,
+   "price": 45,
+   "tax": 0,
+   "stock": 24,
+   "moq": 1,
+   "priceMap": {
+    "Pack": 45,
+    "Box": 540
+   }
+  },
+  {
+   "id": "prd-06",
+   "articleNo": "FB-2002",
+   "name": "Multigrain Buns (4 pcs)",
+   "categoryId": "cat-02",
+   "measurement": "Pkt-Carton",
+   "boxes": 24,
+   "pallets": 1,
+   "price": 38,
+   "tax": 5,
+   "stock": 0,
+   "moq": 1,
+   "priceMap": {
+    "Pkt": 38,
+    "Carton": 912
+   }
+  },
+  {
+   "id": "prd-07",
+   "articleNo": "FB-3001",
+   "name": "Basmati Rice 5 kg",
+   "categoryId": "cat-03",
+   "measurement": "Bag-Bundle-Pallet",
+   "boxes": 4,
+   "pallets": 10,
+   "price": 520,
+   "tax": 5,
+   "stock": 14,
+   "moq": 1,
+   "priceMap": {
+    "Bag": 520,
+    "Bundle": 2080,
+    "Pallet": 20800
+   }
+  },
+  {
+   "id": "prd-08",
+   "articleNo": "FB-3002",
+   "name": "Toor Dal 1 kg",
+   "categoryId": "cat-03",
+   "measurement": "Pkt-Carton",
+   "boxes": 10,
+   "pallets": 1,
+   "price": 165,
+   "tax": 5,
+   "stock": 22,
+   "moq": 1,
+   "priceMap": {
+    "Pkt": 165,
+    "Carton": 1650
+   }
+  },
+  {
+   "id": "prd-09",
+   "articleNo": "FB-3003",
+   "name": "Chana Dal 1 kg",
+   "categoryId": "cat-03",
+   "measurement": "Pkt-Carton",
+   "boxes": 10,
+   "pallets": 1,
+   "price": 110,
+   "tax": 5,
+   "stock": 5,
+   "moq": 1,
+   "priceMap": {
+    "Pkt": 110,
+    "Carton": 1100
+   }
+  },
+  {
+   "id": "prd-10",
+   "articleNo": "FB-4001",
+   "name": "Sunflower Oil 1 L",
+   "categoryId": "cat-04",
+   "measurement": "Bottle-Case-Pallet",
+   "boxes": 12,
+   "pallets": 10,
+   "price": 145,
+   "tax": 5,
+   "stock": 30,
+   "moq": 1,
+   "priceMap": {
+    "Bottle": 145,
+    "Case": 1740,
+    "Pallet": 17400
+   },
+   "policy": "pol-02"
+  },
+  {
+   "id": "prd-11",
+   "articleNo": "FB-4002",
+   "name": "Cow Ghee 500 ml",
+   "categoryId": "cat-04",
+   "measurement": "Bottle-Case",
+   "boxes": 12,
+   "pallets": 1,
+   "price": 330,
+   "tax": 12,
+   "stock": 6,
+   "moq": 1,
+   "priceMap": {
+    "Bottle": 330,
+    "Case": 3960
+   }
+  },
+  {
+   "id": "prd-12",
+   "articleNo": "FB-5001",
+   "name": "Alphonso Mango Drink 1 L",
+   "categoryId": "cat-05",
+   "measurement": "Bottle-Case",
+   "boxes": 12,
+   "pallets": 1,
+   "price": 99,
+   "tax": 12,
+   "stock": 48,
+   "moq": 1,
+   "priceMap": {
+    "Bottle": 99,
+    "Case": 1188
+   }
+  },
+  {
+   "id": "prd-13",
+   "articleNo": "FB-5002",
+   "name": "Packaged Water 1 L",
+   "categoryId": "cat-05",
+   "measurement": "Bottle-Case-Pallet",
+   "boxes": 12,
+   "pallets": 10,
+   "price": 20,
+   "tax": 18,
+   "stock": 200,
+   "moq": 12,
+   "priceMap": {
+    "Bottle": 20,
+    "Case": 240,
+    "Pallet": 2400
+   }
+  },
+  {
+   "id": "prd-14",
+   "articleNo": "FB-6001",
+   "name": "Tomato Ketchup 500 g",
+   "categoryId": "cat-06",
+   "measurement": "Bottle-Case",
+   "boxes": 24,
+   "pallets": 1,
+   "price": 110,
+   "tax": 12,
+   "stock": 12,
+   "moq": 1,
+   "priceMap": {
+    "Bottle": 110,
+    "Case": 2640
+   }
+  },
+  {
+   "id": "prd-15",
+   "articleNo": "FB-6002",
+   "name": "Mixed Pickle 400 g",
+   "categoryId": "cat-06",
+   "measurement": "Bottle-Case",
+   "boxes": 12,
+   "pallets": 1,
+   "price": 150,
+   "tax": 12,
+   "stock": 9,
+   "moq": 1,
+   "priceMap": {
+    "Bottle": 150,
+    "Case": 1800
+   }
+  },
+  {
+   "id": "prd-16",
+   "articleNo": "FB-7001",
+   "name": "Masala Chips 50 g",
+   "categoryId": "cat-07",
+   "measurement": "Pkt-Carton",
+   "boxes": 48,
+   "pallets": 1,
+   "price": 20,
+   "tax": 12,
+   "stock": 60,
+   "moq": 1,
+   "priceMap": {
+    "Pkt": 20,
+    "Carton": 960
+   }
+  }
+ ],
+ "rawMaterials": [
+  {
+   "id": "prd-51",
+   "articleNo": "RM-2001",
+   "name": "Refined Sugar 50 Kg",
+   "categoryId": "cat-08",
+   "measurement": "Bag",
+   "boxes": 1,
+   "pallets": 1,
+   "price": 2150,
+   "tax": 5,
+   "stock": 6,
+   "moq": 1,
+   "priceMap": {
+    "Bag": 2150
+   }
+  },
+  {
+   "id": "prd-52",
+   "articleNo": "RM-2002",
+   "name": "Maida 25 Kg",
+   "categoryId": "cat-08",
+   "measurement": "Bag",
+   "boxes": 1,
+   "pallets": 1,
+   "price": 980,
+   "tax": 5,
+   "stock": 12,
+   "moq": 1,
+   "priceMap": {
+    "Bag": 980
+   }
+  },
+  {
+   "id": "prd-53",
+   "articleNo": "RM-3001",
+   "name": "Milk Pouch Film Roll",
+   "categoryId": "cat-09",
+   "measurement": "Roll-Box",
+   "boxes": 6,
+   "pallets": 1,
+   "price": 1450,
+   "tax": 18,
+   "stock": 9,
+   "moq": 1,
+   "priceMap": {
+    "Roll": 1450,
+    "Box": 8700
+   }
+  },
+  {
+   "id": "prd-54",
+   "articleNo": "RM-3002",
+   "name": "Corrugated Carton 5-Ply",
+   "categoryId": "cat-09",
+   "measurement": "Pc-Bundle",
+   "boxes": 25,
+   "pallets": 1,
+   "price": 18,
+   "tax": 12,
+   "stock": 400,
+   "moq": 25,
+   "priceMap": {
+    "Pc": 18,
+    "Bundle": 450
+   }
+  }
+ ],
+ "suppliers": [
+  {
+   "id": "sup-01",
+   "name": "Sahyadri Dairy Farms",
+   "contact": "9822011001",
+   "email": "orders@sahyadridairy.example",
+   "gstNumber": "27AAACS1001A1Z5",
+   "address": "Plot 14, Chakan MIDC",
+   "state": "Maharashtra",
+   "postalCode": "410501"
+  },
+  {
+   "id": "sup-02",
+   "name": "Deccan Grain Traders",
+   "contact": "9822011002",
+   "email": "sales@deccangrain.example",
+   "gstNumber": "27AAACD1002B1Z3",
+   "address": "Market Yard, Gultekdi",
+   "state": "Maharashtra",
+   "postalCode": "411037"
+  },
+  {
+   "id": "sup-03",
+   "name": "Konkan Bakers Co.",
+   "contact": "9822011003",
+   "email": "",
+   "address": "Station Road, Ratnagiri",
+   "state": "Maharashtra",
+   "postalCode": "415612"
+  },
+  {
+   "id": "sup-04",
+   "name": "Malhar Oil Mills",
+   "contact": "9822011004",
+   "email": "accounts@malharoil.example",
+   "gstNumber": "27AAACM1004D1Z9",
+   "address": "Kupwad MIDC, Sangli",
+   "state": "Maharashtra",
+   "postalCode": "416436"
+  },
+  {
+   "id": "sup-05",
+   "name": "Western Ghats Beverages",
+   "contact": "9822011005",
+   "email": "hello@wgbev.example",
+   "address": "Wai Road, Satara",
+   "state": "Maharashtra",
+   "postalCode": "415001"
+  },
+  {
+   "id": "sup-06",
+   "name": "Aai Pickles & Sauces",
+   "contact": "9822011006",
+   "email": "",
+   "address": "Shaniwar Peth, Pune",
+   "state": "Maharashtra",
+   "postalCode": "411030"
+  },
+  {
+   "id": "sup-07",
+   "name": "Crunchy Bites Snacks",
+   "contact": "9822011007",
+   "email": "orders@crunchybites.example",
+   "address": "Bhosari MIDC, Pune",
+   "state": "Maharashtra",
+   "postalCode": "411026"
+  },
+  {
+   "id": "sup-08",
+   "name": "Indrayani Rice Mill",
+   "contact": "9822011008",
+   "email": "",
+   "address": "Maval, Pune",
+   "state": "Maharashtra",
+   "postalCode": "410506",
+   "active": false
+  },
+  {
+   "id": "sup-09",
+   "name": "Central Kitchen",
+   "contact": "9822011009",
+   "email": "",
+   "address": "Same premises",
+   "state": "Maharashtra",
+   "postalCode": "411028",
+   "supplierType": "DEPARTMENT"
+  },
+  {
+   "id": "sup-10",
+   "name": "Shivneri Wholesale",
+   "contact": "9822011010",
+   "email": "buy@shivneri.example",
+   "gstNumber": "27AAACS1010K1Z1",
+   "address": "Narayangaon, Junnar",
+   "state": "Maharashtra",
+   "postalCode": "410504"
+  }
+ ],
+ "locations": [
+  {
+   "id": "loc-02",
+   "name": "QA Store — Hadapsar Warehouse",
+   "contact": "9822022002",
+   "selectable": true
+  },
+  {
+   "id": "loc-03",
+   "name": "QA Store — Kothrud Outlet",
+   "contact": "9822022003",
+   "selectable": true
+  }
+ ],
+ "purchaseOrders": [
+  {
+   "id": "po-01",
+   "number": "2026928102514",
+   "minutesAgo": 35,
+   "supplier": "sup-01",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-01",
+     10,
+     1
+    ],
+    [
+     "prd-02",
+     6,
+     1
+    ]
+   ],
+   "comments": "Deliver before 7 am please"
+  },
+  {
+   "id": "po-02",
+   "number": "2026928075022",
+   "minutesAgo": 190,
+   "location": "loc-02",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-07",
+     3,
+     1
+    ],
+    [
+     "prd-08",
+     4,
+     1
+    ],
+    [
+     "prd-09",
+     2,
+     1
+    ]
+   ],
+   "dispatch": {
+    "status": "Dispatch Created",
+    "minutesAgo": 115
+   }
+  },
+  {
+   "id": "po-03",
+   "number": "2026927164031",
+   "minutesAgo": 1100,
+   "supplier": "sup-02",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-08",
+     5,
+     1
+    ],
+    [
+     "prd-09",
+     3,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 80,
+    "short": {
+     "prd-09": 1
+    }
+   }
+  },
+  {
+   "id": "po-04",
+   "number": "2026927121508",
+   "minutesAgo": 1365,
+   "supplier": "sup-04",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-10",
+     4,
+     1
+    ],
+    [
+     "prd-11",
+     2,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 1050
+   },
+   "documents": [
+    {
+     "id": "doc-01",
+     "type": "SUPPLIER_INVOICE",
+     "name": "MOM/2425/0917",
+     "amount": 14256,
+     "remarks": "",
+     "minutesAgo": 1018
+    }
+   ]
+  },
+  {
+   "id": "po-05",
+   "number": "2026926180547",
+   "minutesAgo": 2455,
+   "supplier": "sup-05",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-12",
+     3,
+     1
+    ],
+    [
+     "prd-13",
+     10,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-06",
+   "number": "2026926093019",
+   "minutesAgo": 2970,
+   "location": "loc-03",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-05",
+     2,
+     1
+    ],
+    [
+     "prd-06",
+     1,
+     1
+    ]
+   ],
+   "dispatch": {
+    "status": "Delivered",
+    "minutesAgo": 2810
+   }
+  },
+  {
+   "id": "po-07",
+   "number": "2026925172063",
+   "minutesAgo": 3940,
+   "supplier": "sup-06",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-14",
+     2,
+     1
+    ],
+    [
+     "prd-15",
+     3,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 2865
+   },
+   "documents": [
+    {
+     "id": "doc-02",
+     "type": "OTHER",
+     "name": "Transport receipt",
+     "amount": 0,
+     "remarks": "Tempo charges paid in cash",
+     "minutesAgo": 2840
+    }
+   ]
+  },
+  {
+   "id": "po-08",
+   "number": "2026925111045",
+   "minutesAgo": 4310,
+   "supplier": "sup-03",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-05",
+     30,
+     0
+    ],
+    [
+     "prd-06",
+     2,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-09",
+   "number": "2026924154572",
+   "minutesAgo": 5475,
+   "supplier": "sup-10",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-07",
+     2,
+     1
+    ],
+    [
+     "prd-10",
+     1,
+     1
+    ],
+    [
+     "prd-16",
+     1,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 4360
+   },
+   "documents": [
+    {
+     "id": "doc-03",
+     "type": "SUPPLIER_INVOICE",
+     "name": "SW-INV-3381",
+     "amount": 7920,
+     "remarks": "GST invoice",
+     "minutesAgo": 4335
+    }
+   ]
+  },
+  {
+   "id": "po-10",
+   "number": "2026924100536",
+   "minutesAgo": 5815,
+   "supplier": "sup-08",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-07",
+     5,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 4015
+   }
+  },
+  {
+   "id": "po-11",
+   "number": "2026923193088",
+   "minutesAgo": 6690,
+   "supplier": "sup-07",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-16",
+     4,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-12",
+   "number": "2026923085527",
+   "minutesAgo": 7325,
+   "location": "loc-02",
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-03",
+     6,
+     0
+    ],
+    [
+     "prd-04",
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-13",
+   "number": "2026922160011",
+   "minutesAgo": 8340,
+   "supplier": "sup-01",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-01",
+     12,
+     1
+    ],
+    [
+     "prd-03",
+     3,
+     1
+    ],
+    [
+     "prd-04",
+     2,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 7350
+   },
+   "documents": [
+    {
+     "id": "doc-04",
+     "type": "SUPPLIER_INVOICE",
+     "name": "SDF/0922/114",
+     "amount": 13850,
+     "remarks": "",
+     "minutesAgo": 7320
+    }
+   ]
+  },
+  {
+   "id": "po-14",
+   "number": "2026922104058",
+   "minutesAgo": 8660,
+   "supplier": "sup-09",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-05",
+     4,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-15",
+   "number": "2026921142593",
+   "minutesAgo": 9875,
+   "supplier": "sup-02",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-08",
+     2,
+     1
+    ],
+    [
+     "prd-07",
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-16",
+   "number": "2026920121044",
+   "minutesAgo": 11450,
+   "supplier": "sup-99",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-13",
+     5,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-17",
+   "number": "2026919175076",
+   "minutesAgo": 12550,
+   "supplier": "sup-04",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-10",
+     6,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 11590
+   }
+  },
+  {
+   "id": "po-18",
+   "number": "2026918091530",
+   "minutesAgo": 14505,
+   "location": "loc-03",
+   "status": "Ready for dispatch",
+   "lines": [
+    [
+     "prd-12",
+     2,
+     1
+    ],
+    [
+     "prd-14",
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-19",
+   "number": "2026917133562",
+   "minutesAgo": 15685,
+   "supplier": "sup-05",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-12",
+     4,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 14400
+   },
+   "documents": [
+    {
+     "id": "doc-05",
+     "type": "SUPPLIER_INVOICE",
+     "name": "WGB-7719",
+     "amount": 5322,
+     "remarks": "",
+     "minutesAgo": 14370
+    }
+   ]
+  },
+  {
+   "id": "po-20",
+   "number": "2026916182017",
+   "minutesAgo": 16840,
+   "supplier": "sup-06",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-15",
+     2,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-21",
+   "number": "2026915110073",
+   "minutesAgo": 18720,
+   "supplier": "sup-10",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-08",
+     3,
+     1
+    ],
+    [
+     "prd-09",
+     3,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 17010
+   }
+  },
+  {
+   "id": "po-22",
+   "number": "2026912164591",
+   "minutesAgo": 22695,
+   "supplier": "sup-03",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-05",
+     4,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 21765
+   },
+   "documents": [
+    {
+     "id": "doc-06",
+     "type": "SUPPLIER_INVOICE",
+     "name": "KB/912/08",
+     "amount": 2592,
+     "remarks": "",
+     "minutesAgo": 21720
+    },
+    {
+     "id": "doc-07",
+     "type": "OTHER",
+     "name": "Quality check sheet",
+     "amount": 0,
+     "remarks": "",
+     "minutesAgo": 21715
+    },
+    {
+     "id": "doc-08",
+     "type": "OTHER",
+     "name": "Delivery challan",
+     "amount": 0,
+     "remarks": "Signed copy",
+     "minutesAgo": 21712
+    }
+   ]
+  },
+  {
+   "id": "po-23",
+   "number": "2026910103047",
+   "minutesAgo": 25950,
+   "supplier": "sup-07",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-16",
+     2,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 24420
+   }
+  },
+  {
+   "id": "po-24",
+   "number": "202697150588",
+   "minutesAgo": 29995,
+   "location": "loc-02",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-07",
+     2,
+     1
+    ]
+   ],
+   "dispatch": {
+    "status": "Delivered",
+    "minutesAgo": 28860
+   }
+  },
+  {
+   "id": "po-25",
+   "number": "202693122036",
+   "minutesAgo": 35920,
+   "supplier": "sup-01",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-02",
+     5,
+     1
+    ],
+    [
+     "prd-01",
+     8,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 34680
+   },
+   "documents": [
+    {
+     "id": "doc-09",
+     "type": "SUPPLIER_INVOICE",
+     "name": "SDF/0903/087",
+     "amount": 7497,
+     "remarks": "",
+     "minutesAgo": 34650
+    }
+   ]
+  },
+  {
+   "id": "po-26",
+   "number": "2026828174069",
+   "minutesAgo": 44240,
+   "supplier": "sup-02",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-08",
+     6,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 43200
+   },
+   "documents": [
+    {
+     "id": "doc-10",
+     "type": "SUPPLIER_INVOICE",
+     "name": "DGT-2208",
+     "amount": 10395,
+     "remarks": "",
+     "minutesAgo": 43180
+    }
+   ]
+  },
+  {
+   "id": "po-27",
+   "number": "202682095012",
+   "minutesAgo": 56230,
+   "supplier": "sup-05",
+   "status": "InProgress",
+   "lines": [
+    [
+     "prd-13",
+     20,
+     1
+    ]
+   ]
+  },
+  {
+   "id": "po-28",
+   "number": "2026812141584",
+   "minutesAgo": 67485,
+   "supplier": "sup-10",
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-11",
+     1,
+     1
+    ],
+    [
+     "prd-10",
+     2,
+     1
+    ]
+   ],
+   "received": {
+    "minutesAgo": 66300
+   }
+  }
+ ],
+ "customers": [
+  {
+   "id": "org-11",
+   "name": "Shree Ganesh Kirana",
+   "phone": "9822033011",
+   "email": "ganesh.kirana@example.com",
+   "catalogue": "DEFAULT"
+  },
+  {
+   "id": "org-12",
+   "name": "Annapurna Bakers",
+   "phone": "9822033012",
+   "email": "orders@annapurnabakers.example",
+   "catalogue": "DEFAULT"
+  },
+  {
+   "id": "org-13",
+   "name": "Hotel Panchavati",
+   "phone": "9822033013",
+   "email": "purchase@panchavati.example",
+   "catalogue": "HoReCa"
+  },
+  {
+   "id": "org-14",
+   "name": "Café Mocha Point",
+   "phone": "9822033014",
+   "email": "hello@mochapoint.example",
+   "catalogue": "HoReCa"
+  },
+  {
+   "id": "org-15",
+   "name": "Om Sai Provisions",
+   "phone": "9822033015",
+   "email": "omsai.provisions@example.com",
+   "catalogue": "DEFAULT"
+  }
+ ],
+ "salesOrders": [
+  {
+   "id": "so-01",
+   "daysAgo": 1,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-01",
+     140
+    ],
+    [
+     "prd-02",
+     30
+    ],
+    [
+     "prd-06",
+     36
+    ]
+   ],
+   "customer": "org-11",
+   "number": "20269271842117"
+  },
+  {
+   "id": "so-02",
+   "daysAgo": 2,
+   "status": "Ready for dispatch",
+   "lines": [
+    [
+     "prd-03",
+     24
+    ],
+    [
+     "prd-09",
+     18
+    ],
+    [
+     "prd-11",
+     10
+    ]
+   ],
+   "customer": "org-12",
+   "number": "20269261120403"
+  },
+  {
+   "id": "so-03",
+   "daysAgo": 3,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-01",
+     90
+    ],
+    [
+     "prd-15",
+     14
+    ],
+    [
+     "prd-07",
+     9
+    ]
+   ],
+   "customer": "org-13",
+   "number": "2026925093512"
+  },
+  {
+   "id": "so-04",
+   "daysAgo": 4,
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-08",
+     20
+    ],
+    [
+     "prd-06",
+     24
+    ],
+    [
+     "prd-14",
+     20
+    ]
+   ],
+   "customer": "org-15",
+   "number": "20269241615048"
+  },
+  {
+   "id": "so-05",
+   "daysAgo": 6,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-02",
+     22
+    ],
+    [
+     "prd-09",
+     12
+    ],
+    [
+     "prd-11",
+     4
+    ]
+   ],
+   "customer": "org-14",
+   "number": "2026922104421"
+  },
+  {
+   "id": "so-06",
+   "daysAgo": 8,
+   "status": "Ready for dispatch",
+   "lines": [
+    [
+     "prd-03",
+     14
+    ],
+    [
+     "prd-07",
+     12
+    ],
+    [
+     "prd-16",
+     20
+    ]
+   ],
+   "customer": "org-11",
+   "number": "20269201733309"
+  },
+  {
+   "id": "so-07",
+   "daysAgo": 11,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-01",
+     60
+    ],
+    [
+     "prd-15",
+     8
+    ],
+    [
+     "prd-06",
+     12
+    ]
+   ],
+   "customer": "org-13",
+   "number": "2026917121856"
+  },
+  {
+   "id": "so-08",
+   "daysAgo": 15,
+   "status": "Delivered",
+   "lines": [
+    [
+     "prd-12",
+     24
+    ],
+    [
+     "prd-08",
+     10
+    ],
+    [
+     "prd-10",
+     12
+    ]
+   ],
+   "customer": "org-12",
+   "number": "20269131458230"
+  },
+  {
+   "id": "so-09",
+   "daysAgo": 19,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-04",
+     30
+    ],
+    [
+     "prd-14",
+     6
+    ],
+    [
+     "prd-05",
+     20
+    ]
+   ],
+   "customer": "org-15",
+   "number": "2026909110207"
+  },
+  {
+   "id": "so-10",
+   "daysAgo": 24,
+   "status": "Cancelled",
+   "lines": [
+    [
+     "prd-13",
+     400
+    ],
+    [
+     "prd-01",
+     300
+    ]
+   ],
+   "customer": "org-14",
+   "number": "20269041636514"
+  },
+  {
+   "id": "so-11",
+   "daysAgo": 27,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-05",
+     12
+    ],
+    [
+     "prd-11",
+     3
+    ],
+    [
+     "prd-09",
+     4
+    ]
+   ],
+   "customer": "org-11",
+   "number": "20269011019445"
+  },
+  {
+   "id": "so-12",
+   "daysAgo": 45,
+   "status": "Pending",
+   "lines": [
+    [
+     "prd-13",
+     500
+    ]
+   ],
+   "customer": "org-13",
+   "number": "2026814154712"
+  }
+ ],
+ "catalogue": {
+  "customerType": "B2B Retail",
+  "locations": {
+   "loc-02": {
+    "prd-01": [
+     25,
+     480
+    ],
+    "prd-02": [
+     33,
+     150
+    ],
+    "prd-03": [
+     86,
+     60
+    ],
+    "prd-05": [
+     42,
+     90
+    ],
+    "prd-07": [
+     505,
+     40
+    ],
+    "prd-08": [
+     158,
+     120
+    ],
+    "prd-09": [
+     104,
+     80
+    ],
+    "prd-10": [
+     139,
+     70
+    ],
+    "prd-13": [
+     19,
+     600
+    ],
+    "prd-16": [
+     19,
+     240
+    ]
+   },
+   "loc-03": {
+    "prd-01": [
+     26,
+     60
+    ],
+    "prd-05": [
+     44,
+     30
+    ],
+    "prd-06": [
+     36,
+     48
+    ],
+    "prd-14": [
+     105,
+     24
+    ],
+    "prd-16": [
+     19,
+     96
+    ]
+   }
+  }
+ },
+ "customerCatalogues": {
+  "HoReCa": [
+   "prd-01",
+   "prd-02",
+   "prd-03",
+   "prd-05",
+   "prd-06",
+   "prd-10",
+   "prd-14"
+  ]
+ }
+}

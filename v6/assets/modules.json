@@ -274,10 +274,8 @@
         {
           "id": "purchase-orders",
           "name": "Purchase Orders",
-          "url": "modules/foodbridge-module-procurement/screens/screen-02.html",
+          "url": "modules/foodbridge-module-procurement/index.html",
           "clipLeft": 256,
-          "clipLeftMobile": 256,
-          "mHeaderH": 56,
           "owner": "love-scripter/foodbridge-module-procurement",
           "hideBurger": true
         },

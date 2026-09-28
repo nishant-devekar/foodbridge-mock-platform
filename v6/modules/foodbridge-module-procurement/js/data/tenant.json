@@ -1,0 +1,373 @@
+{
+ "_about": [
+  "The tenant configuration the Purchase Orders screen runs under — the QA store's production setup",
+  "(/api/v2/multiAdmin/setup), as the Sales Orders prototype recorded it on 25 Sep 2026, plus the one",
+  "purchase flag production has on today: sourcingOrderManagementFeature.finishedGoodsPurchaseForecastEnabled",
+  "(the Stock to Reorder banner in the production screenshot). Only keys the screen reads are kept.",
+  "  storefrontMenus               the label the screen calls itself (Procurement → \"Purchase Orders\")",
+  "  orderWorkflow.statusWorkFlow  PURCHASE_ORDER: which status a row may move to, and whether it audits",
+  "  appProp.amountConfiguration   displayRoundedAmounts: amounts are shown rounded to the rupee",
+  "  appProp.unitMap               the ordering units (secondary/base) products are priced in",
+  "Tenant variants (tenant-variants.json) switch on what production ships off."
+ ],
+ "storefrontMenus": [
+  {
+   "name": "Dashboard",
+   "path": "dashboard",
+   "submenus": []
+  },
+  {
+   "name": "Product Master",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Customer Management",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Sales Orders",
+   "path": "orders",
+   "submenus": []
+  },
+  {
+   "name": "Distribution & Logistics",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Production",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Inventory",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Procurement",
+   "path": null,
+   "submenus": [
+    {
+     "name": "Supplier Management",
+     "path": "suppliers"
+    },
+    {
+     "name": "Purchase Orders",
+     "path": "sourcing-orders"
+    }
+   ]
+  },
+  {
+   "name": "Finance",
+   "path": null,
+   "submenus": []
+  },
+  {
+   "name": "Workforce Management",
+   "path": "our-staff",
+   "submenus": []
+  }
+ ],
+ "role": "WHOLESALER_ADMIN",
+ "subRole": "DEFAULT",
+ "username": "Mahesh",
+ "multiLoc": true,
+ "customerTypeList": [
+  {
+   "id": 1,
+   "name": "Standard"
+  },
+  {
+   "id": 2,
+   "name": "Premium"
+  }
+ ],
+ "sellerLocation": {
+  "_id": "5a0000000000000000000001",
+  "name": "QA Store — Pune Depot",
+  "status": "ACTIVE"
+ },
+ "orderWorkflow": {
+  "itemStatuses": [
+   "Accepted",
+   "Cancel"
+  ],
+  "deliveryAllowedStatuses": [
+   "InProgress",
+   "Ready for dispatch",
+   "Dispatch Created",
+   "Return Accepted"
+  ],
+  "reOrderAllowedStatuses": [],
+  "editAllowedStatuses": [],
+  "invoiceAllowedStatuses": [
+   "Delivered",
+   "Ready for dispatch",
+   "InProgress",
+   "In Delivery"
+  ],
+  "partialDeliveredStatus": "Partial Delivered",
+  "completeDeliveredStatus": "Delivered",
+  "sellerStockUpdateOnStatus": [
+   "Delivered",
+   "Return Accepted"
+  ],
+  "buyerStockUpdateOnStatus": [
+   "Delivered",
+   "Return Accepted"
+  ],
+  "stockReservationOnStatus": [
+   "Pending"
+  ],
+  "eligibleStatus": {
+   "ORDER": {
+    "forDispatch": [
+     "Ready for dispatch"
+    ]
+   },
+   "DISPATCH": {
+    "forDelivery": [
+     "Dispatch Created"
+    ],
+    "forReturn": [
+     "Delivered"
+    ]
+   },
+   "DELIVERY": {
+    "forTracking": [
+     "Out for Delivery"
+    ]
+   },
+   "RETURN": {
+    "forDispatch": [
+     "Return Created"
+    ]
+   },
+   "RETURN_DISPATCH": {
+    "forDelivery": [
+     "Return Dispatch Created",
+     "Return Accepted"
+    ]
+   }
+  },
+  "statusWorkFlow": {
+   "ORDER": [
+    {
+     "status": "Pending",
+     "nextStatuses": [
+      "Ready for dispatch"
+     ],
+     "isAuditAllowed": true
+    },
+    {
+     "status": "Ready for dispatch",
+     "nextStatuses": [],
+     "isAuditAllowed": true
+    }
+   ],
+   "DISPATCH": [
+    {
+     "status": "Dispatch Created",
+     "nextStatuses": [
+      "Delivered"
+     ],
+     "isAuditAllowed": true
+    },
+    {
+     "status": "Delivered",
+     "nextStatuses": [],
+     "isAuditAllowed": true
+    }
+   ],
+   "DELIVERY": [
+    {
+     "status": "Delivery Created",
+     "nextStatuses": [
+      "Vehicle Loading Completed"
+     ],
+     "isAuditAllowed": true
+    },
+    {
+     "status": "Vehicle Loading Completed",
+     "nextStatuses": [
+      "Out for Delivery"
+     ],
+     "isAuditAllowed": true
+    },
+    {
+     "status": "Out for Delivery",
+     "nextStatuses": []
+    }
+   ],
+   "RETURN": [
+    {
+     "status": "Return Created",
+     "nextStatuses": []
+    }
+   ],
+   "RETURN_DISPATCH": [
+    {
+     "status": "Return Accepted",
+     "nextStatuses": []
+    }
+   ],
+   "PURCHASE_ORDER": [
+    {
+     "status": "InProgress",
+     "nextStatuses": [
+      "Delivered"
+     ],
+     "isAuditAllowed": true
+    },
+    {
+     "status": "Delivered",
+     "nextStatuses": []
+    }
+   ]
+  }
+ },
+ "appProp": {
+  "logoText": "QA store",
+  "currency": "₹",
+  "amountConfiguration": {
+   "displayRoundedAmounts": true
+  },
+  "sourcingOrderManagementFeature": {
+   "finishedGoodsPurchaseForecastEnabled": true
+  },
+  "paymentMethods": {
+   "isActive": "pod,payOnline",
+   "stripe": {
+    "isActive": false
+   },
+   "QR": {
+    "isActive": false,
+    "tooltip": "Scan to Pay and enter your transaction id",
+    "qrImageUrl": "",
+    "qrNetBankingId": "qrNetBankingId"
+   },
+   "pod": {
+    "isActive": true
+   }
+  },
+  "shippingMethods": {
+   "isDeliverToMeEnabled": false,
+   "isShippingConfigured": false,
+   "isDeliveryAreaEnabled": false,
+   "isSelfPickUpEnabled": false,
+   "selfPickUpPoints": [],
+   "shippingMethodsConfigList": {
+    "isCifEnabled": false,
+    "isCipEnabled": false,
+    "isDdpEnabled": false,
+    "isDeliveryAreaEnabled": false,
+    "isFobEnabled": false,
+    "isSelfPickUpEnabled": false
+   }
+  },
+  "isPalletCalculationEnabled": false,
+  "showOrderingUnitBreakdown": false,
+  "allowOversell": true,
+  "showAlertForOversell": true,
+  "isInventoryEnabled": "false",
+  "isTransportCostEnabled": true,
+  "transportationExpression": "price + (transportationCost / (product.pallets * product.boxes))",
+  "priceCalc": {
+   "type": "BOX",
+   "palletExpression": "parseFloat(itemPrice.split(\"/\")[0]) * parseInt(item.qty) * item.boxes * item.pallets",
+   "boxExpression": "parseFloat(itemPrice.split(\"/\")[0]) * parseInt(item.qty) * item.boxes"
+  },
+  "splitPaymentEnabled": true,
+  "isAddProductEnabled": true,
+  "multiImagesEnabled": true,
+  "invoice": {
+   "customConfig": {
+    "cinNumber": "",
+    "fssaiNumber": "",
+    "panNumber": "",
+    "uinNumber": "",
+    "pdfOptions": {
+     "format": "A4",
+     "border": {
+      "bottom": "0.5cm",
+      "top": "0.5cm",
+      "left": "0.25cm",
+      "right": "0.25cm"
+     }
+    }
+   }
+  },
+  "customerTypeList": [
+   {
+    "id": 1,
+    "name": "Standard"
+   },
+   {
+    "id": 2,
+    "name": "Premium"
+   }
+  ],
+  "unitConfig": {
+   "demandReport": {
+    "displayUnit": 0
+   }
+  },
+  "priceCalculationUnitIndex": 0,
+  "supportedUnitIndexLevel": 1,
+  "unitMap": {
+   "Pouch": {
+    "units": [
+     "Pouch",
+     "Crate"
+    ],
+    "strUnits": "Pouch/Crate"
+   },
+   "Pack": {
+    "units": [
+     "Pack",
+     "Box"
+    ],
+    "strUnits": "Pack/Box"
+   },
+   "Cup": {
+    "units": [
+     "Cup",
+     "Crate"
+    ],
+    "strUnits": "Cup/Crate"
+   },
+   "Bag": {
+    "units": [
+     "Bag",
+     "Bundle"
+    ],
+    "strUnits": "Bag/Bundle"
+   },
+   "Bottle": {
+    "units": [
+     "Bottle",
+     "Case"
+    ],
+    "strUnits": "Bottle/Case"
+   },
+   "Pkt": {
+    "units": [
+     "Pkt",
+     "Carton"
+    ],
+    "strUnits": "Pkt/Carton"
+   }
+  },
+  "taxConfig": {
+   "taxStateCodeList": [
+    {
+     "code": "27",
+     "name": "Maharashtra"
+    }
+   ]
+  }
+ }
+}
