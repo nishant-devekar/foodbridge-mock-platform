@@ -193,8 +193,12 @@
          glance, rather than parsing an empty role next to "Demo store".
          Real records, shown as a demo — nothing invented, nothing pretended.
 
-     The seed's own brand and user are never shown. */
-  var DEMO_IDENTITY = { store: "Demo Store", name: "Rakesh Kumar", role: "Owner" };
+     The seed's own brand and user are never shown.
+
+     Since 29 Sep 2026 (owner) the demo is one live business — Vasu Foods,
+     frozen foods, Samana, run by Chanchal Sachdeva — the same record every
+     module reads (assets/production/production-api.js). */
+  var DEMO_IDENTITY = { store: "Vasu Foods", name: "Chanchal Sachdeva", role: "Owner" };
 
   function identity() {
     var acct = null;

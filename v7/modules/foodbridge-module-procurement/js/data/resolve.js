@@ -61,7 +61,8 @@ export function lineDoc(product, qty, unitLevel) {
 
 export function resolveDataset(data, now) {
   const products = data.products.map((p) => ({ ...p }));
-  const byProduct = Object.fromEntries(products.map((p) => [p.id, p]));
+  // A purchase-order line can be a raw material too (a manufacturer buys its inputs).
+  const byProduct = Object.fromEntries([...products, ...(data.rawMaterials || [])].map((p) => [p.id, p]));
   const at = (minutesAgo) => new Date(now - minutesAgo * MINUTE);
 
   const purchaseOrders = data.purchaseOrders.map((po) => {

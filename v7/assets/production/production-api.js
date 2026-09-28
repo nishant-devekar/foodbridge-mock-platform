@@ -51,82 +51,138 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 7;
+  var VERSION = 8;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
-  /* ── Catalogue: the reference business ─────────────────────────────── */
+  /* ── The business: Vasu Foods, Samana (owner's brief, 29 Sep 2026) ─────
+     Frozen foods. Main season November to March: frozen green peas and
+     mixed vegetables. Off season the plant makes soya chaap to keep running,
+     sold to commission agents at the Anaj Mandi in Samana. Two owned brands
+     (placeholders until the owner names them: Vasu, and Vasu Gold on the
+     premium stick chaap). Every module reads this one record. */
+  var BUSINESS = {
+    name: "Vasu Foods", type: "Frozen Foods", owner: "Chanchal Sachdeva", role: "Owner", phone: "5550400001", email: "orders@vasufoods.example",
+    address: "Plot 7, Focal Point, Patran Road", city: "Samana", district: "Patiala", state: "Punjab", pin: "147101",
+    gstin: "03AAKFV2231M1Z4", fssai: "12126031000417", market: "Anaj Mandi, Samana",
+    brands: [{ id: "vasu", name: "Vasu", note: "Frozen peas, mixed vegetables, soya chaap" }, { id: "vasu-gold", name: "Vasu Gold", note: "Premium stick soya chaap" }],
+    season: { from: 11, to: 3, main: ["frozen-peas", "mixed-veg"], offSeason: ["soya-chaap", "soya-chaap-premium", "soya-chaap-plain"] },
+    /* tax invoices: GST on frozen vegetables and soya chaap, and the financial year's prefix */
+    gstPct: 5, invoicePrefix: "VF",
+  };
+
+  /* ── Catalogue ─────────────────────────────────────────────────────── */
   var MATERIALS = [
-    // id, name, article, unit, stock unit, store, price ₹ per unit, reorder at, supplier,
+    // id, name, article, unit, stock unit, store, price ₹ per unit, reorder at, supplier id,
     // and what one sticker goes on: that many units to a sack / crate / box,
     // and "packaging" for what a product is packed in (Recipes › Packaging)
-    ["rm-p01", "Green Peas (shelled)", "RM-3001", "kg", "Kg-Crate-Pallet", "Cold room", 42, 400, "Azadpur Mandi · Gupta & Sons", 20, "crate"],
-    ["rm-p02", "Carrot", "RM-3002", "kg", "Kg-Crate-Pallet", "Cold room", 28, 200, "Ramesh Farms, Sonipat", 25, "crate"],
-    ["rm-p03", "Cauliflower", "RM-3003", "kg", "Kg-Crate-Pallet", "Cold room", 22, 120, "Ramesh Farms, Sonipat", 20, "crate"],
-    ["rm-p04", "French Beans", "RM-3004", "kg", "Kg-Crate-Pallet", "Cold room", 40, 120, "Azadpur Mandi · Gupta & Sons", 20, "crate"],
-    ["rm-p05", "Soya Flour", "RM-3005", "kg", "Kg-Bag-Pallet", "Dry store", 62, 150, "Shree Balaji Traders", 50, "sack"],
-    ["rm-p06", "Wheat Flour (Maida)", "RM-3006", "kg", "Kg-Bag-Pallet", "Dry store", 34, 150, "Shree Balaji Traders", 50, "sack"],
-    ["rm-p07", "Wooden Sticks", "RM-3007", "pcs", "Pcs-Box-Pallet", "Dry store", 0.35, 3000, "Kanpur Wood Crafts", 1000, "box"],
-    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "Delhi Poly Packers", 50, "bundle", "packaging"],
-    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "Delhi Poly Packers", 50, "bundle", "packaging"],
-    /* a pouch per pack, and one carton for every pack (28 Sep 2026) */
-    ["rm-k01", "Pouch 200 g · Frozen Green Peas", "RM-5001", "pcs", "Pcs-Box-Pallet", "Dry store", 1.8, 1000, "Delhi Poly Packers", 500, "bundle", "packaging"],
-    ["rm-k02", "Pouch 500 g · Frozen Green Peas", "RM-5002", "pcs", "Pcs-Box-Pallet", "Dry store", 2.6, 600, "Delhi Poly Packers", 500, "bundle", "packaging"],
-    ["rm-k03", "Pouch 1 kg · Frozen Green Peas", "RM-5003", "pcs", "Pcs-Box-Pallet", "Dry store", 3.8, 300, "Delhi Poly Packers", 250, "bundle", "packaging"],
-    ["rm-k04", "Pouch 5 kg · Frozen Green Peas", "RM-5004", "pcs", "Pcs-Box-Pallet", "Dry store", 9, 30, "Delhi Poly Packers", 100, "bundle", "packaging"],
-    ["rm-k05", "Pouch 500 g · Mixed Vegetables", "RM-5005", "pcs", "Pcs-Box-Pallet", "Dry store", 2.7, 500, "Delhi Poly Packers", 500, "bundle", "packaging"],
-    ["rm-k06", "Pouch 1 kg · Mixed Vegetables", "RM-5006", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 250, "Delhi Poly Packers", 250, "bundle", "packaging"],
-    ["rm-k07", "Pouch 250 g · Soya Chaap", "RM-5007", "pcs", "Pcs-Box-Pallet", "Dry store", 2.2, 600, "Delhi Poly Packers", 500, "bundle", "packaging"],
-    ["rm-k08", "Pouch 500 g · Soya Chaap", "RM-5008", "pcs", "Pcs-Box-Pallet", "Dry store", 2.8, 300, "Delhi Poly Packers", 500, "bundle", "packaging"],
-    ["rm-k09", "Pouch 1 kg · Soya Chaap", "RM-5009", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 150, "Delhi Poly Packers", 250, "bundle", "packaging"],
-    ["rm-k10", "Pouch 5 kg · Soya Chaap", "RM-5010", "pcs", "Pcs-Box-Pallet", "Dry store", 9.5, 30, "Delhi Poly Packers", 100, "bundle", "packaging"],
-    ["rm-k11", "Carton 5-ply", "RM-5011", "pcs", "Pcs-Box-Pallet", "Dry store", 28, 100, "Delhi Poly Packers", 50, "bundle", "packaging"],
+    ["rm-p01", "Green Peas (shelled)", "RM-3001", "kg", "Kg-Crate-Pallet", "Cold room", 42, 400, "sup-garg", 20, "crate"],
+    ["rm-p02", "Carrot", "RM-3002", "kg", "Kg-Crate-Pallet", "Cold room", 28, 200, "sup-kaur", 25, "crate"],
+    ["rm-p03", "Cauliflower", "RM-3003", "kg", "Kg-Crate-Pallet", "Cold room", 22, 120, "sup-kaur", 20, "crate"],
+    ["rm-p04", "French Beans", "RM-3004", "kg", "Kg-Crate-Pallet", "Cold room", 40, 60, "sup-garg", 20, "crate"],
+    ["rm-p05", "Soya Flour", "RM-3005", "kg", "Kg-Bag-Pallet", "Dry store", 62, 150, "sup-balaji", 50, "sack"],
+    ["rm-p06", "Maida (Refined Wheat Flour)", "RM-3006", "kg", "Kg-Bag-Pallet", "Dry store", 34, 150, "sup-balaji", 50, "sack"],
+    ["rm-p07", "Wooden Sticks", "RM-3007", "pcs", "Pcs-Box-Pallet", "Dry store", 0.35, 3000, "sup-rajpura-wood", 1000, "box"],
+    ["rm-p08", "Big Bags 30 kg", "RM-3008", "pcs", "Pcs-Box-Pallet", "Dry store", 18, 40, "sup-poly", 50, "bundle", "packaging"],
+    ["rm-p09", "Big Bags 35 kg", "RM-3009", "pcs", "Pcs-Box-Pallet", "Dry store", 20, 30, "sup-poly", 50, "bundle", "packaging"],
+    ["rm-p10", "Broccoli", "RM-3010", "kg", "Kg-Crate-Pallet", "Cold room", 64, 60, "sup-kaur", 10, "crate"],
+    ["rm-p11", "Gluten Powder (Vital Wheat Gluten)", "RM-3011", "kg", "Kg-Bag-Pallet", "Dry store", 145, 50, "sup-punjab-proteins", 25, "sack"],
+    ["rm-p12", "Atta (Whole Wheat Flour)", "RM-3012", "kg", "Kg-Bag-Pallet", "Dry store", 30, 100, "sup-balaji", 50, "sack"],
+    /* plastic bags: a pouch per pack, and one master carton for every pack (28 Sep 2026) */
+    ["rm-k01", "Pouch 200 g · Frozen Green Peas", "RM-5001", "pcs", "Pcs-Box-Pallet", "Dry store", 1.8, 1500, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k02", "Pouch 500 g · Frozen Green Peas", "RM-5002", "pcs", "Pcs-Box-Pallet", "Dry store", 2.6, 600, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k03", "Pouch 1 kg · Frozen Green Peas", "RM-5003", "pcs", "Pcs-Box-Pallet", "Dry store", 3.8, 300, "sup-poly", 250, "bundle", "packaging"],
+    ["rm-k04", "Pouch 5 kg · Frozen Green Peas", "RM-5004", "pcs", "Pcs-Box-Pallet", "Dry store", 9, 30, "sup-poly", 100, "bundle", "packaging"],
+    ["rm-k05", "Pouch 500 g · Frozen Mixed Vegetables", "RM-5005", "pcs", "Pcs-Box-Pallet", "Dry store", 2.7, 500, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k06", "Pouch 1 kg · Frozen Mixed Vegetables", "RM-5006", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 250, "sup-poly", 250, "bundle", "packaging"],
+    ["rm-k07", "Pouch 250 g · Soya Chaap Stick (Normal)", "RM-5007", "pcs", "Pcs-Box-Pallet", "Dry store", 2.2, 600, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k08", "Pouch 500 g · Soya Chaap Stick (Normal)", "RM-5008", "pcs", "Pcs-Box-Pallet", "Dry store", 2.8, 300, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k09", "Pouch 1 kg · Soya Chaap Stick (Normal)", "RM-5009", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 150, "sup-poly", 250, "bundle", "packaging"],
+    ["rm-k10", "Pouch 5 kg · Soya Chaap Without Stick", "RM-5010", "pcs", "Pcs-Box-Pallet", "Dry store", 9.5, 30, "sup-poly", 100, "bundle", "packaging"],
+    ["rm-k11", "Master Carton 5-ply (30–35 kg)", "RM-5011", "pcs", "Pcs-Box-Pallet", "Dry store", 38, 60, "sup-mohali-corr", 50, "bundle", "packaging"],
+    ["rm-k12", "Pouch 200 g · Frozen Mixed Vegetables", "RM-5012", "pcs", "Pcs-Box-Pallet", "Dry store", 1.9, 1000, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k13", "Pouch 5 kg · Frozen Mixed Vegetables", "RM-5013", "pcs", "Pcs-Box-Pallet", "Dry store", 9, 30, "sup-poly", 100, "bundle", "packaging"],
+    ["rm-k14", "Pouch 500 g · Soya Chaap Stick (Premium) · Vasu Gold", "RM-5014", "pcs", "Pcs-Box-Pallet", "Dry store", 3.4, 300, "sup-poly", 500, "bundle", "packaging"],
+    ["rm-k15", "Pouch 1 kg · Soya Chaap Stick (Premium) · Vasu Gold", "RM-5015", "pcs", "Pcs-Box-Pallet", "Dry store", 4.6, 150, "sup-poly", 250, "bundle", "packaging"],
+    ["rm-k16", "Pouch 1 kg · Soya Chaap Without Stick", "RM-5016", "pcs", "Pcs-Box-Pallet", "Dry store", 3.9, 150, "sup-poly", 250, "bundle", "packaging"],
   ];
   var CARTON = "rm-k11";
+  /* Who Vasu buys from. terms: days of credit on the bill. */
   var SUPPLIERS = [
-    { name: "Azadpur Mandi · Gupta & Sons", contact: "5550402001" },
-    { name: "Ramesh Farms, Sonipat", contact: "5550402002" },
-    { name: "Shree Balaji Traders", contact: "5550402003" },
-    { name: "Kanpur Wood Crafts", contact: "5550402004" },
-    { name: "Delhi Poly Packers", contact: "5550402005" },
+    { id: "sup-garg", name: "Garg & Sons · Sabzi Mandi, Samana", person: "Rakesh Garg", contact: "5550402001", city: "Samana", address: "Shop 14, New Sabzi Mandi, Samana", gstNumber: "03AAGFG4410K1Z2", terms: 7, supplies: "Green peas, french beans" },
+    { id: "sup-kaur", name: "Kaur Agro Farms, Patran", person: "Harpreet Kaur", contact: "5550402002", city: "Patran", address: "Village Duggal, Patran Road, Patran", gstNumber: "03ABKPK7781R1Z9", terms: 7, supplies: "Carrot, cauliflower, broccoli" },
+    { id: "sup-balaji", name: "Shree Balaji Flour Mills, Patiala", person: "Anil Bansal", contact: "5550402003", city: "Patiala", address: "Phase 2, Focal Point, Patiala", gstNumber: "03AACFS5521H1Z6", terms: 30, supplies: "Soya flour, maida, atta" },
+    { id: "sup-punjab-proteins", name: "Punjab Proteins, Rajpura", person: "Gurdeep Sandhu", contact: "5550402006", city: "Rajpura", address: "Industrial Area, Rajpura", gstNumber: "03AADCP9032L1Z1", terms: 30, supplies: "Gluten powder" },
+    { id: "sup-rajpura-wood", name: "Rajpura Wood Crafts", person: "Sanjeev Kumar", contact: "5550402004", city: "Rajpura", address: "Near Old Bus Stand, Rajpura", gstNumber: "03AAQFR2204C1Z8", terms: 15, supplies: "Chaap sticks" },
+    { id: "sup-poly", name: "Patiala Poly Packers", person: "Vinod Mittal", contact: "5550402005", city: "Patiala", address: "Sanauri Adda, Patiala", gstNumber: "03AAHFP6630D1Z3", terms: 30, supplies: "Printed pouches, big bags" },
+    { id: "sup-mohali-corr", name: "Mohali Corrugators", person: "Amandeep Singh", contact: "5550402007", city: "Mohali", address: "Phase 9, Industrial Area, Mohali", gstNumber: "03AAKFM1187E1Z5", terms: 30, supplies: "Master cartons" },
   ];
-  /* Packs: id, recipe, name, grams, per carton, price ₹ per packet, pouch.
-     Seeded here; from then on Recipes › Packaging adds, edits and retires
-     them, and every screen reads the one record (D.savePack). */
+  /* Packs: id, recipe, name, grams, per master carton, price ₹ per packet
+     (list price, before GST), pouch, brand. Master cartons hold 30 kg of the
+     peas and vegetable packs, 35 kg of the chaap (the brief). Seeded here;
+     from then on Recipes › Packaging adds, edits and retires them, and every
+     screen reads the one record (D.savePack). */
   var SKUS = [
-    ["fg-p01", "frozen-peas", "Frozen Green Peas 200 g", 200, 50, 30, "rm-k01"],
-    ["fg-p02", "frozen-peas", "Frozen Green Peas 500 g", 500, 24, 70, "rm-k02"],
-    ["fg-p03", "frozen-peas", "Frozen Green Peas 1 kg", 1000, 12, 135, "rm-k03"],
-    ["fg-p04", "frozen-peas", "Frozen Green Peas 5 kg", 5000, 2, 640, "rm-k04"],
-    ["fg-p05", "mixed-veg", "Mixed Vegetables 500 g", 500, 24, 80, "rm-k05"],
-    ["fg-p06", "mixed-veg", "Mixed Vegetables 1 kg", 1000, 12, 150, "rm-k06"],
-    ["fg-p07", "soya-chaap", "Soya Chaap 250 g", 250, 40, 60, "rm-k07"],
-    ["fg-p08", "soya-chaap", "Soya Chaap 500 g", 500, 20, 110, "rm-k08"],
-    ["fg-p09", "soya-chaap", "Soya Chaap 1 kg", 1000, 10, 210, "rm-k09"],
-    ["fg-p10", "soya-chaap", "Soya Chaap 5 kg (no stick)", 5000, 2, 980, "rm-k10"],
+    ["fg-p01", "frozen-peas", "Frozen Green Peas 200 g", 200, 150, 38, "rm-k01", "Vasu"],
+    ["fg-p02", "frozen-peas", "Frozen Green Peas 500 g", 500, 60, 85, "rm-k02", "Vasu"],
+    ["fg-p03", "frozen-peas", "Frozen Green Peas 1 kg", 1000, 30, 160, "rm-k03", "Vasu"],
+    ["fg-p04", "frozen-peas", "Frozen Green Peas 5 kg", 5000, 6, 740, "rm-k04", "Vasu"],
+    ["fg-p11", "mixed-veg", "Frozen Mixed Vegetables 200 g", 200, 150, 42, "rm-k12", "Vasu"],
+    ["fg-p05", "mixed-veg", "Frozen Mixed Vegetables 500 g", 500, 60, 92, "rm-k05", "Vasu"],
+    ["fg-p06", "mixed-veg", "Frozen Mixed Vegetables 1 kg", 1000, 30, 175, "rm-k06", "Vasu"],
+    ["fg-p12", "mixed-veg", "Frozen Mixed Vegetables 5 kg", 5000, 6, 820, "rm-k13", "Vasu"],
+    ["fg-p07", "soya-chaap", "Soya Chaap Stick (Normal) 250 g", 250, 140, 55, "rm-k07", "Vasu"],
+    ["fg-p08", "soya-chaap", "Soya Chaap Stick (Normal) 500 g", 500, 70, 100, "rm-k08", "Vasu"],
+    ["fg-p09", "soya-chaap", "Soya Chaap Stick (Normal) 1 kg", 1000, 35, 190, "rm-k09", "Vasu"],
+    ["fg-p13", "soya-chaap-premium", "Soya Chaap Stick (Premium) 500 g", 500, 70, 130, "rm-k14", "Vasu Gold"],
+    ["fg-p14", "soya-chaap-premium", "Soya Chaap Stick (Premium) 1 kg", 1000, 35, 250, "rm-k15", "Vasu Gold"],
+    ["fg-p15", "soya-chaap-plain", "Soya Chaap Without Stick 1 kg", 1000, 35, 170, "rm-k16", "Vasu"],
+    ["fg-p10", "soya-chaap-plain", "Soya Chaap Without Stick 5 kg", 5000, 7, 800, "rm-k10", "Vasu"],
   ];
   /* Recipes: ingredients are per the base batch (kg out). A material with
-     no rmId (water) is used but not stocked. */
+     no rmId (water) is used but not stocked. Mixed vegetables go in by the
+     brief's proportions — carrot 40, cauliflower 20, peas 20, broccoli 10,
+     beans 10 — with a tenth more in for peeling and trimming. */
   var RECIPES = [
     {
       id: "frozen-peas", name: "Frozen Green Peas", line: "Peas + vegetables", version: "fp-v1", label: "V1", sizes: [100, 200, 300], base: 100,
-      bestBeforeDays: 365, bagKg: 30, emoji: "🫛",
-      ingredients: [["rm-p01", "Green Peas (shelled)", "Azadpur Mandi", 111, "kg", 90]],
+      bestBeforeDays: 365, bagKg: 30, emoji: "🫛", brand: "Vasu",
+      ingredients: [["rm-p01", "Green Peas (shelled)", "Garg & Sons", 111, "kg", 90]],
       making: [["Labour", 400], ["Electricity · blanch + blast freeze", 350], ["Big bags", 72]],
       strategy: { "fg-p01": 20, "fg-p02": 40, "fg-p03": 30, "fg-p04": 10 },
     },
     {
-      id: "mixed-veg", name: "Mixed Vegetables", line: "Peas + vegetables", version: "mv-v1", label: "V1", sizes: [100, 120, 150], base: 100,
-      bestBeforeDays: 300, bagKg: 30, emoji: "🥕",
-      ingredients: [["rm-p02", "Carrot", "Ramesh Farms", 45, "kg", 89], ["rm-p03", "Cauliflower", "Ramesh Farms", 25, "kg", 80], ["rm-p01", "Green Peas (shelled)", "Azadpur Mandi", 22, "kg", 91], ["rm-p04", "French Beans", "Azadpur Mandi", 22, "kg", 91]],
+      id: "mixed-veg", name: "Frozen Mixed Vegetables", line: "Peas + vegetables", version: "mv-v1", label: "V1", sizes: [100, 120, 150], base: 100,
+      /* the owner's figure (29 Sep 2026): mixed vegetables keep 3 days */
+      bestBeforeDays: 3, bagKg: 30, emoji: "🥕", brand: "Vasu",
+      ingredients: [["rm-p02", "Carrot", "Kaur Agro Farms", 44, "kg", 89], ["rm-p03", "Cauliflower", "Kaur Agro Farms", 22, "kg", 80], ["rm-p01", "Green Peas (shelled)", "Garg & Sons", 22, "kg", 91],
+        ["rm-p10", "Broccoli", "Kaur Agro Farms", 11, "kg", 85], ["rm-p04", "French Beans", "Garg & Sons", 11, "kg", 91]],
       making: [["Labour", 520], ["Electricity · blanch + blast freeze", 350], ["Big bags", 72]],
-      strategy: { "fg-p05": 60, "fg-p06": 40 },
+      strategy: { "fg-p11": 15, "fg-p05": 45, "fg-p06": 30, "fg-p12": 10 },
     },
     {
-      id: "soya-chaap", name: "Soya Chaap", line: "Soya chaap", version: "sc-v1", label: "V1", sizes: [50, 100, 150], base: 100,
-      bestBeforeDays: 180, bagKg: 35, emoji: "🍢",
-      ingredients: [["rm-p05", "Soya Flour", "Shree Balaji", 28, "kg", 99], ["rm-p06", "Wheat Flour (Maida)", "Shree Balaji", 28, "kg", 99], [null, "Water", "Tap · RO", 46, "litre", 98], ["rm-p07", "Wooden Sticks", "Kanpur Wood", 1600, "pcs", 100]],
+      id: "soya-chaap", name: "Soya Chaap Stick (Normal)", line: "Soya chaap", version: "sc-v1", label: "V1", sizes: [50, 100, 150], base: 100,
+      bestBeforeDays: 180, bagKg: 35, emoji: "🍢", brand: "Vasu",
+      ingredients: [["rm-p05", "Soya Flour", "Shree Balaji", 22, "kg", 99], ["rm-p11", "Gluten Powder (Vital Wheat Gluten)", "Punjab Proteins", 8, "kg", 99], ["rm-p06", "Maida (Refined Wheat Flour)", "Shree Balaji", 18, "kg", 99],
+        ["rm-p12", "Atta (Whole Wheat Flour)", "Shree Balaji", 10, "kg", 99], [null, "Water", "Tap · RO", 44, "litre", 98], ["rm-p07", "Wooden Sticks", "Rajpura Wood Crafts", 1600, "pcs", 100]],
       making: [["Labour", 600], ["Gas · boiling", 260], ["Electricity · chilling", 180], ["Big bags", 60]],
-      strategy: { "fg-p07": 40, "fg-p08": 30, "fg-p09": 20, "fg-p10": 10 },
+      strategy: { "fg-p07": 40, "fg-p08": 40, "fg-p09": 20 },
+    },
+    {
+      id: "soya-chaap-premium", name: "Soya Chaap Stick (Premium)", line: "Soya chaap", version: "sp-v1", label: "V1", sizes: [50, 100], base: 100,
+      bestBeforeDays: 180, bagKg: 35, emoji: "🍢", brand: "Vasu Gold",
+      /* more soya and gluten, less maida: a firmer, richer chaap */
+      ingredients: [["rm-p05", "Soya Flour", "Shree Balaji", 28, "kg", 99], ["rm-p11", "Gluten Powder (Vital Wheat Gluten)", "Punjab Proteins", 12, "kg", 99], ["rm-p06", "Maida (Refined Wheat Flour)", "Shree Balaji", 12, "kg", 99],
+        ["rm-p12", "Atta (Whole Wheat Flour)", "Shree Balaji", 6, "kg", 99], [null, "Water", "Tap · RO", 44, "litre", 98], ["rm-p07", "Wooden Sticks", "Rajpura Wood Crafts", 1600, "pcs", 100]],
+      making: [["Labour", 640], ["Gas · boiling", 260], ["Electricity · chilling", 180], ["Big bags", 60]],
+      strategy: { "fg-p13": 60, "fg-p14": 40 },
+    },
+    {
+      id: "soya-chaap-plain", name: "Soya Chaap Without Stick", line: "Soya chaap", version: "sn-v1", label: "V1", sizes: [50, 100, 150], base: 100,
+      bestBeforeDays: 180, bagKg: 35, emoji: "🍢", brand: "Vasu",
+      ingredients: [["rm-p05", "Soya Flour", "Shree Balaji", 22, "kg", 99], ["rm-p11", "Gluten Powder (Vital Wheat Gluten)", "Punjab Proteins", 8, "kg", 99], ["rm-p06", "Maida (Refined Wheat Flour)", "Shree Balaji", 18, "kg", 99],
+        ["rm-p12", "Atta (Whole Wheat Flour)", "Shree Balaji", 10, "kg", 99], [null, "Water", "Tap · RO", 44, "litre", 98]],
+      making: [["Labour", 520], ["Gas · boiling", 260], ["Electricity · chilling", 180], ["Big bags", 60]],
+      strategy: { "fg-p15": 60, "fg-p10": 40 },
     },
   ];
   /* Process steps per line: name, role, minutes, flags.
@@ -145,17 +201,35 @@
       ["Fill big bags · into freezer", "packer", 30, { bags: 30, container: "Big bags", unit: "kg", store: "Freezer", instructions: "30 kg to a bag. Write the batch number, date made and use-by on every bag." }],
     ],
     "mixed-veg": [
-      ["Peel · cut · wash", "washer", 60, { weigh: true, takes: ["rm-p02", "rm-p03", "rm-p01", "rm-p04"], loss: 10, instructions: "Weigh all the vegetables before, and the cut and washed mix after. Oldest crates first." }],
+      ["Peel · cut · wash", "washer", 60, { weigh: true, takes: ["rm-p02", "rm-p03", "rm-p01", "rm-p10", "rm-p04"], loss: 10, instructions: "Weigh all the vegetables before, and the cut and washed mix after. Oldest crates first." }],
       ["Boil (blanch)", "blancher", 25, { instructions: "Carrot and beans 2 minutes, cauliflower 3, peas 90 seconds. Chill at once." }],
-      ["Freeze", "blancher", 45, { instructions: "Mix by the recipe ratio on the trays: carrot 40 · cauli 20 · peas 20 · beans 20." }],
+      ["Freeze", "blancher", 45, { instructions: "Mix by the recipe ratio on the trays: carrot 40 · cauliflower 20 · peas 20 · broccoli 10 · beans 10." }],
       ["Fill big bags · into freezer", "packer", 30, { bags: 30, container: "Big bags", unit: "kg", store: "Freezer", instructions: "30 kg to a bag. Batch number, date made and use-by on every bag." }],
     ],
+    /* the brief's recipe: dispense → dough → rest → cut to a set weight →
+       flatten → onto sticks (or not) → boil → cool → chill (ageing) → bulk
+       bags; repacked later into the standard packs and master cartons */
     "soya-chaap": [
-      ["Weigh out flour + water", "dough maker", 20, { weigh: true, takes: ["rm-p05", "rm-p06"], loss: 2, instructions: "Take flour from the oldest sack first. Weigh flour + water in, dough out." }],
+      ["Dispense flour + water", "dough maker", 20, { weigh: true, takes: ["rm-p05", "rm-p11", "rm-p06", "rm-p12"], loss: 2, instructions: "Soya flour, gluten, maida and atta by the recipe, oldest sack first. Weigh flour + water in, dough out." }],
       ["Make dough · rest", "dough maker", 60, { instructions: "Knead 15 minutes, rest 45 under a damp cloth." }],
       ["Cut pieces · flatten", "dough maker", 45, { instructions: "50 g pieces, pressed flat." }],
-      ["Put on stick / no stick", "dough maker", 40, { sticks: true, instructions: "One stick a piece. The 5 kg catering pack goes without sticks." }],
-      ["Boil · cool · chill", "blancher", 60, { weigh: true, loss: 3, instructions: "Boil 20 minutes, cool, chill to 4 °C. Weigh before boiling and after chilling." }],
+      ["Wrap on sticks", "dough maker", 40, { sticks: true, instructions: "One stick a piece, wrapped tight." }],
+      ["Boil · cool · chill", "blancher", 60, { weigh: true, loss: 3, instructions: "Boil 20 minutes, cool, chill to 4 °C to age. Weigh before boiling and after chilling." }],
+      ["Fill big bags · into freezer", "packer", 30, { bags: 35, container: "Big bags", unit: "kg", store: "Freezer", instructions: "35 kg to a bag. Batch number, date made and use-by on every bag." }],
+    ],
+    "soya-chaap-premium": [
+      ["Dispense flour + water", "dough maker", 20, { weigh: true, takes: ["rm-p05", "rm-p11", "rm-p06", "rm-p12"], loss: 2, instructions: "Premium mix: more soya and gluten. Oldest sack first. Weigh flour + water in, dough out." }],
+      ["Make dough · rest", "dough maker", 60, { instructions: "Knead 15 minutes, rest 45 under a damp cloth." }],
+      ["Cut pieces · flatten", "dough maker", 45, { instructions: "60 g pieces, pressed flat." }],
+      ["Wrap on sticks", "dough maker", 45, { sticks: true, instructions: "One stick a piece, wrapped tight and even — Vasu Gold." }],
+      ["Boil · cool · chill", "blancher", 60, { weigh: true, loss: 3, instructions: "Boil 20 minutes, cool, chill to 4 °C to age. Weigh before boiling and after chilling." }],
+      ["Fill big bags · into freezer", "packer", 30, { bags: 35, container: "Big bags", unit: "kg", store: "Freezer", instructions: "35 kg to a bag. Batch number, date made and use-by on every bag." }],
+    ],
+    "soya-chaap-plain": [
+      ["Dispense flour + water", "dough maker", 20, { weigh: true, takes: ["rm-p05", "rm-p11", "rm-p06", "rm-p12"], loss: 2, instructions: "Soya flour, gluten, maida and atta by the recipe, oldest sack first. Weigh flour + water in, dough out." }],
+      ["Make dough · rest", "dough maker", 60, { instructions: "Knead 15 minutes, rest 45 under a damp cloth." }],
+      ["Cut pieces · flatten", "dough maker", 45, { instructions: "50 g pieces, pressed flat — no sticks for this one." }],
+      ["Boil · cool · chill", "blancher", 60, { weigh: true, loss: 3, instructions: "Boil 20 minutes, cool, chill to 4 °C to age. Weigh before boiling and after chilling." }],
       ["Fill big bags · into freezer", "packer", 30, { bags: 35, container: "Big bags", unit: "kg", store: "Freezer", instructions: "35 kg to a bag. Batch number, date made and use-by on every bag." }],
     ],
     packing: [
@@ -179,13 +253,59 @@
   ];
   /* Who buys: short material on the Production board is a call to this
      person (owner, 28 Sep 2026). A demo contact, like the supervisors. */
-  var PURCHASE = { name: "Vikas Mehra", role: "Purchase", contact: "5550403001" };
-  /* Weekly packets sold, last four weeks (oldest first), open orders now. */
-  var DEMAND = {
-    "fg-p01": [260, 240, 280, 300, 180], "fg-p02": [180, 200, 190, 220, 140], "fg-p03": [90, 110, 100, 120, 70], "fg-p04": [8, 10, 6, 12, 6],
-    "fg-p05": [120, 140, 150, 160, 110], "fg-p06": [60, 70, 65, 80, 40],
-    "fg-p07": [150, 170, 180, 190, 130], "fg-p08": [80, 90, 100, 95, 60], "fg-p09": [40, 45, 50, 55, 30], "fg-p10": [6, 8, 8, 10, 6],
-  };
+  var PURCHASE = { name: "Rohit Sachdeva", role: "Purchase", contact: "5550403001" };
+
+  /* ── Who Vasu sells to (29 Sep 2026) ────────────────────────────────
+     Soya chaap goes to the commission agents (arhtiyas) at the Anaj Mandi in
+     Samana; peas and vegetables to distributors across Patiala district and
+     the tricity, to shops around Samana, and in 5 kg packs to dhabas and
+     caterers. Each customer's usual order: how often (days), its first order
+     day in the cycle, and the packets it takes. creditDays: the invoice is
+     due after that many days; payLate: how many days late they usually pay. */
+  var CUSTOMERS = [
+    // id, name, type, contact person, phone, city, address, route, every, offset, usual order, credit days, pays late
+    ["cus-garg-ca", "Garg Commission Agency", "COMMISSION_AGENT", "Pawan Garg", "5550401001", "Samana", "Shop 21, Anaj Mandi, Samana", "rt-samana", 4, 0, { "fg-p10": 7, "fg-p15": 35 }, 21, 0],
+    ["cus-bansal-ca", "Bansal Traders (Commission Agents)", "COMMISSION_AGENT", "Deepak Bansal", "5550401002", "Samana", "Shop 8, Anaj Mandi, Samana", "rt-samana", 5, 1, { "fg-p08": 70 }, 21, 3],
+    ["cus-mittal-ca", "Mittal Brothers Commission Agents", "COMMISSION_AGENT", "Sunil Mittal", "5550401003", "Samana", "Shop 33, Anaj Mandi, Samana", "rt-samana", 6, 2, { "fg-p09": 35, "fg-p07": 140 }, 21, 0],
+    ["cus-jindal-ca", "Jindal Trading Company", "COMMISSION_AGENT", "Rajiv Jindal", "5550401004", "Samana", "Shop 4, Anaj Mandi, Samana", "rt-samana", 7, 3, { "fg-p13": 70, "fg-p10": 7 }, 21, 7],
+    ["cus-patiala-frozen", "Patiala Frozen Foods", "DISTRIBUTOR", "Manpreet Singh", "5550401005", "Patiala", "SCO 12, Leela Bhawan Market, Patiala", "rt-patiala", 7, 1, { "fg-p02": 60, "fg-p03": 30, "fg-p05": 60 }, 15, 0],
+    ["cus-rajpura-cold", "Rajpura Cold Chain Agencies", "DISTRIBUTOR", "Karan Arora", "5550401006", "Rajpura", "GT Road, near Railway Crossing, Rajpura", "rt-patiala", 7, 3, { "fg-p01": 150, "fg-p03": 30, "fg-p06": 30, "fg-p13": 70 }, 15, 2],
+    ["cus-sangrur-food", "Sangrur Food Distributors", "DISTRIBUTOR", "Ashok Goyal", "5550401007", "Sangrur", "Dhuri Road, Sangrur", "rt-sangrur", 10, 4, { "fg-p02": 60, "fg-p05": 60 }, 15, 30],
+    ["cus-tricity", "Tricity Fresh & Frozen", "DISTRIBUTOR", "Nikhil Chopra", "5550401008", "Zirakpur", "Plot 44, Patiala Highway, Zirakpur", "rt-patiala", 7, 5, { "fg-p01": 150, "fg-p02": 60, "fg-p11": 150, "fg-p14": 35 }, 15, 0],
+    ["cus-aggarwal", "Aggarwal Super Store", "RETAILER", "Mukesh Aggarwal", "5550401009", "Samana", "Main Bazaar, Samana", "rt-samana", 3, 0, { "fg-p01": 20, "fg-p02": 12, "fg-p05": 12, "fg-p07": 20, "fg-p08": 10 }, 7, 0],
+    ["cus-sethi", "Sethi General Store", "RETAILER", "Harish Sethi", "5550401010", "Patran", "Bus Stand Road, Patran", "rt-sangrur", 4, 2, { "fg-p01": 10, "fg-p02": 6, "fg-p07": 12, "fg-p13": 6 }, 7, 2],
+    ["cus-samana-kiryana", "New Samana Kiryana", "RETAILER", "Satish Kumar", "5550401011", "Samana", "Gurdwara Road, Samana", "rt-samana", 5, 3, { "fg-p02": 10, "fg-p05": 10, "fg-p08": 6 }, 7, 0],
+    ["cus-gupta-mart", "Gupta Mart", "RETAILER", "Naresh Gupta", "5550401012", "Ghagga", "Main Road, Ghagga", "rt-sangrur", 6, 1, { "fg-p01": 12, "fg-p06": 6, "fg-p09": 4 }, 7, 5],
+    ["cus-haveli", "Haveli Dhaba", "HORECA", "Jagdeep Singh", "5550401013", "Rajpura", "NH 44, Rajpura", "rt-patiala", 7, 2, { "fg-p04": 2, "fg-p12": 2, "fg-p10": 2 }, 0, 0],
+    ["cus-shahi", "Shahi Caterers", "HORECA", "Vicky Malhotra", "5550401014", "Patiala", "Tripuri, Patiala", "rt-patiala", 10, 6, { "fg-p04": 4, "fg-p10": 4 }, 7, 45],
+    ["cus-tadka", "Punjabi Tadka Restaurant", "HORECA", "Amrik Singh", "5550401015", "Samana", "Patiala Road, Samana", "rt-samana", 5, 4, { "fg-p03": 5, "fg-p06": 5, "fg-p09": 5 }, 0, 0],
+    /* walk-in buyers at the plant gate: retail, cash, no usual order */
+    ["cus-harpreet", "Harpreet Kaur", "CONSUMER", "Harpreet Kaur", "5550401101", "Samana", "Ward 7, near Bus Stand, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-rajesh", "Rajesh Bansal", "CONSUMER", "Rajesh Bansal", "5550401102", "Samana", "Model Town, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-simran", "Simran Sethi", "CONSUMER", "Simran Sethi", "5550401103", "Patran", "Gandhi Nagar, Patran", "rt-sangrur", 0, 0, {}, 0, 0],
+    ["cus-gurmeet", "Gurmeet Singh", "CONSUMER", "Gurmeet Singh", "5550401104", "Samana", "Village Kakrala, Samana", "rt-samana", 0, 0, {}, 0, 0],
+  ];
+  /* list price less this share, by kind of customer */
+  var TIER = { COMMISSION_AGENT: 0.12, DISTRIBUTOR: 0.10, HORECA: 0.05, RETAILER: 0, CONSUMER: 0 };
+  var CUSTOMER_TYPES = { COMMISSION_AGENT: "Commission Agent", DISTRIBUTOR: "Distributor", RETAILER: "Retailer", HORECA: "HoReCa", CONSUMER: "Walk-in" };
+  /* the office and the vans */
+  var TEAM = [
+    { id: "stf-chanchal", name: "Chanchal Sachdeva", role: "OWNER", phone: "5550400001" },
+    { id: "stf-rohit", name: "Rohit Sachdeva", role: "PURCHASE", phone: "5550403001" },
+    { id: "stf-neha", name: "Neha Arora", role: "ACCOUNTS", phone: "5550403002" },
+    { id: "stf-mohan", name: "Mohan Lal", role: "STORE", phone: "5550403003" },
+    { id: "stf-gurpreet", name: "Gurpreet Singh", role: "DRIVER", phone: "5550409001", vehicle: "PB-11-CX-4412 · Tata 407 reefer" },
+    { id: "stf-balwinder", name: "Balwinder Singh", role: "DRIVER", phone: "5550409002", vehicle: "PB-11-BZ-7735 · Bolero pickup reefer" },
+    { id: "stf-jaswinder", name: "Jaswinder Singh", role: "DRIVER", phone: "5550409003", vehicle: "PB-13-AK-2290 · Eicher reefer" },
+  ];
+  var ROUTES = [
+    { id: "rt-samana", name: "Samana – Anaj Mandi & town", staffId: "stf-balwinder" },
+    { id: "rt-patiala", name: "Patiala – Rajpura – Zirakpur", staffId: "stf-gurpreet" },
+    { id: "rt-sangrur", name: "Patran – Ghagga – Sangrur", staffId: "stf-jaswinder" },
+  ];
+  /* GST on what Vasu buys, by kind: fresh vegetables none, flours and
+     gluten 5%, sticks 12%, packaging 18% */
+  function materialTax(m) { return m.store === "Cold room" ? 0 : m.kind === "packaging" ? 18 : m.unit === "pcs" ? 12 : 5; }
 
   /* ── small helpers ─────────────────────────────────────────────────── */
   function pad(n, w) { return String(n).padStart(w || 2, "0"); }
@@ -241,7 +361,7 @@
       var c = ctx || {}, b = c.batch || null;
       var e = Object.assign({ id: "mv-" + (db.ledger.length + 1), at: iso(), kind: kind, item: item, name: name, ref: ref, qty: r2(qty), unit: unit,
         what: c.what || what, batch: b ? b.batchNumber : null, batchId: b ? b.id : null, step: c.step || null, task: c.task || null,
-        by: c.by || null, via: c.via || "system" }, extra || {});
+        by: c.by || null, via: c.via || "system", doc: c.doc || null, customer: c.customer || null }, extra || {});
       db.ledger.push(e);
       return e;
     }
@@ -367,7 +487,8 @@
       });
       return r2(n);
     };
-    D.ordered = function (materialId) { return r2(db.ordered[materialId] || 0); };
+    /* on order: what open purchase orders have still to bring */
+    D.ordered = function (materialId) { return r2((db.purchaseOrders || []).reduce(function (t, p) { return t + D.openOnPO(p, materialId); }, 0) + ((db.ordered || {})[materialId] || 0)); };
     D.receive = function (o) {
       var m = D.material(o.materialId);
       if (!m) throw invalid("Unknown material");
@@ -376,15 +497,15 @@
       db.lotSeq += 1;
       var lot = {
         id: "lot-" + db.lotSeq, _seq: ++db.seq, lotNo: m.article.replace("RM-", "L") + "-" + pad(db.lotSeq, 4), materialId: m.id,
-        receivedAt: o.at || iso(), supplier: o.supplier || m.supplier, gateQty: r2(Number(o.gateQty) || kg), qty: kg, remaining: o.qc === "returned" ? 0 : kg,
+        receivedAt: o.at || iso(), supplier: o.supplier || m.supplier, po: o.po || null, gateQty: r2(Number(o.gateQty) || kg), qty: kg, remaining: o.qc === "returned" ? 0 : kg,
         store: m.store, qc: o.qc || "accepted", note: o.note || "", price: o.price != null ? Number(o.price) : m.price,
         useBy: new Date(new Date(o.at || iso()).getTime() + (m.unit === "kg" && m.store === "Cold room" ? 10 : 240) * DAY).toISOString(),
         by: o.by || "Store", packs: Math.max(1, Math.ceil(kg / (m.packQty || kg))), packName: m.packName || "sack",
       };
       db.lots.push(lot);
       if (lot.qc === "accepted") {
-        db.ordered[m.id] = Math.max(0, r2(D.ordered(m.id) - kg));
-        D.as({ by: lot.by, via: "store" }, function () { post("rm", m.id, m.name, lot.lotNo, kg, m.unit, "received", { supplier: lot.supplier }); });
+        if (!o.po && db.ordered && db.ordered[m.id]) db.ordered[m.id] = Math.max(0, r2(db.ordered[m.id] - kg));
+        D.as({ by: lot.by, via: "store", doc: lot.po }, function () { post("rm", m.id, m.name, lot.lotNo, kg, m.unit, "received", { supplier: lot.supplier }); });
       }
       D.emit(lot.qc === "accepted" ? "production.lot.received" : "production.lot.returned",
         { where: "Receive stock", how: "store", by: lot.by, data: { lotNo: lot.lotNo, material: m.name, gate: lot.gateQty, accepted: lot.qc === "accepted" ? kg : 0, unit: m.unit, stickers: lot.qc === "accepted" ? lot.packs : 0 } });
@@ -523,7 +644,7 @@
         if (!(pp > 0)) throw invalid("Enter the pouch price");
         var n = db.materials.filter(function (m) { return /^rm-k\d+$/.test(m.id); }).reduce(function (mx, m) { return Math.max(mx, +m.id.slice(4)); }, 0) + 1;
         var pouch = { id: "rm-k" + pad(n), name: "Pouch " + sizeLabel(size) + " · " + bk.name, article: "RM-" + (5000 + n), unit: "pcs", stockUnit: "Pcs-Box-Pallet", store: "Dry store",
-          price: r2(pp), threshold: 200, supplier: "Delhi Poly Packers", packQty: 500, packName: "bundle", kind: "packaging" };
+          price: r2(pp), threshold: 200, supplier: "Patiala Poly Packers", supplierId: "sup-poly", packQty: 500, packName: "bundle", kind: "packaging" };
         db.materials.push(pouch); pouchId = pouch.id;
       }
       if (pouchId && !D.material(pouchId)) throw invalid("Unknown pouch");
@@ -1366,7 +1487,7 @@
     /* ── Production Plan: orders + forecast − packets − bags − planned ── */
     D.plan = function () {
       var rows = db.skus.filter(function (s) { return !s.retired; }).map(function (s) {
-        var d = db.demand[s.id] || { weekly: [0, 0, 0, 0], open: 0 };
+        var d = D.demandOf(s.id);
         var avg = d.weekly.reduce(function (a, b) { return a + b; }, 0) / d.weekly.length;
         var forecast = Math.round(avg * (d.season || 1));
         /* orders in hand + next week's forecast */
@@ -1459,7 +1580,7 @@
       return db.bags.slice().sort(function (a, b) { return a.madeAt < b.madeAt ? 1 : -1; }).map(function (g) {
         var f = D.fillOf({ bags: g.kg, container: g.container, unit: g.unit, store: g.store });
         return { id: g.id, bagNo: g.bagNo, batchNumber: g.batchNumber, recipeId: g.recipeId, product: g.product, kg: g.kg, remaining: g.remaining, madeAt: g.madeAt, useBy: g.useBy,
-          container: f.container, unit: f.unit, store: f.store, takenBy: taken[g.bagNo] || [] };
+          container: f.container, unit: f.unit, store: f.store, takenBy: taken[g.bagNo] || [], expiredKg: g.expiredKg || 0 };
       });
     };
 
@@ -1496,6 +1617,388 @@
         workers: Object.keys(byWorker).map(function (k) { return fin(byWorker[k]); }).sort(function (a, b) { return b.pct - a.pct; }),
       };
     };
+
+    /* ── Commerce (29 Sep 2026): who buys, who we buy from, and the money ──
+       One record for Product Master, Sales Orders, Purchase Orders, Finance,
+       Customers, Logistics and the Control Tower. The platform's workflows:
+         order     Pending → Ready for dispatch (or Cancelled)
+         dispatch  Dispatch Created → Delivered (or Rejected). The tax invoice
+                   is raised with the dispatch; the packets leave Finished
+                   Goods when it is delivered (the tenant's
+                   sellerStockUpdateOnStatus), oldest first.
+         delivery  Delivery Created → Vehicle Loading Completed → Out for Delivery
+         return    Return Created → Return Accepted: the packets come back
+         purchase  InProgress → Delivered / Partial Delivered (or Not accepted).
+                   What the gate accepts becomes lots (with stickers), and the
+                   supplier's bill is booked against it.
+       Money: an invoice or a bill is owed after its credit days; a receipt or
+       a payment settles the oldest first, and what is left over is advance. */
+    D.business = function () { return db.business; };
+    D.customer = function (id) { return find(db.customers, id); };
+    D.supplier = function (key) { return find(db.suppliers, key) || db.suppliers.filter(function (s) { return s.name === key; })[0] || null; };
+    D.staff = function (id) { return find(db.team, id); };
+    D.priceFor = function (customerId, skuId) {
+      var c = D.customer(customerId), s = D.sku(skuId);
+      return s ? r2(s.price * (1 - (TIER[c && c.type] || 0))) : 0;
+    };
+    function stampNo(t) {
+      var d = new Date(t), no = String(d.getFullYear()) + (d.getMonth() + 1) + d.getDate() + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+      db.numbers = db.numbers || {};
+      while (db.numbers[no]) no = String(Number(no) + 1);
+      db.numbers[no] = 1;
+      return no;
+    }
+    /* financial year of a date: April to March, "26-27" */
+    function fyOf(t) { var d = new Date(t), y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; return String(y).slice(2) + "-" + String(y + 1).slice(2); }
+    function nextSeq(key) { db.seqs = db.seqs || {}; db.seqs[key] = (db.seqs[key] || 0) + 1; return db.seqs[key]; }
+    function money(n) { return Math.round(n * 100) / 100; }
+    /* a line is the pack, how many and the price; its name comes from the pack */
+    function lineOf(skuId, qty, price) { return { skuId: skuId, qty: Math.round(qty), price: r2(price) }; }
+    function taxOf(i) { return i.tax != null ? i.tax : db.business.gstPct; }
+    function totals(items) {
+      var taxable = money(items.reduce(function (t, i) { return t + i.qty * i.price; }, 0));
+      var gst = money(items.reduce(function (t, i) { return t + i.qty * i.price * taxOf(i) / 100; }, 0));
+      var amount = Math.round(taxable + gst);
+      return { taxable: taxable, gst: gst, roundOff: money(amount - taxable - gst), amount: amount };
+    }
+    D.totals = totals;
+
+    /* sales orders */
+    D.order = function (id) { return find(db.orders, id) || db.orders.filter(function (o) { return o.number === id; })[0] || null; };
+    D.placeOrder = function (o) {
+      o = o || {};
+      var c = D.customer(o.customerId);
+      if (!c) throw invalid("Pick a customer");
+      var items = (o.items || []).filter(function (i) { return Number(i.qty) > 0 && D.sku(i.skuId); })
+        .map(function (i) { return lineOf(i.skuId, Number(i.qty), i.price != null ? Number(i.price) : D.priceFor(c.id, i.skuId)); });
+      if (!items.length) throw invalid("Add at least one product");
+      var at = o.at || iso();
+      if (o.number) { db.numbers = db.numbers || {}; db.numbers[o.number] = 1; }
+      var so = { id: "so-" + nextSeq("so"), number: o.number || stampNo(at), customerId: c.id, placedAt: at, status: "Pending", items: items,
+        paymentMethod: o.paymentMethod || (c.creditDays ? "credit" : "cod"), shippingCost: Number(o.shippingCost) || 0, discount: Number(o.discount) || 0,
+        comment: o.comment || "", by: o.by || "Chanchal Sachdeva", via: o.via || "office", history: [{ status: "Pending", at: at, by: o.by || "Chanchal Sachdeva" }] };
+      Object.assign(so, totals(items));
+      db.orders.push(so);
+      D.emit("sales.order.placed", { where: o.where || "Sales Orders", how: "office", by: so.by, data: { order: so.number, customer: c.name, amount: so.amount } });
+      return so;
+    };
+    D.dispatchesOf = function (orderId) { return db.dispatches.filter(function (x) { return x.orderId === orderId; }); };
+    D.dispatchedQty = function (so, skuId) {
+      return D.dispatchesOf(so.id).filter(function (x) { return x.status !== "Rejected"; })
+        .reduce(function (t, x) { return t + x.items.filter(function (i) { return i.skuId === skuId; }).reduce(function (a, i) { return a + i.qty; }, 0); }, 0);
+    };
+    D.openQty = function (so, skuId) {
+      if (so.status === "Cancelled") return 0;
+      var ordered = so.items.filter(function (i) { return i.skuId === skuId; }).reduce(function (a, i) { return a + i.qty; }, 0);
+      return Math.max(0, ordered - D.dispatchedQty(so, skuId));
+    };
+    D.isOpen = function (so) { return so.status !== "Cancelled" && so.items.some(function (i) { return D.openQty(so, i.skuId) > 0; }); };
+    function track(x, status, by, note) { x.status = status; x.history = x.history || []; x.history.push({ status: status, at: iso(), by: by || "Chanchal Sachdeva", note: note || undefined }); }
+    D.setOrderStatus = function (id, status, by, note) {
+      var so = D.order(id);
+      if (!so) throw new ApiError(404, "No such order");
+      if (status === "Cancelled") {
+        if (D.dispatchesOf(so.id).some(function (x) { return x.status !== "Rejected"; })) throw new ApiError(409, "Part of this order has gone out. Reject the dispatch first.");
+      } else if (status !== "Ready for dispatch" && status !== "Pending") throw invalid("Unknown status");
+      track(so, status, by, note);
+      D.emit("sales.order." + status.toLowerCase().replace(/ /g, "-"), { where: "Sales Orders", how: "office", by: by, data: { order: so.number } });
+      return so;
+    };
+    /* packets on hand, less what is dispatched and not yet delivered */
+    D.inTransit = function (skuId) {
+      return db.dispatches.filter(function (x) { return x.status === "Dispatch Created"; })
+        .reduce(function (t, x) { return t + x.items.filter(function (i) { return i.skuId === skuId; }).reduce(function (a, i) { return a + i.qty; }, 0); }, 0);
+    };
+    D.availableToSell = function (skuId) { return Math.max(0, D.packetsOf(skuId) - D.inTransit(skuId)); };
+    /* A dispatch: what goes on the van now — the open quantities, or less —
+       capped by what Finished Goods can give. Its tax invoice goes with it. */
+    D.dispatch = function (orderId, o) {
+      o = o || {};
+      var so = D.order(orderId);
+      if (!so) throw new ApiError(404, "No such order");
+      if (so.status === "Cancelled") throw new ApiError(409, "This order is cancelled");
+      var want = o.items || so.items.map(function (i) { return { skuId: i.skuId, qty: D.openQty(so, i.skuId) }; });
+      var items = [];
+      want.forEach(function (w) {
+        var line = so.items.filter(function (i) { return i.skuId === w.skuId; })[0];
+        if (!line) return;
+        /* o.history: an order from before the store's month — its stock is not replayed */
+        var q = Math.min(Number(w.qty) || 0, D.openQty(so, w.skuId), o.partial === false || o.history ? Infinity : D.availableToSell(w.skuId));
+        if (o.partial === false && !o.history && q > D.availableToSell(w.skuId)) throw new ApiError(409, "Only " + D.availableToSell(w.skuId) + " × " + D.sku(w.skuId).name + " in Finished Goods");
+        if (q > 0) items.push(lineOf(w.skuId, q, line.price));
+      });
+      if (!items.length) throw new ApiError(409, "Nothing in Finished Goods to send for this order");
+      var at = o.at || iso(), c = D.customer(so.customerId);
+      var x = { id: "dsp-" + nextSeq("dsp"), number: stampNo(at), orderId: so.id, orderNumber: so.number, customerId: so.customerId, at: at, status: "Dispatch Created", items: items,
+        history: [{ status: "Dispatch Created", at: at, by: o.by || "Chanchal Sachdeva" }] };
+      var t = totals(items);
+      x.invoice = Object.assign({ no: db.business.invoicePrefix + "/" + fyOf(at) + "/" + pad(nextSeq("inv-" + fyOf(at)), 4), at: at,
+        dueAt: new Date(new Date(at).getTime() + (c.creditDays || 0) * DAY).toISOString() }, t);
+      db.dispatches.push(x);
+      if (so.status === "Pending") track(so, "Ready for dispatch", o.by, "Sent out");
+      D.emit("sales.dispatch.created", { where: o.where || "Sales Orders", how: "office", by: o.by, data: { order: so.number, dispatch: x.number, invoice: x.invoice.no, amount: x.invoice.amount } });
+      return x;
+    };
+    D.dispatchById = function (id) { return find(db.dispatches, id) || db.dispatches.filter(function (x) { return x.number === id; })[0] || null; };
+    /* Delivered: the packets leave Finished Goods, oldest first. */
+    D.deliver = function (id, o) {
+      o = o || {};
+      var x = D.dispatchById(id);
+      if (!x) throw new ApiError(404, "No such dispatch");
+      if (x.status !== "Dispatch Created") throw new ApiError(409, "This dispatch is " + x.status.toLowerCase());
+      /* delivered is kept only when it fell short of what was sent */
+      if (!o.history) D.as({ via: o.via || "sales", what: "sold", by: o.by || "Driver", doc: x.invoice.no, customer: x.customerId }, function () {
+        x.items.forEach(function (i) { var got = D.sell(i.skuId, i.qty); if (got !== i.qty) i.delivered = got; });
+      });
+      track(x, "Delivered", o.by, o.note);
+      x.deliveredAt = o.at || iso();
+      var so = D.order(x.orderId);
+      if (so && !D.isOpen(so)) so.fulfilledAt = x.deliveredAt;
+      D.emit("sales.dispatch.delivered", { where: o.where || "Delivery", how: o.via || "office", by: o.by, data: { dispatch: x.number, invoice: x.invoice.no } });
+      return x;
+    };
+    D.rejectDispatch = function (id, o) {
+      o = o || {};
+      var x = D.dispatchById(id);
+      if (!x || x.status !== "Dispatch Created") throw new ApiError(409, "Only a dispatch not yet delivered can be rejected");
+      track(x, "Rejected", o.by, o.reason || "Refused at the door");
+      x.invoice.cancelled = true;
+      return x;
+    };
+    /* the vans: a trip carries dispatches, its driver and vehicle */
+    D.createDelivery = function (o) {
+      o = o || {};
+      var ids = (o.dispatchIds || []).filter(function (id) { var x = D.dispatchById(id); return x && x.status === "Dispatch Created"; });
+      if (!ids.length) throw invalid("Pick the dispatches going out");
+      var st = D.staff(o.staffId) || D.staff(ROUTES[0].staffId), at = o.at || iso();
+      var v = { id: "dlv-" + nextSeq("dlv"), number: stampNo(at), createdAt: at, status: "Delivery Created", dispatchIds: ids, staffId: st.id, vehicle: st.vehicle || "", routeId: o.routeId || null,
+        history: [{ status: "Delivery Created", at: at, by: o.by || "Chanchal Sachdeva" }] };
+      db.deliveries.push(v);
+      return v;
+    };
+    D.setDeliveryStatus = function (id, status, by) {
+      var v = find(db.deliveries, id);
+      if (!v) throw new ApiError(404, "No such delivery");
+      var order = ["Delivery Created", "Vehicle Loading Completed", "Out for Delivery"];
+      if (order.indexOf(status) !== order.indexOf(v.status) + 1) throw invalid("Next is " + (order[order.indexOf(v.status) + 1] || "nothing"));
+      track(v, status, by);
+      return v;
+    };
+    /* returns: goods coming back — accepted ones go back on the shelf */
+    D.createReturn = function (dispatchId, o) {
+      o = o || {};
+      var x = D.dispatchById(dispatchId);
+      if (!x || x.status !== "Delivered") throw new ApiError(409, "Only a delivered dispatch can come back");
+      var items = (o.items || []).filter(function (i) { return i.qty > 0; }).map(function (i) { var l = x.items.filter(function (k) { return k.skuId === i.skuId; })[0]; return lineOf(i.skuId, Math.min(i.qty, l ? l.qty : 0), l ? l.price : 0); });
+      var r = { id: "ret-" + nextSeq("ret"), number: stampNo(iso()), dispatchId: x.id, customerId: x.customerId, at: iso(), status: "Return Created", items: items, reason: o.reason || "", history: [{ status: "Return Created", at: iso(), by: o.by || "Chanchal Sachdeva" }] };
+      db.returns.push(r);
+      return r;
+    };
+    D.acceptReturn = function (id, o) {
+      o = o || {};
+      var r = find(db.returns, id);
+      if (!r || r.status !== "Return Created") throw new ApiError(409, "Nothing to accept");
+      D.as({ via: "sales", what: "returned", by: o.by || "Store", doc: r.number }, function () {
+        r.items.forEach(function (i) { var sk = D.sku(i.skuId); if (o.restock !== false) D.addPackets(i.skuId, i.qty, "RET-" + r.number, iso(), new Date(now().getTime() + D.book(sk.recipeId).bestBeforeDays * DAY).toISOString()); });
+      });
+      r.creditNote = Object.assign({ no: "CN/" + fyOf(iso()) + "/" + pad(nextSeq("cn-" + fyOf(iso())), 4), at: iso() }, totals(r.items));
+      track(r, "Return Accepted", o.by);
+      return r;
+    };
+
+    /* demand: what customers took, week by week, and what they are waiting for */
+    D.demandOf = function (skuId) {
+      var t = now().getTime(), weekly = [0, 0, 0, 0], seen = false;
+      db.dispatches.forEach(function (x) {
+        if (x.status !== "Delivered" || !x.deliveredAt) return;
+        var ago = (t - new Date(x.deliveredAt).getTime()) / DAY;
+        x.items.forEach(function (i) { if (i.skuId !== skuId) return; seen = true; if (ago >= 0 && ago < 28) weekly[3 - Math.floor(ago / 7)] += i.qty; });
+      });
+      var open = db.orders.reduce(function (n, so) { if (so.items.some(function (i) { return i.skuId === skuId; })) seen = true; return n + D.openQty(so, skuId); }, 0);
+      if (!seen && db.demand[skuId]) return db.demand[skuId];
+      return { weekly: weekly, open: open, season: (db.demand[skuId] && db.demand[skuId].season) || 1 };
+    };
+
+    /* money: what a customer owes, invoice by invoice, oldest first */
+    D.invoices = function (customerId) {
+      return db.dispatches.filter(function (x) { return x.invoice && !x.invoice.cancelled && (!customerId || x.customerId === customerId); })
+        .map(function (x) { return x.invoice; }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
+    };
+    function settle(kind, partyId, docs, amount, at) {
+      var left = money(amount), allocations = [];
+      docs.forEach(function (d) {
+        var due = money(d.amount - (d.paid || 0));
+        if (left <= 0 || due <= 0) return;
+        var a = money(Math.min(due, left));
+        d.paid = money((d.paid || 0) + a); left = money(left - a);
+        if (d.paid >= d.amount - 0.001) d.paidAt = at;
+        allocations.push({ no: d.no, amount: a });
+      });
+      return { allocations: allocations, advance: left };
+    }
+    D.receipt = function (o) {
+      o = o || {};
+      var c = D.customer(o.customerId), amount = money(Number(o.amount));
+      if (!c) throw invalid("Pick a customer");
+      if (!(amount > 0)) throw invalid("Enter the amount received");
+      var at = o.at || iso();
+      /* an advance already held is used first */
+      var s = settle("in", c.id, D.invoices(c.id), amount + (c.advance || 0), at);
+      c.advance = s.advance;
+      var p = { id: "rcp-" + nextSeq("rcp"), no: "RCPT/" + fyOf(at) + "/" + pad(nextSeq("rcpt-" + fyOf(at)), 4), kind: "in", partyId: c.id, at: at, amount: amount,
+        mode: o.mode || "UPI", ref: o.ref || "", by: o.by || "Neha Arora", allocations: s.allocations };
+      db.payments.push(p);
+      D.emit("finance.receipt", { where: o.where || "Finance", how: "office", by: p.by, data: { customer: c.name, amount: amount, receipt: p.no } });
+      return p;
+    };
+    function ageOf(doc, t) {
+      var bal = money(doc.amount - (doc.paid || 0));
+      var over = Math.floor((t - new Date(doc.dueAt).getTime()) / DAY);
+      return { balance: bal, overdueDays: bal > 0 && over > 0 ? over : 0, state: bal <= 0 ? "Paid" : doc.paid ? (over > 0 ? "Part paid · overdue" : "Part paid") : over > 0 ? "Overdue" : "Due" };
+    }
+    D.account = function (customerId) {
+      var c = D.customer(customerId), t = now().getTime(), inv = D.invoices(customerId);
+      var rows = inv.map(function (d) { return Object.assign({}, d, ageOf(d, t)); });
+      var invoiced = money(inv.reduce(function (a, d) { return a + d.amount; }, 0)), collected = money(inv.reduce(function (a, d) { return a + (d.paid || 0); }, 0));
+      return { customer: c, invoices: rows, payments: db.payments.filter(function (p) { return p.kind === "in" && p.partyId === customerId; }),
+        invoiced: invoiced, collected: collected, outstanding: money(invoiced - collected), advance: money(c.advance || 0),
+        overdue: money(rows.reduce(function (a, r) { return a + (r.overdueDays ? r.balance : 0); }, 0)) };
+    };
+    D.receivables = function () { return db.customers.map(function (c) { return D.account(c.id); }); };
+
+    /* purchase orders */
+    D.po = function (id) { return find(db.purchaseOrders, id) || db.purchaseOrders.filter(function (p) { return p.number === id; })[0] || null; };
+    D.raisePO = function (o) {
+      o = o || {};
+      var sup = D.supplier(o.supplierId);
+      if (!sup) throw invalid("Pick a supplier");
+      /* a line is a material, or a pack bought in finished (from a co-packer) */
+      var lines = (o.lines || []).filter(function (l) { return Number(l.qty) > 0 && (D.material(l.materialId) || D.sku(l.skuId)); }).map(function (l) {
+        var m = l.materialId && D.material(l.materialId);
+        if (!m) { var k = D.sku(l.skuId); return { skuId: k.id, qty: Math.round(Number(l.qty)), price: r2(l.price != null ? Number(l.price) : k.price), tax: db.business.gstPct, received: 0 }; }
+        return { materialId: m.id, qty: r2(Number(l.qty)), price: r2(l.price != null ? Number(l.price) : m.price), tax: materialTax(m), received: 0 };
+      });
+      if (!lines.length) throw invalid("Add at least one item");
+      var at = o.at || iso();
+      if (o.number) { db.numbers = db.numbers || {}; db.numbers[o.number] = 1; }
+      var p = { id: "po-" + nextSeq("po"), number: o.number || stampNo(at), supplierId: sup.id, createdAt: at, expectedAt: o.expectedAt || null, status: "InProgress", lines: lines,
+        comments: o.comments || "", by: o.by || "Rohit Sachdeva", via: o.via || "office", receipts: [], bills: [], history: [{ status: "InProgress", at: at, by: o.by || "Rohit Sachdeva" }] };
+      var t = totals(lines.map(function (l) { return { qty: l.qty, price: l.price, tax: l.tax }; }));
+      p.taxable = t.taxable; p.gst = t.gst; p.amount = t.amount;
+      db.purchaseOrders.push(p);
+      D.emit("purchase.po.raised", { where: o.where || "Purchase Orders", how: "office", by: p.by, data: { po: p.number, supplier: sup.name, amount: p.amount } });
+      return p;
+    };
+    /* a new supplier (Purchase Orders › Add supplier) */
+    D.addSupplier = function (o) {
+      o = o || {};
+      if (!o.name || !o.contact) throw invalid("Name and contact are needed");
+      var same = db.suppliers.filter(function (x) { return x.contact === o.contact; })[0];
+      if (same) return same;
+      var sup = { id: "sup-" + nextSeq("sup-new") + "-" + String(o.name).toLowerCase().replace(/[^a-z]+/g, "-").slice(0, 16), name: o.name, person: o.person || "", contact: o.contact, city: o.city || "", address: o.address || "",
+        gstNumber: o.gstNumber || "", email: o.email || "", terms: Number(o.terms) || 15, supplies: o.supplies || "", advance: 0, createdAt: iso() };
+      db.suppliers.push(sup);
+      return sup;
+    };
+    /* the supplier's own invoice, uploaded against a purchase order: it names the bill booked at the gate */
+    D.attachSupplierInvoice = function (id, o) {
+      var p = D.po(id);
+      if (!p) throw new ApiError(404, "No such purchase order");
+      p.documents = p.documents || [];
+      p.documents.push({ type: o.type || "SUPPLIER_INVOICE", name: o.name || "", amount: Number(o.amount) || 0, remarks: o.remarks || "", at: iso() });
+      if ((o.type || "SUPPLIER_INVOICE") !== "SUPPLIER_INVOICE") return p;
+      var b = (p.bills || []).filter(function (x) { return !x.named; })[0];
+      if (b) { b.no = o.name || b.no; if (Number(o.amount) > 0) b.amount = Math.round(Number(o.amount)); b.named = true; }
+      return p;
+    };
+    D.openOnPO = function (p, materialId) {
+      if (["InProgress", "Pending", "Partial Delivered"].indexOf(p.status) === -1) return 0;
+      return p.lines.filter(function (l) { return l.materialId === materialId; }).reduce(function (t, l) { return t + Math.max(0, l.qty - l.received); }, 0);
+    };
+    /* Goods in against a purchase order: every line weighed at the gate,
+       accepted into lots or sent back; the bill is booked for what was kept. */
+    D.receivePO = function (id, o) {
+      o = o || {};
+      var p = D.po(id);
+      if (!p) throw new ApiError(404, "No such purchase order");
+      if (["InProgress", "Pending", "Partial Delivered"].indexOf(p.status) === -1) throw new ApiError(409, "This order is " + p.status.toLowerCase());
+      var sup = D.supplier(p.supplierId), got = o.lines || p.lines.map(function (l) { return { materialId: l.materialId, qty: r2(l.qty - l.received) }; });
+      var lots = [], billed = [];
+      got.forEach(function (g) {
+        var l = p.lines.filter(function (x) { return (g.materialId && x.materialId === g.materialId) || (g.skuId && x.skuId === g.skuId); })[0];
+        if (!l || !(Number(g.qty) > 0)) return;
+        if (l.skuId && !o.history) {
+          /* finished goods bought in: packets onto the shelf */
+          var sk = D.sku(l.skuId), bb = D.book(sk.recipeId).bestBeforeDays;
+          D.as({ via: "store", what: "received", by: o.by || "Store · Mohan", doc: p.number }, function () { D.addPackets(l.skuId, Number(g.qty), "PO-" + p.number, iso(), new Date(now().getTime() + bb * DAY).toISOString()); });
+          l.received = r2(l.received + Number(g.qty)); billed.push({ qty: Number(g.qty), price: l.price, tax: l.tax });
+          return;
+        }
+        if (o.history) { l.received = r2(l.received + Number(g.qty)); billed.push({ qty: Number(g.qty), price: l.price, tax: l.tax }); return; }
+        var lot = D.receive({ materialId: l.materialId, qty: Number(g.qty), gateQty: g.gateQty, qc: g.qc || "accepted", note: g.note, supplier: sup.name, price: l.price, by: o.by || "Store · Mohan", at: o.at, po: p.number });
+        lots.push(lot);
+        if (lot.qc === "accepted") { l.received = r2(l.received + lot.qty); billed.push({ qty: lot.qty, price: l.price, tax: l.tax }); }
+      });
+      var at = o.at || iso();
+      p.receipts.push({ at: at, lots: lots.map(function (l) { return l.lotNo; }), by: o.by || "Store · Mohan" });
+      var all = p.lines.every(function (l) { return l.received >= l.qty - 0.001; });
+      track(p, all ? "Delivered" : billed.length ? "Partial Delivered" : p.status, o.by, all ? null : "Part received");
+      if (billed.length) {
+        var t = totals(billed);
+        p.bills.push(Object.assign({ no: o.billNo || (sup.name.replace(/[^A-Z]/g, "").slice(0, 3) || "SUP") + "/" + fyOf(at) + "/" + pad(nextSeq("bill-" + sup.id), 3), at: at, type: "SUPPLIER_INVOICE",
+          dueAt: new Date(new Date(at).getTime() + (sup.terms || 0) * DAY).toISOString(), poNumber: p.number, supplierId: sup.id }, t));
+      }
+      return { po: p, lots: lots };
+    };
+    D.setPOStatus = function (id, status, by, note) {
+      var p = D.po(id);
+      if (!p) throw new ApiError(404, "No such purchase order");
+      if (["Not accepted", "Cancelled"].indexOf(status) === -1) throw invalid("Unknown status");
+      if (p.receipts.length) throw new ApiError(409, "Goods have come in on this order");
+      track(p, status, by, note);
+      return p;
+    };
+    D.bills = function (supplierId) {
+      var out = [];
+      db.purchaseOrders.forEach(function (p) { (p.bills || []).forEach(function (b) { if (!supplierId || b.supplierId === supplierId) out.push(b); }); });
+      return out.sort(function (a, b) { return a.at < b.at ? -1 : 1; });
+    };
+    D.pay = function (o) {
+      o = o || {};
+      var sup = D.supplier(o.supplierId), amount = money(Number(o.amount));
+      if (!sup) throw invalid("Pick a supplier");
+      if (!(amount > 0)) throw invalid("Enter the amount paid");
+      var at = o.at || iso();
+      var s = settle("out", sup.id, D.bills(sup.id), amount + (sup.advance || 0), at);
+      sup.advance = s.advance;
+      var p = { id: "pay-" + nextSeq("pay"), no: "PAY/" + fyOf(at) + "/" + pad(nextSeq("payv-" + fyOf(at)), 4), kind: "out", partyId: sup.id, at: at, amount: amount,
+        mode: o.mode || "NEFT", ref: o.ref || "", by: o.by || "Neha Arora", allocations: s.allocations };
+      db.payments.push(p);
+      D.emit("finance.payment", { where: o.where || "Finance", how: "office", by: p.by, data: { supplier: sup.name, amount: amount, voucher: p.no } });
+      return p;
+    };
+    D.supplierAccount = function (supplierId) {
+      var sup = D.supplier(supplierId), t = now().getTime(), bills = D.bills(supplierId);
+      var rows = bills.map(function (d) { return Object.assign({}, d, ageOf(d, t)); });
+      var billed = money(bills.reduce(function (a, d) { return a + d.amount; }, 0)), paid = money(bills.reduce(function (a, d) { return a + (d.paid || 0); }, 0));
+      return { supplier: sup, bills: rows, payments: db.payments.filter(function (p) { return p.kind === "out" && p.partyId === supplierId; }),
+        billed: billed, paid: paid, outstanding: money(billed - paid), advance: money(sup.advance || 0), overdue: money(rows.reduce(function (a, r) { return a + (r.overdueDays ? r.balance : 0); }, 0)) };
+    };
+    D.payables = function () { return db.suppliers.map(function (s) { return D.supplierAccount(s.id); }); };
+
+    /* Past its use-by: a bag or packets nobody took in time are written off. */
+    D.expire = function () {
+      var t = iso(), n = 0;
+      db.bags.forEach(function (g) {
+        if (g.remaining > 0.0001 && g.useBy < t && g.qc !== "quarantine") { post("sf", g.recipeId, g.product, g.bagNo, -g.remaining, g.unit || "kg", "expired"); g.expiredKg = g.remaining; g.remaining = 0; n++; }
+      });
+      Object.keys(db.fg).forEach(function (skuId) {
+        db.fg[skuId].lots.forEach(function (l) {
+          if (l.remaining > 0 && l.useBy && l.useBy < t && l.qc !== "quarantine") { post("fg", skuId, (D.sku(skuId) || {}).name, l.ref, -l.remaining, "packets", "expired"); l.expired = l.remaining; l.remaining = 0; n++; }
+        });
+      });
+      return n;
+    };
     return D;
   }
 
@@ -1506,12 +2009,16 @@
     var clock = function () { return new Date(clk.t); };
     var db = {
       version: VERSION, seededOn: dayKey(today), seq: 0, lotSeq: 0, ordered: {}, demand: {}, fg: {},
+      business: clone(BUSINESS), team: clone(TEAM), routes: clone(ROUTES), customerTypes: clone(CUSTOMER_TYPES),
+      customers: CUSTOMERS.map(function (c) { return { id: c[0], name: c[1], type: c[2], person: c[3], phone: c[4], city: c[5], address: c[6], routeId: c[7], every: c[8], offset: c[9], usual: clone(c[10]),
+        creditDays: c[11], payLate: c[12], advance: 0, state: "Punjab", gstin: c[2] === "RETAILER" || c[2] === "HORECA" || c[2] === "CONSUMER" ? "" : "03" + c[1].replace(/[^A-Z]/g, "").padEnd(5, "X").slice(0, 5) + String(4000 + CUSTOMERS.indexOf(c) * 37).slice(0, 4) + "K1Z" + (CUSTOMERS.indexOf(c) % 9) }; }),
+      orders: [], dispatches: [], deliveries: [], returns: [], purchaseOrders: [], payments: [], seqs: {}, numbers: {},
       workers: [], workflows: [], shifts: [], tasks: [], updates: [], lots: [], bags: [],
       recipes: [], recipeHeaders: {}, operators: clone(SUPERVISORS), batches: [], book: {}, recipeOrder: [],
-      materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10], kind: m[11] || "raw" }; }),
+      materials: MATERIALS.map(function (m) { var sup = SUPPLIERS.filter(function (x) { return x.id === m[8]; })[0]; return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: sup.name, supplierId: sup.id, packQty: m[9], packName: m[10], kind: m[11] || "raw" }; }),
       suppliers: clone(SUPPLIERS), purchase: clone(PURCHASE),
       /* split: the pack's share of a batch in the Production tab's default split */
-      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40"),
+      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], brand: s[7], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40"),
         /* the 5 kg catering packs are packed straight off the line, in the same run */
         sameRun: s[3] >= 5000 }; }),
       ledger: [], settings: { recording: "app" },
@@ -1543,7 +2050,6 @@
       db.workers.push(stamp({ _id: newId(db), key: w[0], name: w[1], role: w[2], pin: w[3], phone: w[4], isOnline: w[5] }));
     });
     db.workers.push(stamp({ _id: newId(db), key: "admin", name: "Admin", role: "admin", email: "admin@jobflow.local", password: "admin1234", isOnline: false }));
-    Object.keys(DEMAND).forEach(function (id) { var d = DEMAND[id]; db.demand[id] = { weekly: d.slice(0, 4), open: d[4], season: 1 }; });
 
     var W = {}; db.workers.forEach(function (w) { W[w.key] = w; });
     /* the factory's week: Mon–Sat, a morning and an evening slot, each with
@@ -1553,24 +2059,206 @@
       evening: { name: "Evening", start: 15, end: 23, inCharge: "Suresh Kumar", crew: [W.suresh._id, W.farida._id, W.kiran._id] } } };
     var S = {}; RECIPES.forEach(function (r) { S[r.id] = r; });
 
-    /* goods in: raw material over the month, oldest first */
-    function receive(dayOff, materialId, qty, h) { clk.t = at(today, dayOff, h || 9).getTime(); return D.receive({ materialId: materialId, qty: qty, gateQty: qty + (qty > 50 ? Math.round(qty * 0.01) : 0), by: "Store · Mohan" }); }
-    receive(-28, "rm-p05", 150); receive(-28, "rm-p06", 150); receive(-28, "rm-p07", 12000); receive(-28, "rm-p08", 120); receive(-28, "rm-p09", 60);
-    /* pouches for about eight weeks of sales, and cartons */
-    [["rm-k01", 2200], ["rm-k02", 1600], ["rm-k03", 900], ["rm-k04", 100], ["rm-k05", 1200], ["rm-k06", 600], ["rm-k07", 1400], ["rm-k08", 800], ["rm-k09", 400], ["rm-k10", 80], [CARTON, 400]]
-      .forEach(function (k) { receive(-28, k[0], k[1], 11); });
-    [-27, -21, -14, -7, -2].forEach(function (d) { receive(d, "rm-p01", d === -2 ? 360 : 330); receive(d, "rm-p02", 160); receive(d, "rm-p03", 90); receive(d, "rm-p04", 90); });
-    receive(-12, "rm-p05", 150); receive(-12, "rm-p06", 150);
-    receive(-1, "rm-p02", 60);
-    /* one truck sent back at the gate */
-    clk.t = at(today, -9, 10).getTime(); D.receive({ materialId: "rm-p03", qty: 80, gateQty: 82, qc: "returned", note: "Yellow, soft heads", by: "Store · Mohan" });
+    /* ── the trade around the factory (29 Sep 2026) ─────────────────────
+       Customers order on their usual days; the vans go out every afternoon
+       with what Finished Goods can give; invoices go with the dispatches and
+       are paid on each customer's terms. The store buys what the next days
+       need. Before the month the store replays (days -90 to -31) only the
+       paperwork is kept: orders, invoices, receipts, purchase orders, bills
+       and payments — its stock was used up long ago. */
+    var CUS = db.customers;
+    function wobble(i, day) { var x = Math.sin((i + 1) * 12.9898 + day * 78.233) * 43758.5453; return x - Math.floor(x); }
+    function weekday(day) { return at(today, day, 12).getDay(); }
+    /* a customer's usual day; one that falls on a Sunday orders on the Saturday */
+    function hits(c, day) { return c.every > 0 && (((day - c.offset) % c.every) + c.every) % c.every === 0; }
+    function isOrderDay(c, i, day) { return weekday(day) !== 0 && (hits(c, day) || (weekday(day) === 6 && hits(c, day + 1))); }
+    function basket(c, i, day) {
+      return Object.keys(c.usual).map(function (skuId, k) {
+        var s = D.sku(skuId), q = c.usual[skuId], f = 0.8 + wobble(i * 7 + k, day) * 0.45;
+        var qty = q % s.perCarton === 0 ? Math.max(1, Math.round(q * f / s.perCarton)) * s.perCarton : Math.max(1, Math.round(q * f));
+        return { skuId: skuId, qty: qty };
+      });
+    }
+    /* what a week of usual orders comes to, per pack — the forecast the
+       packing floor worked to before there were orders to read */
+    var WEEK = {};
+    CUS.forEach(function (c) { Object.keys(c.usual).forEach(function (k) { WEEK[k] = (WEEK[k] || 0) + c.usual[k] * 6 / c.every; }); });
+    db.skus.forEach(function (s) { var w = Math.round(WEEK[s.id] || 0); db.demand[s.id] = { weekly: [w, w, w, w], open: Math.round(w / 3), season: 1 }; });
+    /* and what that week takes from the store, per material */
+    var USE = {};
+    db.skus.forEach(function (s) {
+      var bk = RECIPES.filter(function (r) { return r.id === s.recipeId; })[0], kg = (WEEK[s.id] || 0) * kgOf(s);
+      bk.ingredients.forEach(function (ing) { if (ing[0]) USE[ing[0]] = (USE[ing[0]] || 0) + ing[3] * kg / bk.base; });
+      USE[bk.bagKg === 35 ? "rm-p09" : "rm-p08"] = (USE[bk.bagKg === 35 ? "rm-p09" : "rm-p08"] || 0) + kg / bk.bagKg;
+      USE[s.pouchId] = (USE[s.pouchId] || 0) + (WEEK[s.id] || 0);
+      USE[CARTON] = (USE[CARTON] || 0) + (WEEK[s.id] || 0) / s.perCarton;
+    });
+    var LEAD = { "Cold room": 0, packaging: 5, flour: 2 };
+    function leadOf(m) { return m.store === "Cold room" ? 0 : m.kind === "packaging" ? (m.id === CARTON ? 4 : 5) : m.id === "rm-p11" ? 3 : m.id === "rm-p07" ? 4 : 2; }
+    function packUp(m, qty) { var p = m.packQty || 1; return Math.max(p, Math.ceil(qty / p) * p); }
+    function bySupplier(lines) {
+      var g = {};
+      lines.forEach(function (l) { var m = D.material(l.materialId); (g[m.supplierId] = g[m.supplierId] || []).push(l); });
+      return g;
+    }
+    var PAY_MODE = { COMMISSION_AGENT: "Cheque", DISTRIBUTOR: "NEFT", RETAILER: "UPI", HORECA: "Cash" };
+
+    /* the paperwork of the months before: orders, invoices, receipts; purchase orders, bills, payments */
+    function pastSales(day) {
+      CUS.forEach(function (c, i) {
+        if (!isOrderDay(c, i, day)) return;
+        var placed = at(today, day, 9 + (i % 5), (i * 11) % 60).toISOString();
+        clk.t = new Date(placed).getTime();
+        var so = D.placeOrder({ customerId: c.id, items: basket(c, i, day), at: placed, by: c.type === "RETAILER" ? "Rohit Sachdeva" : "Chanchal Sachdeva", via: i % 3 ? "phone" : "whatsapp" });
+        if (wobble(i, day) > 0.97) { D.setOrderStatus(so.id, "Cancelled", "Chanchal Sachdeva", "Customer called it off"); return; }
+        clk.t = at(today, day + 1, 11).getTime();
+        var x = D.dispatch(so.id, { at: clk.t && clock().toISOString(), history: true });
+        clk.t = at(today, day + 1, 16).getTime();
+        D.deliver(x.id, { history: true, at: clock().toISOString(), by: "Driver" });
+        if (!c.creditDays) D.receipt({ customerId: c.id, amount: x.invoice.amount, mode: "Cash", ref: "Collected on delivery", at: clock().toISOString(), by: "Driver" });
+      });
+    }
+    function pastBuying(day) {
+      var wd = weekday(day);
+      if (wd === 1 || wd === 4) {
+        /* fresh vegetables twice a week, for the batches after */
+        var lines = db.materials.filter(function (m) { return m.store === "Cold room"; }).map(function (m) { return { materialId: m.id, qty: packUp(m, (USE[m.id] || 0) / 2) }; });
+        buyAndReceive(day, lines, 6, 8, true);
+      }
+      if (wd === 1) {
+        var dry = db.materials.filter(function (m) { return m.store !== "Cold room" && (USE[m.id] || 0) > 0; }).map(function (m) { return { materialId: m.id, qty: packUp(m, USE[m.id]) }; });
+        buyAndReceive(day, dry, 10, 0, true, 2);
+      }
+    }
+    function buyAndReceive(day, lines, h, recvH, history, laterDays) {
+      var g = bySupplier(lines.filter(function (l) { return l.qty > 0; }));
+      Object.keys(g).forEach(function (supId) {
+        clk.t = at(today, day, h).getTime();
+        var p = D.raisePO({ supplierId: supId, lines: g[supId], at: clock().toISOString(), by: "Rohit Sachdeva", via: "phone" });
+        var rd = day + (laterDays || 0);
+        clk.t = at(today, rd, recvH || h + 2).getTime();
+        D.receivePO(p.id, { at: clock().toISOString(), history: history, by: "Store · Mohan" });
+      });
+    }
+    function collect(day, live, T0) {
+      var now2 = Math.max(T0 || 0, at(today, day, 19).getTime());
+      CUS.forEach(function (c, i) {
+        if (!c.creditDays) return;
+        var cycle = c.type === "RETAILER" ? 3 : 7;
+        if (((day + i) % cycle + cycle) % cycle !== 0) return;
+        var due = D.invoices(c.id).filter(function (inv) { return inv.amount - (inv.paid || 0) > 0.001 && new Date(inv.dueAt).getTime() + c.payLate * DAY <= now2; });
+        var amt = due.reduce(function (a, inv) { return a + inv.amount - (inv.paid || 0); }, 0);
+        if (amt <= 0) return;
+        /* a slow payer pays part */
+        if (c.payLate >= 30) amt = Math.round(amt * 0.6);
+        clk.t = now2;
+        D.receipt({ customerId: c.id, amount: Math.round(amt), mode: PAY_MODE[c.type], ref: c.type === "COMMISSION_AGENT" ? "CHQ " + (100200 + db.payments.length) : "UTR" + (80000000 + db.payments.length * 7919), at: clock().toISOString(), by: "Neha Arora" });
+      });
+      if (weekday(day) === 6) {
+        db.suppliers.forEach(function (sup, i) {
+          var due = D.bills(sup.id).filter(function (b) { return b.amount - (b.paid || 0) > 0.001 && new Date(b.dueAt).getTime() <= now2; });
+          var amt = due.reduce(function (a, b) { return a + b.amount - (b.paid || 0); }, 0);
+          if (amt <= 0) return;
+          clk.t = now2 + 30 * MIN;
+          D.pay({ supplierId: sup.id, amount: Math.round(amt), mode: sup.terms <= 7 ? "Cash" : "NEFT", ref: sup.terms <= 7 ? "" : "UTR" + (51000000 + db.payments.length * 6151), at: clock().toISOString(), by: "Neha Arora" });
+        });
+      }
+    }
+    for (var hd = -90; hd <= -31; hd++) { pastBuying(hd); pastSales(hd); collect(hd, false); }
+
+    /* the store's month: goods in against purchase orders */
+    function receiveDue(day, evening) {
+      db.purchaseOrders.filter(function (p) { return p.status === "InProgress" && p.dueDay === day && (p.dueHour >= 14) === !!evening; }).forEach(function (p) {
+        clk.t = Math.max(evening ? clk.t : 0, at(today, day, p.dueHour || 9).getTime());
+        var sup = D.supplier(p.supplierId);
+        /* one truck sent back at the gate: yellow cauliflower */
+        if (p.sendBack) {
+          D.receivePO(p.id, { lines: p.lines.map(function (l) { return { materialId: l.materialId, qty: l.qty, gateQty: l.qty + 2, qc: "returned", note: "Yellow, soft heads" }; }), by: "Store · Mohan" });
+          p.dueDay = day + 1; p.dueHour = 6; delete p.sendBack;
+          return;
+        }
+        D.receivePO(p.id, { lines: p.lines.map(function (l) { return { materialId: l.materialId, qty: r2(l.qty - l.received), gateQty: r2(l.qty - l.received + (l.qty > 50 ? Math.round(l.qty * 0.01) : 0)) }; }), by: "Store · Mohan", billNo: sup.name.replace(/[^A-Z]/g, "").slice(0, 3) + "/" + (1000 + db.purchaseOrders.indexOf(p)) });
+      });
+    }
+    function raise(day, h, lines, dueDay, dueHour, extra, T0) {
+      var g = bySupplier(lines.filter(function (l) { return l.qty > 0; })), out = [];
+      Object.keys(g).forEach(function (supId) {
+        clk.t = Math.max(at(today, day, h).getTime(), T0 || 0);
+        var p = D.raisePO({ supplierId: supId, lines: g[supId], at: clock().toISOString(), expectedAt: at(today, dueDay, dueHour).toISOString(), by: "Rohit Sachdeva", via: "phone" });
+        p.dueDay = dueDay; p.dueHour = dueHour; if (extra) Object.assign(p, extra(p));
+        out.push(p);
+      });
+      return out;
+    }
+    /* what tomorrow's batches need of fresh vegetables, bought the day before */
+    function buyVegFor(day, jobs, T0) {
+      var need = {};
+      jobs.forEach(function (j) {
+        var bk = RECIPES.filter(function (r) { return r.id === j[0]; })[0];
+        bk.ingredients.forEach(function (ing) { var m = ing[0] && D.material(ing[0]); if (m && m.store === "Cold room") need[m.id] = (need[m.id] || 0) + ing[3] * j[1] / bk.base * 1.08; });
+      });
+      var lines = Object.keys(need).map(function (id) { var m = D.material(id); return { materialId: id, qty: packUp(m, Math.max(0, need[id] - (D.onHand(id) - D.reserved(id)) - D.ordered(id))) }; })
+        .filter(function (l) { return l.qty > 0 && need[l.materialId] > 0; });
+      raise(day - 1, 18, lines, day - 1, 20, function (p) { return p.supplierId === "sup-kaur" && day === -9 ? { sendBack: true } : {}; }, T0);
+    }
+    /* dry goods and packaging: keep a week in hand, order two */
+    function buyDry(day, T0) {
+      var lines = db.materials.filter(function (m) { return m.store !== "Cold room" && (USE[m.id] || 0) > 0; }).map(function (m) {
+        var projected = D.onHand(m.id) - D.reserved(m.id) + D.ordered(m.id), cover = m.kind === "packaging" ? 2 : 1;
+        return projected < USE[m.id] * cover ? { materialId: m.id, qty: packUp(m, USE[m.id] * (cover + 1) - projected), lead: leadOf(m) } : null;
+      }).filter(Boolean);
+      var byLead = {};
+      lines.forEach(function (l) { (byLead[l.lead] = byLead[l.lead] || []).push(l); });
+      Object.keys(byLead).forEach(function (L) { raise(day, 20, byLead[L], day + Number(L), 11, null, T0); });
+    }
+    /* the afternoon: open orders go out, oldest first, as far as Finished Goods reaches */
+    function vans(day, live, T0) {
+      T0 = T0 || at(today, day, 16).getTime();
+      var sent = [];
+      db.orders.filter(function (so) { return D.isOpen(so) && so.placedAt <= at(today, day, 13).toISOString(); })
+        .sort(function (a, b) { return a.placedAt < b.placedAt ? -1 : 1; }).forEach(function (so) {
+          clk.t = T0;
+          try { sent.push(D.dispatch(so.id, { by: "Chanchal Sachdeva" })); } catch (e) { /* nothing on the shelf for it yet */ }
+        });
+      var trips = [];
+      db.routes.forEach(function (rt) {
+        var mine = sent.filter(function (x) { return D.customer(x.customerId).routeId === rt.id; });
+        if (!mine.length) return;
+        clk.t = T0 + 30 * MIN;
+        var v = D.createDelivery({ dispatchIds: mine.map(function (x) { return x.id; }), staffId: rt.staffId, routeId: rt.id, by: "Chanchal Sachdeva" });
+        trips.push([v, mine]);
+      });
+      if (!live) return trips;
+      trips.forEach(function (tv) {
+        clk.t = T0 + 50 * MIN; D.setDeliveryStatus(tv[0].id, "Vehicle Loading Completed", "Mohan Lal");
+        clk.t = T0 + 70 * MIN; D.setDeliveryStatus(tv[0].id, "Out for Delivery", D.staff(tv[0].staffId).name);
+        tv[1].forEach(function (x, k) {
+          clk.t = T0 + (130 + k * 12) * MIN;
+          D.deliver(x.id, { by: D.staff(tv[0].staffId).name, via: "app", where: "Delivery" });
+          var c = D.customer(x.customerId);
+          if (!c.creditDays) D.receipt({ customerId: c.id, amount: x.invoice.amount, mode: "Cash", ref: "Collected by " + D.staff(tv[0].staffId).name, by: D.staff(tv[0].staffId).name });
+        });
+      });
+      return trips;
+    }
+    function ordersIn(day, when) {
+      CUS.forEach(function (c, i) {
+        if (!isOrderDay(c, i, day)) return;
+        var placed = when ? when(i) : at(today, day, 9 + (i % 5), (i * 11) % 60).getTime();
+        clk.t = placed;
+        D.placeOrder({ customerId: c.id, items: basket(c, i, day), at: clock().toISOString(), by: c.type === "RETAILER" ? "Rohit Sachdeva" : "Chanchal Sachdeva", via: i % 3 ? "phone" : "whatsapp" });
+      });
+    }
+    /* opening stock: the dry store at the start of the month */
+    raise(-33, 11, db.materials.filter(function (m) { return m.store !== "Cold room" && (USE[m.id] || 0) > 0; }).map(function (m) { return { materialId: m.id, qty: packUp(m, USE[m.id] * (m.kind === "packaging" ? 3 : 2)) }; }), -30, 8);
 
     /* one shift per working day: run everything on it to the end */
-    function runShift(dayOff, name, workers, jobs, endStep) {
-      clk.t = at(today, dayOff, 7).getTime();
-      var sh = stamp({ _id: newId(db), name: name, date: isoDay(clock().getTime()), slot: "morning", inCharge: jobs[0] && jobs[0].operator || "Priya Sharma",
-        startTime: clock().toISOString(), endTime: at(today, dayOff, 15).toISOString(), status: "live", workers: workers.map(function (w) { return w._id; }), batches: jobs.map(function (b) { return b.id; }) });
-      jobs.forEach(function (b) { b.when = { date: sh.date, slot: "morning" }; });
+    function runShift(dayOff, name, workers, jobs, endStep, startT) {
+      clk.t = startT || at(today, dayOff, 7).getTime();
+      var slot = clock().getHours() >= 14 ? "evening" : "morning";
+      var sh = stamp({ _id: newId(db), name: name, date: isoDay(clock().getTime()), slot: slot, inCharge: jobs[0] && jobs[0].operator || (slot === "evening" ? "Suresh Kumar" : "Priya Sharma"),
+        startTime: clock().toISOString(), endTime: at(today, dayOff, slot === "evening" ? 23 : 15).toISOString(), status: "live", workers: workers.map(function (w) { return w._id; }), batches: jobs.map(function (b) { return b.id; }) });
+      jobs.forEach(function (b) { b.when = { date: sh.date, slot: slot }; });
       db.shifts.push(sh);
       D.generateTasks(sh);
       var mins = 5;
@@ -1605,26 +2293,33 @@
       if (task.pack) return { packets: b.packets };
       return {};
     }
-    function endShift(sh, dayOff) { clk.t = at(today, dayOff, 15).getTime(); sh.status = "ended"; sh.updatedAt = clock().toISOString(); }
+    function endShift(sh, dayOff) { clk.t = Math.max(clk.t, at(today, dayOff, sh.slot === "evening" ? 15 : 7).getTime()); sh.status = "ended"; sh.updatedAt = clock().toISOString(); }
     function order(dayOff, rid, kg, sup) { clk.t = at(today, dayOff - 1, 17).getTime(); return D.createProductionOrder({ recipeId: rid, batchSize: kg, plannedDate: isoDay(at(today, dayOff, 7)), expectedFinishDate: isoDay(at(today, dayOff, 7)), supervisor: sup, actor: "Admin" }).batch; }
     function packOrder(dayOff, skuId, qty) { clk.t = at(today, dayOff - 1, 18).getTime(); return D.createPackingOrder({ skuId: skuId, qty: qty, plannedDate: isoDay(at(today, dayOff, 7)), actor: "Admin" }); }
     function close(b, dayOff) { clk.t = at(today, dayOff, 16).getTime(); if (b.stateId === "completed") D.move(b, "closed", "close", "Admin", "Packed and accounted for"); }
-    function sell(dayOff) { clk.t = at(today, dayOff, 18).getTime(); db.skus.forEach(function (s) { D.sell(s.id, Math.round(((db.demand[s.id].weekly[3] || 0) / 3.4))); }); }
 
     var crew = [W.asha, W.ravi, W.meena, W.farida], crew2 = [W.suresh, W.ravi, W.kiran, W.farida];
+    /* the month on the floor: peas and vegetables, and the three chaaps —
+       the chaap line runs most days (the brief: soya chaap keeps the plant
+       running off season) */
     var history = [
       [-26, [["frozen-peas", 200], ["soya-chaap", 100]]],
+      [-25, [["soya-chaap-plain", 100], ["soya-chaap-premium", 100]]],
       [-24, [["mixed-veg", 120]]],
-      [-21, [["frozen-peas", 200], ["soya-chaap", 100]]],
-      [-19, [["mixed-veg", 100]]],
-      [-16, [["frozen-peas", 200], ["soya-chaap", 100]]],
-      [-14, [["mixed-veg", 120]]],
-      [-12, [["frozen-peas", 200], ["soya-chaap", 50]]],
+      [-23, [["soya-chaap", 150]]],
+      [-21, [["frozen-peas", 200], ["soya-chaap-plain", 100]]],
+      [-19, [["mixed-veg", 100], ["soya-chaap", 100]]],
+      [-18, [["soya-chaap-premium", 100]]],
+      [-16, [["frozen-peas", 200], ["soya-chaap-plain", 100]]],
+      [-14, [["mixed-veg", 120], ["soya-chaap", 100]]],
+      [-12, [["frozen-peas", 200], ["soya-chaap", 100]]],
+      [-11, [["soya-chaap-premium", 100], ["soya-chaap-plain", 100]]],
       [-9, [["soya-chaap", 100], ["mixed-veg", 100]]],
-      [-7, [["frozen-peas", 200]]],
+      [-7, [["frozen-peas", 200], ["soya-chaap-plain", 100]]],
       [-5, [["mixed-veg", 100], ["soya-chaap", 100]]],
-      [-3, [["frozen-peas", 100]]],
-      [-2, [["soya-chaap", 50]]],
+      [-4, [["soya-chaap-premium", 100]]],
+      [-3, [["frozen-peas", 100], ["soya-chaap-plain", 100]]],
+      [-2, [["soya-chaap", 100]]],
       [-1, [["mixed-veg", 100]]],
     ];
     var sups = ["Dharmendar Ji", "Priya Sharma", "Suresh Kumar"];
@@ -1633,25 +2328,72 @@
        already in the freezer. */
     function packWhatsShort(day) {
       var planned = {};
-      return db.skus.filter(function (s) { return !s.retired; }).map(function (s) {
-        var d = db.demand[s.id], week = d.weekly.reduce(function (a, b) { return a + b; }, 0) / d.weekly.length, have = D.packetsOf(s.id);
-        if (have >= week * 0.35) return null;
-        var qty = Math.ceil((week * 1.5 - have) / s.perCarton) * s.perCarton, kg = qty * kgOf(s);
+      return db.skus.filter(function (s) { return !s.retired && !s.sameRun; }).map(function (s) {
+        var d = db.demand[s.id], week = d.weekly.reduce(function (a, b) { return a + b; }, 0) / d.weekly.length, have = D.packetsOf(s.id), qty;
+        /* a pack that keeps only days (mixed vegetables: 3) is packed to the
+           orders waiting for it, not to a week and a half on the shelf */
+        if (D.book(s.recipeId).bestBeforeDays <= 7) {
+          var open = db.orders.reduce(function (n, so) { return n + D.openQty(so, s.id); }, 0) - D.availableToSell(s.id);
+          if (open <= 0) return null;
+          qty = open;
+        } else {
+          if (have >= week * 0.35) return null;
+          qty = Math.ceil((week * 1.5 - have) / s.perCarton) * s.perCarton;
+        }
+        /* no more than the pouches and master cartons in the store allow */
+        var pouches = s.pouchId ? D.onHand(s.pouchId) - (planned[s.pouchId] || 0) : Infinity, cartons = D.onHand(CARTON) - (planned[CARTON] || 0);
+        qty = Math.min(qty, Math.floor(pouches), Math.floor(cartons) * s.perCarton);
+        if (D.book(s.recipeId).bestBeforeDays > 7) qty = Math.floor(qty / s.perCarton) * s.perCarton;
+        var kg = qty * kgOf(s);
         var free = D.inFreezer(s.recipeId) - (planned[s.recipeId] || 0);
-        if (free < kg) { qty = Math.floor(free / kgOf(s) / s.perCarton) * s.perCarton; kg = qty * kgOf(s); }
+        if (free < kg) { qty = D.book(s.recipeId).bestBeforeDays <= 7 ? Math.floor(free / kgOf(s)) : Math.floor(free / kgOf(s) / s.perCarton) * s.perCarton; kg = qty * kgOf(s); }
         if (qty <= 0) return null;
         planned[s.recipeId] = (planned[s.recipeId] || 0) + kg;
+        if (s.pouchId) planned[s.pouchId] = (planned[s.pouchId] || 0) + qty;
+        planned[CARTON] = (planned[CARTON] || 0) + Math.ceil(qty / s.perCarton);
         return packOrder(day, s.id, qty);
       }).filter(Boolean);
     }
-    history.forEach(function (h, i) {
-      var day = h[0];
-      var jobs = h[1].map(function (p, j) { return order(day, p[0], p[1], sups[(i + j) % 3]); }).concat(packWhatsShort(day));
-      var sh = runShift(day, "Day Shift — " + new Date(at(today, day, 7)).toLocaleDateString("en-GB", { day: "numeric", month: "short" }), i % 3 === 2 ? crew2 : crew, jobs);
-      endShift(sh, day);
-      jobs.forEach(function (b) { if (b.kind === "packing") close(b, day); });
-      sell(day);
-    });
+    var onDay = {}; history.forEach(function (h, i) { onDay[h[0]] = i; });
+    /* today's batches (below) need their vegetables in the cold room by last evening */
+    /* (and tomorrow's peas and vegetables come on the same evening truck) */
+    var TODAY_JOBS = [["mixed-veg", 120], ["frozen-peas", 100], ["soya-chaap", 150], ["frozen-peas", 200], ["mixed-veg", 100]];
+    var jobsOn = function (d) { return d === 0 ? TODAY_JOBS : onDay[d] !== undefined ? history[onDay[d]][1] : null; };
+    for (var day = -30; day <= -1; day++) {
+      receiveDue(day);
+      ordersIn(day);
+      var i = onDay[day];
+      if (i !== undefined) {
+        var h = history[i];
+        var jobs = h[1].map(function (p, j) {
+          /* the 5 kg catering packs go in the same run, as many as are on order */
+          var packs = db.skus.filter(function (s) { return s.recipeId === p[0] && s.sameRun && !s.retired; }).map(function (s) {
+            var want = db.orders.reduce(function (n, so) { return n + D.openQty(so, s.id); }, 0) - D.availableToSell(s.id);
+            return { skuId: s.id, qty: Math.max(0, Math.min(want, Math.floor(p[1] * 0.5 / kgOf(s)))) };
+          }).filter(function (x) { return x.qty > 0; });
+          clk.t = at(today, day - 1, 17).getTime();
+          return D.createProductionOrder({ recipeId: p[0], batchSize: p[1], plannedDate: isoDay(at(today, day, 7)), expectedFinishDate: isoDay(at(today, day, 7)), supervisor: sups[(i + j) % 3], actor: "Admin", packs: packs }).batch;
+        });
+        /* packing waits for the day's own bags when the pack keeps only days */
+        var sh = runShift(day, "Day Shift — " + new Date(at(today, day, 7)).toLocaleDateString("en-GB", { day: "numeric", month: "short" }), i % 3 === 2 ? crew2 : crew, jobs);
+        endShift(sh, day);
+      }
+      if (weekday(day) !== 0) {
+        var packing = packWhatsShort(day);
+        if (packing.length) {
+          var sh2 = runShift(day, "Packing — " + new Date(at(today, day, 7)).toLocaleDateString("en-GB", { day: "numeric", month: "short" }), crew2, packing, null, Math.max(clk.t + 10 * MIN, at(today, day, 15).getTime()));
+          endShift(sh2, day);
+          packing.forEach(function (b) { close(b, day); });
+        }
+      }
+      vans(day, true, Math.max(at(today, day, 16).getTime(), clk.t + 10 * MIN));
+      /* tomorrow's vegetables, bought once today's batches have taken theirs */
+      if (jobsOn(day + 1)) buyVegFor(day + 1, jobsOn(day + 1), clk.t + 10 * MIN);
+      receiveDue(day, true);
+      collect(day, true, clk.t + 20 * MIN);
+      buyDry(day, clk.t + 10 * MIN);
+      clk.t = Math.max(at(today, day, 23, 30).getTime(), clk.t + 10 * MIN); D.expire();
+    }
     /* production batches whose bags are all packed are closed; the rest wait in the freezer */
     db.batches.forEach(function (b) {
       if (b.kind === "production" && b.stateId === "completed" && !db.bags.some(function (g) { return g.batchId === b.id && g.remaining > 0; })) { clk.t = t - 2 * HOUR; D.move(b, "closed", "close", "Admin", "All bags packed"); }
@@ -1698,8 +2440,41 @@
     clk.t = t - 80 * MIN; D.claim(tk(sc, 1), W.ravi);
     clk.t = t - 62 * MIN; D.complete(tk(sc, 1), W.ravi, { kgIn: 104, kgOut: 102.6 });
     clk.t = t - 40 * MIN; D.claim(tk(sc, 2), W.ravi);
-    /* open purchase orders the store is waiting on */
-    db.ordered = { "rm-p05": 200, "rm-p09": 20 };
+    /* ── today's trade ──────────────────────────────────────────────────
+       This morning's orders are in (Pending); what yesterday left open went
+       out on the vans at nine — the Patiala van is on the road, Samana's is
+       loaded, Sangrur's is still being put together. A shop's torn pouches
+       came back last week and were taken back; another return is at the gate
+       now. Garg's cheque came in this morning. */
+    db.ordered = {};
+    ordersIn(0, function (i) { return t - (40 + i * 13) * MIN; });
+    var morning9 = t - 150 * MIN, sentToday = [];
+    db.orders.filter(function (so) { return D.isOpen(so) && so.placedAt < at(today, 0, 0).toISOString(); })
+      .sort(function (a, b) { return a.placedAt < b.placedAt ? -1 : 1; }).forEach(function (so) {
+        clk.t = morning9;
+        try { sentToday.push(D.dispatch(so.id, { by: "Chanchal Sachdeva" })); } catch (e) { /* waiting for stock */ }
+      });
+    db.routes.forEach(function (rt, k) {
+      var mine = sentToday.filter(function (x) { return D.customer(x.customerId).routeId === rt.id; });
+      if (!mine.length) return;
+      clk.t = morning9 + 20 * MIN;
+      var v = D.createDelivery({ dispatchIds: mine.map(function (x) { return x.id; }), staffId: rt.staffId, routeId: rt.id, by: "Chanchal Sachdeva" });
+      if (rt.id === "rt-sangrur") return;
+      clk.t = morning9 + 45 * MIN; D.setDeliveryStatus(v.id, "Vehicle Loading Completed", "Mohan Lal");
+      if (rt.id === "rt-patiala") { clk.t = morning9 + 65 * MIN; D.setDeliveryStatus(v.id, "Out for Delivery", D.staff(rt.staffId).name); }
+    });
+    var shop = db.dispatches.filter(function (x) { return x.customerId === "cus-aggarwal" && x.status === "Delivered" && x.deliveredAt < at(today, -6, 0).toISOString(); }).pop();
+    if (shop) {
+      clk.t = at(today, -6, 11).getTime();
+      var ret1 = D.createReturn(shop.id, { items: [{ skuId: shop.items[0].skuId, qty: 3 }], reason: "Pouches torn in the shop's freezer", by: "Rohit Sachdeva" });
+      clk.t = at(today, -6, 15).getTime();
+      D.acceptReturn(ret1.id, { by: "Store · Mohan", restock: false });
+    }
+    var dhaba = db.dispatches.filter(function (x) { return x.customerId === "cus-sethi" && x.status === "Delivered"; }).pop();
+    if (dhaba) { clk.t = t - 30 * MIN; D.createReturn(dhaba.id, { items: [{ skuId: dhaba.items[0].skuId, qty: 2 }], reason: "Packets thawed — freezer failed at the shop", by: "Balwinder Singh" }); }
+    var garg = D.account("cus-garg-ca");
+    if (garg.outstanding > 0) { clk.t = t - 100 * MIN; D.receipt({ customerId: "cus-garg-ca", amount: Math.round(Math.min(garg.outstanding, 25000)), mode: "Cheque", ref: "CHQ 104518 · PNB Samana", by: "Neha Arora" }); }
+    clk.t = t;
     return db;
   }
 
@@ -2197,7 +2972,74 @@
       retirePack: function (id) { return withDomain(function (D) { return clone(D.retirePack(id)); }); },
       receive: function (o) { return withDomain(function (D) { return D.receive(o); }); },
       stickers: function (lotNo) { return read(function (D) { return D.stickers(lotNo); }); },
-      order: function (materialId, qty) { return withDomain(function (D, d) { d.ordered[materialId] = r2((d.ordered[materialId] || 0) + qty); D.emit("production.po.raised", { where: "Production Plan", how: "office", by: "Admin", data: { material: D.material(materialId).name, qty: qty } }); return d.ordered[materialId]; }); },
+      /* Production Plan's "raise a PO": a purchase order to the material's
+         supplier, which Purchase Orders lists and the gate receives against */
+      order: function (materialId, qty) { return withDomain(function (D) { var m = D.material(materialId); D.raisePO({ supplierId: m.supplierId || m.supplier, lines: [{ materialId: materialId, qty: qty }], where: "Production Plan", by: "Rohit Sachdeva" }); return D.ordered(materialId); }); },
+      /* the business: every module reads it from here (29 Sep 2026) */
+      business: function () { return read(function (D, d) { return clone(d.business); }); },
+      /* The Control Tower's and Stock Audit's view of the business (29 Sep
+         2026): customers and packs in their seed shape, each customer's buying
+         occasions (one per customer per day, as the engines count them), and
+         the ledger — tax invoices, receipts, supplier bills, purchase orders. */
+      vasuCT: function () {
+        return read(function (D, d) {
+          var day = function (t) { return new Date(t).toISOString().slice(0, 10); };
+          var TOP = { "frozen-peas": "Frozen Vegetables", "mixed-veg": "Frozen Vegetables", "soya-chaap": "Soya Chaap", "soya-chaap-premium": "Soya Chaap", "soya-chaap-plain": "Soya Chaap" };
+          var b2b = d.customers.map(function (c) {
+            return { _id: c.id, orgNo: "", name: { en: c.name }, email: "", phone: c.phone, adress1: c.address, adress2: c.address + ", " + c.city + ", Punjab", state: { code: "PB", name: "Punjab" },
+              postnr: "", gstType: c.gstin ? "regular" : "", gstNumber: c.gstin || "", supplyChainType: c.type === "CONSUMER" ? "PRIVATE" : "PUBLIC", locationCustomerTypeMap: [], tags: [d.customerTypes[c.type]],
+              kind: c.type, city: c.city, person: c.person, routeId: c.routeId, creditDays: c.creditDays };
+          });
+          var products = d.skus.filter(function (s) { return !s.retired; }).map(function (s) {
+            var bk = D.book(s.recipeId);
+            return { id: s.id, name: s.name, artNo: s.article, category: TOP[s.recipeId] || "Frozen Vegetables", subCategory: bk.name, unit: "Pkt", systemStock: D.packetsOf(s.id),
+              mrp: Math.ceil(s.price * 1.3 / 5) * 5, price: s.price, brand: s.brand, emoji: bk.emoji };
+          });
+          var history = {};
+          d.orders.filter(function (o) { return o.status !== "Cancelled"; }).forEach(function (o) {
+            var h = history[o.customerId] || (history[o.customerId] = { orders: [] }), at = day(o.placedAt);
+            var occ = h.orders.filter(function (x) { return x.at === at; })[0];
+            if (!occ) { occ = { at: at, value: 0, lines: [], no: o.number }; h.orders.push(occ); }
+            occ.value = Math.round(occ.value + o.amount);
+            o.items.forEach(function (i) { var l = occ.lines.filter(function (x) { return x.productId === i.skuId; })[0]; if (l) l.qty += i.qty; else occ.lines.push({ productId: i.skuId, qty: i.qty }); });
+          });
+          Object.keys(history).forEach(function (id) {
+            var h = history[id];
+            h.orders.sort(function (a, b) { return a.at < b.at ? 1 : -1; });
+            var gaps = [];
+            for (var i = 0; i < h.orders.length - 1; i++) gaps.push(Math.round((new Date(h.orders[i].at) - new Date(h.orders[i + 1].at)) / DAY));
+            gaps.sort(function (a, b) { return a - b; });
+            h.avgCycleDays = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 30;
+          });
+          var t = Date.now();
+          var invoices = [], payments = [], bills = [], purchaseOrders = [], creditNotes = [];
+          d.dispatches.forEach(function (x) {
+            var inv = x.invoice;
+            if (!inv || inv.cancelled) return;
+            var bal = Math.max(0, Math.round((inv.amount - (inv.paid || 0)) * 100) / 100);
+            invoices.push({ id: inv.no, number: inv.no, customerId: x.customerId, date: day(inv.at), dueDate: day(inv.dueAt), total: inv.amount, balance: bal,
+              status: bal <= 0 ? "paid" : new Date(inv.dueAt).getTime() < t ? "overdue" : "sent", orderId: x.orderNumber });
+          });
+          d.payments.forEach(function (p) {
+            if (p.kind === "in") payments.push({ id: p.no, customerId: p.partyId, date: day(p.at), amount: p.amount, mode: p.mode, invoiceId: p.allocations[0] ? p.allocations[0].no : null });
+          });
+          d.returns.filter(function (r) { return r.creditNote; }).forEach(function (r) {
+            creditNotes.push({ id: r.creditNote.no, number: r.creditNote.no, customerId: r.customerId, date: day(r.creditNote.at), total: r.creditNote.amount, balance: 0, status: "closed" });
+          });
+          d.purchaseOrders.forEach(function (p) {
+            purchaseOrders.push({ id: p.number, number: p.number, vendorId: p.supplierId, date: day(p.createdAt), total: p.amount, status: p.status === "Delivered" ? "billed" : p.status === "Not accepted" ? "cancelled" : "open" });
+            (p.bills || []).forEach(function (b) {
+              var bal = Math.max(0, Math.round((b.amount - (b.paid || 0)) * 100) / 100);
+              bills.push({ id: b.no, number: b.no, vendorId: p.supplierId, date: day(b.at), dueDate: day(b.dueAt), total: b.amount, balance: bal,
+                status: bal <= 0 ? "paid" : new Date(b.dueAt).getTime() < t ? "overdue" : "open", purchaseOrderId: p.number });
+            });
+          });
+          var vendors = d.suppliers.map(function (s) { return { id: s.id, name: s.name, category: s.supplies || null, contact: s.contact }; });
+          return { business: clone(d.business), seed: { b2b: b2b, products: products }, history: history,
+            ledger: { invoices: invoices, payments: payments, creditNotes: creditNotes, purchaseOrders: purchaseOrders, bills: bills, suppliers: vendors },
+            drivers: d.team.filter(function (m) { return m.role === "DRIVER"; }).map(clone), routes: clone(d.routes) };
+        });
+      },
       addWorker: function (o) { return withDomain(function (D, d) { var w = { _id: newId(d), key: "stf-" + d.seq, name: o.name, role: o.role, pin: o.pin || String(o.phone || "0000").slice(-4), phone: o.phone || "", isOnline: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), __v: 0, _seq: ++d.seq }; d.workers.push(w); return w; }); },
       FACTORY_ROLES: FACTORY_ROLES,
     };

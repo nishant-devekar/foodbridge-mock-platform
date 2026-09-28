@@ -65,6 +65,8 @@
       history = r.history || {};
       source = { kind: "export", label: (r.exportMeta && r.exportMeta.label) || "Your imported orders",
                  importedAt: (r.exportMeta && r.exportMeta.importedAt) || null, sample: false };
+      /* the business's own ledger, when the platform holds one (Vasu Foods, 29 Sep 2026) */
+      if (r.ledger) ledger = r.ledger;
     }
 
     /* Product category: the record's own, or -- for a record that came from
@@ -110,7 +112,7 @@
 
     const mrpOf = api.mrpOf || function () { return null; };
     const products = (seed.products || []).map(function (p) {
-      const mrp = mrpOf(p.name);
+      const mrp = typeof p.mrp === "number" ? p.mrp : mrpOf(p.name);
       return {
         id: p.id, name: p.name, sku: p.artNo || "", unit: p.unit || "",
         category: p.category || tenantCat[extOf[p.id]] || tenantCat[p.id] || null,

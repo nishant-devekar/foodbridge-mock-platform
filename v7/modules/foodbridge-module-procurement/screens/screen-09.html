@@ -314,7 +314,7 @@
               <div class="avatar-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
               <span class="status-dot"></span>
             </div>
-            <div class="profile-text"><span class="pname">Mahesh</span><span class="prole">Admin</span></div>
+            <div class="profile-text"><span class="pname">Chanchal Sachdeva</span><span class="prole">Owner</span></div>
             <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="profile-dropdown" id="profileDropdown">
@@ -457,6 +457,7 @@
   </div>
 </div>
 
+<script src="../../../assets/production/production-api.js?v=20260929VF2"></script>
 <script>
 document.getElementById('hamburgerBtn').addEventListener('click', () => {});
 document.getElementById('profileTrigger').addEventListener('click', e => {
@@ -488,7 +489,15 @@ let filters = { search: '', type: '' };
 let editingId = null;
 let deleteTargetId = null;
 
-fetch('../seed-data/seed.json').then(r => r.json()).then(seed => { SEED = seed; init(); });
+/* Vasu Foods (29 Sep 2026): the suppliers are the business's own — the one
+   record (v7/assets/production/production-api.js) — and a supplier added here
+   is added there, so Purchase Orders and Supplier Payables list it too. */
+const VASU = window.FB_PRODUCTION;
+function vasuSellers() {
+  return VASU.read((D, d) => d.suppliers.map((s, i) => ({ _id: s.id, name: s.name, phone: '+91 ' + s.contact, _sourceType: 'externalSupplier', supplierType: 'EXTERNAL', active: true,
+    email: s.email || '', supplierCode: 'SUP-' + String(i + 1).padStart(3, '0'), gstRegistered: !!s.gstNumber, gstin: s.gstNumber || '', address: s.address + (s.city ? ', ' + s.city : ''), state: 'Punjab', supplies: s.supplies })));
+}
+fetch('../seed-data/seed.json').then(r => r.json()).then(seed => { SEED = seed; if (VASU) SEED.sellers = vasuSellers(); init(); });
 
 function init() {
   renderTable();
@@ -620,6 +629,10 @@ function wire() {
       SEED.sellers[idx] = { ...SEED.sellers[idx], ...payload };
     } else {
       SEED.sellers.push({ _id: 'sup-new-' + Date.now(), ...payload });
+      if (VASU && payload._sourceType !== 'internalSupplier') {
+        try { VASU.write((D) => D.addSupplier({ name: payload.name, contact: String(payload.phone || '').replace(/\D/g, '').slice(-10), email: payload.email, gstNumber: payload.gstin, address: payload.address })); }
+        catch (e) { console.error('Vasu store: supplier', e); }
+      }
     }
     closeDrawer();
     renderTable();

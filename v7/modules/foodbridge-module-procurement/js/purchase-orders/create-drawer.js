@@ -203,11 +203,11 @@ export function createOrderDrawer(host, server, { onClosed }) {
   }
 
   // ── Open / close ──────────────────────────────────────────────────────────────────────────
-  function open({ sourceList = [], forecastSeed = null } = {}) {
+  function open({ sourceList = [], forecastSeed = null, seedKind = 'finished' } = {}) {
     const seedItems = (forecastSeed || []).filter((it) => it && (it.articleNumber || it.productId || it.productName));
     st = {
       // PurchaseForecastSeeder + the forced supplier gate (forceSupplierSelection).
-      gateActive: Boolean(forecastSeed && forecastSeed.length), seed: forecastSeed && forecastSeed.length ? { items: forecastSeed, phase: seedItems.length ? 'awaiting' : 'done', sawLoading: false, timer: null } : null,
+      gateActive: Boolean(forecastSeed && forecastSeed.length), seed: forecastSeed && forecastSeed.length ? { items: forecastSeed, kind: seedKind, phase: seedItems.length ? 'awaiting' : 'done', sawLoading: false, timer: null } : null,
       forecastProductIds: [],
       sourceList, selectedSource: null, dropdownOpen: false, sourceSearch: '', showSupplierTooltip: false,
       selectedCustomers: [], catalogue: [], catalogueLoading: false, selectedProducts: [], quantities: {}, customPrices: {},
@@ -436,9 +436,21 @@ export function createOrderDrawer(host, server, { onClosed }) {
       }, 20000);
     }
     if (st.catalogueLoading) { seed.sawLoading = true; return; }
+    // v7: raw-material rows from the forecast's Raw Material tab match against the RAW-MATERIAL
+    // catalogue, which the drawer switches to (as its Raw Material toggle does).
+    if (seed.kind === 'raw') {
+      if (!st.isRawMaterialMode) { st.isRawMaterialMode = true; st.selectedSubcategory = ''; }
+      if (!st.rawTree.length && !st.loadingRaw) {
+        st.loadingRaw = true;
+        fetchRawMaterialTree().then((tree) => { if (st) st.rawTree = tree; })
+          .catch(() => host.notify('error', 'Failed to load raw material categories'))
+          .finally(() => { if (st) { st.loadingRaw = false; render(); } });
+      }
+      if (st.loadingRaw) { seed.sawLoading = true; return; }
+    }
     const flat = [];
     const walk = (arr) => (arr || []).forEach((n) => { if (Array.isArray(n?.products)) flat.push(...n.products); if (Array.isArray(n?.subCategories)) walk(n.subCategories); if (Array.isArray(n?.categories)) walk(n.categories); });
-    walk(st.catalogue);
+    walk(seed.kind === 'raw' ? st.rawTree : st.catalogue);
     if (!flat.length) {
       if (seed.sawLoading) { host.notify('error', 'No catalogue products to match against. Add the forecasted items manually.'); finish(); }
       return;
@@ -478,7 +490,7 @@ export function createOrderDrawer(host, server, { onClosed }) {
   /** The forced supplier-selection gate: dims the drawer until a supplier is picked. */
   function gate() {
     if (!st.gateActive) return '';
-    const list = selectableSources().filter((i) => (i.name || '').toLowerCase().includes(st.sourceSearch.toLowerCase()));
+    const list = selectableSources().filter((i) => (st.seed?.kind !== 'raw' || i._sourceType === 'externalSupplier') && (i.name || '').toLowerCase().includes(st.sourceSearch.toLowerCase()));
     return '<div class="absolute inset-0 z-40 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4"><div class="w-full max-w-xl bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">'
       + '<div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700"><h3 class="text-base font-semibold text-gray-900 dark:text-white">Select a Supplier</h3><p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose who you\'re purchasing these items from to continue.</p></div>'
       // Its autoFocus fires at mount, and rc-drawer's own focus on open lands after it: the drawer

@@ -436,7 +436,7 @@
     }).join("");
     return `<div class="scrim" id="scrim"></div>
       <aside class="sidebar" id="sidebar"><div class="brand"><span class="logo">${I.bag}</span><span class="name">Murli</span></div><nav class="nav">${nav}</nav></aside>
-      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger">${I.menu}</button><span class="topbar-brand">${I.bag}</span><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Mahesh</b><br><small>Admin</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
+      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger">${I.menu}</button><span class="topbar-brand">${I.bag}</span><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Chanchal Sachdeva</b><br><small>Owner</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
       <div class="toast" id="toast"></div>`;
   }
   function wireShell() {
@@ -557,7 +557,9 @@
       content.querySelector("#editCancel").addEventListener("click", () => { state.editing = null; render(); });
       content.querySelector("#editSave").addEventListener("click", () => {
         const n = state.editing.ids.size;
-        state.editing.ids.forEach((id) => { const p = SEED.products.find((x) => x.id === id); const d = state.editing.drafts[id]; if (!p || !d) return; let base = d.price; if (d.taxType === "Incl") base = Math.round((d.price / (1 + d.taxRate / 100)) * 100) / 100; p.price = base; p.taxRate = d.taxRate; p.unit = d.unit; if (p.packaging && p.packaging[0]) p.packaging[0].price = inclTax(base, d.taxRate); });
+        state.editing.ids.forEach((id) => { const p = SEED.products.find((x) => x.id === id); const d = state.editing.drafts[id]; if (!p || !d) return; let base = d.price; if (d.taxType === "Incl") base = Math.round((d.price / (1 + d.taxRate / 100)) * 100) / 100; p.price = base; p.taxRate = d.taxRate; p.unit = d.unit; if (p.packaging && p.packaging[0]) p.packaging[0].price = inclTax(base, d.taxRate);
+          /* Vasu Foods: the pack's price in the business record — every screen that prices it reads this */
+          if (p.skuId && window.FB_PRODUCTION) { try { window.FB_PRODUCTION.savePack({ id: p.skuId, price: base }); } catch (e) { toast(e.body ? e.body.error : "Could not save the price", "err"); } } });
         state.editing = null; state.selected.clear(); render(); toast(`${n} product price(s) updated`, "ok");
       });
       const mf = document.getElementById("mfooter"); if (mf) mf.remove();

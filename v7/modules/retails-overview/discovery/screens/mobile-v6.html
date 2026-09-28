@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Gupta Wholesale Store — Mobile (V6)</title>
+<title>Vasu Foods — Mobile (V6)</title>
 <style>
   :root {
     color-scheme: light;
@@ -417,7 +417,7 @@
       <div class="handle"></div>
       <div class="onboarding-scroll">
         <div class="logo-mark" style="margin: 24px auto 14px;"></div>
-        <h1 id="onboardingTitle">Welcome to Gupta Wholesale Store</h1>
+        <h1 id="onboardingTitle">Welcome to Vasu Foods</h1>
         <p class="muted" style="text-align:center; margin: 4px 0 18px;">Tell us a little about yourself and where to deliver.</p>
         <div class="field-row"><label>Full name *</label><input id="pfName" /><div class="field-error hidden" id="err-pfName"></div></div>
         <div class="field-row"><label>Mobile number *</label><input id="pfMobile" maxlength="10" /><div class="field-error hidden" id="err-pfMobile"></div></div>
@@ -533,6 +533,8 @@
   </div>
 </div>
 
+<script src="../../../../assets/production/production-api.js?v=20260929VF2"></script>
+<script src="vasu-store.js?v=20260929VF2"></script>
 <script>
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN');
 const fmt2 = (n) => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -608,7 +610,7 @@ Promise.all([
   fetch('../seed-data/seed.json').then((r) => r.json()),
   fetch('../seed-data/seed.v2.json').then((r) => r.json()),
   fetch('../seed-data/seed.v5.json').then((r) => r.json())
-]).then(([a, b, c]) => { seed = a; seed2 = b; seed5 = c; init(); });
+]).then(([a, b, c]) => { seed = a; seed2 = b; seed5 = c; if (window.VASU_STOREFRONT) window.VASU_STOREFRONT.apply(seed, seed2, seed5); init(); });
 
 function init() {
   renderStoreHeader();
@@ -640,7 +642,7 @@ function renderStoreHeader() {
 
 function renderPills() {
   const wrap = el('pills');
-  const tradeLabels = { all: 'All beverages', offers: 'Trade offers', water: 'Packaged water', soda: 'Carbonated drinks', juices: 'Juices & mixers', energy: 'Energy drinks', new: 'New stock' };
+  const tradeLabels = { all: 'All products', offers: 'Trade offers', 'frozen-peas': 'Frozen peas', 'mixed-veg': 'Mixed vegetables', 'soya-chaap': 'Soya chaap', 'vasu-gold': 'Vasu Gold', water: 'Packaged water', soda: 'Carbonated drinks', juices: 'Juices & mixers', energy: 'Energy drinks', new: 'New stock' };
   wrap.innerHTML = seed2.categoriesV2.filter((c) => c.id !== 'buy-again').map((c) => `<button class="pill ${c.id === activeCategory ? 'active' : ''}" data-cat="${c.id}">${tradeLabels[c.id] || c.label}</button>`).join('');
   wrap.querySelectorAll('.pill').forEach((btn) => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; visibleCount = PAGE_SIZE; renderPills(); renderProducts(); }));
 }
@@ -790,6 +792,7 @@ function doPlaceOrder(lines) {
     items: lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price, total: l.total, unit: l.unit })),
     timeline: [{ step: 'Order Placed', at: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }), done: true }, { step: 'Packed', at: '', done: false }, { step: 'Out for Delivery', at: '', done: false }, { step: 'Delivered', at: '', done: false }]
   });
+  if (window.VASU_STOREFRONT) window.VASU_STOREFRONT.place(id, lines);   // Vasu Foods: into Sales Orders
   seed5.purchasesV5.thisMonthTotal += total;
   seed5.purchasesV5.openOrders += 1;
   seed5.purchasesV5.pendingActive += 1;

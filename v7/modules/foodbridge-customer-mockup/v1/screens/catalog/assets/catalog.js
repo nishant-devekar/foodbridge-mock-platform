@@ -204,8 +204,8 @@
       return `<div class="nav-row group open ${hasActive ? "active-parent" : ""}" data-toggle><span class="ic">${item.icon}</span>${esc(item.label)}<span class="chev">${I.chev}</span></div><div class="nav-sub">${subs}</div>`;
     }).join("");
     return `<div class="scrim" id="scrim"></div>
-      <aside class="sidebar" id="sidebar"><div class="brand"><span class="logo">${I.bag}</span><span class="name">Murli</span></div><nav class="nav">${nav}</nav></aside>
-      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger" title="Collapse sidebar">${I.menu}</button><span class="topbar-brand">${I.bag}</span><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Mahesh</b><br><small>Admin</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
+      <aside class="sidebar" id="sidebar"><div class="brand"><span class="logo">${I.bag}</span><span class="name">Vasu Foods</span></div><nav class="nav">${nav}</nav></aside>
+      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger" title="Collapse sidebar">${I.menu}</button><span class="topbar-brand">${I.bag}</span><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Chanchal Sachdeva</b><br><small>Owner</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
       <div class="toast" id="toast"></div>`;
   }
   function wireShell() {

@@ -579,7 +579,7 @@
      shell reads, so the phone header and this bar never disagree. */
   function who() {
     const a = window.FBContext && window.FBContext.account();
-    return !a || a.guest ? { name: "Rakesh Kumar", role: "Owner" } : { name: a.name || "", role: "Owner" };
+    return !a || a.guest ? { name: "Chanchal Sachdeva", role: "Owner" } : { name: a.name || "", role: "Owner" };
   }
   function mountTop() {
     const h = document.createElement("header");

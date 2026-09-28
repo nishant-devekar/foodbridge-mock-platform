@@ -519,4 +519,46 @@
     products,
     appProp,
   };
+
+  /* ---- Vasu Foods (29 Sep 2026) -------------------------------------------
+     In the platform Stock Audit & Health is the business's own field work —
+     the one record (v7/assets/production/production-api.js, loaded before
+     this file): Vasu's customers, its packs (with their list price and their
+     master-carton ladder), each customer's real orders, and the rep's shop
+     visits: a clean check at Aggarwal's, thawed packets at Sethi's (the
+     freezer failed; they came back today), mixed vegetables near their 3-day
+     use-by at Tricity, and Gupta Mart overdue for a visit. */
+  const P = window.FB_PRODUCTION;
+  if (!P || !P.vasuCT) return;
+  try {
+    const V = P.vasuCT(), biz = V.business, DAY = 86400000;
+    const ago = (days, h) => { const d = new Date(Date.now() - days * DAY); d.setHours(h || 11, 20, 0, 0); return d.toISOString().slice(0, 19); };
+    const perCarton = {};
+    P.read(function (D, d) { d.skus.forEach(function (k) { perCarton[k.id] = k.perCarton; }); });
+    const products = V.seed.products.map((p) => ({ id: p.id, name: p.name, artNo: p.artNo, category: p.category, subCategory: p.subCategory, unit: "Pkt",
+      systemStock: p.systemStock, emoji: p.emoji || "🥶", image: "img/pouch-dry.svg", price: p.price, mrp: p.mrp, brand: p.brand, ladder: [["Pkt", 1], ["Carton", perCarton[p.id] || 1]] }));
+    const REP = "Rohit Sachdeva";
+    const line = (productId, expected, cond, extra) => Object.assign({ productId, expected, status: "audited", conditionBreakdown: cond, storageBreakdown: { shelf: Object.values(cond).reduce((a, b) => a + b, 0) },
+      shelfAvailability: "available", facings: 3 }, extra || {});
+    const audits = {
+      "cus-aggarwal": [{ id: "aud-vf-1", at: ago(5, 17), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 3, outcome: "healthy", notes: "Deep freezer at −19 °C.",
+        lines: [line("fg-p01", 20, { good: 18 }), line("fg-p02", 12, { good: 12 }), line("fg-p07", 20, { good: 17 }, { storageBreakdown: { shelf: 12, backroom: 5 } })], followUp: { required: false, note: "", at: "" } }],
+      "cus-sethi": [{ id: "aud-vf-2", at: ago(2, 12), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "pull", notes: "Shop freezer failed overnight — packets soft.",
+        lines: [line("fg-p01", 10, { good: 4, damaged: 6 }, { damageType: "thawed", notes: "Six packets thawed and refrozen — not saleable.", shelfAvailability: "partial" }), line("fg-p07", 12, { good: 12 })],
+        followUp: { required: true, note: "Take back the thawed peas; check the freezer is repaired before the next drop.", at: ago(2, 12) } }],
+      "cus-tricity": [{ id: "aud-vf-3", at: ago(1, 15), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "pull", notes: "Mixed vegetables keep 3 days — rotate every drop.",
+        lines: [line("fg-p11", 150, { good: 90, nearExpiry: 40, expired: 20 }, { expiryDetails: [{ bucket: "nearExpiry", date: new Date(Date.now() + DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 40 }, { bucket: "expired", date: new Date(Date.now() - DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 20 }], notes: "20 past use-by pulled; 40 go tomorrow.", storageBreakdown: { shelf: 60, backroom: 90 } }),
+          line("fg-p01", 150, { good: 150 }, { storageBreakdown: { shelf: 30, backroom: 120 } })], followUp: { required: true, note: "Send mixed vegetables in smaller, more frequent drops.", at: ago(1, 15) } }],
+      "cus-gupta-mart": [{ id: "aud-vf-4", at: ago(41, 11), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "replenish", notes: "",
+        lines: [line("fg-p01", 12, { good: 5 }, { shelfAvailability: "partial" }), line("fg-p09", 4, {}, { shelfAvailability: "not_on_shelf", notes: "1 kg chaap sold out." })], followUp: { required: false, note: "", at: "" } }],
+    };
+    Object.assign(window.SEED, {
+      tenant: { name: biz.name, user: { name: biz.owner, role: biz.role } },
+      orgGstNumber: biz.gstin,
+      states: [{ code: "PB", name: "Punjab" }].concat(states),
+      b2b: V.seed.b2b.filter((c) => c.kind !== "CONSUMER"),
+      retail: [], offers: {}, products, stockAudits: audits, orderingSignals: V.history, vasu: true,
+    });
+    window.FB_ORDER_HISTORY = V.history;
+  } catch (e) { console.error("Stock Audit: the business store could not be read", e); }
 })();

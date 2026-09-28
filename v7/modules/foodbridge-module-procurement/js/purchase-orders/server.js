@@ -189,10 +189,10 @@ export function createServer(dataset, { now, scenario }) {
    * services/purchaseForecastService.ts — outstanding sales demand (last 30 days, excluding
    * Draft/Cancelled/void) against each product's stock, clamped up to its MOQ, largest first.
    */
-  function forecast() {
+  const round2 = (n) => Math.round(n * 100) / 100;
+  function salesDemand() {
     const EXCLUDED = ['Draft', 'Draft Stock requested', 'Cancelled', 'void'];
     const windowStart = now - 30 * 86400000;
-    const round2 = (n) => Math.round(n * 100) / 100;
     const demand = new Map();
     for (const so of d.salesOrders) {
       if (so.createdAt.getTime() < windowStart || EXCLUDED.includes(so.status)) continue;
@@ -202,24 +202,57 @@ export function createServer(dataset, { now, scenario }) {
         demand.set(l.product.articleNo, (demand.get(l.product.articleNo) || 0) + qty);
       }
     }
+    return demand;
+  }
+  function recommendation(p, articleNumber, dem) {
+    const stock = Number(p.stock) || 0;
+    const moq = p.moq ?? 1;
+    let rec = stock < 0 ? Math.max(dem, -stock) : Math.max(dem - stock, 0);
+    if (rec > 0) rec = Math.max(rec, moq);
+    rec = round2(rec);
+    const cat = d.categories.find((c) => c.id === p.categoryId);
+    return {
+      articleNumber, productId: docs.productId(p.id), name: p.name || null,
+      category: cat ? { id: docs.categoryId(cat.id), name: cat.name } : null,
+      measurement: p.measurement || null, unitPrice: `${p.price}/${p.measurement || ''}`,
+      boxes: p.boxes, pallets: p.pallets, priceMap: p.priceMap || {}, price: p.price, offerPrice: p.price,
+      costPrice: null, moq, demand: dem, currentStock: stock, recommendedQuantity: rec, supplier: null,
+    };
+  }
+  function forecast() {
     const recs = [];
-    for (const [articleNumber, qty] of demand) {
+    for (const [articleNumber, qty] of salesDemand()) {
       const p = d.products.find((x) => x.articleNo === articleNumber);
       if (!p) continue;
-      const dem = round2(qty);
-      const stock = Number(p.stock) || 0;
-      const moq = p.moq ?? 1;
-      let rec = stock < 0 ? Math.max(dem, -stock) : Math.max(dem - stock, 0);
-      if (rec > 0) rec = Math.max(rec, moq);
-      rec = round2(rec);
-      const cat = d.categories.find((c) => c.id === p.categoryId);
-      recs.push({
-        articleNumber, productId: docs.productId(p.id), name: p.name || null,
-        category: cat ? { id: docs.categoryId(cat.id), name: cat.name } : null,
-        measurement: p.measurement || null, unitPrice: `${p.price}/${p.measurement || ''}`,
-        boxes: p.boxes, pallets: p.pallets, priceMap: p.priceMap || {}, price: p.price, offerPrice: p.price,
-        costPrice: null, moq, demand: dem, currentStock: stock, recommendedQuantity: rec, supplier: null,
-      });
+      recs.push(recommendation(p, articleNumber, round2(qty)));
+    }
+    return recs.sort((a, b) => b.recommendedQuantity - a.recommendedQuantity);
+  }
+
+  /**
+   * Prototype only (v7, manufacturer): the Raw Material tab of the purchase forecast. The same 30-day
+   * sales demand, taken through a bill of materials into what making it needs of each raw material,
+   * rounded up to whole base units (a bag, a roll), against that raw material's stock.
+   */
+  const BOM = {
+    'FB-1001': { 'RM-3001': 0.05 },                                   // Toned Milk: pouch film
+    'FB-2001': { 'RM-2002': 0.3, 'RM-2001': 0.04 },                   // Whole Wheat Bread
+    'FB-2002': { 'RM-2002': 0.25, 'RM-2001': 0.06, 'RM-3002': 1 / 12 }, // Multigrain Buns
+    'FB-3002': { 'RM-3002': 1 / 12 },
+    'FB-3003': { 'RM-3002': 1 / 12 },
+    'FB-6001': { 'RM-2001': 0.15, 'RM-3002': 1 / 12 },                // Tomato Ketchup
+    'FB-6002': { 'RM-3002': 1 / 12 },
+    'FB-7001': { 'RM-3002': 1 / 12 },
+  };
+  function rawMaterialForecast() {
+    const need = new Map();
+    for (const [articleNumber, qty] of salesDemand()) {
+      for (const [raw, per] of Object.entries(BOM[articleNumber] || {})) need.set(raw, (need.get(raw) || 0) + qty * per);
+    }
+    const recs = [];
+    for (const [articleNumber, qty] of need) {
+      const p = (d.rawMaterials || []).find((x) => x.articleNo === articleNumber);
+      if (p) recs.push(recommendation(p, articleNumber, Math.ceil(round2(qty))));
     }
     return recs.sort((a, b) => b.recommendedQuantity - a.recommendedQuantity);
   }
@@ -240,6 +273,8 @@ export function createServer(dataset, { now, scenario }) {
     listInternalLocations: () => later([docs.store, ...docs.locations.filter((l) => l._id !== docs.store._id)]),
     // GET /v3/purchase/forecast/recommendations
     forecastRecommendations: () => later(forecast()),
+    // Prototype only: the forecast's Raw Material tab (manufacturer).
+    rawMaterialForecastRecommendations: () => later(rawMaterialForecast()),
 
     // ── The create drawer's catalogue: the module's endpoints, whole envelopes as the port returns them ──
     // GET /v3/purchase/productlist[?storeId=] — sorted by rank, highest first, with `updatedOn`.

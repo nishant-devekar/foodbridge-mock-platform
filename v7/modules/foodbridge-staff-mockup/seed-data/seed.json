@@ -3,12 +3,12 @@
   "_source": "Ported from storefront-frontend@develop — src/pages/Staff.jsx (route /our-staff) and its component closure. See discovery/instructions/addendum-002-live-frontend-port.md.",
 
   "store": {
-    "name": "QA store"
+    "name": "Vasu Foods"
   },
 
   "user": {
-    "displayName": "Mahesh",
-    "role": "Admin",
+    "displayName": "Chanchal Sachdeva",
+    "role": "Owner",
     "image": null
   },
 

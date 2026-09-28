@@ -234,7 +234,7 @@
     }).join("");
     return `<div class="scrim" id="scrim"></div>
       <aside class="sidebar" id="sidebar"><div class="brand"><span class="logo">${I.bag}</span><span class="name">QA store</span></div><nav class="nav">${nav}</nav></aside>
-      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger">${I.menu}</button><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Mahesh</b><br><small>Admin</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
+      <div class="main"><div class="topbar"><button class="hamburger" id="hamburger">${I.menu}</button><div class="page-title">${esc(title)}</div><div class="spacer"></div><div class="user"><div class="who"><b>Chanchal Sachdeva</b><br><small>Owner</small></div><div class="av">${I.user}</div></div></div><div class="content" id="content"></div></div>
       <div class="toast" id="toast"></div>`;
   }
   function wireShell() {

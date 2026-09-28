@@ -164,5 +164,5 @@
     { routeId: "r-kh", at: "11:02", from: "office", text: "No ping for a while — everything ok?" },
   ];
 
-  window.TRACK = { depot, routes, messages, clock: "12:04" };
+  window.TRACK = window.TRACK_VASU || { depot, routes, messages, clock: "12:04" };
 })();

@@ -47,7 +47,7 @@ test("the owner's example on the phones: 100 kg peas → 16 × 5 kg packed in th
   run(pack, W("Meena"), { packs: { "fg-p04": 16 } });
   assert.equal(D.packetsOf("fg-p04"), fgBefore + 16, "finished goods +16");
   assert.ok(near(lotsOf("rm-k04"), pouchBefore - 16), "one pouch a packet");
-  assert.ok(near(lotsOf("rm-k11"), cartonBefore - 8), "whole cartons, 2 to a carton");
+  assert.ok(near(lotsOf("rm-k11"), cartonBefore - 3), "whole master cartons, 6 × 5 kg to a carton");
   run(fill, W("Meena"), { kgOut: 20 });
   assert.ok(near(D.inFreezer("frozen-peas"), sfBefore + 20), "semi-finished +20 kg");
 

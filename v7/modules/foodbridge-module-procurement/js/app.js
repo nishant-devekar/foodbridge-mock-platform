@@ -3,6 +3,7 @@
   in the host's bare page frame (?chrome=none, what the parity harness compares) or inside the QA
   store's sidebar and header (the default, for the mock platform).
 */
+import { loadStore, vasuDataset, forecastFromStore, wireToStore } from './data/vasu.js';
 import { createHost } from './host/host.js';
 import { createServer } from './purchase-orders/server.js';
 import { mountPurchaseOrders } from './purchase-orders/screen.js';
@@ -57,12 +58,21 @@ function installHostInputBehaviours() {
 
 async function boot() {
   installHostInputBehaviours();
-  const [base, dataset, variants] = await Promise.all([json('js/data/tenant.json'), json('js/data/dataset.json'), json('js/data/tenant-variants.json')]);
+  const [base, fixture, variants] = await Promise.all([json('js/data/tenant.json'), json('js/data/dataset.json'), json('js/data/tenant-variants.json')]);
   const variant = params.get('tenant');
   if (variant && !variants[variant]) throw new Error(`Unknown tenant variant "${variant}"`);
   const tenant = variant ? mergeDeep(base, variants[variant]) : base;
   const host = createHost(tenant);
-  const server = createServer(dataset, { now: Date.now(), scenario, tenant });
+  // Vasu Foods: the business's one record (js/data/vasu.js); ?data=fixture keeps the invented dataset.
+  const P = params.get('data') === 'fixture' ? null : await loadStore().catch(() => null);
+  const now = Date.now();
+  const vasu = P ? vasuDataset(P, now) : null;
+  const server = createServer(vasu ? vasu.dataset : fixture, { now, scenario, tenant });
+  if (vasu) {
+    wireToStore(server, P, vasu.maps, host);
+    server.forecastRecommendations = () => Promise.resolve(forecastFromStore(P).finished);
+    server.rawMaterialForecastRecommendations = () => Promise.resolve(forecastFromStore(P).raw);
+  }
 
   const root = document.getElementById('root');
   let outlet;
@@ -73,6 +83,10 @@ async function boot() {
     outlet = root.querySelector('[data-parity-screen]');
   } else {
     const shell = await json('js/data/shell.json');
+    if (vasu) {
+      shell.store = { ...(shell.store || {}), name: vasu.business.name };
+      shell.user = { ...(shell.user || {}), name: vasu.business.owner, displayName: vasu.business.owner, role: vasu.business.role };
+    }
     outlet = window.MockShell.renderShell(root, shell, { activePath: '/sourcing-orders', pageTitle: host.menuLabel('sourcing-orders') });
     root.insertAdjacentHTML('afterbegin', '<div class="Toastify" data-po-toasts></div>');
   }

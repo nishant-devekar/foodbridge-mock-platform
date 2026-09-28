@@ -79,7 +79,8 @@ test("weighing records the loss and flags it over the recipe's limit", () => {
   const alerts = h("GET", "/api/alerts", {}, null, login("Asha", "1111")).data.alerts;
   assert.ok(alerts.some((a) => a.type === "weight_loss" && /12\.9%/.test(a.message)));
   assert.ok(log.some((e) => e.type === "production.weight.loss"));
-  assert.ok(!log.some((e) => !String(e.type).startsWith("production.")), "only production events, never the Control Tower's stream");
+  /* the business's own record: the floor, and since 29 Sep the trade around it */
+  assert.ok(!log.some((e) => !/^(production|sales|purchase|finance)\./.test(String(e.type))), "only the business's events, never the Control Tower's stream");
 });
 
 test("a held batch pauses its steps on the floor", () => {

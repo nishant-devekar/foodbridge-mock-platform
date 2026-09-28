@@ -639,10 +639,108 @@
 
   // ─── Mutable database ─────────────────────────────────────────────────────────
 
+  // ─── Vasu Foods (29 Sep 2026) ────────────────────────────────────────────────
+  // In the platform the driver's phone runs on the business's one record — the
+  // production store (v7/assets/production/production-api.js, loaded before
+  // this file). Its five routes are Vasu's van trips: today's Samana van
+  // (loaded, ready to leave), the Patiala van on the road, yesterday's two
+  // trips (one to settle, one closed) and today's Sangrur van still being
+  // loaded. Every stop is a real dispatch — its tax invoice, its packs and
+  // amounts — and what the driver records goes back to the store
+  // (vasu-sync.js).
+  let VASU = null;
+  function vasuSeed() {
+    const P = window.FB_PRODUCTION;
+    if (!P || !P.read) return null;
+    return P.read(function (Dm, d) {
+      const DAY = 86400000, today = localDateStr(new Date()), yday = localDateStr(new Date(Date.now() - DAY));
+      const dayOf = (iso) => localDateStr(new Date(iso));
+      const gst = d.business.gstPct / 100;
+      const staff = {}; d.team.forEach((m) => { staff[m.id] = m; });
+      const route = {}; d.routes.forEach((r) => { route[r.id] = r; });
+      const cust = {}; d.customers.forEach((c) => { cust[c.id] = c; });
+      const trips = d.deliveries.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      const used = [];
+      /* a trip only where the store has one: today's vans as they stand, and the
+         last day's finished trips to settle and to close */
+      const take = (f) => { const v = trips.find((x) => !used.includes(x.id) && f(x)); if (v) used.push(v.id); return v; };
+      const past = (v) => dayOf(v.createdAt) < today && v.dispatchIds.every((id) => (Dm.dispatchById(id) || {}).status !== 'Dispatch Created');
+      const plan = [
+        ['RTE-001', take((v) => dayOf(v.createdAt) === today && v.status === 'Vehicle Loading Completed'), 'READY'],
+        ['RTE-002', take((v) => dayOf(v.createdAt) === today && v.status === 'Out for Delivery'), 'IN_PROGRESS'],
+        ['RTE-003', take(past), 'PENDING_SETTLEMENT'],
+        ['RTE-004', take(past), 'CLOSED'],
+        ['RTE-005', take((v) => dayOf(v.createdAt) === today && v.status === 'Delivery Created'), 'READY'],
+      ].filter((x) => x[1]);
+      const me = staff[(plan[0] && plan[0][1].staffId) || 'stf-balwinder'] || d.team.find((m) => m.role === 'DRIVER');
+      Object.assign(S_DRIVER, { id: 'STF-' + me.id.toUpperCase(), name: me.name, phone: me.phone, email: me.name.toLowerCase().replace(/\s+/g, '.') + '@vasufoods.example', joiningDate: '2023-11-01', syncedAt: new Date().toISOString(), vehicle: me.vehicle });
+
+      PRODUCT_CATEGORIES.splice(0, PRODUCT_CATEGORIES.length,
+        { id: 'CAT-PEAS', name: 'Frozen Green Peas', icon: '🫛', count: 0 }, { id: 'CAT-MIXVEG', name: 'Frozen Mixed Vegetables', icon: '🥕', count: 0 },
+        { id: 'CAT-CHAAP', name: 'Soya Chaap · Vasu', icon: '🍢', count: 0 }, { id: 'CAT-GOLD', name: 'Soya Chaap · Vasu Gold', icon: '🍢', count: 0 });
+      const catOf = (k) => (k.recipeId === 'frozen-peas' ? 'CAT-PEAS' : k.recipeId === 'mixed-veg' ? 'CAT-MIXVEG' : k.recipeId === 'soya-chaap-premium' ? 'CAT-GOLD' : 'CAT-CHAAP');
+      const incl = (p) => Math.round(p * (1 + gst) * 100) / 100;
+      S_PRODUCTS.splice(0, S_PRODUCTS.length, ...d.skus.filter((k) => !k.retired).map((k) => {
+        PRODUCT_CATEGORIES.find((c) => c.id === catOf(k)).count += 1;
+        return { _id: k.id, productId: k.id, sku: k.article, articleNo: k.article, title: { en: k.name }, unit: 'Box-Piece', boxes: k.perCarton,
+          prices: { priceMap: { Box: Math.round(incl(k.price) * k.perCarton), Piece: incl(k.price) }, price: incl(k.price).toFixed(2), originalPrice: incl(k.price).toFixed(2), discount: '0.00' },
+          stock: Dm.packetsOf(k.id), tax: d.business.gstPct, brand: k.brand || 'Vasu', categories: [catOf(k)], category: catOf(k), tags: [], status: 'show', isCombination: false, variants: [] };
+      }));
+      const owed = {}; Dm.receivables().forEach((a) => { owed[a.customer.id] = a; });
+      const ORG = { COMMISSION_AGENT: 'WHOLESALER', DISTRIBUTOR: 'DISTRIBUTOR', RETAILER: 'RETAILER', HORECA: 'RETAILER', CONSUMER: 'RETAILER' };
+      S_CUSTOMERS.splice(0, S_CUSTOMERS.length, ...d.customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone, address: c.address + ', ' + c.city, orgType: ORG[c.type],
+        gstType: c.gstin ? 'regular' : 'unregistered', gstNumber: c.gstin || null, creditAmount: owed[c.id] ? Math.round(owed[c.id].outstanding) : 0 })));
+
+      const details = {};
+      S_ROUTES.splice(0, S_ROUTES.length);
+      [S_ROUTE_DETAILS, S_STOCK_LOADS, S_CASH_COUNTED, S_STOPS, S_SETTLEMENT_STEPS].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
+      plan.forEach(([rid, v, status]) => {
+        const rt = route[v.routeId] || { name: 'Route' }, drv = staff[v.staffId] || me;
+        const xs = v.dispatchIds.map((id) => Dm.dispatchById(id)).filter(Boolean);
+        const done = status === 'PENDING_SETTLEMENT' || status === 'CLOSED';
+        const stops = xs.map((x, i) => {
+          const c = cust[x.customerId], inv = x.invoice;
+          const got = d.payments.filter((p) => p.kind === 'in' && p.allocations.some((a) => a.no === inv.no) && /Collected by/.test(p.ref || ''));
+          const collected = Math.round(got.reduce((t, p) => t + p.amount, 0));
+          const before = owed[c.id] ? Math.max(0, Math.round(owed[c.id].outstanding - Math.max(0, inv.amount - (inv.paid || 0)))) : 0;
+          const stopId = 'STP-' + String(i + 1).padStart(2, '0') + '-' + x.number.slice(-6);
+          const st = done || x.status === 'Delivered' ? 'DELIVERED' : status === 'IN_PROGRESS' && i === 0 ? 'CURRENT' : 'PENDING';
+          const items = x.items.map((it) => { const k = Dm.sku(it.skuId), up = incl(it.price); return { productId: it.skuId, productName: k ? k.name : it.skuId, qty: it.qty, orderingUnit: 'Piece', unitPrice: up, lineTotal: Math.round(up * it.qty * 100) / 100 }; });
+          details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: inv.no, dispatchId: x.id, dispatchNumber: x.number,
+            customer: { id: c.id, name: c.name, phone: c.phone, email: '', address: c.address + ', ' + c.city, orgType: ORG[c.type], supplyChainType: 'PUBLIC', gstType: c.gstin ? 'regular' : 'unregistered', gstNumber: c.gstin || null, creditAmount: before },
+            orderItems: items, orderTotal: inv.amount };
+          return { id: stopId, sequence: i + 1, customerId: c.id, customerName: c.name, customerInitials: initials(c.name), status: st,
+            outstandingAmount: done ? 0 : before, collectedAmount: done ? collected : 0, todayOrderAmount: inv.amount, totalDue: (done ? 0 : before) + inv.amount,
+            paymentMethod: done ? (collected ? 'CASH' : 'CREDIT') : null, skipReason: null, completedAt: done ? (x.deliveredAt || v.createdAt) : null, dispatchId: x.id };
+        });
+        const load = {};
+        xs.forEach((x) => x.items.forEach((it) => { const k = Dm.sku(it.skuId); const l = load[it.skuId] || (load[it.skuId] = { productId: it.skuId, name: k ? k.name : it.skuId, unitPrice: incl(it.price), planQty: 0, loadedQty: 0 }); l.planQty += it.qty; l.loadedQty += it.qty; }));
+        const loadList = Object.values(load), est = Math.round(xs.reduce((t, x) => t + x.invoice.amount, 0));
+        const units = loadList.reduce((t, l) => t + l.loadedQty, 0), loaded = v.status !== 'Delivery Created';
+        const at = (min) => new Date(new Date(v.createdAt).getTime() + min * 60000).toISOString();
+        const done2 = (extra) => Object.assign({ status: 'COMPLETED', confirmedAt: at(20) }, extra || {});
+        const detail = { id: rid, name: rt.name, beatArea: rt.name.split(' – ')[0], scheduledDate: dayOf(v.createdAt), status,
+          driver: Object.assign({}, S_DRIVER, { id: 'STF-' + drv.id.toUpperCase(), name: drv.name, phone: drv.phone, vehicle: drv.vehicle }),
+          totalStops: stops.length, completedStops: stops.filter((s2) => s2.status === 'DELIVERED').length, estimatedCollectionAmount: est,
+          outstandingAmount: stops.filter((s2) => s2.status !== 'DELIVERED').reduce((t, s2) => t + s2.outstandingAmount, 0), collectedAmount: stops.reduce((t, s2) => t + s2.collectedAmount, 0),
+          checklist: mkChecklist(loaded ? done2({ totalUnits: units, estimatedValue: est }) : PEND(), loaded ? done2({ amount: 1000 }) : PEND(), status === 'IN_PROGRESS' || done ? done2() : PEND()),
+          startedAt: status === 'IN_PROGRESS' || done ? at(45) : null, updatedAt: at(60), vasuDelivery: v.id };
+        S_ROUTE_DETAILS[rid] = detail;
+        S_ROUTES.push({ id: rid, name: rt.name, status, totalStops: detail.totalStops, completedStops: detail.completedStops, estimatedCollectionAmount: est, outstandingAmount: detail.outstandingAmount, collectedAmount: detail.collectedAmount, scheduledDate: detail.scheduledDate });
+        S_STOCK_LOADS[rid] = { status: loaded ? 'COMPLETED' : 'PENDING', confirmedAt: loaded ? at(20) : null, products: loadList, summary: { totalUnits: units, estimatedValue: est } };
+        S_STOPS[rid] = stops;
+        S_SETTLEMENT_STEPS[rid] = status === 'CLOSED' ? mkCompletedSteps() : mkSteps();
+        if (status === 'CLOSED') S_CASH_COUNTED[rid] = stops.reduce((t, s2) => t + s2.collectedAmount, 0);
+      });
+      return { details, routeIds: plan.map((x) => x[0]) };
+    });
+  }
+
   function buildDb() {
+    VASU = vasuSeed();
     // Pre-generate activity logs from immutable seed data
     const activityLog = {};
-    const allRouteIds = ['RTE-001', 'RTE-002', 'RTE-003', 'RTE-004', 'RTE-005'];
+    const allRouteIds = VASU ? VASU.routeIds : ['RTE-001', 'RTE-002', 'RTE-003', 'RTE-004', 'RTE-005'];
 
     for (const routeId of allRouteIds) {
       const rd  = S_ROUTE_DETAILS[routeId];
@@ -652,10 +750,10 @@
     }
 
     // RTE-004 (CLOSED): append settlement & closure events
-    activityLog['RTE-004'].push(
+    if (activityLog['RTE-004']) activityLog['RTE-004'].push(
       {
         id: 'ACT-S4-SC', type: 'STOCK_COUNT_SUBMITTED',
-        payload: { discrepancyCount: 1, note: '2 units Murukku unaccounted — possible loading error' },
+        payload: { discrepancyCount: 1, note: VASU ? '2 packets short at the count — possible loading error' : '2 units Murukku unaccounted — possible loading error' },
         createdAt: '2026-05-23T13:58:00Z',
       },
       {
@@ -664,7 +762,7 @@
           actualCounted:    10400,
           expectedHandOver: 10400,
           difference:       0,
-          supervisorName:   'Manoj Sharma',
+          supervisorName:   VASU ? 'Mohan Lal' : 'Manoj Sharma',
         },
         createdAt: '2026-05-23T14:32:00Z',
       },
@@ -683,7 +781,7 @@
     // Applied to the 2nd and 4th still-pending stop of each route rather than to
     // fixed ids, so the branch stays reachable however the seed is edited.
     const ADVANCE_AMOUNTS = [1200, 450];
-    Object.keys(S_STOPS_BUILT).forEach(function (rid) {
+    if (!VASU) Object.keys(S_STOPS_BUILT).forEach(function (rid) {
       const pending = S_STOPS_BUILT[rid].filter(function (st) {
         return st.status !== 'DELIVERED' && st.status !== 'SKIPPED';
       });
@@ -704,7 +802,7 @@
       routeDetails:    clone(S_ROUTE_DETAILS),
       stockLoads:      clone(S_STOCK_LOADS),
       stops:           S_STOPS_BUILT,
-      stopDetails:     {},
+      stopDetails:     VASU ? clone(VASU.details) : {},
       stopNotes:       {},
       activityLog,
       settlementSteps: clone(S_SETTLEMENT_STEPS),
@@ -784,7 +882,7 @@
 
   function makeDb() {
     const fresh = buildDb();
-    if (!IS_OFFLINE_DEMO) return fresh;
+    if (!IS_OFFLINE_DEMO || VASU) return fresh;   // Vasu's trips are dated already
     const days = dayShift();
     return days === 0 ? fresh : rebaseDates(fresh, days);
   }

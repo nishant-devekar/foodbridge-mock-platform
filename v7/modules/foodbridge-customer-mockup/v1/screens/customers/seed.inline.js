@@ -481,4 +481,38 @@
     products,
     appProp,
   };
+
+  /* ---- Vasu Foods (29 Sep 2026) -------------------------------------------
+     In the platform these lists are the business's customers — the one record
+     (v7/assets/production/production-api.js, loaded before this file): the
+     commission agents at the Anaj Mandi, distributors, shops and dhabas as
+     B2B customers, each in the catalogue of its kind; walk-in buyers at the
+     plant gate as retail customers. */
+  const P = window.FB_PRODUCTION;
+  if (!P) return;
+  try {
+    P.read(function (D, d) {
+      const biz = d.business;
+      const KIND = { COMMISSION_AGENT: "ctype_agents", DISTRIBUTOR: "ctype_distributors", RETAILER: TYPE.default, HORECA: "ctype_horeca", CONSUMER: TYPE.default };
+      const PIN = { Samana: "147101", Patran: "147105", Patiala: "147001", Rajpura: "140401", Sangrur: "148001", Zirakpur: "140603", Ghagga: "147102" };
+      const since = function (c) { const first = d.orders.filter(function (o) { return o.customerId === c.id; }).map(function (o) { return o.placedAt; }).sort()[0]; return (first || new Date(Date.now() - 200 * 86400000).toISOString()).slice(0, 10); };
+      const row = function (c, i) {
+        return customer({ id: c.id, orgNo: c.type === "CONSUMER" ? "" : "VF-C-" + String(101 + i), name: c.name, phone: c.phone, email: c.email || "", address: c.address, state: "PB", pin: PIN[c.city] || "",
+          gstType: c.gstin ? "regular" : "", gstNumber: c.gstin || "", supplyChainType: c.type === "CONSUMER" ? "PRIVATE" : "PUBLIC", type: KIND[c.type],
+          tags: [d.customerTypes[c.type]].concat(c.creditDays ? [c.creditDays + "-day credit"] : ["Cash"]), createdAt: since(c) });
+      };
+      window.SEED.tenant = { name: biz.name, user: { name: biz.owner, role: biz.role } };
+      window.SEED.orgGstNumber = biz.gstin;
+      window.SEED.states = [{ code: "PB", name: "Punjab" }, { code: "HR", name: "Haryana" }, { code: "CH", name: "Chandigarh" }, { code: "DL", name: "Delhi" }].concat(states);
+      window.SEED.catalogues = [
+        { _id: "cat_00", customerTypeReference: TYPE.default, catalogue: { name: "Shops & walk-in" } },
+        { _id: "cat_agents", customerTypeReference: "ctype_agents", catalogue: { name: "Commission Agents · Mandi" } },
+        { _id: "cat_distributors", customerTypeReference: "ctype_distributors", catalogue: { name: "Distributors" } },
+        { _id: "cat_horeca", customerTypeReference: "ctype_horeca", catalogue: { name: "HoReCa · 5 kg packs" } },
+      ];
+      window.SEED.b2b = d.customers.filter(function (c) { return c.type !== "CONSUMER"; }).map(row);
+      window.SEED.retail = d.customers.filter(function (c) { return c.type === "CONSUMER"; }).map(row);
+      window.SEED.offers = {};
+    });
+  } catch (e) { console.error("Customers: the business store could not be read", e); }
 })();

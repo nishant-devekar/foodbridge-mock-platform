@@ -181,7 +181,7 @@ export function toModuleDocs(dataset, now) {
     ...(s.active === false ? { active: false } : {}),
   }));
 
-  const store = { _id: IDS.location, name: d.store.name, desc: '', status: 'ACTIVE', created_date: new Date(now - 400 * 86400000), orgId: IDS.org, parentId: null, address: 'Survey 41, Wanowrie, Pune' };
+  const store = { _id: IDS.location, name: d.store.name, desc: '', status: 'ACTIVE', created_date: new Date(now - 400 * 86400000), orgId: IDS.org, parentId: null, address: d.store.address || 'Survey 41, Wanowrie, Pune' };
   const locations = d.locations.map((l) => ({
     _id: oid('loc', l.id), name: l.name, desc: '', status: 'ACTIVE', created_date: new Date(now - 300 * 86400000),
     orgId: IDS.org, parentId: null, address: '',

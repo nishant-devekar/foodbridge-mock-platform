@@ -781,7 +781,9 @@
 
   // The signed-in rep. Auto-populated everywhere the spec says "do not make
   // the employee type their own name, role, team".
-  const AUDITOR = { id: "u-anupam", name: "Anupam", role: "Sales Executive", team: "Pune Team" };
+  const AUDITOR = window.SEED && window.SEED.vasu
+    ? { id: "u-rohit", name: "Rohit Sachdeva", role: "Sales & Purchase", team: "Samana" }      // Vasu Foods (29 Sep 2026)
+    : { id: "u-anupam", name: "Anupam", role: "Sales Executive", team: "Pune Team" };
 
   /* --------------------------------------------------------------- units */
 
@@ -806,6 +808,8 @@
   // exactly one rung, so every caller can assume there is always a base.
   // A product with no `unit` at all falls back to Pc, the catalogue default.
   function unitsFor(p) {
+    /* a product with its own ladder (Vasu's packs: packets, and the master carton) */
+    if (p && Array.isArray(p.ladder)) return p.ladder.map(([label, per]) => ({ label, per }));
     const base = (p && p.unit) || "Pc";
     return (UNIT_LADDERS[base] || [[base, 1]]).map(([label, per]) => ({ label, per }));
   }
@@ -2951,6 +2955,8 @@
   // The LAST match wins: these names are written "(OLD MRP 700) NEW MRP 660",
   // and the new price is the one that counts.
   function baseMrp(p) {
+    /* Vasu Foods: a pack carries its own list price */
+    if (p && typeof p.price === "number") return p.price;
     const all = String((p && p.name) || "").match(/(?:NEW\s+MRP|MRP)\s*\.?\s*(\d+(?:\.\d+)?)/gi);
     if (!all || !all.length) return null;
     const last = all[all.length - 1].match(/(\d+(?:\.\d+)?)/);
@@ -4208,6 +4214,21 @@
   function syncOrderToZoho(orderId) {
     const order = SalesOrderStore.byId(orderId);
     if (!order || order.zohoStatus === "created") return;
+    /* Vasu Foods (29 Sep 2026): the order goes into the business's one record —
+       Sales Orders, Production Plan and the Control Tower see it — and never
+       to the Zoho organisation this screen was built against. */
+    if (window.SEED && window.SEED.vasu && window.FB_PRODUCTION) {
+      try {
+        const so = window.FB_PRODUCTION.write((D) => D.placeOrder({ customerId: order.customerId, comment: "From Stock Audit & Health", via: "field", where: "Stock Audit", by: AUDITOR.name,
+          items: order.lines.map((l) => ({ skuId: l.productId, qty: l.qty * (l.unitFactor || 1), price: l.unitPrice == null ? undefined : l.unitPrice / (l.unitFactor || 1) })) }));
+        SalesOrderStore.update(orderId, { zohoStatus: "created", zohoOrderNumber: so.number, zohoOrderId: so.id, zohoOrderStatus: so.status, zohoUrl: null, zohoError: null, zohoErrorCode: null,
+          zohoLastSyncedAt: new Date().toISOString(), status: "created" });
+      } catch (e) {
+        SalesOrderStore.update(orderId, { zohoStatus: "failed", zohoError: (e && e.body && e.body.error) || "Could not add it to Sales Orders", zohoErrorCode: "store" });
+      }
+      if (ORDER_DONE && ORDER_DONE.orderId === orderId) renderOrderDoneModal();
+      return;
+    }
     SalesOrderStore.update(orderId, { zohoStatus: "syncing", zohoError: null, zohoErrorCode: null });
     if (ORDER_DONE && ORDER_DONE.orderId === orderId) renderOrderDoneModal();
 

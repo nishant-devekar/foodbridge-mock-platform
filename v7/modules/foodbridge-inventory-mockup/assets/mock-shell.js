@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260929SL2", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260929VF2", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -445,7 +445,8 @@
         lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.at), batchName: l.ref, createdDaysAgo: ago(l.at),
           products: [{ _id: k.id, name: k.name, articleNo: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40, stock: l.qty, remainingStock: l.remaining,
             mfgDaysAgo: ago(l.madeAt), expiryInDays: until(l.useBy), price: k.price, tax: 5, supplierData: null }] }));
-        const open = (d.demand[k.id] || {}).open || 0, have = D.packetsOf(k.id);
+        /* waiting: what customers' open orders still need (Sales Orders) */
+        const open = D.demandOf(k.id).open || 0, have = D.packetsOf(k.id);
         fg.push({ _id: k.id, productName: k.name, articleNumber: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
           availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null,
           movements: moves("fg", k.id) });
@@ -472,21 +473,30 @@
           note: x.bags ? x.held.map((h) => count(h.count, h.container) + " · " + h.store).join(" + ") + (x.next ? " · packs next from " + x.next : "")
             : "No " + x.container.toLowerCase() + " · " + (x.plannedKg ? x.plannedKg + " " + x.unit + " planned" : "make a batch") });
       });
+      /* Vasu Foods (29 Sep 2026): the business's stock and nothing else — the
+         seed's own dairy rows, batches and suppliers are no longer shown */
       seed.stockSummary["SEMI-FINISHED"] = sf;
-      seed.stockSummary["RAW-MATERIAL"] = rm.concat(seed.stockSummary["RAW-MATERIAL"] || []);
-      seed.stockSummary["FINISHED-GOODS"] = fg.concat(seed.stockSummary["FINISHED-GOODS"] || []);
-      seed.batches = batches.concat(seed.batches || []);
-      seed.suppliers = d.suppliers.concat((seed.suppliers || []).filter((x) => !d.suppliers.some((y) => y.name === x.name)));
-      seed.categoryTree = seed.categoryTree || {};
+      seed.stockSummary["RAW-MATERIAL"] = rm;
+      seed.stockSummary["FINISHED-GOODS"] = fg;
+      seed.batches = batches;
+      seed.suppliers = d.suppliers.map((x) => ({ name: x.name, contact: x.contact }));
+      const ids = (f) => d.materials.filter(f).map((m) => m.id);
+      seed.categoryTree = {};
       seed.categoryTree["RAW-MATERIAL"] = [
-        { _id: "cat-rm-cold", name: "Cold room · peas & vegetables", productIds: ["rm-p01", "rm-p02", "rm-p03", "rm-p04"] },
-        { _id: "cat-rm-dry", name: "Dry store · flours", productIds: ["rm-p05", "rm-p06"] },
-        { _id: "cat-rm-pack", name: "Dry store · sticks & big bags", productIds: ["rm-p07", "rm-p08", "rm-p09"] },
+        { _id: "cat-rm-cold", name: "Cold room · peas & vegetables", productIds: ids((m) => m.store === "Cold room") },
+        { _id: "cat-rm-dry", name: "Dry store · flours & gluten", productIds: ids((m) => m.store !== "Cold room" && m.kind !== "packaging" && m.unit !== "pcs") },
+        { _id: "cat-rm-pack", name: "Dry store · sticks & big bags", productIds: ids((m) => (m.kind !== "packaging" && m.unit === "pcs") || m.id === "rm-p08" || m.id === "rm-p09") },
         /* pouches and cartons: set per pack in Recipes › Packaging */
-        { _id: "cat-rm-pouch", name: "Dry store · pouches & cartons", productIds: d.materials.filter((m) => m.kind === "packaging" && m.id.indexOf("rm-k") === 0).map((m) => m.id) },
-      ].concat(seed.categoryTree["RAW-MATERIAL"] || []);
+        { _id: "cat-rm-pouch", name: "Dry store · pouches & master cartons", productIds: ids((m) => m.kind === "packaging" && m.id.indexOf("rm-k") === 0) },
+      ];
       seed.categoryTree["SEMI-FINISHED"] = [{ _id: "cat-sf", name: "Made, not packed yet", productIds: sf.map((p) => p._id) }];
-      seed.categoryTree["FINISHED-GOODS"] = [{ _id: "cat-fg-frozen", name: "Frozen foods · our packs", productIds: d.skus.map((k) => k.id) }].concat(seed.categoryTree["FINISHED-GOODS"] || []);
+      seed.categoryTree["FINISHED-GOODS"] = [
+        { _id: "cat-fg-veg", name: "Frozen vegetables · Vasu", productIds: d.skus.filter((k) => /peas|veg/.test(k.recipeId)).map((k) => k.id) },
+        { _id: "cat-fg-chaap", name: "Soya chaap · Vasu & Vasu Gold", productIds: d.skus.filter((k) => /chaap/.test(k.recipeId)).map((k) => k.id) },
+      ];
+      const biz = d.business;
+      seed.store = { name: biz.name };
+      seed.user = Object.assign({}, seed.user, { displayName: biz.owner, role: biz.role });
       return seed;
     });
   }

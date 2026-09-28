@@ -8,7 +8,7 @@
 </head>
 <body data-route="/invoices-payments">
   <aside class="sidebar" aria-label="Main navigation">
-    <div class="brand"><div class="brand-logo">▣</div><div><strong>QA store</strong><small>QA ENV · qaenv⌄</small></div></div>
+    <div class="brand"><div class="brand-logo">▣</div><div><strong>Vasu Foods</strong><small>Samana · Frozen Foods⌄</small></div></div>
     <nav class="nav">
       <div class="nav-title active"><span>▧</span>Finance</div>
       <div class="nav-child active"><a href="invoices-payments.html">– Customer Receivables</a></div>
@@ -16,7 +16,7 @@
     </nav>
   </aside>
   <div id="navBackdrop" class="nav-backdrop hide"></div>
-  <header class="topbar"><div class="title-wrap"><button id="menuBtn" class="menu-btn" aria-label="Toggle menu">☰</button><strong>Customer Receivables</strong></div><div class="admin"><div class="admin-avatar">👤</div><div><strong>Mahesh</strong><div class="pos" style="font-size:11px">Admin</div></div><span>⌄</span></div></header>
+  <header class="topbar"><div class="title-wrap"><button id="menuBtn" class="menu-btn" aria-label="Toggle menu">☰</button><strong>Customer Receivables</strong></div><div class="admin"><div class="admin-avatar">👤</div><div><strong>Chanchal Sachdeva</strong><div class="pos" style="font-size:11px">Owner</div></div><span>⌄</span></div></header>
   <main class="page">
     <section id="summary" class="summary" aria-label="Financial summary"></section>
     <div id="summaryTrack" class="summary-track" aria-hidden="true"><span id="summaryThumb" class="summary-thumb"></span></div>
@@ -51,6 +51,7 @@
     });
   </script>
   <script>window.LEDGER_CONFIG = { kind: 'customer', seed: '../seed-data/seed.json' };</script>
-  <script src="assets/ledger.js"></script>
+  <script src="../../../assets/production/production-api.js?v=20260929VF2"></script>
+  <script src="assets/ledger.js?v=20260929VF1"></script>
 </body>
 </html>

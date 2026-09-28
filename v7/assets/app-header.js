@@ -24,7 +24,8 @@
   if (window.FBAppHeader) return;
 
   /* the user Sales Orders shows (its seed: displayName, role) */
-  var USER = { name: "Mahesh", role: "Admin" };
+  /* Vasu Foods (29 Sep 2026): the business's owner — the one record's user */
+  var USER = { name: "Chanchal Sachdeva", role: "Owner" };
 
   var svg = function (paths, size) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + "</svg>";

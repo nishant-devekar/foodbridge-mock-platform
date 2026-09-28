@@ -3,11 +3,11 @@
  "_source": "Ported from storefront-frontend@develop -- src/pages/Inventory.jsx (/inventory) and src/pages/RawMaterialsInventory.jsx (/raw-material-inventory). See discovery/instructions/addendum-002-live-inventory-port.md.",
  "_dateComment": "Batch dates are stored as OFFSETS (createdDaysAgo, mfgDaysAgo, expiryInDays) and resolved to real dates at load time. Live the API returns absolute ISO dates; offsets are used here so the expired / near-expiry (<=30d) / healthy buckets stay correct however long after freezing this prototype is opened. A negative expiryInDays is already-expired.",
  "store": {
-  "name": "QA store"
+  "name": "Vasu Foods"
  },
  "user": {
-  "displayName": "Mahesh",
-  "role": "Admin",
+  "displayName": "Chanchal Sachdeva",
+  "role": "Owner",
   "image": null
  },
  "appProp": {

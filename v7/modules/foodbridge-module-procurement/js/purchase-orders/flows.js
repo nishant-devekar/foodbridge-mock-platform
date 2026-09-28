@@ -104,10 +104,14 @@ export function mountFlows(host, server, screen, ctx) {
   // handleUseForecastRecommendations / handleCreateBlankPurchase: a forecast hand-off opens the
   // drawer behind the supplier gate with its items waiting to be seeded; a blank one never
   // inherits a stale seed.
-  ctx.openCreate = ({ forecastSeed = null } = {}) => create.open({ sourceList: screen.store.state.combinedList, forecastSeed: forecastSeed && forecastSeed.length ? forecastSeed : null });
+  ctx.openCreate = ({ forecastSeed = null, seedKind = 'finished' } = {}) => create.open({ sourceList: screen.store.state.combinedList, forecastSeed: forecastSeed && forecastSeed.length ? forecastSeed : null, seedKind });
 
   // PurchaseForecastBanner: its drawer mounts (closed) once the banner has something to show.
-  const forecast = createForecastDrawer(host, { onAdd: (items) => ctx.openCreate?.({ forecastSeed: items }) });
+  // v7: a manufacturer's drawer also carries a Raw Material tab, whose rows seed the raw catalogue.
+  const forecast = createForecastDrawer(host, {
+    onAdd: (items, kind) => ctx.openCreate?.({ forecastSeed: items, seedKind: kind }),
+    loadRawMaterials: () => server.rawMaterialForecastRecommendations(),
+  });
   ctx.onForecastLoaded = (data) => { if (forecastStats(data).count > 0) forecast.mount(data); };
   ctx.openForecast = (data) => forecast.open(data);
 }

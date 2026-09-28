@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gupta Wholesale Store — Desktop (V6)</title>
+<title>Vasu Foods — Desktop (V6)</title>
 <style>
   :root {
     color-scheme: light;
@@ -508,7 +508,7 @@
 <header class="topbar">
   <div class="top-row">
     <div class="brand">
-      <div class="logo-mark" id="storeLogoBtn"><span class="l1">GUPTA</span><span class="l2">WHOLESALE</span></div>
+      <div class="logo-mark" id="storeLogoBtn"><span class="l1">VASU</span><span class="l2">FOODS</span></div>
       <div class="brand-text">
         <div class="name-row" id="storeNameBtn"><span class="name" id="storeName"></span><span class="verified">✔</span></div>
         <div class="sub" id="storeSub"></div>
@@ -637,7 +637,7 @@
   <section class="modal wide" id="profileGateModal">
       <div class="onboarding-card" style="box-shadow:none; padding:4px; max-width:none;">
         <div class="logo-mark" style="margin: 0 auto 18px;"></div>
-        <h1 id="onboardingTitle">Welcome to Gupta Wholesale Store</h1>
+        <h1 id="onboardingTitle">Welcome to Vasu Foods</h1>
         <p class="muted" style="text-align:center; margin-bottom: 22px;">Tell us a little about yourself and where to deliver — it only takes a minute.</p>
         <div class="field-grid-2">
           <div class="field-row"><label>Full name *</label><input id="pfName" /><div class="field-error hidden" id="err-pfName"></div></div>
@@ -665,7 +665,7 @@
 <!-- Store Details (Addendum 011 item 9 — Call/WhatsApp moved here, real tel:/wa.me links) -->
 <div class="modal" id="storeModal">
   <div class="brand" style="margin-bottom:12px;">
-    <div class="logo-mark" style="cursor:default;"><span class="l1">GUPTA</span><span class="l2">WHOLESALE</span></div>
+    <div class="logo-mark" style="cursor:default;"><span class="l1">VASU</span><span class="l2">FOODS</span></div>
     <div class="brand-text"><div class="name-row"><h2 id="mStoreName" style="margin:0;"></h2><span class="verified">✔</span></div><div class="muted" id="mStoreSub"></div></div>
   </div>
   <div class="sheet-label">Location</div><div class="sheet-value" id="mStoreLoc"></div>
@@ -744,6 +744,8 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="../../../../assets/production/production-api.js?v=20260929VF2"></script>
+<script src="vasu-store.js?v=20260929VF2"></script>
 <script>
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN');
 const fmt2 = (n) => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -826,7 +828,7 @@ Promise.all([
   fetch('../seed-data/seed.json').then((r) => r.json()),
   fetch('../seed-data/seed.v2.json').then((r) => r.json()),
   fetch('../seed-data/seed.v5.json').then((r) => r.json())
-]).then(([a, b, c]) => { seed = a; seed2 = b; seed5 = c; init(); });
+]).then(([a, b, c]) => { seed = a; seed2 = b; seed5 = c; if (window.VASU_STOREFRONT) window.VASU_STOREFRONT.apply(seed, seed2, seed5); init(); });
 
 function init() {
   renderHeader();
@@ -860,7 +862,7 @@ function renderHeader() {
 
 function renderPills() {
   const wrap = el('pills');
-  const tradeLabels = { all: 'All beverages', offers: 'Trade offers', water: 'Packaged water', soda: 'Carbonated drinks', juices: 'Juices & mixers', energy: 'Energy drinks', new: 'New stock' };
+  const tradeLabels = { all: 'All products', offers: 'Trade offers', 'frozen-peas': 'Frozen peas', 'mixed-veg': 'Mixed vegetables', 'soya-chaap': 'Soya chaap', 'vasu-gold': 'Vasu Gold', water: 'Packaged water', soda: 'Carbonated drinks', juices: 'Juices & mixers', energy: 'Energy drinks', new: 'New stock' };
   wrap.innerHTML = seed2.categoriesV2.filter((c) => c.id !== 'buy-again').map((c) => `<button class="pill ${c.id === activeCategory ? 'active' : ''}" data-cat="${c.id}">${tradeLabels[c.id] || c.label}</button>`).join('');
   wrap.querySelectorAll('.pill').forEach((btn) => btn.addEventListener('click', () => { activeCategory = btn.dataset.cat; visibleCount = PAGE_SIZE; renderPills(); renderProducts(); }));
 }
@@ -1003,6 +1005,7 @@ function doPlaceOrder(lines) {
     items: lines.map((l) => ({ name: l.name, qty: l.qty, price: l.price, total: l.total, unit: l.unit })),
     timeline: [{ step: 'Order Placed', at: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }), done: true }, { step: 'Packed', at: '', done: false }, { step: 'Out for Delivery', at: '', done: false }, { step: 'Delivered', at: '', done: false }]
   });
+  if (window.VASU_STOREFRONT) window.VASU_STOREFRONT.place(id, lines);   // Vasu Foods: into Sales Orders
   seed5.purchasesV5.thisMonthTotal += total;
   seed5.purchasesV5.openOrders += 1;
   seed5.purchasesV5.pendingActive += 1;

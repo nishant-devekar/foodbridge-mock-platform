@@ -110,4 +110,62 @@
   ];
 
   window.SEED = { products, categories, rawMaterials, images };
+
+  /* ── Vasu Foods (29 Sep 2026) ───────────────────────────────────────────
+     In the platform the catalogue is the business's one record — the production
+     store (v7/assets/production/production-api.js), loaded before this file —
+     not the Murli rows above: Vasu's packs with the stock Finished Goods holds
+     and what customers are waiting for, its raw materials and packaging with
+     the store's stock, and the pack photos. A price saved here is the pack's
+     price everywhere (Recipes › Packaging, Sales Orders, invoices). */
+  const P = window.FB_PRODUCTION;
+  if (!P) return;
+  try {
+    window.SEED = P.read(function (D, d) {
+      const TOP = { "frozen-peas": "Frozen Vegetables", "mixed-veg": "Frozen Vegetables", "soya-chaap": "Soya Chaap", "soya-chaap-premium": "Soya Chaap", "soya-chaap-plain": "Soya Chaap" };
+      const IMG = { "frozen-peas": "green,peas", "mixed-veg": "mixed,vegetables", "soya-chaap": "kebab,skewer", "soya-chaap-premium": "kebab,grill", "soya-chaap-plain": "tofu" };
+      const sub = (s) => D.book(s.recipeId).name;
+      const vasuProducts = d.skus.map(function (s) {
+        const bk = D.book(s.recipeId), open = d.orders.reduce(function (n, so) { return n + D.openQty(so, s.id); }, 0), have = D.packetsOf(s.id), c = D.packCost(s);
+        const tax = d.business.gstPct;
+        return {
+          id: s.id, skuId: s.id, name: s.name, articleNo: s.article, category: sub(s), categoryTop: TOP[s.recipeId] || "Frozen Vegetables", img: IMG[s.recipeId] || "frozen,food",
+          price: s.price, taxRate: tax, stockTotal: have, canSell: Math.max(0, have - open), inOrders: open, barcode: "8905" + s.article.replace(/\D/g, "").padStart(8, "0"),
+          brand: s.brand || "Vasu", active: !s.retired, highMargin: c.marginPct >= 40, costPrice: c.total,
+          description: bk.name + " · " + (s.grams >= 1000 ? s.grams / 1000 + " kg" : s.grams + " g") + " pouch, " + s.perCarton + " to a master carton. Keeps " + (bk.bestBeforeDays >= 30 ? Math.round(bk.bestBeforeDays / 30) + " months" : bk.bestBeforeDays + " days") + " at −18 °C.",
+          unit: "Pkt", baseUnit: "Carton", conversionQty: s.perCarton,
+          packaging: [
+            { unit: "Pkt", tag: "Smallest Unit", conv: "1 Pkt", price: inclTax(s.price, tax) },
+            { unit: "Carton", tag: "Base Unit", conv: "1 Carton = " + s.perCarton + " Pkt", price: Math.round(inclTax(s.price, tax) * s.perCarton * 100) / 100 },
+          ],
+        };
+      });
+      const MCAT = function (m) { return m.store === "Cold room" ? "Fresh Vegetables" : m.kind === "packaging" ? (/^Pouch/.test(m.name) ? "Pouches" : "Master Cartons & Big Bags") : m.unit === "pcs" ? "Chaap Sticks" : "Flours & Gluten"; };
+      const MIMG = { "rm-p01": "green,peas", "rm-p02": "carrot", "rm-p03": "cauliflower", "rm-p04": "green,beans", "rm-p05": "soy,flour", "rm-p06": "flour", "rm-p07": "wooden,skewers",
+        "rm-p08": "sack", "rm-p09": "sack", "rm-p10": "broccoli", "rm-p11": "wheat,flour", "rm-p12": "wheat,flour" };
+      const TAX = function (m) { return m.store === "Cold room" ? 0 : m.kind === "packaging" ? 18 : m.unit === "pcs" ? 12 : 5; };
+      const vasuRaw = d.materials.map(function (m) {
+        return { id: m.id, materialId: m.id, name: m.name, articleNo: m.article, category: MCAT(m), img: MIMG[m.id] || (m.id === "rm-k11" ? "cardboard,box" : "plastic,packaging"),
+          purchasingPrice: m.price, taxRate: TAX(m), unit: m.unit === "kg" ? "KG" : "Pc", stockTotal: D.onHand(m.id), supplier: m.supplier };
+      });
+      const count = function (name) { return vasuProducts.filter(function (p) { return p.category === name || p.categoryTop === name; }).length; };
+      const cat = function (id, name, desc, kids) {
+        return { id: id, name: name, description: desc, parent: null, productCount: count(name), children: kids.map(function (k) { return { id: id + "-" + k[0], name: k[1], description: k[2], productCount: count(k[1]) }; }) };
+      };
+      const vasuCategories = [
+        cat("cat-frozen", "Frozen Vegetables", "Blanched and frozen at −30 °C; season November to March", [["peas", "Frozen Green Peas", "Shelled green peas, 1-year shelf life"], ["mixveg", "Frozen Mixed Vegetables", "Carrot 40 · cauliflower 20 · peas 20 · broccoli 10 · beans 10"]]),
+        cat("cat-chaap", "Soya Chaap", "Made off season to keep the plant running; sold through the Anaj Mandi, Samana", [["stick", "Soya Chaap Stick (Normal)", "On sticks — Vasu"], ["premium", "Soya Chaap Stick (Premium)", "On sticks, richer mix — Vasu Gold"], ["plain", "Soya Chaap Without Stick", "Without sticks, for caterers and dhabas"]]),
+        { id: "cat-rawmat", name: "Raw Material", description: "Vegetables, flours, gluten and sticks", parent: null, productCount: 0, children: [] },
+        { id: "cat-pack", name: "Packaging", description: "Printed pouches, master cartons and big bags", parent: null, productCount: 0, children: [] },
+      ];
+      const vasuImages = vasuProducts.map(function (p, i) {
+        return { id: "img-" + (i + 1), name: p.name + " · pouch", category: p.category, articleNo: "IMG-" + p.articleNo, img: p.img, tags: p.highMargin ? ["High margin"] : [], linked: p.name };
+      }).concat([
+        { id: "img-doc-1", name: "FSSAI licence · Vasu Foods", category: "Document", articleNo: "DOC-FSSAI", img: "certificate,document", tags: [], linked: null },
+        { id: "img-doc-2", name: "Master carton label", category: "Label", articleNo: "LBL-CARTON", img: "label,cardboard", tags: [], linked: null },
+        { id: "img-doc-3", name: "Vasu Gold pouch artwork", category: "Label", articleNo: "LBL-GOLD", img: "label,gold,packaging", tags: [], linked: null },
+      ]);
+      return { products: vasuProducts, categories: vasuCategories, rawMaterials: vasuRaw, images: vasuImages, vasu: true };
+    });
+  } catch (e) { console.error("Product Master: the business store could not be read", e); }
 })();

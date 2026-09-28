@@ -72,6 +72,7 @@ test("every bag's history: the batch that filled it and the packing orders that 
   assert.ok(taken.length > 0, "the seeded month packed from bags");
   taken.forEach((g) => {
     const kg = g.takenBy.reduce((t, x) => t + x.kg, 0);
-    assert.ok(Math.abs(g.kg - g.remaining - kg) < 0.05, "bag " + g.bagNo + ": taken " + kg + " = filled " + g.kg + " − left " + g.remaining);
+    /* a bag past its use-by (mixed vegetables keep 3 days) had the rest written off */
+    assert.ok(Math.abs(g.kg - g.remaining - g.expiredKg - kg) < 0.05, "bag " + g.bagNo + ": taken " + kg + " = filled " + g.kg + " − left " + g.remaining + " − expired " + g.expiredKg);
   });
 });

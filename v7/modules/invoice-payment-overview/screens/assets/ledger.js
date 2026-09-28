@@ -288,6 +288,7 @@
       ? [p.cod && Number(p.codAmount) > 0 ? { method: 'Cash', amount: Number(p.codAmount) } : null, p.online && Number(p.onlineAmount) > 0 ? { method: 'Online', amount: Number(p.onlineAmount) } : null].filter(Boolean)
       : [{ method: METHODS.find(m => m.key === p.method).title, amount: paid }];
     applyPayment(r, entries, paid);
+    recordInStore(r, entries);
     p.complete = true; p._paid = paid;
     state.expanded.add(r.id); state.sections.add(r.id + ':payments');
     renderSummary(); renderLedger(); renderPayment(); showToast(C.toastPay);
@@ -322,9 +323,68 @@
     if (active) { const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1; badge.textContent = days; badge.classList.remove('hide'); } else badge.classList.add('hide');
   }
 
+  /* ---- Vasu Foods (29 Sep 2026) ----
+     In the platform the ledger is the business's one record — the production store
+     (v7/assets/production/production-api.js), loaded before this file: every tax
+     invoice raised with a dispatch, every supplier bill booked at the gate, and every
+     receipt and payment, settled oldest first. A payment recorded here is recorded
+     there too, so Sales Orders, Purchase Orders and the Control Tower see it. */
+  const P = window.FB_PRODUCTION;
+  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const ymd = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const MODE = { Cash: 'Cash', Online: 'UPI', UPI: 'UPI', Bank: 'NEFT', 'Bank Transfer': 'NEFT', Cheque: 'Cheque', Card: 'Card' };
+  function vasuRows() {
+    return P.read((D, d) => {
+      if (kind === 'customer') {
+        return D.receivables().filter((a) => a.invoices.length || a.advance).map((a) => {
+          const c = a.customer, byInv = {};
+          d.dispatches.forEach((x) => { if (x.customerId === c.id && x.invoice) byInv[x.invoice.no] = x; });
+          return {
+            id: c.id, storeId: c.id, name: c.name, phone: c.phone, code: d.customerTypes[c.type], invoices: a.invoices.length, invoiced: a.invoiced, collected: a.collected,
+            outstanding: a.outstanding, advance: a.advance, date: a.invoices.length ? ymd(a.invoices[a.invoices.length - 1].at) : '',
+            orders: a.invoices.slice().reverse().map((inv) => {
+              const x = byInv[inv.no];
+              return { invoiceNo: inv.no, date: shortDate(inv.at), invoiced: inv.amount, netPayable: Math.max(0, Math.round((inv.amount - (inv.paid || 0)) * 100) / 100), due: shortDate(inv.dueAt), overdueDays: inv.overdueDays,
+                items: (x ? x.items : []).map((i) => { const k = D.sku(i.skuId), up = Math.round(i.price * 1.05 * 100) / 100; return { name: k ? k.name : i.skuId, sku: k ? k.article : '', unitPrice: up, unit: 'Pkt', qty: i.qty, total: Math.round(up * i.qty * 100) / 100 }; }) };
+            }),
+            payments: a.payments.slice().reverse().map((p) => ({ method: p.mode, date: shortDate(p.at), amount: p.amount, ref: p.no })),
+          };
+        });
+      }
+      return D.payables().filter((a) => a.bills.length || a.advance).map((a) => {
+        const s = a.supplier, poOf = {};
+        d.purchaseOrders.forEach((p) => (p.bills || []).forEach((b) => { poOf[b.no] = p; }));
+        return {
+          id: s.id, storeId: s.id, name: s.name, phone: s.contact, code: s.gstNumber || s.id.toUpperCase(), invoices: a.bills.length, invoiced: a.billed, collected: a.paid,
+          outstanding: a.outstanding, advance: a.advance, date: a.bills.length ? ymd(a.bills[a.bills.length - 1].at) : '',
+          orders: a.bills.slice().reverse().map((b) => {
+            const p = poOf[b.no];
+            return { invoiceNo: b.no, date: shortDate(b.at), invoiced: b.amount, netPayable: Math.max(0, Math.round((b.amount - (b.paid || 0)) * 100) / 100), due: shortDate(b.dueAt), po: b.poNumber,
+              items: (p ? p.lines : []).filter((l) => l.received > 0).map((l) => { const m = l.materialId ? D.material(l.materialId) : D.sku(l.skuId), up = Math.round(l.price * (1 + (l.tax || 0) / 100) * 100) / 100;
+                return { name: m ? m.name : '', sku: m ? m.article : '', unitPrice: up, unit: m && m.unit ? (m.unit === 'kg' ? 'Kg' : 'Pc') : 'Pkt', qty: l.received, total: Math.round(up * l.received * 100) / 100 }; }) };
+          }),
+          payments: a.payments.slice().reverse().map((p) => ({ method: p.mode, date: shortDate(p.at), amount: p.amount, ref: p.no })),
+        };
+      });
+    });
+  }
+  function recordInStore(r, entries) {
+    if (!P || !r.storeId) return;
+    try {
+      P.write((D) => entries.forEach((e) => {
+        if (!(e.amount > 0)) return;
+        if (kind === 'customer') D.receipt({ customerId: r.storeId, amount: e.amount, mode: MODE[e.method] || e.method, where: 'Customer Receivables' });
+        else D.pay({ supplierId: r.storeId, amount: e.amount, mode: MODE[e.method] || e.method, where: 'Supplier Payables' });
+      }));
+    } catch (err) { console.error('Vasu store: payment', err); }
+  }
+
   // ---- init ----
   async function init() {
-    try { const data = await fetch(SEED).then(r => { if (!r.ok) throw Error('seed'); return r.json(); }); state.rows = data.rows || data.customers || []; }
+    try {
+      if (P) state.rows = vasuRows();
+      else { const data = await fetch(SEED).then(r => { if (!r.ok) throw Error('seed'); return r.json(); }); state.rows = data.rows || data.customers || []; }
+    }
     catch (e) { $('#ledger').innerHTML = '<div class="acct"><div class="empty">Unable to load prototype data. Serve the discovery folder over HTTP.</div></div>'; return; }
     renderSummary(); renderLedger();
     $('#summary').addEventListener('scroll', updateSummaryThumb, { passive: true }); addEventListener('resize', updateSummaryThumb);

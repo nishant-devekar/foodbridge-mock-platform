@@ -30,6 +30,7 @@
   var OB = "../modules/foodbridge-onboarding/screens/";
 
   var SCRIPTS = [
+    "production/production-api.js?v=20260929VF2",   // window.FB_PRODUCTION — Vasu Foods, the one record (29 Sep 2026)
     M + "order-history.js",      // window.FB_ORDER_HISTORY — the real 532 orders
     M + "seed.inline.js",        // window.SEED — 86 products, 40 shops
     M + "predictive-order.js",   // window.FB_PREDICT — the back-tested reorder engine
@@ -46,7 +47,7 @@
   function loadOne(src, q) {
     return new Promise(function (res, rej) {
       var el = document.createElement("script");
-      el.src = new URL(src + q, baseHref()).toString();
+      el.src = new URL(src.indexOf("?") !== -1 ? src : src + q, baseHref()).toString();
       el.onload = res;
       el.onerror = function () { rej(new Error("Could not load " + src.split("/").pop() + ".")); };
       document.head.appendChild(el);
@@ -58,8 +59,26 @@
   function baseHref() { var s = self(); return s ? s.src : location.href; }
   function token() { var s = self(); return s && s.src.indexOf("?") !== -1 ? s.src.slice(s.src.indexOf("?")) : ""; }
 
+  /* A change of business (29 Sep 2026: the demo became Vasu Foods) empties
+     what the tower and the delivery app kept about the old one — its route,
+     door records, reminders, the orders made here and the events between
+     the two apps — once, so no stale shop from the old tenant is shown. */
+  var BUSINESS_KEY = "fb.v7.ct.business";
+  function settleBusiness() {
+    var v = window.FB_PRODUCTION && window.FB_PRODUCTION.business ? window.FB_PRODUCTION.business() : null;
+    if (!v) return;
+    try {
+      if (localStorage.getItem(BUSINESS_KEY) === v.name) return;
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf("fb.v7.ct.") === 0 || k === "fb.v7.orders" || k === "fb.v7.events" || k.indexOf("fb.v7.rd.") === 0) localStorage.removeItem(k);
+      });
+      localStorage.setItem(BUSINESS_KEY, v.name);
+    } catch (e) { /* storage off: nothing kept, nothing stale */ }
+  }
+
   function ready() {
-    if (window.SEED && window.FB_ORDER_HISTORY && window.FB_EVIDENCE && window.FB_PREDICT && window.FB_DATASET && window.FB_SAMPLE) {
+    if (window.FB_PRODUCTION && window.SEED && window.FB_ORDER_HISTORY && window.FB_EVIDENCE && window.FB_PREDICT && window.FB_DATASET && window.FB_SAMPLE) {
+      settleBusiness();
       return Promise.resolve(API);
     }
     if (loading) return loading;
@@ -68,7 +87,7 @@
        load should name the one file that failed. */
     loading = SCRIPTS.reduce(function (p, src) {
       return p.then(function () { return loadOne(src, q); });
-    }, Promise.resolve()).then(function () { return API; }, function (e) { loading = null; throw e; });
+    }, Promise.resolve()).then(function () { settleBusiness(); return API; }, function (e) { loading = null; throw e; });
     return loading;
   }
 
@@ -86,11 +105,18 @@
     try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   }
 
+  /* Vasu Foods (29 Sep 2026): when the business's one record is loaded, the
+     tower reads it — its customers, packs with the stock Finished Goods holds,
+     each customer's orders, and the ledger — not the Zoho export above. */
+  function vasu() { try { return window.FB_PRODUCTION && window.FB_PRODUCTION.vasuCT ? window.FB_PRODUCTION.vasuCT() : null; } catch (e) { return null; } }
   function raw() {
+    var v = vasu();
     return {
-      seed: window.SEED || {},
-      history: window.FB_ORDER_HISTORY || {},
-      exportMeta: EXPORT,
+      seed: v ? v.seed : window.SEED || {},
+      history: v ? v.history : window.FB_ORDER_HISTORY || {},
+      ledger: v ? v.ledger : null,
+      vasu: v,
+      exportMeta: v ? { importedAt: new Date().toISOString().slice(0, 10), label: v.business.name + " · FoodBridge" } : EXPORT,
       dataReady: sessionDataReady(),
       api: {
         evidence: window.FB_EVIDENCE,

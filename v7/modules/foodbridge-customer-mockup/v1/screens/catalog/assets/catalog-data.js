@@ -77,4 +77,29 @@
 
   SEED.customers = customers;
   SEED.catalogs = catalogs;
+
+  /* Vasu Foods (29 Sep 2026): in the platform the catalogs are the business's
+     price lists — one per kind of customer, at the price the store charges
+     them (list price less the kind's share) — and the customers are its own. */
+  const P = window.FB_PRODUCTION;
+  if (!P || !SEED.vasu) return;
+  try {
+    P.read(function (D, d) {
+      const ids = function (f) { return d.skus.filter(function (s) { return !s.retired && f(s); }).map(function (s) { return s.id; }); };
+      const who = function (t) { return d.customers.filter(function (c) { return t.indexOf(c.type) !== -1; }).map(function (c) { return c.id; }); };
+      const priced = function (list, t) { const out = {}; list.forEach(function (id) { out[id] = D.priceFor(who(t)[0], id); }); return out; };
+      const today = new Date(), stamp = String(today.getDate()).padStart(2, "0") + "/" + String(today.getMonth() + 1).padStart(2, "0") + "/" + today.getFullYear();
+      const cat = function (id, name, description, types, products) {
+        const cs = who(types);
+        return { id: id, name: name, description: description, customerCount: cs.length, productCount: products.length, lastModified: stamp, customers: cs, products: products, pricing: priced(products, types) };
+      };
+      SEED.customers = d.customers.map(function (c) { return { id: c.id, name: c.name, phone: c.phone, type: c.type === "CONSUMER" ? "retail" : "b2b" }; });
+      SEED.catalogs = [
+        cat("cat-default", "Shops & walk-in", "Every pack at list price", ["RETAILER", "CONSUMER"], ids(function () { return true; })),
+        cat("cat-agents", "Commission Agents · Mandi", "Soya chaap by the master carton, 12% off list", ["COMMISSION_AGENT"], ids(function (s) { return /chaap/.test(s.recipeId); })),
+        cat("cat-distributors", "Distributors", "Frozen vegetables and Vasu Gold chaap, 10% off list", ["DISTRIBUTOR"], ids(function (s) { return !/soya-chaap$|plain/.test(s.recipeId) && s.grams < 5000; })),
+        cat("cat-horeca", "HoReCa · 5 kg packs", "Catering packs for dhabas and caterers, 5% off list", ["HORECA"], ids(function (s) { return s.grams >= 1000; })),
+      ];
+    });
+  } catch (e) { console.error("Catalog: the business store could not be read", e); }
 })();

@@ -4,6 +4,7 @@
   standalone) or inside the QA store's sidebar and header (the default, for the mock platform).
 */
 import { resolveDataset } from './data/resolve.js';
+import { loadStore, vasuDataset, wireToStore } from './data/vasu.js';
 import { createModel } from './sales-orders/model.js';
 import { mountSalesOrders } from './sales-orders/screen.js';
 
@@ -26,12 +27,16 @@ async function json(path) {
 }
 
 async function boot() {
-  const [base, dataset, variants] = await Promise.all([json('js/data/tenant.json'), json('js/data/dataset.json'), json('js/data/tenant-variants.json')]);
+  const [base, fixture, variants] = await Promise.all([json('js/data/tenant.json'), json('js/data/dataset.json'), json('js/data/tenant-variants.json')]);
+  // Vasu Foods: the business's one record (js/data/vasu.js); ?data=fixture keeps the invented dataset.
+  const P = params.get('data') === 'fixture' ? null : await loadStore().catch(() => null);
   // ?tenant=<variant> — a tenant configuration other than the production default (tenant-variants.json).
   const variant = params.get('tenant');
   if (variant && !variants[variant]) throw new Error(`Unknown tenant variant "${variant}"`);
   const tenant = variant ? mergeDeep(base, variants[variant]) : base;
   const now = Date.now();
+  const dataset = P ? vasuDataset(P, now) : fixture;
+  if (P) tenant.username = P.business().owner;
   const model = createModel(tenant, resolveDataset(dataset, now));
 
   const app = document.getElementById('app');
@@ -44,6 +49,11 @@ async function boot() {
   } else {
     // The QA store shell (sidebar + header), shared with the other module mockups.
     const shell = await json('seed-data/seed.json');
+    if (P) {
+      const biz = P.business();
+      shell.store = { ...(shell.store || {}), name: biz.name, storeName: biz.name };
+      shell.user = { ...(shell.user || {}), name: biz.owner, displayName: biz.owner, role: biz.role };
+    }
     host = window.MockShell.renderShell(app, { store: shell.store, user: shell.user, storefrontMenus: shell.storefrontMenus }, {
       activePath: '/orders',
       pageTitle: model.label,
@@ -52,6 +62,7 @@ async function boot() {
     });
   }
   window.salesOrders = mountSalesOrders(host, model, { scenario, now: () => Date.now() });
+  if (P) wireToStore(model, P, (type, message) => window.salesOrders?.toast?.(type, message));
 }
 
 boot().catch((err) => {

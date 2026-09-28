@@ -410,7 +410,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260929SL2", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260929VF2", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -423,7 +423,16 @@
       const roles = P.FACTORY_ROLES.map((r) => ({ _id: roleId(r), name: r.replace(/\b\w/g, (c) => c.toUpperCase()) }));
       seed.subRoles = roles.concat((seed.subRoles || []).filter((x) => !roles.some((y) => y._id === x._id)));
       const floor = d.workers.filter((w) => w.role !== "admin").map((w) => ({ _id: w._id, name: { en: w.name }, email: "", phone: w.phone || "", subRoleRef: roleId(w.role) }));
-      seed.staff = floor.concat(seed.staff.filter((x) => !floor.some((y) => y._id === x._id)));
+      /* Vasu Foods (29 Sep 2026): the office and the vans are the business's own
+         team — the owner, purchase, accounts, the store and the drivers — and the
+         floor supervisors; the seed's invented staff are no longer shown */
+      const ROLE = { OWNER: "sr-admin", PURCHASE: "sr-salesman", ACCOUNTS: "sr-default", STORE: "sr-default", DRIVER: "sr-delivery" };
+      const office = (d.team || []).map((m) => ({ _id: m.id, name: { en: m.name }, email: "", phone: m.phone || "", subRoleRef: ROLE[m.role] || "sr-default" }));
+      const sups = (d.operators || []).map((o) => ({ _id: o.id, name: { en: o.name }, email: "", phone: o.contact || "", subRoleRef: "sr-delivery-supervisor" }));
+      seed.subRoles = seed.subRoles.map((r) => (r._id === "sr-delivery-supervisor" ? Object.assign({}, r, { name: "Floor Supervisor" }) : r));
+      seed.staff = office.concat(sups, floor);
+      seed.pagedStaffExtra = [];
+      if (d.business) { seed.store = { name: d.business.name }; seed.user = Object.assign({}, seed.user, { displayName: d.business.owner, role: d.business.role }); }
       return seed;
     });
   }

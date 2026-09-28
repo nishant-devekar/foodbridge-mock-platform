@@ -68,7 +68,7 @@
         '<div class="flex items-center gap-3 px-1 py-1.5 rounded-md cursor-default">' +
           '<a href="dashboard.html" class="flex-shrink-0">' + BAG + '</a>' +
           '<div class="flex flex-col min-w-0 flex-1">' +
-            '<span class="text-sm font-semibold text-gray-800 truncate leading-tight">Murli</span></div>' +
+            '<span class="text-sm font-semibold text-gray-800 truncate leading-tight">Vasu Foods</span></div>' +
         '</div></div>' +
       '<div class="flex-1 overflow-y-auto no-scrollbar" style="scrollbar-width:none;-ms-overflow-style:none">' +
         '<ul class="mt-2 space-y-2 pb-4" data-nav-list>' + navList(active) + '</ul></div>' +
@@ -109,9 +109,9 @@
                     I.feather('FiUser', 'w-5 h-5') + '</div>' +
                   '<div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div></div>' +
                 '<div class="flex flex-col items-start min-w-0">' +
-                  '<p class="text-sm font-semibold text-gray-800 truncate max-w-32">Mahesh</p>' +
+                  '<p class="text-sm font-semibold text-gray-800 truncate max-w-32">Chanchal Sachdeva</p>' +
                   '<div class="flex items-center space-x-1">' +
-                    '<p class="text-xs text-green-600 font-medium truncate max-w-28">Admin</p></div></div>' +
+                    '<p class="text-xs text-green-600 font-medium truncate max-w-28">Owner</p></div></div>' +
                 I.feather('FiChevronDown', 'w-4 h-4 text-gray-400') +
               '</div></div></li></ul>' +
       '</div></header>';

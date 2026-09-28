@@ -123,7 +123,7 @@ export const STATUS_THEME = {
 export function deriveForecastRow(row, index) {
   const demand = Number(row.demand) || 0;
   const currentStock = Number(row.currentStock) || 0;
-  const shortage = Math.max(demand - currentStock, 0);
+  const shortage = Math.round(Math.max(demand - currentStock, 0) * 100) / 100;
   const recommendedPurchase = row.recommendedQuantity !== undefined && row.recommendedQuantity !== null ? Number(row.recommendedQuantity) || 0 : shortage;
   const price = row.offerPrice ?? row.price ?? row.unitPrice;
   return {
@@ -136,6 +136,7 @@ export function deriveForecastRow(row, index) {
     measurement: row.measurement ?? null,
     moq: Number(row.moq) || 1,
     supplier: row.supplier ?? null,
+    onOrder: Number(row.onOrder) || 0,
     demand, currentStock, shortage, recommendedPurchase,
     price: price !== undefined && price !== null ? Number(price) : undefined,
   };

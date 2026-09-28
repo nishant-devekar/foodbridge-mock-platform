@@ -62,10 +62,54 @@
 
   /* ── the business, dated to today ─────────────────────────────────────── */
   let cached = null;
+  /* Vasu Foods (29 Sep 2026): when the platform's one record is loaded, the
+     live business IS Vasu — its customers, its packs with the stock Finished
+     Goods holds, its orders, and its real ledger (tax invoices, receipts,
+     supplier bills, purchase orders); its vans are its own drivers. Only the
+     clock (today's route, stops delivered as the day goes) is simulated. */
+  const EXPENSES = [["Electricity · blast freezer & cold room", 68000], ["Wages · factory floor", 142000], ["Diesel · reefer vans", 38000], ["LPG · chaap boilers", 21000], ["Cold store rent", 45000]];
+  function vasuReady(now, V) {
+    const day = iso(now);
+    const W = root;
+    const customers = V.seed.b2b.filter(function (c) { return V.history[c._id]; }).map(function (c) { return { id: c._id, name: c.name.en }; });
+    const nameOf = {}; customers.forEach(function (c) { nameOf[c.id] = c.name; });
+    const from = dayOf(day) - 240 * DAY, orders = [];
+    Object.keys(V.history).forEach(function (cid) {
+      (V.history[cid].orders || []).forEach(function (o, i) {
+        if (dayOf(o.at) >= from) orders.push({ id: cid + "-" + i, customerId: cid, customerName: nameOf[cid] || cid, date: o.at,
+          lines: o.lines.map(function (l) { return { itemId: l.productId, qty: l.qty, unit: "pcs" }; }) });
+      });
+    });
+    const products = V.seed.products.map(function (p) { return { id: p.id, name: p.name, sku: p.artNo, unit: p.unit, stockOnHand: p.systemStock }; });
+    const months = {};
+    orders.forEach(function (o) { months[o.date.slice(0, 7)] = 1; });
+    const expenses = [];
+    Object.keys(months).sort().forEach(function (m, mi) {
+      EXPENSES.forEach(function (e, ai) { expenses.push({ id: "vexp" + mi + "-" + ai, account: e[0], date: m + "-" + String(2 + ai * 5).padStart(2, "0"), total: Math.round(e[1] * (0.9 + rnd(m + e[0]) * 0.2)), status: "recorded" }); });
+    });
+    const L = V.ledger, M = function (records) { return { ok: true, records: records }; };
+    const modules = { invoices: M(L.invoices), customerpayments: M(L.payments), creditnotes: M(L.creditNotes), estimates: M([]), purchaseorders: M(L.purchaseOrders),
+      bills: M(L.bills), expenses: M(expenses), vendors: M(L.suppliers) };
+    const org = { id: "vasu", name: V.business.name };
+    const dr = W.FB_DATASET.fromApp({ app: "sample", org: org, customers: customers, products: products, orders: orders, modules: modules });
+    dr.readAt = new Date(now).toISOString();
+    dr.provenance = Object.assign({}, dr.provenance || {}, { kind: "sample", label: V.business.name + " · FoodBridge", org: org });
+    dr.demo = true; dr.vasu = true;
+    const d = V.drivers || [];
+    if (d.length >= 2) {
+      VANS = [{ name: "Van 1 · " + d[0].vehicle.split(" · ")[0], driver: d[0].name, phone: d[0].phone }, { name: "Van 2 · " + d[1].vehicle.split(" · ")[0], driver: d[1].name, phone: d[1].phone }];
+      if (d[2]) SPARES = [{ name: "Van 3 · " + d[2].vehicle.split(" · ")[0], driver: d[2].name, phone: d[2].phone }];
+      WHERE = "Rajpura bypass, NH 44";
+    }
+    cached = { day: day, dr: dr };
+    return dr;
+  }
   function dataReady(now) {
     const day = iso(now);
     if (cached && cached.day === day) return cached.dr;
     const W = root;
+    const V = W.FB_PRODUCTION && W.FB_PRODUCTION.vasuCT ? W.FB_PRODUCTION.vasuCT() : null;
+    if (V && W.FB_DATASET) return vasuReady(now, V);
     if (!W.SEED || !W.FB_ORDER_HISTORY || !W.FB_SAMPLE || !W.FB_DATASET) return null;
     const seed = W.SEED, hist = W.FB_ORDER_HISTORY;
     let latest = 0;
@@ -125,13 +169,14 @@
   const START = 9, END = 18;                      // the trips run 9 am to 6 pm
   /* Two vans, each with its driver: the number the owner calls when a stop
      runs late (the same crew the Tracking screen shows). */
-  const VANS = [{ name: "Van 1", driver: "Ajay", phone: "9820011231" },
+  let VANS = [{ name: "Van 1", driver: "Ajay", phone: "9820011231" },
                 { name: "Van 2", driver: "Kumar", phone: "9820011232" }];
   /* The spare at the dock: a tempo the owner can send when a van can't go
      on (24 Sep 2026: Move to another van needs somewhere to move to). */
-  const SPARES = [{ name: "Van 3", driver: "Suresh", phone: "9820011233" }];
+  let SPARES = [{ name: "Van 3", driver: "Suresh", phone: "9820011233" }];
+  let WHERE = "Jayanagar 4th Block";              // where the van breaks down
   const VAN_CASES = 40;                           // a load, in cases, per round
-  const PLAN_V = 5;                               // a route planned before incidents is planned again
+  const PLAN_V = 6;                               // a route planned before incidents — or before Vasu Foods (29 Sep 2026) — is planned again
   function slotAt(day, i, n) {
     const span = (END - START) * 3600000;
     return dayOf(day) + START * 3600000 - 5.5 * 3600000 + Math.round(span * (i + 0.5) / n);   // IST → UTC
@@ -182,7 +227,7 @@
     const downAt = dayOf(day) + (12.25 + rnd(day + ":dn") * 0.75) * 3600000 - 5.5 * 3600000;
     const down = { van: okVan.name, driver: okVan.driver, kind: rnd(day + ":dk") < 0.5 ? "puncture" : "breakdown",
                    from: new Date(downAt).toISOString(), until: new Date(downAt + (45 + Math.floor(rnd(day + ":du") * 30)) * 60000).toISOString(),
-                   where: "Jayanagar 4th Block" };
+                   where: WHERE };
     /* One afternoon customer is over their credit limit; one morning drop
        will be disputed as never received. */
     const pm = stops.filter(function (s) { return s.round === 2 && !s.overbooked; });
