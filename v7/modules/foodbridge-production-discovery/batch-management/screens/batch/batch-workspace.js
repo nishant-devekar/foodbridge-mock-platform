@@ -138,7 +138,7 @@
       return opCard(b, "op-inprogress", "oi-blue", IconPackage(), dateNode(IconCalendar(), fmtDateNice(b.expectedFinishDate)), "Open", "btn btn-outline-blue btn-sm");
     }
     if (bucket === "waiting") {
-      return opCard(b, "op-waiting", "oi-orange", IconClock(), dateNode(IconCalendar(), fmtDateNice(b.plannedDate)), "Open", "btn btn-outline-orange btn-sm");
+      return opCard(b, "op-waiting", "oi-orange", IconClock(), dateNode(IconCalendar(), shiftLine(b)), "Open", "btn btn-outline-orange btn-sm");
     }
     return opCard(b, "op-done", "oi-green", IconPackageCheck(), dateNode(IconCalendar(), fmtDateNice(b.plannedDate)), "View", "btn btn-outline-green btn-sm");
   }
@@ -187,7 +187,7 @@
       el("td", { class: "ws-home-td-qty num" }, `${b.batchSize ?? "—"} ${b.batchUnit ?? "kg"}`, el("span", { class: "u" }, "Batch Size")),
       el("td", { class: "ws-home-td-due" },
         el("div", { class: "d " + due.cls }, due.text),
-        el("div", { class: "sub" }, fmtDateNice(b.plannedDate)),
+        el("div", { class: "sub" + (shiftLine(b) === "Not scheduled" ? " not-scheduled" : "") }, shiftLine(b)),
         el("div", { class: "sub" }, "Expected " + fmtDateNice(b.expectedFinishDate))),
       el("td", { class: "ws-home-td-op" },
         el("div", { class: "ws-home-td-op-inner" },
@@ -252,7 +252,6 @@
       { key: "done", label: "Completed", count: counts.done, cls: "section-tab-done" },
     ];
     const list = sortedList();
-    const overviewDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     function setFilter(key) { state.activeFilter = key; render(); }
 
@@ -308,10 +307,7 @@
         el("span", { html: IconPlus() }), el("span", {}, "Create Batch")));
 
     const content = el("div", { class: "content2" },
-      el("div", { class: "overview-row" },
-        el("span", { class: "overview-date" }, "Today, " + overviewDate),
-        el("div", { style: "display:flex;gap:10px;position:relative" },
-          el("button", { class: "btn btn-primary", onclick: openCreate }, "+ New Batch"))),
+      /* the date and + New Batch are in the shared line under the tabs (assets/production-tabs.js) */
       el("div", { class: "kpi-wrap" }, kpiRow),
       chipRow,
       workspace,

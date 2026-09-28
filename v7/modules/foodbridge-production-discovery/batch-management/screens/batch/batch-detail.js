@@ -47,7 +47,29 @@
     returnDraft: null,
     historyFor: null,
     historyData: null,
+
+    // Steps tab (29 Sep 2026): one step's draft, and Record all at once
+    rec: null,
+    recAll: null,
+    recording: null,
   };
+
+  /* ── the production store (29 Sep 2026): every recorded fact moves stock
+     through one ledger; this page reads and writes it directly ── */
+  const P = window.FB_PRODUCTION || null;
+  function sw(fn) {
+    try { return P.write(fn); }
+    catch (e) { throw new Error((e && e.body && e.body.error) || (e && e.message) || "That didn't save"); }
+  }
+  async function reload() { state.batch = await MockApi.getBatch(state.batch.id); }
+  function kgs(v) { return (Math.round(v * 100) / 100).toLocaleString("en-IN") + " kg"; }
+  function slotLabel(when) {
+    if (!when) return "Not scheduled";
+    const d = new Date(when.date + "T00:00:00"), today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = d.getTime() === today.getTime() ? "Today" : d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    const name = P ? P.read((D) => D.slotName(when.slot)) : when.slot;
+    return day + " · " + name + " shift";
+  }
 
   let modalScrimEl = null; // mounted once, top-level sibling of the drawer/scrim — see mountModal()
   let modalBodyEl = null;
@@ -90,6 +112,8 @@
 
   // ── the optional handover block shared by ConfirmStatusUpdateModal / CompleteOutcomeModal ──
   function handoverFields() {
+    /* with the store, hand-over belongs to the slot (Production › Week) */
+    if (P) return null;
     return el("div", { class: "ws-comment-field" },
       el("label", { class: "ws-su-label", style: "display:flex;align-items:center;gap:8px;cursor:pointer" },
         el("input", {
@@ -194,11 +218,50 @@
           oninput: (e) => { state.comment = e.target.value; const c = modalScrimEl.querySelector(".ws-comment-count"); if (c) c.textContent = `${e.target.value.length}/250`; },
         }),
         el("div", { class: "ws-comment-count" }, `${state.comment.length}/250`)),
+      P ? transitionExtras(trigger) : null,
       handoverFields(),
       state.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, state.error) : null,
       el("div", { class: "ws-modal-footer" },
         el("button", { type: "button", class: "btn", disabled: state.busy || undefined, onclick: closeConfirmModal }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-primary", disabled: state.busy || undefined, onclick: submitStatusUpdate }, state.busy ? "Updating…" : "Confirm Update")));
+        el("button", { type: "button", class: "btn btn-primary", disabled: (state.busy || (P && trigger === "close" && closeNeedsReason() && !state.comment.trim())) || undefined, onclick: submitStatusUpdate }, state.busy ? "Updating…" : "Confirm Update")));
+  }
+
+  /* what the next status means for stock, said before it happens */
+  function closeNeedsReason() {
+    const bal = P.read((D) => D.balance(D.batch(state.batch.id)));
+    return state.batch.kind === "production" && Math.abs(bal.gapKg) > state.batch.batchSize * 0.05;
+  }
+  function transitionExtras(trigger) {
+    const b = state.batch;
+    if (trigger === "start") {
+      const def = P.read((D) => D.recordingOf(D.batch(b.id)));
+      if (!state.recording) state.recording = def;
+      const opt = (v, t, d) => el("label", { class: "ws-status-option" + (state.recording === v ? " selected" : ""), style: "cursor:pointer" },
+        el("input", { type: "radio", name: "rec", checked: state.recording === v || undefined, onchange: () => { state.recording = v; render(); }, style: "margin-right:6px" }),
+        el("span", { class: "label" }, t), el("span", { class: "desc" }, d));
+      const where = P.read((D) => { const bb = D.batch(b.id), today = new Date(); const key = bb.when || null; const sh = key && D.findSlot(key.date, key.slot); return { slot: slotLabel(key), inCharge: sh ? sh.inCharge : bb.operator, crew: sh ? sh.workers.length : 0 }; });
+      return el("div", { class: "ws-comment-field" },
+        el("div", { class: "ws-su-label", style: "margin-bottom:6px" }, "Record this batch"),
+        el("div", { class: "ws-status-options" },
+          opt("app", "Worker App", "Its steps go to the phones of the shift's people."),
+          opt("office", "Office", "Record its steps on this batch's Steps tab.")),
+        el("div", { class: "muted small", style: "margin-top:8px" }, "Shift: " + where.slot + (where.inCharge ? " · " + where.inCharge : "") + (where.crew ? " · crew of " + where.crew : "")));
+    }
+    if (trigger === "reject") {
+      return el("div", { class: "ws-note attn", style: "margin-top:12px" }, "Whatever it has made so far goes to quarantine: its bags leave Semi-Finished and its packets leave Finished Goods until you release or scrap them.");
+    }
+    if (trigger === "close" && b.kind === "production") {
+      const bal = P.read((D) => D.balance(D.batch(b.id)));
+      const row = (k, v, bad) => el("div", { class: "kv" }, el("span", { class: "k" }, k), el("span", { class: "v", style: bad ? "color:var(--fb-amber-700,#c2410c);font-weight:700" : "" }, v));
+      return el("div", { class: "ov-block", style: "margin-top:12px" },
+        el("div", { class: "ds-label" }, "Plan against what was recorded"),
+        row("Planned", kgs(bal.planKg) + (bal.planPackedKg ? " (" + kgs(bal.planPackedKg) + " packed + " + kgs(bal.planBaggedKg) + " into bags)" : "")),
+        row("Made", kgs(bal.madeKg) + (bal.lossPct != null ? " · loss " + bal.lossPct + "%" : "")),
+        row("Out", kgs(bal.outKg) + " (" + kgs(bal.packedKg) + " packed + " + kgs(bal.baggedKg) + " into bags)", Math.abs(bal.gapKg) > b.batchSize * 0.05),
+        bal.unused.length ? el("div", { class: "nb", style: "margin-top:8px" }, "Issued and not used: " + bal.unused.map((u) => u.qty + " " + u.unit + " " + u.name).join(", ") + ". Return it on the Ingredients tab, or close and it counts as used.") : null,
+        closeNeedsReason() ? el("div", { class: "ws-note attn", style: "margin-top:8px" }, "Out is " + kgs(Math.abs(bal.gapKg)) + (bal.gapKg < 0 ? " under" : " over") + " plan. Say why in the comment to settle it.") : null);
+    }
+    return null;
   }
 
   function actualInputCell(outcome, key, value, isBulk, onChange) {
@@ -285,9 +348,10 @@
     state.busy = true; state.error = null; render();
     try {
       const newOperator = state.handoverOn && state.newOperator.id ? { id: state.newOperator.id, name: state.newOperator.name } : undefined;
-      const updated = await MockApi.transitionBatch(b.id, { trigger, comment: state.comment.trim() || undefined, newOperator });
+      const updated = await MockApi.transitionBatch(b.id, { trigger, comment: state.comment.trim() || undefined, newOperator, recording: trigger === "start" ? state.recording : undefined });
       state.batch = updated;
-      state.selectedTrigger = null; state.comment = ""; state.confirmingUpdate = false; state.handoverOn = false; state.newOperator = { name: "" };
+      state.selectedTrigger = null; state.comment = ""; state.confirmingUpdate = false; state.handoverOn = false; state.newOperator = { name: "" }; state.recording = null;
+      if (trigger === "start" && P) state.tab = "steps";
     } catch (e) {
       state.error = e.message;
     } finally {
@@ -362,7 +426,7 @@
       state.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, state.error) : null,
       el("div", { class: "ws-modal-footer" },
         el("button", { type: "button", class: "btn", disabled: state.busy || undefined, onclick: closeEditDates }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-primary", disabled: !canSave, onclick: saveDates }, state.busy ? "Saving…" : "Save")));
+        el("button", { type: "button", class: "btn btn-primary", disabled: !canSave || undefined, onclick: saveDates }, state.busy ? "Saving…" : "Save")));
   }
   async function saveDates() {
     state.busy = true; state.error = null; render();
@@ -378,7 +442,8 @@
   function inventorySyncBlock() {
     const b = state.batch;
     const sync = b.inventorySync;
-    if (!sync) return null;
+    /* with the store, steps post stock themselves — see stockBlock() */
+    if (!sync || P) return null;
     const events = sync.events && sync.events.length
       ? el("div", { class: "ws-timeline", style: "margin-top:12px" }, ...sync.events.map((e) =>
           el("div", { class: "ws-tl-item" },
@@ -404,6 +469,47 @@
       onClose: () => { state.invSyncHandle = null; },
       onSynced: async () => { state.invSyncHandle = null; state.batch = await MockApi.getBatch(state.batch.id); render(); },
     });
+  }
+
+  /* What this batch moved, from the ledger: packets into Finished Goods,
+     bags into Semi-Finished, raw material out of the store. */
+  function goInventory(route) { try { if (window.parent !== window) window.parent.location.hash = "#/" + route; } catch (e) {} }
+  function stockBlock() {
+    if (!P) return null;
+    const m = P.read((D) => {
+      const mv = D.movementsOfBatch(state.batch.id).filter((e) => !e.reversed && e.what !== "corrected");
+      const sum = (kind) => { const by = {}; mv.filter((e) => e.kind === kind && e.qty).forEach((e) => { by[e.name] = by[e.name] || { name: e.name, unit: e.unit, qty: 0, n: 0 }; by[e.name].qty += e.qty; by[e.name].n += 1; }); return Object.values(by); };
+      return { fg: sum("fg"), sf: sum("sf"), rm: sum("rm").filter((x) => Math.abs(x.qty) > 0.001), held: D.inQuarantine(D.batch(state.batch.id)), q: D.batch(state.batch.id).quarantine };
+    });
+    if (!m.fg.length && !m.sf.length && !m.rm.length && !m.held.bags && !m.held.packets) return null;
+    const line = (txt, qty, route, label) => el("div", { class: "kv" }, el("span", { class: "k" }, txt),
+      el("span", { class: "v" }, qty, route ? el("a", { href: "#", style: "margin-left:8px;color:var(--app-green,#15803d);font-weight:600", onclick: (e) => { e.preventDefault(); goInventory(route); } }, label + " ›") : null));
+    const sign = (v) => (v > 0 ? "+" : "") + (Math.round(v * 100) / 100).toLocaleString("en-IN");
+    return el("div", { class: "ov-block" },
+      el("div", { class: "ds-label" }, "Stock posted ", el("span", { class: "ds-label-note" }, "— by its steps, entered once")),
+      ...m.fg.map((x) => line(x.name, sign(x.qty) + " packets", "inventory/finished-goods-inventory", "Finished Goods")),
+      ...m.sf.map((x) => line(x.name + " · semi-finished", sign(x.qty) + " " + x.unit, "inventory/semi-finished-inventory", "Semi-Finished")),
+      ...m.rm.map((x) => line(x.name, sign(x.qty) + " " + x.unit, "inventory/raw-material-inventory", "Raw Material")),
+      (m.held.bags || m.held.packets) ? el("div", { style: "margin-top:10px" },
+        el("div", { class: "nb nb-bad" }, "In quarantine: " + [m.held.packets ? m.held.packets + " packets" : "", m.held.bags ? kgs(m.held.kg) + " in " + m.held.bags + " bag" + (m.held.bags === 1 ? "" : "s") : ""].filter(Boolean).join(" and ") + ". Not in stock until released."),
+        el("div", { style: "display:flex;gap:8px;margin-top:8px" },
+          el("button", { type: "button", class: "btn btn-sm", disabled: state.busy || undefined, onclick: () => quarantineAction("release") }, "Release to stock"),
+          el("button", { type: "button", class: "btn btn-sm btn-danger", disabled: state.busy || undefined, onclick: () => quarantineAction("scrap") }, "Scrap"))) : null,
+      m.q ? el("div", { class: "muted small", style: "margin-top:6px" }, "Quarantine " + m.q + ".") : null);
+  }
+  async function quarantineAction(how) {
+    state.busy = true; render();
+    try { sw((D) => D.releaseQuarantine(state.batch.id, how, "Office")); await reload(); } catch (e) { state.error = e.message; } finally { state.busy = false; render(); }
+  }
+  function slotFacts() {
+    if (!P) return null;
+    const f = P.read((D) => { const b = D.batch(state.batch.id), sh = b.when && D.findSlot(b.when.date, b.when.slot); return { when: b.when, inCharge: sh ? sh.inCharge : b.operator, rec: D.recordingOf(b) }; });
+    return [
+      el("div", { class: "kv" }, el("span", { class: "k" }, "When"), el("span", { class: "v" }, slotLabel(f.when), " ",
+        el("a", { href: "#", style: "margin-left:6px;color:var(--app-green,#15803d);font-weight:600", onclick: (e) => { e.preventDefault(); goInventory("production/production-board?view=week"); } }, "Week ›"))),
+      el("div", { class: "kv" }, el("span", { class: "k" }, "In-charge"), el("span", { class: "v" }, f.inCharge || "—")),
+      el("div", { class: "kv" }, el("span", { class: "k" }, "Recording"), el("span", { class: "v" }, f.rec === "office" ? "In the office" : "Worker App")),
+    ];
   }
 
   // ── Overview tab ──
@@ -451,19 +557,20 @@
         b.stateId === "planned" ? el("div", { style: "margin-bottom:10px" }, el("button", { type: "button", class: "btn", onclick: () => goEdit(b.id) }, "Edit Batch")) : null,
         statusUpdatePanel()),
       el("div", { class: "ov-block" },
-        el("div", { class: "ds-label" }, "Packaging Mix ", el("span", { class: "ds-label-note" }, `— ${b.packagingLines.length} line${b.packagingLines.length === 1 ? "" : "s"}`)),
+        el("div", { class: "ds-label" }, P ? "Packed in the same run " : "Packaging Mix ", el("span", { class: "ds-label-note" }, `— ${b.packagingLines.length} line${b.packagingLines.length === 1 ? "" : "s"}`)),
         packagingBlock,
         b.semiFinishedKg ? el("div", { class: "kv" }, el("span", { class: "k" }, "Left unpacked (semi-finished)"), el("span", { class: "v" }, `${b.semiFinishedKg.toFixed(2)} ${batchUnit} · `,
           /* it is stock now: Inventory › Semi-Finished Inventory (28 Sep 2026) */
           el("a", { href: "#", style: "color:var(--app-green,#15803d);font-weight:600", onclick: (e) => { e.preventDefault(); try { if (window.parent !== window) window.parent.location.hash = "#/inventory/semi-finished-inventory"; } catch (err) {} } }, "Semi-Finished Inventory ›"))) : null),
       outcomeBlock,
+      stockBlock(),
       inventorySyncBlock(),
       el("div", { class: "ov-block" },
         el("div", { class: "ds-label" }, "Batch Facts"),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Planned Batch Size"), el("span", { class: "v" }, `${b.batchSize ?? "—"} ${batchUnit}`)),
-        el("div", { class: "kv" }, el("span", { class: "k" }, "Supervisor"), el("span", { class: "v" }, b.operator ?? "—")),
-        el("div", { class: "kv" }, el("span", { class: "k" }, "Planned Date"), el("span", { class: "v" }, b.plannedDate ? fmtDateNice(b.plannedDate) : "Not set")),
-        el("div", { class: "kv" }, el("span", { class: "k" }, "Expected Finish"), el("span", { class: "v" }, b.expectedFinishDate ? fmtDateNice(b.expectedFinishDate) : "Not set")),
+        ...(P ? slotFacts() : [el("div", { class: "kv" }, el("span", { class: "k" }, "Supervisor"), el("span", { class: "v" }, b.operator ?? "—")),
+          el("div", { class: "kv" }, el("span", { class: "k" }, "Planned Date"), el("span", { class: "v" }, b.plannedDate ? fmtDateNice(b.plannedDate) : "Not set"))]),
+        el("div", { class: "kv" }, el("span", { class: "k" }, P ? "Need by" : "Expected Finish"), el("span", { class: "v" }, b.expectedFinishDate ? fmtDateNice(b.expectedFinishDate) : "Not set")),
         b.stateId !== "planned" ? el("button", { type: "button", class: "btn btn-sm", style: "margin-top:8px", onclick: openEditDates }, "✎ Edit Dates") : null),
       (b.stateId === "completed" || b.stateId === "closed")
         ? el("div", { class: "ov-quickactions" }, el("button", { type: "button", class: "btn btn-sm", onclick: () => window.print() }, "🖨 Print Label"))
@@ -478,7 +585,42 @@
     actions.push({ label: "History", onClick: async () => { state.historyFor = row; state.historyData = null; render(); const r = await MockApi.listIngredients(state.batch.id, row.ingredientId); state.historyData = r.transactions; render(); } });
     return actions;
   }
+  /* with the store: issued (out of the store for this batch) · used (by its
+     steps) · returned · unused; Issue and Return move the store's lots */
+  function unusedOf(r) { return Math.max(0, Math.round((r.issuedQty - r.returnedQty - (r.usedQty || 0)) * 100) / 100); }
+  function storeIngredientsTab() {
+    const b = state.batch;
+    const rows = b.ingredientSummary || [];
+    const onHand = P.read((D) => { const o = {}; rows.forEach((r) => { o[r.ingredientId] = D.onHand(r.ingredientId); }); return o; });
+    const f = (v, u) => `${(Math.round(v * 100) / 100).toLocaleString("en-IN")} ${u}`;
+    return el("div", {},
+      el("div", { class: "ov-block" },
+        el("div", { class: "ds-label", style: "display:flex;align-items:center;justify-content:space-between" },
+          el("span", {}, "Ingredients ", el("span", { class: "ds-label-note" }, "— the store's issues and the steps' use, entered once")),
+          ["completed", "closed", "rejected"].includes(b.stateId) ? null : el("button", { type: "button", class: "btn btn-sm", onclick: () => { state.bulkIssueOpen = true; state.bulkIssueSelected = []; state.bulkIssueLines = {}; render(); } }, "+ Issue from store")),
+        !rows.length ? el("div", { class: "readonly-note" }, "No ingredients on this batch.") : el("div", { class: "ws-table-scroll" },
+          el("table", { class: "bm-table" },
+            el("thead", {}, el("tr", {}, el("th", {}, "Material"), el("th", { class: "num" }, "Recipe"), el("th", { class: "num" }, "Issued"), el("th", { class: "num" }, "Used"), el("th", { class: "num" }, "Returned"), el("th", { class: "num" }, "Unused"), el("th", { class: "num" }, "In store"), el("th", {}, ""))),
+            el("tbody", {}, ...rows.map((r) => {
+              const unused = unusedOf(r);
+              const acts = [];
+              if (!["completed", "closed", "rejected"].includes(b.stateId)) acts.push({ label: "Issue from store", onClick: () => { state.issueFor = r; state.issueDraft = { ingredientId: r.ingredientId, quantity: "", uom: r.uom, warehouseId: "store", remarks: "" }; render(); } });
+              if (unused > 0) acts.push({ label: "Return to store", onClick: () => { state.returnFor = r; state.returnDraft = { quantity: String(unused), warehouseId: "store", remarks: "" }; render(); } });
+              acts.push({ label: "History", onClick: async () => { state.historyFor = r; state.historyData = null; render(); const x = await MockApi.listIngredients(state.batch.id, r.ingredientId); state.historyData = x.transactions; render(); } });
+              return el("tr", {},
+                el("td", {}, r.ingredientName, r.forPacks ? el("span", { class: "bm-chip" }, "Packing") : null),
+                el("td", { class: "num" }, f(r.recommendedQty, r.uom)),
+                el("td", { class: "num" }, f(r.issuedQty, r.uom)),
+                el("td", { class: "num" }, f(r.usedQty || 0, r.uom)),
+                el("td", { class: "num" }, f(r.returnedQty, r.uom)),
+                el("td", { class: "num", style: unused > 0 ? "color:var(--fb-amber-700,#c2410c);font-weight:700" : "" }, f(unused, r.uom)),
+                el("td", { class: "num muted" }, f(onHand[r.ingredientId] || 0, r.uom)),
+                el("td", {}, KebabButton("ing-" + r.ingredientId, "ws-table-kebab", `More actions for ${r.ingredientName}`, acts)));
+            })))),
+        el("div", { class: "muted small", style: "margin-top:10px" }, "Issue takes from the oldest lot now. A weighing step uses what was issued first and takes only the rest. Unused material goes back to the lots it came from.")));
+  }
   function ingredientsTab() {
+    if (P) return storeIngredientsTab();
     const b = state.batch;
     const rows = b.ingredientSummary || [];
     return el("div", {},
@@ -506,9 +648,9 @@
   function issueDrawer() {
     const b = state.batch;
     const d = state.issueDraft;
-    const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient);
+    const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient || (P && r.forPacks));
     const selectedRow = recipeOptions.find((r) => r.ingredientId === d.ingredientId) || null;
-    const canSubmit = !state.busy && Number(d.quantity) > 0 && d.uom.trim() !== "" && d.warehouseId.trim() !== "" && d.ingredientId !== "";
+    const canSubmit = !state.busy && Number(d.quantity) > 0 && d.uom.trim() !== "" && (P || d.warehouseId.trim() !== "") && d.ingredientId !== "";
     return el("div", { class: "ws-modal", role: "dialog", "aria-modal": "true", "aria-label": "Issue ingredient" },
       el("div", { class: "ws-modal-head" },
         el("div", {}, el("div", { class: "ws-modal-title" }, "Issue Ingredient"), el("div", { class: "ws-modal-sub" }, `Record an ingredient issued against ${b.batchNumber}.`)),
@@ -518,14 +660,15 @@
         el("select", {
           class: "input", value: d.ingredientId, disabled: state.busy || undefined,
           onchange: (e) => { d.ingredientId = e.target.value; const r = recipeOptions.find((x) => x.ingredientId === e.target.value); if (r) d.uom = r.uom; render(); },
-        }, el("option", { value: "" }, "Select an ingredient…"), ...recipeOptions.map((r) => el("option", { value: r.ingredientId }, r.ingredientName)))),
+        }, el("option", { value: "" }, "Select an ingredient…"), ...recipeOptions.map((r) => el("option", { value: r.ingredientId, selected: r.ingredientId === d.ingredientId || undefined }, r.ingredientName)))),
       selectedRow ? el("div", { class: "ov-block", style: "margin-top:12px" },
         el("div", { class: "kv" }, el("span", { class: "k" }, "Recommended"), el("span", { class: "v" }, `${selectedRow.recommendedQty.toFixed(2)} ${selectedRow.uom}`)),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Already Issued"), el("span", { class: "v" }, `${selectedRow.issuedQty.toFixed(2)} ${selectedRow.uom}`)),
         el("div", { class: "kv" }, el("span", { class: "k" }, "Remaining Recommendation"), el("span", { class: "v" }, `${selectedRow.remainingRecommended.toFixed(2)} ${selectedRow.uom}`))) : null,
       el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "Quantity ", el("span", { class: "req" }, "*")), el("input", { class: "input", type: "number", min: "0", step: "0.01", value: d.quantity, disabled: state.busy || undefined, oninput: (e) => { d.quantity = e.target.value; render(); } })),
       el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "UOM ", el("span", { class: "req" }, "*")), el("input", { class: "input", value: d.uom, disabled: true, readonly: true })),
-      el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "Warehouse ", el("span", { class: "req" }, "*")), el("input", { class: "input", value: d.warehouseId, disabled: state.busy || undefined, oninput: (e) => { d.warehouseId = e.target.value; render(); } })),
+      P ? el("div", { class: "muted small", style: "margin-top:8px" }, "From the oldest lot in the store: " + P.read((D) => D.onHand(d.ingredientId || "") ) + " " + d.uom + " on hand.")
+        : el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "Warehouse ", el("span", { class: "req" }, "*")), el("input", { class: "input", value: d.warehouseId, disabled: state.busy || undefined, oninput: (e) => { d.warehouseId = e.target.value; render(); } })),
       el("div", { class: "ws-comment-field", style: "margin-top:10px" },
         el("label", { class: "ws-su-label", style: "display:block;margin-bottom:6px" }, "Remarks (optional)"),
         el("textarea", { placeholder: "Add a note about this issue…", maxlength: "250", value: d.remarks, disabled: state.busy || undefined, oninput: (e) => { d.remarks = e.target.value; render(); } }),
@@ -533,7 +676,7 @@
       state.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, state.error) : null,
       el("div", { class: "ws-modal-footer" },
         el("button", { type: "button", class: "btn", disabled: state.busy || undefined, onclick: closeIssueDrawer }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit, onclick: submitIssue }, state.busy ? "Issuing…" : "Issue Ingredient")));
+        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit || undefined, onclick: submitIssue }, state.busy ? "Issuing…" : "Issue Ingredient")));
   }
   function closeIssueDrawer() { if (state.busy) return; state.issueFor = null; state.error = null; render(); }
   async function submitIssue() {
@@ -547,9 +690,9 @@
 
   function bulkIssueDrawer() {
     const b = state.batch;
-    const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient);
+    const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient || (P && r.forPacks));
     const selectedRows = recipeOptions.filter((r) => state.bulkIssueSelected.includes(r.ingredientId));
-    const lineValid = (id) => { const l = state.bulkIssueLines[id]; return !!l && Number(l.quantity) > 0 && l.warehouseId.trim() !== ""; };
+    const lineValid = (id) => { const l = state.bulkIssueLines[id]; return !!l && Number(l.quantity) > 0 && (P || l.warehouseId.trim() !== ""); };
     const canSubmit = !state.busy && selectedRows.length > 0 && selectedRows.every((r) => lineValid(r.ingredientId));
     return el("div", { class: "ws-modal ws-modal-wide", role: "dialog", "aria-modal": "true", "aria-label": "Issue ingredients" },
       el("div", { class: "ws-modal-head" },
@@ -562,7 +705,7 @@
             type: "checkbox", checked: state.bulkIssueSelected.includes(r.ingredientId) || undefined, disabled: state.busy || undefined,
             onchange: () => {
               if (state.bulkIssueSelected.includes(r.ingredientId)) state.bulkIssueSelected = state.bulkIssueSelected.filter((x) => x !== r.ingredientId);
-              else { state.bulkIssueSelected.push(r.ingredientId); if (!state.bulkIssueLines[r.ingredientId]) state.bulkIssueLines[r.ingredientId] = { quantity: "", warehouseId: "", remarks: "" }; }
+              else { state.bulkIssueSelected.push(r.ingredientId); if (!state.bulkIssueLines[r.ingredientId]) state.bulkIssueLines[r.ingredientId] = { quantity: "", warehouseId: P ? "store" : "", remarks: "" }; }
               render();
             },
           }),
@@ -583,21 +726,21 @@
       state.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, state.error) : null,
       el("div", { class: "ws-modal-footer" },
         el("button", { type: "button", class: "btn", disabled: state.busy || undefined, onclick: closeBulkIssue }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit, onclick: submitBulkIssue }, state.busy ? "Issuing…" : selectedRows.length > 0 ? `Issue ${selectedRows.length} Ingredient${selectedRows.length === 1 ? "" : "s"}` : "Issue Ingredients")));
+        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit || undefined, onclick: submitBulkIssue }, state.busy ? "Issuing…" : selectedRows.length > 0 ? `Issue ${selectedRows.length} Ingredient${selectedRows.length === 1 ? "" : "s"}` : "Issue Ingredients")));
   }
   function closeBulkIssue() { if (state.busy) return; state.bulkIssueOpen = false; state.error = null; render(); }
   async function submitBulkIssue() {
     state.busy = true; state.error = null; render();
     try {
       const b = state.batch;
-      const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient);
+      const recipeOptions = (b.ingredientSummary || []).filter((r) => r.recipeIngredient || (P && r.forPacks));
       const selectedRows = recipeOptions.filter((r) => state.bulkIssueSelected.includes(r.ingredientId));
       const items = selectedRows.map((r) => { const l = state.bulkIssueLines[r.ingredientId]; return { ingredientId: r.ingredientId, quantity: Number(l.quantity), uom: r.uom, warehouseId: l.warehouseId.trim(), remarks: l.remarks.trim() || undefined }; });
       const { results } = await MockApi.bulkIssueIngredient(b.id, { items });
       const failed = results.filter((r) => !r.ok);
       state.batch = await MockApi.getBatch(b.id);
       if (failed.length === 0) { state.bulkIssueOpen = false; }
-      else { state.bulkIssueSelected = failed.map((f) => f.ingredientId); }
+      else { state.bulkIssueSelected = failed.map((f) => f.ingredientId); state.error = failed.map((f) => f.error).filter(Boolean).join(" · ") || null; }
     } catch (e) { state.error = e.message; } finally { state.busy = false; render(); }
   }
 
@@ -605,16 +748,17 @@
     const b = state.batch;
     const row = state.returnFor;
     const d = state.returnDraft;
-    const availableToReturn = row.issuedQty - row.returnedQty;
+    const availableToReturn = P ? unusedOf(row) : row.issuedQty - row.returnedQty;
     const qtyOk = Number(d.quantity) > 0 && Number(d.quantity) <= availableToReturn;
-    const canSubmit = !state.busy && qtyOk && d.warehouseId.trim() !== "";
+    const canSubmit = !state.busy && qtyOk && (P || d.warehouseId.trim() !== "");
     return el("div", { class: "ws-modal", role: "dialog", "aria-modal": "true", "aria-label": "Return ingredient" },
       el("div", { class: "ws-modal-head" },
         el("div", {}, el("div", { class: "ws-modal-title" }, "Return Ingredient"), el("div", { class: "ws-modal-sub" }, `${row.ingredientName} — available to return: ${availableToReturn.toFixed(2)} ${row.uom}`)),
         el("button", { type: "button", class: "ws-modal-close", "aria-label": "Close", disabled: state.busy || undefined, onclick: closeReturnDrawer }, "✕")),
       el("div", { class: "fld", style: "margin-top:14px" }, el("label", { class: "label" }, "Quantity ", el("span", { class: "req" }, "*")), el("input", { class: "input", type: "number", min: "0", step: "0.01", max: availableToReturn, value: d.quantity, disabled: state.busy || undefined, oninput: (e) => { d.quantity = e.target.value; render(); } })),
       d.quantity !== "" && !qtyOk ? el("div", { class: "nb nb-bad" }, `Enter a quantity greater than 0 and no more than ${availableToReturn.toFixed(2)} ${row.uom}.`) : null,
-      el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "Warehouse ", el("span", { class: "req" }, "*")), el("input", { class: "input", value: d.warehouseId, disabled: state.busy || undefined, oninput: (e) => { d.warehouseId = e.target.value; render(); } })),
+      P ? el("div", { class: "muted small", style: "margin-top:8px" }, "It goes back to the lots it came from, newest first.")
+        : el("div", { class: "fld", style: "margin-top:10px" }, el("label", { class: "label" }, "Warehouse ", el("span", { class: "req" }, "*")), el("input", { class: "input", value: d.warehouseId, disabled: state.busy || undefined, oninput: (e) => { d.warehouseId = e.target.value; render(); } })),
       el("div", { class: "ws-comment-field", style: "margin-top:10px" },
         el("label", { class: "ws-su-label", style: "display:block;margin-bottom:6px" }, "Reason (optional)"),
         el("textarea", { placeholder: "Why is this being returned?", maxlength: "250", value: d.remarks, disabled: state.busy || undefined, oninput: (e) => { d.remarks = e.target.value; render(); } }),
@@ -622,7 +766,7 @@
       state.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, state.error) : null,
       el("div", { class: "ws-modal-footer" },
         el("button", { type: "button", class: "btn", disabled: state.busy || undefined, onclick: closeReturnDrawer }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit, onclick: submitReturn }, state.busy ? "Returning…" : "Return Ingredient")));
+        el("button", { type: "button", class: "btn btn-primary", disabled: !canSubmit || undefined, onclick: submitReturn }, state.busy ? "Returning…" : "Return Ingredient")));
   }
   function closeReturnDrawer() { if (state.busy) return; state.returnFor = null; state.error = null; render(); }
   async function submitReturn() {
@@ -654,46 +798,197 @@
       el("div", { class: "ws-modal-footer" }, el("button", { type: "button", class: "btn", onclick: () => { state.historyFor = null; render(); } }, "Close")));
   }
 
-  // ── Steps tab — the batch on the shop floor (Production integration, 26 Sep 2026) ──
-  // Every step the batch's process has, as the floor recorded it: who, how much, from
-  // which lot, when. Read straight from the production store the worker app writes.
+  // ── Steps tab (29 Sep 2026) — the one place a batch's steps are recorded ──
+  // Worker App mode: the floor records them; this shows what it recorded,
+  // and "Record for…" covers a worker whose phone couldn't. Office mode: the
+  // office records them here with the same fields the phone asks for. Either
+  // way the same step completion runs, so the same stock moves — once.
+  function stepsModel() {
+    const b = state.batch;
+    return P.read((D, d) => {
+      const bb = D.batch(b.id);
+      const tasks = d.tasks.filter((t) => t.batch === b.id)
+        .map((t) => ({ ...t, shiftName: (d.shifts.find((sh) => sh._id === t.shift) || {}).name }))
+        .sort((x, y) => x.stepOrder - y.stepOrder || (x.createdAt < y.createdAt ? -1 : 1));
+      const sh = bb.when && D.findSlot(bb.when.date, bb.when.slot), crew = sh ? sh.workers : [];
+      const workers = d.workers.filter((w) => w.role !== "admin").map((w) => ({ id: w._id, name: w.name, role: w.role, inCrew: crew.includes(w._id) }))
+        .sort((x, y) => (y.inCrew - x.inCrew) || x.name.localeCompare(y.name));
+      return { mode: D.recordingOf(bb), tasks, steps: D.stepsFor(bb), made: D.madeKg(bb), packed: D.packedKg(bb), lines: D.sameRunLines(bb), workers, slot: slotLabel(bb.when) };
+    });
+  }
+  function howMuch(t) {
+    const parts = [];
+    if (t.kgIn) parts.push(`${t.kgIn} → ${t.kgOut} kg · −${t.lossPct}%${t.loss != null ? ` (≤${t.loss}%)` : ""}`);
+    if (t.sticksUsed) parts.push(`${t.sticksUsed} sticks`);
+    if (t.packedLines && t.packedLines.length) parts.push(t.packedLines.map((l) => `${l.packets} × ${l.name}`).join(", ") + " → Finished Goods");
+    if (t.bagsMade) parts.push(`${t.bagsMade.length} bag${t.bagsMade.length === 1 ? "" : "s"} · ${t.kgOut} kg → Semi-Finished`);
+    if (t.packets && !(t.packedLines && t.packedLines.length)) parts.push(`${t.packets} packets`);
+    if (t.cartonsPacked) parts.push(`${t.cartonsPacked} cartons → Finished Goods`);
+    return parts.join(" · ");
+  }
+  function fromWhere(t) {
+    return (t.lots || []).map((l) => l.fromIssued ? `${l.qty} ${l.unit} issued` : `lot ${l.lotNo}`).join(", ") || (t.bagsTaken || []).map((g) => "bag " + g.bagNo).join(", ") || "";
+  }
+  /* the phone's fields for a step, bound to a draft (no re-render on typing) */
+  function stepFields(t, inp, m) {
+    const b = state.batch, rows = [];
+    const num = (key, label, unit, step) => el("label", { class: "rs-f" }, el("span", {}, label),
+      el("span", { class: "rs-in" }, el("input", { class: "input qty-input", type: "number", min: "0", step: step || "0.1", value: inp[key] ?? "", oninput: (e) => { inp[key] = e.target.value; } }), el("small", {}, unit)));
+    if (t.weigh) { if (inp.kgIn === undefined && t.kgInStart) inp.kgIn = t.kgInStart; rows.push(num("kgIn", "Weight before", "kg"), num("kgOut", "Weight after", "kg")); }
+    if (t.sticks) rows.push(num("sticks", "Sticks used", "pcs", "1"));
+    if (t.packRun) {
+      inp.packs = inp.packs || {};
+      m.lines.forEach((l) => {
+        if (inp.packs[l.packagingConfigId] === undefined) inp.packs[l.packagingConfigId] = l.plannedUnits;
+        rows.push(el("label", { class: "rs-f" }, el("span", {}, l.name),
+          el("span", { class: "rs-in" }, el("input", { class: "input qty-input", type: "number", min: "0", step: "1", value: inp.packs[l.packagingConfigId], oninput: (e) => { inp.packs[l.packagingConfigId] = e.target.value; } }), el("small", {}, "packets · plan " + l.plannedUnits))));
+      });
+      rows.push(el("div", { class: "muted small" }, `From ${kgs(m.made)} made. One pouch a packet and whole cartons come out of the store; the packets go to Finished Goods.`));
+    }
+    if (t.bags) {
+      const rest = Math.max(0, Math.round((m.made - m.packed) * 100) / 100);
+      if (inp.kgOut === undefined) inp.kgOut = b.kind === "production" ? rest : "";
+      rows.push(num("kgOut", "Kg into bags", "kg"));
+      if (m.packed) rows.push(el("div", { class: "muted small" }, `The rest: ${kgs(m.made)} made − ${kgs(m.packed)} packed = ${kgs(rest)} → Semi-Finished.`));
+    }
+    if (t.pack) { if (inp.packets === undefined) inp.packets = b.packets; rows.push(num("packets", "Packets packed", "pcs", "1")); }
+    if (t.cartons) rows.push(el("div", { class: "muted small" }, "Cartons are counted from the packets packed; the packets go to Finished Goods."));
+    return rows;
+  }
+  function draftFor(t, m, kind) {
+    if (!state.rec || state.rec.taskId !== t._id || state.rec.kind !== kind) {
+      const who = t.assignedTo || (m.workers.find((w) => w.inCrew) || m.workers[0] || {}).id;
+      state.rec = { taskId: t._id, kind, workerId: who, input: {}, reason: "", error: null };
+    }
+    return state.rec;
+  }
+  function recordForm(t, m, kind) {
+    const r = draftFor(t, m, kind);
+    const fields = stepFields(t, r.input, m);
+    const title = kind === "fix" ? "Correct this step" : kind === "for" ? "Record for a worker" : "Record this step";
+    return el("div", { class: "rs-form" },
+      el("div", { class: "rs-title" }, title),
+      el("label", { class: "rs-f" }, el("span", {}, "Done by"),
+        el("select", { class: "input", disabled: kind === "fix" || undefined, onchange: (e) => { r.workerId = e.target.value; } },
+          ...m.workers.map((w) => el("option", { value: w.id, selected: w.id === r.workerId || undefined }, w.name + (w.inCrew ? "" : " · not in this shift"))))),
+      ...fields,
+      kind === "fix" ? el("label", { class: "rs-f" }, el("span", {}, "Why"), el("input", { class: "input", placeholder: "106 was typed as 160", value: r.reason, oninput: (e) => { r.reason = e.target.value; } })) : null,
+      kind === "for" ? el("div", { class: "muted small" }, "Marked \"entered by the office\". The step leaves the worker's phone.") : null,
+      kind === "fix" ? el("div", { class: "muted small" }, "Its stock is reversed and posted again with these figures; both lines stay in the history.") : null,
+      r.error ? el("div", { role: "alert", class: "error small" }, r.error) : null,
+      el("div", { class: "rs-acts" },
+        (kind !== "rec") ? el("button", { type: "button", class: "btn btn-sm", onclick: () => { state.rec = null; render(); } }, "Cancel") : null,
+        el("button", { type: "button", class: "btn btn-sm btn-primary", disabled: state.busy || undefined, onclick: () => submitRecord(t) }, state.busy ? "Saving…" : kind === "fix" ? "Save correction" : fields.length ? "✓ Record step" : "✓ Done")));
+  }
+  function cleanInput(inp) {
+    const out = {};
+    Object.keys(inp).forEach((k) => {
+      if (k === "packs") { out.packs = {}; Object.keys(inp.packs).forEach((id) => { out.packs[id] = Number(inp.packs[id]); }); }
+      else if (inp[k] !== "" && inp[k] != null) out[k] = Number(inp[k]);
+    });
+    return out;
+  }
+  async function submitRecord(t) {
+    const r = state.rec;
+    state.busy = true; r.error = null; render();
+    try {
+      const input = cleanInput(r.input);
+      if (r.kind === "fix") {
+        if (!r.reason.trim()) throw new Error("Say why it's being corrected");
+        sw((D) => D.correctStep(t._id, { input, reason: r.reason.trim(), actor: "Office" }));
+      } else {
+        sw((D) => D.recordStep(t._id, { workerId: r.workerId, input, actor: "Office" }));
+      }
+      state.rec = null;
+      await reload();
+    } catch (e) { r.error = e.message; } finally { state.busy = false; render(); }
+  }
+  async function switchRecording(mode) {
+    state.busy = true; render();
+    try { sw((D) => D.setRecording(state.batch.id, mode, "Office")); state.rec = null; await reload(); } catch (e) { state.error = e.message; } finally { state.busy = false; render(); }
+  }
   function stepsTab() {
     const b = state.batch;
-    if (!window.FB_PRODUCTION) return el("div", { class: "ws-note" }, "The shop floor isn't connected on this page.");
-    const tasks = window.FB_PRODUCTION.read((D, d) => d.tasks.filter((t) => t.batch === b.id)
-      .map((t) => ({ ...t, shiftName: (d.shifts.find((sh) => sh._id === t.shift) || {}).name }))
-      .sort((x, y) => x.stepOrder - y.stepOrder || (x.createdAt < y.createdAt ? -1 : 1)));
-    if (!tasks.length) {
-      return el("div", { class: "ws-section" }, el("div", { class: "ws-section-title" }, "Steps"),
-        el("div", { class: "ws-note" }, b.stateId === "planned" ? "Not on a shift yet. Add it to a shift in Production › Shifts; publishing puts its steps on the floor." : "No steps were recorded on the floor for this batch."));
+    if (!P) return el("div", { class: "ws-note" }, "The shop floor isn't connected on this page.");
+    const m = stepsModel();
+    const running = ["planned", "in-progress"].includes(b.stateId);
+    const closedOut = ["closed", "rejected"].includes(b.stateId);
+    const head = el("div", { class: "rs-head" },
+      el("span", {}, el("b", {}, "Recording: "), m.mode === "office" ? "In the office" : "Worker App", " · ", m.slot),
+      running ? el("button", { type: "button", class: "btn btn-sm", disabled: state.busy || undefined, onclick: () => switchRecording(m.mode === "office" ? "app" : "office") },
+        m.mode === "office" ? "Switch to Worker App" : "Switch to office") : null);
+    if (!m.tasks.length) {
+      return el("div", { class: "ws-section" }, head,
+        el("div", { class: "ws-note" }, b.stateId === "planned"
+          ? `Not started. Start it on Overview: its ${m.steps.length} steps go to ${m.slot === "Not scheduled" ? "the shift running now" : m.slot}${m.mode === "office" ? ", to record here" : ", to the crew's phones"}.`
+          : "No steps were recorded for this batch."),
+        el("ol", { class: "rs-plan" }, ...m.steps.map((st) => el("li", {}, st.name))));
     }
-    const fmt = (iso) => iso ? `${fmtDateNice(iso)} ${fmtTime(iso)}` : "—";
-    const how = (t) => {
-      const parts = [];
-      if (t.kgIn) parts.push(`${t.kgIn} → ${t.kgOut} kg · −${t.lossPct}%${t.loss != null ? ` (≤${t.loss}%)` : ""}`);
-      if (t.sticksUsed) parts.push(`${t.sticksUsed} sticks`);
-      if (t.bagsMade) parts.push(`${t.bagsMade.length} bags · ${t.kgOut} kg`);
-      if (t.packets) parts.push(`${t.packets} packets`);
-      if (t.cartonsPacked) parts.push(`${t.cartonsPacked} cartons`);
-      return parts.join(" · ") || "—";
-    };
-    const from = (t) => (t.lots || []).map((l) => l.lotNo).join(", ") || (t.bagsTaken || []).map((g) => "bag " + g.bagNo).join(", ") || (t.bagsMade || []).map((g) => "bag " + g.bagNo).join(", ") || "—";
-    const STATUS = { done: "Done", in_progress: "In progress", available: "Waiting", locked: "Locked" };
-    return el("div", { class: "ws-section" },
-      el("div", { class: "ws-section-title" }, "Steps on the floor"),
-      el("div", { style: "overflow-x:auto" }, el("table", { class: "ws-table" },
-        el("thead", {}, el("tr", {}, ...["Step", "Who", "How much", "Lot / bags", "When", ""].map((h) => el("th", {}, h)))),
-        el("tbody", {}, ...tasks.map((t) => {
-          const over = t.weigh && t.loss != null && t.lossPct > t.loss;
-          return el("tr", {},
-            el("td", {}, el("b", {}, `${t.stepOrder}. ${t.stepName}`), el("div", { class: "muted small" }, t.shiftName || "")),
-            el("td", {}, t.assignedName || "—"),
-            el("td", { style: over ? "color:var(--fb-amber-700,#c2410c);font-weight:700" : "" }, how(t)),
-            el("td", { class: "muted small" }, from(t)),
-            el("td", { class: "muted small" }, t.status === "done" ? fmt(t.completedAt) : t.status === "in_progress" ? "since " + fmt(t.startedAt) : "—"),
-            el("td", {}, el("span", { class: "badge " + (t.status === "done" ? "badge-completed" : t.status === "in_progress" ? "badge-inprogress" : "badge-planned") }, el("span", { class: "dot" }), STATUS[t.status] || t.status)));
-        })))),
-      el("div", { class: "muted small", style: "margin-top:10px" }, "Recorded by the worker app. Weighing steps take raw material from the oldest lot; the last step puts the bags in Freezer Stock."));
+    const open = m.tasks.filter((t) => t.status !== "done");
+    const firstOpen = open[0];
+    const rows = m.tasks.map((t) => {
+      const done = t.status === "done";
+      const office = m.mode === "office";
+      const editing = state.rec && state.rec.taskId === t._id;
+      let right = null, below = null, sub;
+      if (done) {
+        sub = [t.assignedName || "—", howMuch(t), fromWhere(t), fmtDateNice(t.completedAt) + " " + fmtTime(t.completedAt)].filter(Boolean).join(" · ");
+        if (!closedOut && !editing) right = el("button", { type: "button", class: "btn btn-sm", onclick: () => { state.rec = null; draftFor(t, m, "fix"); state.rec.input = { kgIn: t.kgIn, kgOut: t.kgOut, sticks: t.sticksUsed, packets: t.packets, packs: t.packedLines ? Object.fromEntries(t.packedLines.map((l) => [l.skuId, l.packets])) : undefined }; render(); } }, "Correct");
+        if (editing && state.rec.kind === "fix") below = recordForm(t, m, "fix");
+      } else if (t.status === "locked") {
+        sub = "After step " + (t.stepOrder - 1);
+      } else {
+        sub = t.status === "in_progress" ? `${t.assignedName} · since ${fmtTime(t.startedAt)}` : `Waiting for someone${t.availableAt ? " · since " + fmtTime(t.availableAt) : ""}`;
+        if (b.stateId === "on-hold") sub += " · batch on hold";
+        else if (office && t === firstOpen) below = recordForm(t, m, "rec");
+        else if (!office && editing && state.rec.kind === "for") below = recordForm(t, m, "for");
+        else if (!office && !editing) right = el("button", { type: "button", class: "btn btn-sm", onclick: () => { state.rec = null; draftFor(t, m, "for"); render(); } }, "Record for…");
+      }
+      const tag = t.enteredVia === "office" ? el("span", { class: "bm-chip" }, "office") : null;
+      return el("li", { class: "rs-step " + (done ? "done" : t.status) },
+        el("div", { class: "rs-row" },
+          el("span", { class: "rs-n" }, done ? "✓" : String(t.stepOrder)),
+          el("span", { class: "rs-name" }, el("b", {}, t.stepName), tag, el("div", { class: "muted small" }, sub, t.corrections ? ` · corrected (${t.corrections.slice(-1)[0].reason})` : "")),
+          right),
+        below);
+    });
+    return el("div", { class: "ws-section" }, head,
+      el("ol", { class: "rs-list" }, ...rows),
+      m.mode === "office" && open.length > 1 && b.stateId === "in-progress"
+        ? el("div", { class: "rs-all" }, el("span", {}, "Recording at the end of the day?"), el("button", { type: "button", class: "btn btn-sm", onclick: () => { state.recAll = { workerId: (m.workers.find((w) => w.inCrew) || m.workers[0] || {}).id, inputs: {}, error: null }; render(); } }, "Record all at once"))
+        : null,
+      el("div", { class: "muted small", style: "margin-top:10px" }, "Each step is recorded once — by a phone or here — and moves the same stock: raw material out, packets to Finished Goods, bags to Semi-Finished."));
+  }
+  /* Record all at once (office mode): every open step's fields in one form */
+  function recordAllModal() {
+    const m = stepsModel(), r = state.recAll;
+    const open = m.tasks.filter((t) => t.status !== "done");
+    return el("div", { class: "ws-modal ws-modal-wide", role: "dialog", "aria-modal": "true", "aria-label": "Record all at once" },
+      el("div", { class: "ws-modal-head" },
+        el("div", {}, el("div", { class: "ws-modal-title" }, "Record all at once"), el("div", { class: "ws-modal-sub" }, `${state.batch.batchNumber} · ${open.length} steps left. Saved together, or not at all.`)),
+        el("button", { type: "button", class: "ws-modal-close", "aria-label": "Close", onclick: () => { state.recAll = null; render(); } }, "✕")),
+      el("label", { class: "rs-f", style: "margin-top:12px" }, el("span", {}, "Done by"),
+        el("select", { class: "input", onchange: (e) => { r.workerId = e.target.value; } }, ...m.workers.map((w) => el("option", { value: w.id, selected: w.id === r.workerId || undefined }, w.name)))),
+      ...open.map((t) => {
+        r.inputs[t._id] = r.inputs[t._id] || {};
+        const f = stepFields(t, r.inputs[t._id], m);
+        return el("div", { class: "rs-form", style: "margin-top:10px" }, el("div", { class: "rs-title" }, `${t.stepOrder}. ${t.stepName}`), ...(f.length ? f : [el("div", { class: "muted small" }, "Nothing to enter — marked done.")]));
+      }),
+      r.error ? el("div", { role: "alert", class: "error small", style: "margin-top:12px" }, r.error) : null,
+      el("div", { class: "ws-modal-footer" },
+        el("button", { type: "button", class: "btn", onclick: () => { state.recAll = null; render(); } }, "Change nothing"),
+        el("button", { type: "button", class: "btn btn-primary", disabled: state.busy || undefined, onclick: submitRecordAll }, state.busy ? "Saving…" : "✓ Record and complete")));
+  }
+  async function submitRecordAll() {
+    const r = state.recAll;
+    state.busy = true; r.error = null; render();
+    try {
+      const steps = {};
+      Object.keys(r.inputs).forEach((id) => { steps[id] = cleanInput(r.inputs[id]); });
+      sw((D) => D.recordAll(state.batch.id, { workerId: r.workerId, steps, actor: "Office" }));
+      state.recAll = null;
+      await reload();
+    } catch (e) { r.error = e.message; } finally { state.busy = false; render(); }
   }
 
   // ── Activity tab — 5-source merged timeline ──
@@ -856,6 +1151,7 @@
     else if (state.bulkIssueOpen) content = bulkIssueDrawer();
     else if (state.returnFor) content = returnDrawer();
     else if (state.historyFor) content = historyDrawer();
+    else if (state.recAll) content = recordAllModal();
 
     if (content) {
       modalBodyEl.appendChild(content);
@@ -872,7 +1168,7 @@
     MockApi.getBatch(batchId).then((b) => { state.batch = b; render(); });
     // The floor moves while this is open: the worker app writes the same store.
     window.addEventListener("storage", (e) => {
-      if (!window.FB_PRODUCTION || e.key !== window.FB_PRODUCTION.KEY || state.confirmingUpdate || state.editingDates) return;
+      if (!window.FB_PRODUCTION || e.key !== window.FB_PRODUCTION.KEY || state.confirmingUpdate || state.editingDates || state.rec || state.recAll) return;
       MockApi.getBatch(batchId).then((b) => { state.batch = b; render(); });
     });
   }

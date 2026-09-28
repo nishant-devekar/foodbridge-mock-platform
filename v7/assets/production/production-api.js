@@ -51,7 +51,7 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 5;
+  var VERSION = 7;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
   /* ── Catalogue: the reference business ─────────────────────────────── */
@@ -193,6 +193,7 @@
   function r1(n) { return Math.round(n * 10) / 10; }
   function dayKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function isoDay(t) { return dayKey(new Date(t)); }
+  function hourLabel(h) { h = ((h % 24) + 24) % 24; return (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " am" : " pm"); }
   function at(base, dayOffset, h, m) { return new Date(base.getFullYear(), base.getMonth(), base.getDate() + dayOffset, h, m || 0, 0, 0); }
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function find(list, id) { for (var i = 0; i < (list || []).length; i++) if (list[i]._id === id || list[i].id === id) return list[i]; return null; }
@@ -222,6 +223,34 @@
       return ev;
     };
 
+    /* ── the stock ledger (29 Sep 2026) ──────────────────────────────────
+       Every movement of raw material, semi-finished or finished goods is one
+       line here: what · how much (signed) · from/to (lot, bag, packets) ·
+       batch · step · who · how it was recorded (app, office, store). The
+       three inventories read their history from it; nothing is typed into
+       stock by hand. A movement is posted inside the context of the fact that
+       caused it (D.as): the step a worker or the office recorded, the store's
+       issue or return, a sale. */
+    var ctx = null;
+    D.as = function (meta, fn) {
+      var prev = ctx; ctx = Object.assign({}, prev || {}, meta || {});
+      try { return fn(); } finally { ctx = prev; }
+    };
+    function post(kind, item, name, ref, qty, unit, what, extra) {
+      db.ledger = db.ledger || [];
+      var c = ctx || {}, b = c.batch || null;
+      var e = Object.assign({ id: "mv-" + (db.ledger.length + 1), at: iso(), kind: kind, item: item, name: name, ref: ref, qty: r2(qty), unit: unit,
+        what: c.what || what, batch: b ? b.batchNumber : null, batchId: b ? b.id : null, step: c.step || null, task: c.task || null,
+        by: c.by || null, via: c.via || "system" }, extra || {});
+      db.ledger.push(e);
+      return e;
+    }
+    D.post = post;
+    D.movements = function (kind, item) {
+      return (db.ledger || []).filter(function (e) { return e.kind === kind && (!item || e.item === item); }).slice().reverse();
+    };
+    D.movementsOfBatch = function (batchId) { return (db.ledger || []).filter(function (e) { return e.batchId === batchId; }); };
+
     /* raw material */
     D.lotsFIFO = function (materialId) {
       return db.lots.filter(function (l) { return l.materialId === materialId && l.qc === "accepted" && l.remaining > 0.0001; })
@@ -241,6 +270,7 @@
         var t = r2(Math.min(l.remaining, left));
         l.remaining = r2(l.remaining - t); left = r2(left - t);
         out.push({ lotNo: l.lotNo, materialId: materialId, name: m.name, qty: t, unit: m.unit });
+        post("rm", materialId, m.name, l.lotNo, -t, m.unit, "used");
       });
       if (forBatch) D.issue(forBatch, m, qty, out, who);
       return out;
@@ -255,8 +285,78 @@
       row.remainingRecommended = r2(Math.max(0, row.recommendedQty - row.netConsumed));
       row.variance = r2(row.netConsumed - row.recommendedQty);
       b.ingredientTransactions = b.ingredientTransactions || [];
+      var via = (ctx && ctx.via) || "app";
       b.ingredientTransactions.push({ ingredientId: m.id, ingredientName: m.name, transactionType: "issue", quantity: qty, uom: m.unit, warehouseId: m.store,
-        remarks: "From the floor · lot " + lots.map(function (l) { return l.lotNo; }).join(", "), timestamp: iso(), actor: who || "floor" });
+        lots: lots.map(function (l) { return { lotNo: l.lotNo, qty: l.qty }; }),
+        remarks: (via === "store" ? "Issued by the store" : via === "office" ? "Recorded in the office" : "From the floor") + (ctx && ctx.step ? " · " + ctx.step : "") + " · lot " + lots.map(function (l) { return l.lotNo; }).join(", "),
+        timestamp: iso(), actor: who || (ctx && ctx.by) || "floor" });
+    };
+    /* Issued to the batch and not yet used or returned: a step uses this
+       first, and only goes to the store for the rest (29 Sep 2026). */
+    D.unusedIssued = function (b, materialId) {
+      var row = (b.ingredientSummary || []).filter(function (r) { return r.ingredientId === materialId; })[0];
+      return row ? r2(Math.max(0, row.issuedQty - row.returnedQty - (row.usedQty || 0))) : 0;
+    };
+    /* A step uses material: what the store already issued to the batch
+       first, then the oldest lots for the rest. Returns the lots taken now. */
+    D.consume = function (b, materialId, qty, who) {
+      qty = r2(qty);
+      if (qty <= 0) return [];
+      var m = D.material(materialId);
+      var fromIssued = b ? Math.min(D.unusedIssued(b, materialId), qty) : 0;
+      var lots = D.take(materialId, r2(qty - fromIssued), b, who);
+      if (b) {
+        var row = b.ingredientSummary.filter(function (r) { return r.ingredientId === materialId; })[0];
+        if (!row) { D.issue(b, m, 0, [], who); row = b.ingredientSummary.filter(function (r) { return r.ingredientId === materialId; })[0]; }
+        row.usedQty = r2((row.usedQty || 0) + qty);
+        if (ctx && ctx.used) ctx.used[materialId] = r2((ctx.used[materialId] || 0) + qty);
+      }
+      if (fromIssued > 0) lots = [{ lotNo: "issued", materialId: materialId, name: m.name, qty: r2(fromIssued), unit: m.unit, fromIssued: true }].concat(lots);
+      return lots;
+    };
+    /* The store issues material to a batch before production: lot ↓. */
+    D.issueFromStore = function (batchId, materialId, qty, who) {
+      var b = D.batch(batchId), m = D.material(materialId);
+      if (!b) throw invalid("Unknown batch");
+      if (!m) throw invalid("Unknown material");
+      if (["completed", "closed", "rejected"].indexOf(b.stateId) !== -1) throw new ApiError(409, b.batchNumber + " is " + b.statusLabel.toLowerCase());
+      if (!(Number(qty) > 0)) throw invalid("Enter how much to issue");
+      return D.as({ batch: b, by: who || "Store", via: "store", what: "issued" }, function () { return D.take(materialId, Number(qty), b, who || "Store"); });
+    };
+    /* Unused material goes back to the store: to the lots it came from,
+       newest first, up to what each gave. Lot ↑. */
+    D.returnToStore = function (batchId, materialId, qty, who) {
+      var b = D.batch(batchId), m = D.material(materialId);
+      if (!b || !m) throw invalid("Unknown batch or material");
+      qty = r2(Number(qty));
+      if (!(qty > 0)) throw invalid("Enter how much came back");
+      var unused = D.unusedIssued(b, materialId);
+      if (qty > unused + 0.0001) throw new ApiError(409, "Only " + unused + " " + m.unit + " of " + m.name + " is issued and not used");
+      var left = qty, given = [];
+      (b.ingredientTransactions || []).filter(function (t) { return t.ingredientId === materialId && t.transactionType === "issue" && t.lots; }).reverse().forEach(function (t) {
+        t.lots.slice().reverse().forEach(function (tl) {
+          if (left <= 0.0001) return;
+          var lot = db.lots.filter(function (l) { return l.lotNo === tl.lotNo; })[0];
+          if (!lot) return;
+          var back = r2(Math.min(left, tl.qty - (tl.returned || 0)));
+          if (back <= 0) return;
+          tl.returned = r2((tl.returned || 0) + back);
+          lot.remaining = r2(lot.remaining + back); left = r2(left - back);
+          given.push({ lotNo: lot.lotNo, qty: back });
+        });
+      });
+      if (left > 0.0001) throw new ApiError(409, "Couldn't find the lots it came from");
+      var row = b.ingredientSummary.filter(function (r) { return r.ingredientId === materialId; })[0];
+      row.returnedQty = r2(row.returnedQty + qty);
+      row.netConsumed = r2(row.issuedQty - row.returnedQty);
+      row.remainingRecommended = r2(Math.max(0, row.recommendedQty - row.netConsumed));
+      row.variance = r2(row.netConsumed - row.recommendedQty);
+      D.as({ batch: b, by: who || "Store", via: "store", what: "returned" }, function () {
+        given.forEach(function (g) { post("rm", materialId, m.name, g.lotNo, g.qty, m.unit, "returned"); });
+      });
+      b.ingredientTransactions.push({ ingredientId: m.id, ingredientName: m.name, transactionType: "return", quantity: qty, uom: m.unit, warehouseId: m.store,
+        lots: given, remarks: "Back to lot " + given.map(function (g) { return g.lotNo; }).join(", "), timestamp: iso(), actor: who || "Store" });
+      return given;
     };
     /* What planned and running batches still need from the store. */
     D.reserved = function (materialId) {
@@ -282,7 +382,10 @@
         by: o.by || "Store", packs: Math.max(1, Math.ceil(kg / (m.packQty || kg))), packName: m.packName || "sack",
       };
       db.lots.push(lot);
-      if (lot.qc === "accepted") db.ordered[m.id] = Math.max(0, r2(D.ordered(m.id) - kg));
+      if (lot.qc === "accepted") {
+        db.ordered[m.id] = Math.max(0, r2(D.ordered(m.id) - kg));
+        D.as({ by: lot.by, via: "store" }, function () { post("rm", m.id, m.name, lot.lotNo, kg, m.unit, "received", { supplier: lot.supplier }); });
+      }
       D.emit(lot.qc === "accepted" ? "production.lot.received" : "production.lot.returned",
         { where: "Receive stock", how: "store", by: lot.by, data: { lotNo: lot.lotNo, material: m.name, gate: lot.gateQty, accepted: lot.qc === "accepted" ? kg : 0, unit: m.unit, stickers: lot.qc === "accepted" ? lot.packs : 0 } });
       return lot;
@@ -310,7 +413,7 @@
       return { size: step.bags || null, container: step.container || "Big bags", unit: step.unit || "kg", store: step.store || "Freezer" };
     };
     D.bagsFIFO = function (recipeId) {
-      return db.bags.filter(function (g) { return g.recipeId === recipeId && g.remaining > 0.0001; })
+      return db.bags.filter(function (g) { return g.recipeId === recipeId && g.remaining > 0.0001 && g.qc !== "quarantine"; })
         .sort(function (a, b) { return a.madeAt < b.madeAt ? -1 : a.madeAt > b.madeAt ? 1 : a.bagNo < b.bagNo ? -1 : 1; });
     };
     D.inFreezer = function (recipeId) { return r2(D.bagsFIFO(recipeId).reduce(function (s, g) { return s + g.remaining; }, 0)); };
@@ -324,9 +427,10 @@
           recipeId: b.recipeId, product: b.displayName, kg: k, remaining: k, madeAt: iso(), useBy: useBy,
           container: f.container, unit: f.unit, store: f.store, _seq: ++db.seq };
         db.bags.push(g); made.push(g);
+        post("sf", b.recipeId, b.displayName, g.bagNo, k, f.unit, "bagged", { container: f.container, store: f.store });
       }
       var bagMat = bagKg === 35 ? "rm-p09" : "rm-p08";
-      try { D.take(bagMat, made.length, b); } catch (e) { /* bags short: the floor still bags */ }
+      try { D.consume(b, bagMat, made.length); } catch (e) { /* bags short: the floor still bags */ }
       return made;
     };
     D.takeBags = function (recipeId, kg) {
@@ -339,20 +443,26 @@
         var t = r2(Math.min(g.remaining, left));
         g.remaining = r2(g.remaining - t); left = r2(left - t);
         out.push({ bagNo: g.bagNo, batchNumber: g.batchNumber, kg: t, madeAt: g.madeAt, useBy: g.useBy });
+        post("sf", recipeId, g.product, g.bagNo, -t, g.unit || "kg", "packed out");
       });
       return out;
     };
 
     /* finished goods */
-    D.addPackets = function (skuId, qty, from, madeAt, useBy) {
-      var s = db.fg[skuId] || (db.fg[skuId] = { lots: [] });
-      s.lots.push({ ref: from, qty: qty, remaining: qty, madeAt: madeAt, useBy: useBy, at: iso() });
+    D.addPackets = function (skuId, qty, from, madeAt, useBy, batchId) {
+      var s = db.fg[skuId] || (db.fg[skuId] = { lots: [] }), sk = D.sku(skuId);
+      var lot = { ref: from, qty: qty, remaining: qty, madeAt: madeAt, useBy: useBy, at: iso(), batchId: batchId || (ctx && ctx.batch ? ctx.batch.id : null), task: ctx && ctx.task || null };
+      s.lots.push(lot);
+      post("fg", skuId, sk ? sk.name : skuId, from, qty, "packets", "packed");
+      return lot;
     };
-    D.packetsOf = function (skuId) { return (db.fg[skuId] ? db.fg[skuId].lots : []).reduce(function (s, l) { return s + l.remaining; }, 0); };
+    D.packetsOf = function (skuId) { return (db.fg[skuId] ? db.fg[skuId].lots : []).reduce(function (s, l) { return s + (l.qc === "quarantine" ? 0 : l.remaining); }, 0); };
     D.sell = function (skuId, qty) {
-      var left = qty;
+      var left = qty, sk = D.sku(skuId);
       ((db.fg[skuId] || {}).lots || []).slice().sort(function (a, b) { return a.madeAt < b.madeAt ? -1 : 1; }).forEach(function (l) {
+        if (l.qc === "quarantine") return;
         var t = Math.min(l.remaining, left); l.remaining -= t; left -= t;
+        if (t > 0) D.as({ via: (ctx && ctx.via) || "sales", what: "sold" }, function () { post("fg", skuId, sk ? sk.name : skuId, l.ref, -t, "packets", "sold"); });
       });
       return qty - left;
     };
@@ -428,6 +538,7 @@
       if (price !== undefined) s.price = r2(price);
       s.pouchId = pouchId || null;
       if (o.retired === false) s.retired = false;
+      if (o.sameRun !== undefined) s.sameRun = !!o.sameRun;
       if (split !== undefined) { s.split = Math.round(split); rebalance(bk.id, s); }
       D.emit("production.pack.saved", { where: "Recipes", how: "office", by: o.actor || "admin", data: { pack: s.name } });
       return s;
@@ -445,7 +556,7 @@
       return D.packs(recipeId).map(function (s) {
         var c = D.packCost(s);
         return { id: s.id, productRef: s.id, packTitle: s.name, name: s.name, packSize: s.grams, packUnit: "g", productName: s.name, costPerPack: c.packaging,
-          attributable: true, costPerPackDisplay: "₹" + c.packaging.toFixed(2), variantMassDisplay: kgOf(s) + " kg" };
+          attributable: true, costPerPackDisplay: "₹" + c.packaging.toFixed(2), variantMassDisplay: kgOf(s) + " kg", sameRun: !!s.sameRun };
       });
     };
 
@@ -489,14 +600,29 @@
         var q = r2(i.qty * size / bk.base);
         return { ingredientId: i.rmId, ingredientName: i.name, uom: i.unit, recommendedQty: q, issuedQty: 0, returnedQty: 0, netConsumed: 0, remainingRecommended: q, variance: -q, recipeIngredient: true };
       });
-      b.packagingLines = (o.packs || []).filter(function (p) { return p.qty > 0; }).map(function (p) {
+      /* packs made in the same run stay on the batch; the rest are packed
+         later from its bags (packing orders) */
+      var wanted = (o.packs || []).filter(function (p) { return p.qty > 0 && D.sku(p.skuId); });
+      b.packagingLines = wanted.filter(function (p) { return D.sku(p.skuId).sameRun; }).map(function (p) {
         var s = D.sku(p.skuId); var w = r2(p.qty * kgOf(s));
-        return { packagingConfigId: s.id, productRef: s.id, name: s.name, plannedUnits: p.qty, weightKg: w, ratioPct: r2(w / size * 100) };
+        return { packagingConfigId: s.id, productRef: s.id, name: s.name, plannedUnits: p.qty, weightKg: w, ratioPct: r2(w / size * 100), sameRun: true };
       });
+      var packedKg = r2(b.packagingLines.reduce(function (t, l) { return t + l.weightKg; }, 0));
+      if (packedKg > size + 0.0001) throw invalid("The packs come to " + packedKg + " kg, more than the " + size + " kg batch");
+      b.semiFinishedKg = r2(size - packedKg);
+      /* their pouches and cartons are planned (reserved) with the batch */
+      var pk = {}, cartons = 0;
+      b.packagingLines.forEach(function (l) { var s = D.sku(l.packagingConfigId); if (s.pouchId) pk[s.pouchId] = (pk[s.pouchId] || 0) + l.plannedUnits; cartons += Math.ceil(l.plannedUnits / s.perCarton); });
+      if (cartons) pk[CARTON] = cartons;
+      Object.keys(pk || {}).forEach(function (id) {
+        var m = D.material(id);
+        b.ingredientSummary.push({ ingredientId: id, ingredientName: m.name, uom: m.unit, recommendedQty: pk[id], issuedQty: 0, returnedQty: 0, netConsumed: 0, remainingRecommended: pk[id], variance: -pk[id], recipeIngredient: false, forPacks: true });
+      });
+      if (o.when) { b.when = { date: o.when.date, slot: o.when.slot }; }
       db.batches.push(b);
       D.emit("production.batch.planned", { where: o.where || "Recipes", how: "office", by: o.actor || "admin", data: { batch: no, product: bk.name, kg: size } });
       var packs = [];
-      if (o.packNow) (o.packs || []).forEach(function (p) { if (p.qty > 0) packs.push(D.createPackingOrder({ skuId: p.skuId, qty: p.qty, from: no, plannedDate: planned, supervisor: b.operator, actor: o.actor })); });
+      if (o.packNow) wanted.filter(function (p) { return !D.sku(p.skuId).sameRun; }).forEach(function (p) { if (p.qty > 0) packs.push(D.createPackingOrder({ skuId: p.skuId, qty: p.qty, from: no, plannedDate: planned, supervisor: b.operator, actor: o.actor })); });
       return { batch: b, packing: packs };
     };
     D.createPackingOrder = function (o) {
@@ -521,13 +647,40 @@
     D.workflowFor = function (b) {
       return db.workflows.filter(function (w) { return b.kind === "packing" ? w.kind === "packing" : w.recipeId === b.recipeId; })[0] || null;
     };
+    /* A production batch's packs made in the same run (Recipes › Packaging:
+       "Packed in the same run"): the lines of its packaging mix. */
+    D.sameRunLines = function (b) {
+      return b && b.kind === "production" ? (b.packagingLines || []).filter(function (l) { return l.plannedUnits > 0; }) : [];
+    };
+    /* The steps a batch goes through: its recipe's process, and — when it
+       packs in the same run — "Pack the planned packs" just before the fill
+       step (the rest goes into bags), numbered 1..n for this batch. */
+    D.stepsFor = function (b) {
+      var wf = b && D.workflowFor(b);
+      var steps = (wf ? wf.steps.slice().sort(byOrder) : []).map(function (st) { return Object.assign({}, st, { key: st._id }); });
+      if (D.sameRunLines(b).length) {
+        var at = steps.map(function (st) { return !!st.bags; }).indexOf(true);
+        var pk = { key: "pack-run", name: "Pack the planned packs", role: "packer", expectedMinutes: 30, unlocksNext: true, packRun: true, takes: [],
+          instructions: "Pack " + D.sameRunLines(b).map(function (l) { return l.plannedUnits + " × " + l.name; }).join(", ") + ". Oldest pouches first; full cartons, labelled." };
+        if (at === -1) steps.push(pk); else steps.splice(at, 0, pk);
+      }
+      return steps.map(function (st, i) { return Object.assign(st, { order: i + 1 }); });
+    };
+    /* What came out of cleaning: the last weighed kg out, or the batch size. */
+    D.madeKg = function (b) {
+      var w = db.tasks.filter(function (t) { return t.batch === b.id && t.status === "done" && t.weigh && t.kgOut; }).sort(function (x, y) { return x.stepOrder - y.stepOrder; }).pop();
+      return w ? w.kgOut : b.batchSize;
+    };
+    D.packedKg = function (b) {
+      return r2((b.packedLines || []).reduce(function (s, l) { return s + l.kg; }, 0));
+    };
     D.generateTasks = function (shift) {
       var created = 0;
       shift.batches.forEach(function (batchId) {
         if (db.tasks.some(function (t) { return t.shift === shift._id && t.batch === batchId; })) return;
         var b = D.batch(batchId), wf = b && D.workflowFor(b);
         if (!b || !wf || ["completed", "closed", "rejected"].indexOf(b.stateId) !== -1) return;
-        var steps = wf.steps.slice().sort(byOrder);
+        var steps = D.stepsFor(b);
         var first = steps.length ? steps[0].order : null;
         /* a batch already part-done on an earlier shift picks up where it was */
         var doneOrders = db.tasks.filter(function (t) { return t.batch === batchId && t.status === "done"; }).map(function (t) { return t.stepOrder; });
@@ -539,7 +692,7 @@
             expectedMinutes: step.expectedMinutes, instructions: step.instructions, unlocksNext: step.unlocksNext,
             weigh: !!step.weigh, takes: step.takes || [], loss: step.loss == null ? null : step.loss, sticks: !!step.sticks, bags: step.bags || null,
             container: step.container || null, unit: step.unit || null, store: step.store || null,
-            pack: !!step.pack, cartons: !!step.cartons,
+            pack: !!step.pack, cartons: !!step.cartons, packRun: !!step.packRun,
             assignedTo: null, status: next && step.order === next.order ? "available" : "locked",
             availableAt: next && step.order === next.order ? iso() : null,
             createdAt: iso(), updatedAt: iso(), __v: 0, _seq: ++db.seq,
@@ -584,24 +737,291 @@
       D.emit("production.shift.live", { where: "Production", how: "office", by: o.actor || "admin", data: { shift: sh.name, batch: b.batchNumber, crew: crew.length } });
       return { shift: sh, tasks: made };
     };
-    /* Starting a batch is Batch Management's own step (owner, 28 Sep 2026:
-       no quick start on the board). Its Start puts the batch's steps on the
-       floor: the shift for the time of day, the crew who are in today (or
-       today's shift, or everyone, so the steps always reach someone). */
-    D.releaseToFloor = function (batchId, actor) {
-      var t = now(), slot = t.getHours() < 14 ? "morning" : "evening";
+    /* ── slots: when, and who (29 Sep 2026) ─────────────────────────────
+       A shift is a slot — a day × morning/evening, with an in-charge and a
+       crew — not a workflow. Slots come from the factory's weekly pattern;
+       a batch is allotted by giving it a slot (b.when). Starting a batch puts
+       its steps on its slot's shift, for that crew. */
+    /* The factory's shifts (29 Sep 2026): a list the owner edits in Shift
+       settings — Morning and Evening to start with; add a Night, change the
+       hours, the in-charge, the usual people, the working days. */
+    D.pattern = function () {
+      var p = db.slotPattern = db.slotPattern || { days: [1, 2, 3, 4, 5, 6], slots: { morning: { start: 7, end: 15, inCharge: SUPERVISORS[1].name, crew: [] }, evening: { start: 15, end: 23, inCharge: SUPERVISORS[2].name, crew: [] } } };
+      Object.keys(p.slots).forEach(function (id) { if (!p.slots[id].name) p.slots[id].name = id.charAt(0).toUpperCase() + id.slice(1); });
+      return p;
+    };
+    D.slotList = function () {
+      var p = D.pattern();
+      return Object.keys(p.slots).map(function (id) { return Object.assign({ id: id }, p.slots[id]); }).sort(function (a, b) { return a.start - b.start; });
+    };
+    D.slotName = function (id) { var x = D.pattern().slots[id]; return x ? x.name : String(id || ""); };
+    function spans(x) { return x.end > x.start ? [[x.start, x.end]] : [[x.start, 24], [0, x.end]]; }
+    function hoursOf(x) { return x.end > x.start ? x.end - x.start : 24 - x.start + x.end; }
+    D.shiftHours = hoursOf; D.hourLabel = hourLabel;
+    /* the shift running now (or next today), with its date: a night shift
+       after midnight belongs to the day it started */
+    D.currentKey = function () {
+      var t = now(), h = t.getHours() + t.getMinutes() / 60, list = D.slotList(), today = isoDay(t.getTime());
+      var run = list.filter(function (x) { return spans(x).some(function (r) { return h >= r[0] && h < r[1]; }); })[0];
+      if (run) return { date: run.end <= run.start && h < run.end ? isoDay(t.getTime() - DAY) : today, slot: run.id };
+      var next = list.filter(function (x) { return x.start > h; })[0];
+      return { date: today, slot: (next || list[list.length - 1]).id };
+    };
+    D.currentSlot = function () { return D.currentKey().slot; };
+    D.saveShiftType = function (o) {
+      o = o || {};
+      var p = D.pattern(), name = String(o.name || "").trim(), start = Number(o.start), end = Number(o.end);
+      if (!name) throw invalid("Name the shift");
+      if (!(start >= 0 && start < 24 && end >= 0 && end <= 24) || start === end || (end === 24 && start === 0)) throw invalid("Pick when it starts and ends");
+      if (end === 24) end = 0;
+      var id = o.id;
+      if (id && !p.slots[id]) throw invalid("Unknown shift");
+      if (!id) { var base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "shift"; id = base; for (var n = 2; p.slots[id]; n++) id = base + "-" + n; }
+      Object.keys(p.slots).forEach(function (k) {
+        if (k === id) return;
+        var x = p.slots[k];
+        if (x.name.toLowerCase() === name.toLowerCase()) throw invalid("There is already a " + x.name + " shift");
+        var clash = spans({ start: start, end: end }).some(function (a) { return spans(x).some(function (b) { return a[0] < b[1] && b[0] < a[1]; }); });
+        if (clash) throw invalid("It overlaps the " + x.name + " shift (" + hourLabel(x.start) + " – " + hourLabel(x.end) + ")");
+      });
+      var inCharge = o.inCharge || (p.slots[id] && p.slots[id].inCharge);
+      if (!inCharge) throw invalid("Pick who is in charge");
+      var old = p.slots[id] ? clone(p.slots[id]) : null;
+      var x = p.slots[id] = p.slots[id] || { crew: [] };
+      x.name = name; x.start = start; x.end = end; x.inCharge = inCharge;
+      if (o.crew) x.crew = o.crew.filter(function (w) { var k = D.worker(w); return k && k.role !== "admin"; });
+      /* shifts already set up for coming days follow, unless someone changed that day */
+      if (old) {
+        var today = isoDay(now().getTime());
+        db.shifts.forEach(function (sh) {
+          if (sh.slot !== id || !sh.date || sh.date < today || sh.status !== "scheduled") return;
+          var d = new Date(sh.date + "T00:00:00");
+          sh.startTime = new Date(d.getFullYear(), d.getMonth(), d.getDate(), start).toISOString();
+          sh.endTime = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (end <= start ? 1 : 0), end).toISOString();
+          if (sh.inCharge === old.inCharge) D.setCrew(sh._id, { inCharge: inCharge });
+          if (o.crew && JSON.stringify(sh.workers) === JSON.stringify(old.crew)) sh.workers = x.crew.slice();
+        });
+      }
+      return Object.assign({ id: id }, x);
+    };
+    D.removeShiftType = function (id) {
+      var p = D.pattern();
+      if (!p.slots[id]) throw invalid("Unknown shift");
+      if (Object.keys(p.slots).length === 1) throw invalid("Keep at least one shift");
+      var today = isoDay(now().getTime());
+      var busy = db.shifts.filter(function (sh) { return sh.slot === id && sh.date >= today && sh.status !== "cancelled" && sh.batches.length; });
+      if (busy.length) throw new ApiError(409, "Batches are planned in " + busy.length + " " + p.slots[id].name + " shift" + (busy.length === 1 ? "" : "s") + ". Move them first.");
+      db.shifts.forEach(function (sh) { if (sh.slot === id && sh.date >= today && sh.status === "scheduled") sh.status = "cancelled"; });
+      delete p.slots[id];
+    };
+    D.setWorkingDays = function (days) {
+      days = (days || []).map(Number).filter(function (x) { return x >= 0 && x <= 6; });
+      if (!days.length) throw invalid("Pick at least one working day");
+      D.pattern().days = days.filter(function (x, i) { return days.indexOf(x) === i; }).sort();
+      return D.pattern().days;
+    };
+    /* work on a day off (overtime): set up that day's shifts */
+    D.openDay = function (date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) throw invalid("Pick a day");
+      return D.slotList().map(function (x) { var sh = D.ensureSlot(date, x.id); if (sh.status === "cancelled") { sh.status = "scheduled"; delete sh.cancelled; } return sh; });
+    };
+    D.slotKey = function (sh) { return { date: sh.date || isoDay(new Date(sh.startTime).getTime()), slot: sh.slot || D.slotOf(sh) }; };
+    D.findSlot = function (date, slot) {
+      return db.shifts.filter(function (sh) { var k = D.slotKey(sh); return k.date === date && k.slot === slot; })
+        .sort(function (a, b) { return (a.status === "cancelled") - (b.status === "cancelled") || a._seq - b._seq; })[0] || null;
+    };
+    /* the slot's shift, made from the pattern when it's first needed */
+    D.ensureSlot = function (date, slot) {
+      var sh = D.findSlot(date, slot);
+      if (sh) { if (!sh.date) { sh.date = date; sh.slot = slot; } return sh; }
+      var p = D.pattern().slots[slot], d = new Date(date + "T00:00:00");
+      if (!p) throw invalid("Unknown shift");
+      sh = { _id: newId(db), name: p.name + " · " + d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }), date: date, slot: slot,
+        startTime: new Date(d.getFullYear(), d.getMonth(), d.getDate(), p.start).toISOString(), endTime: new Date(d.getFullYear(), d.getMonth(), d.getDate() + (p.end <= p.start ? 1 : 0), p.end).toISOString(),
+        status: "scheduled", inCharge: p.inCharge, workers: p.crew.slice(), batches: [], createdAt: iso(), updatedAt: iso(), __v: 0, _seq: ++db.seq };
+      db.shifts.push(sh);
+      return sh;
+    };
+    D.nextSlot = function (date, slot) {
+      var list = D.slotList(), i = list.map(function (x) { return x.id; }).indexOf(slot);
+      if (i !== -1 && i < list.length - 1) return { date: date, slot: list[i + 1].id };
+      var d = new Date(date + "T00:00:00"), days = D.pattern().days;
+      do { d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); } while (days.indexOf(d.getDay()) === -1);
+      return { date: dayKey(d), slot: list[0].id };
+    };
+    /* hours a slot's batches need, from their steps' expected minutes */
+    D.slotHours = function (sh) {
+      var mins = (sh.batches || []).reduce(function (t, id) { var b = D.batch(id); return t + (b ? D.stepsFor(b).reduce(function (u, st) { return u + (st.expectedMinutes || 0); }, 0) : 0); }, 0);
+      var p = D.pattern().slots[D.slotKey(sh).slot] || { start: 7, end: 15 };
+      return { used: r1(mins / 60), of: hoursOf(p) };
+    };
+    /* Allot a planned batch to a slot (the Week view, or When on the batch) */
+    D.schedule = function (batchId, date, slot, actor) {
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (b.stateId !== "planned") throw new ApiError(409, b.batchNumber + " has started; hand it over instead");
+      if (!D.pattern().slots[slot] || !/^\d{4}-\d{2}-\d{2}$/.test(date || "")) throw invalid("Pick a day and a shift");
+      var sh = D.ensureSlot(date, slot);
+      if (sh.status === "cancelled") throw new ApiError(409, "That shift is cancelled");
+      if (sh.status === "ended") throw new ApiError(409, "That shift has ended");
+      D.unschedule(batchId, true);
+      sh.batches.push(b.id); sh.updatedAt = iso();
+      /* the batch's supervisor is its shift's in-charge: one name on every page */
+      b.when = { date: date, slot: slot }; b.plannedDate = date; b.operator = sh.inCharge || b.operator; delete b.wasScheduled;
+      D.emit("production.batch.scheduled", { where: "Production", how: "office", by: actor || "admin", data: { batch: b.batchNumber, date: date, slot: slot } });
+      return sh;
+    };
+    D.unschedule = function (batchId, quiet) {
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (b.stateId !== "planned") throw new ApiError(409, b.batchNumber + " has started");
+      db.shifts.forEach(function (sh) {
+        if (sh.batches.indexOf(b.id) === -1 || db.tasks.some(function (t) { return t.shift === sh._id && t.batch === b.id; })) return;
+        sh.batches = sh.batches.filter(function (x) { return x !== b.id; });
+      });
+      if (!quiet && b.when) b.wasScheduled = b.when;
+      b.when = null;
+      return b;
+    };
+    D.reorderSlot = function (shiftId, batchIds) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh) throw invalid("Unknown shift");
+      sh.batches = batchIds.filter(function (id) { return sh.batches.indexOf(id) !== -1; }).concat(sh.batches.filter(function (id) { return batchIds.indexOf(id) === -1; }));
+      return sh;
+    };
+    D.setCrew = function (shiftId, o) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh) throw invalid("Unknown shift");
+      if (o.crew) sh.workers = o.crew.filter(function (id) { var w = D.worker(id); return w && w.role !== "admin"; });
+      if (o.inCharge && o.inCharge !== sh.inCharge) {
+        sh.inCharge = o.inCharge;
+        /* its batches' supervisor follows (the same name on All batches) */
+        sh.batches.forEach(function (id) { var b = D.batch(id); if (b && ["planned", "in-progress", "on-hold"].indexOf(b.stateId) !== -1) b.operator = o.inCharge; });
+      }
+      sh.updatedAt = iso();
+      return sh;
+    };
+    /* put a batch's steps on a shift, for its crew */
+    D.startOnFloor = function (batchId, o) {
+      o = o || {};
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (["planned", "in-progress"].indexOf(b.stateId) === -1) throw new ApiError(409, b.batchNumber + " is " + b.statusLabel.toLowerCase() + " and can't go on the floor");
+      var sh = o.shift || (D.pattern().slots[o.slot] ? D.ensureSlot(isoDay(now().getTime()), o.slot) : D.ensureSlot(D.currentKey().date, D.currentKey().slot));
+      var crew = (o.crew || sh.workers || []).filter(function (id) { var w = D.worker(id); return w && w.role !== "admin"; });
+      if (!crew.length) throw invalid("Pick at least one person for the crew");
+      crew.forEach(function (id) { if (sh.workers.indexOf(id) === -1) sh.workers.push(id); });
+      if (sh.batches.indexOf(b.id) === -1) sh.batches.push(b.id);
+      if (sh.status === "scheduled") sh.status = "live";
+      sh.updatedAt = iso();
+      b.when = D.slotKey(sh);
+      var made = D.generateTasks(sh);
+      D.emit("production.shift.live", { where: "Production", how: "office", by: o.actor || "admin", data: { shift: sh.name, batch: b.batchNumber, crew: crew.length } });
+      return { shift: sh, tasks: made };
+    };
+    /* Start (Batch Management's Next status): the batch's steps go to its
+       slot — today's, if it was scheduled for today, else the slot running
+       now — recorded on the phones or in the office. */
+    D.releaseToFloor = function (batchId, actor, mode) {
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      b.recording = mode === "office" || mode === "app" ? mode : D.recordingOf(b);
+      var today = isoDay(now().getTime());
+      var key = b.when && b.when.date === today ? b.when : D.currentKey();
+      var sh = D.ensureSlot(key.date, key.slot);
+      if (sh.status === "cancelled" || sh.status === "ended") sh = D.ensureSlot(D.currentKey().date, D.currentKey().slot);
       var people = db.workers.filter(function (w) { return w.role !== "admin"; });
-      var sh = D.todayShift(slot);
-      var crew = people.filter(function (w) { return w.isOnline; }).map(function (w) { return w._id; });
-      if (!crew.length && sh) crew = sh.workers.slice();
+      var crew = sh.workers.length ? sh.workers.slice() : people.filter(function (w) { return w.isOnline; }).map(function (w) { return w._id; });
       if (!crew.length) crew = people.map(function (w) { return w._id; });
-      return D.startOnFloor(batchId, { slot: slot, crew: crew, actor: actor });
+      return D.startOnFloor(batchId, { shift: sh, crew: crew, actor: actor });
+    };
+    /* Stop a slot (power cut, breakdown): its running batches go on hold. */
+    D.stopSlot = function (shiftId, reason, actor) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh || sh.status !== "live") throw new ApiError(409, "Only a running shift can be stopped");
+      if (!reason) throw invalid("Say why it stopped");
+      sh.status = "stopped"; sh.stopped = { at: iso(), by: actor || "admin", reason: reason, batches: [] };
+      sh.batches.forEach(function (id) { var b = D.batch(id); if (b && b.stateId === "in-progress") { D.move(b, "on-hold", "hold", actor || "admin", "Shift stopped: " + reason); sh.stopped.batches.push(b.id); } });
+      return sh;
+    };
+    D.resumeSlot = function (shiftId, actor) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh || sh.status !== "stopped") throw new ApiError(409, "Only a stopped shift can resume");
+      (sh.stopped.batches || []).forEach(function (id) { var b = D.batch(id); if (b && b.stateId === "on-hold") D.move(b, "in-progress", "resume", actor || "admin", "Shift resumed"); });
+      sh.status = "live"; sh.stopped.resumedAt = iso();
+      return sh;
+    };
+    /* Cancel a slot (holiday): its batches go back to Not scheduled. */
+    D.cancelSlot = function (shiftId, reason, actor) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh) throw invalid("Unknown shift");
+      if (sh.batches.some(function (id) { var b = D.batch(id); return b && b.stateId !== "planned"; })) throw new ApiError(409, "A batch in this shift has started; hand it over instead");
+      sh.batches.slice().forEach(function (id) { D.unschedule(id); });
+      sh.status = "cancelled"; sh.cancelled = { at: iso(), by: actor || "admin", reason: reason || "" };
+      return sh;
+    };
+    /* Hand over: what's still running moves to the next slot, with a note;
+       the next in-charge takes it over. Each batch records the hand-over. */
+    D.handOver = function (shiftId, o) {
+      o = o || {};
+      var sh = find(db.shifts, shiftId);
+      if (!sh || ["live", "stopped"].indexOf(sh.status) === -1) throw new ApiError(409, "Only a running shift hands over");
+      var k = D.slotKey(sh), nk = D.nextSlot(k.date, k.slot), next = D.ensureSlot(nk.date, nk.slot);
+      var moved = [];
+      sh.batches.forEach(function (id) {
+        var b = D.batch(id);
+        if (!b || ["completed", "closed", "rejected"].indexOf(b.stateId) !== -1) return;
+        var open = db.tasks.filter(function (t) { return t.batch === b.id && t.shift === sh._id && t.status !== "done"; });
+        if (!open.length && b.stateId !== "planned") return;
+        open.forEach(function (t) { t.shift = next._id; if (t.status === "in_progress" && t.enteredVia !== "office") { t.status = "available"; t.assignedTo = null; t.assignedName = null; t.availableAt = iso(); } });
+        if (next.batches.indexOf(b.id) === -1) next.batches.push(b.id);
+        if (b.stateId === "planned") { b.when = nk; b.plannedDate = nk.date; }
+        var at = open.sort(function (x, y) { return x.stepOrder - y.stepOrder; })[0];
+        moved.push({ batchId: b.id, batchNumber: b.batchNumber, product: b.displayName, step: at ? at.stepName : null, madeKg: b.kind === "production" ? D.madeKg(b) : null });
+        if (b.stateId !== "planned") {
+          b.operatorHandoverHistory = b.operatorHandoverHistory || [];
+          b.operatorHandoverHistory.push({ fromOperator: sh.inCharge || b.operator, toOperator: next.inCharge, timestamp: iso(), actor: o.actor || "admin", comment: o.note || undefined });
+          b.operator = next.inCharge || b.operator;
+        }
+      });
+      if (!o.keepOpen) sh.status = "ended";
+      sh.handover = { to: next._id, toName: next.name, toInCharge: next.inCharge, note: o.note || "", at: iso(), by: o.actor || "admin", batches: moved };
+      next.takeover = { from: sh._id, fromName: sh.name, note: o.note || "", batches: moved, at: iso(), takenAt: null };
+      if (moved.some(function (x) { var b = D.batch(x.batchId); return b && b.stateId !== "planned"; })) next.status = next.status === "scheduled" ? "live" : next.status;
+      return { from: sh, to: next, moved: moved };
+    };
+    D.takeOver = function (shiftId, actor) {
+      var sh = find(db.shifts, shiftId);
+      if (!sh || !sh.takeover) throw new ApiError(409, "Nothing to take over");
+      sh.takeover.takenAt = iso(); sh.takeover.by = actor || sh.inCharge;
+      return sh;
+    };
+    /* the week, as the whiteboard: slots by day, with their batches */
+    D.week = function (from, days) {
+      var out = [], d = new Date(from + "T00:00:00");
+      for (var i = 0; i < (days || 7); i++) {
+        var key = dayKey(d), works = D.pattern().days.indexOf(d.getDay()) !== -1;
+        D.slotList().forEach(function (px) {
+          var slot = px.id, sh = D.findSlot(key, slot), p = D.pattern().slots[slot];
+          out.push({ date: key, slot: slot, working: works, shift: sh, inCharge: sh ? sh.inCharge : p.inCharge, crew: sh ? sh.workers : p.crew,
+            status: sh ? sh.status : (works ? "open" : "off"), batches: sh ? sh.batches.map(D.batch).filter(Boolean) : [], hours: sh ? D.slotHours(sh) : { used: 0, of: hoursOf(p) } });
+        });
+        d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+      }
+      return out;
+    };
+    D.notScheduled = function () {
+      var inSlot = {};
+      db.shifts.forEach(function (sh) { if (sh.status !== "cancelled") sh.batches.forEach(function (id) { inSlot[id] = true; }); });
+      return db.batches.filter(function (b) { return b.stateId === "planned" && !inSlot[b.id]; })
+        .sort(function (a, b) { return String(a.expectedFinishDate).localeCompare(String(b.expectedFinishDate)); });
     };
     /* Who to call about something: a worker by their phone, a batch's
        supervisor, the purchase person. */
     D.purchase = function () { return db.purchase || clone(PURCHASE); };
     D.supervisorOf = function (b) {
-      var op = (db.operators || []).filter(function (o) { return b && o.name === b.operator; })[0];
+      var sh = b && b.when && D.findSlot(b.when.date, b.when.slot), name = (sh && sh.inCharge) || (b && b.operator);
+      var op = (db.operators || []).filter(function (o) { return o.name === name; })[0];
       return op ? { name: op.name, role: "Supervisor", contact: op.contact } : null;
     };
     function workerContact(id) { var w = D.worker(id); return w && w.phone ? { name: w.name, role: w.role, contact: w.phone } : null; }
@@ -635,6 +1055,13 @@
         var b = D.batch(t.batch);
         if (!b || ["on-hold", "rejected"].indexOf(b.stateId) !== -1) return;
         var mins = Math.round((nowT - new Date(t.availableAt).getTime()) / MIN);
+        /* a batch recorded in the office: the office is who's late, not the floor */
+        if (D.recordingOf(b) === "office") {
+          if (!out.some(function (x) { return x._id === "rec-" + b.id; }))
+            out.push({ _id: "rec-" + b.id, type: "to_record", isRead: false, createdAt: t.availableAt, batch: b.id, step: t.stepName, product: b.displayName, minutes: mins,
+              message: t.stepName + " on " + b.batchNumber + " is not recorded yet (" + mins + " min). It is recorded in the office." });
+          return;
+        }
         out.push({ _id: "idle-" + t._id, type: "waiting", isRead: false, createdAt: t.availableAt, batch: b.id, step: t.stepName, product: b.displayName, minutes: mins, call: D.supervisorOf(b),
           message: t.stepName + " on " + b.batchNumber + " has waited " + mins + " min and no one has started it." });
       });
@@ -660,6 +1087,13 @@
     };
     /* Finishing a step: what it records depends on the step (see PROCESS). */
     D.complete = function (task, worker, input) {
+      var b0 = D.batch(task.batch);
+      var used = {};
+      var out = D.as({ batch: b0, step: task.stepName, task: task._id, by: worker.name, via: task.enteredVia || "app", used: used }, function () { return completeStep(task, worker, input); });
+      task.used = used;
+      return out;
+    };
+    function completeStep(task, worker, input) {
       input = input || {};
       if (task.status !== "in_progress") throw new ApiError(409, "Only an in-progress task can be completed");
       if (task.assignedTo !== worker._id) throw new ApiError(403, "You can only complete your own task");
@@ -677,14 +1111,19 @@
           var stocked = bk.ingredients.filter(function (i) { return i.unit === "kg" || i.unit === "litre"; });
           var total = stocked.reduce(function (s, i) { return s + i.qty; }, 0);
           rec.lots = [];
-          ings.forEach(function (i) { rec.lots = rec.lots.concat(D.take(i.rmId, r2(kin * i.qty / total), b, worker.name)); });
+          /* check the store can cover it all before anything moves */
+          ings.forEach(function (i) {
+            var need = r2(kin * i.qty / total), free = r2(D.onHand(i.rmId) + D.unusedIssued(b, i.rmId));
+            if (free + 0.0001 < need) { var mm = D.material(i.rmId); throw new ApiError(409, "Only " + free + " " + mm.unit + " of " + mm.name + " for this batch"); }
+          });
+          ings.forEach(function (i) { rec.lots = rec.lots.concat(D.consume(b, i.rmId, r2(kin * i.qty / total), worker.name)); });
         }
       }
       if (task.sticks) {
         var n = Math.round(num(input.sticks));
         if (!(n >= 0)) throw invalid("Enter how many sticks were used");
         rec.sticksUsed = n;
-        if (n > 0) rec.lots = D.take("rm-p07", n, b, worker.name);
+        if (n > 0) rec.lots = D.consume(b, "rm-p07", n, worker.name);
       }
       if (task.bags) {
         var kb = num(input.kgOut);
@@ -701,15 +1140,44 @@
         if (have + 0.0001 < needKg) throw new ApiError(409, "Only " + have + " kg of " + D.book(s.recipeId).name + " in the freezer");
         if (s.pouchId && D.onHand(s.pouchId) < p) throw new ApiError(409, "Only " + D.onHand(s.pouchId) + " of " + D.material(s.pouchId).name + " in the store");
         rec.bagsTaken = D.takeBags(s.recipeId, r2(p * kgOf(s)));
-        if (s.pouchId) rec.lots = D.take(s.pouchId, p, b, worker.name);
+        if (s.pouchId) rec.lots = D.consume(b, s.pouchId, p, worker.name);
         b.packedPackets = p; b.bagsTaken = rec.bagsTaken;
+      }
+      /* Pack the planned packs, in the same run: straight from what was made
+         into finished goods; one pouch a packet, whole cartons (29 Sep 2026). */
+      if (task.packRun) {
+        var lines = D.sameRunLines(b), want = input.packs || {}, made = D.madeKg(b), plan = [];
+        lines.forEach(function (l) {
+          var sk2 = D.sku(l.packagingConfigId), v = want[l.packagingConfigId];
+          var pn = Math.round(num(v === undefined || v === "" ? l.plannedUnits : v));
+          if (!(pn >= 0)) throw invalid("Enter how many " + sk2.name + " were packed");
+          plan.push({ sku: sk2, packets: pn, kg: r2(pn * kgOf(sk2)), cartons: pn ? Math.ceil(pn / sk2.perCarton) : 0 });
+        });
+        var packKg = r2(plan.reduce(function (t, x) { return t + x.kg; }, 0));
+        if (packKg > made + 0.0001) throw invalid("That's " + packKg + " kg of packs from " + made + " kg made");
+        var needPouch = {}, needCarton = 0;
+        plan.forEach(function (x) { if (x.sku.pouchId && x.packets) needPouch[x.sku.pouchId] = (needPouch[x.sku.pouchId] || 0) + x.packets; needCarton += x.cartons; });
+        Object.keys(needPouch).forEach(function (id) {
+          var free = r2(D.onHand(id) + D.unusedIssued(b, id));
+          if (free < needPouch[id]) throw new ApiError(409, "Only " + free + " of " + D.material(id).name + " in the store");
+        });
+        if (needCarton && r2(D.onHand(CARTON) + D.unusedIssued(b, CARTON)) < needCarton) throw new ApiError(409, "Only " + D.onHand(CARTON) + " cartons in the store");
+        var useBy = new Date(now().getTime() + bk.bestBeforeDays * DAY).toISOString();
+        rec.packedLines = plan.filter(function (x) { return x.packets > 0; }).map(function (x) {
+          if (x.sku.pouchId) D.consume(b, x.sku.pouchId, x.packets, worker.name);
+          if (x.cartons) D.consume(b, CARTON, x.cartons, worker.name);
+          D.addPackets(x.sku.id, x.packets, b.batchNumber + " · same run", iso(), useBy, b.id);
+          return { skuId: x.sku.id, name: x.sku.name, packets: x.packets, kg: x.kg, cartons: x.cartons };
+        });
+        rec.packets = rec.packedLines.reduce(function (t, x) { return t + x.packets; }, 0);
+        b.packedLines = rec.packedLines;
       }
       if (task.cartons) {
         var sk = D.sku(b.skuId), pk = b.packedPackets || 0;
         rec.cartonsPacked = Math.ceil(pk / (b.perCarton || sk.perCarton));
-        if (rec.cartonsPacked) rec.lots = D.take(CARTON, rec.cartonsPacked, b, worker.name);
+        if (rec.cartonsPacked) rec.lots = D.consume(b, CARTON, rec.cartonsPacked, worker.name);
         var oldest = (b.bagsTaken || [])[0];
-        D.addPackets(sk.id, pk, b.batchNumber + (oldest ? " · from " + oldest.batchNumber : ""), oldest ? oldest.madeAt : iso(), oldest ? oldest.useBy : iso());
+        D.addPackets(sk.id, pk, b.batchNumber + (oldest ? " · from " + oldest.batchNumber : ""), oldest ? oldest.madeAt : iso(), oldest ? oldest.useBy : iso(), b.id);
         b.inventorySync = { status: "synced", syncedAt: iso(), lines: [{ lineRef: sk.id, status: "synced", expectedQty: b.packets, actualQty: pk, hostProductId: sk.id,
           manufacturingDate: (oldest ? oldest.madeAt : iso()).slice(0, 10), expiryDate: (oldest ? oldest.useBy : iso()).slice(0, 10) }],
           events: [{ lineRef: sk.id, action: "post", status: "ok", timestamp: iso(), actor: worker.name }] };
@@ -729,19 +1197,170 @@
       }
       /* the last step completes the batch */
       if (b) {
-        var wf = D.workflowFor(b), last = wf ? Math.max.apply(null, wf.steps.map(function (s) { return s.order; })) : task.stepOrder;
+        var last = D.stepsFor(b).length || task.stepOrder;
         if (task.stepOrder === last && ["in-progress", "planned"].indexOf(b.stateId) !== -1) {
           if (b.kind === "production") {
             var bagged = r2(db.bags.filter(function (g) { return g.batchId === b.id; }).reduce(function (s, g) { return s + g.kg; }, 0));
-            b.actualOutcome = { lines: [], plannedSemiFinishedKg: b.batchSize, actualSemiFinishedKg: bagged, settlementRequired: Math.abs(bagged - b.batchSize) > b.batchSize * 0.05 };
+            var planSF = r2(b.batchSize - D.sameRunLines(b).reduce(function (t, l) { return t + (l.weightKg || 0); }, 0));
+            var olines = D.sameRunLines(b).map(function (l) { var got = (b.packedLines || []).filter(function (x) { return x.skuId === l.packagingConfigId; })[0]; return { packagingConfigId: l.packagingConfigId, name: l.name, plannedUnits: l.plannedUnits, actualUnits: got ? got.packets : 0 }; });
+            b.actualOutcome = { lines: olines, plannedSemiFinishedKg: planSF, actualSemiFinishedKg: bagged,
+              settlementRequired: Math.abs(bagged + D.packedKg(b) - b.batchSize) > b.batchSize * 0.05 || olines.some(function (x) { return x.actualUnits !== x.plannedUnits; }) };
             b.semiFinishedKg = bagged;
           } else {
             b.actualOutcome = { lines: [{ packagingConfigId: b.skuId, name: D.sku(b.skuId).name, plannedUnits: b.packets, actualUnits: b.packedPackets || 0 }], settlementRequired: (b.packedPackets || 0) !== b.packets };
           }
-          D.move(b, "completed", "complete", worker.name, "Last step done on the floor");
+          D.move(b, "completed", "complete", worker.name, task.enteredVia === "office" ? "Last step recorded in the office" : "Last step done on the floor");
         }
       }
       return rec;
+    }
+
+    /* ── recording: on the floor (Worker App) or in the office ──────────
+       A step is recorded once — by the phone, or by the office on the
+       batch's Steps tab with the same fields. Either way it runs the same
+       step completion, so the same stock moves (29 Sep 2026). */
+    D.settings = function () { db.settings = db.settings || { recording: "app" }; return db.settings; };
+    D.recordingOf = function (b) { return (b && b.recording) || D.settings().recording || "app"; };
+    D.setRecording = function (batchId, mode, actor) {
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (["app", "office"].indexOf(mode) === -1) throw invalid("Pick the Worker App or the office");
+      b.recording = mode;
+      D.emit("production.batch.recording", { where: "Batches", how: "office", by: actor || "admin", data: { batch: b.batchNumber, recording: mode } });
+      return b;
+    };
+    /* The office records a step: for a worker (who did it), in step order.
+       In app mode it's the exception — a phone that died — and is marked. */
+    D.recordStep = function (taskId, o) {
+      o = o || {};
+      var t = find(db.tasks, taskId);
+      if (!t) throw new ApiError(404, "No such step");
+      var b = D.batch(t.batch);
+      if (t.status === "done") throw new ApiError(409, t.stepName + " is already recorded");
+      if (t.status === "locked") throw new ApiError(409, "Record the step before it first");
+      if (b && ["on-hold", "rejected", "completed", "closed"].indexOf(b.stateId) !== -1) throw new ApiError(409, b.batchNumber + " is " + b.statusLabel.toLowerCase());
+      var w = D.worker(o.workerId) || (t.assignedTo && D.worker(t.assignedTo));
+      if (!w || w.role === "admin") throw invalid("Pick who did it");
+      if (t.status !== "in_progress" || t.assignedTo !== w._id) {
+        t.assignedTo = w._id; t.assignedName = w.name; t.status = "in_progress"; t.startedAt = t.startedAt || iso(); t.updatedAt = iso();
+      }
+      t.enteredVia = "office"; t.enteredBy = o.actor || "admin";
+      if (b && b.stateId === "planned") D.move(b, "in-progress", "start", o.actor || "admin", "Recorded in the office: " + t.stepName);
+      return D.complete(t, w, o.input || {});
+    };
+    /* Record all at once (office mode): every open step, in order, with
+       one submit — all or nothing (the caller saves only on success). */
+    D.recordAll = function (batchId, o) {
+      o = o || {};
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      var open = db.tasks.filter(function (t) { return t.batch === b.id && t.status !== "done"; }).sort(function (x, y) { return x.stepOrder - y.stepOrder; });
+      if (!open.length) throw new ApiError(409, "Every step is already recorded");
+      var inputs = o.steps || {};
+      return open.map(function (t) {
+        if (t.status === "locked") { t.status = "available"; t.availableAt = iso(); }
+        return { step: t.stepName, rec: D.recordStep(t._id, { workerId: o.workerId, actor: o.actor, input: inputs[t._id] || inputs[t.stepOrder] || {} }) };
+      });
+    };
+
+    /* ── corrections: never edited in place ──────────────────────────────
+       The step's movements are reversed (lots back, its untouched bags and
+       packets out) and the step is recorded again with the right figures. */
+    D.correctStep = function (taskId, o) {
+      o = o || {};
+      var t = find(db.tasks, taskId);
+      if (!t || t.status !== "done") throw new ApiError(409, "Only a recorded step can be corrected");
+      var b = D.batch(t.batch);
+      if (b && ["closed", "rejected"].indexOf(b.stateId) !== -1) throw new ApiError(409, b.batchNumber + " is " + b.statusLabel.toLowerCase());
+      if (!o.reason) throw invalid("Say why it's being corrected");
+      var mine = (db.ledger || []).filter(function (e) { return e.task === t._id && !e.reversed; });
+      /* what the step made must still be whole */
+      mine.forEach(function (e) {
+        if (e.kind === "sf" && e.qty > 0) { var g = db.bags.filter(function (x) { return x.bagNo === e.ref; })[0]; if (g && g.remaining + 0.0001 < g.kg) throw new ApiError(409, "Bag " + g.bagNo + " has been packed from; correct the packing first"); }
+        if (e.kind === "fg" && e.qty > 0) { var fl = ((db.fg[e.item] || {}).lots || []).filter(function (x) { return x.task === t._id; })[0]; if (fl && fl.remaining < fl.qty) throw new ApiError(409, "Some of these packets are sold; correct with a return instead"); }
+      });
+      D.as({ batch: b, step: t.stepName, task: t._id + "·fix", by: o.actor || "admin", via: "office", what: "corrected" }, function () {
+        mine.forEach(function (e) {
+          e.reversed = true;
+          if (e.kind === "rm") { var lot = db.lots.filter(function (l) { return l.lotNo === e.ref; })[0]; if (lot) lot.remaining = r2(lot.remaining - e.qty); }
+          if (e.kind === "sf" && e.qty > 0) db.bags = db.bags.filter(function (g) { return g.bagNo !== e.ref; });
+          if (e.kind === "sf" && e.qty < 0) { var bg = db.bags.filter(function (g) { return g.bagNo === e.ref; })[0]; if (bg) bg.remaining = r2(bg.remaining - e.qty); }
+          if (e.kind === "fg" && e.qty > 0 && db.fg[e.item]) db.fg[e.item].lots = db.fg[e.item].lots.filter(function (x) { return x.task !== t._id; });
+          post(e.kind, e.item, e.name, e.ref, -e.qty, e.unit, "corrected", { reason: o.reason });
+        });
+      });
+      /* the batch's issue figures step back by what the step used */
+      (b.ingredientSummary || []).forEach(function (row) {
+        var used = mine.filter(function (e) { return e.kind === "rm" && e.item === row.ingredientId; }).reduce(function (s2, e) { return s2 - e.qty; }, 0);
+        if (used > 0) { row.issuedQty = r2(row.issuedQty - used); row.netConsumed = r2(row.issuedQty - row.returnedQty); }
+      });
+      (b.ingredientSummary || []).forEach(function (row) { var u = t.used && t.used[row.ingredientId]; if (u) row.usedQty = Math.max(0, r2((row.usedQty || 0) - u)); });
+      if (t.packRun) b.packedLines = [];
+      ["kgIn", "kgOut", "lossPct", "lots", "sticksUsed", "bagsMade", "packets", "packedLines", "bagsTaken", "cartonsPacked"].forEach(function (k) { delete t[k]; });
+      var wasLast = b.stateId === "completed";
+      if (wasLast) { b.stateId = "in-progress"; b.statusLabel = LABEL["in-progress"]; }
+      t.status = "in_progress"; t.enteredVia = "office"; t.enteredBy = o.actor || "admin";
+      t.corrections = (t.corrections || []).concat([{ at: iso(), by: o.actor || "admin", reason: o.reason }]);
+      var w = D.worker(t.assignedTo);
+      return D.complete(t, w, o.input || {});
+    };
+
+    /* ── quarantine: a rejected batch's output is held, not sold ───────── */
+    D.quarantine = function (b, actor) {
+      var held = { bags: 0, kg: 0, packets: 0 };
+      D.as({ batch: b, by: actor || "admin", via: "office" }, function () {
+        db.bags.filter(function (g) { return g.batchId === b.id && g.remaining > 0.0001 && g.qc !== "quarantine"; }).forEach(function (g) {
+          g.qc = "quarantine"; held.bags += 1; held.kg = r2(held.kg + g.remaining);
+          post("sf", g.recipeId, g.product, g.bagNo, 0, g.unit || "kg", "quarantined", { held: g.remaining });
+        });
+        Object.keys(db.fg).forEach(function (skuId) {
+          db.fg[skuId].lots.filter(function (l) { return l.batchId === b.id && l.remaining > 0 && l.qc !== "quarantine"; }).forEach(function (l) {
+            l.qc = "quarantine"; held.packets += l.remaining;
+            post("fg", skuId, (D.sku(skuId) || {}).name, l.ref, 0, "packets", "quarantined", { held: l.remaining });
+          });
+        });
+      });
+      return held;
+    };
+    D.releaseQuarantine = function (batchId, how, actor) {
+      var b = D.batch(batchId);
+      if (!b) throw invalid("Unknown batch");
+      if (["release", "scrap"].indexOf(how) === -1) throw invalid("Release or scrap");
+      D.as({ batch: b, by: actor || "admin", via: "office" }, function () {
+        db.bags.filter(function (g) { return g.batchId === b.id && g.qc === "quarantine"; }).forEach(function (g) {
+          var kg = g.remaining; delete g.qc;
+          if (how === "scrap") { g.remaining = 0; post("sf", g.recipeId, g.product, g.bagNo, -kg, g.unit || "kg", "scrapped"); }
+          else post("sf", g.recipeId, g.product, g.bagNo, 0, g.unit || "kg", "released", { held: kg });
+        });
+        Object.keys(db.fg).forEach(function (skuId) {
+          db.fg[skuId].lots.filter(function (l) { return l.batchId === b.id && l.qc === "quarantine"; }).forEach(function (l) {
+            var n = l.remaining; delete l.qc;
+            if (how === "scrap") { l.remaining = 0; post("fg", skuId, (D.sku(skuId) || {}).name, l.ref, -n, "packets", "scrapped"); }
+            else post("fg", skuId, (D.sku(skuId) || {}).name, l.ref, 0, "packets", "released", { held: n });
+          });
+        });
+      });
+      b.quarantine = how === "scrap" ? "scrapped" : "released";
+      return b;
+    };
+    D.inQuarantine = function (b) {
+      var bags = db.bags.filter(function (g) { return g.batchId === b.id && g.qc === "quarantine"; });
+      var packets = 0;
+      Object.keys(db.fg).forEach(function (k) { db.fg[k].lots.forEach(function (l) { if (l.batchId === b.id && l.qc === "quarantine") packets += l.remaining; }); });
+      return { bags: bags.length, kg: r2(bags.reduce(function (t, g) { return t + g.remaining; }, 0)), packets: packets };
+    };
+
+    /* ── the weight balance a batch is closed on ─────────────────────────
+       material used − loss = kg out = packed kg + bagged kg (+ trim). */
+    D.balance = function (b) {
+      var used = (b.ingredientSummary || []).filter(function (r) { var m = D.material(r.ingredientId); return m && (m.unit === "kg" || m.unit === "litre"); })
+        .reduce(function (t, r) { return t + (r.usedQty || 0); }, 0);
+      var bagged = r2(db.bags.filter(function (g) { return g.batchId === b.id; }).reduce(function (t, g) { return t + g.kg; }, 0));
+      var packed = D.packedKg(b), made = b.kind === "production" ? D.madeKg(b) : 0;
+      var unused = (b.ingredientSummary || []).map(function (r) { return { id: r.ingredientId, name: r.ingredientName, unit: r.uom, qty: D.unusedIssued(b, r.ingredientId) }; }).filter(function (x) { return x.qty > 0; });
+      var planPack = D.sameRunLines(b).reduce(function (t, l) { return t + (l.weightKg || 0); }, 0);
+      return { planKg: b.batchSize, planPackedKg: r2(planPack), planBaggedKg: r2(b.batchSize - planPack), usedKg: r2(used), madeKg: r2(made), packedKg: packed, baggedKg: bagged,
+        outKg: r2(packed + bagged), lossPct: used ? r1((used - made) / used * 100) : null, gapKg: r2(packed + bagged - b.batchSize), unused: unused };
     };
 
     /* ── Production Plan: orders + forecast − packets − bags − planned ── */
@@ -892,7 +1511,10 @@
       materials: MATERIALS.map(function (m) { return { id: m[0], name: m[1], article: m[2], unit: m[3], stockUnit: m[4], store: m[5], price: m[6], threshold: m[7], supplier: m[8], packQty: m[9], packName: m[10], kind: m[11] || "raw" }; }),
       suppliers: clone(SUPPLIERS), purchase: clone(PURCHASE),
       /* split: the pack's share of a batch in the Production tab's default split */
-      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40") }; }),
+      skus: SKUS.map(function (s) { return { id: s[0], recipeId: s[1], name: s[2], grams: s[3], perCarton: s[4], price: s[5], pouchId: s[6], split: 0, retired: false, article: "FG-" + s[0].slice(-2).padStart(4, "40"),
+        /* the 5 kg catering packs are packed straight off the line, in the same run */
+        sameRun: s[3] >= 5000 }; }),
+      ledger: [], settings: { recording: "app" },
     };
     var D = Domain(db, clock, log);
     var stamp = function (o) { o.createdAt = o.updatedAt = clock().toISOString(); o.__v = 0; o._seq = ++db.seq; return o; };
@@ -924,6 +1546,11 @@
     Object.keys(DEMAND).forEach(function (id) { var d = DEMAND[id]; db.demand[id] = { weekly: d.slice(0, 4), open: d[4], season: 1 }; });
 
     var W = {}; db.workers.forEach(function (w) { W[w.key] = w; });
+    /* the factory's week: Mon–Sat, a morning and an evening slot, each with
+       its in-charge and usual crew */
+    db.slotPattern = { days: [1, 2, 3, 4, 5, 6], slots: {
+      morning: { name: "Morning", start: 7, end: 15, inCharge: "Priya Sharma", crew: [W.asha._id, W.ravi._id, W.meena._id, W.farida._id] },
+      evening: { name: "Evening", start: 15, end: 23, inCharge: "Suresh Kumar", crew: [W.suresh._id, W.farida._id, W.kiran._id] } } };
     var S = {}; RECIPES.forEach(function (r) { S[r.id] = r; });
 
     /* goods in: raw material over the month, oldest first */
@@ -941,7 +1568,9 @@
     /* one shift per working day: run everything on it to the end */
     function runShift(dayOff, name, workers, jobs, endStep) {
       clk.t = at(today, dayOff, 7).getTime();
-      var sh = stamp({ _id: newId(db), name: name, startTime: clock().toISOString(), status: "live", workers: workers.map(function (w) { return w._id; }), batches: jobs.map(function (b) { return b.id; }) });
+      var sh = stamp({ _id: newId(db), name: name, date: isoDay(clock().getTime()), slot: "morning", inCharge: jobs[0] && jobs[0].operator || "Priya Sharma",
+        startTime: clock().toISOString(), endTime: at(today, dayOff, 15).toISOString(), status: "live", workers: workers.map(function (w) { return w._id; }), batches: jobs.map(function (b) { return b.id; }) });
+      jobs.forEach(function (b) { b.when = { date: sh.date, slot: "morning" }; });
       db.shifts.push(sh);
       D.generateTasks(sh);
       var mins = 5;
@@ -1028,19 +1657,38 @@
       if (b.kind === "production" && b.stateId === "completed" && !db.bags.some(function (g) { return g.batchId === b.id && g.remaining > 0; })) { clk.t = t - 2 * HOUR; D.move(b, "closed", "close", "Admin", "All bags packed"); }
     });
 
-    /* today: two batches on the floor, a packing order, one planned for the evening */
+    /* today: two batches on the floor, a packing order, and the same-run
+       example (100 kg peas: 16 × 5 kg packed in the run, 20 kg into bags) */
     var mv = order(0, "mixed-veg", 120, "Priya Sharma");
-    var sc = order(0, "soya-chaap", 100, "Dharmendar Ji");
+    var sc = order(0, "soya-chaap", 100, "Priya Sharma");
     var pk = packOrder(0, "fg-p05", 48);
-    var fp = order(0, "frozen-peas", 200, "Suresh Kumar");
+    clk.t = at(today, -1, 17).getTime();
+    var fp = D.createProductionOrder({ recipeId: "frozen-peas", batchSize: 100, plannedDate: isoDay(at(today, 0, 7)), expectedFinishDate: isoDay(at(today, 1, 7)),
+      supervisor: "Priya Sharma", where: "Production Plan", actor: "Admin", packs: [{ skuId: "fg-p04", qty: 16 }] }).batch;
+    var ev = order(0, "soya-chaap", 50, "Suresh Kumar");
+    var todayKey = isoDay(at(today, 0, 7));
     clk.t = at(today, -1, 16).getTime();
-    var morning = stamp({ _id: newId(db), name: "Morning Shift — Today", startTime: at(today, 0, 7).toISOString(), status: "live", workers: crew.map(function (w) { return w._id; }), batches: [mv.id, sc.id, pk.id] });
+    var morning = stamp({ _id: newId(db), name: "Morning · Today", date: todayKey, slot: "morning", inCharge: "Priya Sharma", startTime: at(today, 0, 7).toISOString(), endTime: at(today, 0, 15).toISOString(),
+      status: "live", workers: crew.map(function (w) { return w._id; }), batches: [mv.id, sc.id, pk.id, fp.id] });
     db.shifts.push(morning);
+    [mv, sc, pk, fp].forEach(function (b) { b.when = { date: todayKey, slot: "morning" }; });
     clk.t = at(today, 0, 7).getTime();
-    D.generateTasks(morning);
+    /* only the started three get their steps now; peas waits for its Start */
+    morning.batches = [mv.id, sc.id, pk.id]; D.generateTasks(morning); morning.batches.push(fp.id);
     db.tasks.forEach(function (x) { if (x.shift === morning._id && x.batch === pk.id && x.status === "available") x.availableAt = new Date(t - 12 * MIN).toISOString(); });
-    var evening = stamp({ _id: newId(db), name: "Evening Shift — Today", startTime: at(today, 0, 15).toISOString(), status: "scheduled", workers: [W.suresh._id, W.farida._id, W.kiran._id], batches: [fp.id] });
+    var evening = stamp({ _id: newId(db), name: "Evening · Today", date: todayKey, slot: "evening", inCharge: "Suresh Kumar", startTime: at(today, 0, 15).toISOString(), endTime: at(today, 0, 23).toISOString(),
+      status: "scheduled", workers: [W.suresh._id, W.farida._id, W.kiran._id], batches: [ev.id] });
     db.shifts.push(evening);
+    ev.when = { date: todayKey, slot: "evening" };
+    /* the rest of the week, and two requests not yet given a slot */
+    var nextDay = function (n) { var d = new Date(today.getFullYear(), today.getMonth(), today.getDate()), k = 0; while (k < n) { d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); if (d.getDay() !== 0) k++; } return dayKey(d); };
+    clk.t = at(today, 0, 6).getTime();
+    [[1, "morning", "frozen-peas", 200], [1, "evening", "mixed-veg", 100], [2, "morning", "soya-chaap", 100]].forEach(function (x) {
+      var b = D.createProductionOrder({ recipeId: x[2], batchSize: x[3], plannedDate: nextDay(x[0]), expectedFinishDate: nextDay(x[0] + 1), where: "Production Plan", actor: "Admin" }).batch;
+      D.schedule(b.id, nextDay(x[0]), x[1], "Admin");
+    });
+    D.createProductionOrder({ recipeId: "mixed-veg", batchSize: 120, plannedDate: nextDay(3), expectedFinishDate: nextDay(3), where: "Sales Orders", actor: "Mahesh" });
+    D.createProductionOrder({ recipeId: "soya-chaap", batchSize: 100, plannedDate: nextDay(4), expectedFinishDate: nextDay(4), where: "Sales Orders", actor: "Mahesh" });
     /* the morning so far, relative to now: Asha washed the veg an hour ago and
        lost 12.9% (the recipe allows 10); Ravi weighed out the flour and is
        making the dough */
@@ -1091,7 +1739,7 @@
     function jfBatch(b) {
       var wf = D.workflowFor(b);
       var done = db.tasks.filter(function (t) { return t.batch === b.id && t.status === "done"; }).map(function (t) { return t.stepOrder; });
-      var total = wf ? wf.steps.length : 0;
+      var total = D.stepsFor(b).length;
       var pointer = 1; while (done.indexOf(pointer) !== -1) pointer += 1;
       return { _id: b.id, code: b.batchNumber, product: b.displayName, quantity: b.kind === "packing" ? b.packets + " packets" : b.batchSize + " kg",
         status: ["completed", "closed"].indexOf(b.stateId) !== -1 ? "done" : "running", stateId: b.stateId, statusLabel: b.statusLabel, kind: b.kind, line: b.line,
@@ -1334,7 +1982,8 @@
         if (q.batch && t.batch !== q.batch) return false;
         if (q.role && t.role !== q.role) return false;
         if (q.status && t.status !== q.status) return false;
-        if (q.open === "1") { var b = D.batch(t.batch); if (b && ["on-hold", "rejected"].indexOf(b.stateId) !== -1) return false; }
+        /* open=1 is the Worker App: no held batches, and none recorded in the office */
+        if (q.open === "1") { var b = D.batch(t.batch); if (b && (["on-hold", "rejected"].indexOf(b.stateId) !== -1 || D.recordingOf(b) === "office")) return false; }
         return true;
       });
       return { tasks: sortTasks(list).map(populateTask) };
@@ -1363,8 +2012,13 @@
       var pk = t.pack && b && D.sku(b.skuId), pmat = t.cartons ? CARTON : pk && pk.pouchId;
       if (pmat && D.material(pmat)) { var pl = D.lotsFIFO(pmat)[0], pm = D.material(pmat); c.store.push({ materialId: pmat, name: pm.name, unit: pm.unit, onHand: D.onHand(pmat), oldest: pl ? { lotNo: pl.lotNo, remaining: pl.remaining, receivedAt: pl.receivedAt, store: pl.store } : null }); }
       /* the worker app: the step this one hands on to, and the check-ins on it */
-      var wf = b && D.workflowFor(b), nx = wf && wf.steps.filter(function (st) { return st.order === t.stepOrder + 1; })[0];
+      var nx = b && D.stepsFor(b).filter(function (st) { return st.order === t.stepOrder + 1; })[0];
       c.nextStep = nx ? { order: nx.order, name: nx.name, role: nx.role } : null;
+      /* the same-run pack step's lines, and what the fill step's "rest" is */
+      if (b && b.kind === "production") {
+        c.sameRun = D.sameRunLines(b).map(function (l) { return { skuId: l.packagingConfigId, name: l.name, planned: l.plannedUnits, kgEach: r2(l.weightKg / l.plannedUnits) }; });
+        c.madeKg = D.madeKg(b); c.packedKg = D.packedKg(b);
+      }
       c.help = openHelp(t);
       c.updates = db.updates.filter(function (u) { return u.task === t._id; }).sort(function (x, y) { return new Date(y.createdAt) - new Date(x.createdAt); })
         .map(function (u) { var w = find(db.workers, u.worker); return { _id: u._id, quickSelect: u.quickSelect, note: u.note || "", createdAt: u.createdAt, by: w ? w.name : "" }; });
@@ -1374,6 +2028,8 @@
       var user = auth(r.token), t = find(db.tasks, r.params.id);
       if (!t) throw new ApiError(404, "Task not found");
       /* No role restriction (owner, 26 Sep 2026): any worker takes any available task. */
+      var bb = D.batch(t.batch);
+      if (bb && D.recordingOf(bb) === "office") throw new ApiError(409, "This batch is recorded in the office");
       D.claim(t, user, r.body || {}); commit();
       return { task: populateTask(t) };
     });
@@ -1524,6 +2180,8 @@
         d.packagingLines = {}; d.hostProducts = [];
         d.recipeOrder.forEach(function (rid) { d.packagingLines[D.book(rid).version] = D.packagingLines(rid); });
         d.skus.forEach(function (s) { d.hostProducts.push({ id: s.id, name: s.name, articleNo: s.article }); });
+        /* the shift each batch is in, for All batches (the same words as Week) */
+        d.batches.forEach(function (b) { b.shiftName = b.when ? D.slotName(b.when.slot) : null; });
         return d;
       },
       plan: function () { return read(function (D) { return D.plan(); }); },

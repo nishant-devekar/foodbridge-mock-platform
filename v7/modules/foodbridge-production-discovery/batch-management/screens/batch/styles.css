@@ -1237,3 +1237,40 @@
   .fbp-root .fbp-loading-spinner{animation:fbp-spin .7s linear infinite}
 }
 @keyframes fbp-spin{to{transform:rotate(360deg)}}
+
+/* ── Steps tab: recording a batch's steps, once (29 Sep 2026) ── */
+.rs-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; margin-bottom: 10px; }
+.rs-list, .rs-plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rs-plan { list-style: decimal; padding-left: 20px; font-size: 13px; color: #475569; gap: 4px; }
+.rs-step { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 10px 12px; }
+.rs-step.done { background: #f8fafc; }
+.rs-step.locked { opacity: .6; }
+.rs-row { display: flex; align-items: flex-start; gap: 10px; }
+.rs-n { flex: 0 0 22px; height: 22px; border-radius: 50%; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.rs-step.done .rs-n { background: #dcfce7; color: #15803d; }
+.rs-name { flex: 1; min-width: 0; font-size: 14px; }
+.rs-name .bm-chip { margin-left: 6px; }
+.rs-form { margin: 10px 0 2px 32px; padding: 10px 12px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
+.rs-title { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #475569; }
+.rs-f { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: #334155; }
+.rs-f > span:first-child { flex: 1; }
+.rs-f .input { max-width: 240px; }
+.rs-in { display: inline-flex; align-items: center; gap: 6px; }
+.rs-in .qty-input { width: 110px; text-align: right; }
+.rs-in small { color: #64748b; font-size: 12px; min-width: 60px; }
+.rs-acts { display: flex; justify-content: flex-end; gap: 8px; }
+.rs-all { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; font-size: 13px; }
+@media (max-width: 640px) { .rs-form { margin-left: 0; } .rs-f { flex-wrap: wrap; } .rs-f .input { max-width: none; width: 100%; } }
+
+
+.fbp-root .ws-home-td-due .sub.not-scheduled { color: #b45309; font-weight: 600; }
+
+/* One edge with the view header (29 Sep 2026, owner): the Production tabs'
+   first line (assets/production-tabs.js) sits 24px in (12px on a phone);
+   the list, its status row and its cards start and end on those same lines. */
+.fbp-root.edge { padding-left: 0 !important; padding-right: 0 !important; }
+.fbp-root.edge .kpi-wrap, .fbp-root.edge .chip-row, .fbp-root.edge .op-list-pane { padding-left: 24px !important; padding-right: 24px !important; }
+.fbp-root.edge .kpi-row { margin-left: 0 !important; margin-right: 0 !important; }
+@media (max-width: 639.98px) {
+  .fbp-root.edge .kpi-wrap, .fbp-root.edge .chip-row, .fbp-root.edge .op-list-pane { padding-left: 12px !important; padding-right: 12px !important; }
+}

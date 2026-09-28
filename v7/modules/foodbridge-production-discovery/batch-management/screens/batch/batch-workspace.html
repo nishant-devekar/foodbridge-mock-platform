@@ -12,18 +12,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Batch Workspace — Discovery v7</title>
   <link rel="stylesheet" href="design-tokens.css" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260929SL6" />
 </head>
 <body>
   <!-- the platform's page header, the same as Sales Orders (28 Sep 2026) -->
   <script src="../../../../../assets/app-header.js?v=20260928HD1"></script>
-  <script>FBAppHeader.mount({ title: "Batches", flush: true });</script>
-  <div class="fbp-root">
+  <script>FBAppHeader.mount({ title: "Production", flush: true });</script>
+  <!-- Today · Week · All batches: the same fixed tabs as the Production board (29 Sep 2026) -->
+  <script src="../../../../../assets/production-tabs.js?v=20260929SL5"></script>
+  <script>FBProductionTabs.mount({ active: "all", sub: "Every batch, and where it is", action: { label: "+ New Batch", desktopOnly: true, onClick: function () { location.href = "create-batch.html"; } } });</script>
+  <div class="fbp-root edge">
     <div id="content2-root"></div>
   </div>
 
-  <script src="../../../../../assets/production/production-api.js?v=20260928PB2"></script>
-  <script src="batch-shared.js?v=20260928PB2"></script>
-  <script src="batch-workspace.js?v=20260928PB2"></script>
+  <script src="../../../../../assets/production/production-api.js?v=20260929SL2"></script>
+  <script src="batch-shared.js?v=20260929SL3"></script>
+  <script src="batch-workspace.js?v=20260929SL5"></script>
 </body>
 </html>

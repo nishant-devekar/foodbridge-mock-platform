@@ -293,6 +293,7 @@
   /* ── State ────────────────────────────────────────────────────────────── */
   const state = {
     seed: null,
+    moves: null,
     route: "/inventory",
     catalogueType: "",
     tabs: TABS_FG,
@@ -540,6 +541,43 @@
     });
   }
 
+  /* Movements (29 Sep 2026): a product from the production store carries its
+     ledger — every received, issued, used, returned, bagged, packed and sold
+     line. Its name opens them; each line links to its batch. */
+  function movesName(p, cls) {
+    if (!p.movements) return `<p class="${cls}">${esc(p.productName)}</p>`;
+    return `<button type="button" data-moves="${esc(p._id)}" title="See every stock movement" class="block max-w-full text-left ${cls} hover:text-emerald-700 hover:underline underline-offset-2">${esc(p.productName)}</button>`;
+  }
+  const VIA = { app: "Worker App", office: "Office", store: "Store", sales: "Sales" };
+  function renderMovesModal() {
+    const p = state.moves && state.products.find((x) => x._id === state.moves);
+    if (!p) return "";
+    const list = p.movements || [];
+    const when = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + " · " + d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }); };
+    const n = (q) => (Math.round(q * 100) / 100).toLocaleString("en-IN");
+    const qty = (e) => e.qty ? `<span class="tabular-nums font-semibold ${e.qty > 0 ? "text-emerald-700" : "text-slate-700"}">${e.qty > 0 ? "+" : "−"}${n(Math.abs(e.qty))}</span> <span class="text-xs text-slate-400">${esc(e.unit)}</span>`
+      : `<span class="text-xs text-slate-500">${e.held != null ? esc(n(e.held) + " " + e.unit) : "—"}</span>`;
+    const rows = list.map((e) => `
+      <li class="flex items-start gap-3 px-5 py-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm text-slate-800"><span class="font-medium capitalize">${esc(e.what)}</span>${e.ref ? `<span class="text-slate-400"> · </span><span class="font-mono text-xs text-slate-500">${esc(e.ref)}</span>` : ""}</p>
+          <p class="text-xs text-slate-500 mt-0.5">${esc(when(e.at))}${e.batch ? ` · <button type="button" data-movebatch="${esc(e.batchId)}" class="text-emerald-700 font-medium hover:underline">${esc(e.batch)}</button>` : ""}${e.step ? " · " + esc(e.step) : ""}${e.by ? " · " + esc(e.by) : ""}${VIA[e.via] ? ` <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">${VIA[e.via]}</span>` : ""}</p>
+        </div>
+        <div class="shrink-0 text-right">${qty(e)}</div>
+      </li>`).join("");
+    return `
+      <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/40" data-movesclose>
+        <div class="bg-white w-full md:max-w-xl max-h-[85vh] rounded-t-2xl md:rounded-2xl shadow-xl flex flex-col" data-movespanel>
+          <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100">
+            <div class="min-w-0"><p class="text-base font-semibold text-slate-800 truncate">${esc(p.productName)}</p>
+              <p class="text-xs text-slate-500 mt-0.5">Every stock movement, newest first</p></div>
+            <button type="button" data-movesclose aria-label="Close" class="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100">${icon("x", "w-5 h-5")}</button>
+          </div>
+          ${list.length ? `<ul class="overflow-y-auto divide-y divide-slate-100">${rows}</ul>` : `<p class="px-5 py-10 text-center text-sm text-slate-500">No movements yet.</p>`}
+        </div>
+      </div>`;
+  }
+
   function renderLiveStock() {
     const s = state.live;
     const filtered = liveStockList();
@@ -658,7 +696,7 @@
                     "block rounded-custom border border-slate-100 object-cover rounded-lg"
                   )}</div></td>
                   <td class="px-4 py-3 max-w-xs">
-                    <p class="font-medium text-slate-800 truncate leading-tight">${esc(p.productName)}</p>
+                    ${movesName(p, "font-medium text-slate-800 truncate leading-tight")}
                     <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}${
                   p.articleNumber ? `<span class="ml-1.5 text-slate-300">·</span>` : ""
                 }<span class="ml-1.5 font-mono">${esc(p.articleNumber)}</span></p>
@@ -701,7 +739,7 @@
                   "block rounded-custom border border-slate-100 object-cover rounded-lg"
                 )}</div>
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-800 leading-tight">${esc(p.productName)}</p>
+                  ${movesName(p, "text-sm font-medium text-slate-800 leading-tight")}
                   <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}</p>${
                     p.note ? `<p class="text-xs text-slate-500 mt-0.5">${esc(p.note)}</p>` : ""
                   }
@@ -2133,7 +2171,7 @@
                   <td class="pl-5 pr-1 py-3">${checkbox("select-" + pid, s.selected.includes(pid))}</td>
                   <td class="px-2 py-3">${thumb(p.productName, 36, "rounded-lg block")}</td>
                   <td class="px-4 py-3 max-w-xs">
-                    <p class="font-medium text-slate-800 truncate leading-tight">${esc(p.productName)}</p>
+                    ${movesName(p, "font-medium text-slate-800 truncate leading-tight")}
                     <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}<span class="ml-1.5 text-slate-300">·</span><span class="ml-1.5 font-mono">${esc(
                   p.articleNumber
                 )}</span></p>
@@ -2164,7 +2202,7 @@
                 <span class="pt-1">${checkbox("m-select-" + pid, s.selected.includes(pid))}</span>
                 ${thumb(p.productName, 38, "rounded-lg block shrink-0")}
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-800 leading-tight">${esc(p.productName)}</p>
+                  ${movesName(p, "text-sm font-medium text-slate-800 leading-tight")}
                   <p class="text-xs text-slate-400 mt-0.5">${esc(c.displayUnit)}</p>
                 </div>
                 ${needBadge(c.need, c.displayUnit)}
@@ -2569,6 +2607,7 @@
     return `
       ${isRM ? renderAddBatchDrawer() : ""}
       ${renderStickerSheet()}
+      ${renderMovesModal()}
       <div class="tab tab-enter">
         ${receiveHeader}
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -2613,6 +2652,17 @@
         render();
       })
     );
+
+    $$("[data-moves]").forEach((b) => b.addEventListener("click", () => { state.moves = b.getAttribute("data-moves"); render(); }));
+    $$("[data-movesclose]").forEach((b) => b.addEventListener("click", (e) => {
+      if (e.target.closest("[data-movespanel]") && !e.target.closest("button[data-movesclose]")) return;
+      state.moves = null; render();
+    }));
+    $$("[data-movebatch]").forEach((b) => b.addEventListener("click", () => {
+      const id = b.getAttribute("data-movebatch");
+      try { if (window.parent !== window) { window.parent.location.hash = "#/production/batch-management?batch=" + encodeURIComponent(id); return; } } catch (e) { /* not framed */ }
+      window.location.href = "../../../foodbridge-production-discovery/batch-management/screens/batch/batch-detail.html?id=" + encodeURIComponent(id);
+    }));
 
     $$("[data-search]").forEach((el) =>
       el.addEventListener("input", (e) => {

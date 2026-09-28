@@ -9,7 +9,9 @@
    (production-api.js: D.savePack / D.retirePack).
 
    A pack: size, per carton, pouch, price, and its split — its share
-   of a batch in the Production tab. A saved pack reloads the page on
+   of a batch in the Production tab — and when it's packed (29 Sep):
+   in the same run, as a batch step before the rest goes into bags,
+   or later, by a packing order from the bags. A saved pack reloads the page on
    this tab, so the header, Cost and Production show it at once.
 
    The shared packing steps are drawn below the packs, into
@@ -39,7 +41,7 @@
 
   /* ---------- view ---------- */
   function form(s) {
-    const f = s || { grams: '', perCarton: '', price: '', split: 0, pouchId: '' };
+    const f = s || { grams: '', perCarton: '', price: '', split: 0, pouchId: '', sameRun: false };
     const pouchOpts = data.pouches.map((p) => `<option value="${esc(p.id)}"${p.id === f.pouchId ? ' selected' : ''}>${esc(p.name)} · ${money(p.price)}</option>`).join('');
     return `<div class="pkr-edit">
       <div class="grid">
@@ -49,6 +51,7 @@
         <div class="fld pkr-newpouch" hidden><label class="label">New pouch ₹</label><input class="input" data-pf="newPouchPrice" type="number" min="0" step="0.1" placeholder="2.50"></div>
         <div class="fld"><label class="label">Price ₹</label><input class="input" data-pf="price" type="number" min="1" step="0.5" value="${f.price}"></div>
         <div class="fld"><label class="label">Split %</label><input class="input" data-pf="split" type="number" min="0" max="100" step="1" value="${f.split}"></div>
+        <div class="fld pkr-wide"><label class="label">Packed</label><select class="input" data-pf="sameRun"><option value="1"${f.sameRun ? ' selected' : ''}>In the same run, before the bags</option><option value="0"${f.sameRun ? '' : ' selected'}>Later, from the bags</option></select></div>
       </div>
       <div class="pkr-note">${s && s.used ? 'Made already, so its size stays: a new size is a new pack. ' : ''}The other packs' split makes room.</div>
       <div class="pkr-cost" data-pkr-cost></div>
@@ -63,7 +66,7 @@
     return `<li class="pkr${isOpen ? ' open' : ''}${s.retired ? ' off' : ''}" data-pkr="${esc(s.id)}">
       <div class="pkr-row">
         <b>${size(s.grams)}</b>
-        <span class="pkr-sub">Carton of ${s.perCarton} · ${esc(s.pouchName || 'no pouch')} · ${esc(s.article)}<small>Costs ${money(s.cost.total)} a packet · margin ${s.cost.marginPct}%</small></span>
+        <span class="pkr-sub">Carton of ${s.perCarton} · ${esc(s.pouchName || 'no pouch')} · ${s.sameRun ? 'packed in the run' : 'packed later, from bags'} · ${esc(s.article)}<small>Costs ${money(s.cost.total)} a packet · margin ${s.cost.marginPct}%</small></span>
         <span class="pkr-split">${s.retired ? '' : s.split + '%'}</span>
         <span class="pkr-price">${money(s.price)}</span>
         ${s.retired ? '<button class="btn btn-sm" data-pkr-back>Put back on sale</button>' : '<span class="muted">✎</span>'}
@@ -110,7 +113,7 @@
   }
   function save(li) {
     const id = li.getAttribute('data-pkr'), v = (k) => { const el = li.querySelector(`[data-pf="${k}"]`); return el ? el.value : ''; };
-    const o = { perCarton: v('perCarton'), price: v('price'), split: v('split') };
+    const o = { perCarton: v('perCarton'), price: v('price'), split: v('split'), sameRun: v('sameRun') === '1' };
     if (id === 'new') { o.recipeId = RID; o.grams = v('grams'); } else { o.id = id; if (!li.querySelector('[data-pf="grams"]').readOnly) o.grams = v('grams'); }
     if (v('pouchId') === 'new') { if (!(Number(v('newPouchPrice')) > 0)) return fail(li, { message: 'Enter the new pouch\'s price.' }); o.newPouchPrice = v('newPouchPrice'); }
     else if (v('pouchId')) o.pouchId = v('pouchId');

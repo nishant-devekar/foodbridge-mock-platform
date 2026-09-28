@@ -91,6 +91,7 @@ The worker app was redesigned to the **Job Workflow — Worker App** mockup (`jo
   - The switch is a small pill at the top right of sign-in (as in the mockup) and of My day. The phone remembers the choice (`fb.v7.jobflow.lang`).
   - Times and dates follow the language but keep 0–9 digits, as on the scale and the stickers. Devanagari uses Noto Sans Devanagari.
   - Step names, instructions and product names are data: they show as the office typed them. Type them in Hindi or Marathi in Process Steps to have them read that way.
+- **Same-run packs (29 Sep 2026):** a batch with packs set to *In the same run* has a **Pack the planned packs** step before the fill step: one number per pack, filled in with the plan (`GET /api/tasks/:id` adds `sameRun`, `madeKg`, `packedKg`), refused if it's more than was made. The fill step then starts at **the rest** (made − packed) with the sum shown. A batch recorded in the office never reaches the phones.
 - **Not built yet:**
   - A voice note per step, which needs a recorder on Process Steps.
   - Pause, Undo, photos.

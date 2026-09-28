@@ -273,7 +273,11 @@
     var open = state.openGroups[group.id];
     if (open === undefined) open = true;
 
+    /* "hidden": a page that keeps its route (links and old addresses still
+       open it) but has no line in the sidebar — how a page is retired
+       without breaking what points at it (Batches, 29 Sep 2026). */
     var children = group.submenus
+      .filter(function (leaf) { return !leaf.hidden; })
       .map(function (leaf) {
         return renderLeaf(group, leaf);
       })

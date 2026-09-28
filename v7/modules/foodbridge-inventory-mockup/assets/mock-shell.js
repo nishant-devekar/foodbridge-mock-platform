@@ -413,7 +413,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20260928SF1", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20260929SL2", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });
@@ -427,13 +427,18 @@
     const stamp = (iso) => { const d = new Date(iso); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + "-" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0"); };
     return P.read((D, d) => {
       const rm = [], fg = [], batches = [];
+      /* every stock change of an item, newest first, from the store's ledger:
+         who moved it, from which batch and step, on the phone or in the office */
+      const moves = (kind, item) => D.movements(kind, item).slice(0, 80).map((e) => ({ at: e.at, what: e.what, ref: e.ref, qty: e.qty, unit: e.unit,
+        batch: e.batch, batchId: e.batchId, step: e.step, by: e.by, via: e.via, held: e.held }));
       d.materials.forEach((m) => {
         const lots = d.lots.filter((l) => l.materialId === m.id && l.qc === "accepted");
         lots.forEach((l) => batches.push({ _id: l.id, batchNumber: "BATCH-" + stamp(l.receivedAt), batchName: l.lotNo, lots: [l.lotNo], createdDaysAgo: ago(l.receivedAt),
           products: [{ _id: m.id, name: m.name, articleNo: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, stock: l.qty, remainingStock: l.remaining,
             mfgDaysAgo: ago(l.receivedAt), expiryInDays: until(l.useBy), price: l.price, tax: 5, supplierData: d.suppliers.find((x) => x.name === l.supplier) || { name: l.supplier, contact: "" } }] }));
         rm.push({ _id: m.id, productName: m.name, articleNumber: m.article, unit: m.stockUnit, boxes: 20, pallets: 40, availableStock: D.onHand(m.id), requiredStock: D.reserved(m.id),
-          outstandingStock: Math.max(0, D.reserved(m.id) - D.onHand(m.id)), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: m.threshold });
+          outstandingStock: Math.max(0, D.reserved(m.id) - D.onHand(m.id)), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: m.threshold,
+          movements: moves("rm", m.id) });
       });
       d.skus.forEach((k) => {
         const lots = (d.fg[k.id] ? d.fg[k.id].lots : []).map((l, i) => Object.assign({ id: k.id + "-" + i }, l));
@@ -442,7 +447,8 @@
             mfgDaysAgo: ago(l.madeAt), expiryInDays: until(l.useBy), price: k.price, tax: 5, supplierData: null }] }));
         const open = (d.demand[k.id] || {}).open || 0, have = D.packetsOf(k.id);
         fg.push({ _id: k.id, productName: k.name, articleNumber: k.article, unit: "Pkt-Carton-Pallet", boxes: k.perCarton, pallets: 40,
-          availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null });
+          availableStock: have, requiredStock: open, outstandingStock: Math.max(0, open - have), imagesUrl: [], batchStock: lots.map((l) => ({ batchId: l.id, stock: l.qty, remainingStock: l.remaining })), stockThreshold: null,
+          movements: moves("fg", k.id) });
       });
       /* Semi-Finished Inventory (28 Sep 2026): made, not packed yet. A product
          per recipe that fills containers on the floor, and a lot per container,
@@ -462,7 +468,7 @@
             mfgDaysAgo: ago(g.madeAt), expiryInDays: until(g.useBy), price: cost, tax: 0, supplierData: null }] }));
         sf.push({ _id: id, productName: x.name, articleNumber: x.article, unit, boxes: x.size, pallets: 1,
           availableStock: x.totalKg, requiredStock: x.reservedKg, outstandingStock: x.shortfallKg, imagesUrl: [], stockThreshold: null,
-          batchStock: bags.map((g) => ({ batchId: g.id, stock: g.kg, remainingStock: g.remaining })),
+          batchStock: bags.map((g) => ({ batchId: g.id, stock: g.kg, remainingStock: g.remaining })), movements: moves("sf", x.recipeId),
           note: x.bags ? x.held.map((h) => count(h.count, h.container) + " · " + h.store).join(" + ") + (x.next ? " · packs next from " + x.next : "")
             : "No " + x.container.toLowerCase() + " · " + (x.plannedKg ? x.plannedKg + " " + x.unit + " planned" : "make a batch") });
       });

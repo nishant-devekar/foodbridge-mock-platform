@@ -23,9 +23,10 @@ test("the seeded month balances: every lot, bag and packet adds up", () => {
     const issued = d.batches.reduce((s, b) => s + (b.ingredientSummary || []).filter((r) => r.ingredientId === m.id).reduce((a, r) => a + r.issuedQty, 0), 0);
     assert.ok(Math.abs(received - issued - D.onHand(m.id)) < 0.05, m.name + ": received " + received + " = issued " + issued + " + on hand " + D.onHand(m.id));
   });
-  /* today: two batches on the floor, a packing order, one planned */
+  /* today: two batches on the floor; the packing order, the same-run peas and
+     the evening's chaap planned; three more across the week; two requests */
   const open = d.batches.filter((b) => b.stateId !== "closed" && b.stateId !== "completed").map((b) => b.stateId).sort();
-  assert.deepEqual(open, ["in-progress", "in-progress", "planned", "planned"]);
+  assert.deepEqual(open, ["in-progress", "in-progress", "planned", "planned", "planned", "planned", "planned", "planned", "planned", "planned"]);
 });
 
 test("the floor moves the batch: first step starts it, the last completes it and bags it", () => {

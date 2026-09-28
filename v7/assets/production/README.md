@@ -53,6 +53,19 @@ So every lot, bag and packet adds up the way live use will. A new day starts a n
   - Real cost per kg = the raw material actually issued, at each lot's price, plus making cost, over the kg bagged.
   - Weight lost is shown by step and by worker.
 
+## One batch workflow, wired to stock (29 Sep 2026)
+
+A batch runs **Requested → Scheduled (a slot) → Start → steps → Completed → Close**, with Hold, Resume and Reject. Every step is recorded **once**, on the phone or in the office, and either way runs the same stock operations.
+
+- **Recording** (`D.settings().recording`, per batch `b.recording`, chosen again at Start): `app` (default), where steps come from the Worker App, or `office`, where steps are typed in Batch detail › Steps (`D.recordStep`, or `D.recordAll` for all at once). An office batch never reaches the phones (`/api/tasks` skips it, and claiming it answers 409). A step not recorded shows on Needs you as **to_record**, not as "nobody started it".
+- **The ledger** (`db.ledger`): one line per stock change `{kind: rm|sf|fg, item, ref, qty ±, what, batch, step, by, via: app|office|store|sales|system}`, posted inside `D.as(meta, fn)`. `D.movements(kind, item)` and `D.movementsOfBatch(id)` read it. Each inventory product's name opens its movements; each line links to its batch.
+- **Raw material:** received (`D.receive`), issued (`D.issueFromStore`, the store's own issue: stock leaves now), used (a step consumes the issued amount first, then takes the rest oldest lot first), returned (`D.returnToStore`, to the source lots).
+- **The output split.** A pack set to *In the same run* (Recipes › Packaging, `sku.sameRun`) is planned in the batch. `D.stepsFor(b)` adds **Pack the planned packs** before the fill step: FG +packets (`addPackets`), pouches and cartons consumed, capped by what was made. The fill step then bags **the rest** (made − packed) into Semi-Finished. A pack set to *Later, from the bags* stays a packing order.
+- **Correct a step** (`D.correctStep`): its ledger lines are reversed (lots back, untouched bags and packets removed) and the step is recorded again, with a reason.
+- **Reject → quarantine:** the batch's bags and packets are held (not packed, not sold) until released or scrapped (`D.releaseQuarantine`).
+- **Close** shows the balance (`D.balance`): planned (packed + bagged) vs made vs out, loss %, and unused issued material to return. A gap needs a reason.
+- **Shifts** (called slots in the code): `db.slotPattern` lists the factory's shifts `{name, start, end, inCharge, crew}` (Morning 7–15 and Evening 15–23 to start; `D.saveShiftType` adds or edits one, overnight allowed, overlaps refused; `D.removeShiftType`; `D.setWorkingDays`; `D.openDay` works a day off). `D.slotList()`, `D.currentKey()` (a night shift after midnight belongs to the day it started), `D.nextSlot` walks them in order. A day's shift is stored as a shift record with `date` and `slot`. A batch's `operator` is its shift's in-charge (`D.schedule`, `D.setCrew`). `D.schedule` / `D.unschedule` / `D.reorderSlot` / `D.setCrew` / `D.stopSlot` / `D.resumeSlot` / `D.cancelSlot` / `D.handOver` / `D.takeOver`; `D.week(from)` and `D.notScheduled()` feed the Week view. Start (`D.releaseToFloor`) uses the batch's slot if it's today, else the slot running now.
+
 ## The record
 
 Every step writes to `localStorage["fb.v7.production.log"]`: who, how much, which lot or bag, and when.
@@ -66,6 +79,8 @@ Run from `v7/`:
 ```
 node --test assets/production/test/*.test.js
 ```
+
+`stock-ledger.test.js` (7 tests, 29 Sep 2026; the 7th is shift settings) covers the flow above: the owner's 100 kg example on the phones and in the office, the split when the floor differs, correction/return/quarantine, slots, and the office's to-record alert. The older files:
 
 There are 10 tests:
 - the seeded month balances;

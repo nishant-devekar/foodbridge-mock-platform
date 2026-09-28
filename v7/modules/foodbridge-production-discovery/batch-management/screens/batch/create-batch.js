@@ -318,7 +318,10 @@
 
       let mixBody;
       if (state.mix === null) mixBody = el("div", { class: "readonly-note", style: "padding:12px" }, "Loading packaging…");
-      else if (!rows.length) mixBody = el("div", { class: "readonly-note", style: "padding:12px" }, "This recipe version has no mass-denominated packaging to plan.");
+      else if (!rows.length) mixBody = el("div", { class: "readonly-note", style: "padding:12px" }, window.FB_PRODUCTION
+        /* only packs set to "In the same run" in Recipes › Packaging are planned here (29 Sep 2026) */
+        ? ["No pack of this product is packed in the same run, so the whole batch goes into bags and is packed later from them. To pack a size in the run, set it in ", el("b", {}, "Recipes › Packaging"), "."]
+        : "This recipe version has no mass-denominated packaging to plan.");
       else {
         mixBody = el("div", {}, ...rows.map((r, i) => {
           const w = rowWeight(r, sizeNum);
@@ -352,7 +355,9 @@
       stageBody = el("div", { class: "stage", "data-stage": "packaging" },
         el("div", { class: "stage-h" },
           el("div", {},
-            el("div", { class: "stage-sub" }, "Converts the manufactured weight into finished SKUs. Planned in ", el("b", {}, "pieces"), ".") ,
+            window.FB_PRODUCTION
+              ? el("div", { class: "stage-sub" }, "Packs packed in the same run, before the rest goes into bags. Planned in ", el("b", {}, "pieces"), ".")
+              : el("div", { class: "stage-sub" }, "Converts the manufactured weight into finished SKUs. Planned in ", el("b", {}, "pieces"), ".") ,
             el("div", { class: "pivot pivot-edit" },
               el("span", { class: "pe-label" }, "Batch size"),
               el("span", { class: "num-in num-in-sm" },
@@ -368,7 +373,8 @@
 
     const notices = [];
     if (over) notices.push(el("div", { class: "nb nb-bad" }, "⚠ Over-allocated by ", el("b", {}, `${r2(alloc - sizeNum)} ${batchUnit}`), ` — this batch holds `, el("b", {}, `${sizeNum} ${batchUnit}`), ". Reduce quantities until the plan fits."));
-    if (!over && residual > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " has no packaging assigned yet — that's fine to leave for now. It's tracked separately as ", el("b", {}, "Semi Finished Inventory"), " (leftover stock from this batch) and can be packed into SKUs later."));
+    if (!over && residual > 1e-9 && window.FB_PRODUCTION) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " goes into bags as ", el("b", {}, "Semi-Finished Inventory"), ", packed later by packing orders."));
+    else if (!over && residual > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " has no packaging assigned yet — that's fine to leave for now. It's tracked separately as ", el("b", {}, "Semi Finished Inventory"), " (leftover stock from this batch) and can be packed into SKUs later."));
     if (notPublished && !isEdit) notices.push(el("div", { class: "nb nb-bad" }, "This recipe version is a draft. Production requires a published version."));
     if (!isEdit && state.header && !resolvedVersionId()) notices.push(el("div", { class: "nb nb-bad" }, "This recipe has no version to produce against yet — create and publish a version first."));
     if (!plannedDateOk) notices.push(el("div", { class: "nb nb-bad" }, "Planned Date is required."));

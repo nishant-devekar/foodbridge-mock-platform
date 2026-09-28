@@ -110,9 +110,16 @@ function statusBadgeClass(status) {
 }
 // Rejected now has its own bucket (not folded into Needs Attention) — a terminal dead-end, not
 // something awaiting resolution the way an overdue or on-hold batch is (batchUi.tsx bucketOf).
+/* Overdue only once the due day is over (29 Sep 2026): "2026-09-28" read as
+   a Date is UTC midnight, so a batch due today counted as late all day. */
+function pastDue(date) {
+  if (!date) return false;
+  const t = new Date(), today = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+  return String(date).slice(0, 10) < today;
+}
 function bucketOf(status, expectedFinishDate) {
   if (status === "In Progress") {
-    if (expectedFinishDate && new Date(expectedFinishDate) < new Date()) return "attention";
+    if (pastDue(expectedFinishDate)) return "attention";
     return "inprogress";
   }
   if (status === "Planned") return "waiting";
@@ -122,7 +129,7 @@ function bucketOf(status, expectedFinishDate) {
 }
 function attentionReason(status, expectedFinishDate) {
   if (status === "In Progress") {
-    if (expectedFinishDate && new Date(expectedFinishDate) < new Date()) return "Overdue";
+    if (pastDue(expectedFinishDate)) return "Overdue";
     return null;
   }
   if (["Planned", "Completed", "Closed", "On Hold", "Rejected"].includes(status)) return null;
@@ -130,7 +137,7 @@ function attentionReason(status, expectedFinishDate) {
 }
 function attentionReasonDetail(status, expectedFinishDate) {
   if (status === "In Progress") {
-    if (expectedFinishDate && new Date(expectedFinishDate) < new Date()) {
+    if (pastDue(expectedFinishDate)) {
       return `This batch is still In Progress but its expected finish date (${fmtDateNice(expectedFinishDate)}) has passed.`;
     }
     return null;
@@ -142,7 +149,7 @@ function attentionReasonDetail(status, expectedFinishDate) {
 function dueLabel(expectedFinishDate, now) {
   if (!expectedFinishDate) return { text: "No finish date set", cls: "" };
   const due = new Date(expectedFinishDate.includes("T") ? expectedFinishDate : expectedFinishDate + "T00:00:00");
-  const todayKey = now.toISOString().slice(0, 10);
+  const todayKey = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
   const days = Math.round((due.getTime() - new Date(todayKey + "T00:00:00").getTime()) / 86400000);
   if (days < 0) return { text: `Due ${-days} day${-days === 1 ? "" : "s"} ago`, cls: "attn" };
   if (days === 0) return { text: "Due today", cls: "wait" };
@@ -150,6 +157,12 @@ function dueLabel(expectedFinishDate, now) {
   return { text: `Due in ${days} days`, cls: "" };
 }
 // rowIcon() — the workspace table row's severity icon (glyph + colour class) (batchUi.tsx).
+/* When it's made (29 Sep 2026): its shift, in the Week's words, or "Not scheduled" */
+function shiftLine(b) {
+  if (b.shiftName && b.when) return b.shiftName + " shift · " + fmtDateNice(b.when.date);
+  if (b.stateId === "planned" && window.FB_PRODUCTION) return "Not scheduled";
+  return fmtDateNice(b.plannedDate);
+}
 function rowIcon(status, expectedFinishDate) {
   const reason = attentionReason(status, expectedFinishDate);
   if (reason === "Overdue") return { cls: "attn", glyph: "⚠" };
@@ -427,7 +440,7 @@ function InventorySyncDrawer({ batch, onClose, onSynced }) {
         error ? el("div", { class: "nb nb-bad", style: "margin-top:14px" }, `⚠ ${error}`) : null),
       el("div", { class: "ws-modal-footer", style: "margin-top:16px" },
         el("button", { type: "button", class: "btn", disabled: busy || undefined, onclick: close }, "Cancel"),
-        el("button", { type: "button", class: "btn btn-teal", disabled: !canSubmit, onclick: submit }, el("span", { class: "inv-btn-icon", html: IconTruck() }), busy ? "Pushing…" : sync.status === "failed" ? "Retry" : "Push to Inventory")));
+        el("button", { type: "button", class: "btn btn-teal", disabled: !canSubmit || undefined, onclick: submit }, el("span", { class: "inv-btn-icon", html: IconTruck() }), busy ? "Pushing…" : sync.status === "failed" ? "Retry" : "Push to Inventory")));
 
     scrim.innerHTML = "";
     scrim.appendChild(modal);
@@ -579,6 +592,11 @@ function describeInventorySyncVariance(lineName, expectedQty, actualQty) {
 // sync) without calling anything real. Session-persisted (see loadSeed/saveSeed above). ──
 const MockApi = (function () {
   let seed = null;
+  /* the store's refusals ("Only 5 kg of … in the store") as plain errors */
+  function storeWrite(fn) {
+    try { return window.FB_PRODUCTION.write(fn); }
+    catch (e) { throw new Error((e && e.body && e.body.error) || (e && e.message) || "That didn't save"); }
+  }
   async function ensure() { if (!seed || window.FB_PRODUCTION) seed = await loadSeed(); return seed; }
 
   const TRANSITIONS = {
@@ -590,8 +608,17 @@ const MockApi = (function () {
   const STATE_LABEL = { planned: "Planned", "in-progress": "In Progress", "on-hold": "On Hold", completed: "Completed", closed: "Closed", rejected: "Rejected" };
   const TRIGGER_LABEL = { start: "Start", hold: "Hold", resume: "Resume", complete: "Complete", close: "Close", reject: "Reject" };
 
+  /* With the production store (29 Sep 2026): a batch completes when its last
+     step is recorded — on the phones or in the office — so there is no
+     manual Complete; QC can reject a running or completed batch, and its
+     output goes to quarantine. */
+  function edgesFor(stateId) {
+    if (!window.FB_PRODUCTION) return TRANSITIONS[stateId] || {};
+    return ({ planned: { start: "in-progress", reject: "rejected" }, "in-progress": { hold: "on-hold", reject: "rejected" },
+      "on-hold": { resume: "in-progress", reject: "rejected" }, completed: { close: "closed", reject: "rejected" } })[stateId] || {};
+  }
   function availableTransitionsFor(stateId) {
-    const edges = TRANSITIONS[stateId] || {};
+    const edges = edgesFor(stateId);
     return Object.keys(edges).map((trigger) => ({ trigger, label: TRIGGER_LABEL[trigger] }));
   }
   function withDerived(b) {
@@ -618,11 +645,11 @@ const MockApi = (function () {
       if (!b) throw new Error("Batch not found: " + id);
       return withDerived(b);
     },
-    async transitionBatch(id, { trigger, comment, actualOutcome, newOperator }) {
+    async transitionBatch(id, { trigger, comment, actualOutcome, newOperator, recording }) {
       await ensure();
       const b = seed.batches.find((x) => x.id === id);
       if (!b) throw new Error("Batch not found: " + id);
-      const toState = (TRANSITIONS[b.stateId] || {})[trigger];
+      const toState = edgesFor(b.stateId)[trigger];
       if (!toState) throw new Error(`Illegal transition "${trigger}" from "${b.stateId}"`);
       b.statusHistory = b.statusHistory || [];
       b.statusHistory.push({
@@ -657,10 +684,14 @@ const MockApi = (function () {
         b.operator = newOperator.name;
       }
       saveSeed(seed);
-      /* Start is where production begins (owner, 28 Sep 2026): the batch's
-         steps go to today's shift on the floor, for the crew who are in. */
-      if (trigger === "start" && window.FB_PRODUCTION && window.FB_PRODUCTION.releaseToFloor) {
-        try { window.FB_PRODUCTION.releaseToFloor(b.id, "admin"); } catch (e) { console.warn("Not put on the floor:", e); }
+      if (window.FB_PRODUCTION) {
+        /* Start is where production begins: the batch's steps go to its slot,
+           recorded on the phones or in the office (29 Sep 2026). */
+        if (trigger === "start") storeWrite((D) => D.releaseToFloor(b.id, "admin", recording));
+        /* QC reject: what it made is held, not sold */
+        if (trigger === "reject") storeWrite((D) => D.quarantine(D.batch(b.id), "admin"));
+        seed = await loadSeed();
+        return withDerived(seed.batches.find((x) => x.id === id));
       }
       return withDerived(b);
     },
@@ -757,11 +788,19 @@ const MockApi = (function () {
     },
     async getPackagingLines(versionId) {
       await ensure();
-      return seed.packagingLines[versionId] || [];
+      /* with the store, a production batch packs only its same-run packs;
+         the rest are packed later from its bags (Recipes › Packaging) */
+      return (seed.packagingLines[versionId] || []).filter((l) => !window.FB_PRODUCTION || l.sameRun);
     },
 
     // ── Ingredients (SSOT-2 addendum-0041 — frontend addendum-004) ──
     async issueIngredient(batchId, input) {
+      if (window.FB_PRODUCTION) {
+        /* the store issues from the oldest lot: stock goes down now */
+        storeWrite((D) => D.issueFromStore(batchId, input.ingredientId, input.quantity, input.actor || "Store"));
+        seed = await loadSeed();
+        return withDerived(seed.batches.find((x) => x.id === batchId));
+      }
       await ensure();
       const b = seed.batches.find((x) => x.id === batchId);
       if (!b) throw new Error("Batch not found: " + batchId);
@@ -774,6 +813,14 @@ const MockApi = (function () {
       return withDerived(b);
     },
     async bulkIssueIngredient(batchId, { items }) {
+      if (window.FB_PRODUCTION) {
+        const results = items.map((input) => {
+          try { storeWrite((D) => D.issueFromStore(batchId, input.ingredientId, input.quantity, input.actor || "Store")); return { ingredientId: input.ingredientId, ok: true }; }
+          catch (e) { return { ingredientId: input.ingredientId, ok: false, error: (e.body && e.body.error) || e.message }; }
+        });
+        seed = await loadSeed();
+        return { results };
+      }
       await ensure();
       const b = seed.batches.find((x) => x.id === batchId);
       if (!b) throw new Error("Batch not found: " + batchId);
@@ -789,6 +836,12 @@ const MockApi = (function () {
       return { results };
     },
     async returnIngredient(batchId, input) {
+      if (window.FB_PRODUCTION) {
+        /* back to the lots it came from: stock goes up now */
+        storeWrite((D) => D.returnToStore(batchId, input.ingredientId, input.quantity, input.actor || "Store"));
+        seed = await loadSeed();
+        return withDerived(seed.batches.find((x) => x.id === batchId));
+      }
       await ensure();
       const b = seed.batches.find((x) => x.id === batchId);
       if (!b) throw new Error("Batch not found: " + batchId);

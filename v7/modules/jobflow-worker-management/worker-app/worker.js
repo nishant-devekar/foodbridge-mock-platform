@@ -364,7 +364,8 @@
     if (task.lots && task.lots.length) rows.push([t("rLots"), task.lots.map(function (l) { return l.lotNo; }).join(", ")]);
     if (task.sticksUsed) rows.push([t("rSticks"), t("pcsN", { n: task.sticksUsed })]);
     if (task.bagsMade) rows.push([t("rBagsMade"), task.bagsMade.map(function (g) { return g.bagNo; }).join(", ")]);
-    if (task.packets) rows.push([t("rPackets"), task.packets + ""]);
+    if (task.packedLines && task.packedLines.length) task.packedLines.forEach(function (l) { rows.push([l.name, t("pcsN", { n: l.packets })]); });
+    else if (task.packets) rows.push([t("rPackets"), task.packets + ""]);
     if (task.bagsTaken) rows.push([t("rBagsUsed"), task.bagsTaken.map(function (g) { return g.bagNo; }).join(", ")]);
     if (task.cartonsPacked) rows.push([t("rCartons"), task.cartonsPacked + ""]);
     return rows;
@@ -385,6 +386,12 @@
     prefill: function (s) {
       var x = s.task;
       if (x && x.pack && !s.form.packets && x.batch && x.batch.packets) s.form.packets = String(x.batch.packets);
+      /* the same-run packs default to the plan; the fill step to what's left */
+      if (x && x.packRun) (x.sameRun || []).forEach(function (l) { if (s.form["pack:" + l.skuId] == null) s.form["pack:" + l.skuId] = String(l.planned); });
+      if (x && x.bags && x.packedKg > 0 && !s.form.kgOut) s.form.kgOut = String(Math.round((x.madeKg - x.packedKg) * 10) / 10);
+    },
+    packKg: function (s) {
+      return (s.task.sameRun || []).reduce(function (t0, l) { return t0 + (num(s.form["pack:" + l.skuId]) || 0) * l.kgEach; }, 0);
     },
     mine: function (s) { var x = s.task; return x && x.status === "in_progress" && x.assignedTo === (app.worker && app.worker._id); },
     held: function (x) { return x && x.batch && ["on-hold", "rejected"].indexOf(x.batch.stateId) !== -1; },
@@ -401,6 +408,10 @@
       if (x.bags && !(num(f.kgOut) > 0)) return t("mBags");
       if (x.sticks && !(num(f.sticks) >= 0)) return t("mSticks");
       if (x.pack && !(num(f.packets) > 0)) return t("mPackets");
+      if (x.packRun) {
+        if ((x.sameRun || []).some(function (l) { var v = num(f["pack:" + l.skuId]); return !(v >= 0) || Math.round(v) !== v; })) return t("mPackets");
+        if (TaskDetail.packKg(s) > (x.madeKg || 0) + 0.001) return t("mPackMore");
+      }
       return "";
     },
     /* First tap asks; "Yes" does it. */
@@ -416,6 +427,7 @@
       if (x.sticks) rows.push([t("sticksUsed"), t("pcsN", { n: num(f.sticks) })]);
       if (x.bags) rows.push([t("kgBags"), t("kgN", { n: num(f.kgOut) })], [t("rBagsMade"), Math.ceil(num(f.kgOut) / x.bags) + ""]);
       if (x.pack) rows.push([t("packetsPacked"), t("pcsN", { n: num(f.packets) })]);
+      if (x.packRun) (x.sameRun || []).forEach(function (l) { rows.push([l.name, t("pcsN", { n: num(f["pack:" + l.skuId]) })]); });
       return rows;
     },
     start: function (s) {
@@ -430,6 +442,7 @@
       if (TaskDetail.missingToFinish(s)) return;
       var f = s.form, input = {};
       ["kgIn", "kgOut", "sticks", "packets"].forEach(function (k) { if (f[k] !== "") input[k] = Number(f[k]); });
+      if (s.task.packRun) { input.packs = {}; (s.task.sameRun || []).forEach(function (l) { input.packs[l.skuId] = Number(f["pack:" + l.skuId]); }); }
       set({ acting: true, error: "", confirm: "" });
       api.completeTask(app.params.id, input)
         .then(function () { if (app.page === s) navigate("/done/" + app.params.id, true); })
@@ -479,9 +492,15 @@
       if (task.bags) {
         var kb = num(f.kgOut), n = kb > 0 ? Math.ceil(kb / task.bags) : 0;
         fields.push(Field("kg-bag", t("kgBags"), f, "kgOut", t("unitKg")));
+        if (task.packedKg > 0) fields.push(html`<p class="wk-plan">${t("restHint", { made: task.madeKg, packed: task.packedKg, rest: Math.round((task.madeKg - task.packedKg) * 10) / 10 })}</p>`);
         fields.push(html`<p class="wk-plan">${t("eachBag", { kg: task.bags })}${n ? (n === 1 ? t("makesBag") : t("makesBags", { n: n })) : ""}. ${t("stickers")}</p>`);
       }
       if (task.pack) fields.push(Field("packets", t("packetsPacked"), f, "packets", t("unitPcs"), "numeric"));
+      /* Pack the planned packs, in the same run: one number per pack */
+      if (task.packRun) {
+        (task.sameRun || []).forEach(function (l, i) { fields.push(Field("pk-" + i, l.name, f, "pack:" + l.skuId, t("unitPcs"), "numeric")); });
+        fields.push(html`<p class="wk-plan">${t("packFrom", { kg: task.madeKg })}</p>`);
+      }
       if (task.cartons && task.cartonPlan) fields.push(html`<p class="wk-plan">${t("cartonPlan", { p: task.cartonPlan.packets, per: task.cartonPlan.perCarton, n: Math.ceil(task.cartonPlan.packets / task.cartonPlan.perCarton) })}</p>`);
       var missing = TaskDetail.missingToFinish(s);
       var body = html`<section class="wk-hero slim"><p class="wk-live">${t("working")}</p><p class="wk-when">${t("started", { time: timeOf(task.startedAt) })}${about(task) ? " · " + about(task) : ""}</p></section>
