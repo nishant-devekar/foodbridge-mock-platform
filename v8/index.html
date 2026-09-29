@@ -33,7 +33,7 @@
   .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--green); display: inline-block; }
   .head h1 { margin: 14px 0 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.2; }
   .head p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
-  .row { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 26px minmax(0, 1fr); gap: 18px; margin-top: 36px; align-items: stretch; transition: all .45s var(--ease); }
+  .row { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 26px minmax(0, 1fr); gap: 18px; margin-top: 36px; align-items: stretch; transition: all .45s var(--ease); }
   .step { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; min-width: 0; padding: 28px 10px 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
   .step:hover { border-color: var(--green); box-shadow: 0 6px 18px rgba(22,163,74,.10); }
   .step:focus-visible { outline: 2px solid rgba(22,163,74,.5); outline-offset: 2px; }
@@ -51,9 +51,9 @@
   body:not(.mini) .num { position: absolute; top: 12px; left: 12px; flex-basis: 24px; width: 24px; height: 24px; font-size: 11px; }
   body:not(.mini) .t { justify-content: center; text-align: center; }
   .sepd { align-self: stretch; border-left: 2px dotted #d1d5db; justify-self: center; }
-  /* the loop runs under the six steps only: Collect's centre back to Buy's */
-  .loop { position: absolute; left: 0; top: 100%; width: calc((100% - 152px) / 7 * 6 + 90px); height: 44px; pointer-events: none; }
-  .loopl { position: absolute; left: calc(((100% - 152px) / 7 * 6 + 90px) / 2); transform: translateX(-50%); bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
+  /* the loop runs under the four steps only: Collect's centre back to Buy's */
+  .loop { position: absolute; left: 0; top: 100%; width: calc((100% - 116px) / 5 * 4 + 54px); height: 44px; pointer-events: none; }
+  .loopl { position: absolute; left: calc(((100% - 116px) / 5 * 4 + 54px) / 2); transform: translateX(-50%); bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
   .foot { margin-top: 74px; display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 13px; max-height: 60px; overflow: hidden; transition: all .35s var(--ease); }
   .foot b { color: var(--ink2); }
   .cta { border: 0; background: var(--green); color: #fff; border-radius: 10px; padding: 11px 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
@@ -62,13 +62,13 @@
   /* ── minified: the same map, same order, same numbers, as one slim bar ── */
   body.mini .map { flex: 0 0 auto; padding: 8px 16px; }
   body.mini .head, body.mini .foot { max-height: 0; opacity: 0; margin: 0; }
-  body.mini .row { margin-top: 0; gap: 4px 10px; grid-template-columns: repeat(6, max-content) 12px max-content 1fr; align-items: center; }
-  body.mini .step { flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; border-color: transparent; box-shadow: none; }
+  body.mini .row { margin-top: 0; gap: 4px 6px; grid-template-columns: repeat(4, max-content) 12px max-content 1fr; align-items: center; }
+  body.mini .step { flex-direction: row; align-items: center; gap: 7px; padding: 6px 10px 6px 6px; border-radius: 999px; border-color: transparent; box-shadow: none; }
   body.mini .step:hover { border-color: var(--line); }
   body.mini .step.on { border-color: var(--green); background: var(--g50); }
   body.mini .step.on .num { background: var(--green); color: #fff; }
   body.mini .step.hot:not(.on) .num { background: #fee2e2; color: var(--red); }
-  body.mini .step + .step::before { left: -9px; font-size: 14px; }
+  body.mini .step + .step::before { left: -6px; font-size: 14px; }
   body.mini .num { flex-basis: 22px; height: 22px; font-size: 11px; }
   body.mini .nm { font-size: 13px; white-space: nowrap; }
   body.mini .ic, body.mini .loop, body.mini .loopl { display: none; }
@@ -81,11 +81,13 @@
   body.mini .step.on .kids { flex-direction: row; }
   body.mini .step.on .kids.one { display: none; }
   body.mini .step.on .kids { display: inline-flex; flex-wrap: nowrap; gap: 2px; margin: 0 0 0 4px; padding: 2px; border: 1px solid #bbf7d0; border-radius: 999px; background: #fff; animation: kids .6s var(--ease); }
-  body.mini .step.on .kids button { padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--g7); white-space: nowrap; }
+  body.mini .step.on .kids button { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--g7); white-space: nowrap; }
   body.mini .step.on .kids button::before { content: none; }
   body.mini .step.on .kids button:hover { background: var(--g50); text-decoration: none; }
   body.mini .step.on .kids button[aria-pressed="true"] { background: var(--green); color: #fff; }
   body.mini .step.on:has(.kids) { padding-right: 4px; }
+  /* a narrow window: the other steps keep their number, the open one keeps its name and screens */
+  @media (max-width: 1120px) { body.mini .step:not(.on) .nm { display: none; } body.mini .step:not(.on) { padding-right: 6px; } }
   @keyframes kids { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); transform: scale(.96); } 60% { box-shadow: 0 0 0 7px rgba(22,163,74,0); transform: scale(1); } 100% { box-shadow: none; } }
   .subrow { display: none; }
   body.mini .subrow { display: flex; align-items: center; gap: 6px; padding: 6px 16px; background: #fff; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
@@ -112,7 +114,7 @@
   <div class="head">
     <div class="brand"><i></i>Vasu Foods</div>
     <h1>How Vasu Foods runs</h1>
-    <p>Six steps, in order. Click one to open it.</p>
+    <p>Four steps, in order. Click one to open it.</p>
   </div>
   <div class="row" id="row"></div>
   <div class="foot"><button class="cta" data-go="buy">Start →</button></div>
@@ -132,8 +134,6 @@
   var ICON = {
     buy: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
     make: '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1M12 18h1M7 18h1"/>',
-    freeze: '<path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1"/><path d="m9 3 3 3 3-3M9 21l3-3 3 3M3 9l3 3-3 3M21 9l-3 3 3 3"/>',
-    pack: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
     deliver: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
     collect: '<path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.67 0 6.67-10 0-10"/>',
     month: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
@@ -143,21 +143,18 @@
       screens: [{ label: "Needs", route: "production/production-board?view=flow", dept: "purchase" },
                 { label: "Order", route: "procurement/purchase-orders" },
                 { label: "Gate & store", route: "inventory/raw-material-inventory" }] },
-    { k: "make", name: "Make", what: "Peas & veg: peel, wash, blanch. Soya chaap: dough, cut, stick, boil.",
+    /* make, freeze and pack are one step (owner, 29 Sep 2026); packing runs are requests too */
+    { k: "make", name: "Make & pack", what: "Peas & veg: peel, wash, blanch. Soya chaap: dough, cut, stick, boil. Big 30 / 35 kg bags into the freezer, then small packets when orders need them, oldest bags first, into cartons.",
       screens: [{ label: "Requests", route: "production/batch-management" },
                 { label: "Shifts", route: "production/production-board?view=week" },
-                { label: "Floor", route: "production/worker-app" }] },
-    { k: "freeze", name: "Freeze bags", what: "Fill big 30 / 35 kg bags into the freezer — date made and use-by on each.",
-      screens: [{ label: "Bags", route: "inventory/semi-finished-inventory" }] },
-    { k: "pack", name: "Pack", what: "Small packets when orders need them, oldest bags first. Into cartons.",
-      screens: [{ label: "Packets", route: "production/batch-management" },
-                { label: "Cartons", route: "inventory/finished-goods-inventory" }] },
+                { label: "Floor", route: "production/worker-app" },
+                { label: "Semi-finished", route: "inventory/semi-finished-inventory" },
+                { label: "Finished goods", route: "inventory/finished-goods-inventory" }] },
     { k: "deliver", name: "Deliver", what: "Load, make the bill, deliver.",
-      screens: [{ label: "Load & bill", route: "sales-orders" },
-                { label: "On the road", route: "distribution-logistics/delivery-management" }] },
-    { k: "collect", name: "Collect", what: "Collect the money, get the crates back.",
-      screens: [{ label: "Money", route: "finance/customer-receivables" },
-                { label: "Crates", route: "distribution-logistics/logistic-returns" }] },
+      screens: [{ label: "On the road", route: "distribution-logistics/delivery-management" }] },
+    { k: "collect", name: "Collect", what: "Collect the money from customers, pay the suppliers.",
+      screens: [{ label: "Collect", route: "finance/customer-receivables" },
+                { label: "Pay supplier", route: "finance/supplier-payables" }] },
     { k: "month", name: "Month end", apart: true, what: "Real cost, where weight was lost, accounts to the CA.",
       screens: [{ label: "Production report", route: "overview/reports", press: '[data-tab="production_report"]' }] },
   ];
@@ -177,7 +174,7 @@
     if (!LEAF[path] && ALIAS[path]) path = ALIAS[path];
     return { path: path, query: query, leaf: LEAF[path] || null };
   }
-  /* Which step and screen an address belongs to: the open step first (Requests and Packets
+  /* Which step and screen an address belongs to: the open step first (two steps may
      share a screen), then the flow's order. */
   function locate(r) {
     var view = new URLSearchParams(r.query).get("view");
@@ -196,16 +193,14 @@
         var plan = D.plan();
         counts.buy = plan.materials.filter(function (m) { return m.buy > 0; }).length;
         counts.make = D.notScheduled().length;
-        counts.pack = d.batches.filter(function (b) { return b.kind === "packing" && ["planned", "in-progress"].indexOf(b.stateId) !== -1; }).length;
         counts.deliver = (d.orders || []).filter(function (o) { return D.isOpen(o); }).length;
       });
     } catch (e) { /* no store yet: no counts */ }
   }
   function status(k) {
     var c = counts[k];
-    return ({ buy: [c ? c + " to order" : "all in", !!c], make: [c ? c + " need a shift" : "on the floor", !!c], freeze: ["bags in the freezer"],
-      pack: [c ? c + " packing run" + (c > 1 ? "s" : "") : "nothing to pack"], deliver: [c ? c + " open orders" : "all delivered"],
-      collect: ["money · crates"], month: ["once a month"] })[k] || [""];
+    return ({ buy: [c ? c + " to order" : "all in", !!c], make: [c ? c + " need a shift" : "on the floor", !!c], deliver: [c ? c + " open orders" : "all delivered"],
+      collect: ["collect · pay"], month: ["once a month"] })[k] || [""];
   }
 
   var cur = null, sub = 0, shown = null;
@@ -221,7 +216,7 @@
         ('<span class="kids' + (f.screens.length > 1 ? "" : " one") + '" role="tablist" aria-label="' + f.name + ' screens">' + f.screens.map(function (x, j) {
           return '<button role="tab" data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (f.k === cur && j === sub) + '">' + x.label + "</button>"; }).join("") + "</span>") + "</div>";
     }).join("") + '<button class="mapbtn" data-map>⤢ Map</button>' +
-      '<svg class="loop" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 925 2 C 925 36, 900 38, 820 38 L 155 38 C 80 38, 75 30, 75 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 69 12 L 75 2 L 81 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
+      '<svg class="loop" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 883 2 C 883 36, 858 38, 780 38 L 195 38 C 123 38, 118 30, 118 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 112 12 L 118 2 L 124 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
       '<span class="loopl">↻ and round again</span>';
   }
   function drawSub() {
@@ -279,7 +274,7 @@
   }
   function openStep(k, j) {
     var f = FLOW.filter(function (x) { return x.k === k; })[0];
-    cur = k;   /* two steps can share a screen (Requests, Packets): the one clicked wins */
+    cur = k;   /* two steps can share a screen: the one clicked wins */
     location.hash = "#/" + f.screens[j || 0].route;
   }
   document.addEventListener("click", function (e) {
@@ -296,7 +291,7 @@
   /* ── the hand-off: when a screen's work lands in another step, one line says so ── */
   var NEXT = { "purchase.po.raised": ["Purchase order raised", "buy", 2], "purchase.po.approved": ["Purchase order approved — on its way", "buy", 2],
     "purchase.goods.received": ["Goods in the store", "make", 0], "production.batch.planned": ["Production request raised", "make", 1],
-    "production.batch.scheduled": ["Request has a shift", "make", 2], "production.batch.completed": ["Batch done — into the freezer", "freeze", 0],
+    "production.batch.scheduled": ["Request has a shift", "make", 2], "production.batch.completed": ["Batch done — into the freezer", "make", 3],
     "sales.dispatch.created": ["Order dispatched — collect on delivery", "collect", 0] };
   var seen = 0, timer = null;
   try { seen = FB_PRODUCTION.log().length; } catch (e) {}
