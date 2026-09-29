@@ -28,6 +28,9 @@
 
   const { esc } = window.MockShell.helpers;
   const icon = (name, cls, size) => window.MockIcons.get(name, cls, size);
+  /* the receive-stock matrix: no empty batch — one line says how many still need a quantity */
+  const QTY_BAD = ["border-red-300", "ring-2", "ring-red-100"];
+  const qtyHint = (n) => `<b class="font-semibold">${n} product${n === 1 ? "" : "s"}</b> ${n === 1 ? "needs" : "need"} a quantity`;
   const SELF_SRC = document.currentScript && document.currentScript.src;
 
   /* v7 only: inside the platform the shell covers this page's dead hamburger with a
@@ -2330,6 +2333,8 @@
     /* Owner, 29 Sep 2026: only what the store keys in — quantity and dates. Price,
        tax and supplier are filled in the background (batchDefaults); what comes in
        is what is accepted (gate weight = quantity, QC accepted). */
+    const noQty = (p) => !(Number(p.qty) > 0);
+    const missing = d.selected.filter(noQty);
     const matrixRow = (p, i) => {
       return `
         <tr class="border-b border-gray-100 hover:bg-gray-50/60">
@@ -2341,7 +2346,7 @@
             <div class="flex items-center gap-1.5">
               <input type="number" min="1" data-mrow="${esc(p._id)}" data-mfield="qty" value="${esc(p.qty)}" placeholder="0"
                 class="w-20 h-8 px-2 text-sm border rounded-lg bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent tabular-nums ${
-                  state.drawer.invalid && !p.qty ? "border-red-300" : "border-gray-200"
+                  d.invalid && noQty(p) ? QTY_BAD.join(" ") : "border-gray-200"
                 }" />
               <span class="text-xs text-gray-400 whitespace-nowrap">${esc(getDisplayUnit(p))}</span>
             </div>
@@ -2386,13 +2391,21 @@
             <tbody>${d.selected.map(matrixRow).join("")}</tbody>
           </table>
         </div>
+        ${
+          d.invalid && missing.length
+            ? `<div data-qtyhint role="alert" class="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-t border-red-100 bg-red-50 text-xs text-red-700">
+                 ${icon("alertTriangle", "w-3.5 h-3.5 flex-shrink-0 text-red-500")}
+                 <span data-qtyhinttext>${qtyHint(missing.length)}</span>
+               </div>`
+            : ""
+        }
         <div class="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50">
           <button data-copytoall
-            class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-gray-50 transition-colors">
+            class="flex-shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-gray-50 transition-colors">
             ${icon("copy", "w-3.5 h-3.5")}Copy first row's dates to all
           </button>
           <button data-preview
-            class="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm">
+            class="flex-shrink-0 inline-flex items-center gap-1.5 h-10 px-5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 active:bg-emerald-800 transition-colors shadow-sm">
             ${icon("packagePlus", "w-4 h-4")}Preview &amp; Create Batch
           </button>
         </div>`
@@ -2924,6 +2937,7 @@
     $$("[data-receivestock]").forEach((b) =>
       b.addEventListener("click", () => {
         d.open = true;
+        d.invalid = false;
         render();
       })
     );
@@ -3018,6 +3032,15 @@
       el.addEventListener("input", () => {
         const row = d.selected.find((s) => s._id === el.getAttribute("data-mrow"));
         if (row) row[el.getAttribute("data-mfield")] = el.value;
+        if (d.invalid && el.getAttribute("data-mfield") === "qty") {
+          const ok = Number(el.value) > 0;
+          QTY_BAD.forEach((c) => el.classList.toggle(c, !ok));
+          el.classList.toggle("border-gray-200", ok);
+          const n = d.selected.filter((r) => !(Number(r.qty) > 0)).length;
+          const hint = $("[data-qtyhint]");
+          if (!n) { d.invalid = false; if (hint) hint.remove(); }
+          else if (hint) hint.querySelector("[data-qtyhinttext]").innerHTML = qtyHint(n);
+        }
       })
     );
     const cta = $("[data-copytoall]");
@@ -3066,8 +3089,14 @@
     const pv = $("[data-preview]");
     if (pv)
       pv.addEventListener("click", () => {
-        d.previewOpen = true;
+        /* no empty batch: every product in it needs a quantity */
+        d.invalid = d.selected.some((r) => !(Number(r.qty) > 0));
+        if (!d.invalid) d.previewOpen = true;
         render();
+        if (d.invalid) {
+          const first = Array.from($$('[data-mfield="qty"]')).find((el) => !(Number(el.value) > 0));
+          if (first) first.focus();
+        }
       });
     const pvc = $("[data-previewcancel]");
     if (pvc)
@@ -3078,6 +3107,12 @@
     const cb2 = $("[data-createbatch]");
     if (cb2)
       cb2.addEventListener("click", () => {
+        if (!d.selected.length || d.selected.some((r) => !(Number(r.qty) > 0))) {
+          d.previewOpen = false;
+          d.invalid = true;
+          render();
+          return;
+        }
         d.creating = true;
         render();
         setTimeout(() => {

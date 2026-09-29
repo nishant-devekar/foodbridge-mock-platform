@@ -318,7 +318,7 @@
         {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929CB1",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929NB1",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
