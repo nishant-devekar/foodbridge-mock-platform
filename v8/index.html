@@ -33,22 +33,21 @@
   .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--green); display: inline-block; }
   .head h1 { margin: 14px 0 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.2; }
   .head p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
-  .row { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 26px minmax(0, 0.9fr); gap: 14px; margin-top: 28px; align-items: start; transition: all .45s var(--ease); }
-  .step { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px 14px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
+  .row { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 26px minmax(0, 1fr); gap: 18px; margin-top: 36px; align-items: stretch; transition: all .45s var(--ease); }
+  .step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; padding: 26px 12px 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
   .step:hover { border-color: var(--green); box-shadow: 0 6px 18px rgba(22,163,74,.10); }
   .step:focus-visible { outline: 2px solid rgba(22,163,74,.5); outline-offset: 2px; }
-  .step + .step::before { content: "›"; position: absolute; left: -12px; top: 22px; color: #c7cbd1; font-size: 18px; line-height: 1; }
+  .ic { width: 64px; height: 64px; border-radius: 50%; background: var(--g50); color: var(--g7); display: inline-flex; align-items: center; justify-content: center; }
+  .ic svg { width: 30px; height: 30px; }
+  .apart .ic { background: #fff7ed; color: #c2410c; }
+  .apart .num { display: none; }
+  body.mini .apart .num { display: inline-flex; }
+  .step + .step::before { content: "›"; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); color: #c7cbd1; font-size: 18px; line-height: 1; }
   .step.apart::before { content: none; }
   .t { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .num { flex: 0 0 26px; height: 26px; border-radius: 50%; background: #f3f4f6; color: var(--ink2); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all .45s var(--ease); }
   .apart .num { background: #fff7ed; color: #c2410c; }
-  .nm { font-weight: 700; font-size: 16px; line-height: 1.2; transition: font-size .45s var(--ease); }
-  .st { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .st.hot { color: var(--red); }
-  .what { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .chip { border: 1px solid #bbf7d0; background: var(--g50); color: var(--g7); border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; line-height: 1.4; cursor: pointer; }
-  .chip:hover { background: #dcfce7; }
+  .nm { font-weight: 700; font-size: 16px; line-height: 1.2; white-space: nowrap; transition: font-size .45s var(--ease); }
   .sepd { align-self: stretch; border-left: 2px dotted #d1d5db; justify-self: center; }
   .loop { position: absolute; left: 0; top: 100%; height: 44px; pointer-events: none; }
   .loopl { position: absolute; bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
@@ -66,11 +65,24 @@
   body.mini .step.on { border-color: var(--green); background: var(--g50); }
   body.mini .step.on .num { background: var(--green); color: #fff; }
   body.mini .step.hot:not(.on) .num { background: #fee2e2; color: var(--red); }
-  body.mini .step + .step::before { top: 50%; transform: translateY(-50%); left: -9px; font-size: 14px; }
+  body.mini .step + .step::before { left: -9px; font-size: 14px; }
   body.mini .num { flex-basis: 22px; height: 22px; font-size: 11px; }
   body.mini .nm { font-size: 13px; white-space: nowrap; }
-  body.mini .st, body.mini .what, body.mini .chips, body.mini .loop, body.mini .loopl { display: none; }
+  body.mini .ic, body.mini .loop, body.mini .loopl { display: none; }
   body.mini .mapbtn { display: inline-flex; justify-self: end; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ink2); cursor: pointer; white-space: nowrap; }
+  /* a step's screens: on the map, a quiet line under its name; in the bar, tabs inside the open step */
+  .kids { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 6px; margin-top: -4px; }
+  .kids button { border: 0; background: none; padding: 0; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .kids button + button::before { content: "·"; margin-right: 6px; color: #d1d5db; }
+  .kids button:hover { color: var(--g7); text-decoration: underline; }
+  body.mini .kids { display: none; }
+  body.mini .step.on .kids { display: inline-flex; flex-wrap: nowrap; gap: 2px; margin: 0 0 0 4px; padding: 2px; border: 1px solid #bbf7d0; border-radius: 999px; background: #fff; animation: kids .6s var(--ease); }
+  body.mini .step.on .kids button { padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--g7); white-space: nowrap; }
+  body.mini .step.on .kids button::before { content: none; }
+  body.mini .step.on .kids button:hover { background: var(--g50); text-decoration: none; }
+  body.mini .step.on .kids button[aria-pressed="true"] { background: var(--green); color: #fff; }
+  body.mini .step.on:has(.kids) { padding-right: 4px; }
+  @keyframes kids { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); transform: scale(.96); } 60% { box-shadow: 0 0 0 7px rgba(22,163,74,0); transform: scale(1); } 100% { box-shadow: none; } }
   .subrow { display: none; }
   body.mini .subrow { display: flex; align-items: center; gap: 6px; padding: 6px 16px; background: #fff; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
   body.mini .subrow:empty { display: none; }
@@ -95,11 +107,11 @@
 <section class="map" id="map">
   <div class="head">
     <div class="brand"><i></i>Vasu Foods</div>
-    <h1>How Vasu Foods runs — from buying material to month end</h1>
-    <p>Six steps, in order. Open any step to work in it; this map shrinks into a bar at the top and stays with you.</p>
+    <h1>How Vasu Foods runs</h1>
+    <p>Six steps, in order. Click one to open it.</p>
   </div>
   <div class="row" id="row"></div>
-  <div class="foot"><button class="cta" data-go="buy">Start with step 1 · Buy material →</button><span>At every step the platform records <b>who did it · how much · when</b>.</span></div>
+  <div class="foot"><button class="cta" data-go="buy">Start →</button></div>
 </section>
 <div class="subrow" id="subrow"></div>
 <main class="stage" id="stage"></main>
@@ -112,6 +124,16 @@
   var V7 = "../v7/";
   /* The owner's business flow. Each step: what happens there (the owner's words) and the
      platform screens inside it, by their v7 route. */
+  /* one picture per step — the card is its icon, number and name, nothing else */
+  var ICON = {
+    buy: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    make: '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1M12 18h1M7 18h1"/>',
+    freeze: '<path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1"/><path d="m9 3 3 3 3-3M9 21l3-3 3 3M3 9l3 3-3 3M21 9l-3 3 3 3"/>',
+    pack: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>',
+    deliver: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+    collect: '<path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3M9 13c6.67 0 6.67-10 0-10"/>',
+    month: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
+  };
   var FLOW = [
     { k: "buy", name: "Buy material", what: "Needed − in store − already ordered = buy. Truck at the gate: weigh, check, sticker on every sack.",
       screens: [{ label: "Needs", route: "production/production-board?view=flow", dept: "purchase" },
@@ -189,19 +211,18 @@
       var s = status(f.k);
       if (!f.apart) n++;
       return (f.apart ? '<span class="sepd"></span>' : "") +
-        '<div class="step' + (f.apart ? " apart" : "") + (f.k === cur ? " on" : "") + (s[1] ? " hot" : "") + '" role="button" tabindex="0" aria-label="' + f.name + '" data-go="' + f.k + '">' +
+        '<div class="step' + (f.apart ? " apart" : "") + (f.k === cur ? " on" : "") + (s[1] ? " hot" : "") + '" role="button" tabindex="0" aria-label="' + f.name + '" title="' + f.what + '" data-go="' + f.k + '">' +
+        '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[f.k] + "</svg></span>" +
         '<div class="t"><span class="num">' + (f.apart ? "◷" : n) + '</span><span class="nm">' + f.name + "</span></div>" +
-        '<div class="st' + (s[1] ? " hot" : "") + '">' + s[0] + "</div>" +
-        '<div class="what">' + f.what + "</div>" +
-        '<div class="chips">' + f.screens.map(function (x, j) { return '<button class="chip" data-go="' + f.k + '" data-sub="' + j + '">' + x.label + "</button>"; }).join("") + "</div></div>";
+        (f.screens.length > 1 ? '<span class="kids" role="tablist" aria-label="' + f.name + ' screens">' + f.screens.map(function (x, j) {
+          return '<button role="tab" data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (f.k === cur && j === sub) + '">' + x.label + "</button>"; }).join("") + "</span>" : "") + "</div>";
     }).join("") + '<button class="mapbtn" data-map>⤢ Map</button>' +
       '<svg class="loop" style="width:' + (6 / 7.1 * 100) + '%" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 930 2 C 930 36, 905 38, 820 38 L 80 38 C 45 38, 42 30, 42 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 36 12 L 42 2 L 48 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
-      '<span class="loopl" style="left:34%">↻ and round again — the money and crates in fund the next buy</span>';
+      '<span class="loopl" style="left:44%">↻ and round again</span>';
   }
   function drawSub() {
     var f = FLOW.filter(function (x) { return x.k === cur; })[0];
-    document.getElementById("subrow").innerHTML = f && f.screens.length > 1 ? "<b style='color:var(--ink2)'>" + f.name + ":</b>" +
-      f.screens.map(function (x, j) { return '<button data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (j === sub) + '">' + x.label + "</button>"; }).join("") : "";
+    document.getElementById("subrow").innerHTML = "";   /* a step's screens live inside the step (owner, 29 Sep 2026) */
   }
   /* The screen for an address: its v7 url (a view goes after #, as the platform does), its
      sidebar clipped, a phone app framed as a phone. The same address never reloads. */
