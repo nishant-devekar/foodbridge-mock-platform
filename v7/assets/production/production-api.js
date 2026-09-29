@@ -1099,6 +1099,8 @@
       var sh = find(db.shifts, shiftId);
       if (!sh || ["live", "stopped"].indexOf(sh.status) === -1) throw new ApiError(409, "Only a running shift hands over");
       var k = D.slotKey(sh), nk = D.nextSlot(k.date, k.slot), next = D.ensureSlot(nk.date, nk.slot);
+      /* a cancelled shift takes nothing: the work goes on to the one after it */
+      for (var guard = 0; next.status === "cancelled" && guard < 14; guard++) { nk = D.nextSlot(nk.date, nk.slot); next = D.ensureSlot(nk.date, nk.slot); }
       var moved = [];
       sh.batches.forEach(function (id) {
         var b = D.batch(id);
@@ -1121,6 +1123,28 @@
       next.takeover = { from: sh._id, fromName: sh.name, note: o.note || "", batches: moved, at: iso(), takenAt: null };
       if (moved.some(function (x) { var b = D.batch(x.batchId); return b && b.stateId !== "planned"; })) next.status = next.status === "scheduled" ? "live" : next.status;
       return { from: sh, to: next, moved: moved };
+    };
+    /* A shift that has ended hands itself over (owner, 29 Sep 2026: no Hand
+       over or Stop buttons — when a shift ends, its planned and running
+       batches move to the next shift on their own). Oldest first, and again
+       until nothing moves, so work rolls through shifts the app missed. */
+    D.rollOver = function () {
+      var t = now().getTime(), moved = 0;
+      for (var pass = 0; pass < 30; pass++) {
+        var due = db.shifts.filter(function (sh) {
+          if (["ended", "cancelled"].indexOf(sh.status) !== -1 || !sh.endTime || new Date(sh.endTime).getTime() > t) return false;
+          return (sh.batches || []).some(function (id) { var b = D.batch(id); return b && ["completed", "closed", "rejected"].indexOf(b.stateId) === -1; });
+        }).sort(function (a, b) { return a.startTime < b.startTime ? -1 : 1; });
+        if (!due.length) break;
+        due.forEach(function (sh) {
+          if (sh.status === "scheduled") sh.status = "live";
+          var r = D.handOver(sh._id, { actor: "Shift end", note: "Shift ended" });
+          /* nobody has to accept it: the next shift simply has the work */
+          if (r.to.takeover) { r.to.takeover.takenAt = iso(); r.to.takeover.by = "Shift end"; }
+          moved += r.moved.length;
+        });
+      }
+      return moved;
     };
     D.takeOver = function (shiftId, actor) {
       var sh = find(db.shifts, shiftId);
@@ -2533,6 +2557,8 @@
         save(stored);
       }
       db = stored; D = Domain(db, now, log);
+      /* shifts that have ended pass their unfinished batches on (D.rollOver) */
+      if (D.rollOver()) save(db);
       return db;
     }
     function commit() { save(db); }

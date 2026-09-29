@@ -66,3 +66,22 @@ test("Start in Batch Management puts the batch on today's floor, with who's in",
   online.forEach((id) => assert.ok(r.shift.workers.includes(id)));
   assert.ok(d.tasks.some((t) => t.batch === b.id && t.status === "available"));
 });
+
+test("a shift that has ended hands its planned and running batches to the next shift on its own", () => {
+  const { s, D } = server(), d = s.snapshot();
+  const clock = { t: Date.now() };
+  const dom = A.Domain(d, () => new Date(clock.t), () => {});
+  const b = d.batches.filter((x) => x.stateId === "planned" && x.kind === "production" && !x.when)[0];
+  const today = new Date(clock.t), key = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  const sh = dom.ensureSlot(key, "evening");
+  if (sh.status === "cancelled") sh.status = "scheduled";
+  dom.schedule(b.id, key, "evening", "test");
+  clock.t = new Date(sh.endTime).getTime() + 60000;            // the evening shift is over
+  const moved = dom.rollOver();
+  assert.ok(moved >= 1);
+  assert.equal(sh.status, "ended");
+  assert.ok(sh.handover && sh.handover.batches.some((x) => x.batchId === b.id));
+  const next = dom.nextSlot(key, "evening");
+  assert.deepEqual(b.when, next, "the planned batch is now on the next shift");
+  assert.equal(dom.rollOver(), 0, "nothing moves twice");
+});

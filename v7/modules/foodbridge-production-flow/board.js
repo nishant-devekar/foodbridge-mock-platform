@@ -11,7 +11,8 @@
  *   Demand & supply  sales → production → purchase (29 Sep 2026, the first
  *               tab): what sales needs beyond stock, how production stands
  *               on it, and what to buy to unblock it.
- *   All shifts  the Week (29 Sep 2026): a roster, a row per day and a
+ *   All shifts  a queue of shifts (29 Sep 2026, owner: not a calendar): what needs a
+ *               shift, Now, Coming up (shifts with work), Free (one line). Was: a roster, a row per day and a
  *               column per shift (Morning, Evening, any added in Shift
  *               settings); Not scheduled batches get a shift here; a shift
  *               is staffed, stopped, cancelled or handed over here.
@@ -26,8 +27,9 @@
   /* the board's views (owner, 29 Sep 2026): Demand & supply opens the board; All shifts is the Week;
      Needs you the alerts. Today was retired — an old ?view=today opens Demand & supply. */
   var VIEWS = ["flow", "week", "needs"];
-  var S = { lens: "flow", from: null, panel: null, sched: {}, change: null, nsAll: false, nsAsk: false, form: {}, ask: null, err: "" };
-  S.from = monday(Date.now());
+  var S = { lens: "flow", from: null, panel: null, form: {}, ask: null, err: "" };
+  /* All shifts is the next 7 days from today (owner, 29 Sep 2026: no week to page through) */
+  S.from = isoDay(Date.now());
   /* #/production/production-board?view=week opens the Week (Batch detail's "Week ›") */
   function fromHash() {
     try {
@@ -168,14 +170,10 @@
     return '<section class="card needs">' + rows.join("") + "</section>";
   }
 
-  /* ── Week: the shifts (29 Sep 2026, simplified after the owner's review) ──
-     A roster: a row per day, a column per shift. Each shift shows who runs
-     it, its batches in the words All batches uses (number, size, status),
-     and how full it is. Not scheduled batches get a shift from a list. The
-     shifts themselves — Morning, Evening, a Night if you add one — are set in
-     Shift settings. A batch's own work stays in the batch. */
+  /* ── All shifts (the Week): the shifts' model and the queue (Roster) ──
+     The shifts themselves — Morning, Evening, a Night if you add one — are
+     set in Shift settings. A batch's own work stays in the batch. */
   function isoDay(t) { var d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  function monday(t) { var d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoDay(d); }
   function addDays(key, n) { var d = new Date(key + "T00:00:00"); d.setDate(d.getDate() + n); return isoDay(d); }
   function dayName(key, long) { return new Date(key + "T00:00:00").toLocaleDateString("en-IN", long ? { weekday: "short", day: "numeric", month: "short" } : { weekday: "short", day: "numeric" }); }
   function hr(h) { h = ((h % 24) + 24) % 24; return (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? " am" : " pm"); }
@@ -216,22 +214,7 @@
   function optLabel(c) { return dayName(c.date, true) + " · " + c.name + " · " + short(c.inCharge) + " · " + (c.hours.used ? hrs(c.hours.used) + " of " + hrs(c.hours.of) + " booked" : "free"); }
   function people(n) { return n + (n === 1 ? " person" : " people"); }
   function short(name) { return String(name || "").split(" ")[0]; }
-  /* Suggestions for the whole list at once, soonest due first: each batch
-     takes the first shift before it's due that still has room, counting
-     the batches suggested ahead of it — so "Schedule all" never overfills. */
-  function suggestAll(w) {
-    var load = {}, out = {};
-    w.options.forEach(function (c) { load[c.key] = c.hours.used; });
-    w.tray.forEach(function (b) {
-      var before = w.options.filter(function (c) { return !b.due || c.date <= b.due; });
-      var room = before.filter(function (c) { return c.hours.of - load[c.key] >= b.hours; })[0];
-      var pick = room || before[0] || w.options[0];
-      if (!pick) return;
-      load[pick.key] += b.hours;
-      out[b.id] = { key: pick.key, ok: !!room, late: !before.length };
-    });
-    return out;
-  }
+
   function dueTag(due, today) {
     if (!due) return '<span class="due">No due date</span>';
     if (due < today) return '<span class="due bad">Overdue · ' + esc(dayName(due)) + "</span>";
@@ -242,78 +225,57 @@
      suggested shift in words with one Schedule; Change shows the picker.
      Five show until "Show all". Schedule all puts every one in its
      suggested shift, after one question. */
-  var NS_SHOWN = 5;
-  function NotScheduled(w) {
-    if (!w.tray.length) return '<div class="ns ns-done">✓ Every batch has a shift.</div>';
-    w.tray.sort(function (a, c) { return String(a.due || "9999").localeCompare(String(c.due || "9999")); });
-    var sug = suggestAll(w), byKey = {};
-    w.options.forEach(function (c) { byKey[c.key] = c; });
-    var shown = S.nsAll ? w.tray : w.tray.slice(0, NS_SHOWN);
-    var noRoom = w.tray.filter(function (b) { return sug[b.id] && !sug[b.id].ok; }).length;
-    var head = '<div class="ns-h"><span><b>Not scheduled · ' + w.tray.length + "</b> <span>need a shift" + (noRoom ? ' · <span class="late">' + noRoom + " can't fit before due</span>" : "") + "</span></span>" +
-      (w.tray.length > 1 ? (S.nsAsk ? '<span class="ns-ask">Put all ' + w.tray.length + ' in their suggested shifts? <button type="button" class="btn primary sm" data-act="schedAll">Yes, schedule ' + w.tray.length + '</button><button type="button" class="btn sm" data-act="nsAsk" data-on="">Back</button></span>'
-        : '<button type="button" class="btn sm" data-act="nsAsk" data-on="1">Schedule all as suggested</button>') : "") + "</div>";
-    var rows = shown.map(function (b) {
-      var sg = sug[b.id] || {}, pick = S.sched[b.id] || sg.key, c = byKey[pick];
-      var where = S.change === b.id
-        ? '<select data-sched="' + b.id + '" aria-label="Shift for ' + esc(b.no) + '">' + w.options.map(function (o) {
-            return '<option value="' + o.key + '"' + (o.key === pick ? " selected" : "") + ">" + esc(optLabel(o)) + (b.due && o.date > b.due ? " · after due" : "") + "</option>";
-          }).join("") + "</select>"
-        : '<span class="ns-sg' + (c && b.due && c.date > b.due ? " late" : sg.ok === false && !S.sched[b.id] ? " late" : "") + '">' + (c ? esc(dayName(c.date) + " · " + c.name + " · " + short(c.inCharge)) : "No shift free") + "</span>" +
-          '<button type="button" class="linkbtn" data-act="change" data-id="' + b.id + '">Change</button>';
-      return '<div class="ns-r">' + dueTag(b.due, w.today) +
-        '<button type="button" class="ns-b" data-batch="' + b.id + '"><b>' + esc(b.name) + "</b> <span>" + esc(b.size) + " · " + esc(b.no.replace(/^[A-Z]+-\d{4}-/, "")) + " · " + hrs(b.hours) + "</span>" +
-          (b.was ? ' <span class="late">· its ' + esc(dayName(b.was.date)) + " shift was cancelled</span>" : "") + "</button>" +
-        '<span class="ns-go">' + where + (c ? '<button type="button" class="btn primary sm" data-act="schedule" data-id="' + b.id + '" data-key="' + pick + '">Schedule</button>' : "") + "</span></div>";
-    }).join("");
-    var more = w.tray.length > NS_SHOWN ? '<button type="button" class="linkbtn ns-more" data-act="nsAll">' + (S.nsAll ? "Show fewer" : "Show all " + w.tray.length + " ›") + "</button>" : "";
-    return '<div class="ns">' + head + '<div class="ns-list">' + rows + "</div>" + more + "</div>";
+  /* All shifts, cut down (owner, 29 Sep 2026: "remove 80%… cognitive overload"): one line for the
+     batches with no shift, and one button that gives each its suggested shift. */
+  /* All shifts, for a person, not a report (owner, 29 Sep 2026: "the common man can't use this";
+     then "question everything… no magic like automation"). Two cards side by side, across the
+     screen: who is running the floor now, and who takes over next — each with, in plain words,
+     whether its work fits. A card opens the shift; the one quiet link to change shift times or
+     people sits on the date's row (tabs.action).
+     No auto-scheduling, no free-shift list, no grid, no codes. */
+  var AV = ["#dcfce7:#166534", "#dbeafe:#1e40af", "#fef3c7:#92400e", "#fce7f3:#9d174d", "#ede9fe:#5b21b6", "#e0f2fe:#075985"];
+  function avatar(name) {
+    var parts = String(name || "?").trim().split(/\s+/), ini = (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+    var h = 0; for (var i = 0; i < ini.length + name.length; i++) h = (h * 31 + String(name).charCodeAt(i % name.length)) >>> 0;
+    var c = AV[h % AV.length].split(":");
+    return '<span class="sf-av" style="background:' + c[0] + ";color:" + c[1] + '" aria-hidden="true">' + esc(ini) + "</span>";
   }
-  function BatchLine(b) {
-    return '<li><button type="button" class="bl" data-batch="' + b.id + '"><span class="bl-n"><b>' + esc(b.name) + "</b><small>" + esc(b.no.replace(/^[A-Z]+-\d{4}-/, "")) + " · " + esc(b.size) + (b.office ? " · Office" : "") + "</small></span>" +
-      '<span class="badge b-' + esc(b.state) + '">' + esc(BADGE[b.state] || b.state) + "</span></button></li>";
+  function first(name) { return String(name || "").split(" ")[0]; }
+  function hoursWords(h) { return h === 1 ? "an hour" : (Math.round(h * 10) / 10) + " hours"; }
+  /* "this evening", "tomorrow morning", "Thursday morning" */
+  function shiftWords(w, c) {
+    var slot = String(c.name || "").toLowerCase();
+    if (c.date === w.today) return slot === "morning" ? "this morning" : slot === "evening" ? "this evening" : "today, " + slot;
+    if (c.date === addDays(w.today, 1)) return "tomorrow " + slot;
+    return new Date(c.date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long" }) + " " + slot;
   }
-  function Load(c) {
-    if (!c.batches.length) return "";
-    var over = c.hours.used - c.hours.of;
-    return '<div class="load' + (over > 0 ? " over" : "") + '"><span class="bar"><i style="width:' + Math.min(100, Math.round(c.hours.used / c.hours.of * 100)) + '%"></i></span><span>' +
-      (over > 0 ? hrs(c.hours.used) + " of work · " + hrs(over) + " more than the shift" : hrs(c.hours.used) + " of " + hrs(c.hours.of) + " booked") + "</span></div>";
-  }
-  function ShiftCell(c) {
-    if (!c) return "<td></td>";
-    var label = ' data-label="' + esc(c.name) + '"';
-    if (c.status === "off") return "<td" + label + ' class="c-off"><span>Day off</span>' + (c.past ? "" : '<button type="button" class="linkbtn" data-act="openday" data-date="' + c.date + '">Work this day</button>') + "</td>";
-    if (c.status === "cancelled") return "<td" + label + ' class="c-off"><span>Cancelled' + (c.cancelled ? " · " + esc(c.cancelled) : "") + "</span>" + (c.past ? "" : '<button type="button" class="linkbtn" data-act="restore" data-key="' + c.key + '">Put back</button>') + "</td>";
-    var st = c.status === "live" ? '<span class="st live"><i></i>Running now</span>'
-      : c.status === "stopped" ? '<span class="st bad">Stopped' + (c.stopped ? " · " + esc(c.stopped) : "") + "</span>"
-      : c.status === "ended" ? '<span class="st">Handed over to ' + esc(short(c.handover && c.handover.toInCharge)) + "</span>" : "";
-    if (c.takeover && !c.takeover.taken) st += '<span class="st warn">Waiting for ' + esc(short(c.inCharge)) + " to take over</span>";
-    return "<td" + label + ' class="' + (c.now ? "c-now" : "") + (c.past ? " c-past" : "") + '">' +
-      '<button type="button" class="sc-h" data-shift="' + c.key + '"><span><b>' + esc(c.inCharge) + "</b> · " + people(c.crew.length) + "</span><span class=\"chev\">Manage ›</span></button>" +
-      (st ? '<div class="sc-st">' + st + "</div>" : "") +
-      (c.batches.length ? '<ul class="bls">' + c.batches.map(BatchLine).join("") + "</ul>" : '<p class="none">No batches</p>') + Load(c) + "</td>";
-  }
-  /* the roster table: a row per day, a column per shift — the Week, and
-     Today's one row (29 Sep 2026, owner: Today looks the same as Week) */
-  function rosterTable(w, days) {
-    var head = "<thead><tr><th>Day</th>" + w.shifts.map(function (x) { return "<th>" + esc(x.name) + "<small>" + hr(x.start) + " – " + hr(x.end) + "</small></th>"; }).join("") + "</tr></thead>";
-    var body = days.map(function (k) {
-      return '<tr class="' + (k === w.today ? "r-today" : "") + (k < w.today ? " r-past" : "") + '"><th>' + esc(dayName(k)) + (k === w.today ? "<small>Today</small>" : "") + "</th>" +
-        w.shifts.map(function (x) { return ShiftCell(w.cells[k + "|" + x.id]); }).join("") + "</tr>";
-    }).join("");
-    return '<div class="tbl-wrap"><table class="roster">' + head + "<tbody>" + body + "</tbody></table></div>";
-  }
+  function batchesWords(n) { return n === 1 ? "1 batch" : n + " batches"; }
+
   function Roster(w) {
-    var days = [];
-    for (var i = 0; i < 7; i++) days.push(addDays(S.from, i));
-    var end = addDays(S.from, 6), thisWeek = S.from === monday(Date.now());
-    return '<section class="card wk"><header><h2>Shifts · ' + esc(dayName(S.from, true)) + " – " + esc(dayName(end, true)) + "</h2>" +
-      '<span class="wk-nav"><button type="button" class="btn sm" data-act="wk" data-by="-7" aria-label="Previous week">‹</button>' +
-      '<button type="button" class="btn sm" data-act="wk" data-by="0"' + (thisWeek ? " disabled" : "") + ">This week</button>" +
-      '<button type="button" class="btn sm" data-act="wk" data-by="7" aria-label="Next week">›</button>' +
-      '<button type="button" class="btn sm" data-act="settings">Shift settings</button></span></header>' +
-      NotScheduled(w) + (S.err && !S.panel ? '<div class="wk-err">' + esc(S.err) + "</div>" : "") +
-      rosterTable(w, days) + "</section>";
+    var list = [];
+    for (var i = 0; i < 7; i++) {
+      var k = addDays(w.today, i);
+      w.shifts.forEach(function (x) { var c = w.cells[k + "|" + x.id]; if (c) list.push({ c: c, x: x }); });
+    }
+    list = list.filter(function (e) { return (!e.c.past || e.c.now) && ["off", "cancelled"].indexOf(e.c.status) === -1 && e.c.working !== false; });
+    var who = function (e) { return e.c.inCharge || e.x.inCharge || ""; };
+    /* the card: who, which shift and when, and in plain words whether its work fits */
+    function card(e, lead, headline, sub) {
+      var c = e.c, n = c.batches.length, over = c.hours.used - c.hours.of;
+      return '<button type="button" class="sf-card" data-shift="' + c.key + '"><span class="sf-lead">' + lead + "</span>" +
+        '<span class="sf-row">' + avatar(who(e)) + '<span class="sf-txt"><span class="sf-big">' + headline + '</span><span class="sf-sub">' + sub + "</span></span></span>" +
+        '<span class="sf-note ' + (over > 0 ? "warn" : n ? "ok" : "") + '">' + (n ? batchesWords(n) + (over > 0 ? " — about " + hoursWords(over) + " more than the shift can fit" : " — it fits") : "Nothing planned yet") + "</span></button>";
+    }
+    /* "", "tomorrow ", "Thursday " — the day only when it isn't today */
+    var dayWord = function (e) { return e.c.date === w.today ? "" : e.c.date === addDays(w.today, 1) ? "tomorrow " : new Date(e.c.date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long" }) + " "; };
+    var now = list.filter(function (e) { return e.c.now; })[0];
+    var first_ = now || list[0], after = first_ ? list[list.indexOf(first_) + 1] : null;
+    var left = !first_ ? "" : now
+      ? card(now, "Now", esc(first(who(now))) + " is running the floor", esc(now.c.name) + " shift · till " + hr(now.x.end))
+      : card(first_, "Starts next", esc(first(who(first_))) + " starts " + esc(shiftWords(w, first_.c)), esc(first_.c.name) + " shift · " + dayWord(first_) + "from " + hr(first_.x.start));
+    var right = after ? card(after, "Then", esc(first(who(after))) + " takes over", esc(after.c.name) + " shift · " + dayWord(after) + "from " + hr(after.x.start)) : "";
+    return '<div class="sf">' + (S.err && !S.panel ? '<div class="wk-err">' + esc(S.err) + "</div>" : "") +
+      '<div class="sf-pair">' + left + right + "</div></div>";
   }
 
   /* ── one shift, opened ── */
@@ -352,17 +314,16 @@
           (canMove ? '<span class="sp-mv"><select data-move="' + b.id + '" aria-label="Move ' + esc(b.no) + '"><option value="">Move to another shift…</option>' + moves.map(function (o) { return '<option value="' + o.key + '">' + esc(optLabel(o)) + "</option>"; }).join("") +
             '<option value="none">Not scheduled</option></select></span>' : "") + "</li>";
       }).join("") + "</ul>" : '<div class="muted">No batches yet. Give one a shift from Not scheduled.</div>') + "</div>";
+    /* no Hand over or Stop (owner, 29 Sep 2026): when a shift ends, its planned and running batches
+       move to the next shift on their own (D.rollOver in the store) */
     var acts = [];
-    if (c.status === "live") acts.push(["handover", "Hand over to the next shift"], ["stop", "Stop the shift"]);
-    if (c.status === "stopped") acts.push(["resume", "Resume"], ["handover", "Hand over to the next shift"]);
+    if (c.status === "stopped") acts.push(["resume", "Resume"]);
     if (!c.past && !started && ["scheduled", "open"].indexOf(c.status) !== -1) acts.push(["cancel", "Cancel this shift"]);
     var ask = "";
-    if (S.ask === "stop") ask = Ask("Why did it stop?", "A power cut, a breakdown…", "Stop · running batches go on hold", true);
-    else if (S.ask === "cancel") ask = Ask("Why cancel it?", "A holiday, no people…", "Cancel · its batches go back to Not scheduled", false);
-    else if (S.ask === "handover") ask = Ask("Note for the next in-charge", "Where things are, what to watch", "Hand over", false);
+    if (S.ask === "cancel") ask = Ask("Why cancel it?", "A holiday, no people…", "Cancel · its batches go back to Not scheduled", false);
     else if (S.ask === "resume") ask = '<div class="sp-ask"><p>Resume the shift? Its batches come off hold.</p><div class="sp-row"><button type="button" class="btn primary sm" data-act="do">Yes, resume</button><button type="button" class="btn sm" data-act="ask" data-ask="">Back</button></div></div>';
     return Panel(c.name + " shift", dayName(c.date, true) + " · " + hr(sx.start) + " – " + hr(sx.end) + (status ? " · " + status : ""), body,
-      acts.length || ask ? (ask || acts.map(function (a) { return '<button type="button" class="btn sm' + (a[0] === "stop" || a[0] === "cancel" ? " warn" : a[0] === "handover" || a[0] === "resume" ? " primary" : "") + '" data-act="ask" data-ask="' + a[0] + '">' + a[1] + "</button>"; }).join("")) : "");
+      acts.length || ask ? (ask || acts.map(function (a) { return '<button type="button" class="btn sm' + (a[0] === "cancel" ? " warn" : a[0] === "resume" ? " primary" : "") + '" data-act="ask" data-ask="' + a[0] + '">' + a[1] + "</button>"; }).join("")) : "");
   }
   function Panel(title, sub, body, foot) {
     return '<div class="sp-scrim" data-act="close"></div><aside class="sp" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
@@ -454,10 +415,8 @@
     else if (act === "ask") { S.ask = el.getAttribute("data-ask") || null; S.form.text = ""; S.err = ""; }
     else if (act === "do") {
       var text = (S.form.text || "").trim(), ok = false;
-      if (S.ask === "stop") ok = write(function (D) { D.stopSlot(c.id, text, "admin"); });
-      else if (S.ask === "resume") ok = write(function (D) { D.resumeSlot(c.id, "admin"); });
+      if (S.ask === "resume") ok = write(function (D) { D.resumeSlot(c.id, "admin"); });
       else if (S.ask === "cancel") ok = write(function (D) { D.cancelSlot(sid(D), text, "admin"); });
-      else if (S.ask === "handover") ok = write(function (D) { D.handOver(c.id, { note: text, actor: "admin" }); });
       if (ok) { S.ask = null; S.form = {}; }
     }
   }
@@ -660,8 +619,8 @@
     if (tabs) {
       tabs.set(S.lens);
       tabs.count("needs", needN);
-      tabs.sub(S.lens === "needs" ? "What only you can sort, and who to call about it. Lines clear when the floor moves on."
-        : S.lens === "flow" ? "What sales needs beyond the stock on the shelf, and how production stands on it: covered, blocked by material, or not planned." : "Who works which shift, and what each shift makes");
+      /* All shifts' one link sits on the date's row (owner, 29 Sep 2026) */
+      tabs.action(S.lens === "week" ? { label: "Change shift times or people", quiet: true, onClick: function () { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; render(); } } : null);
     }
     app.innerHTML =
       (S.lens === "needs" ? Needs(m)
@@ -684,20 +643,8 @@
     if (!b || b.disabled) return;
     var act = b.getAttribute("data-act");
     if (act === "lens") { S.lens = b.getAttribute("data-lens"); S.panel = null; S.err = ""; window.scrollTo(0, 0); }
-    else if (act === "wk") { var by = +b.getAttribute("data-by"); S.from = by ? addDays(S.from, by) : monday(Date.now()); }
     else if (act === "settings") { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; }
     else if (act === "close") { S.panel = null; S.ask = null; S.form = {}; S.err = ""; }
-    else if (act === "schedule") { var id = b.getAttribute("data-id"), sel = app.querySelector('[data-sched="' + id + '"]'); if (schedule(id, sel ? sel.value : b.getAttribute("data-key"))) { delete S.sched[id]; S.change = null; } }
-    else if (act === "change") S.change = b.getAttribute("data-id");
-    else if (act === "nsAll") S.nsAll = !S.nsAll;
-    else if (act === "nsAsk") S.nsAsk = !!b.getAttribute("data-on");
-    else if (act === "schedAll") {
-      var w0 = weekModel(), sg = suggestAll(w0), picks = w0.tray.map(function (x) { return [x.id, S.sched[x.id] || (sg[x.id] && sg[x.id].key)]; }).filter(function (x) { return x[1]; });
-      write(function (D) { picks.forEach(function (x) { var k = keyOf(x[1]); D.schedule(x[0], k.date, k.slot, "admin"); }); });
-      S.nsAsk = false; S.sched = {}; S.change = null;
-    }
-    else if (act === "openday") { var dt = b.getAttribute("data-date"); write(function (D) { D.openDay(dt); }); }
-    else if (act === "restore") { var rk = keyOf(b.getAttribute("data-key")); write(function (D) { var x = D.findSlot(rk.date, rk.slot); if (x) { x.status = "scheduled"; delete x.cancelled; } }); }
     else if (S.panel) panelAct(act, b);
     render();
   });
@@ -705,11 +652,9 @@
     var f = e.target.getAttribute("data-f");
     if (!f) return;
     S.form[f] = e.target.value;
-    if (f === "text") { var go_ = app.querySelector('.sp-ask [data-act="do"]'); if (go_ && S.ask === "stop") go_.disabled = !e.target.value.trim(); }
   });
   app.addEventListener("change", function (e) {
     var t = e.target;
-    if (t.hasAttribute("data-sched")) { S.sched[t.getAttribute("data-sched")] = t.value; return; }
     if (t.hasAttribute("data-move")) { if (t.value) { schedule(t.getAttribute("data-move"), t.value); render(); } return; }
     var f = t.getAttribute("data-f");
     if (f && f !== "text" && f !== "name") { S.form[f] = t.value; render(); }

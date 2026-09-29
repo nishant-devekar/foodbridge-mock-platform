@@ -20,6 +20,7 @@
                                   onSelect: function (view) { … } })
          t.set(view) · t.sub(text) — when the page changes view itself
          t.count(view, n) — a count on a tab (0 hides it)
+         t.action({ label, onClick, quiet }) · t.action(null) — the view's action on the date's row
          onSelect handles views on the same page (return true); any other
          view is opened through the platform: #/production/production-board
          ?view=flow|week|needs, or #/production/batch-management.
@@ -29,7 +30,9 @@
   if (window.FBProductionTabs) return;
 
   /* Owner, 29 Sep 2026: Demand & supply first, then All batches, All shifts (the Week), Needs you; Today retired */
-  var VIEWS = [["flow", "Demand & supply"], ["all", "All batches"], ["week", "All shifts"], ["needs", "Needs you"]];
+  var VIEWS = [["flow", "Demand & supply"], ["all", "All batches"], ["week", "All shifts"], ["needs", "Needs you", "hidden"]];
+  /* "hidden": off the strip for now (owner, 29 Sep 2026 — "hide Needs you, do not delete"). The view
+     still works (?view=needs); drop the word to bring the tab back. */
   /* the header's own measures: 12px in, 24px from 640px; system-ui */
   var CSS = [
     ".fbpt,.fbpt *{box-sizing:border-box}",
@@ -47,6 +50,8 @@
     ".fbpt-head p{margin:2px 0 0;font-size:14px;line-height:20px;color:#6b7280}",
     ".fbpt-act{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font:600 14px/1 system-ui,sans-serif,Arial,Helvetica;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08)}",
     ".fbpt-act:hover{background:#15803d}",
+    ".fbpt-link{flex:0 0 auto;border:0;background:none;padding:0 0 4px;font:600 14px/1.2 system-ui,sans-serif,Arial,Helvetica;color:#0f766e;cursor:pointer}",
+    ".fbpt-link:hover{text-decoration:underline}",
     "@media (min-width:640px){.fbpt-in{padding:0 24px}.fbpt-head{padding:20px 24px 0}}",
     "@media (max-width:639.98px){.fbpt-in{gap:0;padding:0 4px;overflow-x:auto;scrollbar-width:none}.fbpt-in::-webkit-scrollbar{display:none}.fbpt button{flex:0 0 auto;min-width:0;padding:0 12px;font-size:13px}.fbpt-n{margin-left:4px;min-width:18px;height:18px;padding:0 5px}.fbpt-head{padding:14px 12px 0}.fbpt-act.desk{display:none}}",
   ].join("");
@@ -76,7 +81,7 @@
     var inner = document.createElement("div");
     inner.className = "fbpt-in";
     inner.setAttribute("role", "tablist");
-    VIEWS.forEach(function (v) {
+    VIEWS.filter(function (v) { return v[2] !== "hidden"; }).forEach(function (v) {
       var b = document.createElement("button");
       b.type = "button";
       b.setAttribute("role", "tab");
@@ -108,14 +113,21 @@
     var txt = document.createElement("div"), h1 = document.createElement("h1"), p = document.createElement("p");
     h1.textContent = "Today, " + new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
     p.textContent = o.sub || "";
+    p.hidden = !o.sub;   /* owner, 29 Sep 2026: no line under the date unless a page asks for one */
     txt.appendChild(h1); txt.appendChild(p); line.appendChild(txt);
-    if (o.action) {
-      var a = document.createElement("button");
-      a.type = "button"; a.className = "fbpt-act" + (o.action.desktopOnly ? " desk" : "");
-      a.textContent = o.action.label;
-      a.addEventListener("click", o.action.onClick);
-      line.appendChild(a);
+    /* the view's one action, on the date's row: a button, or a quiet link ({ quiet: true });
+       a page that switches views sets or clears it with t.action(…) */
+    var act = null;
+    function action(x) {
+      if (act) { act.remove(); act = null; }
+      if (!x) return;
+      act = document.createElement("button");
+      act.type = "button"; act.className = (x.quiet ? "fbpt-link" : "fbpt-act") + (x.desktopOnly ? " desk" : "");
+      act.textContent = x.label;
+      act.addEventListener("click", x.onClick);
+      line.appendChild(act);
     }
+    action(o.action);
     /* right under the page header, wherever the page put it */
     var head = document.querySelector(".fbah");
     if (head && head.parentNode) { head.parentNode.insertBefore(nav, head.nextSibling); nav.parentNode.insertBefore(line, nav.nextSibling); }
@@ -128,7 +140,7 @@
       b.parentNode.setAttribute("aria-label", b.parentNode.firstChild.textContent + (n > 0 ? ", " + n : ""));
     }
     setTimeout(reveal, 0);
-    return { el: nav, set: set, count: count, sub: function (t) { p.textContent = t || ""; } };
+    return { el: nav, set: set, count: count, action: action, sub: function (t) { p.textContent = t || ""; p.hidden = !t; } };
   }
 
   window.FBProductionTabs = { mount: mount };
