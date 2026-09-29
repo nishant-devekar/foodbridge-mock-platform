@@ -27,14 +27,14 @@
   button { font: inherit; }
 
   /* ── the map: the home screen, and — shrunk — the navigation ── */
-  .map { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; background: #fff; border-bottom: 1px solid var(--line); padding: 34px 40px 30px; transition: padding .45s var(--ease); z-index: 2; }
+  .map { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; background: #fff; border-bottom: 1px solid var(--line); padding: 34px max(40px, calc((100% - 1180px) / 2)) 30px; transition: padding .45s var(--ease); z-index: 2; }
   .head { max-height: 140px; overflow: hidden; transition: all .45s var(--ease); }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; white-space: nowrap; }
   .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--green); display: inline-block; }
   .head h1 { margin: 14px 0 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.2; }
   .head p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
   .row { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 26px minmax(0, 1fr); gap: 18px; margin-top: 36px; align-items: stretch; transition: all .45s var(--ease); }
-  .step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; padding: 26px 12px 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
+  .step { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; min-width: 0; padding: 28px 10px 22px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
   .step:hover { border-color: var(--green); box-shadow: 0 6px 18px rgba(22,163,74,.10); }
   .step:focus-visible { outline: 2px solid rgba(22,163,74,.5); outline-offset: 2px; }
   .ic { width: 64px; height: 64px; border-radius: 50%; background: var(--g50); color: var(--g7); display: inline-flex; align-items: center; justify-content: center; }
@@ -42,15 +42,18 @@
   .apart .ic { background: #fff7ed; color: #c2410c; }
   .apart .num { display: none; }
   body.mini .apart .num { display: inline-flex; }
-  .step + .step::before { content: "›"; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); color: #c7cbd1; font-size: 18px; line-height: 1; }
+  .step + .step::before { content: "›"; position: absolute; left: -13px; top: 60px; transform: translateY(-50%); color: #c7cbd1; font-size: 18px; line-height: 1; }
   .step.apart::before { content: none; }
   .t { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .num { flex: 0 0 26px; height: 26px; border-radius: 50%; background: #f3f4f6; color: var(--ink2); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all .45s var(--ease); }
   .apart .num { background: #fff7ed; color: #c2410c; }
   .nm { font-weight: 700; font-size: 16px; line-height: 1.2; white-space: nowrap; transition: font-size .45s var(--ease); }
+  body:not(.mini) .num { position: absolute; top: 12px; left: 12px; flex-basis: 24px; width: 24px; height: 24px; font-size: 11px; }
+  body:not(.mini) .t { justify-content: center; text-align: center; }
   .sepd { align-self: stretch; border-left: 2px dotted #d1d5db; justify-self: center; }
-  .loop { position: absolute; left: 0; top: 100%; height: 44px; pointer-events: none; }
-  .loopl { position: absolute; bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
+  /* the loop runs under the six steps only: Collect's centre back to Buy's */
+  .loop { position: absolute; left: 0; top: 100%; width: calc((100% - 152px) / 7 * 6 + 90px); height: 44px; pointer-events: none; }
+  .loopl { position: absolute; left: calc(((100% - 152px) / 7 * 6 + 90px) / 2); transform: translateX(-50%); bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
   .foot { margin-top: 74px; display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 13px; max-height: 60px; overflow: hidden; transition: all .35s var(--ease); }
   .foot b { color: var(--ink2); }
   .cta { border: 0; background: var(--green); color: #fff; border-radius: 10px; padding: 11px 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
@@ -71,11 +74,12 @@
   body.mini .ic, body.mini .loop, body.mini .loopl { display: none; }
   body.mini .mapbtn { display: inline-flex; justify-self: end; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ink2); cursor: pointer; white-space: nowrap; }
   /* a step's screens: on the map, a quiet line under its name; in the bar, tabs inside the open step */
-  .kids { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 6px; margin-top: -4px; }
-  .kids button { border: 0; background: none; padding: 0; font-size: 12px; color: var(--muted); cursor: pointer; }
-  .kids button + button::before { content: "·"; margin-right: 6px; color: #d1d5db; }
+  .kids { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-top: -4px; padding-top: 12px; border-top: 1px solid #f3f4f6; width: calc(100% - 16px); }
+  .kids button { border: 0; background: none; padding: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); cursor: pointer; white-space: nowrap; }
   .kids button:hover { color: var(--g7); text-decoration: underline; }
-  body.mini .kids { display: none; }
+  body.mini .kids { display: none; border-top: 0; width: auto; }
+  body.mini .step.on .kids { flex-direction: row; }
+  body.mini .step.on .kids.one { display: none; }
   body.mini .step.on .kids { display: inline-flex; flex-wrap: nowrap; gap: 2px; margin: 0 0 0 4px; padding: 2px; border: 1px solid #bbf7d0; border-radius: 999px; background: #fff; animation: kids .6s var(--ease); }
   body.mini .step.on .kids button { padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--g7); white-space: nowrap; }
   body.mini .step.on .kids button::before { content: none; }
@@ -214,11 +218,11 @@
         '<div class="step' + (f.apart ? " apart" : "") + (f.k === cur ? " on" : "") + (s[1] ? " hot" : "") + '" role="button" tabindex="0" aria-label="' + f.name + '" title="' + f.what + '" data-go="' + f.k + '">' +
         '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[f.k] + "</svg></span>" +
         '<div class="t"><span class="num">' + (f.apart ? "◷" : n) + '</span><span class="nm">' + f.name + "</span></div>" +
-        (f.screens.length > 1 ? '<span class="kids" role="tablist" aria-label="' + f.name + ' screens">' + f.screens.map(function (x, j) {
-          return '<button role="tab" data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (f.k === cur && j === sub) + '">' + x.label + "</button>"; }).join("") + "</span>" : "") + "</div>";
+        ('<span class="kids' + (f.screens.length > 1 ? "" : " one") + '" role="tablist" aria-label="' + f.name + ' screens">' + f.screens.map(function (x, j) {
+          return '<button role="tab" data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (f.k === cur && j === sub) + '">' + x.label + "</button>"; }).join("") + "</span>") + "</div>";
     }).join("") + '<button class="mapbtn" data-map>⤢ Map</button>' +
-      '<svg class="loop" style="width:' + (6 / 7.1 * 100) + '%" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 930 2 C 930 36, 905 38, 820 38 L 80 38 C 45 38, 42 30, 42 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 36 12 L 42 2 L 48 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
-      '<span class="loopl" style="left:44%">↻ and round again</span>';
+      '<svg class="loop" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 925 2 C 925 36, 900 38, 820 38 L 155 38 C 80 38, 75 30, 75 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 69 12 L 75 2 L 81 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
+      '<span class="loopl">↻ and round again</span>';
   }
   function drawSub() {
     var f = FLOW.filter(function (x) { return x.k === cur; })[0];
