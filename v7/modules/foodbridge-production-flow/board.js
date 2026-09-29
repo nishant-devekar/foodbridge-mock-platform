@@ -5,14 +5,16 @@
  *   Needs you   one line each, and one thing to do: call the person who can
  *               sort it — the worker, the batch's supervisor, the purchase
  *               person. Lines clear themselves when the floor moves on.
- *   On the floor → To start → Done today   a batch's life, one line of "what
- *               is happening now" per batch.
- *   Crew today  who is in, and on what; the worker-app QR.
- *   Week        the shifts (29 Sep 2026): a roster, a row per day and a
+ *               Its own tab since 29 Sep 2026 (owner), with a count on it.
+ * Today (the floor, to start, done, crew and the worker-app QR) was retired
+ * on 29 Sep 2026 (owner).
+ *   Demand & supply  sales → production → purchase (29 Sep 2026, the first
+ *               tab): what sales needs beyond stock, how production stands
+ *               on it, and what to buy to unblock it.
+ *   All shifts  the Week (29 Sep 2026): a roster, a row per day and a
  *               column per shift (Morning, Evening, any added in Shift
  *               settings); Not scheduled batches get a shift here; a shift
  *               is staffed, stopped, cancelled or handed over here.
- *               Below it, the plan: sell, make, buy.
  * The board starts nothing itself. A batch starts in Batches (its own Start,
  * with the supervisor hand-over), and a new batch is made in Batches' Create
  * batch — the board opens them there.
@@ -21,7 +23,10 @@
   "use strict";
 
   var app = document.getElementById("app");
-  var S = { lens: "today", qr: false, from: null, panel: null, sched: {}, change: null, nsAll: false, nsAsk: false, form: {}, ask: null, err: "" };
+  /* the board's views (owner, 29 Sep 2026): Demand & supply opens the board; All shifts is the Week;
+     Needs you the alerts. Today was retired — an old ?view=today opens Demand & supply. */
+  var VIEWS = ["flow", "week", "needs"];
+  var S = { lens: "flow", from: null, panel: null, sched: {}, change: null, nsAll: false, nsAsk: false, form: {}, ask: null, err: "" };
   S.from = monday(Date.now());
   /* #/production/production-board?view=week opens the Week (Batch detail's "Week ›") */
   function fromHash() {
@@ -31,17 +36,17 @@
       /* only an address for this page: ?batch=… on the way to Batches is Batches' to read */
       if (!q || !/^#\/?production\/production-board\?/.test(h)) return false;
       var v = new URLSearchParams(q).get("view");
-      if (v === "week" || v === "today") S.lens = v;
+      S.lens = VIEWS.indexOf(v) !== -1 ? v : "flow";
       window.parent.history.replaceState(null, "", window.parent.location.pathname + window.parent.location.search + h.split("?")[0]);
       return true;
     } catch (e) { return false; /* not inside the platform */ }
   }
   fromHash();
-  (function ownQuery() { var v = new URLSearchParams(location.search).get("view"); if (v === "week" || v === "today") S.lens = v; })();
-  /* the page's three views as fixed tabs (assets/production-tabs.js): Today
-     and Week switch here; All batches opens the Batches page */
+  (function ownQuery() { var v = new URLSearchParams(location.search).get("view"); if (VIEWS.indexOf(v) !== -1) S.lens = v; })();
+  /* the page's views as fixed tabs (assets/production-tabs.js): Demand & supply,
+     All shifts and Needs you switch here; All batches opens the Batches page */
   var tabs = window.FBProductionTabs ? FBProductionTabs.mount({ active: S.lens, onSelect: function (v) {
-    if (v !== "today" && v !== "week") return false;
+    if (VIEWS.indexOf(v) === -1) return false;
     S.lens = v; S.panel = null; S.err = ""; window.scrollTo(0, 0); render(); return true;
   } }) : null;
   /* the platform keeps this page when only the ?view changes */
@@ -64,10 +69,7 @@
   function dayKey(t) { var d = new Date(t); return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate(); }
   function isToday(iso) { return iso && dayKey(iso) === dayKey(Date.now()); }
   function phone(p) { var d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d.slice(0, 5) + " " + d.slice(5) : d; }
-  function spark(weekly) {
-    var max = Math.max.apply(null, weekly.concat([1]));
-    return '<span class="spark">' + weekly.map(function (w) { return '<i style="height:' + Math.max(3, Math.round(w / max * 22)) + 'px"></i>'; }).join("") + "</span>";
-  }
+
   /* One way to act: call the person. A tel: link, so a phone dials. */
   function Call(c) {
     if (!c || !c.contact) return "";
@@ -78,10 +80,7 @@
   function go(route) {
     try { if (window.parent !== window) { window.parent.location.hash = "#/" + route; return; } } catch (e) {}
   }
-  function workerAppUrl() {
-    try { if (window.parent !== window && window.parent.document.querySelector("[data-frame]")) return window.parent.location.href.split("#")[0] + "#/worker-app"; } catch (e) {}
-    return new URL("../jobflow-worker-management/worker-app/index.html", location.href).href;
-  }
+
 
   /* ── what the page shows, read from the store in one go ─────────────── */
   function model() {
@@ -165,23 +164,8 @@
         "<small>" + m.buys.map(function (x) { return esc(x.supplier || "") ; }).filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(" · ") + "</small></span>" + Call(m.purchase) + "</div>");
     }
     if (!rows.length) return '<section class="card needs clear-all"><div class="clear">✓ Nothing needs you right now.</div></section>';
-    return '<section class="card needs"><header><h2>Needs you · ' + rows.length + "</h2></header>" + rows.join("") + "</section>";
-  }
-
-  /* Today: today's row of the Week's roster, and the same Not scheduled
-     list as Week — a batch with no shift gets one right here (owner, 29 Sep:
-     "should not take me to the Week tab") */
-  function TodayShifts(w) {
-    return '<section class="card wk"><header><h2>Today\'s shifts</h2><span class="wk-nav"><button type="button" class="btn sm" data-act="settings">Shift settings</button></span></header>' +
-      NotScheduled(w) + (S.err && !S.panel ? '<div class="wk-err">' + esc(S.err) + "</div>" : "") + rosterTable(w, [w.today]) + "</section>";
-  }
-  function Crew(m) {
-    var ins = m.crew.filter(function (c) { return c.in; });
-    return '<section class="card"><div class="crew"><span class="cap">Crew today<small>' + ins.length + " in</small></span>" +
-      ins.map(function (c) { return '<span class="p ' + (c.on ? "" : "free") + '"><i></i>' + esc(c.name) + " <em>· " + (c.on ? esc(c.on) : "free") + "</em></span>"; }).join("") +
-      '<button type="button" class="linkbtn qrbtn" data-act="qr">' + (S.qr ? "Hide worker app QR" : "Worker app QR") + "</button></div>" +
-      (S.qr ? '<div class="qr"><div class="box" data-qr></div><div><p>Workers scan this and sign in with their phone number and PIN.</p><a href="' + esc(workerAppUrl()) + '" target="_top">Open worker app ›</a></div></div>' : "") +
-      "</section>";
+    /* its own tab carries the name and the count: the card is just the lines */
+    return '<section class="card needs">' + rows.join("") + "</section>";
   }
 
   /* ── Week: the shifts (29 Sep 2026, simplified after the owner's review) ──
@@ -480,42 +464,210 @@
 
 
   /* ── the plan: sell, make, buy ─────────────────────────────────────── */
-  function Plan(m) {
-    var p = m.plan;
-    var sell = p.skus.map(function (s) {
-      return "<tr><td><b>" + esc(s.name) + "</b></td><td>" + spark(s.weekly) + '</td><td class="num">' + n(s.open) + '</td><td class="num">' + n(s.forecast) + '</td><td class="num">' + n(s.packets + s.packing) + '</td><td class="num">' +
-        (s.shortPackets ? '<span class="pill short">' + n(s.shortPackets) + "</span>" : '<span class="pill ok">Covered</span>') + "</td></tr>";
-    }).join("");
-    var make = p.products.map(function (x) {
-      return "<tr><td><b>" + esc(x.name) + '</b></td><td class="num">' + kg(x.needKg) + '</td><td class="num">' + kg(x.freezerKg + x.plannedKg) + '</td><td class="num"><b>' + kg(x.toMakeKg) + "</b></td><td>" +
-        (x.batches.length ? x.batches.map(function (z) { return '<button type="button" class="btn sm" data-create="' + x.recipeId + '" data-size="' + z + '">Create ' + kg(z) + " batch ›</button>"; }).join(" ") : '<span class="pill ok">Covered</span>') + "</td></tr>";
-    }).join("");
-    var buy = m.buys.map(function (x) {
-      return "<tr><td><b>" + esc(x.name) + '</b></td><td class="num">' + qty(x.need, x.unit) + '</td><td class="num">' + qty(x.onHand + x.ordered, x.unit) + '</td><td class="num"><b>' + qty(x.buy, x.unit) + "</b></td><td class=\"muted small\">" + esc(x.supplier || "") + "</td></tr>";
-    }).join("");
-    return '<section class="card"><header><h2>1 · What will we sell</h2><span class="sub">Last 4 weeks and orders in hand, in packets</span></header><div class="tbl-wrap"><table><thead><tr><th>Pack</th><th>Last 4 weeks</th><th class="num">Orders in hand</th><th class="num">Next week</th><th class="num">Packed or packing</th><th class="num">Short</th></tr></thead><tbody>' + sell + "</tbody></table></div></section>" +
-      '<section class="card"><header><h2>2 · What to make</h2><span class="sub">Short, less the freezer and what is already planned. Create opens Batches.</span></header><div class="tbl-wrap"><table><thead><tr><th>Product</th><th class="num">Short</th><th class="num">Have or planned</th><th class="num">To make</th><th></th></tr></thead><tbody>' + make + "</tbody></table></div></section>" +
-      '<section class="card"><header><h2>3 · What to buy</h2>' + (m.buys.length ? Call(m.purchase) : "") + "</header>" +
-      (m.buys.length ? '<div class="tbl-wrap"><table><thead><tr><th>Material</th><th class="num">Needed</th><th class="num">In store or ordered</th><th class="num">Short</th><th>Supplier</th></tr></thead><tbody>' + buy + "</tbody></table></div>" : '<div class="body muted">Nothing to buy: the store and what is already ordered cover the plan.</div>') + "</section>";
+
+
+  /* ── Flow: sales → production → purchase (29 Sep 2026, owner) ─────────
+     Only what stops a customer packet, in packets: left, the packs with a
+     gap (of their demand: orders in hand + next week) and what holds each;
+     right, the materials whose purchase frees them, and how many packets.
+     A booked batch the store cannot cover is found by walking the store
+     forward (on hand, less each booked batch's remaining need at its
+     shift's start, plus each open order on its day; an overdue, undated or
+     unapproved order has not come).                                       */
+  function flowModel() {
+    return FB_PRODUCTION.read(function (D, d) {
+      var plan = D.plan(), pat = D.pattern(), now = Date.now();
+      function at(w, edge) {
+        var x = w && pat.slots[w.slot];
+        if (!x) return null;
+        var t = new Date(w.date + "T00:00:00");
+        if (edge === "end" && x.end <= x.start) t.setDate(t.getDate() + 1);
+        t.setHours(edge === "end" ? x.end : x.start, 0, 0, 0);
+        return t.getTime();
+      }
+      var open = d.batches.filter(function (b) { return ["planned", "in-progress", "on-hold"].indexOf(b.stateId) !== -1; });
+      function timing(list) {
+        var ends = list.map(function (b) { return at(b.when, "end"); });
+        return { eta: ends.length && ends.indexOf(null) === -1 ? Math.max.apply(null, ends) : null, noShift: ends.filter(function (e) { return e === null; }).length,
+          late: list.filter(function (b, i) { return b.stateId !== "planned" && ends[i] !== null && ends[i] < now; }).length };
+      }
+      var bookName = {};
+      plan.products.forEach(function (p) { bookName[p.recipeId] = p.name; });
+
+      /* purchase first: it tells production whether its material is in */
+      var blocked = {};            /* recipeId → its booked batches the store cannot cover */
+      var matOf = {};
+      plan.materials.forEach(function (m) { matOf[m.id] = m; });
+      var shortFor = {};           /* recipeId → [{ name, qty, unit, t }] for its booked batches */
+      var buy = plan.materials.map(function (m) {
+        var mat = D.material(m.id), ev = [];
+        open.forEach(function (b) {
+          if (b.kind !== "production") return;
+          (b.ingredientSummary || []).forEach(function (r) {
+            var left = Math.max(0, r.recommendedQty - r.netConsumed);
+            if (r.ingredientId === m.id && left > 0) ev.push({ t: b.stateId === "planned" ? at(b.when, "start") : now, q: -left, b: b });
+          });
+        });
+        var arrives = null, overdue = false;
+        (d.purchaseOrders || []).forEach(function (p) {
+          var q = D.openOnPO(p, m.id);
+          if (!(q > 0)) return;
+          /* an order with no day (or still waiting for approval) comes after every batch with a shift */
+          if (!p.expectedAt || p.status === "Pending Approval") { ev.push({ t: null, q: q }); return; }
+          var due = new Date(p.expectedAt).getTime();
+          if (due < now) overdue = true;
+          ev.push({ t: Math.max(due, now + 1), q: q });
+          arrives = arrives === null ? due : Math.min(arrives, due);
+        });
+        ev.sort(function (a, b) { return (a.t === null ? Infinity : a.t) - (b.t === null ? Infinity : b.t) || b.q - a.q; });
+        var stock = m.onHand, by = null, forR = [];
+        ev.forEach(function (e) {
+          stock += e.q;
+          if (e.q < 0 && stock < -0.001 && e.b) {
+            var short = r2(Math.min(-stock, -e.q));
+            (shortFor[e.b.recipeId] = shortFor[e.b.recipeId] || []).push({ id: m.id, name: m.name, qty: short, unit: m.unit, t: e.t });
+            var bl = (blocked[e.b.recipeId] = blocked[e.b.recipeId] || []);
+            if (bl.indexOf(e.b) === -1) bl.push(e.b);
+            if (forR.indexOf(e.b.recipeId) === -1) forR.push(e.b.recipeId);
+            if (by === null) by = { t: e.t, recipeId: e.b.recipeId };
+          }
+        });
+        var free = r2(m.onHand - m.reserved), low = mat.threshold && free < mat.threshold;
+        var order = m.buy > 0 ? m.buy : low ? r2(Math.max(0, mat.threshold - free - m.ordered)) : 0;
+        /* by: a booked batch with a shift runs short; noShift: one with no shift yet; new: only batches still to plan */
+        var status = m.buy > 0 ? (by && by.t !== null ? "by" : by ? "noShift" : "new") : by && by.t !== null ? "late" : order > 0 ? "low" : null;
+        if (!status) return null;
+        /* for what: every product whose batch runs short, and the products still to plan that use it */
+        if (m.buy > 0) plan.products.forEach(function (p) {
+          if (p.toMakeKg > 0 && forR.indexOf(p.recipeId) === -1 && D.book(p.recipeId).ingredients.some(function (i) { return i.rmId === m.id; })) forR.push(p.recipeId);
+        });
+        /* a pouch is for the packs short that it fills */
+        if (m.buy > 0) plan.skus.forEach(function (k) { if (k.shortPackets > 0 && D.sku(k.skuId).pouchId === m.id && forR.indexOf(k.recipeId) === -1) forR.push(k.recipeId); });
+        var forWhat = status === "low" ? "Minimum " + (m.unit === "kg" ? n(mat.threshold, 10) + " kg" : n(mat.threshold) + " " + m.unit) : forR.map(function (r) { return bookName[r]; }).filter(Boolean).join(", ");
+        return { id: m.id, name: m.name, unit: m.unit, supplier: m.supplier, order: order, by: by, status: status, forWhat: forWhat,
+          onHand: m.onHand, ordered: m.ordered, arrives: arrives, overdue: overdue };
+      }).filter(Boolean).sort(function (a, b) {
+        var rank = { by: 0, late: 1, noShift: 2, new: 3, low: 4 };
+        return rank[a.status] - rank[b.status] || (a.by && b.by ? a.by.t - b.by.t : 0) || b.order - a.order;
+      });
+
+      /* Only what stops a customer packet (owner, 29 Sep 2026: "too much waste
+         data"). Per product (recipe, in kg), the packets still to come are
+         covered in this order: the freezer, then batches whose material is in
+         the store. What is left is the gap, and what holds it:
+           a booked batch the store cannot cover  → held by that material
+           nothing planned, material to buy first → held by that material
+           nothing planned                        → "Not planned"
+         Each pack gets its share of the gap by its packets short, at its own
+         pack weight. A material counts only for the packets it would free.   */
+      var rows = [], frees = {}, forWhom = {};
+      plan.products.forEach(function (p) {
+        var skus = plan.skus.filter(function (s) { return s.recipeId === p.recipeId && s.need > 0; });
+        var kgOf = function (s) { return s.grams / 1000; };
+        var own = function (s) { return Math.max(0, s.shortPackets - Math.min(s.packing, Math.max(0, s.need - s.packets))); };
+        var rem = skus.reduce(function (t, s) { return t + own(s) * kgOf(s); }, 0);
+        if (rem < 0.05) return;
+        /* production, in the same kg as sales, split three ways that add up to it (owner: sales must see how
+           much is being made, purchase where it is blocked):
+             covered      the freezer, then batches whose material is in the store — with the ETA
+             blocked      batches the store cannot cover, and what cannot be planned until a material comes
+             not planned  the rest                                                                              */
+        var t = timing(open.filter(function (b) { return b.kind === "production" && b.recipeId === p.recipeId; }));
+        var blockedKg = Math.min(p.plannedKg, (blocked[p.recipeId] || []).reduce(function (t, b) { return t + b.batchSize; }, 0));
+        var shortMats = (shortFor[p.recipeId] || []).map(function (w) { return w.id; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+        var bk = D.book(p.recipeId);
+        var firstMats = buy.filter(function (b) { return (b.status === "new" || b.status === "noShift") && bk.ingredients.some(function (i) { return i.rmId === b.id; }); }).map(function (b) { return b.id; });
+        var fz = Math.min(p.freezerKg, rem), okB = Math.min(Math.max(0, p.plannedKg - blockedKg), rem - fz), covered = fz + okB;
+        var blkB = Math.min(blockedKg, rem - covered), unpl = rem - covered - blkB;
+        var names = (blkB > 0.05 ? shortMats : []).concat(unpl > 0.05 && firstMats.length ? firstMats : []).filter(function (v, i, a) { return a.indexOf(v) === i; }).map(function (id) { return matOf[id].name; });
+        rows.push({ recipeId: p.recipeId, name: p.name, needKg: r2(rem), mats: [],
+          covered: r2(covered), eta: okB > 0.05 ? (t.late ? "late" : t.noShift ? "no shift yet" : when(t.eta)) : fz > 0.05 ? "in freezer" : null,
+          blocked: r2(blkB + (firstMats.length ? unpl : 0)), blockedBy: names, notPlanned: r2(firstMats.length ? 0 : unpl),
+          packs: skus.filter(function (s) { return own(s) > 0; }).sort(function (a, b) { return a.grams - b.grams; })
+            .map(function (s) { return { size: s.grams < 1000 ? s.grams + " g" : s.grams / 1000 + " kg", count: own(s) }; }) });
+        var row = rows[rows.length - 1];
+        /* the gap — what production does not cover — feeds the purchase chit */
+        var gapKg = rem - covered;
+        if (gapKg < 0.05) return;
+        var viaBlocked = blkB;
+        var mats = row.mats;
+        skus.forEach(function (s) {
+          var share = own(s) * kgOf(s) / rem, gap = Math.round(gapKg * share / kgOf(s));
+          if (gap < 1) return;
+          var fromBlocked = Math.round(viaBlocked * share / kgOf(s)), fromNew = gap - fromBlocked;
+          var m = (fromBlocked > 0 ? shortMats : []).concat(fromNew > 0 ? firstMats : []);
+          buy.forEach(function (b) { if (D.sku(s.skuId).pouchId === b.id && (b.status === "new" || b.status === "noShift")) m.push(b.id); });
+          m.forEach(function (id) {
+            if (mats.indexOf(id) === -1) mats.push(id);
+            frees[id] = (frees[id] || 0) + (shortMats.indexOf(id) !== -1 ? fromBlocked : 0) + (firstMats.indexOf(id) !== -1 || D.sku(s.skuId).pouchId === id ? fromNew : 0);
+            (forWhom[id] = forWhom[id] || []).indexOf(p.name) === -1 && forWhom[id].push(p.name);
+          });
+        });
+      });
+      /* purchase: only the materials that free a customer packet, as a chit */
+      var purchase = buy.filter(function (b) { return frees[b.id] > 0; }).map(function (b) {
+        return { id: b.id, name: b.name, order: b.order, unit: b.unit, frees: frees[b.id], forWhom: forWhom[b.id] || [] };
+      }).sort(function (a, b) { return b.frees - a.frees; });
+      var rank = {};
+      purchase.forEach(function (b, i) { rank[b.id] = i; });
+      var rk = function (r) { return r.mats.length ? Math.min.apply(null, r.mats.map(function (id) { return id in rank ? rank[id] : 99; })) : 100; };
+      /* the products production covers least first */
+      rows.sort(function (a, b) { return (b.blocked + b.notPlanned) - (a.blocked + a.notPlanned) || rk(a) - rk(b); });
+
+      return { rows: rows, purchase: purchase };
+    });
+  }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  /* "today 3 pm", "tomorrow 7 am", "Thu, 1 Oct 7 am" */
+  function when(t) {
+    if (t === null || t === undefined || !isFinite(t)) return null;
+    var dt = new Date(t), k = isoDay(t), today = isoDay(Date.now());
+    var h = dt.toLocaleTimeString("en-IN", dt.getMinutes() ? { hour: "numeric", minute: "2-digit", hour12: true } : { hour: "numeric", hour12: true });
+    return (k === today ? "today" : k === addDays(today, 1) ? "tomorrow" : dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })) + " " + h;
+  }
+  function soon(t) { return t !== null && isFinite(t) && t - Date.now() < 24 * 3600000; }
+
+  /* Owner, 29 Sep 2026: two tables side by side, only what stops a customer
+     packet. Left, the packs with a gap and what holds each; right, the
+     materials that would free them. A line runs from each material to the
+     packs it frees. No actions, no highlight. */
+  function Flow(f) {
+    if (!f.rows.length) return '<section class="card fx"><div class="fx-none-msg">Every pack customers need is packed.</div></section>';
+    /* product | sales: what customers need beyond what is packed in stock — the production demand, in kg,
+       with the packs it is | production for it */
+    var sp = '<section class="card fx"><div class="tbl-wrap"><table><thead><tr><th>Product</th><th>Sales over stock</th><th>Production for it</th></tr></thead><tbody>' +
+      f.rows.map(function (r) {
+        return '<tr><th scope="row">' + esc(r.name) + '</th><td data-label="Sales over stock"><span class="fx-need"><b>' + kg(r.needKg) + "</b> to produce</span>" +
+          '<span class="fx-pks">' + r.packs.map(function (k) { return n(k.count) + " × " + esc(k.size); }).join(" · ") + "</span></td>" +
+          '<td data-label="Production">' +
+            (r.covered > 0.05 ? '<span class="fx-pm"><b>' + kg(r.covered) + '</b> covered' + (r.eta ? " · " + esc(r.eta) : "") + "</span>" : "") +
+            (r.blocked > 0.05 ? '<span class="fx-pm blk"><b>' + kg(r.blocked) + "</b> blocked · " + esc(r.blockedBy.join(", ")) + "</span>" : "") +
+            (r.notPlanned > 0.05 ? '<span class="fx-pm np"><b>' + kg(r.notPlanned) + "</b> not planned</span>" : "") + "</td></tr>";
+      }).join("") + "</tbody></table></div></section>";
+    /* purchase: a panel docked to the table — what to buy, and how much production it unblocks */
+    var unblocks = f.rows.reduce(function (t, r) { return t + r.blocked; }, 0);
+    var chit = '<aside class="fx-buy" aria-label="Buy to unblock production"><div class="fx-buy-h">Buy to unblock production</div>' + (f.purchase.length
+      ? '<ul class="fx-buy-l">' + f.purchase.map(function (b) { return "<li><span>" + esc(b.name) + "</span><b>" + qty(b.order, b.unit) + "</b></li>"; }).join("") + "</ul>" +
+        (unblocks > 0.05 ? '<div class="fx-buy-f">Unblocks <b>' + kg(unblocks) + "</b> of production</div>" : "")
+      : '<div class="fx-buy-f">Nothing — no production waits on material.</div>') + "</aside>";
+    return '<div class="fx-pair">' + sp + chit + "</div>";
   }
 
   /* ── render ────────────────────────────────────────────────────────── */
   function render() {
     var m = model(), w = S.lens === "week" ? weekModel() : weekModel(isoDay(Date.now()), 1);
     var needN = m.alerts.length + (m.buys.length ? 1 : 0);
-    var glance = m.floor.length + " on the floor · " + m.planned.length + " to start today · " + (needN ? needN + (needN === 1 ? " needs you" : " need you") : "nothing needs you");
-    if (tabs) { tabs.set(S.lens); tabs.sub(S.lens === "today" ? glance : "Who works which shift, and what each shift makes"); }
+    if (tabs) {
+      tabs.set(S.lens);
+      tabs.count("needs", needN);
+      tabs.sub(S.lens === "needs" ? "What only you can sort, and who to call about it. Lines clear when the floor moves on."
+        : S.lens === "flow" ? "What sales needs beyond the stock on the shelf, and how production stands on it: covered, blocked by material, or not planned." : "Who works which shift, and what each shift makes");
+    }
     app.innerHTML =
-      (S.lens === "today" ? Needs(m) + TodayShifts(w) + Crew(m)
-        : Roster(w) + '<h2 class="plan-h">The plan · what to sell, make and buy</h2>' + Plan(m)) +
+      (S.lens === "needs" ? Needs(m)
+        : S.lens === "flow" ? Flow(flowModel())
+        : Roster(w)) +
       (S.panel ? (S.panel.kind === "settings" ? Settings(w) : ShiftPanel(w)) : "");
-    if (S.qr) drawQr();
-  }
-  function drawQr() {
-    var el = app.querySelector("[data-qr]");
-    if (!el || typeof QRCode === "undefined") return;
-    el.innerHTML = "";
-    new QRCode(el, { text: workerAppUrl(), width: 200, height: 200, colorDark: "#0f172a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   }
 
   /* ── the page only navigates: batches start and are made in Batches ── */
@@ -532,7 +684,6 @@
     if (!b || b.disabled) return;
     var act = b.getAttribute("data-act");
     if (act === "lens") { S.lens = b.getAttribute("data-lens"); S.panel = null; S.err = ""; window.scrollTo(0, 0); }
-    else if (act === "qr") S.qr = !S.qr;
     else if (act === "wk") { var by = +b.getAttribute("data-by"); S.from = by ? addDays(S.from, by) : monday(Date.now()); }
     else if (act === "settings") { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; }
     else if (act === "close") { S.panel = null; S.ask = null; S.form = {}; S.err = ""; }

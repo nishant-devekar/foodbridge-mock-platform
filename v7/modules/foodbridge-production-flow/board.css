@@ -41,23 +41,7 @@
 .prog .track i { display: block; height: 100%; background: var(--teal); border-radius: 999px; }
 .empty { border: 1px dashed var(--line); border-radius: 12px; padding: 14px; font-size: 13px; color: var(--muted); text-align: center; background: #fff; }
 
-/* crew today */
-.crew { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 18px; }
-.crew .cap { font-weight: 700; font-size: 13.5px; margin-right: 4px; }
-.crew .cap small { font-weight: 500; color: var(--muted); margin-left: 6px; }
-.crew .p { font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
-.crew .p i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
-.crew .p.free i { background: #cbd5e1; }
-.crew .p em { font-style: normal; color: var(--muted); }
 .linkbtn { border: 0; background: none; padding: 0; font: 600 13px/1.2 inherit; color: var(--teal); cursor: pointer; }
-.crew .qrbtn { margin-left: auto; }
-.qr { display: flex; gap: 14px; align-items: center; padding: 0 18px 14px; }
-.qr .box { width: 120px; height: 120px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: #fff; }
-.qr .box img, .qr .box canvas { width: 100% !important; height: 100% !important; }
-.qr p { margin: 0; font-size: 13px; color: var(--muted); }
-.qr a { color: var(--teal); font-weight: 600; font-size: 13px; }
-
-.plan-h { margin: 8px 0 -6px; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink2); }
 
 /* Week: the shifts (29 Sep 2026, simplified) — a roster, a row per day */
 .wk-nav { display: inline-flex; gap: 6px; flex-wrap: wrap; }
@@ -192,4 +176,45 @@
   .st-grid .sp-f:first-child { grid-column: 1 / -1; }
 }
 
+/* Flow (29 Sep 2026): Product | Sales over stock | Production for it, with
+   purchase docked to the table's right edge — one unit, a different surface.
+   Plain numbers; no bars, no highlight, no actions. */
+.fx-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 270px); align-items: stretch; }
+.fx-pair > .fx { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.fx table { table-layout: fixed; }
+.fx thead th { white-space: normal; }
+.fx thead th:nth-child(1) { width: 24%; }
+.fx thead th:nth-child(2) { width: 32%; }
+.fx tbody th { text-align: left; font-size: 14px; font-weight: 600; color: var(--ink); padding: 12px; border-bottom: 1px solid #f1f2f4; background: none; text-transform: none; letter-spacing: 0; white-space: normal; vertical-align: top; }
+.fx td { padding: 12px; font-size: 14px; vertical-align: top; }
+.fx td b { font-weight: 700; }
+.fx-need { display: block; }
+.fx-pks { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.fx-pm { display: block; white-space: nowrap; }
+.fx-pm + .fx-pm { margin-top: 3px; }
+.fx-pm.blk { color: var(--red); }
+.fx-pm.np { color: var(--amber); }
+.fx-none-msg { padding: 12px 18px; font-size: 13px; color: var(--muted); }
 
+/* purchase, docked: the table's own pattern (header band, row rhythm, dividers)
+   on a pale slate surface; red only for what is blocked, as in the table */
+.fx-pair > .fx { border-right: 0; }
+.fx-buy { background: #f8fafc; border: 1px solid var(--line); border-radius: 0 14px 14px 0; display: flex; flex-direction: column; min-width: 0; }
+.fx-buy-h { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+  padding: 9px 14px; line-height: 16px; background: var(--wash); border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); margin-left: -1px; border-radius: 0 14px 0 0; }
+.fx-buy-l { list-style: none; margin: 0; padding: 0; }
+.fx-buy-l li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #eef2f6; font-size: 14px; color: var(--ink); }
+.fx-buy-l li b { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fx-buy-f { margin-top: auto; padding: 12px 14px; border-top: 1px solid #eef2f6; font-size: 13px; color: var(--ink2); }
+.fx-buy-f b { color: var(--red); }
+
+@media (max-width: 1099.98px) {
+  .fx-pm { white-space: normal; }
+  .fx td, .fx tbody th { padding: 10px 8px; font-size: 13px; }
+}
+@media (max-width: 719.98px) {
+  .fx-pair { grid-template-columns: 1fr; }
+  .fx-pair > .fx { border-radius: 14px 14px 0 0; border-right: 1px solid var(--line); }
+  .fx-buy { border-radius: 0 0 14px 14px; border-top: 0; }
+  .fx-buy-h { border-radius: 0; border-left: 0; margin-left: 0; }
+}

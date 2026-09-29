@@ -1,31 +1,35 @@
 /* ==========================================================================
-   production-tabs.js — Production's three views as fixed tabs (29 Sep 2026).
+   production-tabs.js — Production's views as fixed tabs (29 Sep 2026).
 
-   Owner: "Today | Week | All batches should have stable position like tabs,
-   those should not move since those are fundamentals of the page." Today and
-   Week are the Production board (modules/foodbridge-production-flow); All
-   batches is the Batches page (batch-management, off the sidebar). Both pages
-   mount this same strip right under the page header, so the three tabs sit in
-   the same place, the same size, whichever view is open — and stay there
-   (sticky under the 56px header) while the page scrolls.
+   Owner: the tabs are the fundamentals of the page and keep their places.
+   Since 29 Sep 2026 they are, in order: Demand & supply (sales → production
+   → purchase), All batches (the Batches page, off the sidebar), All shifts
+   (the week's roster) and Needs you (the alerts, with a count). Today was
+   retired. Demand & supply, All shifts and Needs you are the Production
+   board (modules/foodbridge-production-flow); both pages mount this same
+   strip right under the page header, so the tabs sit in the same place,
+   the same size, whichever view is open — and stay there (sticky under the
+   56px header) while the page scrolls.
 
    Under the tabs, the view's first line is drawn here too — the date, one
    line of what the view is, and its main button — so everything above the
    view's own content is the same size and place on all three.
 
-   Use:  var t = FBProductionTabs.mount({ active: "today" | "week" | "all",
+   Use:  var t = FBProductionTabs.mount({ active: "flow" | "all" | "week" | "needs",
                                   sub: "…", action: { label, onClick },
                                   onSelect: function (view) { … } })
          t.set(view) · t.sub(text) — when the page changes view itself
+         t.count(view, n) — a count on a tab (0 hides it)
          onSelect handles views on the same page (return true); any other
          view is opened through the platform: #/production/production-board
-         ?view=today|week, or #/production/batch-management.
+         ?view=flow|week|needs, or #/production/batch-management.
    ========================================================================== */
 (function () {
   "use strict";
   if (window.FBProductionTabs) return;
 
-  var VIEWS = [["today", "Today"], ["week", "Week"], ["all", "All batches"]];
+  /* Owner, 29 Sep 2026: Demand & supply first, then All batches, All shifts (the Week), Needs you; Today retired */
+  var VIEWS = [["flow", "Demand & supply"], ["all", "All batches"], ["week", "All shifts"], ["needs", "Needs you"]];
   /* the header's own measures: 12px in, 24px from 640px; system-ui */
   var CSS = [
     ".fbpt,.fbpt *{box-sizing:border-box}",
@@ -35,6 +39,8 @@
     ".fbpt button:hover{color:#111827;background:#f9fafb}",
     ".fbpt button[aria-selected=true]{color:#111827;cursor:default;background:none}",
     ".fbpt button[aria-selected=true]::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:#16a34a}",
+"    .fbpt-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;margin-left:6px;padding:0 6px;border-radius:10px;background:#fef3c7;color:#92400e;font:700 11px/1 system-ui,sans-serif,Arial,Helvetica}",
+    ".fbpt-n[hidden]{display:none}",
     ".fbpt button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px rgba(34,197,94,.5);border-radius:6px}",
     ".fbpt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:20px 12px 0;font-family:system-ui,sans-serif,Arial,Helvetica;text-align:left}",
     ".fbpt-head h1{margin:0;font-size:20px;line-height:28px;font-weight:700;color:#111827;letter-spacing:-.01em}",
@@ -42,7 +48,7 @@
     ".fbpt-act{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font:600 14px/1 system-ui,sans-serif,Arial,Helvetica;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08)}",
     ".fbpt-act:hover{background:#15803d}",
     "@media (min-width:640px){.fbpt-in{padding:0 24px}.fbpt-head{padding:20px 24px 0}}",
-    "@media (max-width:639.98px){.fbpt button{flex:1 1 0;min-width:0;padding:0 8px}.fbpt-head{padding:14px 12px 0}.fbpt-act.desk{display:none}}",
+    "@media (max-width:639.98px){.fbpt-in{gap:0;padding:0 4px;overflow-x:auto;scrollbar-width:none}.fbpt-in::-webkit-scrollbar{display:none}.fbpt button{flex:0 0 auto;min-width:0;padding:0 12px;font-size:13px}.fbpt-n{margin-left:4px;min-width:18px;height:18px;padding:0 5px}.fbpt-head{padding:14px 12px 0}.fbpt-act.desk{display:none}}",
   ].join("");
 
   function style() {
@@ -76,13 +82,19 @@
       b.setAttribute("role", "tab");
       b.setAttribute("data-view", v[0]);
       b.textContent = v[1];
+      var badge = document.createElement("span");
+      badge.className = "fbpt-n"; badge.hidden = true;
+      b.appendChild(badge);
       inner.appendChild(b);
     });
     nav.appendChild(inner);
     function set(view) {
       Array.prototype.forEach.call(inner.children, function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-view") === view)); });
+      reveal();
     }
     set(o.active);
+    /* a phone scrolls the strip: keep the open tab in view */
+    function reveal() { var on = inner.querySelector('[aria-selected="true"]'); if (on && inner.scrollWidth > inner.clientWidth) inner.scrollLeft = Math.max(0, on.offsetLeft - (inner.clientWidth - on.offsetWidth) / 2); }
     inner.addEventListener("click", function (e) {
       var b = e.target.closest("button[data-view]");
       if (!b || b.getAttribute("aria-selected") === "true") return;
@@ -108,7 +120,15 @@
     var head = document.querySelector(".fbah");
     if (head && head.parentNode) { head.parentNode.insertBefore(nav, head.nextSibling); nav.parentNode.insertBefore(line, nav.nextSibling); }
     else { document.body.insertBefore(line, document.body.firstChild); document.body.insertBefore(nav, line); }
-    return { el: nav, set: set, sub: function (t) { p.textContent = t || ""; } };
+    function count(view, n) {
+      var b = inner.querySelector('button[data-view="' + view + '"] .fbpt-n');
+      if (!b) return;
+      b.hidden = !(n > 0);
+      b.textContent = n > 0 ? String(n) : "";
+      b.parentNode.setAttribute("aria-label", b.parentNode.firstChild.textContent + (n > 0 ? ", " + n : ""));
+    }
+    setTimeout(reveal, 0);
+    return { el: nav, set: set, count: count, sub: function (t) { p.textContent = t || ""; } };
   }
 
   window.FBProductionTabs = { mount: mount };

@@ -261,7 +261,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20260929SL10",
+          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO62",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -289,7 +289,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO12",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO62",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
