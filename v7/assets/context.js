@@ -30,7 +30,7 @@
   var OB = "../modules/foodbridge-onboarding/screens/";
 
   var SCRIPTS = [
-    "production/production-api.js?v=20260929PO66",   // window.FB_PRODUCTION — Vasu Foods, the one record (29 Sep 2026)
+    "production/production-api.js?v=20260929PO67",   // window.FB_PRODUCTION — Vasu Foods, the one record (29 Sep 2026)
     M + "order-history.js",      // window.FB_ORDER_HISTORY — the real 532 orders
     M + "seed.inline.js",        // window.SEED — 86 products, 40 shops
     M + "predictive-order.js",   // window.FB_PREDICT — the back-tested reorder engine

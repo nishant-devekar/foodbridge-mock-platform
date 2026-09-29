@@ -62,7 +62,7 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": [
         "-c",
-        "python3 -m http.server \"$PORT\" --directory v7"
+        "python3 v7/serve.py \"$PORT\""
       ],
       "port": 8007,
       "autoPort": true

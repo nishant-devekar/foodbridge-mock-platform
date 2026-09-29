@@ -17,7 +17,7 @@
 */
 import { oid } from './resolve.js';
 
-const STORE_SRC = '../../assets/production/production-api.js?v=20260929PO66';
+const STORE_SRC = '../../assets/production/production-api.js?v=20260929PO67';
 const DAY = 86400000;
 
 /** The store, loaded once per page (the platform's other screens load the same file). */

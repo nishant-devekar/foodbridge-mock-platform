@@ -688,7 +688,7 @@
       return D.packs(recipeId).map(function (s) {
         var c = D.packCost(s);
         return { id: s.id, productRef: s.id, packTitle: s.name, name: s.name, packSize: s.grams, packUnit: "g", productName: s.name, costPerPack: c.packaging,
-          attributable: true, costPerPackDisplay: "₹" + c.packaging.toFixed(2), variantMassDisplay: kgOf(s) + " kg", sameRun: !!s.sameRun };
+          attributable: true, costPerPackDisplay: "₹" + c.packaging.toFixed(2), variantMassDisplay: kgOf(s) + " kg", sameRun: !!s.sameRun, split: s.split || 0 };
       });
     };
 

@@ -69,7 +69,7 @@
           "id": "control-tower",
           "name": "Control Tower",
           "ownExitBar": true,
-          "url": "screens/control-tower.html?v=20260929VF1",
+          "url": "screens/control-tower.html?v=20260929CB1",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -79,7 +79,7 @@
           "id": "reports",
           "aliases": ["dashboard", "month-end", "production/month-end"],
           "name": "Reports",
-          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260929VF2",
+          "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
           "hideBurger": true
@@ -95,7 +95,7 @@
           "id": "finished-goods",
           "exitIn": "#mfooter",
           "name": "Finished Goods",
-          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html?v=20260929VF1",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html?v=20260929CB1",
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products",
@@ -105,7 +105,7 @@
           "id": "product-categories",
           "exitIn": "#mfooter",
           "name": "Product Categories",
-          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html?v=20260929VF1",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html?v=20260929CB1",
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products",
@@ -115,7 +115,7 @@
           "id": "raw-materials",
           "exitIn": "#mfooter",
           "name": "Raw Materials",
-          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html?v=20260929VF1",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html?v=20260929CB1",
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products",
@@ -128,7 +128,7 @@
           "id": "image-gallery",
           "exitIn": "#mfooter",
           "name": "Image Gallery",
-          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html?v=20260929VF1",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html?v=20260929CB1",
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "exagon-ai/foodbridge-module-products",
@@ -145,7 +145,7 @@
           "id": "b2b-customers",
           "exitIn": ".mobile-foot",
           "name": "B2B Customers",
-          "url": "modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html?v=20260929VF1",
+          "url": "modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",
           "hideBurger": true
@@ -154,7 +154,7 @@
           "id": "retail-customers",
           "exitIn": ".mobile-foot",
           "name": "Retail Customers",
-          "url": "modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html?v=20260929VF1",
+          "url": "modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",
           "hideBurger": true
@@ -163,7 +163,7 @@
           "id": "catalog",
           "exitIn": "#mfooter",
           "name": "Catalog",
-          "url": "modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html?v=20260929VF1",
+          "url": "modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html?v=20260929CB1",
           "clipLeft": 250,
           "mHeaderH": 67,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",
@@ -172,7 +172,7 @@
         {
           "id": "stock-audit-health",
           "name": "Stock Audit",
-          "url": "modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.html?v=20260929VF1",
+          "url": "modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nidhimehta9399/foodbridge-customer-mockup",
           "hideBurger": true
@@ -209,7 +209,7 @@
           "_why": "deviceFrame: the route rep's field app, drawn inside a phone on desktop the way Stock Audit frames itself, with the sidebar kept. fullBleed still governs mobile, where it has the screen to itself.",
           "id": "delivery-management",
           "name": "Delivery Management",
-          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260929VF3",
+          "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20260929CB1",
       "barIn": "#app div:has(> .rd-tab)",
       "padIn": ".rd-body",
           "clipLeft": 0,
@@ -261,7 +261,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO105",
+          "url": "modules/foodbridge-production-flow/production.html?v=20260929CB1",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -275,7 +275,7 @@
             "production/process-steps"
           ],
           "name": "Recipes",
-          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260929SL2",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20260929CB1",
           "clipLeft": 212,
           "hideBurger": true,
           "clipLeftMobile": 212,
@@ -285,7 +285,7 @@
           "_why": "26 Sep 2026: the worker's phone, not an office screen. 29 Sep 2026, owner: back in the sidebar as Production's third entry, so the office can open what the floor sees. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
           "id": "worker-app",
           "name": "Worker App",
-          "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260929SL2",
+          "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260929CB1",
           "clipLeft": 0,
           "fullBleed": true,
           "deviceFrame": true,
@@ -299,7 +299,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO105",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929CB1",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
@@ -318,7 +318,7 @@
         {
           "id": "raw-material-inventory",
           "name": "Raw Material Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929PO21",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
@@ -335,7 +335,7 @@
             "freezer-stock"
           ],
           "name": "Semi-Finished Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20260929PO21",
+          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true,
@@ -346,7 +346,7 @@
         {
           "id": "finished-goods-inventory",
           "name": "Finished Goods Inventory",
-          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260929PO21",
+          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20260929CB1",
           "clipLeft": 256,
           "owner": "nishant-devekar/foodbridge-inventory-mockup",
           "hideBurger": true
@@ -370,7 +370,7 @@
         {
           "id": "supplier-management",
           "name": "Supplier Management",
-          "url": "modules/foodbridge-module-procurement/screens/screen-09.html?v=20260929VF2",
+          "url": "modules/foodbridge-module-procurement/screens/screen-09.html?v=20260929CB1",
           "clipLeft": 256,
           "clipLeftMobile": 256,
           "mHeaderH": 86,
@@ -387,14 +387,14 @@
         {
           "id": "customer-receivables",
           "name": "Customer Receivables",
-          "url": "modules/invoice-payment-overview/screens/invoices-payments.html?v=20260929VF1",
+          "url": "modules/invoice-payment-overview/screens/invoices-payments.html?v=20260929CB1",
           "clipLeft": 250,
           "owner": "kdansari02/invoice-payment-overview"
         },
         {
           "id": "supplier-payables",
           "name": "Supplier Payables",
-          "url": "modules/invoice-payment-overview/screens/supplier-invoices-payments.html?v=20260929VF1",
+          "url": "modules/invoice-payment-overview/screens/supplier-invoices-payments.html?v=20260929CB1",
           "clipLeft": 250,
           "owner": "kdansari02/invoice-payment-overview"
         }
@@ -405,7 +405,7 @@
       "exitIn": "div.fixed.bottom-0.z-40",
       "name": "Workforce Management",
       "icon": "userCog",
-      "url": "modules/foodbridge-staff-mockup/screens/screen-01-staff-list.html?v=20260929VF2",
+      "url": "modules/foodbridge-staff-mockup/screens/screen-01-staff-list.html?v=20260929CB1",
       "clipLeft": 256,
       "owner": "nishant-devekar/foodbridge-staff-mockup",
       "hideBurger": true
@@ -415,8 +415,8 @@
     {
       "id": "retails-overview",
       "name": "Store",
-      "url": "modules/retails-overview/discovery/screens/desktop-v6.html?v=20260929VF2",
-      "urlMobile": "modules/retails-overview/discovery/screens/mobile-v6.html?v=20260929VF2",
+      "url": "modules/retails-overview/discovery/screens/desktop-v6.html?v=20260929CB1",
+      "urlMobile": "modules/retails-overview/discovery/screens/mobile-v6.html?v=20260929CB1",
       "clipLeft": 0,
       "fullBleed": true,
       "owner": "kdansari02/retails-overview"

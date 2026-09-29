@@ -703,8 +703,10 @@
 /* #1 — ingredient edit header (name + collapse ✕) */
 .fbp-root .ing-ehead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 /* 3e / #1-a — shared inline confirm (save + discard) */
-.fbp-root .confirm-inline{display:inline-flex;align-items:center;gap:8px}
-.fbp-root .confirm-no{color:var(--fb-red-600)}
+.fbp-root .confirm-inline{display:inline-flex;align-items:center;gap:12px}
+.fbp-root .confirm-inline .ci-prompt{font-size:14px;font-weight:600;color:var(--fb-text-primary)}
+.fbp-root .confirm-inline .ci-btns{display:inline-flex;gap:8px}
+.fbp-root .drawer .dhead .confirm-inline{width:100%;justify-content:space-between}
 /* An irreversible confirm (publish) keeps the SAME inline ✓/✗ pattern and adds a consequence
    line — more copy, not a different affordance (dev addendum-029; SSOT-3 §2). */
 .fbp-root .confirm-inline .ci-copy{display:inline-flex;flex-direction:column;gap:2px}

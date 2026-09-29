@@ -12,7 +12,7 @@
 
   ?data=fixture opens the module on dataset.json, as the parity harness does.
 */
-const STORE_SRC = '../../assets/production/production-api.js?v=20260929PO66';
+const STORE_SRC = '../../assets/production/production-api.js?v=20260929PO67';
 const MIN = 60000;
 
 export function loadStore() {

@@ -58,12 +58,32 @@
   }
 
   function selectRecipe(id, name) {
+    if (state.recipeId && state.recipeId !== id) {
+      /* a different recipe: its size and packs start over; the dates and
+         the supervisor stay */
+      Object.assign(state, { header: null, packagingOptions: null, mix: null, drafts: {}, fieldErrors: {}, pickedVersionId: undefined, batchSize: "" });
+      markTouched();
+    }
     state.recipeId = id;
     state.versionId = undefined;
     state.changingRecipe = false;
     state.recipeQuery = name;
     render();
     loadHeaderAndPackaging();
+  }
+
+  /* back to the recipe list, to pick another (create only: a batch keeps
+     the recipe it was made for) */
+  function changeRecipe() {
+    state.changingRecipe = true;
+    state.recipeQuery = "";
+    render();
+  }
+  function keepRecipe() {
+    const r = (state.recipes || []).find((x) => x.id === state.recipeId);
+    state.changingRecipe = false;
+    state.recipeQuery = r ? r.name : "";
+    render();
   }
 
   function effectiveVersionId() { return state.versionId ?? state.pickedVersionId; }
@@ -73,9 +93,12 @@
 
   async function loadHeaderAndPackaging() {
     if (!state.recipeId) return;
+    const rid = state.recipeId;
     state.headerLoading = true;
     render();
-    state.header = await MockApi.getRecipeHeader(state.recipeId, effectiveVersionId());
+    const header = await MockApi.getRecipeHeader(rid, effectiveVersionId());
+    if (rid !== state.recipeId) return; // changed recipe while it loaded
+    state.header = header;
     state.headerLoading = false;
     // Default the batch size once the header resolves (create mode only).
     if (!isEdit && !state.batchSize) {
@@ -88,7 +111,10 @@
   async function loadPackaging() {
     const vId = resolvedVersionId();
     if (!vId) return;
-    state.packagingOptions = await MockApi.getPackagingLines(vId);
+    const rid = state.recipeId;
+    const options = await MockApi.getPackagingLines(vId);
+    if (rid !== state.recipeId) return;
+    state.packagingOptions = options;
     seedMix();
     render();
   }
@@ -96,10 +122,13 @@
   function seedMix() {
     if (!state.packagingOptions || state.mix) return;
     const batchUnit = (state.header && state.header.batchBaseUnit) || (state.editing && state.editing.batchUnit) || "kg";
-    const massRows = state.packagingOptions
+    /* an edit changes only the packs on the batch (same run); its packing
+       orders from the bags are their own records */
+    const options = window.FB_PRODUCTION && isEdit ? state.packagingOptions.filter((p) => p.sameRun) : state.packagingOptions;
+    const massRows = options
       .map((p) => ({ p, net: packagingVariantMass({ packSize: p.packSize, packUnit: p.packUnit }, batchUnit) }))
       .filter((x) => x.net !== undefined)
-      .map(({ p, net }) => ({ packagingConfigId: p.id, name: p.packTitle, net }));
+      .map(({ p, net }) => ({ packagingConfigId: p.id, name: p.packTitle, net, sameRun: !!p.sameRun, split: p.split || 0 }));
 
     if (state.editing && state.editing.packagingLines && state.editing.packagingLines.length) {
       const byId = new Map(state.editing.packagingLines.map((l) => [l.packagingConfigId, l]));
@@ -108,6 +137,10 @@
         const line = byId.get(row.packagingConfigId);
         return { ...row, ratio: line ? (line.weightKg / size) * 100 : 0, locked: false };
       });
+    } else if (massRows.some((r) => r.split > 0)) {
+      /* the split set in Recipes › Packaging, as Recipes › Production plans it */
+      const total = massRows.reduce((t, r) => t + r.split, 0);
+      state.mix = massRows.map((r) => ({ ...r, ratio: r2((r.split / total) * 100), locked: false }));
     } else {
       state.mix = equalSplit(massRows);
     }
@@ -191,12 +224,13 @@
     dhead.innerHTML = "";
     if (state.confirmingClose) {
       dhead.appendChild(ConfirmInline({
-        prompt: "Discard this batch and close?",
+        prompt: isEdit ? "Discard your changes and close?" : "Discard this batch and close?",
         busy: false,
         onYes: goClose,
         onNo: () => { state.confirmingClose = false; render(); },
         yesAria: "Confirm discard and close",
         noAria: "Keep editing",
+        yesLabel: isEdit ? "Discard changes" : "Discard", noLabel: "Keep editing", danger: true,
       }));
       return;
     }
@@ -220,7 +254,9 @@
 
     return el("div", { class: "line-card" },
       el("div", { class: "field product-search-field" },
-        el("label", { class: "label" }, "Recipe"),
+        el("div", { style: "display:flex;align-items:center;justify-content:space-between" },
+          el("label", { class: "label" }, "Recipe"),
+          state.recipeId ? el("button", { type: "button", class: "btn btn-sm", onclick: keepRecipe }, "Cancel") : null),
         el("input", {
           class: "input", placeholder: "Search recipes…", value: state.recipeQuery, autofocus: "",
           oninput: (e) => { state.recipeQuery = e.target.value; render(); },
@@ -230,7 +266,7 @@
 
   // ── render: the Production Batch / SKU Planning form ──
   function renderForm() {
-    const ready = isEdit ? !!state.editing : !!state.recipeId;
+    const ready = isEdit ? !!state.editing : (!!state.recipeId && !state.changingRecipe);
     if (!ready) {
       // A-135: no redundant second "search for a recipe" prompt in create mode — the search card
       // above already covers it. Edit mode still needs its own loading state.
@@ -274,10 +310,12 @@
               value: resolvedVersionId() ?? state.header.activeVersionId,
               onchange: (e) => pickVersion(e.target.value),
             }, ...state.header.versions.map((v) => el("option", { value: v.id }, v.label + (v.subLabel ? " · " + v.subLabel : "")))),
-            el("span", { class: "bm-chip" }, state.header.isLocked ? "Published" : "Draft"))
-        : el("div", { class: "auto-field" },
+            el("span", { class: "bm-chip" }, state.header.isLocked ? "Published" : "Draft"),
+            isEdit ? null : el("button", { type: "button", class: "btn btn-sm", style: "margin-left:auto", onclick: changeRecipe }, "Change"))
+        : el("div", { class: "auto-field", style: "display:flex;align-items:center" },
             (state.header && state.header.name) || (state.editing && state.editing.displayName) || "…",
-            state.header ? el("span", { class: "bm-chip", style: "margin-left:8px" }, state.header.isLocked ? "Published" : "Draft") : null);
+            state.header ? el("span", { class: "bm-chip", style: "margin-left:8px" }, state.header.isLocked ? "Published" : "Draft") : null,
+            isEdit ? null : el("button", { type: "button", class: "btn btn-sm", style: "margin-left:auto", onclick: changeRecipe }, "Change"));
 
       stageBody = el("div", { class: "stage", "data-stage": "production" },
         el("div", { class: "stage-h" },
@@ -328,7 +366,7 @@
           const q = rowQty(r, sizeNum);
           const rowErr = state.fieldErrors[`${i}:ratio`] ?? state.fieldErrors[`${i}:weight`] ?? state.fieldErrors[`${i}:qty`];
           return el("div", { class: "mix-row" + (r.locked ? " locked" : "") },
-            el("div", { class: "vn" }, r.name, el("small", {}, ` ${r.net} ${batchUnit}/pack`)),
+            el("div", { class: "vn" }, r.name, el("small", {}, ` ${r.net} ${batchUnit}/pack` + (window.FB_PRODUCTION ? (r.sameRun ? " · packed in the run" : " · packed later from bags") : ""))),
             el("div", { "data-cell": "Ratio %" }, el("input", {
               class: "mix-in" + (state.fieldErrors[`${i}:ratio`] ? " has-error" : ""), type: "number", min: "0", max: "100", step: "0.1",
               readonly: r.locked || undefined, value: draftValue(`${i}:ratio`, r.ratio),
@@ -356,7 +394,7 @@
         el("div", { class: "stage-h" },
           el("div", {},
             window.FB_PRODUCTION
-              ? el("div", { class: "stage-sub" }, "Packs packed in the same run, before the rest goes into bags. Planned in ", el("b", {}, "pieces"), ".")
+              ? el("div", { class: "stage-sub" }, isEdit ? "Packs packed in the same run, before the rest goes into bags. Planned in " : "The batch split into packs, as set in Recipes › Packaging. Planned in ", el("b", {}, "pieces"), ".")
               : el("div", { class: "stage-sub" }, "Converts the manufactured weight into finished SKUs. Planned in ", el("b", {}, "pieces"), ".") ,
             el("div", { class: "pivot pivot-edit" },
               el("span", { class: "pe-label" }, "Batch size"),
@@ -373,8 +411,13 @@
 
     const notices = [];
     if (over) notices.push(el("div", { class: "nb nb-bad" }, "⚠ Over-allocated by ", el("b", {}, `${r2(alloc - sizeNum)} ${batchUnit}`), ` — this batch holds `, el("b", {}, `${sizeNum} ${batchUnit}`), ". Reduce quantities until the plan fits."));
-    if (!over && residual > 1e-9 && window.FB_PRODUCTION) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " goes into bags as ", el("b", {}, "Semi-Finished Inventory"), ", packed later by packing orders."));
-    else if (!over && residual > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " has no packaging assigned yet — that's fine to leave for now. It's tracked separately as ", el("b", {}, "Semi Finished Inventory"), " (leftover stock from this batch) and can be packed into SKUs later."));
+    /* what goes into bags: everything not packed in the run; packs set to
+       "later" become packing orders from those bags */
+    const laterRows = rows.filter((r) => !r.sameRun && rowQty(r, sizeNum) > 0);
+    const bagged = r2(sizeNum - rows.filter((r) => r.sameRun).reduce((t, r) => t + rowQty(r, sizeNum) * r.net, 0));
+    if (!over && window.FB_PRODUCTION && bagged > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${bagged} ${batchUnit}`), " goes into bags as ", el("b", {}, "Semi-Finished Inventory"),
+      laterRows.length ? [", and ", el("b", {}, `${laterRows.length} packing order${laterRows.length === 1 ? "" : "s"}`), " pack it from them."] : ", packed later by packing orders."));
+    else if (!over && residual > 1e-9 && !window.FB_PRODUCTION) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " has no packaging assigned yet — that's fine to leave for now. It's tracked separately as ", el("b", {}, "Semi Finished Inventory"), " (leftover stock from this batch) and can be packed into SKUs later."));
     if (notPublished && !isEdit) notices.push(el("div", { class: "nb nb-bad" }, "This recipe version is a draft. Production requires a published version."));
     if (!isEdit && state.header && !resolvedVersionId()) notices.push(el("div", { class: "nb nb-bad" }, "This recipe has no version to produce against yet — create and publish a version first."));
     if (!plannedDateOk) notices.push(el("div", { class: "nb nb-bad" }, "Planned Date is required."));
@@ -390,6 +433,7 @@
           onNo: () => { state.confirming = false; render(); },
           yesAria: isEdit ? "Confirm save changes" : "Confirm create production batch",
           noAria: "Cancel",
+          yesLabel: isEdit ? "Save" : "Create", noLabel: "Back",
         })
       : el("div", { style: "display:flex;gap:8px" },
           el("button", { class: "btn", onclick: requestClose }, "Cancel"),

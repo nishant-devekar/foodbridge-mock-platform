@@ -207,13 +207,16 @@ function el(tag, attrs = {}, ...children) {
 
 // ── ConfirmInline (SSOT-3 §1) — ported from components/ConfirmInline.tsx. Still used by
 // create-batch.js's dirty-guard confirms. ──
-function ConfirmInline({ prompt, detail, onYes, onNo, busy, yesAria, noAria }) {
+/* Buttons say what they do (29 Sep 2026): the safe way out first, then the
+   action — red when it throws work away. */
+function ConfirmInline({ prompt, detail, onYes, onNo, busy, yesAria, noAria, yesLabel = "Yes", noLabel = "No", danger = false }) {
   return el("span", { class: "confirm-inline" + (detail ? " has-detail" : "") },
     el("span", { class: "ci-copy" },
-      el("span", { class: "muted small" }, prompt),
+      el("span", { class: "ci-prompt" }, prompt),
       detail ? el("span", { class: "muted small ci-detail" }, detail) : null),
-    el("button", { class: "btn btn-sm btn-primary confirm-yes", onclick: onYes, disabled: busy || undefined, "aria-label": yesAria }, busy ? "…" : "✓"),
-    el("button", { type: "button", class: "btn btn-sm confirm-no", onclick: onNo, disabled: busy || undefined, "aria-label": noAria }, "✗"));
+    el("span", { class: "ci-btns" },
+      el("button", { type: "button", class: "btn btn-sm confirm-no", onclick: onNo, disabled: busy || undefined, "aria-label": noAria }, noLabel),
+      el("button", { type: "button", class: "btn btn-sm confirm-yes " + (danger ? "btn-danger" : "btn-teal"), onclick: onYes, disabled: busy || undefined, "aria-label": yesAria }, busy ? "…" : yesLabel)));
 }
 
 // ── LoadingOverlay — ported from components/LoadingOverlay.tsx ──
@@ -732,7 +735,7 @@ const MockApi = (function () {
         const rid = Object.keys((await ensure()).recipeHeaders).find((r) => seed.recipeHeaders[r].versions.some((v) => v.id === input.recipeVersionId));
         const made = window.FB_PRODUCTION.createProductionOrder({
           recipeId: rid, batchSize: input.batchSize, plannedDate: input.plannedDate, expectedFinishDate: input.expectedFinishDate,
-          supervisor: input.operator, where: "Batch Management", actor: "admin",
+          supervisor: input.operator, where: "Batch Management", actor: "admin", packNow: true,
           packs: (input.packagingLines || []).map((l) => ({ skuId: l.packagingConfigId, qty: l.plannedUnits })),
         });
         await ensure();
@@ -788,9 +791,10 @@ const MockApi = (function () {
     },
     async getPackagingLines(versionId) {
       await ensure();
-      /* with the store, a production batch packs only its same-run packs;
-         the rest are packed later from its bags (Recipes › Packaging) */
-      return (seed.packagingLines[versionId] || []).filter((l) => !window.FB_PRODUCTION || l.sameRun);
+      /* with the store, every pack on sale with its Packaging split, as
+         Recipes › Production plans it (29 Sep 2026): same-run packs stay on
+         the batch, the rest become packing orders from its bags */
+      return seed.packagingLines[versionId] || [];
     },
 
     // ── Ingredients (SSOT-2 addendum-0041 — frontend addendum-004) ──
