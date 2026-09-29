@@ -1,0 +1,291 @@
+<!doctype html>
+<!--
+  v8 — the business flow (29 Sep 2026, product owner).
+
+  Not a new platform: a thin layer over v7's real screens. It opens on the business
+  flow drawn as a map (what the visitor will explore); opening a step shrinks the
+  same map, in place, into a bar at the top, and the step's real screen rises under
+  it. The bar is the only navigation. ⤢ Map brings the whole map back.
+
+  It speaks the platform's routes: the address is #/<group>/<screen>?<params>, read
+  from v7's modules.json (url, clip, phone frame), so a screen that moves its parent
+  (Production requests' ?batch=, the board's tabs) keeps working, and any v8 address
+  is a deep link. The screens and their one store are v7's (same origin, same
+  store): a change made in v8 is there in v7 too. Desktop only (owner, 29 Sep 2026).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Vasu Foods — business flow</title>
+<link rel="icon" href="../v7/favicon.ico">
+<style>
+  :root { --ink:#111827; --ink2:#374151; --muted:#6b7280; --line:#e5e7eb; --green:#16a34a; --g7:#15803d; --g50:#f0fdf4; --red:#b91c1c; --ease:cubic-bezier(.4,0,.2,1); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  button { font: inherit; }
+
+  /* ── the map: the home screen, and — shrunk — the navigation ── */
+  .map { position: relative; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; background: #fff; border-bottom: 1px solid var(--line); padding: 34px 40px 30px; transition: padding .45s var(--ease); z-index: 2; }
+  .head { max-height: 140px; overflow: hidden; transition: all .45s var(--ease); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .brand i { width: 26px; height: 26px; border-radius: 7px; background: var(--green); display: inline-block; }
+  .head h1 { margin: 14px 0 0; font-size: 28px; letter-spacing: -.02em; line-height: 1.2; }
+  .head p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+  .row { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 26px minmax(0, 0.9fr); gap: 14px; margin-top: 28px; align-items: start; transition: all .45s var(--ease); }
+  .step { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px 14px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: left; color: inherit; cursor: pointer; transition: all .45s var(--ease); }
+  .step:hover { border-color: var(--green); box-shadow: 0 6px 18px rgba(22,163,74,.10); }
+  .step:focus-visible { outline: 2px solid rgba(22,163,74,.5); outline-offset: 2px; }
+  .step + .step::before { content: "›"; position: absolute; left: -12px; top: 22px; color: #c7cbd1; font-size: 18px; line-height: 1; }
+  .step.apart::before { content: none; }
+  .t { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .num { flex: 0 0 26px; height: 26px; border-radius: 50%; background: #f3f4f6; color: var(--ink2); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all .45s var(--ease); }
+  .apart .num { background: #fff7ed; color: #c2410c; }
+  .nm { font-weight: 700; font-size: 16px; line-height: 1.2; transition: font-size .45s var(--ease); }
+  .st { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .st.hot { color: var(--red); }
+  .what { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { border: 1px solid #bbf7d0; background: var(--g50); color: var(--g7); border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; line-height: 1.4; cursor: pointer; }
+  .chip:hover { background: #dcfce7; }
+  .sepd { align-self: stretch; border-left: 2px dotted #d1d5db; justify-self: center; }
+  .loop { position: absolute; left: 0; top: 100%; height: 44px; pointer-events: none; }
+  .loopl { position: absolute; bottom: -60px; font-size: 12px; color: var(--g7); font-weight: 600; white-space: nowrap; }
+  .foot { margin-top: 74px; display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 13px; max-height: 60px; overflow: hidden; transition: all .35s var(--ease); }
+  .foot b { color: var(--ink2); }
+  .cta { border: 0; background: var(--green); color: #fff; border-radius: 10px; padding: 11px 16px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .mapbtn { display: none; }
+
+  /* ── minified: the same map, same order, same numbers, as one slim bar ── */
+  body.mini .map { flex: 0 0 auto; padding: 8px 16px; }
+  body.mini .head, body.mini .foot { max-height: 0; opacity: 0; margin: 0; }
+  body.mini .row { margin-top: 0; gap: 4px 10px; grid-template-columns: repeat(6, max-content) 12px max-content 1fr; align-items: center; }
+  body.mini .step { flex-direction: row; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; border-color: transparent; box-shadow: none; }
+  body.mini .step:hover { border-color: var(--line); }
+  body.mini .step.on { border-color: var(--green); background: var(--g50); }
+  body.mini .step.on .num { background: var(--green); color: #fff; }
+  body.mini .step.hot:not(.on) .num { background: #fee2e2; color: var(--red); }
+  body.mini .step + .step::before { top: 50%; transform: translateY(-50%); left: -9px; font-size: 14px; }
+  body.mini .num { flex-basis: 22px; height: 22px; font-size: 11px; }
+  body.mini .nm { font-size: 13px; white-space: nowrap; }
+  body.mini .st, body.mini .what, body.mini .chips, body.mini .loop, body.mini .loopl { display: none; }
+  body.mini .mapbtn { display: inline-flex; justify-self: end; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ink2); cursor: pointer; white-space: nowrap; }
+  .subrow { display: none; }
+  body.mini .subrow { display: flex; align-items: center; gap: 6px; padding: 6px 16px; background: #fff; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  body.mini .subrow:empty { display: none; }
+  .subrow button { border: 1px solid #bbf7d0; background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; line-height: 1.2; color: var(--g7); cursor: pointer; }
+  .subrow button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* the real screen rises under the bar */
+  .stage { position: relative; flex: 0 0 0; background: #f3f4f6; transform: translateY(40px); opacity: 0; transition: all .45s var(--ease) .1s; overflow: hidden; }
+  body.mini .stage { flex: 1; transform: none; opacity: 1; }
+  .stage iframe { position: absolute; top: 0; border: 0; height: 100%; background: #fff; }
+  .stage.phone { background: #e5e7eb; display: flex; justify-content: center; padding-top: 14px; }
+  .stage.phone iframe { position: static; width: 400px; height: calc(100% - 28px); border-radius: 28px; border: 8px solid #111827; }
+
+  /* one line when a screen's work lands in another step */
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: .25s; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: #111827; color: #fff; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 10; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; background: #22c55e; color: #052e16; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+</style>
+</head>
+<body>
+<section class="map" id="map">
+  <div class="head">
+    <div class="brand"><i></i>Vasu Foods</div>
+    <h1>How Vasu Foods runs — from buying material to month end</h1>
+    <p>Six steps, in order. Open any step to work in it; this map shrinks into a bar at the top and stays with you.</p>
+  </div>
+  <div class="row" id="row"></div>
+  <div class="foot"><button class="cta" data-go="buy">Start with step 1 · Buy material →</button><span>At every step the platform records <b>who did it · how much · when</b>.</span></div>
+</section>
+<div class="subrow" id="subrow"></div>
+<main class="stage" id="stage"></main>
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastGo"></button></div>
+
+<script src="../v7/assets/production/production-api.js?v=20260929PO66"></script>
+<script>
+(function () {
+  "use strict";
+  var V7 = "../v7/";
+  /* The owner's business flow. Each step: what happens there (the owner's words) and the
+     platform screens inside it, by their v7 route. */
+  var FLOW = [
+    { k: "buy", name: "Buy material", what: "Needed − in store − already ordered = buy. Truck at the gate: weigh, check, sticker on every sack.",
+      screens: [{ label: "Needs", route: "production/production-board?view=flow", dept: "purchase" },
+                { label: "Order", route: "procurement/purchase-orders" },
+                { label: "Gate & store", route: "inventory/raw-material-inventory" }] },
+    { k: "make", name: "Make", what: "Peas & veg: peel, wash, blanch. Soya chaap: dough, cut, stick, boil.",
+      screens: [{ label: "Requests", route: "production/batch-management" },
+                { label: "Shifts", route: "production/production-board?view=week" },
+                { label: "Floor", route: "production/worker-app" }] },
+    { k: "freeze", name: "Freeze bags", what: "Fill big 30 / 35 kg bags into the freezer — date made and use-by on each.",
+      screens: [{ label: "Bags", route: "inventory/semi-finished-inventory" }] },
+    { k: "pack", name: "Pack", what: "Small packets when orders need them, oldest bags first. Into cartons.",
+      screens: [{ label: "Packets", route: "production/batch-management" },
+                { label: "Cartons", route: "inventory/finished-goods-inventory" }] },
+    { k: "deliver", name: "Deliver", what: "Load, make the bill, deliver.",
+      screens: [{ label: "Load & bill", route: "sales-orders" },
+                { label: "On the road", route: "distribution-logistics/delivery-management" }] },
+    { k: "collect", name: "Collect", what: "Collect the money, get the crates back.",
+      screens: [{ label: "Money", route: "finance/customer-receivables" },
+                { label: "Crates", route: "distribution-logistics/logistic-returns" }] },
+    { k: "month", name: "Month end", apart: true, what: "Real cost, where weight was lost, accounts to the CA.",
+      screens: [{ label: "Production report", route: "overview/reports", press: '[data-tab="production_report"]' }] },
+  ];
+
+  /* ── v7's routes: #/<group>/<screen>, from its modules.json ── */
+  var LEAF = {}, ALIAS = {};
+  function learn(config) {
+    (config.nav || []).forEach(function (g) {
+      if (g.submenus && g.submenus.length) g.submenus.forEach(function (m) { var key = g.id + "/" + m.id; LEAF[key] = m; [m.id].concat(m.aliases || []).forEach(function (a) { if (!ALIAS[a]) ALIAS[a] = key; }); });
+      else if (g.url) LEAF[g.id] = g;
+    });
+    (config.standalone || []).forEach(function (m) { LEAF[m.id] = m; });
+  }
+  function parse(hash) {
+    var raw = String(hash || "").replace(/^#\/?/, ""), i = raw.indexOf("?");
+    var path = i === -1 ? raw : raw.slice(0, i), query = i === -1 ? "" : raw.slice(i + 1);
+    if (!LEAF[path] && ALIAS[path]) path = ALIAS[path];
+    return { path: path, query: query, leaf: LEAF[path] || null };
+  }
+  /* Which step and screen an address belongs to: the open step first (Requests and Packets
+     share a screen), then the flow's order. */
+  function locate(r) {
+    var view = new URLSearchParams(r.query).get("view");
+    /* an address without a view (a screen dropped it) matches the screen's first step */
+    var match = function (s) { var p = parse("#/" + s.route), pv = new URLSearchParams(p.query).get("view"); return p.path === r.path && (!pv || !view || pv === view); };
+    var order = cur ? [FLOW.filter(function (f) { return f.k === cur; })[0]].concat(FLOW) : FLOW;
+    for (var i = 0; i < order.length; i++) for (var j = 0; j < order[i].screens.length; j++) if (match(order[i].screens[j])) return { k: order[i].k, sub: j };
+    return null;
+  }
+
+  /* ── live status, from the one store ── */
+  var counts = {};
+  function count() {
+    try {
+      FB_PRODUCTION.read(function (D, d) {
+        var plan = D.plan();
+        counts.buy = plan.materials.filter(function (m) { return m.buy > 0; }).length;
+        counts.make = D.notScheduled().length;
+        counts.pack = d.batches.filter(function (b) { return b.kind === "packing" && ["planned", "in-progress"].indexOf(b.stateId) !== -1; }).length;
+        counts.deliver = (d.orders || []).filter(function (o) { return D.isOpen(o); }).length;
+      });
+    } catch (e) { /* no store yet: no counts */ }
+  }
+  function status(k) {
+    var c = counts[k];
+    return ({ buy: [c ? c + " to order" : "all in", !!c], make: [c ? c + " need a shift" : "on the floor", !!c], freeze: ["bags in the freezer"],
+      pack: [c ? c + " packing run" + (c > 1 ? "s" : "") : "nothing to pack"], deliver: [c ? c + " open orders" : "all delivered"],
+      collect: ["money · crates"], month: ["once a month"] })[k] || [""];
+  }
+
+  var cur = null, sub = 0, shown = null;
+  function drawRow() {
+    var n = 0;
+    document.getElementById("row").innerHTML = FLOW.map(function (f) {
+      var s = status(f.k);
+      if (!f.apart) n++;
+      return (f.apart ? '<span class="sepd"></span>' : "") +
+        '<div class="step' + (f.apart ? " apart" : "") + (f.k === cur ? " on" : "") + (s[1] ? " hot" : "") + '" role="button" tabindex="0" aria-label="' + f.name + '" data-go="' + f.k + '">' +
+        '<div class="t"><span class="num">' + (f.apart ? "◷" : n) + '</span><span class="nm">' + f.name + "</span></div>" +
+        '<div class="st' + (s[1] ? " hot" : "") + '">' + s[0] + "</div>" +
+        '<div class="what">' + f.what + "</div>" +
+        '<div class="chips">' + f.screens.map(function (x, j) { return '<button class="chip" data-go="' + f.k + '" data-sub="' + j + '">' + x.label + "</button>"; }).join("") + "</div></div>";
+    }).join("") + '<button class="mapbtn" data-map>⤢ Map</button>' +
+      '<svg class="loop" style="width:' + (6 / 7.1 * 100) + '%" viewBox="0 0 1000 44" preserveAspectRatio="none" aria-hidden="true"><path d="M 930 2 C 930 36, 905 38, 820 38 L 80 38 C 45 38, 42 30, 42 4" fill="none" stroke="#16a34a" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/><path d="M 36 12 L 42 2 L 48 12" fill="none" stroke="#16a34a" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>' +
+      '<span class="loopl" style="left:34%">↻ and round again — the money and crates in fund the next buy</span>';
+  }
+  function drawSub() {
+    var f = FLOW.filter(function (x) { return x.k === cur; })[0];
+    document.getElementById("subrow").innerHTML = f && f.screens.length > 1 ? "<b style='color:var(--ink2)'>" + f.name + ":</b>" +
+      f.screens.map(function (x, j) { return '<button data-go="' + f.k + '" data-sub="' + j + '" aria-pressed="' + (j === sub) + '">' + x.label + "</button>"; }).join("") : "";
+  }
+  /* The screen for an address: its v7 url (a view goes after #, as the platform does), its
+     sidebar clipped, a phone app framed as a phone. The same address never reloads. */
+  function drawStage(r) {
+    var el = document.getElementById("stage");
+    if (!r || !r.leaf) { el.innerHTML = ""; shown = null; return; }
+    var key = r.path + "?" + r.query;
+    if (key === shown) return;
+    var sameScreen = shown && shown.split("?")[0] === r.path && el.querySelector("iframe");
+    shown = key;
+    var here = locate(r), scr = here ? FLOW.filter(function (f) { return f.k === here.k; })[0].screens[here.sub] : null;
+    try { if (scr && scr.dept) sessionStorage.setItem("fb.v7.flow.dept", scr.dept); } catch (e) {}
+    var view = new URLSearchParams(r.query).get("view");
+    var url = V7 + r.leaf.url + (view && r.leaf.url.indexOf("#") === -1 ? "#" + view : "");
+    /* a screen that moved its own parent (a batch, a tab) already shows it: leave it be */
+    if (sameScreen && !view) return;
+    var phone = !!r.leaf.deviceFrame, clip = phone ? 0 : (r.leaf.clipLeft || 0);
+    el.className = "stage" + (phone ? " phone" : "");
+    el.innerHTML = '<iframe title="' + (r.leaf.name || "") + '" src="' + url + '" style="' + (phone ? "" : "left:" + -clip + "px;width:calc(100% + " + clip + "px)") + '"></iframe>';
+    if (scr && scr.press) {
+      var fr = el.querySelector("iframe");
+      fr.addEventListener("load", function () {
+        var n = 0, t = setInterval(function () { var b = null; try { b = fr.contentDocument.querySelector(scr.press); } catch (e) {} if (b) { b.click(); clearInterval(t); } else if (++n > 50) clearInterval(t); }, 100);
+      });
+    }
+  }
+  /* the address is the state: #/ is the map; #/<route> is a screen with the bar */
+  function render() {
+    var r = parse(location.hash);
+    if (!r.path || !r.leaf) {
+      cur = null; document.body.classList.remove("mini");
+      drawRow(); drawSub(); drawStage(null);
+      document.title = "Vasu Foods — business flow";
+      return;
+    }
+    var here = locate(r);
+    if (here) { cur = here.k; sub = here.sub; }
+    document.body.classList.add("mini");
+    drawRow(); drawSub(); drawStage(r);
+    document.title = (here ? FLOW.filter(function (f) { return f.k === here.k; })[0].name + " · " : "") + (r.leaf.name || "") + " — Vasu Foods";
+  }
+  function openStep(k, j) {
+    var f = FLOW.filter(function (x) { return x.k === k; })[0];
+    cur = k;   /* two steps can share a screen (Requests, Packets): the one clicked wins */
+    location.hash = "#/" + f.screens[j || 0].route;
+  }
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("[data-map]")) { location.hash = "#/"; return; }
+    var b = e.target.closest("[data-go]");
+    if (b) { e.stopPropagation(); openStep(b.getAttribute("data-go"), +(b.getAttribute("data-sub") || 0)); }
+  });
+  document.addEventListener("keydown", function (e) {
+    var s = e.target.closest && e.target.closest(".step");
+    if (s && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openStep(s.getAttribute("data-go"), 0); }
+  });
+  window.addEventListener("hashchange", render);
+
+  /* ── the hand-off: when a screen's work lands in another step, one line says so ── */
+  var NEXT = { "purchase.po.raised": ["Purchase order raised", "buy", 2], "purchase.po.approved": ["Purchase order approved — on its way", "buy", 2],
+    "purchase.goods.received": ["Goods in the store", "make", 0], "production.batch.planned": ["Production request raised", "make", 1],
+    "production.batch.scheduled": ["Request has a shift", "make", 2], "production.batch.completed": ["Batch done — into the freezer", "freeze", 0],
+    "sales.dispatch.created": ["Order dispatched — collect on delivery", "collect", 0] };
+  var seen = 0, timer = null;
+  try { seen = FB_PRODUCTION.log().length; } catch (e) {}
+  setInterval(function () {
+    var all = []; try { all = FB_PRODUCTION.log(); } catch (e) { return; }
+    if (all.length <= seen) return;
+    var ev = all[all.length - 1], m = NEXT[ev.type]; seen = all.length;
+    count(); drawRow();
+    if (!m || (m[1] === cur && m[2] === sub)) return;   /* already there */
+    var to = FLOW.filter(function (f) { return f.k === m[1]; })[0];
+    document.getElementById("toastText").textContent = m[0] + (ev.data && (ev.data.supplier || ev.data.product) ? " · " + (ev.data.supplier || ev.data.product) : "");
+    var g = document.getElementById("toastGo");
+    g.textContent = "Go to " + to.name + (to.screens.length > 1 ? " · " + to.screens[m[2]].label : "") + " →";
+    g.setAttribute("data-go", to.k); g.setAttribute("data-sub", m[2]);
+    var t = document.getElementById("toast"); t.classList.add("on");
+    clearTimeout(timer); timer = setTimeout(function () { t.classList.remove("on"); }, 9000);
+  }, 1500);
+
+  count(); drawRow();
+  fetch(V7 + "assets/modules.json?v=20260929PO105").then(function (r) { return r.json(); })
+    .then(function (c) { learn(c); render(); })
+    .catch(function () { render(); });
+})();
+</script>
+</body>
+</html>
