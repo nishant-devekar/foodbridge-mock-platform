@@ -5,16 +5,17 @@
 
   Like production, the drawer is mounted (closed) as soon as the banner renders, and stays mounted.
 
-  v7, manufacturer only (the platform's fb-persona): a Finished Goods / Raw Material tab bar. The
+  v7, manufacturer only (the platform's fb-persona): a Raw Material / Finished Goods tab bar. The
   Raw Material tab is the same table, filters, selection and hand-off over the raw materials'
   forecast; "Add" opens the create drawer on its Raw Material catalogue. Each tab keeps its own
-  search, filter, quantities, selection and sort.
+  search, filter, quantities, selection and sort. A manufacturer buys raw materials, so the drawer
+  opens on them and finished goods come second (owner, 29 Sep 2026).
 */
 import { esc } from '../components/dom.js';
 import { fi } from '../components/icons.js';
 import { createMainDrawer } from '../components/drawer.js';
 import { multiSelect, menuPortal, CATEGORY_SELECT, TOUCH } from '../components/react-select.js';
-import { deriveForecastRow } from './model.js';
+import { deriveForecastRow, isManufacturer } from './model.js';
 import { W } from './list-views.js';
 
 const T = '<!---->';
@@ -23,14 +24,7 @@ const GRID_COLS = 'grid-template-columns: 24px minmax(0px, 2.4fr) minmax(0px, 1.
 /** The host's DisplayImage with no image URL: its placeholder, at the size asked for. */
 export const displayImage = (cls, size) => `<span class="contents"><img class="${cls} object-fit-scale-down" src="assets/img/Errorimage.png" alt="product" loading="lazy" decoding="async" style="width: ${size}px; height: ${size}px;"></span>`;
 
-const TABS = [{ key: 'finished', label: 'Finished Goods' }, { key: 'raw', label: 'Raw Material' }];
-
-/** The platform keeps the business type in fb-persona (manufacturer by default). */
-function isManufacturer() {
-  let p = null;
-  try { p = localStorage.getItem('fb-persona'); } catch { /* storage blocked */ }
-  return (p || 'manufacturer') === 'manufacturer';
-}
+const TABS = [{ key: 'raw', label: 'Raw Material' }, { key: 'finished', label: 'Finished Goods' }];
 
 export function createForecastDrawer(host, { onAdd, loadRawMaterials }) {
   const tabState = () => ({ search: '', categories: [], qty: {}, selected: [], sort: { key: 'recommendedPurchase', direction: 'desc' }, catFocused: false, catMenu: false, catFocusIndex: 0, ariaSelection: '' });
@@ -39,6 +33,7 @@ export function createForecastDrawer(host, { onAdd, loadRawMaterials }) {
   let tab = 'finished';
   let st = tabs.finished;
   let tabbed = false;
+  let picked = false;   /* once the user picks a tab, later opens keep it */
   let rsPortal = null;
   const drawer = createMainDrawer({ onCloseRequest: () => close() });
   const isRaw = () => tab === 'raw';
@@ -168,10 +163,12 @@ export function createForecastDrawer(host, { onAdd, loadRawMaterials }) {
     data.finished = d || [];
     tabbed = isManufacturer() && typeof loadRawMaterials === 'function';
     if (!tabbed) { tab = 'finished'; st = tabs.finished; return; }
+    if (!picked) { tab = 'raw'; st = tabs.raw; }
     loadRawMaterials().then((raw) => { data.raw = raw || []; if (drawer.open) render(); }).catch(() => { data.raw = []; });
   }
   function switchTab(key) {
     if (key === tab) return;
+    picked = true;
     st.catMenu = false; st.catFocused = false;
     tab = key; st = tabs[key];
     render();

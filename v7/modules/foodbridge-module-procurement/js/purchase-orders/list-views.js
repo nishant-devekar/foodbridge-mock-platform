@@ -29,11 +29,41 @@ export const W = {
 const skeleton = (cls2, style) => `<span class="react-loading-skeleton ${cls2}" style="${style}">‌</span>`;
 
 // ── Forecast banner (PurchaseForecastBanner) ────────────────────────────────────────────────────
+/* v7, manufacturer (owner, 29 Sep 2026): a manufacturer buys raw materials, so the banner is about
+   them — how many the production plan is short of, and the ones short most, in their own units.
+   Finished goods stay as one quiet line under the title. Same shell and look as production's. */
+function rawForecastBanner(f, host) {
+  const r = forecastStats(f.raw), fg = forecastStats(f.data);
+  if (r.count === 0 && fg.count === 0) return '';
+  const unit = (x) => host.getOrderingUnitFromUnitIndex(x.measurement, 0) || 'units';
+  const plural = r.count === 1 ? '' : 's';
+  const title = r.count ? 'Raw Materials to Reorder' : 'Raw Materials in Stock';
+  const line = r.count ? `<span class="font-semibold text-orange-600">${r.count}</span>${T} material${plural} short for your production plan` : 'Production has what it needs';
+  const fgLine = fg.count ? `Finished goods: ${fg.count} pack${fg.count === 1 ? '' : 's'} below 30-day demand` : 'Finished goods: all packs cover demand';
+  const item = (x, big) => `<div class="flex items-center justify-between gap-${big ? 6 : 3} ${big ? 'text-sm' : 'text-xs'}"><span class="flex items-center gap-2 min-w-0"><span class="${big ? 'w-2 h-2' : 'w-1.5 h-1.5'} rounded-full flex-shrink-0 ${x.severity === 'red' ? 'bg-red-500' : 'bg-amber-400'}"></span><span class="text-slate-700 truncate">${esc(x.product)}</span></span><span class="font-semibold text-orange-600 flex-shrink-0 whitespace-nowrap">${x.recommendedPurchase}${T} ${T}${esc(unit(x))}</span></div>`;
+  const open = f.mobileExpanded;
+  return `<div data-testid="purchase-forecast-banner-mobile" class="md:hidden rounded-xl border border-orange-100 bg-gradient-to-r from-orange-50 to-amber-50/60 px-4 py-3 cursor-pointer select-none mb-5" role="button" tabindex="0" aria-expanded="${open}" data-act="forecast-mobile-toggle">`
+    + `<div class="flex items-start justify-between gap-2"><div class="flex items-center gap-3 min-w-0"><div class="relative flex items-center justify-center w-11 h-11 rounded-full bg-orange-100 flex-shrink-0">${fi('FiShoppingCart', { cls: 'text-orange-500', size: 20 })}${r.count ? '<span class="absolute -top-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-orange-500 text-white text-[9px] font-bold ring-2 ring-orange-50">!</span>' : ''}</div>`
+    + `<div class="min-w-0"><p class="text-sm font-bold text-slate-800 leading-tight">${r.count ? `Raw materials low: ${T}${r.count}` : 'Raw materials in stock'}</p><p class="text-xs text-gray-500 mt-0.5">${open ? 'Short for your production plan' : 'Tap for details'}</p></div></div>`
+    + `${fi('FiChevronDown', { size: 16, cls: `flex-shrink-0 mt-1 text-orange-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}` })}</div>`
+    + `<div class="overflow-hidden transition-all duration-300 ${open ? 'max-h-72 opacity-100 mt-3 pt-3 border-t border-dashed border-orange-200' : 'max-h-0 opacity-0'}">`
+    + (r.count ? `<div class="flex items-center justify-between mb-1.5"><p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Short for the plan</p><p class="text-[10px] font-medium text-gray-400">Qty to order</p></div><div class="space-y-1.5 mb-2.5">${r.topItems.map((x) => item(x, false)).join('')}</div>` : '')
+    + `<p class="text-[11px] text-gray-400 mb-3">${esc(fgLine)}</p>`
+    + `<button type="button" data-testid="purchase-forecast-mobile-view-btn" class="w-full text-center py-2 rounded-lg border border-orange-300 text-orange-700 bg-white text-xs font-semibold" data-act="forecast-open">View Forecast Details</button></div></div>`
+    + `<div class="hidden md:block rounded-xl border border-orange-100 bg-gradient-to-r from-orange-50 to-amber-50/60 px-6 py-5 sm:px-8 mb-5" data-testid="purchase-forecast-banner-desktop"><div class="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-0">`
+    + `<div class="flex items-center gap-4 flex-shrink-0 lg:pr-6"><div class="relative flex items-center justify-center w-14 h-14 rounded-full bg-orange-100 flex-shrink-0">${fi('FiShoppingCart', { cls: 'text-orange-500', size: 24 })}${r.count ? '<span class="absolute -top-0.5 -right-0.5 flex items-center justify-center w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-bold ring-2 ring-orange-50">!</span>' : ''}</div>`
+    + `<div><p class="text-base font-bold text-slate-800">${title}</p><p class="text-sm text-gray-600 mt-0.5">${line}</p><p class="text-xs text-gray-400 mt-1" data-testid="purchase-forecast-banner-finished">${esc(fgLine)}</p></div></div>`
+    + (r.count ? `<div class="hidden lg:block w-px self-stretch bg-orange-100"></div>`
+      + `<div class="lg:pl-6 flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6"><div class="flex-1 min-w-0 max-w-md"><div class="flex items-center justify-between mb-2"><p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Short for the plan</p><p class="text-[10px] font-medium text-gray-400">Qty to order</p></div><div class="space-y-1.5">${r.topItems.map((x) => item(x, true)).join('')}</div></div>` : `<div class="lg:pl-6 flex-1 min-w-0 flex justify-end">`)
+    + `<button type="button" data-testid="purchase-forecast-desktop-view-btn" class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-300 text-orange-700 bg-white hover:bg-orange-50 font-medium text-sm transition-colors whitespace-nowrap sm:ml-auto" data-act="forecast-open">${fi('FiTrendingUp', { size: 15 })}View Forecast Details</button></div></div></div>`;
+}
+
 export function forecastBanner(f, host) {
   if (f.loading) {
     return `<div data-testid="purchase-forecast-banner-loading"><span aria-live="polite" aria-busy="true">${skeleton('rounded-xl mb-5', 'height: 104px; --base-color: #f1f5f9; --highlight-color: #e2e8f0;')}<br></span></div>`;
   }
   if (f.unavailable) return '';
+  if (Array.isArray(f.raw)) return rawForecastBanner(f, host);
   const s = forecastStats(f.data);
   if (s.count === 0) return '';
   const unit = (r) => host.getOrderingUnitFromUnitIndex(r.measurement, 0);

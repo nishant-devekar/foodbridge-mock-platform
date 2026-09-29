@@ -11,7 +11,7 @@ import { createStore } from '../state/store.js';
 import { delegate, morph, morphOuter } from '../components/dom.js';
 import { statusSelect, menuPortal, STATUS_MENU, ARIA, TOUCH } from '../components/react-select.js';
 import { createRangePicker, formatRange } from '../components/datepicker.js';
-import { buildRows, filterRows, pageOf, selectableSources, PAGE_SIZE } from './model.js';
+import { buildRows, filterRows, pageOf, selectableSources, PAGE_SIZE, isManufacturer } from './model.js';
 import { forecastBanner, toolbar, dateField, listBody, mobileFooter, rowActions, actionsMenu, QUICK_RANGES } from './list-views.js';
 import { documentState } from './model.js';
 
@@ -150,8 +150,10 @@ export function mountPurchaseOrders(host, server, ctx) {
     store.set({ forecast: { ...S().forecast, loading: true, unavailable: false } });
     try {
       const data = await server.forecastRecommendations();
-      store.set({ forecast: { ...S().forecast, data: data || [], loading: false } });
-      ctx.onForecastLoaded?.(data || []);
+      /* v7, manufacturer: the banner leads with what production needs to buy */
+      const raw = isManufacturer() && server.rawMaterialForecastRecommendations ? await server.rawMaterialForecastRecommendations().catch(() => null) : null;
+      store.set({ forecast: { ...S().forecast, data: data || [], raw, loading: false } });
+      ctx.onForecastLoaded?.(data || [], raw);
     } catch {
       store.set({ forecast: { ...S().forecast, data: [], unavailable: true, loading: false } });
     }

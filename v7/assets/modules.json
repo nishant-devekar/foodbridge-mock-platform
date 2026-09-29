@@ -261,7 +261,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO104",
+          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO105",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -299,7 +299,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO104",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO105",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
@@ -362,7 +362,7 @@
           "id": "purchase-orders",
           "exitIn": "div.fixed.bottom-0.z-40:not([data-tailwind-order])",
           "name": "Purchase Orders",
-          "url": "modules/foodbridge-module-procurement/index.html?v=20260929PO21",
+          "url": "modules/foodbridge-module-procurement/index.html?v=20260929PO22",
           "clipLeft": 256,
           "owner": "love-scripter/foodbridge-module-procurement",
           "hideBurger": true

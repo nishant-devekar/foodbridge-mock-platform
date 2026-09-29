@@ -112,6 +112,6 @@ export function mountFlows(host, server, screen, ctx) {
     onAdd: (items, kind) => ctx.openCreate?.({ forecastSeed: items, seedKind: kind }),
     loadRawMaterials: () => server.rawMaterialForecastRecommendations(),
   });
-  ctx.onForecastLoaded = (data) => { if (forecastStats(data).count > 0) forecast.mount(data); };
+  ctx.onForecastLoaded = (data, raw) => { if (forecastStats(data).count > 0 || (raw && forecastStats(raw).count > 0)) forecast.mount(data); };
   ctx.openForecast = (data) => forecast.open(data);
 }

@@ -160,6 +160,14 @@ export function deriveForecastRow(row, index) {
 }
 
 /** The forecast banner's figures: rows short of stock, largest first, and the top three. */
+/** v7: the platform keeps the business type in fb-persona (manufacturer by default). A manufacturer's
+    purchase forecast leads with raw materials; finished goods stay as secondary context. */
+export function isManufacturer() {
+  let p = null;
+  try { p = localStorage.getItem('fb-persona'); } catch { /* storage blocked */ }
+  return (p || 'manufacturer') === 'manufacturer';
+}
+
 export function forecastStats(data) {
   const shortage = (data || []).map(deriveForecastRow).filter((r) => r.recommendedPurchase > 0).sort((a, b) => b.recommendedPurchase - a.recommendedPurchase);
   return {
