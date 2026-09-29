@@ -242,6 +242,15 @@
     var phone = !!r.leaf.deviceFrame, clip = phone ? 0 : (r.leaf.clipLeft || 0);
     el.className = "stage" + (phone ? " phone" : "");
     el.innerHTML = '<iframe title="' + (r.leaf.name || "") + '" src="' + url + '" style="' + (phone ? "" : "left:" + -clip + "px;width:calc(100% + " + clip + "px)") + '"></iframe>';
+    /* The board reads ?view= once and clears it from the parent's address (v7's platform wants
+       that). v8's address is also its deep link, so once the screen is up the view goes back. */
+    if (view) {
+      el.querySelector("iframe").addEventListener("load", function () {
+        var now = parse(location.hash);
+        if (now.path === r.path && !new URLSearchParams(now.query).get("view"))
+          history.replaceState(null, "", location.pathname + location.search + "#/" + r.path + "?" + r.query);
+      });
+    }
     if (scr && scr.press) {
       var fr = el.querySelector("iframe");
       fr.addEventListener("load", function () {
