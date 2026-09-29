@@ -101,6 +101,12 @@
   .stage iframe { position: absolute; top: 0; border: 0; height: 100%; background: #fff; }
   .stage.phone { background: #e5e7eb; display: flex; justify-content: center; padding-top: 14px; }
   .stage.phone iframe { position: static; width: 400px; height: calc(100% - 28px); border-radius: 28px; border: 8px solid #111827; }
+  /* while a screen loads, the stage says which one is on its way (no blank white) */
+  .loading { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #f9fafb; color: var(--muted); font-size: 13px; transition: opacity .25s var(--ease); }
+  .loading b { color: var(--ink2); font-weight: 600; }
+  .loading.gone { opacity: 0; pointer-events: none; }
+  .spin { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #dcfce7; border-top-color: var(--green); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* one line when a screen's work lands in another step */
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: .25s; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: #111827; color: #fff; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 10; }
@@ -240,7 +246,11 @@
     if (sameScreen && !view) return;
     var phone = !!r.leaf.deviceFrame, clip = phone ? 0 : (r.leaf.clipLeft || 0);
     el.className = "stage" + (phone ? " phone" : "");
-    el.innerHTML = '<iframe title="' + (r.leaf.name || "") + '" src="' + url + '" style="' + (phone ? "" : "left:" + -clip + "px;width:calc(100% + " + clip + "px)") + '"></iframe>';
+    el.innerHTML = '<iframe title="' + (r.leaf.name || "") + '" src="' + url + '" style="' + (phone ? "" : "left:" + -clip + "px;width:calc(100% + " + clip + "px)") + '"></iframe>' +
+      '<div class="loading" role="status"><span class="spin"></span><span>Opening <b>' + ((scr && scr.label) || r.leaf.name || "the screen") + "</b>…</span></div>";
+    var ld = el.querySelector(".loading"), done = function () { ld.classList.add("gone"); setTimeout(function () { ld.remove(); }, 300); };
+    el.querySelector("iframe").addEventListener("load", function () { setTimeout(done, 150); });
+    setTimeout(done, 10000);   /* never stuck behind a screen that is slow to say it loaded */
     /* The board reads ?view= once and clears it from the parent's address (v7's platform wants
        that). v8's address is also its deep link, so once the screen is up the view goes back. */
     if (view) {
