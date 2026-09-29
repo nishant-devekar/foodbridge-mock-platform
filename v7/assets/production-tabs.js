@@ -20,7 +20,8 @@
                                   onSelect: function (view) { … } })
          t.set(view) · t.sub(text) — when the page changes view itself
          t.count(view, n) — a count on a tab (0 hides it)
-         t.action({ label, onClick, quiet }) · t.action(null) — the view's action on the date's row
+         t.action({ label, onClick, quiet, icon }) · t.action(null) — the view's action on the date's row
+         (icon: a name from ICONS, drawn before the label)
          onSelect handles views on the same page (return true); any other
          view is opened through the platform: #/production/production-board
          ?view=flow|week|needs, or #/production/batch-management.
@@ -30,9 +31,17 @@
   if (window.FBProductionTabs) return;
 
   /* Owner, 29 Sep 2026: Demand & supply first, then All batches, All shifts (the Week), Needs you; Today retired */
-  var VIEWS = [["flow", "Demand & supply"], ["all", "All batches"], ["week", "All shifts"], ["needs", "Needs you", "hidden"]];
+  /* "Production requests", not "All batches" (owner, 29 Sep 2026): a batch is a request to produce, worked in shifts */
+  var VIEWS = [["flow", "Demand & supply"], ["all", "Production requests"], ["week", "All shifts"], ["needs", "Needs you", "hidden"]];
   /* "hidden": off the strip for now (owner, 29 Sep 2026 — "hide Needs you, do not delete"). The view
      still works (?view=needs); drop the word to bring the tab back. */
+  /* icons an action can carry: 24-unit line icons, drawn in the text's colour */
+  var ICONS = {
+    settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  };
+  function icon(name) {
+    return ICONS[name] ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>" : "";
+  }
   /* the header's own measures: 12px in, 24px from 640px; system-ui */
   var CSS = [
     ".fbpt,.fbpt *{box-sizing:border-box}",
@@ -50,7 +59,8 @@
     ".fbpt-head p{margin:2px 0 0;font-size:14px;line-height:20px;color:#6b7280}",
     ".fbpt-act{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;border:0;border-radius:10px;background:#16a34a;color:#fff;font:600 14px/1 system-ui,sans-serif,Arial,Helvetica;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08)}",
     ".fbpt-act:hover{background:#15803d}",
-    ".fbpt-link{flex:0 0 auto;border:0;background:none;padding:0 0 4px;font:600 14px/1.2 system-ui,sans-serif,Arial,Helvetica;color:#0f766e;cursor:pointer}",
+    ".fbpt-link{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:0 0 4px;font:600 14px/1.2 system-ui,sans-serif,Arial,Helvetica;color:#0f766e;cursor:pointer}",
+    ".fbpt-link svg,.fbpt-act svg{flex:0 0 auto;width:16px;height:16px}",
     ".fbpt-link:hover{text-decoration:underline}",
     "@media (min-width:640px){.fbpt-in{padding:0 24px}.fbpt-head{padding:20px 24px 0}}",
     "@media (max-width:639.98px){.fbpt-in{gap:0;padding:0 4px;overflow-x:auto;scrollbar-width:none}.fbpt-in::-webkit-scrollbar{display:none}.fbpt button{flex:0 0 auto;min-width:0;padding:0 12px;font-size:13px}.fbpt-n{margin-left:4px;min-width:18px;height:18px;padding:0 5px}.fbpt-head{padding:14px 12px 0}.fbpt-act.desk{display:none}}",
@@ -123,7 +133,8 @@
       if (!x) return;
       act = document.createElement("button");
       act.type = "button"; act.className = (x.quiet ? "fbpt-link" : "fbpt-act") + (x.desktopOnly ? " desk" : "");
-      act.textContent = x.label;
+      act.innerHTML = icon(x.icon);
+      act.appendChild(document.createTextNode(x.label));
       act.addEventListener("click", x.onClick);
       line.appendChild(act);
     }

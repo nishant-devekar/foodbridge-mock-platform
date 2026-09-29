@@ -27,7 +27,8 @@
   /* the board's views (owner, 29 Sep 2026): Demand & supply opens the board; All shifts is the Week;
      Needs you the alerts. Today was retired — an old ?view=today opens Demand & supply. */
   var VIEWS = ["flow", "week", "needs"];
-  var S = { lens: "flow", from: null, panel: null, form: {}, ask: null, err: "" };
+  var S = { lens: "flow", dept: "sales", open: {}, from: null, panel: null, form: {}, ask: null, rm: null, add: null, err: "" };
+  try { S.dept = sessionStorage.getItem("fb.v7.flow.dept") || "sales"; } catch (e) { /* a private window: start on Sales */ }
   /* All shifts is the next 7 days from today (owner, 29 Sep 2026: no week to page through) */
   S.from = isoDay(Date.now());
   /* #/production/production-board?view=week opens the Week (Batch detail's "Week ›") */
@@ -183,6 +184,9 @@
 
   function light(D, b) {
     return { id: b.id, no: b.batchNumber, name: b.displayName, size: b.kind === "packing" ? n(b.packets) + " packets · " + kg(b.batchSize) : kg(b.batchSize), state: b.stateId,
+      kind: b.kind, kg: b.kind === "packing" ? 0 : b.batchSize, packets: b.packets || 0,
+      /* the product itself — a packing run names its pack ("Packing · Frozen Peas 500 g") */
+      product: String(b.displayName || "").replace(/^Packing · /, "").replace(/\s+[\d.]+\s*(g|kg)$/i, ""),
       office: D.recordingOf(b) === "office", due: b.expectedFinishDate ? String(b.expectedFinishDate).slice(0, 10) : null, was: b.wasScheduled || null,
       hours: Math.round(D.stepsFor(b).reduce(function (t, st) { return t + (st.expectedMinutes || 0); }, 0) / 6) / 10 };
   }
@@ -211,7 +215,6 @@
         supervisors: (d.operators || []).map(function (o) { return o.name; }) };
     });
   }
-  function optLabel(c) { return dayName(c.date, true) + " · " + c.name + " · " + short(c.inCharge) + " · " + (c.hours.used ? hrs(c.hours.used) + " of " + hrs(c.hours.of) + " booked" : "free"); }
   function people(n) { return n + (n === 1 ? " person" : " people"); }
   function short(name) { return String(name || "").split(" ")[0]; }
 
@@ -241,7 +244,12 @@
     return '<span class="sf-av" style="background:' + c[0] + ";color:" + c[1] + '" aria-hidden="true">' + esc(ini) + "</span>";
   }
   function first(name) { return String(name || "").split(" ")[0]; }
-  function hoursWords(h) { return h === 1 ? "an hour" : (Math.round(h * 10) / 10) + " hours"; }
+  /* "20 min", "an hour", "3.5 hours" — under an hour in minutes (to 5), never "0.3 hours" */
+  function hoursWords(h) {
+    if (h < 1) return Math.max(5, Math.round(h * 12) * 5) + " min";
+    var r = Math.round(h * 2) / 2;
+    return r === 1 ? "an hour" : r + " hours";
+  }
   /* "this evening", "tomorrow morning", "Thursday morning" */
   function shiftWords(w, c) {
     var slot = String(c.name || "").toLowerCase();
@@ -249,7 +257,6 @@
     if (c.date === addDays(w.today, 1)) return "tomorrow " + slot;
     return new Date(c.date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long" }) + " " + slot;
   }
-  function batchesWords(n) { return n === 1 ? "1 batch" : n + " batches"; }
 
   function Roster(w) {
     var list = [];
@@ -259,12 +266,18 @@
     }
     list = list.filter(function (e) { return (!e.c.past || e.c.now) && ["off", "cancelled"].indexOf(e.c.status) === -1 && e.c.working !== false; });
     var who = function (e) { return e.c.inCharge || e.x.inCharge || ""; };
-    /* the card: who, which shift and when, and in plain words whether its work fits */
+    /* the card: who, which shift and when, and on one line what it makes and whether that fits
+       ("3 products · 320 kg" … "Needs 3 hours more" / "Fits the shift") — the same shape on both cards */
     function card(e, lead, headline, sub) {
-      var c = e.c, n = c.batches.length, over = c.hours.used - c.hours.of;
+      var c = e.c, over = c.hours.used - c.hours.of;
+      var names = {}, made = 0, packs = 0;
+      c.batches.forEach(function (b) { names[b.product] = 1; made += b.kg; packs += b.packets; });
+      var np = Object.keys(names).length;
+      var what = !np ? "Nothing planned yet" : np + (np === 1 ? " product" : " products") + " · " + (made ? kg(made) : n(packs) + " packets");
+      var fit = !np ? "" : over > 0 ? '<span class="sf-fit warn">Needs ' + hoursWords(over) + " more</span>" : '<span class="sf-fit ok">Fits the shift</span>';
       return '<button type="button" class="sf-card" data-shift="' + c.key + '"><span class="sf-lead">' + lead + "</span>" +
         '<span class="sf-row">' + avatar(who(e)) + '<span class="sf-txt"><span class="sf-big">' + headline + '</span><span class="sf-sub">' + sub + "</span></span></span>" +
-        '<span class="sf-note ' + (over > 0 ? "warn" : n ? "ok" : "") + '">' + (n ? batchesWords(n) + (over > 0 ? " — about " + hoursWords(over) + " more than the shift can fit" : " — it fits") : "Nothing planned yet") + "</span></button>";
+        '<span class="sf-note"><span>' + what + "</span>" + fit + "</span></button>";
     }
     /* "", "tomorrow ", "Thursday " — the day only when it isn't today */
     var dayWord = function (e) { return e.c.date === w.today ? "" : e.c.date === addDays(w.today, 1) ? "tomorrow " : new Date(e.c.date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long" }) + " "; };
@@ -273,9 +286,21 @@
     var left = !first_ ? "" : now
       ? card(now, "Now", esc(first(who(now))) + " is running the floor", esc(now.c.name) + " shift · till " + hr(now.x.end))
       : card(first_, "Starts next", esc(first(who(first_))) + " starts " + esc(shiftWords(w, first_.c)), esc(first_.c.name) + " shift · " + dayWord(first_) + "from " + hr(first_.x.start));
-    var right = after ? card(after, "Then", esc(first(who(after))) + " takes over", esc(after.c.name) + " shift · " + dayWord(after) + "from " + hr(after.x.start)) : "";
+    /* Now · Next; with no shift on, the left card already says "Starts next", so the one after it is "Then" */
+    var right = after ? card(after, now ? "Next" : "Then", esc(first(who(after))) + " takes over", esc(after.c.name) + " shift · " + dayWord(after) + "from " + hr(after.x.start)) : "";
     return '<div class="sf">' + (S.err && !S.panel ? '<div class="wk-err">' + esc(S.err) + "</div>" : "") +
       '<div class="sf-pair">' + left + right + "</div></div>";
+  }
+
+  /* ── a batch into the open shift: picked from the ones raised in All batches that have no shift yet ── */
+  function AddBatch(w) {
+    if (!S.add) return '<button type="button" class="btn sm sp-addb" data-act="addOpen">＋ Add batch</button>';
+    var PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>';
+    return '<div class="st-form sp-add"><div class="sp-add-h"><b>Waiting for a shift · ' + w.tray.length + '</b><button type="button" class="btn sm" data-act="addCancel">Done</button></div>' +
+      (w.tray.length ? '<ul class="sp-b">' + w.tray.map(function (b) {
+        return '<li><div class="sp-bi"><button type="button" class="bl" data-batch="' + b.id + '"><span class="bl-n"><b>' + esc(b.name) + "</b><small>" + esc(b.no) + " · " + esc(b.size) + (b.due ? " · due " + esc(dayName(b.due, true)) : "") + "</small></span></button>" +
+          '<button type="button" class="sp-rm sp-plus" data-act="addPick" data-id="' + b.id + '" title="Add to this shift" aria-label="Add ' + esc(b.no) + ' to this shift">' + PLUS + "</button></div></li>";
+      }).join("") + "</ul>" : '<div class="muted small">Every planned batch has a shift. Raise a new one in <button type="button" class="lnk" data-go="production/batch-management">All batches</button>.</div>') + "</div>";
   }
 
   /* ── one shift, opened ── */
@@ -306,14 +331,14 @@
       body += '<div class="sp-f"><label>In charge</label><div>' + esc(c.inCharge) + '</div></div><div class="sp-f"><label>People · ' + c.crew.length + "</label><div>" +
         c.crew.map(function (id) { var p = w.workers.filter(function (x) { return x.id === id; })[0]; return p ? esc(p.name) : ""; }).filter(Boolean).join(", ") + "</div></div>";
     }
-    var moves = w.options.filter(function (o) { return o.key !== c.key; });
     body += '<div class="sp-f"><label>Batches · ' + c.batches.length + (c.batches.length ? " · " + hrs(c.hours.used) + " of work in a " + hrs(c.hours.of) + " shift" : "") + "</label>" +
       (c.batches.length ? '<ul class="sp-b">' + c.batches.map(function (b) {
-        var canMove = b.state === "planned" && editable;
-        return '<li><button type="button" class="bl" data-batch="' + b.id + '"><span class="bl-n"><b>' + esc(b.name) + "</b><small>" + esc(b.no) + " · " + esc(b.size) + (b.office ? " · Office" : "") + '</small></span><span class="badge b-' + esc(b.state) + '">' + esc(BADGE[b.state] || b.state) + "</span></button>" +
-          (canMove ? '<span class="sp-mv"><select data-move="' + b.id + '" aria-label="Move ' + esc(b.no) + '"><option value="">Move to another shift…</option>' + moves.map(function (o) { return '<option value="' + o.key + '">' + esc(optLabel(o)) + "</option>"; }).join("") +
-            '<option value="none">Not scheduled</option></select></span>' : "") + "</li>";
-      }).join("") + "</ul>" : '<div class="muted">No batches yet. Give one a shift from Not scheduled.</div>') + "</div>";
+        /* a planned batch can come off the shift (back to Not scheduled): an icon, then a one-line confirm in place */
+        var canMove = b.state === "planned" && editable, asking = S.rm === b.id;
+        return '<li><div class="sp-bi"><button type="button" class="bl" data-batch="' + b.id + '"><span class="bl-n"><b>' + esc(b.name) + "</b><small>" + esc(b.no) + " · " + esc(b.size) + (b.office ? " · Office" : "") + '</small></span><span class="badge b-' + esc(b.state) + '">' + esc(BADGE[b.state] || b.state) + "</span></button>" +
+          (canMove && !asking ? '<button type="button" class="sp-rm" data-act="rm" data-id="' + b.id + '" title="Remove from this shift" aria-label="Remove ' + esc(b.no) + ' from this shift"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></button>' : "") + "</div>" +
+          (canMove && asking ? '<div class="sp-rmq" role="group" aria-label="Remove ' + esc(b.no) + '"><span>Remove from this shift? It goes back to Not scheduled.</span><span class="sp-rmq-b"><button type="button" class="btn sm warn" data-act="rmYes" data-id="' + b.id + '">Remove</button><button type="button" class="btn sm" data-act="rmNo">Keep</button></span></div>' : "") + "</li>";
+      }).join("") + "</ul>" : '<div class="muted">No batches yet.</div>') + (editable ? AddBatch(w) : "") + "</div>";
     /* no Hand over or Stop (owner, 29 Sep 2026): when a shift ends, its planned and running batches
        move to the next shift on their own (D.rollOver in the store) */
     var acts = [];
@@ -352,8 +377,7 @@
         '<div class="sp-row"><button type="button" class="btn primary sm" data-act="saveShift">' + (x ? "Save" : "Add shift") + '</button><button type="button" class="btn sm" data-act="editShift" data-id="">Cancel</button>' +
         (x && w.shifts.length > 1 ? '<button type="button" class="btn sm warn" data-act="removeShift" style="margin-left:auto">Remove shift</button>' : "") + "</div></div>";
     }
-    var body = '<p class="muted small" style="margin:0">Every working day has these shifts. A change applies to the coming days; to change one day, open that day\'s shift in the week.</p>' +
-      '<ul class="st-list">' + w.shifts.map(function (x) {
+    var body = '<ul class="st-list">' + w.shifts.map(function (x) {
         return "<li>" + (ed === x.id ? form(x) : '<div class="st-row"><span><b>' + esc(x.name) + "</b> · " + hr(x.start) + " – " + hr(x.end) + " · " + hrs(D_hours(x)) + "<small>" + esc(x.inCharge) + " in charge · usually " + people(x.crew.length) + "</small></span>" +
           '<button type="button" class="btn sm" data-act="editShift" data-id="' + x.id + '">Edit</button></div>') + "</li>";
       }).join("") + (ed === "new" ? "<li>" + form(null) + "</li>" : "") + "</ul>" +
@@ -361,7 +385,7 @@
       '<div class="sp-f"><label>Working days</label><div class="sp-crew">' + [1, 2, 3, 4, 5, 6, 0].map(function (dn) {
         var on = w.days.indexOf(dn) !== -1;
         return '<button type="button" class="pp' + (on ? " on" : "") + '" data-act="day" data-day="' + dn + '" aria-pressed="' + on + '">' + (on ? "✓ " : "") + DAYS[dn] + "</button>";
-      }).join("") + '</div><p class="muted small">A day off can still be worked: open it in the week and pick Work this day.</p></div>';
+      }).join("") + "</div></div>";
     return Panel("Shift settings", w.shifts.map(function (x) { return x.name; }).join(" · "), body, "");
   }
   function D_hours(x) { return x.end > x.start ? x.end - x.start : 24 - x.start + x.end; }
@@ -372,11 +396,6 @@
     catch (e) { S.err = (e && e.body && e.body.error) || (e && e.message) || "That didn't save."; return false; }
   }
   function keyOf(key) { var p = key.split("|"); return { date: p[0], slot: p[1] }; }
-  function schedule(batchId, key) {
-    if (key === "none") return write(function (D) { D.unschedule(batchId); });
-    var k = keyOf(key);
-    return write(function (D) { D.schedule(batchId, k.date, k.slot, "admin"); });
-  }
   function panelAct(act, el) {
     var w = S.lens === "week" ? weekModel() : weekModel(isoDay(Date.now()), 1);
     if (S.panel.kind === "settings") {
@@ -412,6 +431,12 @@
       var ch = {}; if (S.form.crew) ch.crew = S.form.crew; if (S.form.inCharge) ch.inCharge = S.form.inCharge;
       if (write(function (D) { D.setCrew(sid(D), ch); })) S.form = {};
     } else if (act === "takeover") write(function (D) { D.takeOver(c.id, "admin"); });
+    else if (act === "addOpen") { S.add = {}; S.rm = null; S.err = ""; }
+    else if (act === "addCancel") { S.add = null; S.err = ""; }
+    else if (act === "addPick") { var pid = el.getAttribute("data-id"); write(function (D) { D.schedule(pid, k.date, k.slot, "admin"); }); }
+    else if (act === "rm") S.rm = el.getAttribute("data-id");
+    else if (act === "rmNo") S.rm = null;
+    else if (act === "rmYes") { var bid = el.getAttribute("data-id"); if (write(function (D) { D.unschedule(bid); })) S.rm = null; }
     else if (act === "ask") { S.ask = el.getAttribute("data-ask") || null; S.form.text = ""; S.err = ""; }
     else if (act === "do") {
       var text = (S.form.text || "").trim(), ok = false;
@@ -467,10 +492,11 @@
             if (r.ingredientId === m.id && left > 0) ev.push({ t: b.stateId === "planned" ? at(b.when, "start") : now, q: -left, b: b });
           });
         });
-        var arrives = null, overdue = false;
+        var arrives = null, overdue = false, pending = 0;
         (d.purchaseOrders || []).forEach(function (p) {
           var q = D.openOnPO(p, m.id);
           if (!(q > 0)) return;
+          if (p.status === "Pending Approval") pending += q;
           /* an order with no day (or still waiting for approval) comes after every batch with a shift */
           if (!p.expectedAt || p.status === "Pending Approval") { ev.push({ t: null, q: q }); return; }
           var due = new Date(p.expectedAt).getTime();
@@ -495,6 +521,8 @@
         var order = m.buy > 0 ? m.buy : low ? r2(Math.max(0, mat.threshold - free - m.ordered)) : 0;
         /* by: a booked batch with a shift runs short; noShift: one with no shift yet; new: only batches still to plan */
         var status = m.buy > 0 ? (by && by.t !== null ? "by" : by ? "noShift" : "new") : by && by.t !== null ? "late" : order > 0 ? "low" : null;
+        /* on order in time for what production needs: Purchase still sees it, as on the way */
+        if (!status && m.ordered > 0 && m.need > 0) status = "onOrder";
         if (!status) return null;
         /* for what: every product whose batch runs short, and the products still to plan that use it */
         if (m.buy > 0) plan.products.forEach(function (p) {
@@ -504,9 +532,9 @@
         if (m.buy > 0) plan.skus.forEach(function (k) { if (k.shortPackets > 0 && D.sku(k.skuId).pouchId === m.id && forR.indexOf(k.recipeId) === -1) forR.push(k.recipeId); });
         var forWhat = status === "low" ? "Minimum " + (m.unit === "kg" ? n(mat.threshold, 10) + " kg" : n(mat.threshold) + " " + m.unit) : forR.map(function (r) { return bookName[r]; }).filter(Boolean).join(", ");
         return { id: m.id, name: m.name, unit: m.unit, supplier: m.supplier, order: order, by: by, status: status, forWhat: forWhat,
-          onHand: m.onHand, ordered: m.ordered, arrives: arrives, overdue: overdue };
+          onHand: m.onHand, reserved: m.reserved, ordered: m.ordered, arrives: arrives, overdue: overdue, pending: pending };
       }).filter(Boolean).sort(function (a, b) {
-        var rank = { by: 0, late: 1, noShift: 2, new: 3, low: 4 };
+        var rank = { by: 0, late: 1, noShift: 2, new: 3, low: 4, onOrder: 5 };
         return rank[a.status] - rank[b.status] || (a.by && b.by ? a.by.t - b.by.t : 0) || b.order - a.order;
       });
 
@@ -573,7 +601,37 @@
       /* the products production covers least first */
       rows.sort(function (a, b) { return (b.blocked + b.notPlanned) - (a.blocked + a.notPlanned) || rk(a) - rk(b); });
 
-      return { rows: rows, purchase: purchase };
+      /* ── the same chain, per department (owner, 29 Sep 2026: Sales | Production | Purchase) ──
+         Each reads its own part in its own unit, and what it waits on from the others. */
+      var rowOf = {};
+      rows.forEach(function (r) { rowOf[r.recipeId] = r; });
+      var size = function (g) { return g < 1000 ? g + " g" : g / 1000 + " kg"; };
+      /* Sales, in packets: per pack, ordered + next week against what is packed */
+      var sales = plan.products.map(function (p) {
+        var packs = p.skus.filter(function (k) { return k.need > 0; }).sort(function (a, b) { return a.grams - b.grams; });
+        if (!packs.length) return null;
+        return { recipeId: p.recipeId, name: p.name, row: rowOf[p.recipeId] || null,
+          packs: packs.map(function (k) { return { size: size(k.grams), open: k.open, forecast: k.forecast, stock: k.packets, packing: k.packing, short: k.shortPackets }; }) };
+      }).filter(Boolean);
+      /* Production, in kg: what Sales needs, what covers it (freezer, batches), what waits on Purchase */
+      var making = plan.products.map(function (p) {
+        var r = rowOf[p.recipeId];
+        var mine = open.filter(function (b) { return b.kind === "production" && b.recipeId === p.recipeId; }).map(function (b) {
+          return { id: b.id, no: b.batchNumber, kg: b.batchSize, state: b.stateId, start: b.when ? when(at(b.when, "start")) : null,
+            held: (blocked[p.recipeId] || []).indexOf(b) !== -1 };
+        });
+        if (!r && !mine.length) return null;
+        return { recipeId: p.recipeId, name: p.name, needKg: r ? r.needKg : 0, freezerKg: p.freezerKg, batches: mine, row: r, toMakeKg: p.toMakeKg };
+      }).filter(Boolean);
+      /* Purchase, in its units: what production waits on, and where each order stands */
+      var holds = {};
+      rows.forEach(function (r) { if (r.blocked > 0.05) r.blockedBy.forEach(function (nm) { (holds[nm] = holds[nm] || []).push({ name: r.name, kg: r.blocked }); }); });
+      var buying = buy.map(function (b) {
+        var mat = D.material(b.id), sup = D.supplier(mat.supplierId || mat.supplier);
+        return Object.assign({}, b, { holds: holds[b.name] || [], supplierName: sup ? sup.name : (b.supplier || ""), supplierId: sup ? sup.id : null });
+      });
+
+      return { rows: rows, purchase: purchase, sales: sales, making: making, buying: buying };
     });
   }
   function r2(v) { return Math.round(v * 100) / 100; }
@@ -586,30 +644,159 @@
   }
   function soon(t) { return t !== null && isFinite(t) && t - Date.now() < 24 * 3600000; }
 
-  /* Owner, 29 Sep 2026: two tables side by side, only what stops a customer
-     packet. Left, the packs with a gap and what holds each; right, the
-     materials that would free them. A line runs from each material to the
-     packs it frees. No actions, no highlight. */
+  /* Owner, 29 Sep 2026: one chain, three departments — Sales | Production | Purchase.
+     Each tab is one department's view in its own unit (packets, kg, material):
+     what it is asked for, where it stands, what it waits on from the others
+     (the column names the department). No actions here. The tabs carry each
+     department's headline, so every head sees the others' state at a glance. */
+  var DEPTS = ["sales", "production", "purchase"];
+  function day(t) { return t == null || !isFinite(t) ? null : new Date(t).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }); }
+  var STATE = { planned: "planned", "in-progress": "in progress", "on-hold": "on hold" };
+  /* where a material stands with Purchase, in a few words */
+  function standing(b) {
+    var out = [];
+    var free = Math.max(0, b.onHand - (b.reserved || 0));
+    if (b.onHand > 0) out.push({ t: qty(b.onHand, b.unit) + " in store" + (b.reserved > 0 ? (free > 0 ? " · " + qty(free, b.unit) + " free" : " · all reserved") : "") });
+    if (b.ordered > 0) {
+      var onWay = b.ordered - b.pending;
+      if (b.pending > 0) out.push({ t: qty(b.pending, b.unit) + " awaiting approval", c: "np" });
+      if (onWay > 0) out.push(b.overdue ? { t: qty(onWay, b.unit) + " overdue", c: "blk" } : { t: qty(onWay, b.unit) + " on order" + (b.arrives ? " · arrives " + day(b.arrives) : ""), c: "ok" });
+    }
+    if (b.order > 0) out.push({ t: "Not ordered", c: "blk" });
+    return out;
+  }
   function Flow(f) {
-    if (!f.rows.length) return '<section class="card fx"><div class="fx-none-msg">Every pack customers need is packed.</div></section>';
-    /* product | sales: what customers need beyond what is packed in stock — the production demand, in kg,
-       with the packs it is | production for it */
-    var sp = '<section class="card fx"><div class="tbl-wrap"><table><thead><tr><th>Product</th><th>Sales over stock</th><th>Production for it</th></tr></thead><tbody>' +
-      f.rows.map(function (r) {
-        return '<tr><th scope="row">' + esc(r.name) + '</th><td data-label="Sales over stock"><span class="fx-need"><b>' + kg(r.needKg) + "</b> to produce</span>" +
-          '<span class="fx-pks">' + r.packs.map(function (k) { return n(k.count) + " × " + esc(k.size); }).join(" · ") + "</span></td>" +
-          '<td data-label="Production">' +
-            (r.covered > 0.05 ? '<span class="fx-pm"><b>' + kg(r.covered) + '</b> covered' + (r.eta ? " · " + esc(r.eta) : "") + "</span>" : "") +
-            (r.blocked > 0.05 ? '<span class="fx-pm blk"><b>' + kg(r.blocked) + "</b> blocked · " + esc(r.blockedBy.join(", ")) + "</span>" : "") +
-            (r.notPlanned > 0.05 ? '<span class="fx-pm np"><b>' + kg(r.notPlanned) + "</b> not planned</span>" : "") + "</td></tr>";
+    var dept = DEPTS.indexOf(S.dept) !== -1 ? S.dept : "sales";
+    var bySales = f.sales.reduce(function (t, p) { p.packs.forEach(function (k) { t.short += k.short; t.open += k.open; t.next += k.forecast; }); return t; }, { short: 0, open: 0, next: 0 });
+    var needKg = f.rows.reduce(function (t, r) { return t + r.needKg; }, 0), covKg = f.rows.reduce(function (t, r) { return t + r.covered; }, 0);
+    var heldKg = f.rows.reduce(function (t, r) { return t + r.blocked; }, 0), npKg = f.rows.reduce(function (t, r) { return t + r.notPlanned; }, 0);
+    var toBuy = f.buying.filter(function (b) { return b.order > 0; }), onOrder = f.buying.filter(function (b) { return !b.holds.length && b.status !== "low" && !(b.order > 0); });
+    var holding = toBuy.filter(function (b) { return b.holds.length; }), low = toBuy.filter(function (b) { return b.status === "low"; });
+    var head = {
+      sales: { big: bySales.short ? n(bySales.short) + " packets short" : "All packed", sub: n(bySales.open) + " ordered · " + n(bySales.next) + " next week", tone: bySales.short ? "warn" : "ok" },
+      production: { big: needKg > 0.05 ? kg(covKg) + " of " + kg(needKg) + " covered" : "Nothing to make", sub: [heldKg > 0.05 ? kg(heldKg) + " waits on Purchase" : "", npKg > 0.05 ? kg(npKg) + " not planned" : ""].filter(Boolean).join(" · ") || "On track", tone: heldKg > 0.05 ? "bad" : npKg > 0.05 ? "warn" : "ok" },
+      purchase: { big: holding.length ? holding.length + (holding.length === 1 ? " item holds" : " items hold") + " production" : toBuy.length ? toBuy.length + " to buy" : "Nothing to buy",
+        sub: [holding.length && heldKg > 0.05 ? "unblocks " + kg(heldKg) : "", toBuy.length - holding.length - low.length > 0 ? (toBuy.length - holding.length - low.length) + " for planned batches" : "", low.length ? low.length + " below minimum" : "", onOrder.length ? onOrder.length + " on order" : ""].filter(Boolean).join(" · ") || "Production has what it needs",
+        tone: holding.length ? "bad" : toBuy.length ? "warn" : "ok" },
+    };
+    var NAME = { sales: "Sales", production: "Production", purchase: "Purchase" };
+    var tabsHtml = '<div class="dx-tabs" role="tablist" aria-label="Departments">' + DEPTS.map(function (k, i) {
+      return (i ? '<span class="dx-arr" aria-hidden="true">→</span>' : "") +
+        '<button type="button" role="tab" class="dx-t ' + head[k].tone + '" data-act="dept" data-dept="' + k + '" aria-selected="' + (k === dept) + '"><span class="dx-k">' + NAME[k] + "</span><b>" + esc(head[k].big) + "</b><small>" + esc(head[k].sub) + "</small></button>";
+    }).join("") + "</div>";
+    var body = dept === "sales" ? SalesTab(f) : dept === "production" ? MakeTab(f) : BuyTab(f);
+    return tabsHtml + (S.err ? '<div class="wk-err dx-err">' + esc(S.err) + "</div>" : "") + body;
+  }
+  /* Production's answer, in Sales' terms (owner, 29 Sep 2026: kg of production did not tell Sales
+     anything): of the packets short, how many can ship and by when, and how many are stuck and why.
+     The kg split (coming / held / not planned) is shared out over the short packets. */
+  function shipParts(r, short) {
+    if (!short) return [];
+    if (!r || r.needKg < 0.05) return [{ q: short, t: "being packed", c: "ok" }];
+    var part = function (v) { return Math.round(short * v / r.needKg); };
+    var blk = part(r.blocked), np = part(r.notPlanned), cov = Math.max(0, short - blk - np);
+    var eta = r.eta === "in freezer" ? "after packing" : r.eta === "no shift yet" ? "being made · no date yet" : r.eta === "late" ? "running late" : r.eta ? "by " + r.eta : "being made";
+    return [cov ? { q: cov, t: eta, c: r.eta === "late" ? "blk" : "" } : null,
+      blk ? { q: blk, t: "stuck · waiting on " + r.blockedBy.join(", "), c: "blk" } : null,
+      np ? { q: np, t: "not planned yet", c: "np" } : null].filter(Boolean);
+  }
+  function shipAll(r, short) {
+    if (!short) return '<span class="fx-pm ok">In stock</span>';
+    return shipParts(r, short).map(function (x) { return '<span class="fx-pm' + (x.c ? " " + x.c : "") + '"><b>' + n(x.q) + "</b> " + esc(x.t) + "</span>"; }).join("");
+  }
+  /* the one line: the worst part first, out of the total; or all of it when it all comes the same way */
+  function shipOne(r, short) {
+    if (!short) return '<span class="fx-pm ok">In stock</span>';
+    var parts = shipParts(r, short), worst = parts.filter(function (x) { return x.c === "blk"; })[0] || parts.filter(function (x) { return x.c === "np"; })[0];
+    if (!worst) return '<span class="fx-pm' + (parts[0].c ? " " + parts[0].c : "") + '"><b>All ' + n(short) + "</b> " + esc(parts[0].t) + "</span>";
+    return '<span class="fx-pm ' + worst.c + '"><b>' + n(worst.q) + " of " + n(short) + "</b> " + esc(worst.t) + "</span>";
+  }
+  /* one line per product (owner, 29 Sep 2026: less to take in); a click opens its packs and the full production picture */
+  function SalesTab(f) {
+    if (!f.sales.length) return '<section class="card fx"><div class="fx-none-msg">No customer demand in hand or next week.</div></section>';
+    var sum = function (list, k) { return list.reduce(function (t, x) { return t + x[k]; }, 0); };
+    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-sales dx-xp"><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Next week</th><th class="num">In stock</th><th class="num">Short</th><th>When you can ship</th></tr></thead><tbody>' +
+      f.sales.map(function (p) {
+        var open = !!S.open[p.recipeId], short = sum(p.packs, "short");
+        var head = '<tr class="dx-p' + (open ? " on" : "") + '" data-act="xp" data-id="' + p.recipeId + '"><th scope="row"><button type="button" class="dx-x" aria-expanded="' + open + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' + esc(p.name) + "</button></th>" +
+          '<td class="num">' + n(sum(p.packs, "open")) + '</td><td class="num">' + n(sum(p.packs, "forecast")) + '</td><td class="num">' + n(sum(p.packs, "stock")) +
+          '</td><td class="num ' + (short ? "blk" : "ok") + '">' + (short ? n(short) : "—") + "</td><td>" + (open ? shipAll(p.row, short) : shipOne(p.row, short)) + "</td></tr>";
+        if (!open) return head;
+        return head + p.packs.map(function (k, i) {
+          return '<tr class="dx-k2' + (i === p.packs.length - 1 ? " end" : "") + '"><th scope="row">' + esc(k.size) + '</th><td class="num">' + n(k.open) + '</td><td class="num">' + n(k.forecast) + '</td><td class="num">' + n(k.stock) + '</td><td class="num ' + (k.short ? "blk" : "ok") + '">' + (k.short ? n(k.short) : "—") + "</td><td></td></tr>";
+        }).join("");
       }).join("") + "</tbody></table></div></section>";
-    /* purchase: a panel docked to the table — what to buy, and how much production it unblocks */
-    var unblocks = f.rows.reduce(function (t, r) { return t + r.blocked; }, 0);
-    var chit = '<aside class="fx-buy" aria-label="Buy to unblock production"><div class="fx-buy-h">Buy to unblock production</div>' + (f.purchase.length
-      ? '<ul class="fx-buy-l">' + f.purchase.map(function (b) { return "<li><span>" + esc(b.name) + "</span><b>" + qty(b.order, b.unit) + "</b></li>"; }).join("") + "</ul>" +
-        (unblocks > 0.05 ? '<div class="fx-buy-f">Unblocks <b>' + kg(unblocks) + "</b> of production</div>" : "")
-      : '<div class="fx-buy-f">Nothing — no production waits on material.</div>') + "</aside>";
-    return '<div class="fx-pair">' + sp + chit + "</div>";
+  }
+  /* Production, one line per product (owner, 29 Sep 2026): what Sales needs made, how much is covered,
+     what is short, and the one next step — worst first. A click opens where each kg stands. */
+  function MakeTab(f) {
+    if (!f.making.length) return '<section class="card fx"><div class="fx-none-msg">Nothing to make: packed stock covers what customers need.</div></section>';
+    var mat = {};
+    f.buying.forEach(function (b) { mat[b.name] = b; });
+    var matSt = function (nm) { var b = mat[nm], st = b ? standing(b).filter(function (x) { return x.c; })[0] : null; return st ? st.t.toLowerCase() : ""; };
+    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-make dx-xp"><thead><tr><th>Product</th><th class="num">To make</th><th class="num">Covered</th><th class="num">Short</th><th>What\'s next</th></tr></thead><tbody>' +
+      f.making.map(function (p) {
+        var r = p.row, key = "m:" + p.recipeId, open = !!S.open[key];
+        var cov = r ? r.covered : 0, gap = r ? Math.max(0, r.needKg - r.covered) : 0;
+        var noShiftKg = p.batches.filter(function (b) { return b.state === "planned" && !b.start; }).reduce(function (t, b) { return t + b.kg; }, 0);
+        /* the one next step, worst first */
+        var next = !r ? '<span class="fx-pm ok">Nothing more needed</span>'
+          : r.blocked > 0.05 ? '<span class="fx-pm blk"><b>' + kg(r.blocked) + "</b> waiting on " + esc(r.blockedBy.map(function (nm) { var t = matSt(nm); return nm + (t ? " (" + t + ")" : ""); }).join(", ")) + "</span>"
+          : r.notPlanned > 0.05 ? '<span class="fx-pm np">Plan <b>' + kg(r.notPlanned) + "</b></span>"
+          : noShiftKg > 0.05 ? '<span class="fx-pm np"><b>' + kg(noShiftKg) + "</b> needs a shift</span>"
+          : r.eta === "late" ? '<span class="fx-pm blk">Running late</span>'
+          : r.eta === "in freezer" ? '<span class="fx-pm ok">Pack from freezer</span>'
+          : '<span class="fx-pm ok">Done by ' + esc(r.eta || "—") + "</span>";
+        var head = '<tr class="dx-p' + (open ? " on" : "") + '" data-act="xp" data-id="' + key + '"><th scope="row"><button type="button" class="dx-x" aria-expanded="' + open + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' + esc(p.name) + "</button></th>" +
+          '<td class="num">' + (p.needKg > 0.05 ? kg(p.needKg) : "—") + '</td><td class="num">' + (cov > 0.05 ? kg(cov) : "—") + '</td><td class="num ' + (gap > 0.05 ? "blk" : "ok") + '">' + (gap > 0.05 ? kg(gap) : "—") + "</td><td>" + next + "</td></tr>";
+        if (!open) return head;
+        /* where each kg stands: what Sales asked for, then the freezer, each batch, and what waits on Purchase */
+        var lines = [];
+        if (r) lines.push(["For Sales", '<span class="fx-pm">' + r.packs.map(function (k) { return n(k.count) + " × " + esc(k.size); }).join(" · ") + "</span>"]);
+        if (p.freezerKg > 0.05 && p.needKg > 0.05) lines.push([kg(Math.min(p.freezerKg, p.needKg)) + " in freezer", '<span class="fx-pm ok">ready to pack</span>']);
+        p.batches.forEach(function (b) {
+          var t = b.state !== "planned" ? (STATE[b.state] || b.state) : b.start ? "planned · " + b.start : "planned · needs a shift";
+          lines.push([kg(b.kg) + " batch", '<span class="fx-pm' + (b.held ? " blk" : b.state === "planned" && !b.start ? " np" : "") + '">' + esc(t) + (b.held ? " · material short" : "") + "</span>"]);
+        });
+        if (r && r.blocked > 0.05) r.blockedBy.forEach(function (nm) { var t = matSt(nm); lines.push([kg(r.blocked) + " held", '<span class="fx-pm blk">waiting on ' + esc(nm) + (t ? " · " + esc(t) : "") + "</span>"]); });
+        if (r && r.notPlanned > 0.05) lines.push([kg(r.notPlanned) + " not planned", '<span class="fx-pm np">no batch yet</span>']);
+        return head + lines.map(function (x, i) {
+          return '<tr class="dx-k2' + (i === lines.length - 1 ? " end" : "") + '"><th scope="row" colspan="4">' + x[0] + "</th><td>" + x[1] + "</td></tr>";
+        }).join("");
+      }).join("") + "</tbody></table></div></section>";
+  }
+  /* Purchase, one line per situation (owner, 29 Sep 2026) — not per material: what holds production up,
+     what planned batches need soon, what is below its minimum, what is already on its way. Each line
+     is asked as a question, with how many; a click opens the answer — its materials. */
+  function BuyTab(f) {
+    if (!f.buying.length) return '<section class="card fx"><div class="fx-none-msg">Production has every material it needs.</div></section>';
+    var group = function (b) { return b.holds.length ? "hold" : b.status === "low" ? "low" : b.order > 0 ? "plan" : "way"; };
+    var GROUPS = [
+      { k: "hold", name: "What is holding up production?", tone: "bad" },
+      { k: "plan", name: "What do planned batches need urgently?", tone: "warn" },
+      { k: "low", name: "What is below minimum stock?", tone: "warn" },
+      { k: "way", name: "What is already on order?", tone: "ok" },
+    ];
+    var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-buy dx-xp"><colgroup><col class="c1"><col class="c2"><col class="c3"><col></colgroup><tbody>' +
+      GROUPS.map(function (g) {
+        var list = f.buying.filter(function (b) { return group(b) === g.k; });
+        if (!list.length) return "";
+        var key = "b:" + g.k, open = !!S.open[key];
+        var head = '<tr class="dx-p dx-sit ' + g.tone + (open ? " on" : "") + '" data-act="xp" data-id="' + key + '"><th scope="rowgroup" colspan="4"><span class="dx-sit-in">' +
+          '<button type="button" class="dx-x" aria-expanded="' + open + '">' + CHEV + esc(g.name) + '</button><span class="dx-n">' + list.length + "</span></span></th></tr>";
+        if (!open) return head;
+        /* the column names, only where there are columns to read */
+        return head + '<tr class="dx-k2 dx-cols"><th scope="col">Material</th><th scope="col">For Production</th><th scope="col" class="num">To buy</th><th scope="col">Where it stands</th></tr>' + list.map(function (b, i) {
+          var forP = b.holds.length ? b.holds.map(function (h) { return '<span class="fx-pm blk">' + esc(h.name) + " · <b>" + kg(h.kg) + "</b> held</span>"; }).join("")
+            : '<span class="fx-pm">' + esc(b.forWhat || "—") + "</span>";
+          var st = standing(b).map(function (x) { return '<span class="fx-pm' + (x.c ? " " + x.c : "") + '">' + esc(x.t) + "</span>"; }).join("");
+          return '<tr class="dx-k2 dx-m' + (i === list.length - 1 ? " end" : "") + '"><th scope="row">' + esc(b.name) + (b.supplierName ? '<small class="dx-no">' + esc(b.supplierName) + "</small>" : "") + "</th><td>" + forP +
+            '</td><td class="num">' + (b.order > 0 ? "<b>" + esc(qty(b.order, b.unit)) + "</b>" : "—") + "</td><td>" + st + "</td></tr>";
+        }).join("");
+      }).join("") + "</tbody></table></div></section>";
   }
 
   /* ── render ────────────────────────────────────────────────────────── */
@@ -620,7 +807,7 @@
       tabs.set(S.lens);
       tabs.count("needs", needN);
       /* All shifts' one link sits on the date's row (owner, 29 Sep 2026) */
-      tabs.action(S.lens === "week" ? { label: "Change shift times or people", quiet: true, onClick: function () { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; render(); } } : null);
+      tabs.action(S.lens === "week" ? { label: "Shift settings", icon: "settings", quiet: true, onClick: function () { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; render(); } } : null);
     }
     app.innerHTML =
       (S.lens === "needs" ? Needs(m)
@@ -638,13 +825,15 @@
     var gl = e.target.closest("[data-go]");
     if (gl) { go(gl.getAttribute("data-go")); return; }
     var sh = e.target.closest("[data-shift]");
-    if (sh) { S.panel = { kind: "shift", key: sh.getAttribute("data-shift") }; S.form = {}; S.ask = null; S.err = ""; render(); return; }
+    if (sh) { S.panel = { kind: "shift", key: sh.getAttribute("data-shift") }; S.form = {}; S.ask = null; S.rm = null; S.add = null; S.err = ""; render(); return; }
     var b = e.target.closest("[data-act]");
     if (!b || b.disabled) return;
     var act = b.getAttribute("data-act");
     if (act === "lens") { S.lens = b.getAttribute("data-lens"); S.panel = null; S.err = ""; window.scrollTo(0, 0); }
     else if (act === "settings") { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; }
-    else if (act === "close") { S.panel = null; S.ask = null; S.form = {}; S.err = ""; }
+    else if (act === "xp") { var xid = b.getAttribute("data-id"); if (S.open[xid]) delete S.open[xid]; else S.open[xid] = true; }
+    else if (act === "dept") { S.dept = b.getAttribute("data-dept"); S.err = ""; try { sessionStorage.setItem("fb.v7.flow.dept", S.dept); } catch (e2) { /* remembered for this visit only */ } }
+    else if (act === "close") { S.panel = null; S.ask = null; S.rm = null; S.add = null; S.form = {}; S.err = ""; }
     else if (S.panel) panelAct(act, b);
     render();
   });
@@ -655,12 +844,11 @@
   });
   app.addEventListener("change", function (e) {
     var t = e.target;
-    if (t.hasAttribute("data-move")) { if (t.value) { schedule(t.getAttribute("data-move"), t.value); render(); } return; }
     var f = t.getAttribute("data-f");
     if (f && f !== "text" && f !== "name") { S.form[f] = t.value; render(); }
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && S.panel) { S.panel = null; S.ask = null; S.form = {}; S.err = ""; render(); }
+    if (e.key === "Escape" && S.panel) { S.panel = null; S.ask = null; S.rm = null; S.add = null; S.form = {}; S.err = ""; render(); }
   });
 
   /* the floor moves while the office watches */
