@@ -89,7 +89,7 @@
   body.mini .step.on .kids button[aria-pressed="true"] { background: var(--green); color: #fff; }
   body.mini .step.on:has(.kids) { padding-right: 4px; }
   /* a narrow window: the other steps keep their number, the open one keeps its name and screens */
-  @media (max-width: 1120px) { body.mini .step:not(.on) .nm { display: none; } body.mini .step:not(.on) { padding-right: 6px; } }
+  @media (max-width: 1180px) { body.mini .step:not(.on) .nm { display: none; } body.mini .step:not(.on) { padding-right: 6px; } }
   @keyframes kids { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); transform: scale(.96); } 60% { box-shadow: 0 0 0 7px rgba(22,163,74,0); transform: scale(1); } 100% { box-shadow: none; } }
   .subrow { display: none; }
   body.mini .subrow { display: flex; align-items: center; gap: 6px; padding: 6px 16px; background: #fff; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
@@ -153,7 +153,8 @@
                 { label: "Gate & store", route: "inventory/raw-material-inventory" }] },
     /* make, freeze and pack are one step (owner, 29 Sep 2026); packing runs are requests too */
     { k: "make", name: "Make & pack", what: "Peas & veg: peel, wash, blanch. Soya chaap: dough, cut, stick, boil. Big 30 / 35 kg bags into the freezer, then small packets when orders need them, oldest bags first, into cartons.",
-      screens: [{ label: "Requests", route: "production/batch-management" },
+      screens: [{ label: "Recipes", route: "production/configure-recipe" },
+                { label: "Requests", route: "production/batch-management" },
                 { label: "Shifts", route: "production/production-board?view=week" },
                 { label: "Floor", route: "production/worker-app" },
                 { label: "Semi-finished", route: "inventory/semi-finished-inventory" },
@@ -302,8 +303,8 @@
 
   /* ── the hand-off: when a screen's work lands in another step, one line says so ── */
   var NEXT = { "purchase.po.raised": ["Purchase order raised", "buy", 2], "purchase.po.approved": ["Purchase order approved — on its way", "buy", 2],
-    "purchase.goods.received": ["Goods in the store", "make", 0], "production.batch.planned": ["Production request raised", "make", 1],
-    "production.batch.scheduled": ["Request has a shift", "make", 2], "production.batch.completed": ["Batch done — into the freezer", "make", 3],
+    "purchase.goods.received": ["Goods in the store", "make", 1], "production.batch.planned": ["Production request raised", "make", 2],
+    "production.batch.scheduled": ["Request has a shift", "make", 3], "production.batch.completed": ["Batch done — into the freezer", "make", 4],
     "sales.dispatch.created": ["Order dispatched — collect on delivery", "collect", 0] };
   var seen = 0, timer = null;
   try { seen = FB_PRODUCTION.log().length; } catch (e) {}
