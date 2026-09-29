@@ -261,7 +261,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO103",
+          "url": "modules/foodbridge-production-flow/production.html?v=20260929PO104",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -282,6 +282,16 @@
           "owner": "nishant-devekar/foodbridge-production-discovery"
         },
         {
+          "_why": "26 Sep 2026: the worker's phone, not an office screen. 29 Sep 2026, owner: back in the sidebar as Production's third entry, so the office can open what the floor sees. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
+          "id": "worker-app",
+          "name": "Worker App",
+          "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260929SL2",
+          "clipLeft": 0,
+          "fullBleed": true,
+          "deviceFrame": true,
+          "owner": "Nidhimehta9399/jobflow-worker-app"
+        },
+        {
           "_why": "Batch Management owns every batch number (PB- production, PK- packing). Its seed calls read the production store; the floor moves its states (first step started → In Progress, last step done → Completed) and a Steps tab shows who · how much · when. 29 Sep 2026, owner: retired from the sidebar (hidden) — it is the Production page's All batches, reached from its Today · Week · All batches, and every link to a batch still lands here.",
           "id": "batch-management",
           "aliases": [
@@ -289,7 +299,7 @@
           ],
           "name": "Batches",
           "hidden": true,
-          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO103",
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20260929PO104",
           "clipLeft": 0,
           "hideBurger": true,
           "exitIn": "nav.bottom-nav",
@@ -402,16 +412,6 @@
     }
   ],
   "standalone": [
-    {
-      "_why": "26 Sep 2026: the worker's phone, not an office screen — out of the sidebar, opened from the QR on Shop Floor and Shifts. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
-      "id": "worker-app",
-      "name": "Worker App",
-      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20260929SL2",
-      "clipLeft": 0,
-      "fullBleed": true,
-      "deviceFrame": true,
-      "owner": "Nidhimehta9399/jobflow-worker-app"
-    },
     {
       "id": "retails-overview",
       "name": "Store",
