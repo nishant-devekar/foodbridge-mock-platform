@@ -177,16 +177,55 @@
       }).join("") + "</div>";
   }
 
-  // NewDeliverySheet — the "+ New Delivery" affordance. QA lists the route
-  // templates the driver can start from, with a radio per row and a Start
-  // Delivery that stays disabled until one is picked. Templates here are the
-  // routes themselves, which is what the real templates are derived from.
+  // NewDeliverySheet — the "+ New Delivery" affordance (NewDeliverySheet.jsx).
+  // QA lists the route templates the driver can start from, with a radio per
+  // row and a Start Delivery that stays disabled until one is picked. Start
+  // makes a NEW delivery from the template (createOnTheMoveRoute): the sheet
+  // turns into its processing block while the route is made, then the driver
+  // lands on that new route's Pre-Start, at its first step — always, whatever
+  // state older trips on the same beat are in (30 Sep 2026: it used to open
+  // the template's existing trip, so Start dropped the driver into a closed
+  // report, a queue or a settlement at random).
+  const CREATE_STAGES = [
+    "Preparing delivery route…",
+    "Creating route manifest…",
+    "Allocating customer stops…",
+    "Finalising delivery plan…",
+  ];
+  // QA shows each stage for as long as its write takes. Offline there is no
+  // write, so each stage gets a steady beat: long enough to read, in order,
+  // and the whole block is done in under two seconds.
+  const STAGE_MS = 450;
+
+  function CreatingBlock(stage) {
+    return '<div style="' + U.sty({
+      position: "absolute", inset: 0, zIndex: 30, background: "rgba(255,255,255,0.94)",
+      backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: "28px 24px",
+    }) + '">' +
+      '<div style="' + U.sty({ width: 52, height: 52, borderRadius: "50%", border: "4px solid " + U.BRAND + "1a", borderTopColor: U.BRAND, animation: "rd-spin 0.9s linear infinite" }) + '"></div>' +
+      '<div style="' + U.sty({ textAlign: "center", maxWidth: 248 }) + '">' +
+        '<div style="' + U.sty({ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 7, lineHeight: 1.3 }) + '">Creating delivery route</div>' +
+        // Only the stage that just arrived slides in; a re-render for any
+        // other reason must not replay it.
+        '<div style="' + U.sty({ fontSize: 13, color: "#777", lineHeight: 1.55, animation: stage.fresh ? "rd-stage-in 0.35s ease" : "none" }) + '">' + U.esc(CREATE_STAGES[stage.idx]) + "</div>" +
+        '<div style="' + U.sty({ display: "flex", justifyContent: "center", gap: 6, marginTop: 14 }) + '">' +
+          CREATE_STAGES.map(function (_, i) {
+            return '<span style="' + U.sty({ width: i === stage.idx ? 18 : 6, height: 6, borderRadius: 3, background: i <= stage.idx ? U.BRAND : "#e5e7eb", transition: "width 0.25s, background 0.25s" }) + '"></span>';
+          }).join("") +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  }
+
   function NewDeliverySheet() {
     const S = window.RD.state;
+    const creating = S.newDeliveryCreating || null;
     const picked = S.newDeliveryPick || null;
-    const canSubmit = !!picked && String(S.newDeliveryName || "").trim() !== "";
-    const templates = D.db.routes.map(function (r) {
-      return { id: r.id, name: r.name, stops: r.totalStops };
+    const canSubmit = !!picked && String(S.newDeliveryName || "").trim() !== "" && !creating;
+    const staffCount = function (t) { return (t.staffs || []).length; };
+    const templates = (D.db.routeTemplates || []).map(function (t) {
+      return { id: t._id, name: t.name, stops: (t.customers || []).length, staff: staffCount(t) };
     });
 
     const rows = templates.map(function (t, i) {
@@ -206,7 +245,7 @@
           }) + '">' + (on ? '<div style="' + U.sty({ width: 7, height: 7, borderRadius: "50%", background: "white" }) + '"></div>' : "") + "</div>" +
           '<div style="' + U.sty({ flex: 1, minWidth: 0 }) + '">' +
             '<div style="' + U.sty({ fontSize: 15, fontWeight: 700, color: on ? U.BRAND : "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) + '">' + U.esc(t.name) + "</div>" +
-            '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 2 }) + '">' + t.stops + " customer" + (t.stops === 1 ? "" : "s") + " · 1 staff</div>" +
+            '<div style="' + U.sty({ fontSize: 12, color: "#888", marginTop: 2 }) + '">' + t.stops + " customer" + (t.stops === 1 ? "" : "s") + " · " + t.staff + " staff</div>" +
           "</div>" +
           (on ? '<div style="' + U.sty({ fontSize: 20, color: U.BRAND, flexShrink: 0, fontWeight: 700 }) + '">›</div>' : "") +
         "</button>" +
@@ -229,8 +268,12 @@
         "</div>";
     }).join("");
 
-    return '<div' + U.act("new-delivery-close") + ' style="' + U.sty({
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 100,
+    // While the route is made the sheet cannot be dismissed: the backdrop
+    // darkens and stops listening, the × goes, and the footer becomes a
+    // status line — exactly QA's loading state.
+    return '<div' + (creating ? "" : U.act("new-delivery-close")) + ' style="' + U.sty({
+      position: "fixed", inset: 0, background: creating ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.45)", zIndex: 100,
+      transition: "background 0.2s",
     }) + '"></div>' +
     '<div style="' + U.sty({
       position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
@@ -238,30 +281,41 @@
       background: "white", borderRadius: 20, boxShadow: "0 8px 40px rgba(0,0,0,0.22)",
       zIndex: 101, display: "flex", flexDirection: "column", overflow: "hidden",
     }) + '">' +
-      '<div style="' + U.sty({ padding: "18px 16px 14px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0 }) + '">' +
+      '<div style="' + U.sty({ padding: "18px 16px 14px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, opacity: creating ? 0.4 : 1, transition: "opacity 0.2s" }) + '">' +
         "<div>" +
           '<div style="' + U.sty({ fontSize: 18, fontWeight: 700, color: "#111" }) + '">New Delivery</div>' +
           '<div style="' + U.sty({ fontSize: 13, color: "#888", marginTop: 2 }) + '">Select a route template to begin</div>' +
         "</div>" +
-        '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
+        (creating ? "" : '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
           width: 32, height: 32, borderRadius: "50%", background: "#f3f4f6", color: "#6b7280",
           border: "none", fontSize: 18, fontWeight: 700, cursor: "pointer", marginTop: -2, flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
-        }) + '">×</button>' +
+        }) + '">×</button>') +
       "</div>" +
       // The list takes the sheet's slack; header and footer hold their height.
-      '<div style="' + U.sty({ flex: 1, position: "relative", overflowY: "auto", WebkitOverflowScrolling: "touch" }) + '">' + rows + "</div>" +
-      '<div style="' + U.sty({ padding: "12px 16px", borderTop: "1px solid #f0f2f5", display: "flex", gap: 10, flexShrink: 0 }) + '">' +
-        '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
-          flex: 1, padding: "15px 0", borderRadius: 16, border: "2px solid " + U.BRAND,
-          background: "white", color: U.BRAND, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-        }) + '">Cancel</button>' +
-        U.BtnXL({
-          variant: canSubmit ? "brand" : "grey", label: "Start Delivery", disabled: !canSubmit,
-          style: { flex: 2, padding: 15, fontSize: 15, opacity: canSubmit ? 1 : 0.5 },
-          actName: "new-delivery-start", arg: picked || "",
-        }) +
+      // The processing block covers just this list, as QA's does.
+      '<div data-scroll="new-delivery-list" style="' + U.sty({ flex: 1, position: "relative", overflowY: creating ? "hidden" : "auto", WebkitOverflowScrolling: "touch", minHeight: creating ? 220 : 0 }) + '">' +
+        '<div style="' + U.sty({ opacity: creating ? 0.25 : 1, pointerEvents: creating ? "none" : "auto", transition: "opacity 0.25s" }) + '">' + rows + "</div>" +
+        (creating ? CreatingBlock(creating) : "") +
       "</div>" +
+      (creating
+        ? '<div style="' + U.sty({ padding: "14px 16px", borderTop: "1px solid #f0f2f5", display: "flex", alignItems: "center", gap: 12, background: "#f8fafc", flexShrink: 0 }) + '">' +
+            '<span style="' + U.sty({ display: "inline-block", width: 16, height: 16, border: "2px solid " + U.BRAND + "33", borderTopColor: U.BRAND, borderRadius: "50%", animation: "rd-spin 0.7s linear infinite", flexShrink: 0 }) + '"></span>' +
+            '<div style="flex:1">' +
+              '<div style="' + U.sty({ fontSize: 13, fontWeight: 700, color: U.BRAND }) + '">Creating delivery…</div>' +
+              '<div style="' + U.sty({ fontSize: 11, color: "#888", marginTop: 1 }) + '">This takes a few seconds</div>' +
+            "</div></div>"
+        : '<div style="' + U.sty({ padding: "12px 16px", borderTop: "1px solid #f0f2f5", display: "flex", gap: 10, flexShrink: 0 }) + '">' +
+            '<button type="button"' + U.act("new-delivery-close") + ' style="' + U.sty({
+              flex: 1, padding: "15px 0", borderRadius: 16, border: "2px solid " + U.BRAND,
+              background: "white", color: U.BRAND, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }) + '">Cancel</button>' +
+            U.BtnXL({
+              variant: canSubmit ? "brand" : "grey", label: "Start Delivery", disabled: !canSubmit,
+              style: { flex: 2, padding: 15, fontSize: 15, opacity: canSubmit ? 1 : 0.5 },
+              actName: "new-delivery-start", arg: picked || "",
+            }) +
+          "</div>") +
     "</div>";
   }
 
@@ -348,9 +402,11 @@
     window.RD.state.newDeliveryPick = null;
     window.RD.state.newDeliveryName = "";
     window.RD.state.newDeliveryNameError = null;
+    window.RD.state.newDeliveryCreating = null;
     window.RD.render();
   });
   window.RD.action("new-delivery-close", function () {
+    if (window.RD.state.newDeliveryCreating) return;
     window.RD.state.newDeliveryOpen = false;
     window.RD.render();
   });
@@ -362,33 +418,66 @@
   }
   window.RD.action("new-delivery-pick", function (id) {
     const S = window.RD.state;
+    if (S.newDeliveryCreating) return;
     S.newDeliveryPick = id;
-    const t = (D.db.routes.find(function (r) { return r.id === id; }) || {});
+    const t = ((D.db.routeTemplates || []).find(function (r) { return r._id === id; }) || {});
     S.newDeliveryName = defaultDeliveryName(t.name);
     S.newDeliveryNameError = null;
+    // The screen redraws from a string; keep the list where the driver had
+    // scrolled it, or picking a row far down jumps him back to the top.
+    const list = document.querySelector('[data-scroll="new-delivery-list"]');
+    const top = list ? list.scrollTop : 0;
     window.RD.render();
+    const again = document.querySelector('[data-scroll="new-delivery-list"]');
+    if (again) again.scrollTop = top;
   });
   window.RD.action("model:new-delivery-name", function (v) {
     const S = window.RD.state;
     S.newDeliveryName = v;
     if (S.newDeliveryNameError) S.newDeliveryNameError = null;
+    const list = document.querySelector('[data-scroll="new-delivery-list"]');
+    const top = list ? list.scrollTop : 0;
     window.RD.render();
+    const again = document.querySelector('[data-scroll="new-delivery-list"]');
+    if (again) again.scrollTop = top;
     const el = document.querySelector('[data-model="new-delivery-name"]');
     if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   });
   window.RD.action("new-delivery-start", function (id) {
     const S = window.RD.state;
-    if (!id || !String(S.newDeliveryName || "").trim()) return;
-    // QA refuses a name that is already in use rather than creating a twin.
-    const taken = D.db.routes.some(function (r) { return r.name === String(S.newDeliveryName).trim(); });
+    if (S.newDeliveryCreating || !id || !String(S.newDeliveryName || "").trim()) return;
+    const name = String(S.newDeliveryName).trim();
+    // QA refuses a name that is already in use rather than creating a twin —
+    // case and surrounding spaces ignored, as isDuplicateName does.
+    const taken = D.db.routes.some(function (r) { return r.name.trim().toLowerCase() === name.toLowerCase(); });
     if (taken) {
       S.newDeliveryNameError = "A delivery with this name already exists. Please use a different name.";
       window.RD.render();
       return;
     }
-    S.newDeliveryOpen = false;
-    const route = D.db.routes.find(function (r) { return r.id === id; });
-    window.RD.go(route ? destinationFor(route) : "");
+    const tpl = (D.db.routeTemplates || []).find(function (t) { return t._id === id; }) || {};
+    // The stages run in order, one beat each; the route is made on the last
+    // one and the driver goes straight to its Pre-Start (useDashboardController
+    // handleCreateNewRoute → /pre-start/:routeId).
+    S.newDeliveryCreating = { idx: 0, fresh: true };
+    window.RD.render();
+    let idx = 0;
+    const tick = function () {
+      if (!S.newDeliveryCreating) return;
+      idx += 1;
+      if (idx < CREATE_STAGES.length) {
+        S.newDeliveryCreating = { idx: idx, fresh: true };
+        window.RD.render();
+        setTimeout(tick, STAGE_MS);
+        return;
+      }
+      const route = SDK.routeDelivery.createOnTheMoveRoute({ routeTemplateId: id, name: name, staffId: (tpl.staffs || [])[0] || null }).data;
+      S.newDeliveryCreating = null;
+      S.newDeliveryOpen = false;
+      S.newDeliveryPick = null;
+      window.RD.go("/pre-start/" + route.id);
+    };
+    setTimeout(tick, STAGE_MS);
   });
 
   // Typed text must survive the re-render, so the caret is restored after it.

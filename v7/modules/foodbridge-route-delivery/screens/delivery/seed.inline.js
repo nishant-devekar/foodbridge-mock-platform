@@ -639,40 +639,67 @@
 
   // ─── Mutable database ─────────────────────────────────────────────────────────
 
-  // ─── Vasu Foods (29 Sep 2026) ────────────────────────────────────────────────
+  // ─── Vasu Foods (29 Sep 2026; the beat, 30 Sep 2026) ─────────────────────────
   // In the platform the driver's phone runs on the business's one record — the
   // production store (v7/assets/production/production-api.js, loaded before
-  // this file). Its five routes are Vasu's van trips: today's Samana van
-  // (loaded, ready to leave), the Patiala van on the road, yesterday's two
-  // trips (one to settle, one closed) and today's Sangrur van still being
-  // loaded. Every stop is a real dispatch — its tax invoice, its packs and
-  // amounts — and what the driver records goes back to the store
-  // (vasu-sync.js).
+  // this file). Every van trip in the store's month is a route here: today's
+  // Samana van (loaded, ready to leave), the Patiala van on the road, the
+  // Sangrur van still waiting on its stock, yesterday's Samana trip to settle,
+  // and every trip before it closed.
+  //
+  // A trip calls on the whole beat, as a van does: the invoiced drops the
+  // office sent with it (each a real dispatch — its tax invoice, packs and
+  // amounts, and what the driver records goes back to the store, vasu-sync.js)
+  // and, between them, the shops, dhabas and chaap corners on the route, who
+  // buy off the van at the counter. Those van sales, what each shop paid and
+  // what it still owes, are the delivery app's own record: replayed trip by
+  // trip below, so a shop's balance today is what its last visits left.
+  //
+  // Everything is worked out from the trip, the shop and the day, never at
+  // random, so the same day always shows the same business.
   let VASU = null;
   function vasuSeed() {
     const P = window.FB_PRODUCTION;
     if (!P || !P.read) return null;
     return P.read(function (Dm, d) {
-      const DAY = 86400000, today = localDateStr(new Date()), yday = localDateStr(new Date(Date.now() - DAY));
+      const MIN = 60000, today = localDateStr(new Date()), nowT = Date.now();
       const dayOf = (iso) => localDateStr(new Date(iso));
       const gst = d.business.gstPct / 100;
       const staff = {}; d.team.forEach((m) => { staff[m.id] = m; });
       const route = {}; d.routes.forEach((r) => { route[r.id] = r; });
       const cust = {}; d.customers.forEach((c) => { cust[c.id] = c; });
-      const trips = d.deliveries.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      const used = [];
-      /* a trip only where the store has one: today's vans as they stand, and the
-         last day's finished trips to settle and to close */
-      const take = (f) => { const v = trips.find((x) => !used.includes(x.id) && f(x)); if (v) used.push(v.id); return v; };
-      const past = (v) => dayOf(v.createdAt) < today && v.dispatchIds.every((id) => (Dm.dispatchById(id) || {}).status !== 'Dispatch Created');
-      const plan = [
-        ['RTE-001', take((v) => dayOf(v.createdAt) === today && v.status === 'Vehicle Loading Completed'), 'READY'],
-        ['RTE-002', take((v) => dayOf(v.createdAt) === today && v.status === 'Out for Delivery'), 'IN_PROGRESS'],
-        ['RTE-003', take(past), 'PENDING_SETTLEMENT'],
-        ['RTE-004', take(past), 'CLOSED'],
-        ['RTE-005', take((v) => dayOf(v.createdAt) === today && v.status === 'Delivery Created'), 'READY'],
-      ].filter((x) => x[1]);
-      const me = staff[(plan[0] && plan[0][1].staffId) || 'stf-balwinder'] || d.team.find((m) => m.role === 'DRIVER');
+      const pad2 = (n) => String(n).padStart(2, '0');
+      const stamp = (iso) => { const x = new Date(iso); return pad2(x.getDate()) + '/' + pad2(x.getMonth() + 1) + '/' + x.getFullYear() + ' ' + pad2(x.getHours()) + ':' + pad2(x.getMinutes()); };
+      // "29 Sep 2026 16:40", as QA names a saved trip (not the locale's "Sept")
+      const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const stampLong = (iso) => { const x = new Date(iso); return pad2(x.getDate()) + ' ' + MON[x.getMonth()] + ' ' + x.getFullYear() + ' ' + pad2(x.getHours()) + ':' + pad2(x.getMinutes()); };
+      // a steady number in [0, 1) for a key — the same trip, shop and day always land the same
+      const hash = (key) => { let h = 2166136261; for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; };
+      const round10 = (n) => Math.round(n / 10) * 10;
+
+      /* A trip is live while any drop on it is still to be delivered — the
+         store's state says so, not the calendar (its morning runs relative to
+         now, so just after midnight this morning's vans carry yesterday's
+         date). Live trips are the driver's today. */
+      const isLive = (v) => v.synthetic || v.dispatchIds.some((id) => (Dm.dispatchById(id) || {}).status === 'Dispatch Created');
+      const storeTrips = d.deliveries.slice();
+      /* Every van runs its beat today. A route the office sent no invoiced drop
+         with this morning still goes out for its counters — as the store's
+         day has it: Samana's van loaded, Patiala's on the road, Sangrur's
+         still waiting on its stock. */
+      const DAY_PLAN = { 'rt-samana': 'Vehicle Loading Completed', 'rt-patiala': 'Out for Delivery', 'rt-sangrur': 'Delivery Created' };
+      d.routes.forEach((r) => {
+        if (storeTrips.some((v) => v.routeId === r.id && isLive(v))) return;
+        const made = new Date(nowT - 150 * MIN).toISOString(), plan = DAY_PLAN[r.id] || 'Delivery Created';
+        const history = [{ status: 'Delivery Created', at: made }];
+        if (plan !== 'Delivery Created') history.push({ status: 'Vehicle Loading Completed', at: new Date(nowT - 125 * MIN).toISOString() });
+        if (plan === 'Out for Delivery') history.push({ status: 'Out for Delivery', at: new Date(nowT - 105 * MIN).toISOString() });
+        storeTrips.push({ id: 'van-' + r.id, synthetic: true, createdAt: made, status: plan, dispatchIds: [], staffId: r.staffId, routeId: r.id, history });
+      });
+      const trips = storeTrips.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.routeId < b.routeId ? -1 : 1));
+      const todays = trips.filter(isLive);
+      const ready = todays.find((v) => v.status === 'Vehicle Loading Completed');
+      const me = staff[(ready && ready.staffId) || 'stf-balwinder'] || d.team.find((m) => m.role === 'DRIVER');
       Object.assign(S_DRIVER, { id: 'STF-' + me.id.toUpperCase(), name: me.name, phone: me.phone, email: me.name.toLowerCase().replace(/\s+/g, '.') + '@vasufoods.example', joiningDate: '2023-11-01', syncedAt: new Date().toISOString(), vehicle: me.vehicle });
 
       PRODUCT_CATEGORIES.splice(0, PRODUCT_CATEGORIES.length,
@@ -690,49 +717,169 @@
       const ORG = { COMMISSION_AGENT: 'WHOLESALER', DISTRIBUTOR: 'DISTRIBUTOR', RETAILER: 'RETAILER', HORECA: 'RETAILER', CONSUMER: 'RETAILER' };
       S_CUSTOMERS.splice(0, S_CUSTOMERS.length, ...d.customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone, address: c.address + ', ' + c.city, orgType: ORG[c.type],
         gstType: c.gstin ? 'regular' : 'unregistered', gstNumber: c.gstin || null, creditAmount: owed[c.id] ? Math.round(owed[c.id].outstanding) : 0 })));
+      const custCard = (c, credit) => ({ id: c.id, name: c.name, phone: c.phone, email: '', address: c.address + ', ' + c.city, orgType: ORG[c.type], supplyChainType: 'PUBLIC',
+        gstType: c.gstin ? 'regular' : 'unregistered', gstNumber: c.gstin || null, creditAmount: credit });
 
-      const details = {};
+      /* The beat, in the order the van reaches it: town by town along the
+         route, and within a town the counters first, the invoiced drop after. */
+      const TOWNS = { 'rt-samana': ['Samana', 'Gajewas', 'Dhanetha'], 'rt-patiala': ['Patiala', 'Rajpura', 'Zirakpur'], 'rt-sangrur': ['Patran', 'Ghagga', 'Sangrur'] };
+      const beatOf = (rid) => d.customers.map((c, i) => ({ c, i })).filter((x) => x.c.routeId === rid && x.c.type !== 'CONSUMER')
+        .map((x) => Object.assign(x, { town: (TOWNS[rid] || []).indexOf(x.c.city), drop: x.c.every > 0 ? 1 : 0 }))
+        .sort((a, b) => (a.town - b.town) || (a.drop - b.drop) || (a.i - b.i)).map((x) => x.c);
+      const isCounter = (c) => c.every === 0 && c.type !== 'CONSUMER';
+
+      /* What a counter takes off the van: small packs at a shop, kilo packs at
+         a dhaba or a chaap corner. List price with GST — the van's price. */
+      const SHOP_PACKS = ['fg-p01', 'fg-p02', 'fg-p11', 'fg-p05', 'fg-p07', 'fg-p08', 'fg-p13'];
+      const KITCHEN_PACKS = ['fg-p09', 'fg-p15', 'fg-p03', 'fg-p06', 'fg-p14'];
+      const line = (skuId, qty) => { const k = Dm.sku(skuId), up = incl(k.price); return { productId: skuId, productName: k.name, qty, orderingUnit: 'Piece', unitPrice: up, lineTotal: Math.round(up * qty * 100) / 100 }; };
+      const basket = (c, key) => {
+        const packs = (c.type === 'HORECA' ? KITCHEN_PACKS : SHOP_PACKS).filter((id) => { const k = Dm.sku(id); return k && !k.retired; });
+        if (!packs.length) return [];
+        const n = 2 + Math.floor(hash(key + '|n') * 2), start = Math.floor(hash(key + '|s') * packs.length), out = [];
+        for (let j = 0; j < n && out.length < packs.length; j++) {
+          const id = packs[(start + j * 2) % packs.length];
+          if (out.some((o) => o.productId === id)) continue;
+          const base = c.type === 'HORECA' ? 2 : Dm.sku(id).grams <= 250 ? 6 : 4;
+          out.push(line(id, base + Math.floor(hash(key + '|' + id) * base)));
+        }
+        return out;
+      };
+      const sum = (items) => Math.round(items.reduce((t, it) => t + it.lineTotal, 0));
+      /* the van's usual load for the counters of a route: what they take on a
+         usual day and a sixth over, in sixes */
+      const counterLoad = (rid) => {
+        const need = {};
+        beatOf(rid).filter(isCounter).forEach((c) => basket(c, rid + '|' + c.id + '|usual').forEach((it) => { need[it.productId] = (need[it.productId] || 0) + it.qty; }));
+        Object.keys(need).forEach((id) => { need[id] = Math.ceil(need[id] * 1.15 / 6) * 6; });
+        return need;
+      };
+
+      /* The route templates New Delivery starts from: the three beats, and the
+         last few trips as the office saved them — newest first, as QA lists them. */
+      const TEMPLATES = d.routes.map((r, i) => ({ _id: 'TPL-' + r.id, name: r.name, customers: beatOf(r.id).map((c) => c.id), staffs: [r.staffId], storeRouteId: r.id, created: new Date(nowT - (200 + i) * 86400000).toISOString() }));
+
+      /* Which trip is what today. The newest finished trip on the driver's own
+         route waits to be settled; every other finished trip is closed. */
+      const pastTrips = trips.filter((v) => !isLive(v));
+      const settleTrip = pastTrips.slice().reverse().find((v) => v.staffId === me.id) || pastTrips[pastTrips.length - 1];
+      const statusOf = (v) => {
+        if (!isLive(v)) return v === settleTrip ? 'PENDING_SETTLEMENT' : 'CLOSED';
+        return v.status === 'Out for Delivery' ? 'IN_PROGRESS' : v.status === 'Vehicle Loading Completed' ? 'READY' : 'STOCK_REQUESTED';
+      };
+
+      const details = {}, counterOwes = {}, routeIds = [];
+      // skip reasons by how often a beat meets them: [reason, below this draw]
+      const SKIPS = [['FULLY_STOCKED', 0.12], ['WILL_ORDER_LATER', 0.17], ['SHOP_CLOSED', 0.21], ['OWNER_AWAY', 0.24]], SKIP_AT = 0.24;
       S_ROUTES.splice(0, S_ROUTES.length);
       [S_ROUTE_DETAILS, S_STOCK_LOADS, S_CASH_COUNTED, S_STOPS, S_SETTLEMENT_STEPS].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
-      plan.forEach(([rid, v, status]) => {
-        const rt = route[v.routeId] || { name: 'Route' }, drv = staff[v.staffId] || me;
-        const xs = v.dispatchIds.map((id) => Dm.dispatchById(id)).filter(Boolean);
-        const done = status === 'PENDING_SETTLEMENT' || status === 'CLOSED';
-        const stops = xs.map((x, i) => {
-          const c = cust[x.customerId], inv = x.invoice;
-          const got = d.payments.filter((p) => p.kind === 'in' && p.allocations.some((a) => a.no === inv.no) && /Collected by/.test(p.ref || ''));
-          const collected = Math.round(got.reduce((t, p) => t + p.amount, 0));
-          const before = owed[c.id] ? Math.max(0, Math.round(owed[c.id].outstanding - Math.max(0, inv.amount - (inv.paid || 0)))) : 0;
-          const stopId = 'STP-' + String(i + 1).padStart(2, '0') + '-' + x.number.slice(-6);
-          const st = done || x.status === 'Delivered' ? 'DELIVERED' : status === 'IN_PROGRESS' && i === 0 ? 'CURRENT' : 'PENDING';
-          const items = x.items.map((it) => { const k = Dm.sku(it.skuId), up = incl(it.price); return { productId: it.skuId, productName: k ? k.name : it.skuId, qty: it.qty, orderingUnit: 'Piece', unitPrice: up, lineTotal: Math.round(up * it.qty * 100) / 100 }; });
-          details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: inv.no, dispatchId: x.id, dispatchNumber: x.number,
-            customer: { id: c.id, name: c.name, phone: c.phone, email: '', address: c.address + ', ' + c.city, orgType: ORG[c.type], supplyChainType: 'PUBLIC', gstType: c.gstin ? 'regular' : 'unregistered', gstNumber: c.gstin || null, creditAmount: before },
-            orderItems: items, orderTotal: inv.amount };
-          return { id: stopId, sequence: i + 1, customerId: c.id, customerName: c.name, customerInitials: initials(c.name), status: st,
-            outstandingAmount: done ? 0 : before, collectedAmount: done ? collected : 0, todayOrderAmount: inv.amount, totalDue: (done ? 0 : before) + inv.amount,
-            paymentMethod: done ? (collected ? 'CASH' : 'CREDIT') : null, skipReason: null, completedAt: done ? (x.deliveredAt || v.createdAt) : null, dispatchId: x.id };
+
+      trips.forEach((v, n) => {
+        const rid = 'RTE-' + String(n + 1).padStart(3, '0');
+        const status = statusOf(v), done = status === 'PENDING_SETTLEMENT' || status === 'CLOSED';
+        const rt = route[v.routeId] || { id: v.routeId, name: 'Route' }, drv = staff[v.staffId] || me;
+        const at = (min) => new Date(new Date(v.createdAt).getTime() + min * MIN).toISOString();
+        const outAt = ((v.history || []).find((h) => h.status === 'Out for Delivery') || {}).at || at(45);
+        const drops = {}; v.dispatchIds.map((id) => Dm.dispatchById(id)).filter(Boolean).forEach((x) => { drops[x.customerId] = x; });
+        const beat = beatOf(v.routeId).filter((c) => drops[c.id] || isCounter(c));
+        const code = rt.name.replace(/[^A-Z]/g, '').slice(0, 3) || 'VAN';
+        const ymd = dayOf(v.createdAt).replace(/-/g, '').slice(2);
+
+        /* on the road today: the counters before the first drop are done, as
+           many as the van has had time for since it left */
+        const firstDrop = beat.findIndex((c) => drops[c.id]);
+        const onRoad = status === 'IN_PROGRESS' ? Math.max(0, Math.min(firstDrop < 0 ? beat.length : firstDrop, Math.floor((nowT - new Date(outAt).getTime()) / (11 * MIN)), beat.length - 1)) : 0;
+
+        const sold = {};
+        const stops = beat.map((c, i) => {
+          const stopId = 'STP-' + rid.slice(4) + '-' + String(i + 1).padStart(2, '0');
+          const when = new Date(new Date(outAt).getTime() + (i + 1) * 11 * MIN).toISOString();
+          const x = drops[c.id];
+          if (x) {
+            const inv = x.invoice;
+            const got = d.payments.filter((p) => p.kind === 'in' && p.allocations.some((a) => a.no === inv.no) && /Collected by/.test(p.ref || ''));
+            const collected = Math.round(got.reduce((t, p) => t + p.amount, 0));
+            const before = owed[c.id] ? Math.max(0, Math.round(owed[c.id].outstanding - Math.max(0, inv.amount - (inv.paid || 0)))) : 0;
+            const items = x.items.map((it) => { const k = Dm.sku(it.skuId), up = incl(it.price); return { productId: it.skuId, productName: k ? k.name : it.skuId, qty: it.qty, orderingUnit: 'Piece', unitPrice: up, lineTotal: Math.round(up * it.qty * 100) / 100 }; });
+            const st = done || x.status === 'Delivered' ? 'DELIVERED' : status === 'IN_PROGRESS' && i === onRoad ? 'CURRENT' : 'PENDING';
+            details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: inv.no, dispatchId: x.id, dispatchNumber: x.number,
+              customer: custCard(c, before), orderItems: items, orderTotal: inv.amount };
+            return { id: stopId, sequence: i + 1, customerId: c.id, customerName: c.name, customerInitials: initials(c.name), status: st,
+              outstandingAmount: done ? 0 : before, collectedAmount: done ? collected : 0, todayOrderAmount: inv.amount, totalDue: (done ? 0 : before) + inv.amount,
+              paymentMethod: done ? (collected ? 'CASH' : 'CREDIT') : null, skipReason: null, completedAt: done ? when : null, dispatchId: x.id };
+          }
+          /* a counter: sold off the van on a trip that has run, still to call on otherwise */
+          const prev = counterOwes[c.id] || 0, key = v.id + '|' + c.id;
+          const visited = done || (status === 'IN_PROGRESS' && i < onRoad);
+          const base = { id: stopId, sequence: i + 1, customerId: c.id, customerName: c.name, customerInitials: initials(c.name) };
+          if (!visited) {
+            details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: '', customer: custCard(c, prev), orderItems: [], orderTotal: 0 };
+            return Object.assign(base, { status: status === 'IN_PROGRESS' && i === onRoad ? 'CURRENT' : 'PENDING', outstandingAmount: prev, collectedAmount: 0, todayOrderAmount: 0, totalDue: prev,
+              paymentMethod: null, skipReason: null, completedAt: null });
+          }
+          /* a daily beat: most days a counter buys; some days it still has
+             stock, will call later, or is shut */
+          const r = hash(key + '|pay');
+          if (r < SKIP_AT) {
+            details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: '', customer: custCard(c, prev), orderItems: [], orderTotal: 0 };
+            return Object.assign(base, { status: 'SKIPPED', outstandingAmount: prev, collectedAmount: 0, todayOrderAmount: 0, totalDue: prev,
+              paymentMethod: null, skipReason: SKIPS.find((s) => r < s[1])[0], completedAt: when });
+          }
+          const q = (r - SKIP_AT) / (1 - SKIP_AT);
+          const items = basket(c, key), order = sum(items), due = prev + order;
+          items.forEach((it) => { sold[it.productId] = (sold[it.productId] || 0) + it.qty; });
+          /* dhabas, chaap corners and sweet shops pay cash on the spot; a shop
+             pays in full, part now and the rest next visit, or takes it on credit */
+          const cashOnly = !c.creditDays;
+          const method = cashOnly ? 'CASH' : q < 0.55 ? 'CASH' : q < 0.72 ? 'UPI' : q < 0.9 ? 'CASH' : 'CREDIT';
+          const paid = cashOnly || q < 0.72 ? due : q < 0.9 ? Math.min(due, round10(order * 0.6 + prev * 0.5)) : 0;
+          counterOwes[c.id] = Math.max(0, due - paid);
+          details[stopId] = { id: stopId, sequence: i + 1, customerId: c.id, customerInitials: initials(c.name), invoiceNumber: 'VS/' + ymd + '/' + code + '/' + String(i + 1).padStart(2, '0'),
+            customer: custCard(c, prev), orderItems: items, orderTotal: order,
+            items: items.map((it) => ({ productId: it.productId, name: it.productName, qty: it.qty, unitPrice: it.unitPrice, amount: it.lineTotal })) };
+          return Object.assign(base, { status: 'DELIVERED', outstandingAmount: counterOwes[c.id], collectedAmount: paid, todayOrderAmount: order, totalDue: due,
+            paymentMethod: method, skipReason: null, completedAt: when });
         });
+
+        /* the load: the invoiced drops as the store packed them, and the van's
+         stock for the counters — the usual load, or more if the day sold more */
         const load = {};
-        xs.forEach((x) => x.items.forEach((it) => { const k = Dm.sku(it.skuId); const l = load[it.skuId] || (load[it.skuId] = { productId: it.skuId, name: k ? k.name : it.skuId, unitPrice: incl(it.price), planQty: 0, loadedQty: 0 }); l.planQty += it.qty; l.loadedQty += it.qty; }));
-        const loadList = Object.values(load), est = Math.round(xs.reduce((t, x) => t + x.invoice.amount, 0));
-        const units = loadList.reduce((t, l) => t + l.loadedQty, 0), loaded = v.status !== 'Delivery Created';
-        const at = (min) => new Date(new Date(v.createdAt).getTime() + min * 60000).toISOString();
+        const add = (id, name, unitPrice, qty) => { const l = load[id] || (load[id] = { productId: id, name, unitPrice, planQty: 0, loadedQty: 0 }); l.planQty += qty; l.loadedQty += qty; };
+        Object.values(drops).forEach((x) => x.items.forEach((it) => { const k = Dm.sku(it.skuId); add(it.skuId, k ? k.name : it.skuId, incl(it.price), it.qty); }));
+        const usual = counterLoad(v.routeId);
+        Object.keys(Object.assign({}, usual, sold)).forEach((id) => { const k = Dm.sku(id); if (k) add(id, k.name, incl(k.price), Math.max(usual[id] || 0, Math.ceil(((sold[id] || 0) + 2) / 6) * 6)); });
+        const loadList = Object.values(load);
+        const dropValue = Math.round(Object.values(drops).reduce((t, x) => t + x.invoice.amount, 0));
+        const counterValue = Math.round(Object.keys(usual).reduce((t, id) => t + usual[id] * incl(Dm.sku(id).price), 0));
+        const est = dropValue + counterValue;
+        const units = loadList.reduce((t, l) => t + l.loadedQty, 0), value = Math.round(loadList.reduce((t, l) => t + l.loadedQty * l.unitPrice, 0));
+        const loaded = status !== 'STOCK_REQUESTED';
         const done2 = (extra) => Object.assign({ status: 'COMPLETED', confirmedAt: at(20) }, extra || {});
-        const detail = { id: rid, name: rt.name, beatArea: rt.name.split(' – ')[0], scheduledDate: dayOf(v.createdAt), status,
+        const detail = { id: rid, name: rt.name + ' ' + stamp(v.createdAt), beatArea: rt.name.split(' – ')[0], scheduledDate: isLive(v) ? today : dayOf(v.createdAt), status,
           driver: Object.assign({}, S_DRIVER, { id: 'STF-' + drv.id.toUpperCase(), name: drv.name, phone: drv.phone, vehicle: drv.vehicle }),
-          totalStops: stops.length, completedStops: stops.filter((s2) => s2.status === 'DELIVERED').length, estimatedCollectionAmount: est,
-          outstandingAmount: stops.filter((s2) => s2.status !== 'DELIVERED').reduce((t, s2) => t + s2.outstandingAmount, 0), collectedAmount: stops.reduce((t, s2) => t + s2.collectedAmount, 0),
-          checklist: mkChecklist(loaded ? done2({ totalUnits: units, estimatedValue: est }) : PEND(), loaded ? done2({ amount: 1000 }) : PEND(), status === 'IN_PROGRESS' || done ? done2() : PEND()),
-          startedAt: status === 'IN_PROGRESS' || done ? at(45) : null, updatedAt: at(60), vasuDelivery: v.id };
+          totalStops: stops.length, completedStops: stops.filter((s2) => s2.status === 'DELIVERED' || s2.status === 'SKIPPED').length, estimatedCollectionAmount: est,
+          outstandingAmount: stops.filter((s2) => s2.status !== 'DELIVERED' && s2.status !== 'SKIPPED').reduce((t, s2) => t + s2.outstandingAmount, 0), collectedAmount: stops.reduce((t, s2) => t + s2.collectedAmount, 0),
+          checklist: mkChecklist(loaded ? done2({ totalUnits: units, estimatedValue: value }) : PEND(), loaded ? done2({ amount: 1000 }) : PEND(), status === 'IN_PROGRESS' || done ? done2({ confirmedAt: outAt }) : PEND()),
+          startedAt: status === 'IN_PROGRESS' || done ? outAt : null, updatedAt: done ? stops.reduce((t, s2) => (s2.completedAt && s2.completedAt > t ? s2.completedAt : t), outAt) : at(60),
+          vasuDelivery: v.synthetic ? null : v.id, routeTemplateId: 'TPL-' + v.routeId };
         S_ROUTE_DETAILS[rid] = detail;
-        S_ROUTES.push({ id: rid, name: rt.name, status, totalStops: detail.totalStops, completedStops: detail.completedStops, estimatedCollectionAmount: est, outstandingAmount: detail.outstandingAmount, collectedAmount: detail.collectedAmount, scheduledDate: detail.scheduledDate });
-        S_STOCK_LOADS[rid] = { status: loaded ? 'COMPLETED' : 'PENDING', confirmedAt: loaded ? at(20) : null, products: loadList, summary: { totalUnits: units, estimatedValue: est } };
+        S_ROUTES.push({ id: rid, name: detail.name, status, totalStops: detail.totalStops, completedStops: detail.completedStops, estimatedCollectionAmount: est, outstandingAmount: detail.outstandingAmount, collectedAmount: detail.collectedAmount, scheduledDate: detail.scheduledDate });
+        S_STOCK_LOADS[rid] = { status: loaded ? 'COMPLETED' : 'PENDING', confirmedAt: loaded ? at(20) : null, products: loadList, summary: { totalUnits: units, estimatedValue: value } };
         S_STOPS[rid] = stops;
         S_SETTLEMENT_STEPS[rid] = status === 'CLOSED' ? mkCompletedSteps() : mkSteps();
-        if (status === 'CLOSED') S_CASH_COUNTED[rid] = stops.reduce((t, s2) => t + s2.collectedAmount, 0);
+        if (status === 'CLOSED') S_CASH_COUNTED[rid] = stops.reduce((t, s2) => t + (s2.paymentMethod === 'CASH' ? s2.collectedAmount : 0), 0) + 1000;
+        routeIds.push(rid);
       });
-      return { details, routeIds: plan.map((x) => x[0]) };
+
+      /* what each counter owes now is what its last visits left */
+      S_CUSTOMERS.forEach((c) => { if (counterOwes[c.id] != null) c.creditAmount = counterOwes[c.id]; });
+
+      /* the last trips the office saved as templates, newest first, with the
+         beats themselves at the bottom where their older dates put them */
+      const recent = routeIds.slice(-6).map((rid) => { const v = trips[routeIds.indexOf(rid)], rt = route[v.routeId] || { name: 'Route' };
+        return { _id: 'TPL-' + rid, name: rt.name + ' - ' + stampLong(v.createdAt), customers: S_STOPS[rid].map((s2) => s2.customerId), staffs: [v.staffId], storeRouteId: v.routeId, created: v.createdAt }; });
+      const templates = TEMPLATES.concat(recent).sort((a, b) => (a.created < b.created ? 1 : -1));
+      return { details, routeIds, templates, closedIds: routeIds.filter((rid) => S_ROUTE_DETAILS[rid].status === 'CLOSED') };
     });
   }
 
@@ -749,8 +896,21 @@
       activityLog[routeId] = rd ? buildActivityLog(routeId, sts, sl, rd) : [];
     }
 
+    // Vasu: every closed trip was counted, handed over and closed that evening.
+    if (VASU) VASU.closedIds.forEach(function (rid) {
+      const rd = S_ROUTE_DETAILS[rid], stops = S_STOPS[rid] || [];
+      const end = new Date(new Date(rd.updatedAt).getTime() + 40 * 60000);
+      const t = function (min) { return new Date(end.getTime() + min * 60000).toISOString(); };
+      const cash = S_CASH_COUNTED[rid] || 0;
+      activityLog[rid].push(
+        { id: 'ACT-' + rid + '-SC', type: 'STOCK_COUNT_SUBMITTED', payload: { discrepancyCount: 0, note: '' }, createdAt: t(0) },
+        { id: 'ACT-' + rid + '-CH', type: 'CASH_HANDOVER_SUBMITTED', payload: { actualCounted: cash, expectedHandOver: cash, difference: 0, supervisorName: 'Mohan Lal' }, createdAt: t(25) },
+        { id: 'ACT-' + rid + '-RC', type: 'ROUTE_CLOSED', payload: { closedAt: t(40), stops: stops.length }, createdAt: t(40) },
+      );
+    });
+
     // RTE-004 (CLOSED): append settlement & closure events
-    if (activityLog['RTE-004']) activityLog['RTE-004'].push(
+    if (!VASU && activityLog['RTE-004']) activityLog['RTE-004'].push(
       {
         id: 'ACT-S4-SC', type: 'STOCK_COUNT_SUBMITTED',
         payload: { discrepancyCount: 1, note: VASU ? '2 packets short at the count — possible loading error' : '2 units Murukku unaccounted — possible loading error' },
@@ -799,6 +959,11 @@
       products:        clone(S_PRODUCTS),
       customers:       clone(S_CUSTOMERS),
       routes:          clone(S_ROUTES),
+      // What New Delivery offers (NewDeliverySheet): each template's customers
+      // become the new route's stops. Off the store, a route is its own template.
+      routeTemplates:  VASU ? clone(VASU.templates) : S_ROUTES.map(function (r) {
+        return { _id: 'TPL-' + r.id, name: r.name, customers: (S_STOPS[r.id] || []).map(function (s) { return s.customerId; }), staffs: [S_DRIVER.id] };
+      }),
       routeDetails:    clone(S_ROUTE_DETAILS),
       stockLoads:      clone(S_STOCK_LOADS),
       stops:           S_STOPS_BUILT,

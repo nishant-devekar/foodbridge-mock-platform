@@ -51,7 +51,7 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 8;
+  var VERSION = 9;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
   /* ── The business: Vasu Foods, Samana (owner's brief, 29 Sep 2026) ─────
@@ -284,6 +284,55 @@
     ["cus-rajesh", "Rajesh Bansal", "CONSUMER", "Rajesh Bansal", "5550401102", "Samana", "Model Town, Samana", "rt-samana", 0, 0, {}, 0, 0],
     ["cus-simran", "Simran Sethi", "CONSUMER", "Simran Sethi", "5550401103", "Patran", "Gandhi Nagar, Patran", "rt-sangrur", 0, 0, {}, 0, 0],
     ["cus-gurmeet", "Gurmeet Singh", "CONSUMER", "Gurmeet Singh", "5550401104", "Samana", "Village Kakrala, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    /* The beat (30 Sep 2026): the shops, dhabas and chaap corners each van
+       calls on along its route, in the order it reaches them. They buy off
+       the van — the driver books what they take at the counter — so they
+       have no usual order here and change nothing in production, stock or
+       money; what they buy lives in the delivery app. Appended last so every
+       customer above keeps its place in the month the store replays. */
+    ["cus-b-goyal", "Goyal Kiryana Store", "RETAILER", "Sanjay Goyal", "5550401201", "Samana", "Main Bazaar, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-bholaram", "Bhola Ram & Sons", "RETAILER", "Bhola Ram", "5550401202", "Samana", "Purani Sabzi Mandi, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-shivshakti", "Shiv Shakti General Store", "RETAILER", "Vinod Kumar", "5550401203", "Samana", "Tehsil Road, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-jain", "Jain Provision Store", "RETAILER", "Ashok Jain", "5550401204", "Samana", "Jain Mandir Gali, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-babadeep", "Baba Deep Singh Kiryana", "RETAILER", "Kulwant Singh", "5550401205", "Samana", "Gurdwara Road, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-mahajan", "Mahajan Super Bazaar", "RETAILER", "Rakesh Mahajan", "5550401206", "Samana", "Patiala Road, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-kwality", "Kwality Sweets", "RETAILER", "Pardeep Kumar", "5550401207", "Samana", "Bus Stand Chowk, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-b-sharmadairy", "Sharma Dairy & Kiryana", "RETAILER", "Pawan Sharma", "5550401208", "Samana", "Ward 4, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-hariom", "Hari Om Traders", "RETAILER", "Hari Om Bansal", "5550401209", "Samana", "Anaj Mandi Gate, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-freshmart", "Samana Fresh Mart", "RETAILER", "Gaurav Singla", "5550401210", "Samana", "Model Town, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-gurunanak", "Guru Nanak Dhaba", "HORECA", "Balkar Singh", "5550401211", "Samana", "Patran Road, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-b-ludhianachaap", "Ludhiana Chaap Corner", "HORECA", "Monu Arora", "5550401212", "Samana", "Station Road, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-b-bittu", "Bittu Kiryana Store", "RETAILER", "Bittu Garg", "5550401213", "Samana", "Ward 9, Samana", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-royal", "Royal Bakers & Sweets", "RETAILER", "Sunny Malhotra", "5550401214", "Samana", "Cinema Road, Samana", "rt-samana", 0, 0, {}, 0, 0],
+    ["cus-b-gill", "Gill General Store", "RETAILER", "Jasvir Gill", "5550401215", "Gajewas", "Main Chowk, Gajewas", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-dhillon", "Dhillon Kiryana", "RETAILER", "Harjit Dhillon", "5550401216", "Gajewas", "Gurdwara Sahib Road, Gajewas", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-sidhu", "Sidhu Provision Store", "RETAILER", "Gurpal Sidhu", "5550401217", "Dhanetha", "Bus Stop, Dhanetha", "rt-samana", 0, 0, {}, 7, 0],
+    ["cus-b-bhatia", "Bhatia Super Store", "RETAILER", "Rohit Bhatia", "5550401221", "Patiala", "Tripuri Market, Patiala", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-verma", "Verma Kiryana", "RETAILER", "Deepak Verma", "5550401222", "Patiala", "Sanauri Adda, Patiala", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-amritsarichaap", "Amritsari Chaap Wala", "HORECA", "Rinku Kumar", "5550401223", "Patiala", "Leela Bhawan, Patiala", "rt-patiala", 0, 0, {}, 0, 0],
+    ["cus-b-kohli", "Kohli Provision Store", "RETAILER", "Amit Kohli", "5550401224", "Patiala", "Model Town, Patiala", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-grewal", "Grewal Dairy & Frozen", "RETAILER", "Manjit Grewal", "5550401225", "Patiala", "Urban Estate Phase 2, Patiala", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-singla", "Singla General Store", "RETAILER", "Naveen Singla", "5550401226", "Patiala", "Adalat Bazaar, Patiala", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-arora", "Arora Kiryana", "RETAILER", "Sandeep Arora", "5550401227", "Rajpura", "Old Rajpura, Rajpura", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-bharat", "Bharat Super Mart", "RETAILER", "Bharat Bhushan", "5550401228", "Rajpura", "Rajpura Town, Rajpura", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-sherepunjab", "Sher-e-Punjab Dhaba", "HORECA", "Lakhwinder Singh", "5550401229", "Rajpura", "Rajpura Bypass, NH 44", "rt-patiala", 0, 0, {}, 0, 0],
+    ["cus-b-mehta", "Mehta Provision Store", "RETAILER", "Vikas Mehta", "5550401230", "Rajpura", "Gagan Chowk, Rajpura", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-freshbasket", "Fresh Basket", "RETAILER", "Karan Sood", "5550401231", "Zirakpur", "VIP Road, Zirakpur", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-bansalmega", "Bansal Mega Mart", "RETAILER", "Anil Bansal", "5550401232", "Zirakpur", "Patiala Highway, Zirakpur", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-chaapnation", "Chaap Nation", "HORECA", "Sahil Khanna", "5550401233", "Zirakpur", "Lohgarh Road, Zirakpur", "rt-patiala", 0, 0, {}, 0, 0],
+    ["cus-b-dhakoli", "Dhakoli Kiryana", "RETAILER", "Ramesh Chand", "5550401234", "Zirakpur", "Dhakoli, Zirakpur", "rt-patiala", 0, 0, {}, 7, 0],
+    ["cus-b-saini", "Saini Kiryana Store", "RETAILER", "Mohinder Saini", "5550401241", "Patran", "Main Bazaar, Patran", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-patranbazaar", "Patran Super Bazaar", "RETAILER", "Rajinder Goyal", "5550401242", "Patran", "Samana Road, Patran", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-jagdamba", "Jagdamba Sweets", "RETAILER", "Suresh Kumar", "5550401243", "Patran", "Bus Stand Road, Patran", "rt-sangrur", 0, 0, {}, 0, 0],
+    ["cus-b-khalsa", "Khalsa Dhaba", "HORECA", "Gurnam Singh", "5550401244", "Patran", "Patran Bypass, Patran", "rt-sangrur", 0, 0, {}, 0, 0],
+    ["cus-b-bhullar", "Bhullar General Store", "RETAILER", "Sukhdev Bhullar", "5550401245", "Ghagga", "Main Road, Ghagga", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-mann", "Mann Kiryana", "RETAILER", "Iqbal Mann", "5550401246", "Ghagga", "Gurdwara Chowk, Ghagga", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-ghaggamart", "Ghagga Provision Mart", "RETAILER", "Nitin Mittal", "5550401247", "Ghagga", "Near Bus Stand, Ghagga", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-sangrurmarket", "Sangrur Super Market", "RETAILER", "Vijay Garg", "5550401248", "Sangrur", "Dhuri Gate, Sangrur", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-kalra", "Kalra Kiryana", "RETAILER", "Tarun Kalra", "5550401249", "Sangrur", "Patiala Gate, Sangrur", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-sukhmani", "Sukhmani Dairy & Frozen", "RETAILER", "Harpreet Singh", "5550401250", "Sangrur", "Nankiana Chowk, Sangrur", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-nabhagate", "Nabha Gate General Store", "RETAILER", "Sunil Jindal", "5550401251", "Sangrur", "Nabha Gate, Sangrur", "rt-sangrur", 0, 0, {}, 7, 0],
+    ["cus-b-punjabchaap", "Punjab Chaap House", "HORECA", "Jatinder Kumar", "5550401252", "Sangrur", "Club Road, Sangrur", "rt-sangrur", 0, 0, {}, 0, 0],
   ];
   /* list price less this share, by kind of customer */
   var TIER = { COMMISSION_AGENT: 0.12, DISTRIBUTOR: 0.10, HORECA: 0.05, RETAILER: 0, CONSUMER: 0 };

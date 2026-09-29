@@ -30,7 +30,7 @@
       const customers = d.customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }));
       const staffList = d.team.filter((m) => m.role === "DRIVER" || m.role === "STORE").map((m) => ({ id: m.id, name: m.name }));
       const trips = d.deliveries.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      const routeTemplates = d.routes.map((r, i) => ({ id: r.id, name: r.name, customers: d.customers.filter((c) => c.routeId === r.id && c.every > 0).map((c) => c.id), staffs: [r.staffId], created: new Date(now.getTime() - (200 + i) * DAY).toISOString().slice(0, 19) }))
+      const routeTemplates = d.routes.map((r, i) => ({ id: r.id, name: r.name, customers: d.customers.filter((c) => c.routeId === r.id && c.type !== "CONSUMER").map((c) => c.id), staffs: [r.staffId], created: new Date(now.getTime() - (200 + i) * DAY).toISOString().slice(0, 19) }))
         .concat(trips.slice(0, 12).map((v) => ({ id: v.id, name: (route[v.routeId] || { name: "Trip" }).name + " - " + label(v.createdAt),
           customers: [...new Set(v.dispatchIds.map((id) => (D.dispatchById(id) || {}).customerId).filter(Boolean))], staffs: [v.staffId], created: v.createdAt.slice(0, 19) })))
         .sort((a, b) => (a.created < b.created ? 1 : -1));

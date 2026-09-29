@@ -353,18 +353,44 @@
       return ok({ routeId, status: 'IN_PROGRESS', resumedAt });
     },
 
-    createOnTheMoveRoute({ routeTemplateId, name }) {
+    // A new delivery from a route template, as QA's backend does it: the
+    // template's customers become the stops, in the template's order, each
+    // carrying what that customer already owes. Nothing is on the van yet and
+    // nothing is booked — the driver loads stock next, and books each counter's
+    // order when he gets there.
+    createOnTheMoveRoute({ routeTemplateId, name, staffId }) {
       const id   = uid('RTE');
-      const date = new Date().toISOString().slice(0, 10);
+      const d0   = new Date();
+      const date = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, '0')}-${String(d0.getDate()).padStart(2, '0')}`;
+      const tpl  = (D.db.routeTemplates || []).find(t => t._id === routeTemplateId) || null;
+      const custs = tpl ? tpl.customers.map(cid => D.db.customers.find(c => c.id === cid)).filter(Boolean) : [];
+      const initialsOf = n => n.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const stops = custs.map((c, i) => ({
+        id: `${id}-S${String(i + 1).padStart(2, '0')}`, sequence: i + 1,
+        customerId: c.id, customerName: c.name, customerInitials: initialsOf(c.name),
+        status: 'PENDING',
+        outstandingAmount: c.creditAmount || 0, collectedAmount: 0,
+        todayOrderAmount: 0, totalDue: c.creditAmount || 0,
+        paymentMethod: null, skipReason: null, completedAt: null,
+      }));
+      stops.forEach(s => {
+        const c = custs.find(x => x.id === s.customerId);
+        D.db.stopDetails[s.id] = {
+          id: s.id, sequence: s.sequence, customerId: c.id, customerInitials: s.customerInitials, invoiceNumber: '',
+          customer: { id: c.id, name: c.name, phone: c.phone, email: '', address: c.address, orgType: c.orgType, supplyChainType: 'PUBLIC', gstType: c.gstType, gstNumber: c.gstNumber, creditAmount: c.creditAmount || 0 },
+          orderItems: [], orderTotal: 0,
+        };
+      });
+      const owedTotal = stops.reduce((a, s) => a + s.outstandingAmount, 0);
       const summary = {
         id, name: name || 'On-the-move Route', status: 'READY',
-        totalStops: 0, completedStops: 0,
-        estimatedCollectionAmount: 0, outstandingAmount: 0, collectedAmount: 0,
+        totalStops: stops.length, completedStops: 0,
+        estimatedCollectionAmount: owedTotal, outstandingAmount: owedTotal, collectedAmount: 0,
         scheduledDate: date,
       };
       D.db.routes.push(summary);
       D.db.routeDetails[id] = {
-        ...summary, beatArea: 'On the move', driver: D.db.driver,
+        ...summary, beatArea: tpl ? tpl.name.split(' – ')[0].split(' - ')[0] : 'On the move', driver: D.db.driver, staffId: staffId || null,
         checklist: {
           stockLoad:   { status: 'PENDING', confirmedAt: null },
           openingCash: { status: 'PENDING', confirmedAt: null },
@@ -372,7 +398,7 @@
         },
         startedAt: null, updatedAt: now(), routeTemplateId: routeTemplateId || null,
       };
-      D.db.stops[id] = [];
+      D.db.stops[id] = stops;
       D.db.settlementSteps[id] = [
         { key: 'STOCK_COUNT',      label: 'Stock Count',      description: 'Physically count remaining stock on vehicle',      status: 'PENDING', unlocked: true  },
         { key: 'CASH_HANDOVER',    label: 'Cash Handover',    description: 'Count collected cash and hand over to supervisor', status: 'PENDING', unlocked: false },
@@ -668,6 +694,13 @@
       const skipped   = stops.filter(s => s.status === 'SKIPPED').length;
       const collected = stops.reduce((a, s) => a + (s.collectedAmount || 0), 0);
       const pct = stops.length > 0 ? Math.round((delivered / stops.length) * 100) : 0;
+      // Collection: what was taken against what was due at the stops served.
+      // Avg time: the gap between one finished stop and the next.
+      const due = stops.filter(s => s.status === 'DELIVERED').reduce((a, s) => a + (s.totalDue || 0), 0);
+      const collPct = due > 0 ? Math.min(100, Math.round((collected / due) * 100)) : 0;
+      const times = stops.filter(s => s.completedAt).map(s => new Date(s.completedAt).getTime()).sort((a, b) => a - b);
+      const avgMin = times.length > 1 ? Math.max(1, Math.round((times[times.length - 1] - times[0]) / (times.length - 1) / 60000)) : 4;
+      const carried = stops.reduce((a, s) => a + (s.outstandingAmount || 0), 0);
       return ok({
         routeId, routeName: route.name, date: route.scheduledDate,
         score: { value: pct, max: 100, label: pct >= 80 ? 'Excellent Beat' : 'Good Beat', percentileText: 'Above average' },
@@ -675,11 +708,11 @@
           // Order matches QA exactly: Coverage, Productivity, Collection, Avg Time.
           { key: 'COVERAGE',          label: 'Coverage',      value: `${delivered}/${stops.length}`, percentage: pct },
           { key: 'PRODUCTIVITY',      label: 'Productivity',  value: `${delivered} stops`,           percentage: pct },
-          { key: 'COLLECTION',        label: 'Collection',    value: `₹${collected}`,                percentage: 0   },
-          { key: 'AVG_TIME_PER_STOP', label: 'Avg Time/Stop', value: '4m',                          percentage: 0   },
+          { key: 'COLLECTION',        label: 'Collection',    value: `₹${collected}`,                percentage: collPct },
+          { key: 'AVG_TIME_PER_STOP', label: 'Avg Time/Stop', value: `${avgMin}m`,                   percentage: 0   },
         ],
         highlights: [],
-        carriedForward: { skippedCount: skipped, outstandingAmount: 0 },
+        carriedForward: { skippedCount: skipped, outstandingAmount: carried },
       });
     },
 
