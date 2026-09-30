@@ -610,8 +610,8 @@
 
   function supplierRows() {
     return '<div class="plist">' + M.peopleOf(S, "supplier").filter(matchQ).map(function (p) {
-      const cos = (p.companies || []).map(function (id) { const c = M.companyById(CAT, S, id); return c ? c.short : ""; }).filter(Boolean).join(", ");
-      return '<div class="prow is-sup">' + avatar(p.name) + rowMain(p, cos || t("suNoCo"), !cos) + '<span class="prow-go">' + ic("chev", 16) + "</span></div>";
+      /* Companies and his code with them are not asked (owner, 1 Oct 2026); the row shows the number. */
+      return '<div class="prow is-sup">' + avatar(p.name) + rowMain(p, M.phoneShow(p.phone)) + '<span class="prow-go">' + ic("chev", 16) + "</span></div>";
     }).join("") + "</div>";
   }
 
@@ -837,10 +837,10 @@
       return '<button class="fi-tile" data-act="' + act + '"' + (to ? ' data-to="' + to + '"' : "") + (tab ? ' data-tab="' + tab + '"' : "") + "><b>" + n + "</b><span>" + h(label) + "</span></button>";
     };
     return frame("finish",
-      '<div class="fi-tiles">' +
-        tile(Object.keys(S.items).length, t("tProducts"), "go", "items") + tile(M.peopleOf(S, "shop").length, t("tShops"), "go", "people", "shop") +
+      '<div class="fi-tiles' + (!M.shown("items") && !M.shown("stock") ? " is-four" : "") + '">' +   // with Products and Stock hidden, four tiles: two by two
+        (M.shown("items") ? tile(Object.keys(S.items).length, t("tProducts"), "go", "items") : "") + tile(M.peopleOf(S, "shop").length, t("tShops"), "go", "people", "shop") +
         tile(M.peopleOf(S, "supplier").length, t("tSuppliers"), "go", "people", "supplier") + tile(M.peopleOf(S, "staff").length, t("tStaff"), "go", "people", "staff") +
-        tile(P.stock.n, t("fiStock"), "go", "stock") + tile(S.papers.length, t("tPapers"), "papers") + "</div>" +
+        (M.shown("stock") ? tile(P.stock.n, t("fiStock"), "go", "stock") : "") + tile(S.papers.length, t("tPapers"), "papers") + "</div>" +   // a hidden step has no tile (M.HIDDEN_STEPS)
       (gaps.length
         ? '<details class="fi-gaps"><summary>' + ic("info", 18) + "<span>" + h(t("fiLater", { n: gaps.length })) + "</span>" + ic("chev", 16) + "</summary>" +
           '<div class="sb-group">' + gaps.map(function (g) {
@@ -1087,8 +1087,6 @@
         field("cash", t("stCash"), yesNo(b + "cash"));
     } else if (p.type === "supplier") {
       body +=
-        field("building", t("suCompanies"), setChips(b + "companies", "arr", companyOpts())) +
-        field("hash", t("suCode"), input(b + "code")) +
         field("receipt", t("suGst"), input(b + "gst", { upper: true, kind: "upper", max: 15 })) +
         field("timer", t("suLead"), setChips(b + "lead", "num", [1, 2, 3, 7].map(function (n) { return { v: n, label: t("daysN", { n: n }) }; }))) +
         field("ledger", t("suOwe"), input(b + "owe", { kind: "num", mode: "numeric" }), h(t("shOwesHint")));

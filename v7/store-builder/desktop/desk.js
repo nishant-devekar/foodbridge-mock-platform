@@ -21,7 +21,7 @@
   const OB = window.SB_OUTBOX, DB = OB.DB, OUTBOX = OB.OUTBOX;
   const ic = window.SB_ICON;
   const KEY = "fb.storebuilder.v1";   // the phone page's key: one store, either page
-  const SECS = ["store", "items", "people", "stock", "rules"];
+  const SECS = M.STEPS.filter(function (x) { return x !== "finish"; });   // the steps not hidden (model.js HIDDEN_STEPS)
   const ICON = { store: "store", items: "box", people: "contacts", stock: "warehouse", rules: "rules", finish: "send" };
   const canRecord = "MediaRecorder" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   const $app = document.getElementById("app");
@@ -33,6 +33,20 @@
   const DT = {
     en: {
       dkSaved: "Saved", dkSavedAt: "Saved {t}", dkPhone: "Phone version",
+      pgSend: "Send", ctaContinue: "Continue", stTitle10: "Let's make your store in 10 minutes", rlT: "How does your day run?", phMobile: "98200 11223", phGst: "27ABCDE1234F1Z5",
+      lsd_store: "Mobile, GST and business", lsd_items: "What you sell, and prices", lsd_people: "Customers, staff, suppliers",
+      lsd_stock: "What's in your warehouse", lsd_rules: "How your day runs", lsd_send: "Check it, send it to FoodBridge",
+      pkT: "Which products do you sell?", pkL: "Tick the ones you sell. Search by name, brand or kind.", pkAll: "All", pkNew: "Can't find one? Add it yourself",
+      prT: "Check your prices", prAll: "Every product has a price",
+      adT: "Who do you work with?", adL: "Bring in your contacts or customer list, or type a few names. You sort them next.",
+      adFile: "Bring in a file", adFileS: "A contacts file, an Excel list, or a photo of your register",
+      adType: "Type names", adTypeS: "Name and mobile, one by one", sumPeople: "{n} people", sumPeople_1: "1 person",
+      srT: "Who is who?", srL: "Mark each one: 1 customer, 2 staff, 3 supplier, 0 not needed. Arrow keys move, U undoes.",
+      dyT: "When do you deliver to each customer?", dyLeft: "{n} without a day", dyLeft_1: "1 without a day",
+      tmT: "Your staff and suppliers", tmL: "What each person on your team does, and your suppliers.",
+      stT: "How much stock do you have now?",
+      rvT: "All set? Send it to FoodBridge", rvL: "This is what goes to FoodBridge. Anything missing is followed up later.",
+      menuSampleStep: "Fill {s} with sample data",
       stTitle: "Let's make your store", stSub: "About 10 minutes. Everything saves as you go.",
       stSample: "Try it with sample data", nextTo: "Next: {s}", nextBuild: "Check and build",
       stepsTitle: "Steps", sendStep: "Send to FoodBridge",
@@ -67,6 +81,20 @@
     },
     hi: {
       dkSaved: "सेव हो गया", dkSavedAt: "{t} पर सेव हुआ", dkPhone: "फ़ोन वाला",
+      pgSend: "भेजें", ctaContinue: "आगे बढ़ें", stTitle10: "10 मिनट में अपनी दुकान बनाएँ", rlT: "आपका दिन कैसे चलता है?", phMobile: "98200 11223", phGst: "27ABCDE1234F1Z5",
+      lsd_store: "मोबाइल, GST और कारोबार", lsd_items: "क्या बेचते हैं, और दाम", lsd_people: "ग्राहक, स्टाफ़, सप्लायर",
+      lsd_stock: "गोदाम में क्या है", lsd_rules: "आपका दिन कैसे चलता है", lsd_send: "देखें, और FoodBridge को भेजें",
+      pkT: "आप कौन-सा सामान बेचते हैं?", pkL: "जो बेचते हैं उन पर टिक करें। नाम, ब्रांड या किस्म से खोजें।", pkAll: "सब", pkNew: "नहीं मिला? खुद जोड़ें",
+      prT: "अपने दाम देख लें", prAll: "हर सामान का दाम है",
+      adT: "आप किन-किन के साथ काम करते हैं?", adL: "अपने कॉन्टैक्ट या ग्राहकों की लिस्ट लाएँ, या कुछ नाम लिखें। अगले चरण में छाँटेंगे।",
+      adFile: "फ़ाइल लाएँ", adFileS: "कॉन्टैक्ट फ़ाइल, Excel लिस्ट, या रजिस्टर की फ़ोटो",
+      adType: "नाम लिखें", adTypeS: "नाम और मोबाइल, एक-एक करके", sumPeople: "{n} लोग",
+      srT: "कौन क्या है?", srL: "हर एक को चुनें: 1 ग्राहक, 2 स्टाफ़, 3 सप्लायर, 0 ज़रूरत नहीं। तीर से ऊपर-नीचे, U से वापस।",
+      dyT: "किस ग्राहक को किस दिन माल देते हैं?", dyLeft: "{n} बिना दिन के",
+      tmT: "आपका स्टाफ़ और सप्लायर", tmL: "आपकी टीम में कौन क्या करता है, और आपके सप्लायर।",
+      stT: "अभी आपके पास कितना स्टॉक है?",
+      rvT: "सब ठीक? FoodBridge को भेजें", rvL: "यही FoodBridge को जाएगा। जो छूटा है, वह बाद में पूछा जाएगा।",
+      menuSampleStep: "{s} में नमूना डेटा भरें",
       stTitle: "चलिए आपकी दुकान बनाते हैं", stSub: "लगभग 10 मिनट। सब अपने आप सेव होता है।",
       stSample: "नमूना डेटा से देखें", nextTo: "आगे: {s}", nextBuild: "देखें और बनाएँ",
       stepsTitle: "चरण", sendStep: "FoodBridge को भेजें",
@@ -105,7 +133,7 @@
   let view = "desk";
   let dlg = null;
   const ui = {
-    sec: "store", by: "co", group: null, itemsQ: "", lastPick: null, shown: [],
+    scr: "store", by: "co", group: null, itemsQ: "", lastPick: null, shown: [],
     tab: null, peopleQ: "", sortFocus: null, sortedHere: [], lastSorted: [], adding: false, paint: null,
     stQ: "", stOpen: false, needMobile: false, outbox: [], building: false, sending: false, rec: null, dragN: 0,
   };
@@ -199,7 +227,8 @@
     const d = new Date(ms), loc = S.lang === "en" ? "en-IN" : "hi-IN";
     return d.toLocaleDateString(loc, { day: "numeric", month: "short" }) + ", " + d.toLocaleTimeString(loc, { hour: "numeric", minute: "2-digit" });
   }
-  function savedHTML() { return S.updatedAt ? ic("check", 14) + h(t("dkSavedAt", { t: when(S.updatedAt) })) : ""; }
+  /* A small tick by the name; the time is in its tooltip (the header is the card's top edge, and short). */
+  function savedHTML() { return S.updatedAt ? '<span title="' + h(t("dkSavedAt", { t: when(S.updatedAt) })) + '" aria-label="' + h(t("dkSavedAt", { t: when(S.updatedAt) })) + '">' + ic("circleCheck", 15) + "</span>" : ""; }
 
   /* ─────────────────────────────────────────────── bits of screen ── */
 
@@ -207,7 +236,8 @@
 
   function chips(opts, isOn, attrs, cls) {
     return '<div class="chips' + (cls ? " " + cls : "") + '">' + opts.map(function (o) {
-      return '<button type="button" class="chip' + (isOn(o.v) ? " on" : "") + '" ' + attrs + ' data-v="' + h(o.v) + '">' + h(o.label) + "</button>";
+      const on = isOn(o.v);
+      return '<button type="button" class="chip' + (on ? " on" : "") + '" ' + attrs + ' data-v="' + h(o.v) + '" aria-pressed="' + on + '">' + (on ? ic("check", 14) : "") + h(o.label) + "</button>";
     }).join("") + "</div>";
   }
   function setChips(path, kind, opts, cls) {
@@ -248,7 +278,7 @@
     const v = own == null && o.base != null ? o.base : own;
     const a = ' data-path="' + h(path) + '"' + (o.base != null ? ' data-base="' + o.base + '"' : "") + (o.min != null ? ' data-min="' + o.min + '"' : "") + (o.touch ? ' data-touch="' + h(o.touch) + '"' : "");
     return '<span class="stepper"><button type="button" data-act="step" data-d="-1"' + a + ' aria-label="−">' + ic("minus", 16) + "</button>" +
-      '<input data-bind="' + h(path) + '" data-kind="num" data-rerender inputmode="decimal" value="' + h(v == null ? "" : v) + '" placeholder="–"' + (o.touch ? ' data-touch="' + h(o.touch) + '"' : "") + ">" +
+      '<input data-bind="' + h(path) + '" data-kind="num" data-rerender inputmode="decimal" value="' + h(v == null ? "" : v) + '" placeholder="0"' + (o.touch ? ' data-touch="' + h(o.touch) + '"' : "") + ">" +
       '<button type="button" data-act="step" data-d="1"' + a + ' aria-label="+">' + ic("plus", 16) + "</button></span>";
   }
 
@@ -267,14 +297,15 @@
 
   /* ─────────────────────────────────────────────── the start screen ── */
 
+  /* One form system (1 Oct 2026, owner: "make the form UI consistent"): a label above each field,
+     one filled control under it. The login mobile's label says Required, a green tick once it is. */
   function shopFields() {
     const st = S.store, ok = M.storeReady(S), bad = ui.needMobile && !ok;
-    return '<div class="fc' + (bad ? " is-bad" : "") + '">' +
-        '<div class="fc-row is-mob">' + ic("mobile", 18) + inp("store.mobile", { ph: t("fMobile"), type: "tel", mode: "tel", max: 14, ac: "tel-national", label: t("fMobile") }) +
-          '<span class="req' + (ok ? " is-ok" : "") + '">' + (ok ? ic("check", 14) : h(t("required"))) + "</span></div>" +
-        '<div class="fc-row">' + ic("receipt", 18) + inp("store.gst", { ph: t("fGst"), kind: "upper", upper: true, max: 15, label: t("fGst") }) + "</div>" +
-      "</div>" +
-      '<p class="err"' + (bad ? "" : " hidden") + ">" + ic("alert", 15) + "<span>" + h(t("mobNeed")) + "</span></p>" +
+    return '<div class="fld is-mob"><label class="fld-l"><span>' + h(t("fMobile")) + '</span><span class="req' + (ok ? " is-ok" : "") + '">' + (ok ? ic("check", 13) : h(t("required"))) + "</span></label>" +
+        '<label class="inx' + (bad ? " is-bad" : "") + '">' + ic("mobile", 18) + inp("store.mobile", { ph: t("phMobile"), type: "tel", mode: "tel", max: 14, ac: "tel-national", label: t("fMobile") }) + "</label>" +
+        '<p class="err"' + (bad ? "" : " hidden") + ">" + ic("alert", 15) + "<span>" + h(t("mobNeed")) + "</span></p></div>" +
+      '<div class="fld"><label class="fld-l">' + h(t("fGst")) + "</label>" +
+        '<label class="inx">' + ic("receipt", 18) + inp("store.gst", { ph: t("phGst"), kind: "upper", upper: true, max: 15, label: t("fGst") }) + "</label></div>" +
       field(t("fType"), setChips("store.type", "str", [
         { v: "distributor", label: t("tDistributor") }, { v: "superstockist", label: t("tSuperstockist") },
         { v: "wholesaler", label: t("tWholesaler") }, { v: "retailer", label: t("tRetailer") },
@@ -347,88 +378,116 @@
 
   /* ────────────────────────────────────────────────────── the desk ── */
 
-  function topBar(desk) {
+  /* ── The flow (1 Oct 2026, owner: "very clean, one thing at a time, no cognitive load") ──
+     One canvas, one question per screen, one way on. A thin progress line across the top is also
+     the way around; the footer holds Back, a running count, and Continue. Heavy steps are split
+     into small screens, and a screen that does not apply is not shown (no prices before any
+     product; no sorting when nobody is waiting). The store preview waits for the last screen. */
+  const FLOW = [
+    { id: "store", step: "store" },
+    { id: "items.pick", step: "items" },
+    { id: "items.prices", step: "items", show: function () { return Object.keys(S.items).length > 0; } },
+    { id: "people.add", step: "people" },
+    { id: "people.sort", step: "people", show: function () { return M.unsorted(S).length > 0; } },
+    { id: "people.days", step: "people", show: function () { return M.peopleOf(S, "shop").length > 0; } },
+    { id: "people.team", step: "people", show: function () { return S.order.length > 0; } },
+    { id: "stock", step: "stock" },
+    { id: "rules", step: "rules" },
+    { id: "review", step: "send" },
+  ];
+  const STEPS6 = SECS.concat(["send"]);
+  /* The screens that apply now; the one he is on stays, even if it just stopped applying. */
+  function flow() { return FLOW.filter(function (f) { return (f.step === "send" || M.shown(f.step)) && (!f.show || f.id === ui.scr || f.show()); }); }
+  function stepOf(id) { const f = FLOW.find(function (x) { return x.id === id; }); return f ? f.step : "store"; }
+  function stepName(s) { return s === "send" ? t("pgSend") : secName(s); }
+
+  /* The steps column (1 Oct 2026, owner, from a reference design): the six steps down the card's
+     right side -- an icon tile each, its name, and one line: what it asks while it is to do, what
+     he gave once it is done. Done steps are ticked in green, the one he is on is dark, the ones
+     ahead are faded. It is also the way around. */
+  const STEP_IC = { store: "store", items: "box", people: "contacts", stock: "warehouse", rules: "rules", send: "send" };
+  function stepLine(s, P) {
+    const p = P[s];
+    if (s !== "send" && p.done) {
+      if (s === "store") return M.phoneShow(S.store.mobile);
+      if (s === "items") return p.n ? t("sItems", { n: p.n }) : t("sFromFile");
+      if (s === "people") return [p.shops ? t("sShops", { n: p.shops }) : "", p.staff ? t("sStaff", { n: p.staff }) : ""].filter(Boolean).join(" · ") || t("sFromFile");
+      if (s === "stock") return p.n ? t("sStock", { n: p.n }) : t("sFromFile");
+      if (s === "rules") return t("sRules", { n: p.n, total: M.RULES_N });
+    }
+    return t("lsd_" + s);
+  }
+  /* The white panel's own top row: the logo on the left, language and the menu on the right. */
+  function mainTop() {
     const en = S.lang === "en";
-    return '<header class="top">' + LOGO +
-      '<span class="top-t">' + h(S.store.name || t("appName")) + "</span>" +
-      '<span class="saved" id="saved">' + savedHTML() + "</span>" +
-      '<span class="grow"></span>' +
-      (desk ? '<button class="btn is-quiet" data-act="papers">' + ic("folder", 16) + h(t("tPapers")) + (S.papers.length ? ' <i class="pill">' + S.papers.length + "</i>" : "") + "</button>" : "") +
-      '<span class="seg langs" role="group" aria-label="भाषा · Language">' +
+    return '<div class="mt"><div class="mt-l">' + LOGO + "<b>" + h(t("appName")) + '</b><span class="saved" id="saved">' + savedHTML() + "</span></div>" +
+      '<div class="mt-r"><span class="seg langs" role="group" aria-label="भाषा · Language">' +
         '<button class="' + (en ? "" : "on") + '" data-act="lang" data-v="hi" aria-pressed="' + !en + '">हिंदी</button>' +
         '<button class="' + (en ? "on" : "") + '" data-act="lang" data-v="en" aria-pressed="' + en + '">English</button></span>' +
-      '<button class="icbtn" data-act="menu" aria-label="' + h(t("menu")) + '">' + ic("more", 20) + "</button>" +
-      "</header>";
+        '<button class="icbtn" data-act="menu" aria-label="' + h(t("menu")) + '">' + ic("more", 20) + "</button></div></div>";
+  }
+  /* The steps, in the grey column on the right, centred top to bottom. */
+  function sidePanel() {
+    return '<aside class="lp"><ol class="lp-steps" id="prog" aria-label="' + h(t("stepsTitle")) + '">' + progressHTML() + "</ol></aside>";
   }
 
-  function statusText(sec, P) {
-    const p = P[sec];
-    switch (sec) {
-      case "store": return M.storeReady(S) ? M.phoneShow(S.store.mobile) : t("sNone");
-      case "items": return p.n ? t("sItems", { n: p.n }) : p.file ? t("sFromFile") : t("sNone");
-      case "people": {
-        const bits = [p.shops ? t("sShops", { n: p.shops }) : "", p.left ? t("pToSort", { n: p.left }) : ""].filter(Boolean);
-        return bits.length ? bits.join(" · ") : p.file ? t("sFromFile") : t("sNone");
-      }
-      case "stock": return p.n ? t("sStock", { n: p.n }) : p.file ? t("sFromFile") : t("sNone");
-      case "rules": return p.n ? t("sRules", { n: p.n, total: M.RULES_N }) : t("sNone");
-      default: return "";
-    }
+  function progressHTML() {
+    const P = M.progress(CAT, S), cur = stepOf(ui.scr);
+    return STEPS6.map(function (s) {
+      const on = s === cur, d = s !== "send" && P[s].done;
+      return '<li class="' + (on ? "on" : "") + (d ? " is-done" : "") + '"><button class="ls" data-act="goStep" data-to="' + s + '"' + (on ? ' aria-current="step"' : "") + ">" +
+        '<span class="ls-ic">' + ic(d && !on ? "check" : STEP_IC[s], 18) + '</span><span class="ls-m"><b>' + h(stepName(s)) + "</b></span></button></li>";   // the name only (owner, 1 Oct 2026); stepLine kept for later
+    }).join("");
   }
 
-  /* Left: the steps, and only the steps (1 Oct 2026, owner: the three columns did not read as
-     steps | work | request). Numbered, joined by a line, ticked when done, and ending in the goal:
-     Send to FoodBridge. What each step holds is on the right, not repeated here. */
-  function railHTML() {
-    const P = M.progress(CAT, S);
-    const done = SECS.filter(function (s) { return P[s].done; }).length;
-    return '<p class="rail-h"><b>' + h(t("stepsTitle")) + "</b><span>" + done + "/" + SECS.length + "</span></p>" +
-      '<ol class="steps">' + SECS.map(function (s, i) {
-        const d = P[s].done, on = ui.sec === s;
-        return '<li><button class="st' + (on ? " on" : "") + (d ? " is-done" : "") + '" data-act="sec" data-to="' + s + '" title="' + h(secName(s)) + '"' + (on ? ' aria-current="step"' : "") + ">" +
-          '<span class="st-n">' + (d && !on ? ic("check", 14) : i + 1) + '</span><span class="st-t">' + h(secName(s)) + "</span>" +
-          (M.filesFor(S, s).length ? '<span class="st-clip" title="' + h(t("tPapers")) + '">' + ic("clip", 13) + M.filesFor(S, s).length + "</span>" : "") + "</button></li>";
-      }).join("") +
-      '<li class="is-goal"><button class="st" data-act="buildAsk" title="' + h(t("sendStep")) + '"><span class="st-n">' + ic("send", 14) + '</span><span class="st-t">' + h(t("sendStep")) + "</span></button></li></ol>";
+  function screenHTML() {
+    const id = SCR[ui.scr] ? ui.scr : "store", d = SCR[id];
+    const step = stepOf(id);
+    return '<main class="canvas" id="main" data-keep="main-' + id + '"><div class="cv">' +
+        "<h1>" + h(d.t()) + "</h1>" +   // one title, nothing above or under it (owner, 1 Oct 2026)
+        '<div class="cv-b">' + d.b() + "</div></div></main>" +
+      '<footer class="foot"><div class="foot-in" id="foot">' + footHTML() + "</div></footer>";
+  }
+  /* The footer: Back, a running count, and the one way on -- named for where it goes. */
+  function footHTML() {
+    const id = SCR[ui.scr] ? ui.scr : "store", d = SCR[id], step = stepOf(id);
+    const f = flow(), i = f.findIndex(function (x) { return x.id === id; }), next = f[i + 1];
+    const cta = id === "review"
+      ? '<button class="cta" data-act="build"' + (ui.building ? " disabled" : "") + ">" + ic("send", 18) + h(t(ui.building ? "fiWorking" : "fiBuild")) + "</button>"
+      : '<button class="cta" data-act="next">' + h(next && next.step !== step ? t("nextTo", { s: stepName(next.step) }) : t("ctaContinue")) + ic("chev", 18) + "</button>";
+    const sample = M.SAMPLE_STEPS.indexOf(step) >= 0   // sample data for the step in view, on every step (owner, 1 Oct 2026)
+      ? '<button class="link foot-sample" data-act="sampleAsk" data-step="' + step + '">' + ic("sparkle", 15) + h(t("stSample")) + "</button>" : "";
+    return '<span class="foot-l">' + (i > 0 ? '<button class="btn is-quiet" data-act="back">' + ic("back", 16) + h(t("back")) + "</button>" : "") +
+        '<span class="foot-sum">' + h(d.s ? d.s() : "") + "</span></span>" +
+      '<span class="foot-r">' + sample + cta + "</span>";   // sample data beside the button (owner, 1 Oct 2026)
   }
 
+  /* The whole app is one card of a fixed size (owner, 1 Oct 2026), after a reference design: a white
+     work panel on the left -- the logo and language along its top, the footer along its bottom, only
+     the screen between them scrolling -- and the steps in a grey column on the right. Short screens
+     keep a centred column; the grid and the tables use the panel's width. */
   function deskView() {
-    return topBar(true) +
-      '<div class="narrow">' + ic("info", 16) + "<span>" + h(t("narrow")) + ' <a href="../">' + h(t("narrowLink")) + "</a></span></div>" +
-      '<div class="desk">' +
-        '<nav class="rail"><div id="rail">' + railHTML() + "</div>" +
-          '<div class="rail-foot"><a href="../" class="link" title="' + h(t("dkPhone")) + '">' + ic("mobile", 15) + "<span>" + h(t("dkPhone")) + "</span></a></div></nav>" +
-        '<main class="main" id="main" data-keep="main-' + ui.sec + '">' + sectionHTML(ui.sec) + "</main>" +
-        '<aside class="side" id="side">' + sideHTML() + "</aside>" +
-      "</div>";
+    const d = SCR[ui.scr] || SCR.store;
+    return '<div class="narrow">' + ic("info", 16) + "<span>" + h(t("narrow")) + ' <a href="../">' + h(t("narrowLink")) + "</a></span></div>" +
+      '<div class="shell"><div class="app-card' + (d.wide ? " is-wide" : "") + '">' + '<div class="app-main">' + mainTop() + screenHTML() + "</div>" + sidePanel() + "</div></div>";
   }
 
-  /* Every section ends in one way on: the next section, and after Daily work, Check and build.
-     The sections stay free to open in any order from the rail (1 Oct 2026). */
-  function nextBar(sec) {
-    const i = SECS.indexOf(sec), to = SECS[i + 1];
-    const first = sec === "store" && !Object.keys(S.items).length && !S.order.length;   // nothing done yet: sample data is one click
-    return attach(sec) + '<div class="nextbar">' +
-      (to ? '<button class="cta" data-act="next" data-from="' + sec + '">' + h(t("nextTo", { s: secName(to) })) + ic("chev", 18) + "</button>"
-        : '<button class="btn is-g is-lg" data-act="buildAsk">' + ic("store", 18) + h(t("nextBuild")) + "</button>") +   // Build my store is already green on the right
-      (first ? '<button class="link" data-act="sampleAll">' + ic("sparkle", 15) + h(t("stSample")) + "</button>" : "") + "</div>";
+  /* After a change that doesn't redraw the screen: the progress line and the footer's count. */
+  function refreshChrome() {
+    const p = document.getElementById("prog"); if (p) p.innerHTML = progressHTML();
+    const f = document.getElementById("foot"); if (f) f.innerHTML = footHTML();
   }
+  function refreshSide() { refreshChrome(); }
+  function refreshRail() { refreshChrome(); }
+  function refreshReady() { refreshChrome(); }
 
-  function secHead(sec, sub, tools) {
-    const sample = M.SAMPLE_STEPS.indexOf(sec) >= 0;
-    const title = sec === "rules" ? t("title_rules") : sec === "store" && !M.storeReady(S) ? t("stTitle") : secName(sec);
-    return '<div class="sec-head"><div><p class="eyebrow">' + h(t("stepOf", { n: SECS.indexOf(sec) + 1, total: SECS.length })) + "</p><h1>" + h(title) + "</h1>" + (sub ? '<p class="sub">' + h(sub) + "</p>" : "") + "</div>" +
-      '<div class="sec-tools">' + (tools || "") + attachBtn(sec, t("atBtn") + (M.filesFor(S, sec).length ? " · " + M.filesFor(S, sec).length : ""), "is-quiet") +
-      (sample ? '<button class="btn is-quiet" data-act="sampleAsk" data-step="' + sec + '">' + ic("sparkle", 15) + h(t("sampleBtn")) + "</button>" : "") + "</div></div>";
-  }
+  const SCR = {};
 
-  const SECTIONS = {};
-  function sectionHTML(sec) { return (SECTIONS[sec] || SECTIONS.store)(); }
-
-  /* ── Shop ── */
-  /* The first thing he sees, inside the same desk as everything after it: the shop. */
-  SECTIONS.store = function () {
-    return secHead("store", M.storeReady(S) ? t("q_store") : t("stSub")) + '<div class="card narrowcard">' + shopFields() + "</div>" + nextBar("store");
+  SCR.store = {
+    t: function () { return t("stTitle10"); },
+    b: function () {
+      return '<div class="form">' + shopFields() + "</div>";   // no attach card, and sample data is in the footer (owner, 1 Oct 2026)
+    },
   };
 
   /* ── Products: groups | grid, and what he chose collecting on the right ── */
@@ -461,25 +520,17 @@
     return gs.some(function (g) { return g.id === ui.group; }) ? ui.group : gs[0] ? gs[0].id : "all";
   }
 
-  function groupsHTML() {
-    const cur = curGroup();
-    const row = function (id, name, ids, cls) {
-      const n = id === "mine" ? 0 : chosenIn(ids);
-      return '<button class="grp' + (cur === id && !ui.itemsQ.trim() ? " on" : "") + (cls ? " " + cls : "") + '" data-act="group" data-id="' + h(id) + '">' +
-        "<span>" + h(name) + '</span><small class="' + (n ? "has" : "") + '">' + (n ? n + "/" : "") + ids.length + "</small></button>";
+  /* The groups as one row of chips: brand or category, and each chip's count of what he chose. */
+  function chipsHTML() {
+    const cur = ui.itemsQ.trim() ? "" : curGroup();
+    const chip = function (id, name, ids) {
+      const n = chosenIn(ids);
+      return '<button class="gchip' + (cur === id ? " on" : "") + '" data-act="group" data-id="' + h(id) + '">' + h(name) + (n ? "<i>" + n + "</i>" : "") + "</button>";
     };
-    const gs = groups();
-    let list = "";
-    if (ui.by === "co") list = gs.map(function (g) { return row(g.id, g.name, g.ids); }).join("");
-    else {
-      list = '<p class="grp-l">' + h(t("iFresh")) + "</p>" + gs.filter(function (g) { return g.fresh; }).map(function (g) { return row(g.id, g.name, g.ids); }).join("") +
-        '<p class="grp-l">' + h(t("iPacked")) + "</p>" + gs.filter(function (g) { return !g.fresh; }).map(function (g) { return row(g.id, g.name, g.ids); }).join("");
-    }
-    return '<div class="seg by">' +
+    return '<span class="seg by">' +
         '<button class="' + (ui.by === "co" ? "on" : "") + '" data-act="by" data-v="co">' + h(t("iByCompany")) + "</button>" +
-        '<button class="' + (ui.by === "aisle" ? "on" : "") + '" data-act="by" data-v="aisle">' + h(t("iByType")) + "</button></div>" +
-      '<div class="grps" data-keep="grps">' + row("mine", t("iMine"), Object.keys(S.items), "is-mine") + row("all", t("allProducts"), allIds()) +
-      '<hr>' + list + "</div>";
+        '<button class="' + (ui.by === "aisle" ? "on" : "") + '" data-act="by" data-v="aisle">' + h(t("iByType")) + "</button></span>" +
+      '<div class="gchips" data-keep="chips">' + chip("all", t("pkAll"), allIds()) + groups().map(function (g) { return chip(g.id, g.name, g.ids); }).join("") + "</div>";
   }
 
   function shownIds() {
@@ -498,7 +549,7 @@
   function pickBarHTML(ids) {
     const n = chosenIn(ids);
     return "<span>" + h(t("foundN", { n: ids.length })) + (n ? " · " + h(t("iChosen", { n: n })) : "") + "</span>" +
-      (ids.length ? '<button class="btn" data-act="pickAll">' + h(n === ids.length ? t("iClearAll") : t("iSelectAll") + " " + ids.length) + "</button>" : "");
+      (ids.length ? '<button class="link" data-act="pickAll">' + h(n === ids.length ? t("iClearAll") : t("iSelectAll")) + "</button>" : "");
   }
 
   function gridHTML() {
@@ -508,7 +559,6 @@
       return '<div class="empty"><p>' + h(ui.group === "mine" && !ui.itemsQ.trim() ? t("ypEmpty") : t("iEmpty")) + "</p>" +
         (ui.itemsQ.trim() ? '<button class="btn" data-act="newItem">' + ic("plus", 16) + h(t("iNew")) + "</button>" : "") + "</div>";
     }
-    if (curGroup() === "mine" && !ui.itemsQ.trim()) return priceTable();
     return '<div class="picks">' + ids.map(function (id) { return M.item(CAT, S, id); }).filter(Boolean).map(pickCard).join("") + "</div>";
   }
 
@@ -518,8 +568,8 @@
     const its = M.chosenItems(CAT, S).reverse();
     const need = function (it) { return it.sell == null ? 0 : 1; };
     its.sort(function (a, b) { return need(a) - need(b); });
-    return '<p class="hint">' + h(t("ypHint")) + "</p>" +
-      '<table class="tbl prices"><thead><tr><th></th><th>' + h(t("colProduct")) + '</th><th class="r">' + h(t("colMrp")) + '</th><th class="r">' + h(t("colCust")) + "</th><th></th></tr></thead><tbody>" +
+    if (!its.length) return '<div class="empty"><p>' + h(t("ypEmpty")) + "</p></div>";
+    return '<table class="tbl prices"><thead><tr><th></th><th>' + h(t("colProduct")) + '</th><th class="r">' + h(t("colMrp")) + '</th><th class="r">' + h(t("colCust")) + "</th><th></th></tr></thead><tbody>" +
       its.map(function (it) {
         const p = "items." + it.id + ".";
         return '<tr class="pr-r' + (it.sell == null ? " is-need" : "") + '"><td class="im"><span class="pick-img sm">' + pickImg(it) + "</span></td>" +
@@ -530,18 +580,24 @@
       }).join("") + "</tbody></table>";
   }
 
-  SECTIONS.items = function () {
-    return secHead("items", "", '<button class="btn" data-act="newItem">' + ic("plus", 16) + h(t("iNew")) + "</button>") +
-      '<div class="items">' +
-        '<div class="items-g" id="groups">' + groupsHTML() + "</div>" +
-        '<div class="items-p">' +
-          '<div class="bar"><label class="search">' + ic("search", 16) +
-            '<input type="search" id="itemsQ" data-q="itemsQ" value="' + h(ui.itemsQ) + '" placeholder="' + h(t("iSearch")) + '" aria-label="' + h(t("iSearch")) + '" autocomplete="off">' +
-            '<kbd>/</kbd></label><div class="pickbar" id="pickbar">' + pickBarHTML(shownIds()) + "</div></div>" +
-          '<div id="grid">' + gridHTML() + "</div>" +
-          '<p class="hint keys">' + h(t("pickHint")) + "</p>" +
-        "</div>" +
-      "</div>" + nextBar("items");
+  SCR["items.pick"] = {
+    wide: true,
+    t: function () { return t("pkT"); }, l: function () { return t("pkL"); },
+    s: function () { const n = Object.keys(S.items).length; return n ? t("iChosen", { n: n }) : ""; },
+    b: function () {
+      return '<label class="search big">' + ic("search", 18) +
+          '<input type="search" id="itemsQ" data-q="itemsQ" value="' + h(ui.itemsQ) + '" placeholder="' + h(t("iSearch")) + '" aria-label="' + h(t("iSearch")) + '" autocomplete="off"><kbd>/</kbd></label>' +
+        '<div class="chipbar" id="chips">' + chipsHTML() + "</div>" +
+        '<div class="pickline" id="pickbar">' + pickBarHTML(shownIds()) + "</div>" +
+        '<div id="grid">' + gridHTML() + "</div>" +
+        '<p class="more-l"><button class="link" data-act="newItem">' + ic("plus", 15) + h(t("pkNew")) + "</button></p>" + attach("items");
+    },
+  };
+  SCR["items.prices"] = {
+    wide: true,
+    t: function () { return t("prT"); }, l: function () { return t("ypHint"); },
+    s: function () { const n = M.chosenItems(CAT, S).filter(function (it) { return it.sell == null; }).length; return n ? t("iNeedPrice", { n: n }) : t("prAll"); },
+    b: function () { return priceTable(); },
   };
 
   /* After a tick: the card, the counts, the list on the right -- in place, so the pictures don't reload. */
@@ -550,11 +606,11 @@
       const card = document.querySelector('.pick[data-id="' + CSS.escape(id) + '"]');
       if (card) { const on = !!S.items[id]; card.classList.toggle("on", on); card.setAttribute("aria-pressed", on); }
     });
-    const g = document.getElementById("groups");
-    if (g) { const k = g.querySelector(".grps"), top = k ? k.scrollTop : 0; g.innerHTML = groupsHTML(); const k2 = g.querySelector(".grps"); if (k2) k2.scrollTop = top; }
+    const g = document.getElementById("chips");
+    if (g) { const k = g.querySelector(".gchips"), left = k ? k.scrollLeft : 0; g.innerHTML = chipsHTML(); const k2 = g.querySelector(".gchips"); if (k2) k2.scrollLeft = left; }
     const pb = document.getElementById("pickbar");
     if (pb) pb.innerHTML = pickBarHTML(shownIds());
-    if (ui.group === "mine" && !ui.itemsQ.trim()) { const gr = document.getElementById("grid"); if (gr) gr.innerHTML = gridHTML(); }
+    if (ui.scr === "items.prices") { const gr = document.getElementById("main"); if (gr) render(); }
     refreshSide();
     refreshRail();
     hydrate();
@@ -564,9 +620,6 @@
 
   const TAGS = [["shop", "pShop", "1"], ["staff", "pStaff", "2"], ["supplier", "pSupplier", "3"]];
 
-  function peopleTab() {
-    return ui.tab || (M.unsorted(S).length ? "sort" : M.peopleOf(S, "shop").length ? "shop" : "sort");
-  }
   function matchQ(p) {
     const q = (ui.peopleQ || "").toLowerCase().trim();
     return !q || (p.name + " " + p.phone).toLowerCase().indexOf(q) >= 0 || M.phone10(p.phone).indexOf(q.replace(/\D/g, "") || "~") >= 0;
@@ -617,8 +670,7 @@
     }
     return '<div class="sortbar">' +
         (left > 1 ? '<button class="btn is-g" data-act="sortAll">' + ic("users", 16) + h(t("pRestCustomers", { n: left })) + "</button>" : "") +
-        (ui.lastSorted.length ? '<button class="btn is-quiet" data-act="undoSort">' + ic("undo", 16) + h(t("pUndo")) + "</button>" : "") +
-        '<span class="grow"></span><span class="hint keys">' + h(t("keysSort")) + "</span></div>" +
+        (ui.lastSorted.length ? '<button class="btn is-quiet" data-act="undoSort">' + ic("undo", 16) + h(t("pUndo")) + "</button>" : "") + "</div>" +
       '<table class="tbl sort"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colNumber")) + "</th><th>" + h(t("colLooks")) + "</th><th></th></tr></thead><tbody>" +
       rows.map(function (p) {
         const g = M.guessType(p.name);
@@ -671,7 +723,6 @@
     const pays = [{ v: "cash", label: t("payCash") }, { v: 7, label: t("payDays", { n: 7 }) }, { v: 15, label: t("payDays", { n: 15 }) }, { v: 30, label: t("payDays", { n: 30 }) }];
     const hints = areaHints();
     return '<datalist id="areaList">' + areas().map(function (a) { return '<option value="' + h(a) + '">'; }).join("") + "</datalist>" +
-      '<p class="hint">' + h(t("paintHint")) + " " + h(t("starHint")) + "</p>" +
       '<table class="tbl cust"><thead><tr><th class="stc"></th><th>' + h(t("colName")) + "</th><th>" + h(t("colArea")) + "</th>" + dayHeads() +
         "<th>" + h(t("colPays")) + "</th></tr></thead><tbody>" +
       shops.map(function (p) {
@@ -698,8 +749,7 @@
       return '<div class="empty"><p>' + h(t("stEmpty")) + "</p>" +
         (S.skipped.staff ? '<p class="ok">' + ic("check", 16) + h(t("stNone")) + "</p>" : '<button class="btn" data-act="skip" data-step="staff">' + h(t("stNone")) + "</button>") + "</div>";
     }
-    return '<p class="hint">' + h(t("paintHint")) + "</p>" +
-      '<table class="tbl staff"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colJob")) + "</th>" + dayHeads() + "<th>" + h(t("colVehicle")) + '</th><th class="c">' + h(t("colCash")) + "</th></tr></thead><tbody>" +
+    return '<table class="tbl staff"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colJob")) + "</th>" + dayHeads() + "<th>" + h(t("colVehicle")) + '</th><th class="c">' + h(t("colCash")) + "</th></tr></thead><tbody>" +
       staff.map(function (p) {
         return "<tr>" + nameCell(p, M.phoneShow(p.phone)) +
           "<td>" + sel("people." + p.id + ".role", roleOpts(), p.role) + "</td>" + dayCells(p) +
@@ -721,42 +771,53 @@
         (S.skipped.suppliers ? '<p class="ok">' + ic("check", 16) + h(t("suNone")) + "</p>" : '<button class="btn" data-act="skip" data-step="suppliers">' + h(t("suNone")) + "</button>") + "</div>";
     }
     const leads = [1, 2, 3, 7].map(function (n) { return { v: n, label: t("daysN", { n: n }) }; });
-    return '<table class="tbl sup"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colCompanies")) + "</th><th>" + h(t("colCode")) + "</th><th>" + h(t("colLead")) + '</th><th class="r">' + h(t("colOwe")) + "</th></tr></thead><tbody>" +
+    /* Companies and his code with them are not asked (owner, 1 Oct 2026). */
+    return '<table class="tbl sup"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colLead")) + '</th><th class="r">' + h(t("colOwe")) + "</th></tr></thead><tbody>" +
       sups.map(function (p) {
         return "<tr>" + nameCell(p, M.phoneShow(p.phone)) +
-          '<td class="cos">' + setChips("people." + p.id + ".companies", "arr", companyOpts(), "mini" + ((p.companies || []).length ? "" : " is-warn")) + "</td>" +
-          "<td>" + inp("people." + p.id + ".code", { cls: "code", label: t("colCode") }) + "</td>" +
           "<td>" + sel("people." + p.id + ".lead", leads, p.lead) + "</td>" +
           '<td class="r ow">' + inp("people." + p.id + ".owe", { kind: "num", mode: "numeric", ph: "₹", cls: "num", label: t("colOwe") }) + "</td></tr>";
       }).join("") + "</tbody></table>";
   }
 
-  function skipTable() {
-    const list = M.peopleOf(S, "skip").filter(matchQ);
-    if (!list.length) return '<div class="empty"><p>' + h(t("paNone")) + "</p></div>";
-    return '<table class="tbl sort"><tbody>' + list.map(function (p) {
-      return "<tr>" + nameCell(p, null) + '<td class="num">' + h(M.phoneShow(p.phone)) + '</td><td class="r">' + tagBtns(p, null) + "</td></tr>";
-    }).join("") + "</tbody></table>";
+  /* Bring people in: a file (contacts, Excel, a photo of the register) or names typed. */
+  function filesChips(step) {
+    const mine = M.filesFor(S, step);
+    return mine.length ? '<div class="att-files">' + mine.map(function (p) {
+      return '<i class="fx-f k-' + kindOf(p) + '">' + ic(KIND_IC[kindOf(p)], 14) + "<span>" + h(p.name || t("fdPhoto")) + "</span><small>" + (p.size ? h(kb(p.size)) : "") + "</small>" +
+        '<button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("fdRemove")) + '" title="' + h(t("fdRemove")) + '">' + ic("x", 13) + "</button></i>";
+    }).join("") + "</div>" : "";
+  }
+  function peopleSum() {
+    const P = M.progress(CAT, S).people;
+    return [S.order.length ? t("sumPeople", { n: S.order.length }) : "", P.left ? t("pToSort", { n: P.left }) : ""].filter(Boolean).join(" · ");
   }
 
-  function peopleBody(tab) {
-    return tab === "shop" ? custTable() : tab === "staff" ? staffTable() : tab === "supplier" ? supTable() : tab === "skip" ? skipTable() : sortTable();
-  }
-
-  SECTIONS.people = function () {
-    const tab = peopleTab();
-    const n = { sort: M.unsorted(S).length, shop: M.peopleOf(S, "shop").length, staff: M.peopleOf(S, "staff").length, supplier: M.peopleOf(S, "supplier").length, skip: M.peopleOf(S, "skip").length };
-    const tabs = [["sort", "pTabSort"], ["shop", "tShops"], ["staff", "tStaff"], ["supplier", "tSuppliers"], ["skip", "tNot"]];
-    return secHead("people", "",
-        '<button class="btn" data-act="addOpen">' + ic("plus", 16) + h(t("addPerson")) + "</button>") +
-      '<div class="ptabs" role="tablist">' + tabs.map(function (x) {
-        if (x[0] === "skip" && !n.skip) return "";
-        return '<button role="tab" aria-selected="' + (tab === x[0]) + '" class="ptab' + (tab === x[0] ? " on" : "") + (x[0] === "sort" && n.sort ? " is-todo" : "") + '" data-act="tab" data-v="' + x[0] + '">' +
-          h(t(x[1])) + " <b>" + n[x[0]] + "</b></button>";
-      }).join("") +
-        '<span class="grow"></span><label class="search small">' + ic("search", 15) + '<input type="search" id="peopleQ" data-q="peopleQ" value="' + h(ui.peopleQ) + '" placeholder="' + h(t("pSearch")) + '" autocomplete="off"><kbd>/</kbd></label></div>' +
-      addRow(["shop", "staff", "supplier"].indexOf(tab) >= 0 ? tab : "") +
-      '<div id="plist">' + peopleBody(tab) + "</div>" + nextBar("people");
+  SCR["people.add"] = {
+    t: function () { return t("adT"); }, l: function () { return t("adL"); }, s: peopleSum,
+    b: function () {
+      const recent = S.order.slice(-6).reverse().map(function (id) { return S.people[id]; }).filter(Boolean);
+      return '<div class="ways">' +
+          '<label class="way">' + '<span class="way-ic">' + ic("contacts", 22) + '</span><b>' + h(t("adFile")) + "</b><small>" + h(t("adFileS")) + "</small>" +
+            '<input type="file" multiple class="sr" data-fx="people"></label>' +
+          '<button class="way' + (ui.adding ? " on" : "") + '" data-act="addOpen"><span class="way-ic">' + ic("pen", 22) + "</span><b>" + h(t("adType")) + "</b><small>" + h(t("adTypeS")) + "</small></button>" +
+        "</div>" + addRow("") + filesChips("people") +
+        (recent.length ? '<div class="sofar"><b>' + h(t("sumPeople", { n: S.order.length })) + "</b>" +
+          '<span class="sofar-l">' + recent.map(function (p) { return avatar(p.name) + "<span>" + h(p.name) + "</span>"; }).join("") + (S.order.length > 6 ? "<span>…</span>" : "") + "</span></div>" : "");
+    },
+  };
+  SCR["people.sort"] = {
+    wide: true, t: function () { return t("srT"); }, l: function () { return t("srL"); }, s: peopleSum,
+    b: function () { return '<div id="plist">' + sortTable() + "</div>"; },
+  };
+  SCR["people.days"] = {
+    wide: true, t: function () { return t("dyT"); }, l: function () { return t("paintHint") + " " + t("starHint"); },
+    s: function () { const n = M.peopleOf(S, "shop").filter(function (p) { return !(p.days || []).length; }).length; return n ? t("dyLeft", { n: n }) : ""; },
+    b: function () { return custTable(); },
+  };
+  SCR["people.team"] = {
+    wide: true, t: function () { return t("tmT"); }, l: function () { return t("tmL"); },
+    b: function () { return "<h3>" + h(t("tStaff")) + "</h3>" + staffTable() + "<h3>" + h(t("tSuppliers")) + "</h3>" + supTable(); },
   };
 
   /* ── Stock: a count sheet ── */
@@ -796,17 +857,19 @@
     return t("gsCounted", { n: its.filter(function (it) { return M.countOf(it); }).length, total: its.length });
   }
 
-  SECTIONS.stock = function () {
-    const its = stockItems(), miss = stockMissing().length;
-    return secHead("stock", t("q_stock")) +
-      '<div class="bar"><div class="st-add"><label class="search">' + ic("search", 16) +
-        '<input type="search" id="stQ" value="' + h(ui.stQ) + '" placeholder="' + h(t("stockAdd")) + '" autocomplete="off"><kbd>/</kbd></label><div id="stDrop">' + stockDrop() + "</div></div>" +
-        (miss ? '<button class="btn" data-act="stAll">' + ic("plus", 16) + h(t("stockMore", { n: miss })) + "</button>" : "") +
-        '<span class="grow"></span><span class="pill-l" id="stCounted">' + h(stockCounted()) + "</span></div>" +
-      (its.length
-        ? '<table class="tbl stock"><thead><tr><th></th><th>' + h(t("colProduct")) + "</th><th>" + h(t("colCount")) + "</th><th>" + h(t("colIn")) + '</th><th class="r">' + h(t("colPrice")) + "</th><th></th></tr></thead><tbody>" +
-          its.map(stockRow).join("") + "</tbody></table>" + '<p class="hint keys">' + h(t("stockLegend")) + " · Enter ↓ · ↑</p>"
-        : '<div class="empty"><p>' + h(t("stockNoItems")) + '</p><button class="btn is-g" data-act="sec" data-to="items">' + ic("box", 16) + h(t("goProducts")) + "</button></div>") + nextBar("stock");
+  SCR.stock = {
+    wide: true, t: function () { return t("stT"); }, l: function () { return t("stockLegend"); },
+    s: function () { return stockItems().length ? stockCounted() : ""; },
+    b: function () {
+      const its = stockItems(), miss = stockMissing().length;
+      return '<div class="bar"><div class="st-add"><label class="search">' + ic("search", 16) +
+          '<input type="search" id="stQ" value="' + h(ui.stQ) + '" placeholder="' + h(t("stockAdd")) + '" autocomplete="off"><kbd>/</kbd></label><div id="stDrop">' + stockDrop() + "</div></div>" +
+          (miss ? '<button class="btn" data-act="stAll">' + ic("plus", 16) + h(t("stockMore", { n: miss })) + "</button>" : "") + "</div>" +
+        (its.length
+          ? '<table class="tbl stock"><thead><tr><th></th><th>' + h(t("colProduct")) + "</th><th>" + h(t("colCount")) + "</th><th>" + h(t("colIn")) + '</th><th class="r">' + h(t("colPrice")) + "</th><th></th></tr></thead><tbody>" +
+            its.map(stockRow).join("") + "</tbody></table>"
+          : '<div class="empty"><p>' + h(t("stockNoItems")) + '</p><button class="btn is-g" data-act="goStep" data-to="items">' + ic("box", 16) + h(t("goProducts")) + "</button></div>") + attach("stock");
+    },
   };
 
   /* ── Daily work: every question on one page ── */
@@ -816,41 +879,28 @@
     return on ? inp(path + "Other", { ph: t("otherPh"), cls: "wide" }) : "";
   }
 
-  SECTIONS.rules = function () {
-    const other = { v: "other", label: t("tOther") };
-    const yn = function (label, path) { return '<div class="yn"><span>' + h(t(label)) + "</span>" + seg(path) + "</div>"; };
-    return secHead("rules", t("q_rules")) +
-      '<div class="rules">' +
-        '<div class="card">' + yn("ruRoutes", "rules.routes") + yn("ruSelf", "rules.selfOrder") + yn("ruPart", "rules.partPay") + "</div>" +
+  SCR.rules = {
+    t: function () { return t("rlT"); },
+    s: function () { const n = M.progress(CAT, S).rules.n; return n ? t("sRules", { n: n, total: M.RULES_N }) : ""; },
+    b: function () {
+      const other = { v: "other", label: t("tOther") };
+      const yn = function (label, path) { return '<div class="yn"><span>' + h(t(label)) + "</span>" + seg(path) + "</div>"; };
+      return '<div class="card">' + yn("ruRoutes", "rules.routes") + yn("ruSelf", "rules.selfOrder") + yn("ruPart", "rules.partPay") + "</div>" +
         '<div class="card">' +
           field(t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") }, { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }, other]) + otherBox("rules.payMethods")) +
           field(t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }, other]) + otherBox("rules.returns")) +
           field(t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") }, { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other]) + otherBox("rules.morning")) +
-        "</div>" +
-        '<div class="card span">' + field(t("ruNote"), inp("rules.note", { area: true, ph: t("notePh") })) + "</div>" +
-      "</div>" + nextBar("rules");
+          field(t("ruNote"), inp("rules.note", { area: true, ph: t("notePh") })) +
+        "</div>" + attach("rules");
+    },
   };
-
-  /* ── The right side: what he chose (on Products), the store at a glance, and Build ── */
-
-  function tilesHTML() {
-    const P = M.progress(CAT, S);
-    const tile = function (n, label, sec, tab) {
-      const file = !n && P[sec] && P[sec].file && sec !== "people";   // nothing entered, but his file stands in
-      return '<button class="tile" data-act="sec" data-to="' + sec + '"' + (tab ? ' data-tab="' + tab + '"' : "") + "><b>" + (file ? ic("file", 22) : n) + "</b><span>" + h(label) + (file ? " · " + h(t("sFromFile")) : "") + "</span></button>";
-    };
-    return '<div class="tiles">' +
-      tile(Object.keys(S.items).length, t("tProducts"), "items") + tile(M.peopleOf(S, "shop").length, t("tShops"), "people", "shop") +
-      tile(M.peopleOf(S, "supplier").length, t("tSuppliers"), "people", "supplier") + tile(M.peopleOf(S, "staff").length, t("tStaff"), "people", "staff") +
-      tile(P.stock.n, t("fiStock"), "stock") + tile(S.papers.length, t("tPapers"), "papers") + "</div>";
-  }
 
   function gapsHTML(open) {
     const gaps = M.missing(CAT, S);
     if (!gaps.length) return '<div class="callout">' + ic("circleCheck", 16) + "<p>" + h(t("fiNoMissing")) + "</p></div>";
     return '<details class="gaps"' + (open ? " open" : "") + "><summary>" + ic("info", 16) + "<span>" + h(t("fiLater", { n: gaps.length })) + "</span>" + ic("chev", 14) + "</summary>" +
       gaps.map(function (g) {
-        return '<button class="gap" data-act="sec" data-to="' + g.step + '"' + (g.tab ? ' data-tab="' + g.tab + '"' : "") + "><span>" + h(t("gap_" + g.key)) + "</span>" + (g.n > 1 ? '<i class="pill">' + g.n + "</i>" : "") + ic("chev", 14) + "</button>";
+        return '<button class="gap" data-act="goStep" data-to="' + g.step + '"' + (g.tab ? ' data-tab="' + g.tab + '"' : "") + "><span>" + h(t("gap_" + g.key)) + "</span>" + (g.n > 1 ? '<i class="pill">' + g.n + "</i>" : "") + ic("chev", 14) + "</button>";
       }).join("") + "</details>";
   }
 
@@ -873,7 +923,7 @@
   const skel = function (n) { return '<span class="skel">' + Array.from({ length: n }, function () { return "<i></i>"; }).join("") + "</span>"; };
 
   function pvBlock(sec, label, count, body) {
-    return '<button class="pv-b" data-act="' + (sec === "papers" ? "papers" : "sec") + '" data-to="' + sec + '"><span class="pv-bh"><b>' + h(label) + "</b>" +
+    return '<button class="pv-b" data-act="' + (sec === "papers" ? "papers" : "goStep") + '" data-to="' + sec + '"><span class="pv-bh"><b>' + h(label) + "</b>" +
       (count ? "<i>" + count + "</i>" : "") + "</span>" + body + "</button>";
   }
 
@@ -899,40 +949,23 @@
     const files = S.papers.length ? '<span class="pv-chips">' + S.papers.slice(-3).reverse().map(function (p) { return "<i>" + ic("file", 11) + h(p.name || (p.kind === "voice" ? t("fdVoice") : t("fdPhoto"))) + "</i>"; }).join("") +
       (S.papers.length > 3 ? "<i>+" + (S.papers.length - 3) + "</i>" : "") + "</span>" : skel(1);
     const empty = !its.length && !shops.length && !M.storeReady(S) && !S.papers.length;
-    return '<p class="pv-label">' + h(t("pvLabel")) + "</p>" +
-      '<div class="pv-card' + (empty ? " is-empty" : "") + '">' + top +
+    return '<div class="pv-card' + (empty ? " is-empty" : "") + '">' + top +
         (empty ? '<p class="pv-empty">' + h(t("pvEmpty")) + "</p>" : "") +
-        pvBlock("items", t("tProducts"), its.length, products) +
+        (M.shown("items") ? pvBlock("items", t("tProducts"), its.length, products) : "") +
         pvBlock("people", t("tShops"), shops.length, people) +
-        pvBlock("stock", t("pvStock"), P.stock.n, stock) +
+        (M.shown("stock") ? pvBlock("stock", t("pvStock"), P.stock.n, stock) : "") +
         pvBlock("rules", t("pvDaily"), "", dailyBody) +
         pvBlock("papers", t("pvFiles"), S.papers.length, files) +
       "</div>";
   }
 
-  function readyHTML() {
-    const P = M.progress(CAT, S);
-    const pct = Math.round(SECS.filter(function (s) { return P[s].done; }).length / SECS.length * 100);
-    return '<div class="ready-h"><span>' + h(t("pvReady", { p: pct })) + "</span></div>" +
-      '<div class="bar-p"><i style="width:' + pct + '%"></i></div>' +
-      '<button class="cta wide" data-act="buildAsk">' + ic("send", 18) + h(t("fiBuild")) + "</button>" +
-      '<p class="hint center">' + h(t("buildLater")) + "</p>" + buildState();
-  }
-
-  function sideHTML() {
-    return '<div class="side-top" data-keep="side">' + previewHTML() + "</div>" + '<div class="side-foot" id="ready">' + readyHTML() + "</div>";
-  }
-
-  function refreshSide() {
-    const el = document.getElementById("side");
-    if (!el) return;
-    const k = el.querySelector(".side-top"), top = k ? k.scrollTop : 0;
-    el.innerHTML = sideHTML();
-    const k2 = el.querySelector(".side-top");
-    if (k2) k2.scrollTop = top;
-  }
-  function refreshReady() { const el = document.getElementById("ready"); if (el) el.innerHTML = readyHTML(); }
-  function refreshRail() { const el = document.getElementById("rail"); if (el) el.innerHTML = railHTML(); }
+  SCR.review = {
+    wide: true, t: function () { return t("rvT"); },
+    b: function () {
+      return '<div class="review"><div>' + previewHTML() + "</div>" +
+        '<div class="rv-side">' + gapsHTML(true) + attach("finish") + buildState() + "</div></div>";
+    },
+  };
 
   /* ──────────────────────────────────────────────────────── dialogs ── */
 
@@ -945,11 +978,13 @@
 
   const DIALOGS = {};
 
+  /* What left the screen lives here: files, sample data, the phone page, start again. */
   DIALOGS.menu = function () {
     const row = function (act, icon, label, attrs, cls) { return '<button class="mrow' + (cls ? " " + cls : "") + '" data-act="' + act + '"' + (attrs || "") + ">" + ic(icon, 18) + "<span>" + h(label) + "</span></button>"; };
     return dlgWrap(h(t("menu")),
-      row("lang", "langs", t("menuLang"), ' data-v="' + (S.lang === "en" ? "hi" : "en") + '"') +
+      row("papers", "folder", t("tPapers") + (S.papers.length ? " · " + S.papers.length : "")) +
       row("sampleAll", "sparkle", t("menuSample")) +
+      row("lang", "langs", t("menuLang"), ' data-v="' + (S.lang === "en" ? "hi" : "en") + '"') +
       '<a class="mrow" href="../">' + ic("mobile", 18) + "<span>" + h(t("menuPhone")) + "</span></a>" +
       row("confirm", "trash", t("menuFresh"), "", "is-bad") +
       '<p class="hint">' + h(CAT.note) + '</p><p class="hint">' + h(CAT.credit) + "</p>", "", "is-sm");
@@ -1044,8 +1079,7 @@
       body += field(t("pStaff"), setChips(b + "role", "str", roleOpts())) + field(t("stDays"), setChips(b + "days", "arr", M.DAYS.map(function (x) { return { v: x, label: dayName(x) }; }))) +
         '<div class="two">' + field(t("stVehicle"), inp(b + "vehicle", { upper: true, kind: "upper" })) + field(t("stCash"), setChips(b + "cash", "bool", [{ v: "1", label: t("yes") }, { v: "0", label: t("no") }])) + "</div>";
     } else if (p.type === "supplier") {
-      body += field(t("suCompanies"), setChips(b + "companies", "arr", companyOpts())) +
-        '<div class="two">' + field(t("suCode"), inp(b + "code")) + field(t("suGst"), inp(b + "gst", { upper: true, kind: "upper", max: 15 })) +
+      body += '<div class="two">' + field(t("suGst"), inp(b + "gst", { upper: true, kind: "upper", max: 15 })) +
         field(t("suLead"), setChips(b + "lead", "num", [1, 2, 3, 7].map(function (n) { return { v: n, label: t("daysN", { n: n }) }; }))) +
         field(t("suOwe"), inp(b + "owe", { kind: "num", mode: "numeric", ph: "₹", cls: "num" }), h(t("shOwesHint"))) + "</div>";
     }
@@ -1059,11 +1093,6 @@
       (canRecord ? '<div class="row">' + (ui.rec ? '<button class="btn is-bad" data-act="recStop">' + ic("stop", 16) + h(t("paStop")) + ' · <span id="recT">' + h(t("paRecording", { s: 0 })) + "</span></button>"
         : '<button class="btn" data-act="recStart">' + ic("mic", 16) + h(t("paVoice")) + "</button>") + "</div>" : "") +
       (S.papers.length ? fileList(true) : ""), done(), "is-md");
-  };
-
-  DIALOGS.build = function () {
-    return dlgWrap(h(t("title_finish")), '<p class="sub">' + h(t("fiReview")) + "</p>" + tilesHTML() + gapsHTML(true) + attach("finish") + buildState(),
-      '<button class="btn" data-act="closeDlg">' + h(t("cancel")) + '</button><button class="cta" data-act="build"' + (ui.building ? " disabled" : "") + ">" + ic("store", 18) + h(t(ui.building ? "fiWorking" : "fiBuild")) + "</button>", "is-md");
   };
 
   /* After Build my store, a whole page, as on the phone: thank you, and the FoodBridge team will reach out. */
@@ -1128,19 +1157,27 @@
     document.querySelectorAll("audio[data-paper-audio]:not([src])").forEach(function (a) { paperUrl(a.dataset.paperAudio).then(function (u) { if (u) a.src = u; }); });
   }
 
-  function hashFor() {
-    if (view !== "desk") return "#" + view;
-    return "#" + ui.sec + (ui.sec === "people" && ui.tab ? "/" + ui.tab : "");
-  }
-  function go(v, sec, tab) {
+  function hashFor() { return "#" + (view === "desk" ? ui.scr : view); }
+  function go(v) {
     view = v;
-    if (sec) { if (sec !== ui.sec) { ui.sortedHere = []; ui.adding = false; } ui.sec = sec; }
-    if (tab !== undefined) { ui.tab = tab; ui.sortedHere = []; }
     dlg = null;
-    history.pushState({ v: view, sec: ui.sec, tab: ui.tab }, "", hashFor());
+    history.pushState({ v: view, scr: ui.scr }, "", hashFor());
     render();
     const m = document.getElementById("main");
     if (m) m.scrollTop = 0;
+  }
+  /* To a screen: what a screen keeps for itself (sorted-here, the add row) starts fresh. */
+  function goScr(id) {
+    if (id !== ui.scr) { ui.sortedHere = []; ui.adding = false; ui.sortFocus = null; }
+    if (id === "stock" && !M.stockSel(CAT, S).length && Object.keys(S.items).length) { const sel = M.stockSel(CAT, S); stockMissing().forEach(function (x) { sel.push(x); }); save(); }
+    ui.scr = id;
+    go("desk");
+  }
+  /* A step's first screen that applies; a gap names the screen that fixes it. */
+  function firstOf(step, tab) {
+    if (step === "people" && tab) return tab === "shop" ? "people.days" : tab === "staff" || tab === "supplier" ? "people.team" : "people.sort";
+    const f = flow().find(function (x) { return x.step === step; });
+    return f ? f.id : "store";
   }
   function openDlg(d) { dlg = d; render(); const f = $dlg.querySelector("input:not([type=file]), textarea"); if (f && (d.kind === "newItem")) f.focus(); }
   function closeDlg() { stopRec(); dlg = null; render(); }
@@ -1149,8 +1186,7 @@
     const st = e.state || {};
     dlg = null;
     view = st.v || "desk";
-    if (st.sec) ui.sec = st.sec;
-    ui.tab = st.tab || null;
+    if (st.scr) ui.scr = st.scr;
     render();
   });
 
@@ -1177,7 +1213,7 @@
   /* Anything dropped or chosen is kept as it came, for raw/ (outbox.js take). A drop lands on
      the section in view, or on Build while its dialog is open; a contacts file or a list is also
      read, and its people wait in Contacts to sort. */
-  function dropStep() { return dlg && dlg.kind === "build" ? "finish" : view === "desk" ? ui.sec : "store"; }
+  function dropStep() { const st = stepOf(ui.scr); return view !== "desk" ? "store" : st === "send" ? "finish" : st; }
   async function takeFiles(files, step) {
     step = step || dropStep();
     let n = 0, found = 0;
@@ -1191,7 +1227,6 @@
       found += p.contacts || 0;
     }
     save();
-    if (view === "desk" && found && step === "people") { ui.tab = "sort"; ui.sortedHere = []; history.replaceState({ v: view, sec: ui.sec, tab: ui.tab }, "", hashFor()); }
     render();
     if (n) notes.unshift(t("fxAdded", { n: n }) + (found ? " · " + t("fxContacts", { n: found }) : ""));
     if (notes.length) toast(notes.join(" · "));
@@ -1201,7 +1236,7 @@
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
-      const chunks = [], started = Date.now(), step = view === "desk" ? ui.sec : "store";
+      const chunks = [], started = Date.now(), step = dropStep();
       ui.rec = { mr: mr, started: started };
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       mr.onstop = async function () {
@@ -1280,23 +1315,25 @@
   }
 
   const ACT = {
-    next: function (el) {
-      /* Shop needs the login mobile before it moves on: point at the box and say why. */
-      if (el.dataset.from === "store" && !M.storeReady(S)) {
+    /* Continue: the next screen that applies. Shop waits for the login mobile, and says why. */
+    next: function () {
+      if (ui.scr === "store" && !M.storeReady(S)) {
         ui.needMobile = true;
         render();
         const box = document.querySelector('[data-bind="store.mobile"]');
         if (box) box.focus();
         return;
       }
-      const to = SECS[SECS.indexOf(el.dataset.from) + 1];
-      if (to === "stock" && !M.stockSel(CAT, S).length && Object.keys(S.items).length) ACT.stAll();
-      go("desk", to, to === "people" ? (M.unsorted(S).length ? "sort" : null) : undefined);
+      const f = flow(), i = f.findIndex(function (x) { return x.id === ui.scr; });
+      if (f[i + 1]) goScr(f[i + 1].id);
     },
-    sec: function (el) {
+    back: function () {
+      const f = flow(), i = f.findIndex(function (x) { return x.id === ui.scr; });
+      if (i > 0) goScr(f[i - 1].id);
+    },
+    goStep: function (el) {
       if (el.dataset.to === "papers") { openDlg({ kind: "papers" }); return; }
-      if (el.dataset.to === "stock" && !M.stockSel(CAT, S).length && Object.keys(S.items).length) { ACT.stAll(); }
-      go("desk", el.dataset.to, el.dataset.to === "people" ? el.dataset.tab || null : undefined);
+      goScr(el.dataset.to === "send" ? "review" : firstOf(el.dataset.to, el.dataset.tab));
     },
     lang: function (el) { S.lang = el.dataset.v; save(); if (dlg && dlg.kind === "menu") dlg = null; render(); },
     menu: function () { openDlg({ kind: "menu" }); },
@@ -1308,7 +1345,7 @@
       save();
       DB.clear().catch(function () {});
       S.startedAt = Date.now();
-      go("desk", "store");
+      goScr("store");
     },
     sampleAsk: function (el) { openDlg({ kind: "sample", step: el.dataset.step }); },
     sampleAll: function () { openDlg({ kind: "sample", step: "all" }); },
@@ -1317,10 +1354,9 @@
       (step === "all" ? M.SAMPLE_STEPS : [step]).forEach(function (s) { M.fillSample(CAT, S, s); });
       ui.needMobile = false;
       ui.sortedHere = [];
-      if (step === "people" || step === "all") ui.tab = null;
       syncSave();
       dlg = null;
-      if (step === "all" && view === "desk" && ui.sec === "store") go("desk", "items");
+      if (step === "all" && ui.scr === "store") goScr("items.pick");
       else render();
       toast("✓ " + t("sampleDone"));
     },
@@ -1390,7 +1426,7 @@
     item: function (el) { openDlg({ kind: "item", id: el.dataset.id }); },
     removeItem: function (el) { delete S.items[el.dataset.id]; syncSave(); closeDlg(); },
     newItem: function (el) {
-      const q = view === "desk" && ui.sec === "stock" ? ui.stQ : ui.itemsQ;
+      const q = ui.scr === "stock" ? ui.stQ : ui.itemsQ;
       const code = /^\d{8,14}$/.test(q.trim()) ? q.trim() : "";
       openDlg({ kind: "newItem", toCount: !!(el && el.dataset.count), draft: { name: code ? "" : q.trim(), company: "", cat: "other", caseQty: 1, loose: false, per: "kg", barcode: code } });
     },
@@ -1418,30 +1454,25 @@
     },
 
     /* Contacts */
-    tab: function (el) { ui.tab = el.dataset.v; ui.sortedHere = []; history.replaceState({ v: view, sec: ui.sec, tab: ui.tab }, "", hashFor()); render(); },
     sort: function (el) { tagPerson(el.dataset.id, el.dataset.v); render(); },
     sortAll: function () {
       const ids = M.unsorted(S).map(function (p) { return p.id; });
       ids.forEach(function (id) { S.people[id].type = "shop"; });
       ui.lastSorted.push(ids);
       save();
-      ui.tab = "shop";
-      ui.sortedHere = [];
-      history.replaceState({ v: view, sec: ui.sec, tab: ui.tab }, "", hashFor());
       render();
       toast("✓ " + t("pSortedAll", { n: ids.length }));
     },
     undoSort: function () {
       const last = ui.lastSorted.pop();
       [].concat(last || []).forEach(function (id) { if (S.people[id]) S.people[id].type = null; });
-      if (last) { save(); if (Array.isArray(last)) ui.tab = "sort"; else ui.sortFocus = last; }
+      if (last) { save(); if (!Array.isArray(last)) ui.sortFocus = last; }
       render();
       showSortFocus();
     },
     person: function (el) { openDlg({ kind: "person", id: el.dataset.id }); },
     delPerson: function (el) { M.removePerson(S, el.dataset.id); save(); closeDlg(); },
     addOpen: function () {
-      if (view === "desk" && ui.sec !== "people") { ui.sec = "people"; }
       ui.adding = true;
       render();
       const f = document.getElementById("addName");
@@ -1455,7 +1486,6 @@
       const r = M.addPerson(S, { name: name || phone, phone: M.phone10(phone) || phone, type: ty.value || null, src: "typed" });
       save();
       if (r.dup) toast(t("pDup", { n: 1 }));
-      if (!r.dup && ty.value) ui.tab = ty.value;
       const keepType = ty.value;
       render();
       const n2 = document.getElementById("addName"), t2 = document.getElementById("addType");
@@ -1484,7 +1514,7 @@
       const s = M.stockSel(CAT, S);
       stockMissing().forEach(function (id) { s.push(id); });
       save();
-      if (view === "desk" && ui.sec === "stock") render();
+      if (ui.scr === "stock") render();
     },
     stAdd: function (el) { stockAdd(el.dataset.id); },
     stRemove: function (el) {
@@ -1496,7 +1526,7 @@
     },
 
     /* Build */
-    buildAsk: function () { openDlg({ kind: "build" }); },
+    buildAsk: function () { goScr("review"); },
     build: async function () {
       if (ui.building) return;
       ui.building = true;
@@ -1584,11 +1614,9 @@
       if (el.dataset.q === "itemsQ") {
         document.getElementById("grid").innerHTML = gridHTML();
         document.getElementById("pickbar").innerHTML = pickBarHTML(shownIds());
-        const g = document.getElementById("groups");
-        if (g) g.innerHTML = groupsHTML();
+        const g = document.getElementById("chips");
+        if (g) g.innerHTML = chipsHTML();
         hydrate();
-      } else if (el.dataset.q === "peopleQ") {
-        document.getElementById("plist").innerHTML = peopleBody(peopleTab());
       }
     } else if (el.id === "stQ") {
       ui.stQ = el.value;
@@ -1623,13 +1651,14 @@
   function syncMobile() {
     const ok = M.storeReady(S);
     if (ok) ui.needMobile = false;
-    const tag = document.querySelector(".fc-row.is-mob .req");
-    if (tag) { tag.classList.toggle("is-ok", ok); tag.innerHTML = ok ? ic("check", 14) : h(t("required")); }
-    const fc = document.querySelector(".fc");
-    if (fc) fc.classList.toggle("is-bad", !!ui.needMobile && !ok);
-    const err = document.querySelector(".err");
+    const tag = document.querySelector(".fld.is-mob .req");
+    if (tag) { tag.classList.toggle("is-ok", ok); tag.innerHTML = ok ? ic("check", 13) : h(t("required")); }
+    const box = document.querySelector(".fld.is-mob .inx");
+    if (box) box.classList.toggle("is-bad", !!ui.needMobile && !ok);
+    const err = document.querySelector(".fld.is-mob .err");
     if (err) err.hidden = !ui.needMobile || ok;
   }
+
 
   document.addEventListener("focusin", function (e) {
     if (e.target.id === "stQ" && ui.stQ.trim() && !ui.stOpen) { ui.stOpen = true; document.getElementById("stDrop").innerHTML = stockDrop(); hydrate(); }
@@ -1698,12 +1727,12 @@
     if (tg.classList && tg.classList.contains("pick") && /^Arrow/.test(e.key)) { e.preventDefault(); gridMove(tg, e.key); return; }
     if (typing(tg) || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "/" && view === "desk") {
-      const box = document.getElementById(ui.sec === "items" ? "itemsQ" : ui.sec === "people" ? "peopleQ" : ui.sec === "stock" ? "stQ" : "");
+      const box = document.getElementById(ui.scr === "items.pick" ? "itemsQ" : ui.scr === "stock" ? "stQ" : "");
       if (box) { e.preventDefault(); box.focus(); box.select(); }
       return;
     }
     /* Sorting contacts from the keyboard. */
-    if (view === "desk" && ui.sec === "people" && peopleTab() === "sort" && ui.sortFocus) {
+    if (view === "desk" && ui.scr === "people.sort" && ui.sortFocus) {
       const map = { 1: "shop", 2: "staff", 3: "supplier", 0: "skip" };
       const rows = sortList();
       const i = rows.findIndex(function (p) { return p.id === ui.sortFocus; });
@@ -1742,17 +1771,18 @@
   window.addEventListener("dragenter", dropWords);
 
   M.tidy(CAT, S);
-  const hash = location.hash.slice(1).split("/");
+  const hash = location.hash.slice(1).split("/");   // "#items.pick"
   /* One layout from the first second: a first visit opens the desk on the shop; a return, on the
      first section still to do. (Until 1 Oct 2026 a separate start screen came first.) */
   if (!S.startedAt) S.startedAt = Date.now();   // saved with his first answer
   if (hash[0] === "thanks" && S.lastBuild) view = "thanks";
   else {
     view = "desk";
-    ui.sec = SECS.indexOf(hash[0]) >= 0 ? hash[0] : SECS.find(function (s) { return !M.progress(CAT, S)[s].done; }) || "items";
-    if (ui.sec === "people" && hash[1]) ui.tab = hash[1];
+    /* A first visit opens on the shop; a return, on the first step still to do. */
+    ui.scr = SCR[hash[0]] && (stepOf(hash[0]) === "send" || M.shown(stepOf(hash[0]))) ? hash[0] : firstOf(SECS.find(function (x) { return !M.progress(CAT, S)[x].done; }) || "send");
+    if (ui.scr === "send") ui.scr = "review";
   }
-  history.replaceState({ v: view, sec: ui.sec, tab: ui.tab }, "", hashFor());
+  history.replaceState({ v: view, scr: ui.scr }, "", hashFor());
   render();
   OUTBOX.all().then(function (list) { ui.outbox = list || []; if (ui.outbox.length) sendAll(); else render(); }).catch(function () { ui.outbox = []; });
 })();

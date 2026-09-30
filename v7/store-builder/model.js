@@ -19,7 +19,13 @@
   /* 26 Sep 2026: Phone contacts, Customers, Staff and Suppliers are one step,
      "people": he brings contacts in once and tags each one. */
   const RULES_N = 6;   // Daily operation questions (Order steps went 26 Sep 2026; expiry dates 28 Sep 2026)
-  const STEPS = ["store", "items", "people", "stock", "rules", "finish"];   // Usual orders went 26 Sep 2026 (owner)
+  const ALL_STEPS = ["store", "items", "people", "stock", "rules", "finish"];   // Usual orders went 26 Sep 2026 (owner)
+  /* Hidden for now (owner, 1 Oct 2026): Products and Warehouse stock. Nothing is deleted -- their
+     screens, words, answers and export stay as they are; both pages just don't show or ask them,
+     and What's missing doesn't name them. To bring a step back, take it off this list. */
+  const HIDDEN_STEPS = ["items", "stock"];
+  function shown(step) { return HIDDEN_STEPS.indexOf(step) < 0; }
+  const STEPS = ALL_STEPS.filter(shown);
 
   function blank() {
     return {
@@ -294,13 +300,15 @@
 
   /* What is still missing, for the week-one follow-up. Each gap names the
      step that fixes it. */
-  function missing(cat, s) {
+  function missing(cat, s, opts) {
     const gaps = [];
+    const all = !!(opts && opts.all);   // all: the hidden steps' gaps too (the tests)
     /* A step set up from his file: what it would ask is in the file, and To follow up says so. */
     const ASKED_IN_FILE = { noItems: "items", noMrp: "items", noPrice: "items", noShops: "people", shopNoDay: "people", shopNoArea: "people", shopNoPay: "people",
       noDelivery: "people", noSuppliers: "people", notCounted: "stock" };
     function add(step, key, n) {
       if (!n) return;
+      if (!all && !shown(step)) return;   // a hidden step is not asked (HIDDEN_STEPS)
       if (ASKED_IN_FILE[key] && fromFile(s, ASKED_IN_FILE[key])) return;
       const tab = { shops: "shop", staff: "staff", suppliers: "supplier" }[step];
       gaps.push(tab ? { step: "people", tab: tab, key: key, n: n } : { step: step, key: key, n: n });
@@ -324,7 +332,7 @@
     add("staff", "staffNoRole", staff.filter(function (p) { return !p.role; }).length);
     const sups = peopleOf(s, "supplier");
     add("suppliers", "noSuppliers", sups.length || s.skipped.suppliers ? 0 : 1);
-    add("suppliers", "supNoCompany", sups.filter(function (p) { return !(p.companies || []).length; }).length);
+    /* "Suppliers without company" went 1 Oct 2026 (owner): companies are not asked of a supplier any more. */
     add("stock", "notCounted", its.filter(function (it) { return it.stockCases == null && it.stockLoose == null; }).length);
     add("rules", "rulesOpen", RULES_N - progress(cat, s).rules.n);
     return gaps;
@@ -414,7 +422,7 @@
      entered or picked stays as it is (owner: "additive, not replacing"). Warehouse
      stock counts the chosen products, so with none chosen it adds sample products
      first. Every name and number here is made up. */
-  const SAMPLE_STEPS = ["store", "items", "people", "stock", "rules"];
+  const SAMPLE_STEPS = ["store", "items", "people", "stock", "rules"].filter(shown);
   const SAMPLE_PACKS = ["par01", "par02", "par04", "bri01", "nes01", "nes04", "itc01", "itc04", "amu01", "amu05", "hul20", "hul24"];
   const SAMPLE_LOOSE = { veg01: 30, veg02: 40, veg03: 35 };   // ₹ a kg
   const SAMPLE_PEOPLE = [
@@ -458,7 +466,7 @@
   }
 
   const api = {
-    DAYS: DAYS, STEPS: STEPS, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
+    DAYS: DAYS, STEPS: STEPS, ALL_STEPS: ALL_STEPS, HIDDEN_STEPS: HIDDEN_STEPS, shown: shown, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
     blank: blank, migrate: migrate, uid: uid, round2: round2,
     phone10: phone10, phoneShow: phoneShow, gstOk: gstOk, storeReady: storeReady,
     companyList: companyList, companyById: companyById, item: item, syncCompanies: syncCompanies, tidy: tidy, aisleOf: aisleOf, chosenItems: chosenItems, unitPrice: unitPrice,

@@ -72,8 +72,8 @@ test("loose goods: no MRP, the owner's price per unit, and a gap until he gives 
   assert.equal(potato.sell, null);
   assert.equal(potato.unit, "piece");
   assert.deepEqual(Object.keys(s.companies), [], "a loose good brings no company");
-  assert.ok(M.missing(CAT, s).some((g) => g.key === "noPrice"));
-  assert.ok(!M.missing(CAT, s).some((g) => g.key === "noMrp"));
+  assert.ok(M.missing(CAT, s, { all: true }).some((g) => g.key === "noPrice"));   // Products is hidden for now: asked for all
+  assert.ok(!M.missing(CAT, s, { all: true }).some((g) => g.key === "noMrp"));
   s.items.veg01.sell = 32;
   potato = M.item(CAT, s, "veg01");
   assert.equal(M.unitPrice(potato, "sell"), 32);
@@ -143,11 +143,11 @@ test("progress and missing name the gaps without blocking anything", () => {
   assert.equal(p.store.done, true);
   assert.equal(p.items.n, 3);
   assert.equal(p.rules.done, false);
-  const keys = M.missing(CAT, s).map((g) => g.key);
+  const keys = M.missing(CAT, s, { all: true }).map((g) => g.key);
   assert.ok(keys.includes("rulesOpen"));
   assert.ok(keys.includes("notCounted"));
   assert.ok(!keys.includes("noDelivery"));
-  const empty = M.missing(CAT, M.blank()).map((g) => g.key);
+  const empty = M.missing(CAT, M.blank(), { all: true }).map((g) => g.key);
   assert.ok(empty.includes("noMobile") && empty.includes("noItems") && empty.includes("noShops"));
 });
 
@@ -186,10 +186,11 @@ test("daily operation: Other, typed, on pay methods, returns and the morning che
 });
 
 test("sample data: each step fills only what is empty, adds beside what he has, and makes the step done", () => {
+  const EVERY = ["store", "items", "people", "stock", "rules"];   // hidden steps too (M.SAMPLE_STEPS leaves them out)
   const s = M.blank();
-  for (const step of M.SAMPLE_STEPS) M.fillSample(CAT, s, step);
+  for (const step of EVERY) M.fillSample(CAT, s, step);
   const p = M.progress(CAT, s);
-  for (const step of M.SAMPLE_STEPS) assert.equal(p[step].done, true, step);
+  for (const step of EVERY) assert.equal(p[step].done, true, step);
   assert.equal(M.missing(CAT, s).filter((g) => ["noPrice", "noMobile", "noGst", "unsorted", "notCounted", "rulesOpen"].includes(g.key)).length, 0);
   /* Warehouse stock with no products chosen fills Products too. */
   const t = M.fillSample(CAT, M.blank(), "stock");
@@ -201,7 +202,7 @@ test("sample data: each step fills only what is empty, adds beside what he has, 
   const mine = M.addPerson(u, { name: "My Customer", phone: "9111133333", src: "typed" }).id;
   u.people[mine].type = "shop";
   u.rules.routes = false;
-  for (const step of M.SAMPLE_STEPS) M.fillSample(CAT, u, step);
+  for (const step of EVERY) M.fillSample(CAT, u, step);
   assert.equal(u.store.mobile, "91111 22222");
   assert.equal(u.store.type, "retailer");
   assert.equal(u.store.gst, "27AAPFG1234K1Z5");                 // it was empty
@@ -280,7 +281,7 @@ test("words: Hindi and English have exactly the same keys, and every gap has wor
 });
 
 test("one Products step: companies follow the products chosen, and a search finds a product by its company", () => {
-  assert.deepEqual(M.STEPS, ["store", "items", "people", "stock", "rules", "finish"]);
+  assert.deepEqual(M.ALL_STEPS, ["store", "items", "people", "stock", "rules", "finish"]);
   const s = M.blank();
   s.items.hul25 = { unit: "case" };
   s.items.par02 = { unit: "case" };
@@ -410,4 +411,15 @@ test("fresh produce has real photos, and the file credits each one it uses", () 
   s.items.veg01 = { sell: 30 };
   const credits = X.sheets(CAT, s, NOW).find((sh) => sh.name === "Photo credits");
   assert.ok(credits && credits.rows.some((r) => r[0] === "veg01" && r[3] === "Public domain"));
+});
+
+test("Products and Warehouse stock are hidden, not gone: not shown, not asked, and back with one edit", () => {
+  assert.deepEqual(M.HIDDEN_STEPS, ["items", "stock"]);
+  assert.deepEqual(M.STEPS, ["store", "people", "rules", "finish"]);
+  assert.deepEqual(M.SAMPLE_STEPS, ["store", "people", "rules"]);
+  const gaps = M.missing(CAT, M.blank()).map((g) => g.step);
+  assert.ok(!gaps.includes("items") && !gaps.includes("stock"), "a hidden step is not named as missing");
+  /* Their logic is all still there. */
+  const s = M.fillSample(CAT, M.blank(), "stock");
+  assert.ok(Object.keys(s.items).length > 0 && M.progress(CAT, s).stock.done);
 });

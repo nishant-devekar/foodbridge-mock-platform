@@ -7,6 +7,8 @@ Tests: from `v7/`, run `node --test store-builder/test/*.test.js`.
 
 ## Six steps
 
+**Hidden for now (1 Oct 2026):** Products and Warehouse stock. `model.js` `HIDDEN_STEPS` lists them; both pages leave them out. Take a step off that list to bring it back; nothing of it was deleted.
+
 1. Shop
 2. Products: a short menu, not a list. Search (English or Hindi, by product, brand, company or kind), *Your products* with their prices, then tiles **By company** (a pack photo each) or **By type** (the aisles of a shop, fresh and loose goods first). A tile opens a picture grid; a tap chooses, *Select all* takes the lot.
 3. Contacts: add from the phone's contact list (search, tick many, Add, as WhatsApp's share contact) or type a name; then tag each one customer / staff / supplier / not needed. The tag is suggested from the name ("… Kirana" → customer, "… Agency" → supplier, "… Driver" → staff), and "The rest are customers" tags the whole queue in one tap. Tabs hold what each kind needs: customers' delivery days and ⭐, staff jobs, suppliers' companies. More edits, re-tags or removes a contact.
@@ -29,19 +31,11 @@ Every screen:
 
 `desktop/` is the same builder for a computer, not the phone page made wider (1 Oct 2026). Both pages keep the same answers, in the same browser: `model.js`, one localStorage key, and photos and builds through `outbox.js`. So a store started on one page carries on in the other on that browser. It does not move between devices.
 
-- **One layout start to end:** a first visit opens the desk on Shop ("Let's make your store"). There is no separate start screen. Each section ends with *Next: …*, and Daily work with *Check and build*. The rail still opens any section.
-- **Files go along with each step (both pages):** at the end of each step, before Next, a card asks for that step's paper (a rate list, a customer list, a stock sheet…) with *Attach files*. He can fill the step, part of it or none of it, and attach too. On Products, Contacts and Stock a file lets the team finish the step (`model.js` `fromFile`). Build ends with *Anything else to send?*
-- **Dropped files:**
-  - Every file goes to FoodBridge as it came, under `raw/`, in pieces when over 2.5 MB. The team panel (`v7/stores.html`) lists them under *Files he dropped in*.
-  - Contacts files and lists (`.vcf`, `.csv`, `.xlsx`) are also read into Contacts by `desktop/import.js`.
-- **The desk, three columns with one job each:**
-  - Left, *Steps*: numbered 1–5, ending in *Send to FoodBridge*.
-  - Middle, the work: white, with *Step N of 5*.
-  - Right, *Your store request*: a line per step filling in as he goes, with Build my store.
-  - Products: a picture grid. Click ticks, Shift-click ticks a run, and prices can be typed in the list on the right.
-  - Contacts: sort with 1 2 3 0. The customers' week is a grid to drag across.
-  - Stock: a count sheet, filled with Enter down the column.
-  - Daily work: every question on one page.
+- **One question per screen:** a progress line on top (Shop — Products — Contacts — Stock — Daily work — Send), one canvas, and a footer with Back, a running count and one green button.
+  - Heavy steps are small screens: products then prices; bring people in, sort them, delivery days, staff and suppliers.
+  - Screens that don't apply are skipped.
+  - The store preview is on the last screen, *Check and send*.
+  - Secondary things (files, sample data, start again) are in the ⋯ menu.
 - **Width:** made for 1100px and wider; the rail folds to icons under 1360px. The phone page offers the desktop page on a computer.
 
 ## Export

@@ -3077,3 +3077,110 @@ Each column now has one job and looks like it:
   - On Products, Contacts and Stock an attached file still lets the team finish the step (it counts as done), whatever he filled. The card says *The team uses this to finish your products* (to add the rest of your customers, to fill in your stock).
 - Checked in headless Chrome: desktop 1440×900 (2 products ticked plus 2 files attached; a contacts file on Contacts; Daily work) and phone 390×844. Tests: 30 pass.
 - `?v=` `20261001E5`.
+
+### 1 October 2026 — Store Builder desktop, rethought: one question per screen
+
+**Owner:** rethink the whole desktop UI so it's very clean, and the user focuses and acts on one thing at a time, with no cognitive load, easy to understand, browse and act on.
+
+The three columns (steps | work | preview) and the busy section headers are gone. The page is now one flow:
+
+- **Top bar:**
+  - A thin progress line: *Shop — Products — Contacts — Stock — Daily work — Send*. It is numbered and ticked, and is also the way around.
+  - Language, and a ⋯ menu that now holds everything secondary: *Your files*, sample data (for this step or all), the phone version, start again.
+- **One canvas:** a small step label, the question as a big title, one line of help, and then only the thing to do.
+- **Sticky footer:** *Back*, a running count ("2 chosen", "4 people · 4 to sort", "0 of 2 counted"), and one green button named for where it goes (*Continue*, or *Next: Contacts*).
+- **Heavy steps are small screens,** and a screen that doesn't apply is skipped:
+  - Products: *Which products do you sell?* (a big search, one row of brand or category chips, the grid), then *Check your prices* (only once something is chosen).
+  - Contacts:
+    - *Who do you work with?*: two ways in, *Bring in a file* (contacts, Excel, a photo of the register) or *Type names*.
+    - *Who is who?*: keys 1 2 3 0; only when someone is waiting.
+    - *When do you deliver to each customer?*: the week grid; only with customers.
+    - *Your staff and suppliers*.
+  - Stock: *How much stock do you have now?*
+  - Daily work: the questions, as before.
+  - **Check and send**: the store preview card beside what can wait and *Anything else to send?*, with **Build my store** in the footer.
+- Each screen that has one still ends with its attach card.
+- The data, the export, the sending and the phone page are unchanged.
+- Checked in headless Chrome, walking the whole flow at 1440×900:
+  - Next is blocked without the mobile.
+  - 2 products ticked, then prices.
+  - A contacts file brings 4 people in, sorted with keys.
+  - Delivery days, the team, stock, daily work, then Check and send.
+  - Also checked in Hindi, and at 1280×800, where the progress line keeps only the current step's name below 1240px.
+  - No console errors. Tests: 30 pass.
+- `?v=` `20261001F3`.
+- **Later the same day (owner):** the Shop screen has no attach card, just its four questions and *Try it with sample data*. The phone's Shop step still has one. `?v=` `20261001F4`.
+- **Later (owner):** *Try it with sample data* moved into the footer, next to Back, on every step from Shop to Daily work. It fills the step in view (after the same confirm) and is not on Check and send. The ⋯ menu keeps only *Fill every section with sample data*. `?v=` `20261001F5`.
+- **Later (owner, "keep the whole UI as a card so the user feels focused"):**
+  - Each screen is now one white card on a soft grey ground: narrow (720px) for forms, wide (1080px) for the grid and tables.
+  - The footer (Back, sample data, count, button) is the card's own bottom edge. It sticks to the bottom of the screen while a tall card scrolls.
+  - The attach card inside it is a flat grey panel rather than a card within the card.
+  - `?v=` `20261001F7`.
+- **Later (owner, "keep the card's height and width fixed, and make the header part of the card"):**
+  - The whole app is one card of a fixed size, the same on every step: 1160 × 880px, shrinking to fit a smaller window.
+  - The header (logo, progress line, language, menu) is its top edge and the footer its bottom edge; only the screen between them scrolls.
+  - Short screens keep a centred 720px column inside the card; the grid and tables use its width.
+  - *Saved* in the header is now a small tick, with the time in its tooltip.
+  - Under 1000px the card fills the window.
+  - `?v=` `20261001F9`.
+- **Later (owner, from two reference designs; picked the second, "slick"):**
+  - The header bar is gone. The card is a white work panel on the left, raised on the card's grey, with the logo along its top-left, language and ⋯ top-right, and the footer along its bottom.
+  - The steps sit in the grey column on the right, centred top to bottom: an icon tile each, joined by a thin line, with the step's name and one line under it.
+    - To do: what it asks ("What you sell, and prices"), faded.
+    - Done: what he gave ("98200 11223", "5 customers · 2 staff"), on a green tile with a tick.
+    - The step he is on is on a dark tile.
+    - Send is last.
+  - The column is also the way around. It hides under 1000px.
+  - The card is 1240 × 860px; only the screen in the white panel scrolls.
+  - `?v=` `20261001G2`.
+- **Later (owner, "update the form UI accordingly, make it consistent"):** one form system across the desktop page.
+  - Every field has its label above it and one filled, borderless control under it: soft grey, rounded, white with a green ring in use.
+  - Shop's mobile and GST are two such fields, not one bordered box. *Required* sits beside the mobile's label and turns into a green tick at 10 digits; the box turns red if Next is pressed without it.
+  - Choices are soft grey tiles; a chosen one turns green-tinted with a ✓. Yes / No does the same.
+  - The warehouse counter is the same filled control and shows 0, not a dash that read as minus.
+  - Searches, text boxes and table cells share the style.
+  - Inside the work panel, groups (Daily work) are spacing, not boxes.
+  - `?v=` `20261001G4`.
+
+### 1 October 2026 — Store Builder: Products and Warehouse stock hidden (not deleted)
+
+**Owner:** hide the Products step and the warehouse stock count from both desktop and phone, so they can come back later; don't delete them.
+
+- **One switch, `model.js` `HIDDEN_STEPS = ["items", "stock"]`.** `M.STEPS` and `M.SAMPLE_STEPS` leave hidden steps out; `M.ALL_STEPS` still has all six, and `M.shown(step)` says which are on. Nothing was deleted: the screens, words, answers, sample data, file attaching and export for both steps are all still there.
+- **What the switch hides:**
+  - **Phone:** the steps list (now Your shop, Contacts, Daily operation, Build your store: *Step n of 4*) and the Products and Stock counted tiles on Build. The four tiles left sit two by two.
+  - **Desktop:** the steps column (Shop, Contacts, Daily work, Send), the screens *Which products do you sell?*, *Check your prices* and *How much stock…*, and the Products and Warehouse stock blocks of the preview card. A link to a hidden screen opens the first step still to do.
+  - **Both pages and the export's *To follow up* sheet:** a hidden step's gaps are not named (`M.missing` skips them; `M.missing(…, { all: true })` still gives them).
+- **To bring a step back,** take it off `HIDDEN_STEPS`.
+- Tests: 31 pass. The tests of the hidden steps' own logic now read `ALL_STEPS` or `{ all: true }`, and a new test checks the hiding itself.
+- Checked in headless Chrome: desktop 1440×900 and phone 390×844.
+- `?v=` `20261001G6`.
+
+### 1 October 2026 — Store Builder: suppliers without Companies and Your code
+
+**Owner:** remove Companies and Your code from suppliers, on desktop and phone.
+
+- **Desktop:** the suppliers table keeps Name, *Goods come in* and *You owe*; the supplier dialog keeps Name, Mobile, GST, lead time, what he owes and the type. *Your staff and suppliers* reads "What each person on your team does, and your suppliers."
+- **Phone:** a supplier's row shows the number, where it showed its companies or "Tap to choose their companies"; the edit sheet no longer asks companies or the code.
+- **The gap "Suppliers without company"** (`supNoCompany`) is no longer named, on either page or in *To follow up*.
+- Answers already saved stay in the file. The Suppliers sheet keeps its columns, empty for new stores.
+- Checked in headless Chrome, desktop and phone. Tests: 31 pass. `?v=` `20261001G7`.
+
+### 1 October 2026 — Store Builder desktop: one title per screen, and a white card on a white page
+
+**Owner:** keep *Try it with sample data* close to Next. Remove the step name and the sub-texts everywhere, so each screen is a simple main title, and be creative with the titles. The grey page and the grey steps column looked off: balance the colours so the card is all you see and the background doesn't feel like it exists.
+
+- **Titles only:** no step name above the title and no line under it.
+  - Shop: *Let's make your store in 10 minutes*.
+  - Daily work: *How does your day run?*
+  - The last screen: *All set? Send it to FoodBridge*.
+  - Hindi titles to match.
+- **The steps column:** step names only. The one-line descriptions are kept in the code (`stepLine`) but not shown.
+- **Footer:** Back and the running count on the left; *Try it with sample data* right beside the green button.
+- **Colours:**
+  - The page is white.
+  - The app is one white card with a hairline border and a soft, layered shadow.
+  - The steps column is white too, set off by a hairline, not a grey fill.
+  - Upcoming step tiles are a very light grey; the line between tiles turns green-tinted as steps are done.
+- The phone page keeps its own step line and question text.
+- Tests: 31 pass (bridge 12). `?v=` `20261001G8`.

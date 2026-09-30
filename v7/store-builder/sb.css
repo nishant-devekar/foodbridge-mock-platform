@@ -931,3 +931,4 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
 .fx-f span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 
+.fi-tiles.is-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* four tiles, when Products and Stock are hidden */
