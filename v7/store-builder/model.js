@@ -258,6 +258,16 @@
     return { owedToHim: owedToHim, heOwes: heOwes };
   }
 
+  /* The files and photos he added on a step (1 Oct 2026). A file can stand in for a step's work:
+     a rate list for choosing products, a stock sheet or a photo of the register for counting,
+     a customer list for typing contacts. The team sets the step up from it, so the step counts
+     as done and its gaps are not asked again; the export names the file instead. */
+  const FILE_STEPS = ["items", "people", "stock"];
+  function filesFor(s, step) {
+    return (s.papers || []).filter(function (p) { return p.step === step && p.kind !== "voice"; });
+  }
+  function fromFile(s, step) { return FILE_STEPS.indexOf(step) >= 0 && filesFor(s, step).length > 0; }
+
   /* How far each step is. `done` drives the tick on the home screen; `n` is
      the one number its row shows. Continue is never blocked by any of this. */
   function progress(cat, s) {
@@ -271,11 +281,12 @@
     const sorted = s.order.filter(function (id) { return s.people[id] && s.people[id].type; }).length;
     return {
       store:     { done: storeReady(s), n: null },
-      items:     { done: items > 0, n: items },
+      items:     { done: items > 0 || fromFile(s, "items"), n: items, file: fromFile(s, "items") },
       people:    { done: sorted > 0 && unsorted(s).length === 0 && shops.length > 0 && shops.every(function (p) { return (p.days || []).length; }) &&
-                   (staff.length > 0 && staff.every(function (p) { return p.role; }) || !!s.skipped.staff) && (sups.length > 0 || !!s.skipped.suppliers),
-                   n: sorted, shops: shops.length, staff: staff.length, suppliers: sups.length, left: unsorted(s).length },
-      stock:     { done: counted > 0 || !!s.skipped.stock, n: counted },
+                   (staff.length > 0 && staff.every(function (p) { return p.role; }) || !!s.skipped.staff) && (sups.length > 0 || !!s.skipped.suppliers) ||
+                   fromFile(s, "people") && unsorted(s).length === 0,   // a list on paper: done once what it brought in is sorted
+                   n: sorted, shops: shops.length, staff: staff.length, suppliers: sups.length, left: unsorted(s).length, file: fromFile(s, "people") },
+      stock:     { done: counted > 0 || !!s.skipped.stock || fromFile(s, "stock"), n: counted, file: fromFile(s, "stock") },
       rules:     { done: rulesAnswered === RULES_N, n: rulesAnswered },
       finish:    { done: false, n: null },
     };
@@ -285,8 +296,12 @@
      step that fixes it. */
   function missing(cat, s) {
     const gaps = [];
+    /* A step set up from his file: what it would ask is in the file, and To follow up says so. */
+    const ASKED_IN_FILE = { noItems: "items", noMrp: "items", noPrice: "items", noShops: "people", shopNoDay: "people", shopNoArea: "people", shopNoPay: "people",
+      noDelivery: "people", noSuppliers: "people", notCounted: "stock" };
     function add(step, key, n) {
       if (!n) return;
+      if (ASKED_IN_FILE[key] && fromFile(s, ASKED_IN_FILE[key])) return;
       const tab = { shops: "shop", staff: "staff", suppliers: "supplier" }[step];
       gaps.push(tab ? { step: "people", tab: tab, key: key, n: n } : { step: step, key: key, n: n });
     }
@@ -451,7 +466,7 @@
     countUnits: countUnits, countUnit: countUnit, unitPer: unitPer, countOf: countOf, lineUnit: lineUnit, setCount: setCount, stockSel: stockSel,
     addPerson: addPerson, removePerson: removePerson, guessType: guessType, peopleOf: peopleOf, unsorted: unsorted,
     routes: routes, money: money,
-    progress: progress, missing: missing, RULES_N: RULES_N, SAMPLE_STEPS: SAMPLE_STEPS, fillSample: fillSample,
+    progress: progress, missing: missing, filesFor: filesFor, fromFile: fromFile, FILE_STEPS: FILE_STEPS, RULES_N: RULES_N, SAMPLE_STEPS: SAMPLE_STEPS, fillSample: fillSample,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

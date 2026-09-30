@@ -50,6 +50,32 @@ test("ids and file names are held to a pattern, so nothing climbs out of its fol
   assert.equal(cleanUpload({ id: ID, file: { name: "FoodBridge-Setup-Gupta-Traders-2026-09-26.xlsx", data: b64("x") } }).files[0].name.endsWith(".xlsx"), true);
 });
 
+test("what the owner dropped is kept as it came, under raw/, and never outside it", () => {
+  for (const name of ["raw/Rate-list_Sept.pdf", "raw/IMG_2041.HEIC", "raw/बिल.jpg", "raw/customers.xlsx", "raw/big-video.mp4.part2of5"]) {
+    assert.equal(cleanUpload({ id: ID, file: { name, data: b64("x") } }).files[0].name, name, name);
+  }
+  for (const name of ["raw/../x.pdf", "raw/x.exe", "raw/.hidden.pdf", "raw/a/b.pdf", "raw/x.pdf.part1", "raw/"]) {
+    assert.throws(() => cleanUpload({ id: ID, file: { name, data: b64("x") } }), (e) => e.reason === "bad_name", name);
+  }
+  assert.equal(cleanUpload({ id: ID, file: { name: "raw/a.pdf.part1of2", data: b64("x") } }).files[0].type, "application/pdf");
+});
+
+test("a dropped file sent in pieces is listed once, whole only when every piece is in", async () => {
+  const id = "SB-mg2k9x1c-6f7q2";
+  await call("POST", { body: { id, meta: { shop: "Pieces", at: new Date().toISOString(), files: ["setup.json", "raw/rate-list.pdf"] } } });
+  await call("POST", { body: { id, file: { name: "raw/rate-list.pdf.part1of2", data: b64("%PDF-a") } } });
+  let s = (await call("GET")).json.stores.find((x) => x.id === id);
+  assert.deepEqual(s.files, [{ name: "raw/rate-list.pdf", size: 6, parts: 2, partial: true }]);
+  assert.deepEqual(s.missing, ["setup.json", "raw/rate-list.pdf"]);
+  await call("POST", { body: { id, file: { name: "raw/rate-list.pdf.part2of2", data: b64("bc") } } });
+  s = (await call("GET")).json.stores.find((x) => x.id === id);
+  assert.deepEqual(s.files, [{ name: "raw/rate-list.pdf", size: 8, parts: 2 }]);
+  assert.deepEqual(s.missing, ["setup.json"]);
+  const r = await call("GET", { url: "/api/stores?id=" + id + "&file=" + encodeURIComponent("raw/rate-list.pdf.part2of2") });
+  assert.equal(String(r.raw), "bc");
+  assert.equal(r.headers["Content-Type"], "application/pdf");
+});
+
 test("an empty or oversized file is refused, and the refusal is not retryable", () => {
   assert.throws(() => cleanUpload({ id: ID, file: { name: "setup.json", data: "" } }), (e) => e.reason === "empty_file" && e.status === 400);
   const big = Buffer.alloc(MAX_FILE + 1).toString("base64");

@@ -76,12 +76,23 @@ export function teamOk(req, cfg) {
    can post. Ids and file names are held to a pattern, so nothing a phone sends
    can climb out of its own folder. */
 const ID = /^SB-[a-z0-9]{6,14}-[a-z0-9]{4,10}$/;
-const NAME = /^(setup\.json|[A-Za-z0-9ऀ-ॿ._-]{1,120}\.xlsx|photos\/[A-Za-z0-9_-]{1,40}\.(jpg|png|webp)|voice\/[A-Za-z0-9_-]{1,40}\.(webm|ogg|m4a|mp4|mp3|wav|aac))$/;
+/* raw/: what the owner dropped into Store Builder (1 Oct 2026) -- photos, screenshots, Excel, PDFs,
+   contact lists -- kept as they came, under their own names, for the team to open. A file over one
+   request's size arrives in pieces, "<name>.part2of5", and is listed and downloaded as one. */
+export const RAW_EXT = "jpg|jpeg|png|webp|gif|heic|heif|bmp|tif|tiff|pdf|xlsx|xls|xlsm|csv|tsv|txt|vcf|doc|docx|ppt|pptx|odt|ods|json|xml|zip|mp3|m4a|aac|ogg|opus|wav|webm|mp4|mov|3gp|amr|bin";
+const RAW = "raw\\/[A-Za-z0-9\\u0900-\\u097F_()-][A-Za-z0-9\\u0900-\\u097F._()-]{0,110}\\.(" + RAW_EXT + ")(\\.part\\d{1,3}of\\d{1,3})?";
+const NAME = new RegExp("^(setup\\.json|[A-Za-z0-9\\u0900-\\u097F._-]{1,120}\\.xlsx|photos\\/[A-Za-z0-9_-]{1,40}\\.(jpg|png|webp)|voice\\/[A-Za-z0-9_-]{1,40}\\.(webm|ogg|m4a|mp4|mp3|wav|aac)|" + RAW + ")$", "i");
+const PART = /\.part(\d{1,3})of(\d{1,3})$/;
 const TYPES = { xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", json: "application/json",
-  jpg: "image/jpeg", png: "image/png", webp: "image/webp", webm: "audio/webm", ogg: "audio/ogg", m4a: "audio/mp4",
-  mp4: "audio/mp4", mp3: "audio/mpeg", wav: "audio/wav", aac: "audio/aac" };
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif", heic: "image/heic", heif: "image/heif",
+  pdf: "application/pdf", csv: "text/csv", txt: "text/plain", vcf: "text/vcard", xls: "application/vnd.ms-excel",
+  webm: "audio/webm", ogg: "audio/ogg", m4a: "audio/mp4", mp4: "audio/mp4", mp3: "audio/mpeg", wav: "audio/wav", aac: "audio/aac" };
 
-export function typeOf(name) { return TYPES[String(name).split(".").pop().toLowerCase()] || "application/octet-stream"; }
+export function typeOf(name) {
+  const n = String(name).replace(PART, "");
+  if (/^raw\//.test(n) && /\.mp4$/i.test(n)) return "video/mp4";   // a dropped .mp4 is a video; a voice note's is audio
+  return TYPES[n.split(".").pop().toLowerCase()] || "application/octet-stream";
+}
 
 export function cleanUpload(body) {
   const b = body || {};
@@ -224,10 +235,27 @@ export async function list() {
   }
 
   return Object.values(stores).map((s) => {
+    s.files = joinParts(s.files);
     const expected = (s.meta && s.meta.files) || [];
-    const have = s.files.map((f) => f.name);
+    const have = s.files.filter((f) => !f.partial).map((f) => f.name);
     return Object.assign(s, { missing: expected.filter((n) => have.indexOf(n) < 0) });
   }).sort((a, b) => String((b.meta && b.meta.at) || "").localeCompare(String((a.meta && a.meta.at) || "")));
+}
+
+/* A file that came in pieces is one entry: its name, its whole size, and how many pieces to fetch.
+   Until the last piece lands it is `partial`, and still counts as missing. */
+function joinParts(files) {
+  const out = [], big = {};
+  files.forEach((f) => {
+    const m = f.name.match(PART);
+    if (!m) { out.push(f); return; }
+    const name = f.name.replace(PART, "");
+    const g = big[name] || (big[name] = { name: name, size: 0, parts: Number(m[2]), got: 0 });
+    g.size += f.size;
+    g.got += 1;
+  });
+  Object.values(big).forEach((g) => out.push({ name: g.name, size: g.size, parts: g.parts, partial: g.got < g.parts || undefined }));
+  return out.map((f) => { if (!f.partial) delete f.partial; if (f.got != null) delete f.got; return f; });
 }
 
 /** One file, as bytes, for the team to download. */

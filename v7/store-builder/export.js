@@ -228,7 +228,27 @@
   /* Not asked since 28 Sep 2026: a Manufacturer makes; otherwise an older save's answer, if any. */
   function makes(st) { return st.type === "manufacturer" ? true : st.makes; }
   function ext(mime) { return /png/.test(mime) ? "png" : /jpe?g/.test(mime) ? "jpg" : /webm/.test(mime) ? "webm" : /mp4|m4a|aac/.test(mime) ? "m4a" : /ogg/.test(mime) ? "ogg" : "bin"; }
-  function paperFile(p) { return (p.kind === "voice" ? "voice/" : "photos/") + p.id + "." + ext(p.mime || ""); }
+  function paperFile(p) {
+    if (p.kind === "file") return p.file || "raw/" + p.id + ".bin";
+    return (p.kind === "voice" ? "voice/" : "photos/") + p.id + "." + ext(p.mime || "");
+  }
+
+  /* A dropped file keeps its own name under raw/ (1 Oct 2026), made safe for the file store:
+     letters, digits, Hindi, . _ ( ) - ; a second file of the same name gets "-2". A kind the
+     store does not keep (.exe, .dmg…) goes as .bin, its real name in the Papers sheet. */
+  const RAW_EXT = /^(jpg|jpeg|png|webp|gif|heic|heif|bmp|tif|tiff|pdf|xlsx|xls|xlsm|csv|tsv|txt|vcf|doc|docx|ppt|pptx|odt|ods|json|xml|zip|mp3|m4a|aac|ogg|opus|wav|webm|mp4|mov|3gp|amr)$/;
+  function rawName(s, original) {
+    const name = String(original || "file").normalize("NFC");
+    const dot = name.lastIndexOf(".");
+    let base = (dot > 0 ? name.slice(0, dot) : name).replace(/[^A-Za-z0-9\u0900-\u097F._()-]+/g, "-").replace(/^[.-]+|-+$/g, "").slice(0, 90) || "file";
+    let e = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+    if (!RAW_EXT.test(e)) { if (/^[a-z0-9]{1,8}$/.test(e)) base += "." + e; e = "bin"; }
+    const taken = {};
+    (s.papers || []).forEach(function (p) { if (p.file) taken[p.file.toLowerCase()] = 1; });
+    let out = "raw/" + base + "." + e, n = 2;
+    while (taken[out.toLowerCase()]) out = "raw/" + base + "-" + n++ + "." + e;
+    return out;
+  }
   /* How many warehouses he has; an older save's godown list (the shop, then each address) follows it. */
   function godownRows(st) {
     const list = (st.godownAtShop ? ["At the shop"] : []).concat((st.godowns || []).map(function (g) { return String(g || "").trim(); }).filter(Boolean));
@@ -396,7 +416,8 @@
 
     out.push({ name: "Papers", rows: [["File", "Type", "Screen", "Time", "Note"]]
       .concat(s.papers.map(function (p) {
-        return [paperFile(p), p.kind === "voice" ? "Voice note" : "Photo", p.step || "", new Date(p.at).toLocaleString("en-IN"), p.note || ""];
+        return [paperFile(p), p.kind === "voice" ? "Voice note" : p.kind === "file" ? "File he dropped in (as it came)" : "Photo", p.step || "", new Date(p.at).toLocaleString("en-IN"),
+          p.kind === "file" ? [p.name, p.contacts ? p.contacts + " contacts read into Contacts" : ""].filter(Boolean).join(" · ") : p.note || ""];
       })) });
 
     const GAP = {
@@ -415,6 +436,10 @@ notCounted: "Products not counted in stock",
       .concat(credits.map(function (c) { return [c.id, c.file, c.author || "See source page", c.licence, c.page]; })) });
 
     out.push({ name: "To follow up", rows: [["Screen", "What is missing", "How many"]]
+      .concat(M.FILE_STEPS.filter(function (st) { return M.fromFile(s, st); }).map(function (st) {
+        const fs = M.filesFor(s, st);
+        return [st, "Set up from his file: " + fs.map(paperFile).join(", "), fs.length];   // he sent it instead of entering it (1 Oct 2026)
+      }))
       .concat(M.missing(cat, s).map(function (g) { return [g.step, GAP[g.key] || g.key, g.n]; })) });
 
     return out;
@@ -435,7 +460,7 @@ notCounted: "Products not counted in stock",
       { name: "setup.json", data: JSON.stringify({ kind: "foodbridge-store-builder", v: M.VERSION, catalogue: cat.version, at: now.toISOString(), state: s }, null, 1) },
       { name: "README.txt", data: "FoodBridge store setup pack for " + (s.store.name || "a new store") + ".\r\n\r\n" +
         "Open " + base + ".xlsx and start with the sheet 'Read me'.\r\n" +
-        "photos/ and voice/ hold what the owner captured in the meeting; the sheet 'Papers' says which screen each came from.\r\n" +
+        "photos/ and voice/ hold what the owner captured in the meeting, and raw/ the files he dropped in, as they came; the sheet 'Papers' says which screen each came from.\r\n" +
         "setup.json reopens this whole session in Store Builder (menu → Open a setup file).\r\n" },
     ];
     s.papers.forEach(function (p) { if (blobs && blobs[p.id]) files.push({ name: paperFile(p), data: blobs[p.id].bytes }); });
@@ -510,7 +535,7 @@ notCounted: "Products not counted in stock",
     return { state: M.migrate(json.state), blobs: blobs };
   }
 
-  const api = { zip: zip, unzip: unzip, crc32: crc32, xlsx: xlsx, sheets: sheets, pack: pack, parts: parts, summary: summary, b64: b64, shareText: shareText, read: read, paperFile: paperFile, fileBase: fileBase };
+  const api = { zip: zip, unzip: unzip, crc32: crc32, xlsx: xlsx, sheets: sheets, pack: pack, parts: parts, summary: summary, b64: b64, shareText: shareText, read: read, paperFile: paperFile, rawName: rawName, fileBase: fileBase };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SB_EXPORT = api;
 })(typeof window !== "undefined" ? window : globalThis);

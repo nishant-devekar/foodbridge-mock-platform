@@ -2885,3 +2885,195 @@ Checked end to end locally: build → 3 files at the bridge → listed on `store
   - a button alone in a cell of a flex row gets EXIT DEMO a cell of its own, so the tabs spread evenly.
 - **Batch Management's phone bar** is now the footer pattern (tabs of icon over label, Create Batch on a green chip), so its EXIT DEMO is a tab like every other page's.
 - Checked at 375 px on every destination with `exitIn`. `?v=` `20260929PO11`; Batch Management's pages `20260929PO12` (after the `SB1` fix above).
+
+### 1 October 2026 — Store Builder: a desktop version
+
+**Owner:** a desktop version of the Store Builder, not just responsive: a desktop page where he builds his store in minutes without feeling it is too much. Sketches were agreed in chat first.
+
+[`store-builder/desktop/`](store-builder/desktop/) is a page of its own. It keeps the same answers as the phone page (`model.js`, the same localStorage key), the same export, the same Build my store, and Hindi and English.
+
+- **Start screen:** the Shop step (login mobile, GST, business, warehouses) sits beside "Start from what you already have". There he can drop or choose:
+  - a contacts file (`.vcf`, `.csv`);
+  - an Excel customer list (`.xlsx`, its first sheet);
+  - photos of paper.
+
+  Contacts arrive unsorted. Tally and Busy exports are shown as *Coming soon*. *Try it with sample data* fills every section.
+- **The desk:** the phone's steps list with Save-and-back is gone. It has three parts:
+  - a rail of five sections on the left, each with its status line;
+  - the section in the middle;
+  - the store on the right, with Build my store always in view: *Your products* with their prices while he picks products, the six count tiles otherwise, how many sections are done, and what can wait.
+- **Products:** brands or categories on the left and a picture grid in the middle. A click ticks a product, Shift-click ticks a run, and arrow keys move between cards. The chosen products collect on the right, where each customer price can be typed. A USB barcode scanner works in the search box.
+- **Contacts:**
+  - To sort: keys 1 customer, 2 staff, 3 supplier, 0 not needed, ↑ ↓ to move, U to undo. "The rest are customers" is kept.
+  - Customers: a week grid. Drag across a row or down a column to set days. It also has area, pays and ★, and a button that gives an area's usual days to the rest of that area.
+  - Staff: job, days, vehicle and whether they collect cash. Suppliers: companies, code, lead time and what he owes.
+  - Clicking a name opens the full record, including what a customer owes.
+  - Files can be dropped anywhere on the page.
+- **Stock:** a count sheet of the products he chose. Enter or ↓ moves to the next box. Blank means not counted; 0 means looked, none there.
+- **Daily work:** every question on one page.
+- **Sending:** the phone page's IndexedDB stores, bridge delivery and build packing moved out of `app.js` into `store-builder/outbox.js`, shared by both pages, with no change in behaviour.
+- **Phone page:** on a computer (wide screen, mouse) it offers "On a computer? Open the desktop version". Phones don't see it.
+- **Laptop widths:** the rail folds to icons under 1360px. Under 1000px the page points to the phone version.
+- **Checked:**
+  - Headless Chrome at 1440, 1280 and 1024 wide, in English and Hindi, with no console errors.
+  - A build from each page reached the local bridge (`stores-data/`) and showed Thank you. The test builds were removed afterwards.
+  - Tests: `node --test store-builder/test/*.test.js`, 28 pass, 5 of them new, for the file reader (`desktop/import.js`).
+- `?v=` `20261001D1`.
+
+### 1 October 2026 — Store Builder desktop: one thing at a time, and every file he drops goes to the team as it came
+
+**Owner:** the start screen had too much on it; one thing at a time. "Start from what you already have" becomes the next step. Keep it very simple: one drop area for anything (images, Excel, screenshots, anything), with a small animation showing how to drop. Every file he drops goes with the build, raw, so customer success sees it on their panel.
+
+- **Start is two steps** (`desktop/desk.js`):
+  1. **Shop only.** Mobile, GST, business, warehouses, then Continue. *Try it with sample data* stays.
+  2. **"Anything you already have?"** One drop area in which three files fall into a tray, on a loop (still under reduced motion). It takes any file.
+     - Each dropped file is listed with its size and what happened to it: *Goes to FoodBridge as it is*, or *N contacts found* for a contacts file or a list.
+     - × removes a file, and any contacts it brought that are still unsorted.
+     - The button reads *Continue with N files*, or *I have nothing to add*.
+  - The old source list and the Tally line are gone.
+- **Your files on the desk:** the top-bar button and dialog, and dropping anywhere on the desk, work the same way. Voice notes are recorded there too.
+- **Raw files:**
+  - Kept byte for byte (photos are no longer recompressed). They are stored in IndexedDB as papers of kind `file`.
+  - Each is exported under `raw/<its own name>` (`export.js` `rawName`), made safe: spaces become `-`, and a second file with the same name gets `-2`. A type the store doesn't keep goes as `.bin`.
+  - The Excel's *Papers* sheet lists each one with its original name.
+- **Sending big files:** a file over 2.5 MB goes in pieces, `<name>.part2of3` (`outbox.js`), and a dropped connection resends one piece. Files up to 40 MB are taken; larger ones are refused with "send it on WhatsApp".
+- **Bridge (`zoho-function/stores.js`):**
+  - Accepts `raw/…` names with a list of allowed extensions. `..`, subfolders, hidden names and `.exe` are refused.
+  - Lists a pieced file once, marked `partial` and counted as missing until every piece is in.
+- **Team panel (`stores.html`):**
+  - A *Files he dropped in* group. A pieced file downloads whole, its pieces fetched in order and joined.
+  - The questions chip now reads `/6`; there have been six questions since 28 Sep.
+- **Phone page:** a dropped file shows as its name in *Photos and voice*.
+- **Checked:**
+  - Headless Chrome at 1440×900 against the local bridge. Dropped a contacts file, a screenshot, a CSV list, a 6 MB PDF and an `.exe`, then removed the `.exe`.
+  - All four arrived under `raw/`, the PDF as 3 pieces. The panel listed them and rebuilt the PDF byte for byte. The test build was removed afterwards.
+  - Tests: store builder 29 pass, bridge 12 pass (2 new for `raw/` and pieces).
+- **The live bridge needs a deploy** of `zoho-function` before it accepts `raw/` files. Until then it refuses them as `bad_name` (400) and they are dropped from the build. The Excel, setup.json, photos and voice notes still arrive.
+- `?v=` `20261001D2`.
+
+### 1 October 2026 — Store Builder: a file can stand in for a step, on phone and desktop
+
+**Owner:** the drop-anything step was an orphan and confusing to start with. Keep it, but as the last step, on both phone and desktop. Also ask with each step for its own files, so he knows what to drop. Then: don't follow this literally — think it through and make it very easy and quick.
+
+**What was built:** a file is not an extra question; it can replace the step's work.
+
+- **Each step opens with one line naming the paper he most likely has,** and one tap or drop to add it:
+  - Shop: GST certificate or visiting card.
+  - Products: a rate list, *"instead of choosing products"*.
+  - Contacts: a customer list or contacts file, *"the names come in here"*.
+  - Stock: a stock sheet or a photo of the register, *"instead of counting"*.
+  - Daily work: route chart, bills, khata.
+  - Build: *"Anything else?"*, last, just above the button.
+
+  On the phone the line opens the phone's own picker (camera, gallery, files). On the desktop it takes a drop or a click; a drop anywhere on a section lands on that section, and on Build while its dialog is open.
+- **A file stands in for the step** (`model.js` `filesFor`, `fromFile`):
+  - On Products and Stock, a file (or photo) marks the step done, and its gaps are not asked again.
+  - On Contacts, a contacts file or list is read in: its people wait to sort, and the step is done once they are sorted. A photo of the register marks it done too.
+  - The steps list and rail say *From your file*. The Excel's *To follow up* sheet names the file: "Set up from his file: raw/…".
+  - Voice notes are not taken as answers.
+- **Once added,** the line turns green and shows each file with × (removing a contacts file takes back its still-unsorted contacts) and what happens next, e.g. *The team sets up your products from this*.
+- **Desktop start is one screen again:** the shop, then the desk. The two-step start and its separate drop step are gone. *Your files* in the top bar keeps every file in one place.
+- **Shared code:**
+  - `import.js` moved from `desktop/` to `store-builder/`; the phone page reads contacts files too.
+  - `outbox.js` `take` / `drop` keep or remove one file for both pages.
+  - The files tile is called *Your files* on both pages.
+- **Checked:**
+  - Headless Chrome, desktop at 1440×900 and phone at 390×844.
+  - A rate list on Products marks it done as *From your file*.
+  - A contacts file on Contacts brought 3 people to sort.
+  - *Anything else?* sits last on Build on both pages.
+  - Tests: 30 pass, 1 new for file-as-answer and To follow up.
+- `?v=` `20261001D3`.
+
+### 1 October 2026 — Store Builder desktop: one layout from the first second
+
+**Owner:** going from the start screen to the store desk felt jarring. Keep the layout the same from start to end.
+
+- The separate start card is gone. A first visit opens the desk itself on **Shop**, titled *Let's make your store* until the login mobile is in. The rail, the side panel with Build my store and the top bar are there from the first second, so nothing jumps.
+- **Each section ends with one way on:** *Next: Products*, *Next: Contacts*, and so on. Daily work ends with *Check and build*, which opens the Build dialog.
+  - Shop's Next waits for the mobile: it shows the red message and puts the cursor in the box.
+  - The rail still opens any section in any order.
+  - On a first visit, *Try it with sample data* sits beside Next.
+- A return visit opens on the first section still to do.
+- Checked in headless Chrome at 1440×900: a first visit, Next blocked and then allowed by the mobile, and *Check and build* at the end.
+- `?v=` `20261001D4`.
+
+### 1 October 2026 — Store Builder desktop: steps | work | request, at a glance
+
+**Owner:** the layout was confusing. It wasn't clear that the left is the steps, the middle is where he works, and the right is his progress toward raising the build store request.
+
+Each column now has one job and looks like it:
+
+- **Left: Steps.**
+  - A grey column with a numbered stepper: circles 1–5 joined by a line, the current one green, done ones ticked.
+  - It ends in the goal, **Send to FoodBridge**, which opens Build.
+  - No status lines here any more (they repeated the right side), just *Steps 2/5* on top.
+- **Middle: the work.**
+  - The only white area.
+  - Each section's title has *Step N of 5* above it.
+- **Right: Your store request.**
+  - A grey column holding a list of what will reach FoodBridge, a line per step plus *Files*, filling in as he goes. For example *Shop: 98200 11223 · Distributor*, *Products: 15 products*, *Contacts: 5 customers · 2 staff*. Each line is ticked when its step is done.
+  - The step he is on is highlighted and opens up. On Products it shows his products with their prices, which can be changed there.
+  - At the bottom: *N of 5 steps done*, the bar, and **Build my store**.
+  - *Things to fill later* moved into the Build dialog, so it no longer nags from 0%.
+- **Widths:** the step names stay down to 1180px, then fold to numbers with tooltips.
+- **Class clashes fixed:** `.stepper` (the − / + control) and `.st` (the customers' star column) are no longer reused. The steps are `.steps` / `.st`, and the star column is `.stc`.
+- Checked in headless Chrome at 1440×900 and 1280×800: a first visit, Products with sample data, Contacts.
+- `?v=` `20261001D7`.
+
+### 1 October 2026 — Store Builder desktop: the right is a preview of the store, not a second list of steps
+
+**Owner:** the right column now read as a repeat of the left: the same five names, with ticks.
+
+- **The right is now a preview card of the store he is building** (*Preview*). It shows the result, not the process:
+  - A green header: his number, business type and GST.
+  - *Products*: the first five pack photos and "+10".
+  - *Customers*: their initials, and the staff and supplier counts.
+  - *Warehouse stock*: how many were counted.
+  - *Daily work*: his answers as chips ("Cash · UPI · Fixed route days").
+  - *Files*: their names.
+
+  Empty, the card is a faded outline ("Your store takes shape here as you go"). Each block opens its step.
+- **Below the card:** *N% ready to send*, the bar, **Build my store**, and "anything missing is followed up later".
+- **Prices moved to the middle, where the work is.** *Your products* in the product list now shows a price table instead of the picture grid: product, MRP, your price to the customer (typed in place, amber when missing), and remove. What still needs a price comes first.
+- The left keeps the steps; nothing on the right names them.
+- Checked in headless Chrome at 1440×900: empty on a first visit, filled with sample data, and the price table with an emptied price. Tests: 30 pass.
+- `?v=` `20261001E1`.
+
+### 1 October 2026 — Store Builder: "do it here, or send your list", in place of the file line
+
+**Owner:** the dashed file line above each step's form ("Route chart, a bill… Drop it here or add a file") was not intuitive at all.
+
+- **The file line is gone from every step.** Products, Contacts and Stock now open with an explicit either-or, two big options side by side with a radio mark, under a question like *How do you want to add your products?*:
+  - Products: *Choose from the list* (200+ products with photos) or *Send your rate list* (Excel, PDF or a photo).
+  - Contacts: *Add them here* or *Send your customer list* (Excel, a contacts file or a photo of your register).
+  - Stock: *Count here* or *Send your stock sheet* (from Tally or Busy, or a photo of your register).
+
+  Each option shows how many products or files it already holds.
+- **"Send" swaps the whole step for one drop area** (desktop, with the falling-files animation) or one big *Add a file* (phone: camera, gallery, files), with the files he added and what happens next: *The team sets up your products from this*. A contacts file brings its people in: *3 contacts came in from your file*, with *Sort them*, which switches to *Add them here* on To sort.
+- A step he sent a file for and did nothing else on opens on *Send* next time.
+- **Shop and Daily work have no file option,** because a file doesn't save work there. *Anything else?* stays on Build. *Your files* and dropping anywhere still take any file on any step.
+- Same on the phone page (`app.js` `fork`, `filePanel`) and the desktop page (`desk.js`).
+- Checked in headless Chrome: desktop 1440×900 (Products fork, a rate list sent, a contacts file with Sort them, Daily work without a file line) and phone 390×844. Tests: 30 pass.
+- `?v=` `20261001E3`.
+
+### 1 October 2026 — Store Builder: files go along with a step, not instead of it
+
+**Owner:** it's not this or that; files are an extension of the step. He can fill the step, fill part of it or none of it, and attach files, including when he isn't sure how to fill it but has the paper at hand.
+
+- **The either-or choice is gone.** Every step shows its own work as before.
+- **At the end of every step, just before Next** (above Save on the phone), there is an attach card:
+  - that step's question and one line on when it helps (*Have a rate list or price list? Not sure what to pick, or it's all on paper? Attach it…*);
+  - **Attach files**;
+  - the attached files as chips with ×.
+
+  Shop asks for a GST certificate or visiting card; Daily work for a route chart, bills or a khata page; Build for *Anything else to send?*
+- **Desktop only:**
+  - Each section's header also has *Attach files · N*, so it's in view without scrolling.
+  - A dropped file lands on the section in view.
+  - The steps list shows a paperclip and count on a step with files.
+- **What a file does:**
+  - A contacts file still brings its names in: *3 contacts came in from your file, in To sort*.
+  - On Products, Contacts and Stock an attached file still lets the team finish the step (it counts as done), whatever he filled. The card says *The team uses this to finish your products* (to add the rest of your customers, to fill in your stock).
+- Checked in headless Chrome: desktop 1440×900 (2 products ticked plus 2 files attached; a contacts file on Contacts; Daily work) and phone 390×844. Tests: 30 pass.
+- `?v=` `20261001E5`.

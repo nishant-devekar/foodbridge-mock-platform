@@ -898,3 +898,36 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
   body { background: var(--surface); }
   #app { box-shadow: 0 0 0 1px var(--line); }
 }
+
+/* On a computer: the way to the desktop page (1 Oct 2026). */
+.sb-desk {
+  display: flex; align-items: center; gap: .5rem; margin: .8rem 0 0; padding: .6rem .8rem;
+  border: 1px solid var(--g-100); border-radius: .7rem; background: var(--g-tint);
+  color: var(--g-dd); font-weight: 600; font-size: .72rem; text-decoration: none;
+}
+.sb-desk span { flex: 1; }
+.sb-desk .ic { color: var(--g); }
+.sb-main.is-welcome { position: relative; }
+.is-welcome .sb-desk { position: absolute; top: 1rem; left: 1.2rem; right: 1.2rem; margin: 0; }
+.paper-file { display: flex; align-items: center; gap: .4rem; padding: .6rem .4rem; min-height: 3rem; color: var(--sub); }
+.paper-file b { font-size: .66rem; font-weight: 600; word-break: break-all; }
+
+/* Files go along with a step (1 Oct 2026): a card at the end of each step, above Save. */
+.sr { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.att { margin-top: 1.3rem; padding: .8rem .85rem; border: 1px solid var(--line); border-radius: .7rem; background: #fafbfb; }
+.att.has { background: var(--g-tint); border-color: var(--g-100); }
+.att-h { display: flex; align-items: flex-start; gap: .6rem; }
+.att-h > .ic { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; color: var(--g); margin-top: .1rem; }
+.att-m b { display: block; font-size: .78rem; line-height: 1.1rem; }
+.att-m small { display: block; margin-top: .15rem; font-size: .68rem; line-height: 1rem; color: var(--muted); }
+.att .fx-files { margin: .6rem 0 0 1.7rem; }
+.att-note { margin: .45rem 0 0 1.7rem; font-size: .68rem; font-weight: 600; color: var(--g-dd); }
+.att-btn { position: relative; display: flex; align-items: center; justify-content: center; gap: .35rem; margin-top: .7rem; height: 2.3rem; border-radius: .55rem; border: 1px solid var(--g-100); background: var(--card); color: var(--g-dd); font-weight: 700; font-size: .76rem; cursor: pointer; }
+.att-btn .ic { width: .95rem; height: .95rem; }
+.fx-files { display: flex; flex-wrap: wrap; gap: .3rem; }
+.fx-f { display: inline-flex; align-items: center; gap: .2rem; max-width: 100%; padding: .15rem .2rem .15rem .5rem; border-radius: .35rem; background: var(--card); border: 1px solid var(--g-100); font-style: normal; font-weight: 600; font-size: .7rem; color: var(--ink-2); }
+.fx-f button { display: grid; place-items: center; width: 1.3rem; height: 1.3rem; border: 0; background: none; color: var(--muted); padding: 0; }
+.fx-f button .ic { width: .75rem; height: .75rem; }
+.fx-f span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+

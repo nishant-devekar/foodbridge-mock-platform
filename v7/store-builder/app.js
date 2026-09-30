@@ -39,9 +39,11 @@
   }
   const canScan = "BarcodeDetector" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   const canSpeak = "speechSynthesis" in window;
-  const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const canRecord = "MediaRecorder" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  /* A computer (wide screen, a mouse): offer the desktop page, which keeps the same answers (1 Oct 2026). */
+  const onComputer = window.matchMedia("(min-width: 1024px) and (pointer: fine)").matches;
+  function deskLink() { return onComputer ? '<a class="sb-desk" href="desktop/">' + ic("layers", 16) + "<span>" + h(t("deskOffer")) + "</span>" + ic("chev", 14) + "</a>" : ""; }
 
   let S = load();
   let view = "welcome";
@@ -59,110 +61,10 @@
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast("⚠ " + e.message); }
   }
 
-  const DB = (function () {
-    let opening = null;
-    function open() {
-      if (!opening) opening = new Promise(function (res, rej) {
-        const r = indexedDB.open("fb-storebuilder", 1);
-        r.onupgradeneeded = function () { r.result.createObjectStore("blobs"); };
-        r.onsuccess = function () { res(r.result); };
-        r.onerror = function () { rej(r.error); };
-      });
-      return opening;
-    }
-    function run(mode, fn) {
-      return open().then(function (db) {
-        return new Promise(function (res, rej) {
-          const tx = db.transaction("blobs", mode);
-          const req = fn(tx.objectStore("blobs"));
-          tx.oncomplete = function () { res(req ? req.result : undefined); };
-          tx.onerror = function () { rej(tx.error); };
-        });
-      });
-    }
-    return {
-      put: function (id, blob) { return run("readwrite", function (st) { return st.put(blob, id); }); },
-      get: function (id) { return run("readonly", function (st) { return st.get(id); }); },
-      del: function (id) { return run("readwrite", function (st) { return st.delete(id); }); },
-      clear: function () { return run("readwrite", function (st) { return st.clear(); }); },
-    };
-  })();
-
-  /* Build my store (26 Sep 2026, owner): the build goes to FoodBridge, where
-     the customer success team opens it (the bridge's /api/stores, read back
-     at v7/stores.html). It is NOT kept on this phone: a build waits here only
-     until it is delivered, file by file, and each file is deleted as it lands.
-     Offline or no bridge yet, it stays queued and goes on the next chance. */
-  const BRIDGE = "https://zoho-function-nu.vercel.app", BRIDGE_LOCAL = "http://localhost:8787";
-  function bridge() {
-    let b = "";
-    try { b = localStorage.getItem("fb-api-base") || ""; } catch (e) { /* private window */ }
-    if (b) return b.replace(/\/+$/, "");
-    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? BRIDGE_LOCAL : BRIDGE;
-  }
-
-  const OUTBOX = (function () {
-    let opening = null;
-    function open() {
-      if (!opening) opening = new Promise(function (res, rej) {
-        const r = indexedDB.open("fb-storebuilder-outbox", 1);
-        r.onupgradeneeded = function () { r.result.createObjectStore("builds", { keyPath: "id" }); };
-        r.onsuccess = function () { res(r.result); };
-        r.onerror = function () { rej(r.error); };
-      });
-      return opening;
-    }
-    function run(mode, fn) {
-      return open().then(function (db) {
-        return new Promise(function (res, rej) {
-          const tx = db.transaction("builds", mode);
-          const req = fn(tx.objectStore("builds"));
-          tx.oncomplete = function () { res(req ? req.result : undefined); };
-          tx.onerror = function () { rej(tx.error); };
-        });
-      });
-    }
-    return {
-      all: function () { return run("readonly", function (st) { return st.getAll(); }); },
-      put: function (b) { return run("readwrite", function (st) { return st.put(b); }); },
-      del: function (id) { return run("readwrite", function (st) { return st.delete(id); }); },
-    };
-  })();
-
-  function post(body) {
-    return fetch(bridge() + "/api/stores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) { return r.status; }, function () { return 0; });
-  }
-  function bytesOf(blob) { return blob.arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
-
-  /* Sends what is left of one build. 200 lands it; a 4xx is about the file and
-     will never pass, so it is dropped (and named in the summary as missing);
-     anything else is about the network or the bridge, so it waits. */
-  async function deliver(b) {
-    /* The first request is the summary with the Excel and setup.json: the
-       bridge stores them and emails the Excel to the team as a backup. */
-    if (!b.metaSent) {
-      const first = b.files.filter(function (f) { return /\.xlsx$|^setup\.json$/.test(f.name); });
-      const enc = await Promise.all(first.map(async function (f) { return { name: f.name, data: X.b64(await bytesOf(f.blob)) }; }));
-      const st = await post({ id: b.id, meta: b.meta, files: enc });
-      if (st !== 200 && (st < 400 || st >= 500)) return false;
-      b.metaSent = true;
-      b.files = b.files.filter(function (f) { return first.indexOf(f) < 0; });
-      b.sent += first.length;
-      await OUTBOX.put(b);
-    }
-    while (b.files.length) {
-      const f = b.files[0];
-      const st = await post({ id: b.id, file: { name: f.name, data: X.b64(await bytesOf(f.blob)) } });
-      if (st !== 200 && (st < 400 || st >= 500)) return false;
-      b.files.shift();
-      b.sent += 1;
-      await OUTBOX.put(b);
-      if (view === "thanks") render();
-    }
-    await OUTBOX.del(b.id);
-    return true;
-  }
+  /* Photos and voice notes, and builds on their way to FoodBridge: outbox.js,
+     shared with the desktop page (desktop/desk.js). */
+  const DB = window.SB_OUTBOX.DB, OUTBOX = window.SB_OUTBOX.OUTBOX;
+  function deliver(b) { return window.SB_OUTBOX.deliver(X, b, function () { if (view === "thanks") render(); }); }
 
   async function sendAll() {
     if (ui.sending) return;
@@ -332,6 +234,42 @@
     if (cta) { if (saveBlocked(cta.dataset.step)) cta.setAttribute("aria-disabled", "true"); else cta.removeAttribute("aria-disabled"); }
   }
 
+  /* Files go along with a step (1 Oct 2026, owner): he fills the step, part of it or none of it,
+     and attaches what he has. At the end of each step, above Save, a card asks for that step's
+     paper -- a rate list, a customer list, a photo of the register -- with Attach files (the
+     phone's own picker: camera, gallery, files) and what is attached. On Products, Contacts and
+     Stock an attached file lets the team finish the step (M.fromFile). */
+  function attachCard(step) {
+    if (t("at_" + step + "_t") === "at_" + step + "_t") return "";
+    const mine = M.filesFor(S, step).filter(function (p) { return p.kind === "file" || p.kind === "photo"; });
+    const found = mine.reduce(function (n, p) { return n + (p.contacts || 0); }, 0);
+    const pick = '<input type="file" multiple class="sr" data-fx="' + step + '">';
+    return '<section class="att' + (mine.length ? " has" : "") + '"><div class="att-h">' + ic("clip", 18) +
+      '<div class="att-m"><b>' + h(t("at_" + step + "_t")) + "</b><small>" + h(t("at_" + step + "_s")) + "</small></div></div>" +
+      (mine.length ? '<span class="fx-files">' + mine.map(function (p) {
+          return '<i class="fx-f"><span>' + h(p.name || t("paSaved")) + '</span><button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("remove")) + '">' + ic("x", 12) + "</button></i>";
+        }).join("") + "</span>" +
+        (found ? '<p class="att-note">' + h(t("atFound", { n: found })) + "</p>" : M.fromFile(S, step) ? '<p class="att-note">' + h(t("fxDone_" + step)) + "</p>" : "") : "") +
+      '<label class="att-btn">' + ic("clip", 16) + h(mine.length ? t("atMore") : t("atBtn")) + pick + "</label></section>";
+  }
+
+  async function takeFiles(files, step) {
+    let n = 0, found = 0;
+    const notes = [];
+    for (const f of files) {
+      if (!f.size) continue;
+      const p = await window.SB_OUTBOX.take(X, M, window.SB_IMPORT, S, f, step);
+      if (p.error) { notes.push(t("fxTooBig", { file: f.name })); continue; }
+      n++;
+      found += p.contacts || 0;
+    }
+    save();
+    if (found && view === "people") { ui.peopleTab = "sort"; ui.sortedHere = []; }
+    render();
+    if (n) notes.unshift(t("fxAdded", { n: n }) + (found ? " · " + t("fxContacts", { n: found }) : ""));
+    if (notes.length) toast("✓ " + notes.join(" · "));
+  }
+
   function frame(step, body, foot) {
     const i = STEPS.indexOf(step);
     const next = STEPS[i + 1];
@@ -349,7 +287,7 @@
       /* The spoken-question line is for Hindi readers; in English the title says enough. */
       (S.lang === "en" ? "" : '<div class="sb-ask"><p class="sb-sub">' + h(t("q_" + step)) + "</p>" +
         (canSpeak ? '<button class="sb-listen" data-act="speak" data-key="q_' + step + '" aria-label="' + h(t("listen")) + '">' + ic("listen", 18) + "</button>" : "") + "</div>") +
-      body + "</main>" +
+      body + attachCard(step) + "</main>" +
       /* 26 Sep 2026, the owner: a step ends in Save, back to the steps list,
          never Next into the following step. The list is where he always is. */
       (next ? '<footer class="sb-foot">' + (foot || "") + '<button class="sb-cta" data-act="saveStep" data-step="' + step + '"' + (saveBlocked(step) ? ' aria-disabled="true"' : "") + ">" + ic("check", 20) + h(t("save")) + "</button></footer>"
@@ -365,7 +303,7 @@
      middle, the language switch sits over Start and changes the words in place. */
   SCREENS.welcome = function () {
     const en = S.lang === "en";
-    return '<main class="sb-main is-welcome">' +
+    return '<main class="sb-main is-welcome">' + deskLink() +
       '<p class="sb-brand">' + LOGO + "</p>" +
       '<h1 class="sb-h1 is-center">' + h(t("wTitle")) + "</h1></main>" +
       '<footer class="sb-foot">' +
@@ -399,12 +337,12 @@
     const p = P[step];
     switch (step) {
       case "store": return S.store.name || (M.storeReady(S) ? M.phoneShow(S.store.mobile) : t("sNone"));
-      case "items": return p.n ? t("sItems", { n: p.n }) : t("sNone");
+      case "items": return p.n ? t("sItems", { n: p.n }) : p.file ? t("sFromFile") : t("sNone");
       case "people": {
         const bits = [p.shops ? t("sShops", { n: p.shops }) : "", p.staff ? t("sStaff", { n: p.staff }) : "", p.suppliers ? t("sSup", { n: p.suppliers }) : "", p.left ? t("pToSort", { n: p.left }) : ""].filter(Boolean);
-        return bits.length ? bits.join(" · ") : t("sNone");
+        return bits.length ? bits.join(" · ") : p.file ? t("sFromFile") : t("sNone");
       }
-      case "stock": return p.n ? t("sStock", { n: p.n }) : S.skipped.stock ? t("sSkipped") : t("sNone");
+      case "stock": return p.n ? t("sStock", { n: p.n }) : p.file ? t("sFromFile") : S.skipped.stock ? t("sSkipped") : t("sNone");
       case "rules": return p.n ? t("sRules", { n: p.n, total: M.RULES_N }) : t("sNone");
       case "finish": return !S.lastBuild ? "" : (ui.outbox || []).some(function (b) { return b.id === S.lastBuild.id; }) ? t("fiWaiting") : t("fiSentAt", { d: when(S.lastBuild.at) });
       default: return "";
@@ -418,7 +356,7 @@
     const nextStep = work.find(function (s) { return !P[s].done; }) || "finish";
     return '<header class="sb-top is-home">' + LOGO + '<span class="sb-top-t">' + h(t("appName")) + "</span>" +
       '<button class="sb-topbtn" data-act="menu" aria-label="' + h(t("menu")) + '">' + ic("more", 22) + "</button></header>" +
-      '<main class="sb-main">' +
+      '<main class="sb-main">' + deskLink() +
       '<div class="sb-homehead">' + (S.store.photo ? thumb(S.store.photo) : "") +
       '<div><h1 class="sb-h1">' + h(S.store.name || t("hTitle")) + '</h1><p class="sb-sub">' + h(t("hProgress", { n: done, total: work.length })) + "</p></div></div>" +
       '<div class="sb-bar"><i style="width:' + Math.round(done / work.length * 100) + '%"></i></div>' +
@@ -1171,7 +1109,10 @@
       (canRecord ? (rec ? '<button class="sb-btn is-bad wide" data-act="recStop">' + ic("stop", 18) + h(t("paStop")) + ' · <span id="recT">' + h(t("paRecording", { s: 0 })) + "</span></button>"
         : '<button class="sb-btn wide" data-act="recStart">' + ic("mic", 18) + h(t("paVoice")) + "</button>") : "") + "</div>" +
       (list.length ? '<div class="papers">' + list.map(function (p) {
-        return '<div class="paper">' + (p.kind === "photo" ? thumb(p.id) : '<audio controls preload="none" data-paper-audio="' + h(p.id) + '"></audio>') +
+        /* A file dropped in on the desktop page travels as it came; here it is its name. */
+        const body = p.kind === "photo" ? thumb(p.id) : p.kind === "file" ? '<span class="paper-file">' + ic("file", 18) + "<b>" + h(p.name || p.file) + "</b></span>"
+          : '<audio controls preload="none" data-paper-audio="' + h(p.id) + '"></audio>';
+        return '<div class="paper">' + body +
           "<small>" + ic(ICON[p.step] || "camera", 14) + h(t("title_" + p.step)) + "</small>" +
           '<button class="sb-icbtn" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("paDelete")) + '">' + ic("trash", 16) + "</button></div>";
       }).join("") + "</div>" : '<p class="sb-muted center-text">' + h(t("paNone")) + "</p>"));
@@ -1485,15 +1426,6 @@
 
   /* ───────────────────────────────────────────────────────── export ── */
 
-  async function gatherBlobs() {
-    const out = {};
-    for (const p of S.papers) {
-      const b = await DB.get(p.id).catch(function () { return null; });
-      if (b) out[p.id] = { bytes: new Uint8Array(await b.arrayBuffer()), mime: b.type || p.mime };
-    }
-    return out;
-  }
-
   function download(blob, name) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1582,10 +1514,7 @@
     recStart: recStart,
     recStop: function () { if (ui.rec) ui.rec.mr.stop(); },
     delPaper: function (el) {
-      const id = el.dataset.id;
-      S.papers = S.papers.filter(function (p) { return p.id !== id; });
-      if (S.store.photo === id) S.store.photo = null;
-      DB.del(id).catch(function () {});
+      window.SB_OUTBOX.drop(M, S, el.dataset.id);   // and the contacts it brought, if still unsorted
       save();
       render();
     },
@@ -1712,16 +1641,9 @@
       ui.building = true;
       render();
       try {
-        const now = new Date();
-        const blobs = await gatherBlobs();
-        const files = X.parts(CAT, S, blobs, now).map(function (f) {
-          return { name: f.name, blob: new Blob([f.bytes], { type: /\.xlsx$/.test(f.name) ? XLSX : "application/octet-stream" }) };
-        });
-        const id = "SB-" + now.getTime().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-        const b = { id: id, at: now.getTime(), meta: X.summary(CAT, S, now, files.map(function (f) { return f.name; })), files: files, sent: 0, total: files.length, metaSent: false };
-        await OUTBOX.put(b);
+        const b = await window.SB_OUTBOX.make(CAT, X, S);
         ui.outbox = (ui.outbox || []).concat([b]);
-        S.lastBuild = { id: id, at: b.at };
+        S.lastBuild = { id: b.id, at: b.at };
         save();
         ui.building = false;
         go("thanks");
@@ -1856,6 +1778,7 @@
     const el = e.target;
     if (el.dataset.bind && (el.dataset.rerender !== undefined || el.tagName === "SELECT")) setTimeout(render, 0);
     if (el.id === "filePhoto" || el.id === "fileGallery") { if (el.files.length) addPhotos(Array.from(el.files)); el.value = ""; }
+    if (el.dataset.fx) { if (el.files.length) takeFiles(Array.from(el.files), el.dataset.fx); el.value = ""; }
   });
 
   document.addEventListener("keydown", function (e) {

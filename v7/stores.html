@@ -105,7 +105,8 @@
     function note(html) { var n = document.getElementById("note"); n.hidden = !html; n.innerHTML = html || ""; }
 
     function fileBtn(s, f, label, cls) {
-      return '<button class="' + (cls || "") + '" data-id="' + esc(s.id) + '" data-file="' + esc(f.name) + '">' + esc(label || f.name.split("/").pop()) + " · " + size(f.size) + "</button>";
+      return '<button class="' + (cls || "") + '" data-id="' + esc(s.id) + '" data-file="' + esc(f.name) + '"' + (f.parts ? ' data-parts="' + f.parts + '"' : "") +
+        (f.partial ? " disabled" : "") + ">" + esc(label || f.name.split("/").pop()) + " · " + size(f.size) + (f.partial ? " · arriving" : "") + "</button>";
     }
 
     function card(s) {
@@ -115,15 +116,17 @@
       var setup = s.files.filter(function (f) { return f.name === "setup.json"; });
       var photos = s.files.filter(function (f) { return /^photos\//.test(f.name); });
       var voice = s.files.filter(function (f) { return /^voice\//.test(f.name); });
+      var raw = s.files.filter(function (f) { return /^raw\//.test(f.name); });   // what he dropped in, as it came (1 Oct 2026)
       var bits = [m.owner, m.mobile, m.gst].filter(Boolean).map(esc).join(" · ");
       var chip = function (n, word, warn) { return '<span' + (warn ? ' class="warn"' : "") + ">" + n + " " + word + "</span>"; };
       return '<div class="card"><div class="top"><div class="who"><b>' + esc(m.shop || "No shop name yet") + "</b>" +
         (bits ? "<small>" + bits + "</small>" : "") + '</div><div class="when">' + esc(when(m.at)) + "<br>" + esc(s.id) + "</div></div>" +
         '<div class="counts">' + chip(c.products || 0, "products") + chip(c.customers || 0, "customers") + chip(c.suppliers || 0, "suppliers") +
-          chip(c.staff || 0, "staff") + chip(c.counted || 0, "counted in stock") + chip((c.answered || 0) + "/7", "questions") +
+          chip(c.staff || 0, "staff") + chip(c.counted || 0, "counted in stock") + chip((c.answered || 0) + "/6", "questions") +
           (c.gaps ? chip(c.gaps, "to follow up", true) : "") + "</div>" +
         '<div class="files">' + xl.map(function (f) { return fileBtn(s, f, "Excel", "go"); }).join("") +
           setup.map(function (f) { return fileBtn(s, f, "setup.json"); }).join("") +
+          (raw.length ? "<details open><summary>Files he dropped in · " + raw.length + "</summary><div>" + raw.map(function (f) { return fileBtn(s, f); }).join("") + "</div></details>" : "") +
           (photos.length ? "<details><summary>Photos · " + photos.length + "</summary><div>" + photos.map(function (f) { return fileBtn(s, f); }).join("") + "</div></details>" : "") +
           (voice.length ? "<details><summary>Voice notes · " + voice.length + "</summary><div>" + voice.map(function (f) { return fileBtn(s, f); }).join("") + "</div></details>" : "") +
         "</div>" +
@@ -180,8 +183,14 @@
       if (!b) return;
       b.disabled = true;
       var name = b.dataset.file;
-      fetch(base() + "/api/stores?id=" + encodeURIComponent(b.dataset.id) + "&file=" + encodeURIComponent(name), { headers: headers() })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      /* A big dropped file came in pieces: fetch each, in order, and save them as one. */
+      var n = Number(b.dataset.parts) || 0;
+      var names = n ? Array.from({ length: n }, function (_, i) { return name + ".part" + (i + 1) + "of" + n; }) : [name];
+      Promise.all(names.map(function (nm) {
+        return fetch(base() + "/api/stores?id=" + encodeURIComponent(b.dataset.id) + "&file=" + encodeURIComponent(nm), { headers: headers() })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); });
+      }))
+        .then(function (blobs) { return new Blob(blobs, { type: blobs[0].type }); })
         .then(function (blob) {
           var a = document.createElement("a");
           a.href = URL.createObjectURL(blob);

@@ -15,6 +15,20 @@
 
     wTitle: "Let's make your FoodBridge store",
     wStart: "Start",
+    deskOffer: "On a computer? Open the desktop version",
+    /* Files go along with a step (1 Oct 2026): fill it, fill part of it, or not at all, and attach what he has. */
+    at_store_t: "Have your GST certificate or visiting card?", at_store_s: "Attach a photo. It helps the team check your details.",
+    at_items_t: "Have a rate list or price list?", at_items_s: "Not sure what to pick, or it's all on paper? Attach it: Excel, PDF or a photo. The team sets up your products from it.",
+    at_people_t: "Have a customer list?", at_people_s: "Attach an Excel sheet, a contacts file or a photo of your register. Names in a contacts file come straight in.",
+    at_stock_t: "Have a stock sheet?", at_stock_s: "Attach a Tally or Busy stock sheet, or a photo of your stock register, instead of counting everything.",
+    at_rules_t: "Have a route chart, bills or a khata page?", at_rules_s: "Attach photos. They show the team how your day really runs.",
+    at_finish_t: "Anything else to send?", at_finish_s: "Attach any other file for the FoodBridge team.",
+    atBtn: "Attach files", atMore: "Attach more", atFound: "{n} contacts came in from your file, in To sort", atFound_1: "1 contact came in from your file, in To sort",
+    fx_finish: "Anything else? Add any other file for the FoodBridge team.",
+    fxDone_items: "The team uses this to finish your products.", fxDone_people: "The team uses this to add the rest of your customers.",
+    fxDone_stock: "The team uses this to fill in your stock.", fxDone: "Goes to FoodBridge as it is.",
+    fxAdd: "Add a file", fxMore: "Add another", fxContacts: "{n} contacts found", fxContacts_1: "1 contact found", fxDup: "{n} already there",
+    fxTooBig: "{file} is over 40 MB. Send it on WhatsApp instead.", fxAdded: "{n} files added", fxAdded_1: "1 file added", sFromFile: "From your file",
 
     hTitle: "Your store", hProgress: "{n} of {total} done",
     menuFresh: "Start again (delete all)", menuLang: "हिंदी में देखें",
@@ -119,7 +133,7 @@
     paVoice: "Record voice note", paStop: "Stop", paRecording: "Recording… {s}s", paNone: "Nothing yet",
     paDelete: "Delete", paSaved: "Saved", paNoMic: "Microphone did not open. Allow it and try again.",
 
-    tProducts: "Products", tShops: "Customers", tSuppliers: "Suppliers", tStaff: "Staff", tPapers: "Photos & voice",
+    tProducts: "Products", tShops: "Customers", tSuppliers: "Suppliers", tStaff: "Staff", tPapers: "Your files",
     fiNoMissing: "Nothing missing. Well done!", fiLater: "{n} things to fill later", fiLater_1: "1 thing to fill later", fiStock: "Stock counted",
     fiBuild: "Build my store", fiWorking: "Building your store…", tyTitle: "Thank you!", tySub: "The FoodBridge team will reach out to you soon.",
     fiSent: "FoodBridge has your store", fiSentAt: "Sent {d}", fiSending: "Sending to FoodBridge…",
@@ -153,6 +167,19 @@
 
     wTitle: "चलिए आपकी FoodBridge दुकान बनाते हैं",
     wStart: "शुरू करें",
+    deskOffer: "कंप्यूटर पर हैं? डेस्कटॉप वाला खोलें",
+    at_store_t: "GST सर्टिफ़िकेट या विज़िटिंग कार्ड है?", at_store_s: "फ़ोटो जोड़ दें। टीम को आपकी जानकारी जाँचने में मदद मिलेगी।",
+    at_items_t: "रेट लिस्ट या प्राइस लिस्ट है?", at_items_s: "पता नहीं क्या चुनें, या सब कागज़ पर है? वही जोड़ दें: Excel, PDF या फ़ोटो। टीम उसी से आपका सामान लगा देगी।",
+    at_people_t: "ग्राहकों की लिस्ट है?", at_people_s: "Excel शीट, कॉन्टैक्ट फ़ाइल या रजिस्टर की फ़ोटो जोड़ दें। कॉन्टैक्ट फ़ाइल के नाम सीधे आ जाएँगे।",
+    at_stock_t: "स्टॉक शीट है?", at_stock_s: "सब गिनने की जगह Tally या Busy की स्टॉक शीट, या स्टॉक रजिस्टर की फ़ोटो जोड़ दें।",
+    at_rules_t: "रूट चार्ट, बिल या खाते का पन्ना है?", at_rules_s: "फ़ोटो जोड़ दें। टीम समझ पाएगी कि आपका दिन कैसे चलता है।",
+    at_finish_t: "और कुछ भेजना है?", at_finish_s: "FoodBridge टीम के लिए कोई भी फ़ाइल जोड़ दें।",
+    atBtn: "फ़ाइल जोड़ें", atMore: "और जोड़ें", atFound: "आपकी फ़ाइल से {n} कॉन्टैक्ट आए, 'छाँटने बाकी' में",
+    fx_finish: "और कुछ? FoodBridge टीम के लिए कोई भी फ़ाइल जोड़ दें।",
+    fxDone_items: "टीम इससे आपका सामान पूरा कर देगी।", fxDone_people: "टीम इससे बाकी ग्राहक जोड़ देगी।",
+    fxDone_stock: "टीम इससे आपका स्टॉक भर देगी।", fxDone: "FoodBridge को वैसी ही जाएगी।",
+    fxAdd: "फ़ाइल जोड़ें", fxMore: "और जोड़ें", fxContacts: "{n} कॉन्टैक्ट मिले", fxDup: "{n} पहले से थे",
+    fxTooBig: "{file} 40 MB से बड़ी है। इसे WhatsApp पर भेजें।", fxAdded: "{n} फ़ाइलें जुड़ीं", sFromFile: "आपकी फ़ाइल से",
 
     hTitle: "आपकी दुकान", hProgress: "{total} में से {n} पूरे",
     menuFresh: "फिर से शुरू करें (सब मिटाएँ)", menuLang: "View in English",
@@ -254,7 +281,7 @@
     paVoice: "आवाज़ रिकॉर्ड करें", paStop: "रोकें", paRecording: "रिकॉर्ड हो रहा है… {s} सेकंड", paNone: "अभी कुछ नहीं",
     paDelete: "मिटाएँ", paSaved: "सेव हो गया", paNoMic: "माइक नहीं खुला। इजाज़त देकर फिर कोशिश करें।",
 
-    tProducts: "सामान", tShops: "ग्राहक", tSuppliers: "सप्लायर", tStaff: "स्टाफ़", tPapers: "फ़ोटो / आवाज़",
+    tProducts: "सामान", tShops: "ग्राहक", tSuppliers: "सप्लायर", tStaff: "स्टाफ़", tPapers: "आपकी फ़ाइलें",
     fiNoMissing: "कुछ बाकी नहीं। शाबाश!", fiLater: "{n} चीज़ें बाद में भरनी हैं", fiLater_1: "1 चीज़ बाद में भरनी है", fiStock: "गिना माल",
     fiBuild: "मेरी दुकान बनाएँ", fiWorking: "दुकान बन रही है…", tyTitle: "धन्यवाद!", tySub: "FoodBridge की टीम जल्द ही आपसे संपर्क करेगी।",
     fiSent: "FoodBridge को आपकी दुकान मिल गई", fiSentAt: "भेजी {d}", fiSending: "FoodBridge को भेज रहे हैं…",

@@ -2,7 +2,7 @@
 
 The distributor fills this in on his phone during the 40-minute setup meeting, mostly by tapping, then saves one file and sends it on WhatsApp. The onboarder sets up his store on the real platform from that file.
 
-Run the `foodbridge-v7` preview and open `http://localhost:8007/store-builder/`.
+Run the `foodbridge-v7` preview and open `http://localhost:8007/store-builder/`. On a computer, open `http://localhost:8007/store-builder/desktop/` (see *Desktop* below).
 Tests: from `v7/`, run `node --test store-builder/test/*.test.js`.
 
 ## Six steps
@@ -24,6 +24,25 @@ Every screen:
 - Hindi or English, with 🔊 to read the question aloud.
 - Photos of paper and voice notes: from *daily operation* (voice) and *Send* (Photos & voice).
 - Saves itself on the phone. Nothing leaves it until he saves or shares the file.
+
+## Desktop
+
+`desktop/` is the same builder for a computer, not the phone page made wider (1 Oct 2026). Both pages keep the same answers, in the same browser: `model.js`, one localStorage key, and photos and builds through `outbox.js`. So a store started on one page carries on in the other on that browser. It does not move between devices.
+
+- **One layout start to end:** a first visit opens the desk on Shop ("Let's make your store"). There is no separate start screen. Each section ends with *Next: …*, and Daily work with *Check and build*. The rail still opens any section.
+- **Files go along with each step (both pages):** at the end of each step, before Next, a card asks for that step's paper (a rate list, a customer list, a stock sheet…) with *Attach files*. He can fill the step, part of it or none of it, and attach too. On Products, Contacts and Stock a file lets the team finish the step (`model.js` `fromFile`). Build ends with *Anything else to send?*
+- **Dropped files:**
+  - Every file goes to FoodBridge as it came, under `raw/`, in pieces when over 2.5 MB. The team panel (`v7/stores.html`) lists them under *Files he dropped in*.
+  - Contacts files and lists (`.vcf`, `.csv`, `.xlsx`) are also read into Contacts by `desktop/import.js`.
+- **The desk, three columns with one job each:**
+  - Left, *Steps*: numbered 1–5, ending in *Send to FoodBridge*.
+  - Middle, the work: white, with *Step N of 5*.
+  - Right, *Your store request*: a line per step filling in as he goes, with Build my store.
+  - Products: a picture grid. Click ticks, Shift-click ticks a run, and prices can be typed in the list on the right.
+  - Contacts: sort with 1 2 3 0. The customers' week is a grid to drag across.
+  - Stock: a count sheet, filled with Enter down the column.
+  - Daily work: every question on one page.
+- **Width:** made for 1100px and wider; the rail folds to icons under 1360px. The phone page offers the desktop page on a computer.
 
 ## Export
 
