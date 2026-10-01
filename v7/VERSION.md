@@ -3366,3 +3366,66 @@ On a computer his customers already live in three places: on his phone, in his a
 - **One row per choice:** each choice question is one row, the question on the left and its answers on one line on the right (the screen uses the card's full width). *Other* still opens its box.
 - ***Anything else?*** is one line with the mic. It grows as he types or speaks, up to four lines.
 - **Fit:** it fits at every height from 900 down to 660 px, empty or filled, and in Hindi. Short screens tighten the padding, and the tile pictures step aside under 700 px. `?v=` `20261001M3`.
+
+### 1 October 2026 — Store Builder: iPhone contacts, the easy way
+
+**Owner:** can't importing contacts be as easy on an iPhone as on Android Chrome?
+
+- **Not in one tap: Apple doesn't allow it.** Safari keeps the Contact Picker API behind a feature flag, still off by default in iOS 26.5, and every iPhone browser is Safari underneath. No web page can open an iPhone's contact list without that setting.
+- **iCloud instead, because almost every iPhone keeps its contacts there:**
+  - The Contacts hero has a new link, ***iPhone? Bring them from iCloud***. It opens three steps:
+    1. *Open iCloud Contacts*, a button to icloud.com/contacts.
+    2. *Select all, then Export vCard*.
+    3. *Drop that file here*.
+  - The vCard is read like any contacts file and kept raw for the team. The panel shuts and the green *N contacts added* card shows.
+  - No phone and no setting needed.
+- **On the phone page,** an iPhone that can't pick (Safari without the setting, or another iPhone browser) now also says *Or skip this: on your computer, click "iPhone? Bring them from iCloud"*.
+- **Checked:** an iCloud-style vCard (item1.TEL, +91 and 0 prefixes) gave 3 contacts with clean numbers, and the screen still fits at 900, 760 and 700 px. `?v=` `20261001M4`.
+- **Later (owner: just remove the settings complexity for iPhone users):**
+  - An iPhone is never asked to change a setting.
+  - **On the phone page (after the QR):** an iPhone that can't open contacts gets one plain card, *On iPhone, use iCloud*, with two steps: click *iPhone? Bring them from iCloud* on the computer, then export and drop. No Feature Flags steps, no *I've turned it on*, and no *Open in Safari* (it only led to that setting). Google sync shows there when switched on.
+  - **On the phone Store Builder:** *Add from phone* on an iPhone says the same in its sheet, with *Type* as the way on.
+  - If an iPhone already has the picker on, *Import from contacts* still just works.
+  - Android is unchanged (picker, or *Open in Chrome*).
+  - Checked with Safari and Chrome iPhone agents, Android Chrome (3 contacts sent), and the phone page's sheet. `?v=` `20261001M6`.
+- **Later (owner: let an iPhone have the Safari setting, since there is no other way, with iCloud as the second option):**
+  - **Safari on an iPhone:** the main button is *Import from contacts*. If the picker is off, tapping it shows the one-time setting (Settings › Apps › Safari › Advanced › Feature Flags › Contact Picker API) and *I've turned it on*.
+  - **Chrome or another browser on an iPhone:** *Open in Safari* comes first, since the setting lives only in Safari. (Chrome on an iPhone runs on Safari's engine and has no picker of its own.)
+  - **Underneath, on both:** a quiet card, *Or: on your computer, click "iPhone? Bring them from iCloud"*.
+  - **The phone Store Builder's *Add from phone* sheet** on an iPhone has the setting steps again, then *Or:* the iCloud way.
+  - The *On iPhone, use iCloud* card from an hour ago is gone. Android is unchanged.
+  - Checked with Safari and Chrome iPhone agents, Android Chrome (3 contacts sent) and the phone page's sheet. Tests: 34 pass. `?v=` `20261001M7`.
+
+### 1 October 2026 — Store Builder on the phone: only the words that help him act
+
+**Owner:** the mobile flows have too much text. Be ruthless; keep only the must-have words that help him act.
+
+- **The page the QR opens (`send/`):**
+  - **Contacts:** *Send contacts* and **Pick contacts**, nothing under the title.
+  - **Android outside Chrome:** just **Open in Chrome**. **An iPhone outside Safari:** just **Open in Safari**.
+  - **Safari without the picker:** tapping shows *Turn on once* with two steps (*Settings › Apps › Safari › Advanced › Feature Flags*, *Turn on Contact Picker API*) and one button, **Done, pick contacts**. The duplicate *Import from contacts* and the *older iPhones* line are gone.
+  - **iCloud:** under it, *Or use iCloud on your computer*.
+  - **Results and errors:** *3 sent / Check your computer*, *Couldn't send. Try again.*, *Scan the QR code again*.
+  - **Photos:** *Send photos*, **Take photo**, **From gallery**, *Sending 2 of 5…*, *5 sent*.
+- **The phone Store Builder:**
+  - No *Step n of 4* line; the bar at the top shows it.
+  - No sub-line on attach cards. No *How many?* by Warehouses; the counter stands alone.
+  - No *Not started* under each step on the home list.
+  - Empty lists say *No customers yet* / *No one yet*.
+  - Daily work's title is *How does your day run?*, as on desktop.
+  - *Add from phone* on an iPhone is *Turn on once* plus the two steps, then *Or use iCloud on a computer*. On Android it is *Use Chrome* and *Open this page in Chrome*.
+  - Hindi to match. The Hindi spoken-question line with its listen button stays: it is how a non-reader acts.
+- Tests: 34 pass. `?v=` `20261001N1`.
+- **Later (owner):** *Have your GST certificate or visiting card?* is gone from *Your shop* on the phone, as on desktop. The phone's Shop screen is the mobile number, GST, business type and warehouses, then Save. `?v=` `20261001N2`.
+
+### 1 October 2026 — Store Builder: one address that flips with the screen
+
+**Owner:** desktop and mobile shouldn't have two routes; it should flip itself with the screen size.
+
+- **One address:** `store-builder/` is the only one. A small loader in its `index.html` picks the page as it loads: a window 1000 px wide or more gets the desktop page (`desktop/desk.css`, `desktop/desk.js`, with the QR and Google scripts), anything narrower the phone page (`sb.css`, `app.js`), each with its own body.
+- **Flipping:** a window resized across 1000 px reloads into the other. Both pages keep the same answers in this browser, so nothing is lost; checked with 9 contacts, desktop to phone and back.
+- **Pinning for tests:** `?view=desktop` or `?view=phone`.
+- **Old links:** `store-builder/desktop/` now forwards to `store-builder/`, keeping any `#screen`.
+- **Paths:** `desk.js` finds its folder from its own script address (`BASE`), so the logo, the QR mark and the phone page (`send/`) resolve from either address.
+- **Removed:** the desktop's *Made for a computer screen* bar and its menu row *Phone version*, and the phone page's *Open the desktop version* link. The screen decides now.
+- `?v=` `20261001N3`.

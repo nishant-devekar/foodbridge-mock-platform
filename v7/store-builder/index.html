@@ -7,25 +7,40 @@
   <meta name="robots" content="noindex">
   <title>FoodBridge Store Builder</title>
   <link rel="icon" href="../favicon.ico">
-  <link rel="stylesheet" href="sb.css?v=20261001M3">
+  <script>
+    /* One address for Store Builder (owner, 1 Oct 2026): it flips itself with the screen. A window
+       1000 px wide or more gets the desktop page (desktop/desk.js), anything narrower the phone page
+       (app.js). Both keep the same answers in this browser, so a flip loses nothing. ?view=desktop or
+       ?view=phone pins one, for testing. Crossing the line while open reloads into the other. */
+    (function () {
+      var V = "20261001N3";
+      var pin = new URLSearchParams(location.search).get("view");
+      var wide = function () { return window.matchMedia("(min-width: 1000px)").matches; };
+      var desk = pin ? pin === "desktop" : wide();
+      window.SB_VIEW = desk ? "desktop" : "phone";
+      var css = desk ? "desktop/desk.css" : "sb.css";
+      var shared = ["catalogue.js", "icons.js", "i18n.js", "model.js", "export.js", "import.js", "outbox.js"];
+      var js = desk ? shared.concat(["gcontacts.js", "vendor/qrcode.js", "desktop/desk.js"]) : shared.concat(["app.js"]);
+      var body = desk
+        ? '<div id="app"></div><div id="dlg"></div><div id="drop" aria-hidden="true"></div><div id="toast" role="status" aria-live="polite"></div>'
+        : '<div id="app"></div><div id="sheet"></div><div id="toast" role="status" aria-live="polite"></div>' +
+          '<input type="file" id="filePhoto" accept="image/*" capture="environment" hidden><input type="file" id="fileGallery" accept="image/*" multiple hidden>';
+      document.write('<link rel="stylesheet" href="' + css + "?v=" + V + '">');
+      window.SB_BOOT = function () {
+        document.write(body + js.map(function (f) { return '<script src="' + f + "?v=" + V + '"><\/script>'; }).join(""));
+      };
+      if (!pin) {
+        var t;
+        window.addEventListener("resize", function () {
+          clearTimeout(t);
+          t = setTimeout(function () { if (wide() !== desk) location.reload(); }, 400);
+        });
+      }
+    })();
+  </script>
 </head>
 <body>
-  <div id="app"></div>
-  <div id="sheet"></div>
-  <div id="toast" role="status" aria-live="polite"></div>
-
-  <input type="file" id="filePhoto" accept="image/*" capture="environment" hidden>
-  <input type="file" id="fileGallery" accept="image/*" multiple hidden>
-
   <noscript><p style="padding:24px;font:18px system-ui">Please open this page in Chrome. · कृपया यह पेज Chrome में खोलें।</p></noscript>
-
-  <script src="catalogue.js?v=20261001M3"></script>
-  <script src="icons.js?v=20261001M3"></script>
-  <script src="i18n.js?v=20261001M3"></script>
-  <script src="model.js?v=20261001M3"></script>
-  <script src="export.js?v=20261001M3"></script>
-  <script src="import.js?v=20261001M3"></script>
-  <script src="outbox.js?v=20261001M3"></script>
-  <script src="app.js?v=20261001M3"></script>
+  <script>SB_BOOT();</script>
 </body>
 </html>

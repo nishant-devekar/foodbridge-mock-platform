@@ -2,7 +2,7 @@
 
 The distributor fills this in on his phone during the 40-minute setup meeting, mostly by tapping, then saves one file and sends it on WhatsApp. The onboarder sets up his store on the real platform from that file.
 
-Run the `foodbridge-v7` preview and open `http://localhost:8007/store-builder/`. On a computer, open `http://localhost:8007/store-builder/desktop/` (see *Desktop* below).
+Run the `foodbridge-v7` preview and open `http://localhost:8007/store-builder/`. It is one address for both: a window 1000 px wide or more gets the desktop page, a narrower one the phone page, and it flips if the window crosses that width. `?view=desktop` or `?view=phone` pins one for testing; the old `desktop/` address forwards here.
 Tests: from `v7/`, run `node --test store-builder/test/*.test.js`.
 
 ## Six steps

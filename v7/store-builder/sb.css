@@ -932,3 +932,6 @@ details[open].sb-card > summary { margin-bottom: .4rem; }
 
 
 .fi-tiles.is-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* four tiles, when Products and Stock are hidden */
+
+/* No "Step n of 4" line above the title any more (1 Oct 2026): the title keeps its distance from the bar. */
+.sb-main > .sb-h1:first-child { margin-top: 18px; }

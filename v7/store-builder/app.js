@@ -42,8 +42,8 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const canRecord = "MediaRecorder" in window && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   /* A computer (wide screen, a mouse): offer the desktop page, which keeps the same answers (1 Oct 2026). */
-  const onComputer = window.matchMedia("(min-width: 1024px) and (pointer: fine)").matches;
-  function deskLink() { return onComputer ? '<a class="sb-desk" href="desktop/">' + ic("layers", 16) + "<span>" + h(t("deskOffer")) + "</span>" + ic("chev", 14) + "</a>" : ""; }
+  /* One address now flips with the screen (index.html, 1 Oct 2026): no link to a desktop version. */
+  function deskLink() { return ""; }
 
   let S = load();
   let view = "welcome";
@@ -245,12 +245,13 @@
     return ids.length > 0 && ids.every(function (id) { return !S.people[id] || S.people[id].type; });
   }
   function attachCard(step) {
+    if (step === "store") return "";   // no GST certificate / visiting card ask on Your shop (owner, 1 Oct 2026), as on desktop
     if (t("at_" + step + "_t") === "at_" + step + "_t") return "";
     const mine = M.filesFor(S, step).filter(function (p) { return p.kind === "file" || p.kind === "photo"; });
     const found = mine.reduce(function (n, p) { return n + (p.contacts || 0); }, 0);
     const pick = '<input type="file" multiple class="sr" data-fx="' + step + '">';
     return '<section class="att' + (mine.length ? " has" : "") + '"><div class="att-h">' + ic("clip", 18) +
-      '<div class="att-m"><b>' + h(t("at_" + step + "_t")) + "</b><small>" + h(t("at_" + step + "_s")) + "</small></div></div>" +
+      '<div class="att-m"><b>' + h(t("at_" + step + "_t")) + "</b></div></div>" +   // the title says it (owner, 1 Oct 2026: ruthless)
       (mine.length ? '<span class="fx-files">' + mine.map(function (p) {
           return '<i class="fx-f"><span>' + h(p.name || t("paSaved")) + '</span><button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("remove")) + '">' + ic("x", 12) + "</button></i>";
         }).join("") + "</span>" +
@@ -287,7 +288,7 @@
       (sample ? '<button class="sb-sample" data-act="sampleAsk" data-step="' + step + '">' + ic("sparkle", 15) + "<span>" + h(t("sampleBtn")) + "</span></button>" : "") +
       "</header>" +
       '<main class="sb-main">' +
-      '<p class="sb-step">' + h(t("stepOf", { n: i + 1, total: STEPS.length })) + "</p>" +
+      /* No "Step n of 4" line (owner, 1 Oct 2026): the bar at the top says where he is. */
       '<h1 class="sb-h1">' + h(t("title_" + step)) + "</h1>" +
       /* The spoken-question line is for Hindi readers; in English the title says enough. */
       (S.lang === "en" ? "" : '<div class="sb-ask"><p class="sb-sub">' + h(t("q_" + step)) + "</p>" +
@@ -341,14 +342,14 @@
   function statusText(step, P) {
     const p = P[step];
     switch (step) {
-      case "store": return S.store.name || (M.storeReady(S) ? M.phoneShow(S.store.mobile) : t("sNone"));
-      case "items": return p.n ? t("sItems", { n: p.n }) : p.file ? t("sFromFile") : t("sNone");
+      case "store": return S.store.name || (M.storeReady(S) ? M.phoneShow(S.store.mobile) : "");
+      case "items": return p.n ? t("sItems", { n: p.n }) : p.file ? t("sFromFile") : "";
       case "people": {
         const bits = [p.shops ? t("sShops", { n: p.shops }) : "", p.staff ? t("sStaff", { n: p.staff }) : "", p.suppliers ? t("sSup", { n: p.suppliers }) : "", p.left ? t("pToSort", { n: p.left }) : ""].filter(Boolean);
-        return bits.length ? bits.join(" · ") : p.file ? t("sFromFile") : t("sNone");
+        return bits.length ? bits.join(" · ") : p.file ? t("sFromFile") : "";
       }
-      case "stock": return p.n ? t("sStock", { n: p.n }) : p.file ? t("sFromFile") : S.skipped.stock ? t("sSkipped") : t("sNone");
-      case "rules": return p.n ? t("sRules", { n: p.n, total: M.RULES_N }) : t("sNone");
+      case "stock": return p.n ? t("sStock", { n: p.n }) : p.file ? t("sFromFile") : S.skipped.stock ? t("sSkipped") : "";
+      case "rules": return p.n ? t("sRules", { n: p.n, total: M.RULES_N }) : "";
       case "finish": return !S.lastBuild ? "" : (ui.outbox || []).some(function (b) { return b.id === S.lastBuild.id; }) ? t("fiWaiting") : t("fiSentAt", { d: when(S.lastBuild.at) });
       default: return "";
     }
@@ -369,7 +370,7 @@
         const d = P[s].done;
         return '<li><button class="sb-grow' + (d ? " is-done" : "") + (s === nextStep ? " is-next" : "") + '" data-act="go" data-to="' + s + '">' +
           '<span class="sb-grow-ic">' + ic(ICON[s], 18) + "</span>" +
-          '<span class="sb-grow-main"><span class="sb-grow-t">' + (i + 1) + ". " + h(stepName(s)) + '</span><span class="sb-grow-s">' + h(statusText(s, P)) + "</span></span>" +
+          '<span class="sb-grow-main"><span class="sb-grow-t">' + (i + 1) + ". " + h(stepName(s)) + '</span>' + (statusText(s, P) ? '<span class="sb-grow-s">' + h(statusText(s, P)) + "</span>" : "") + "</span>" +
           (d ? '<span class="sb-grow-tick">' + ic("check", 18) + "</span>" : '<span class="sb-grow-go">' + ic("chev", 16) + "</span>") + "</button></li>";
       }).join("") + "</ol></main>";   // no Continue button (owner, 26 Sep): he taps a step in the list; the next one is tinted
   };
@@ -398,8 +399,7 @@
         { v: "manufacturer", label: t("tManufacturer") }, { v: "other", label: t("tOther") }]) +
         (st.type === "other" ? input("store.typeOther", { ph: t("fTypeOther"), mic: true }) : "")) +
       /* 28 Sep 2026 (owner): just how many warehouses, a counter; no addresses, no "at the shop". */
-      field("warehouse", t("fWarehouses"), '<div class="sb-group fc"><div class="fc-row"><span class="fc-t">' + h(t("whHowMany")) + "</span>" +
-        stepper("store.warehouses", { small: true }) + "</div></div>"));
+      field("warehouse", t("fWarehouses"), stepper("store.warehouses", { small: true })));
     /* Gone 26 Sep 2026 (owner): the shop photo (an older save's still shows on the steps list and in the file), and
        "Areas you supply to" (areas now come only from each customer's sheet).
        Gone 28 Sep 2026 (owner): "Do you make or pack anything yourself?" (Manufacturer says it) and
@@ -1047,15 +1047,18 @@
 
   /* iPhone Safari and computers do not let a web page open the phone's contacts. */
   SHEETS.noPicker = function () {
+    /* Ruthless words (owner, 1 Oct 2026): what to do, nothing about why. An iPhone turns one Safari
+       setting on once (or brings them from iCloud on a computer); Android opens this in Chrome. */
     const k = phoneKind();
-    const steps = k === "ios" ? ["pIos1", "pIos2", "pIos3"] : k === "android" ? ["pAnd1", "pAnd2"] : ["pOther1"];
+    const head = k === "ios" ? t("pNoPickerIos") : k === "android" ? t("pNoPicker") : "";
+    const steps = k === "ios" ? ["pIos1", "pIos2"] : k === "android" ? ["pAnd1"] : ["pOther1"];
     return sheetWrap(h(t("pPick")),
-      '<div class="sb-callout is-warn">' + ic("info", 18) + "<p>" + h(t(k === "ios" ? "pNoPickerIos" : "pNoPicker")) + "</p></div>" +
+      (head ? '<p class="sb-label"><span>' + h(head) + "</span></p>" : "") +
       '<ol class="sb-card how-send">' + steps.map(function (x) { return "<li>" + h(t(x)) + "</li>"; }).join("") + "</ol>" +
-      (k === "ios" ? '<p class="sb-hint">' + h(t("pIosOld")) + "</p>" : "") +
-      '<p class="sb-hint">' + h(t("pNoPicker2")) + "</p>",
+      (k === "ios" ? '<p class="sb-hint">' + h(t("pIosDesk1")) + "</p>" : ""),
       '<button class="sb-cta" data-act="personNew">' + ic("pen", 18) + h(t("pTypeShort")) + "</button>");
   };
+
 
   SHEETS.personNew = function (sh) {
     return sheetWrap(h(t("pType")),

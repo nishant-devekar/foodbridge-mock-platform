@@ -17,6 +17,9 @@
 (function () {
   "use strict";
 
+  /* Where Store Builder lives (its folder), whichever address loaded this script: the one address
+     that flips with the screen (store-builder/) or the old desktop/ one. */
+  const BASE = new URL("../", (document.currentScript && document.currentScript.src) || location.href).href;
   const CAT = window.SB_CATALOGUE, M = window.SB_MODEL, X = window.SB_EXPORT, I18N = window.SB_I18N, IMP = window.SB_IMPORT;
   const OB = window.SB_OUTBOX, DB = OB.DB, OUTBOX = OB.OUTBOX;
   const ic = window.SB_ICON;
@@ -47,6 +50,10 @@
       dzWaFrom: "Parle Agencies", dzWaMsg: "New rates from 1st", dzMail: "Inbox", dzMailFrom: "Suresh (salesman)", dzMailSub: "Route chart for October",
       hpT: "Paper? Snap it with your phone", hpStep2: "Snap", hpGot: "{n} photos came from your phone", hpGot_1: "1 photo came from your phone", hpOpen: "Phone connected. Take your photos",
       dzDrag: "Drag your files here",
+      icLink: "iPhone? Bring them from iCloud", icT: "Your iPhone contacts, from iCloud",
+      ic1: "Open iCloud Contacts and sign in with your Apple ID", ic1b: "Open iCloud Contacts",
+      ic2: "Select all, then Export vCard", ic2s: "Press Ctrl+A (⌘A on a Mac), open the ⋯ menu, and choose Export vCard. One file downloads.",
+      ic3: "Drop that file here", ic3d: "Drop the vCard file here",
       hoDone: "{n} contacts added", hoDone_1: "1 contact added", hoMark: "Mark who is who", hoMore: "Scan to add more", ctaMark: "Next: Mark who is who",
       adPhone: "Sync contacts from your phone", hoTag: "Fastest", orWord: "or", adPhoneS: "Scan this with your phone's camera, pick your customers and suppliers, and tap Send. They come straight here.",
       adStep1: "Scan", adStep2: "Pick contacts", adStep3: "Send",
@@ -116,6 +123,10 @@
       dzWaFrom: "Parle Agencies", dzWaMsg: "1 तारीख से नए रेट", dzMail: "Inbox", dzMailFrom: "सुरेश (सेल्समैन)", dzMailSub: "अक्टूबर का रूट चार्ट",
       hpT: "कागज़ है? फ़ोन से फ़ोटो भेजें", hpStep2: "फ़ोटो", hpGot: "{n} फ़ोटो फ़ोन से आईं", hpOpen: "फ़ोन जुड़ गया। फ़ोटो खींचें",
       dzDrag: "अपनी फ़ाइलें यहाँ खींचकर लाएँ",
+      icLink: "iPhone है? iCloud से लाएँ", icT: "iPhone के कॉन्टैक्ट, iCloud से",
+      ic1: "iCloud Contacts खोलें और Apple ID से साइन इन करें", ic1b: "iCloud Contacts खोलें",
+      ic2: "सब चुनें, फिर Export vCard", ic2s: "Ctrl+A (Mac पर ⌘A) दबाएँ, ⋯ मेनू खोलें, और Export vCard चुनें। एक फ़ाइल डाउनलोड होगी।",
+      ic3: "वह फ़ाइल यहाँ छोड़ें", ic3d: "vCard फ़ाइल यहाँ छोड़ें",
       hoDone: "{n} कॉन्टैक्ट जुड़ गए", hoMark: "कौन क्या है, चुनें", hoMore: "और जोड़ने के लिए स्कैन करें", ctaMark: "आगे: कौन क्या है",
       adPhone: "फ़ोन से कॉन्टैक्ट सिंक करें", hoTag: "सबसे तेज़", orWord: "या", adPhoneS: "फ़ोन के कैमरे से इसे स्कैन करें, ग्राहक और सप्लायर चुनें, और भेजें दबाएँ। वे सीधे यहाँ आ जाएँगे।",
       adStep1: "स्कैन", adStep2: "कॉन्टैक्ट चुनें", adStep3: "भेजें",
@@ -272,7 +283,7 @@
 
   /* ─────────────────────────────────────────────── bits of screen ── */
 
-  const LOGO = '<img class="dk-logo" src="../foodbridge-mark-green.png?v=1" alt="FoodBridge" width="28" height="28">';
+  const LOGO = '<img class="dk-logo" src="' + BASE + 'foodbridge-mark-green.png?v=1" alt="FoodBridge" width="28" height="28">';
 
   function chips(opts, isOn, attrs, cls) {
     return '<div class="chips' + (cls ? " " + cls : "") + '">' + opts.map(function (o) {
@@ -612,8 +623,7 @@
      keep a centred column; the grid and the tables use the panel's width. */
   function deskView() {
     const d = SCR[ui.scr] || SCR.store;
-    return '<div class="narrow">' + ic("info", 16) + "<span>" + h(t("narrow")) + ' <a href="../">' + h(t("narrowLink")) + "</a></span></div>" +
-      '<div class="shell"><div class="app-card' + (d.wide ? " is-wide" : "") + '">' + '<div class="app-main">' + mainTop() + screenHTML() + "</div>" + sidePanel() + "</div></div>";
+    return '<div class="shell"><div class="app-card' + (d.wide ? " is-wide" : "") + '">' + '<div class="app-main">' + mainTop() + screenHTML() + "</div>" + sidePanel() + "</div></div>";
   }
 
   /* After a change that doesn't redraw the screen: the progress line and the footer's count. */
@@ -965,7 +975,7 @@
   }
   function phoneUrl() {
     const o = hoPick();
-    return new URL("../send/#c=" + hoCode(o) + (o.mode === "photos" ? "&m=photos" : "") + (S.lang === "hi" ? "&l=hi" : ""), location.href).href;
+    return new URL("send/#c=" + hoCode(o) + (o.mode === "photos" ? "&m=photos" : "") + (S.lang === "hi" ? "&l=hi" : ""), BASE).href;
   }
   function qrSvg(text) {
     if (!window.SB_QR) return "";
@@ -976,7 +986,7 @@
     const m = Math.round(n * 0.22), o = (n - m) / 2;
     return '<svg viewBox="-2 -2 ' + (n + 4) + " " + (n + 4) + '" shape-rendering="crispEdges"><path d="' + d + '" fill="#10281b"/>' +
       '<rect x="' + (o - 0.6) + '" y="' + (o - 0.6) + '" width="' + (m + 1.2) + '" height="' + (m + 1.2) + '" rx="1.4" fill="#fff"/>' +
-      '<image href="../foodbridge-mark-green.png?v=1" x="' + o + '" y="' + o + '" width="' + m + '" height="' + m + '"/></svg>';
+      '<image href="' + BASE + 'foodbridge-mark-green.png?v=1" x="' + o + '" y="' + o + '" width="' + m + '" height="' + m + '"/></svg>';
   }
   function hoActive(o) { return view === "desk" && HOS[ui.scr] === o && !document.hidden && Date.now() - o.since < 15 * 60e3; }
   function hoStatus() {
@@ -1133,7 +1143,8 @@
           '<div class="ho-m"><span class="ho-tag">' + ic("smartphone", 13) + h(t("hoTag")) + "</span><b>" + h(t("adPhone")) + "</b>" +   // no sub-text (owner): the 1-2-3 says how
             '<ol class="ho-steps"><li><i>1</i>' + h(t("adStep1")) + "</li><li><i>2</i>" + h(t("adStep2")) + "</li><li><i>3</i>" + h(t("adStep3")) + "</li></ol>" +
             '<div class="ho-st" id="hoSt">' + hoStatus() + "</div>" +
-            (GG && GG.ready() ? '<button class="link ho-g" data-act="googleSync">' + GG.logo + h(t("adGoogle")) + "</button>" : "") + "</div></div>" +
+            '<span class="ho-alt"><button class="link ho-g" data-act="icloud">' + ic("smartphone", 14) + h(t("icLink")) + "</button>" +
+            (GG && GG.ready() ? '<button class="link ho-g" data-act="googleSync">' + GG.logo + h(t("adGoogle")) + "</button>" : "") + "</span></div></div>" +
         /* No "so far" strip (owner: the card must not scroll): the footer counts them, Who is who lists them. */
         (M.filesFor(S, "people").length ? "" : '<div class="or-div"><span>' + h(t("orWord")) + "</span></div>") + attach("people");
     },
@@ -1326,7 +1337,6 @@
       row("papers", "folder", t("tPapers") + (S.papers.length ? " · " + S.papers.length : "")) +
       row("sampleAll", "sparkle", t("menuSample")) +
       row("lang", "langs", t("menuLang"), ' data-v="' + (S.lang === "en" ? "hi" : "en") + '"') +
-      '<a class="mrow" href="../">' + ic("mobile", 18) + "<span>" + h(t("menuPhone")) + "</span></a>" +
       row("confirm", "trash", t("menuFresh"), "", "is-bad") +
       '<p class="hint">' + h(CAT.note) + '</p><p class="hint">' + h(CAT.credit) + "</p>", "", "is-sm");
   };
@@ -1426,6 +1436,22 @@
     }
     body += field(t("pIsA"), setChips(b + "type", "str", [{ v: "shop", label: t("pShop") }, { v: "staff", label: t("pStaff") }, { v: "supplier", label: t("pSupplier") }, { v: "skip", label: t("pSkip") }]));
     return dlgWrap(h(p.name), body, '<button class="btn is-bad" data-act="delPerson" data-id="' + h(p.id) + '">' + ic("trash", 16) + h(t("pRemove")) + "</button>" + done(), "is-md");
+  };
+
+  /* iPhone contacts, from the computer (owner, 1 Oct 2026): Safari keeps the contact picker switched
+     off, so an iPhone can't hand its contacts to a web page in one tap. But an iPhone keeps them in
+     iCloud, and iCloud.com exports them all as one vCard, which import.js reads. Three steps here,
+     no phone and no setting; the file is kept raw for the team like any other. */
+  DIALOGS.icloud = function () {
+    const step = function (n, body) { return '<li><i>' + n + "</i><div>" + body + "</div></li>"; };
+    return dlgWrap(h(t("icT")),
+      '<ol class="ic-steps">' +
+        step(1, "<b>" + h(t("ic1")) + '</b><a class="btn is-up" href="https://www.icloud.com/contacts/" target="_blank" rel="noopener">' + ic("share", 15) + h(t("ic1b")) + "</a>") +
+        step(2, "<b>" + h(t("ic2")) + "</b><small>" + h(t("ic2s")) + "</small>") +
+        step(3, "<b>" + h(t("ic3")) + "</b>" +
+          '<label class="dump is-line">' + ic("contacts", 16) + "<b>" + h(t("ic3d")) + "</b><span>" + h(t("fdOr")) + " <u>" + h(t("fdBrowse")) + "</u></span>" +
+          '<input type="file" class="sr" data-fx="people" data-close accept=".vcf,.vcard,text/vcard"></label>') +
+      "</ol>", "", "is-md");
   };
 
   DIALOGS.papers = function () {
@@ -1845,6 +1871,7 @@
         toast(t("gotGoogle", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
       }, function (e) { if (!/closed|denied/.test(e.message)) toast(t("googleFail")); });
     },
+    icloud: function () { openDlg({ kind: "icloud" }); },
     hoWake: function () { const o = hoPick(); o.code = ""; o.opened = false; o.off = 0; render(); },
     pasteList: async function () {
       const k = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V";
@@ -2010,7 +2037,11 @@
 
   document.addEventListener("change", function (e) {
     const el = e.target;
-    if (el.dataset.files != null || el.dataset.fx) { if (el.files.length) takeFiles(Array.from(el.files), el.dataset.fx); el.value = ""; return; }
+    if (el.dataset.files != null || el.dataset.fx) {
+      const close = el.dataset.close != null;   // the iCloud panel shuts once its file is in
+      if (el.files.length) takeFiles(Array.from(el.files), el.dataset.fx).then(function () { if (close && dlg) closeDlg(); });
+      el.value = ""; return;
+    }
     if (el.dataset.unit != null) {
       const it = M.item(CAT, S, el.dataset.unit);
       if (!it) return;

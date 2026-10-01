@@ -42,7 +42,7 @@
     title_suppliers: "Suppliers",
     title_usual: "Usual orders",
     title_stock: "Warehouse stock", q_stock: "How much stock do you have now? Count the main products.",
-    title_rules: "How does your daily operation look like?", short_rules: "Daily operation", q_rules: "A few questions about your day.",
+    title_rules: "How does your day run?", short_rules: "Daily operation", q_rules: "A few questions about your day.",
     title_finish: "Build your store", q_finish: "Check it once, then build your store.",
 
     sNone: "Not started", sSkipped: "Later", sItems: "{n} products", sPeople: "{n} sorted",
@@ -92,13 +92,14 @@
     scFound: "Found: {name}", scNew: "New barcode. Add the product.", scNoCamera: "Camera did not open. Allow camera and try again.",
 
     pPick: "Add from phone", pType: "Type name and number",
+    pIosDesk1: "Or use iCloud on a computer",
     pWho: "Who is this?", pShop: "Customer", pSupplier: "Supplier", pStaff: "Staff", pSkip: "Not needed",
     pLeft: "{n} left", pUndo: "Undo", pAdded: "{n} added", pDup: "{n} were already added",
-    pNoPicker: "This phone's browser does not let a web page open your contacts.", pNoPickerIos: "The iPhone can open your contacts here, once one Safari setting is on.", pIos1: "Open Settings → Apps → Safari → Advanced → Feature Flags.", pIos2: "Turn on “Contact Picker API”.", pIos3: "Come back and tap “Add from phone contacts” again: your contact list opens. Search, tick many, Add.", pIosOld: "Older iPhones: Settings → Safari → Advanced → Experimental Features.", pAnd1: "Open this page in Chrome (the phone's own browser may not allow it).", pAnd2: "Tap “Add from phone contacts”: your contact list opens. Search, tick many, Add.", pOther1: "A computer has no phone contacts. Open this page on the phone: Android in Chrome, iPhone in Safari.", pNoPicker2: "Or tap below and type the names and numbers.",
+    pNoPicker: "Use Chrome", pNoPickerIos: "Turn on once", pIos1: "Settings › Apps › Safari › Advanced › Feature Flags", pIos2: "Turn on Contact Picker API", pAnd1: "Open this page in Chrome", pOther1: "Open this page on your phone",
     pSkippedList: "Not needed", pName: "Name", pPhone: "Mobile number", pSaveNext: "Save and add another", pIsA: "This is a",
-    pAllSorted: "All sorted. Add more, or open a tab to fill details.", pTabSort: "To sort", pShopHint: "Tap ★ for big customers, and the days they get goods.", suNoCo: "Tap to choose their companies", pSearch: "Search name or number", pGuess: "Looks like", pRestCustomers: "The rest are customers ({n})", pSortedAll: "{n} added as customers", pToSort: "{n} to sort", pNone: "No one yet. Add from your phone, a contacts file, or type a name.", pTypeShort: "Type", pRemove: "Remove this contact",
+    pAllSorted: "All sorted. Add more, or open a tab to fill details.", pTabSort: "To sort", pShopHint: "Tap ★ for big customers, and the days they get goods.", suNoCo: "Tap to choose their companies", pSearch: "Search name or number", pGuess: "Looks like", pRestCustomers: "The rest are customers ({n})", pSortedAll: "{n} added as customers", pToSort: "{n} to sort", pNone: "No one yet", pTypeShort: "Type", pRemove: "Remove this contact",
 
-    shAdd: "Add a customer", shEmpty: "No customers yet. Add them from phone contacts or type them.",
+    shAdd: "Add a customer", shEmpty: "No customers yet",
     shArea: "Area", shAreaAdd: "New area", shPay: "Payment", payCash: "Cash", payDays: "{n} days credit",
     shRate: "Rate list", rtNormal: "Normal", rtWholesale: "Wholesale", rtSpecial: "Special",
     shHow: "How do they order?", howSalesman: "Salesman visit", howPhone: "Phone call", howWhatsapp: "WhatsApp", howSelf: "By themselves",
@@ -193,7 +194,7 @@
     title_suppliers: "सप्लायर",
     title_usual: "रोज़ का ऑर्डर",
     title_stock: "गोदाम का माल", q_stock: "अभी गोदाम में कितना माल है? मुख्य सामान गिनें।",
-    title_rules: "आपका रोज़ का काम कैसे चलता है?", short_rules: "रोज़ का काम", q_rules: "आपके रोज़ के काम के बारे में कुछ सवाल।",
+    title_rules: "आपका दिन कैसे चलता है?", short_rules: "रोज़ का काम", q_rules: "आपके रोज़ के काम के बारे में कुछ सवाल।",
     title_finish: "दुकान बनाएँ", q_finish: "एक बार देख लें, फिर अपनी दुकान बनाएँ।",
 
     sNone: "शुरू नहीं हुआ", sSkipped: "बाद में", sItems: "{n} सामान", sPeople: "{n} छाँटे",
@@ -240,13 +241,14 @@
     scFound: "मिल गया: {name}", scNew: "नया बारकोड। सामान जोड़ें।", scNoCamera: "कैमरा नहीं खुला। कैमरा की इजाज़त देकर फिर कोशिश करें।",
 
     pPick: "फ़ोन से जोड़ें", pType: "नाम और नंबर लिखें",
+    pIosDesk1: "या कंप्यूटर पर iCloud से लाएँ",
     pWho: "यह कौन है?", pShop: "ग्राहक", pSupplier: "सप्लायर", pStaff: "स्टाफ़", pSkip: "ज़रूरत नहीं",
     pLeft: "{n} बाकी", pUndo: "वापस", pAdded: "{n} जुड़े", pDup: "{n} पहले से जुड़े थे",
-    pNoPicker: "इस फ़ोन का ब्राउज़र वेब पेज को आपके नंबर खोलने नहीं देता।", pNoPickerIos: "iPhone पर Safari की एक सेटिंग चालू करने से यहाँ नंबर खुल जाते हैं।", pIos1: "Settings → Apps → Safari → Advanced → Feature Flags खोलें।", pIos2: "“Contact Picker API” चालू करें।", pIos3: "वापस आकर “फ़ोन के नंबरों से जोड़ें” दबाएँ: आपके नंबर खुल जाएँगे। खोजें, कई चुनें, जोड़ें।", pIosOld: "पुराने iPhone पर: Settings → Safari → Advanced → Experimental Features।", pAnd1: "यह पेज Chrome में खोलें (फ़ोन का अपना ब्राउज़र शायद न खोले)।", pAnd2: "“फ़ोन के नंबरों से जोड़ें” दबाएँ: आपके नंबर खुल जाएँगे। खोजें, कई चुनें, जोड़ें।", pOther1: "कंप्यूटर पर फ़ोन के नंबर नहीं होते। यह पेज फ़ोन पर खोलें: Android में Chrome, iPhone में Safari।", pNoPicker2: "या नीचे दबाकर नाम और नंबर लिखें।",
+    pNoPicker: "Chrome में खोलें", pNoPickerIos: "एक बार चालू करें", pIos1: "Settings › Apps › Safari › Advanced › Feature Flags", pIos2: "Contact Picker API चालू करें", pAnd1: "यह पेज Chrome में खोलें", pOther1: "यह पेज फ़ोन पर खोलें",
     pSkippedList: "ज़रूरत नहीं", pName: "नाम", pPhone: "मोबाइल नंबर", pSaveNext: "सेव करें और अगला जोड़ें", pIsA: "यह है",
-    pAllSorted: "सब छँट गए। और जोड़ें, या ऊपर से किसी की जानकारी भरें।", pTabSort: "छाँटने बाकी", pShopHint: "बड़े ग्राहक पर ★ दबाएँ, और जिन दिनों माल जाता है।", suNoCo: "उनकी कंपनी चुनने के लिए दबाएँ", pSearch: "नाम या नंबर खोजें", pGuess: "शायद यही", pRestCustomers: "बाकी सब ग्राहक हैं ({n})", pSortedAll: "{n} ग्राहक जुड़ गए", pToSort: "{n} छाँटने बाकी", pNone: "अभी कोई नहीं। फ़ोन से, कॉन्टैक्ट फ़ाइल से, या नाम लिखकर जोड़ें।", pTypeShort: "लिखें", pRemove: "यह नंबर हटाएँ",
+    pAllSorted: "सब छँट गए। और जोड़ें, या ऊपर से किसी की जानकारी भरें।", pTabSort: "छाँटने बाकी", pShopHint: "बड़े ग्राहक पर ★ दबाएँ, और जिन दिनों माल जाता है।", suNoCo: "उनकी कंपनी चुनने के लिए दबाएँ", pSearch: "नाम या नंबर खोजें", pGuess: "शायद यही", pRestCustomers: "बाकी सब ग्राहक हैं ({n})", pSortedAll: "{n} ग्राहक जुड़ गए", pToSort: "{n} छाँटने बाकी", pNone: "अभी कोई नहीं", pTypeShort: "लिखें", pRemove: "यह नंबर हटाएँ",
 
-    shAdd: "ग्राहक जोड़ें", shEmpty: "अभी कोई ग्राहक नहीं। फ़ोन के नंबरों से जोड़ें या लिखें।",
+    shAdd: "ग्राहक जोड़ें", shEmpty: "अभी कोई ग्राहक नहीं",
     shArea: "इलाका", shAreaAdd: "नया इलाका", shPay: "पेमेंट", payCash: "नकद", payDays: "{n} दिन उधार",
     shRate: "रेट लिस्ट", rtNormal: "सामान्य", rtWholesale: "होलसेल", rtSpecial: "ख़ास",
     shHow: "ऑर्डर कैसे देते हैं?", howSalesman: "सेल्समैन जाता है", howPhone: "फ़ोन पर", howWhatsapp: "WhatsApp पर", howSelf: "ख़ुद से",
