@@ -323,9 +323,19 @@ test("one Contacts step: a guess from the name, remove a contact, and gaps that 
   assert.equal(p.suppliers, 1);
   const c = M.addPerson(s, { name: "New Kirana", phone: "9811111111", type: "shop" }).id;
   assert.equal(s.people[c].type, "shop");
-  const gap = M.missing(CAT, s).find((g) => g.key === "shopNoDay");
+  const gap = M.missing(CAT, s, { all: true }).find((g) => g.key === "shopNoDay");
   assert.equal(gap.step, "people");
   assert.equal(gap.tab, "shop");
+});
+
+test("Contacts only marks who is who: the hidden questions (days, team) are not asked, but come back with all", () => {
+  const s = sample();
+  M.addPerson(s, { name: "New Kirana", phone: "9811111112", type: "shop" });
+  s.order.forEach((id) => { if (s.people[id].type === "staff") s.people[id].role = null; });
+  const keys = M.missing(CAT, s).map((g) => g.key);
+  ["shopNoDay", "shopNoArea", "shopNoPay", "noDelivery", "staffNoRole"].forEach((k) => assert.ok(!keys.includes(k), k));
+  assert.deepEqual(M.HIDDEN_ASKS, ["days", "team"]);
+  assert.ok(M.missing(CAT, s, { all: true }).some((g) => g.key === "shopNoDay"));
 });
 
 test("godowns: one or more, and a save from before 26 Sep keeps its godown", () => {

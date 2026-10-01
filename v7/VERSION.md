@@ -3184,3 +3184,141 @@ The three columns (steps | work | preview) and the busy section headers are gone
   - Upcoming step tiles are a very light grey; the line between tiles turns green-tinted as steps are done.
 - The phone page keeps its own step line and question text.
 - Tests: 31 pass (bridge 12). `?v=` `20261001G8`.
+- **Later (owner: the all-white steps column "looks shit"; pointed back at the reference as clean):** the colours follow the reference.
+  - Neutral greys only, a small step apart: page `#f8f8f8`, card `#f2f2f2`, white work panel.
+  - A thin 2px `#e6e6e6` border instead of a shadow.
+  - The white panel sits flush inside the card with matching corners.
+  - The steps sit on the card's own grey, not in a box of their own. Upcoming tiles are `#e9e9e9` with faded names; the current tile is black; done tiles are green.
+  - The earlier cool blue-grey against a neutral page was what clashed.
+  - `?v=` `20261001H1`.
+- **Later (owner: subtle green is fine, "give me best UI"):** the same tones in a faint green-grey (`?v=` `20261001H2`).
+- **Later (owner: lift the steps up a bit so the card composes better):** the steps sit above the middle of their column, at the card's optical centre, level with the form rather than floating halfway down. On the last screen, an empty *Files* row is no longer shown; its grey bar read as still loading. `?v=` `20261001H3`.
+- **Later (owner: "card looks shitty"):** the card-in-a-card is gone.
+  - One white card lifted off a faint green-grey page (`#f4f7f5`) by a soft layered shadow, with no border and no double outline.
+  - The steps sit on their own tinted panel, set 10px inside the card with matching corners and a light top-to-bottom green gradient.
+  - Upcoming step tiles are white with a hairline, so they read as steps still to come rather than as greyed-out ones. Done tiles are green and the current one is dark.
+  - Checked in headless Chrome at 1440×900 on Shop, Daily work and the last screen. `?v=` `20261001H4`.
+
+### 1 October 2026 — Store Builder desktop: contacts in seconds, not typed
+
+**Owner:** no one is going to fill in the Contacts step by hand. On the phone, contacts come from the phone itself; find something like that for the desktop.
+
+On a computer his customers already live in three places: on his phone, in his accounts software, and in lists he can copy. The Contacts screen (*Who do you work with?*) now takes them from each of these. Typing names is still there, as a quiet link.
+
+- **Send them from your phone:**
+  - **Where:** at the top of the screen, a QR code.
+  - **On the phone:** he scans it with the camera and a small page opens (`store-builder/send/`). He picks contacts in the phone's own picker (Android Chrome), or chooses a contacts file (on an iPhone: Contacts › Lists › press and hold › Export). The page sends them.
+  - **On the computer:** a live line says *Waiting for your phone*, then *Phone connected*, then *38 came from your phone*. The people land in the list, ready to sort.
+  - **The code:** fresh for each visit and kept in the URL hash. The page checks every 3 seconds while the screen is open and in view, and stops after 15 quiet minutes (*Show the code again*).
+  - **What travels:** only names and numbers. They go through the bridge's new `/api/handoff` (`zoho-function/handoff.js`), a mailbox that deletes what it hands over and ignores anything older than an hour.
+  - Once people are in, the code shrinks so the list stays in view.
+- **Tally or Excel list:**
+  - A ledger list from Tally, Busy, Marg or Vyapar, as Excel or CSV, arrives already sorted by its group column (*Under*): Sundry Debtors become customers, Sundry Creditors suppliers, salary ledgers staff.
+  - Banks, taxes, sales, purchase and expense ledgers, group rows and totals are left out.
+  - Title rows above the header are skipped.
+  - The file itself still goes raw to the team.
+- **Paste a list:**
+  - Ctrl+V (⌘V on a Mac) on the Contacts screens reads whatever he copied: rows from Excel, a CSV with its header, vCards, or lines with a name and a number in any shape (`1. Sharma Kirana - +91 98200 11223`, a WhatsApp line, a name with the number on the next line).
+  - A pasted screenshot is kept as a file for the team.
+  - The card also reads the clipboard when clicked.
+- **Under the hood:**
+  - QR codes are made in the page by `store-builder/vendor/qrcode.js`, the browser-bundled core of the MIT `qrcode` 1.5.4 package. The FoodBridge mark sits in the middle, at Q-level error correction.
+  - `import.js` gains `fromText` and group sorting. A `.txt` file is read like pasted text.
+  - New icons: `smartphone`, `table`, `paste`. The export names pasted people *Pasted list*.
+- **Checked end to end in headless Chrome:** the desktop shows the code, the phone page opens and sends 5 contacts, and the desktop shows them within 3 seconds. A Tally CSV arrives sorted, and a paste adds 2 and skips 1 duplicate. Tests: Store Builder 33 pass, bridge 97 pass. `?v=` `20261001J1`.
+- **The live bridge needs a redeploy** before the phone link works from the published page. Until then the line says it can't reach FoodBridge, and the list and paste still work.
+- **Later (owner: don't ask him to choose a file, nobody keeps a contacts file on a phone; it should work in every browser, not only Safari):**
+  - The phone page has no file option any more. It always leads with **Import from contacts**, his phone's own contact list.
+  - **Where the list opens:** a web page can open the contact list only in Chrome on Android and in Safari on an iPhone, so every other browser gets one tap to open the same page in one that can:
+    - Firefox, Samsung Internet, Opera, or a camera app's or WhatsApp's own browser on Android: **Open in Chrome**.
+    - Chrome, Edge, Firefox or an in-app browser on an iPhone: **Open in Safari** (iOS 17 and later).
+    - On an iPhone, Safari opens the list once its *Contact Picker API* setting is on. The steps are shown when he taps, the same way the phone Store Builder shows them.
+  - **Google Contacts, any browser, on the phone or on the computer** (`store-builder/gcontacts.js`):
+    - *Sync Google Contacts* reads his Google contacts that have a number. The access is read-only and is handed back to Google as soon as the list is read.
+    - On the computer it is a line in the QR card, *No phone handy? Sync Google Contacts*, so no phone is needed.
+    - It shows only once an OAuth client id is set in `gcontacts.js`. Until then it is hidden; a browser can try it with localStorage `fb-google-client-id`.
+  - Checked in headless Chrome with phone user agents:
+    - Android Chrome: the picker sends 3 contacts.
+    - Firefox on Android: *Open in Chrome*, and Google sync sends 2 contacts.
+    - Chrome on an iPhone: *Open in Safari*.
+    - Safari on an iPhone: the setting steps.
+    - The computer: Google sync adds 2.
+    - Google sign-in and the People API were stubbed for this check.
+  - Tests: 33 pass. `?v=` `20261001J2`.
+- **Later (owner: remove the Tally/Excel and Paste cards and the type-names link; keep the attach-files card here so it feels consistent):**
+  - The Contacts screen is now the QR card plus the same attach card every step ends with.
+  - Its words now mention Tally: *Have a customer list? Attach a Tally or Excel list, a contacts file or a photo of your register.*
+  - A Tally or Excel list attached there still comes in sorted, and its note says *already sorted* instead of sending him to *To sort*. This note is on both pages.
+  - Ctrl+V of copied rows still works on the screen, without a card for it.
+  - `?v=` `20261001J4`.
+- **Later (owner: remove all sub-text):**
+  - The attach card is now its title and the *Attach files* button only, on every step of the desktop page.
+  - Its line underneath and *You can also drop files anywhere on this page* are gone. Dropping a file anywhere still works.
+  - The phone page's attach card is unchanged.
+  - `?v=` `20261001J5`.
+- **Later (owner: the same for the QR card):**
+  - The QR card's explanation is gone. It is the title *Send them from your phone*, the 1 Scan · 2 Pick contacts · 3 Send line, and the live status.
+  - Once people are in, the smaller card keeps the 1-2-3 line.
+  - Checked: 3 contacts picked on the phone page reached the computer.
+  - `?v=` `20261001J6`.
+- **Later (owner: a helpful title, and a small animation of how to attach a contacts file, with text on the left that teaches):**
+  - Until a file is attached, the Contacts attach card is a how-to.
+  - **Title:** *Add the customer list you already have* (on the phone page too).
+  - **Left, three steps:** *From Tally, Busy or Marg — Export your party list to Excel*; *From your register — Click a photo, or take a screenshot*; *Attach it here — We sort customers and suppliers for you*. The Attach files button is under them.
+  - **Right, a 10-second looping clip in pure CSS:**
+    - Beat one: a cursor picks Export › Excel in a Tally window, *Party list.xlsx* drops into *Attach here*, and it reads *42 customers · 6 suppliers*.
+    - Beat two: a phone snaps a register page, the photo drops in, and it reads *Photo sent to the team*.
+  - The step on the left lights up in time with the clip. With reduced motion it stands still.
+  - Once a file is attached, the card goes back to its compact form with the file chips.
+  - Hindi strings are included. `?v=` `20261001J7`.
+- **Later (owner: remove the sub-text; clean and clear, minimum text):**
+  - **Title:** *Add your customer list*.
+  - **Steps:** one line each — *Export from Tally or Excel*, *Or a photo of your register*, *Attach it here*.
+  - The clip's window is titled just *Tally*.
+  - Hindi to match. `?v=` `20261001J8`.
+- **Later (owner: redesign; syncing from the phone is clearly the primary action, attaching a file secondary, and its button very clear to act on):**
+  - **The phone card is now the hero:**
+    - Dark green-ink, the same ink as the current step's tile, with a soft green glow.
+    - A *Fastest* badge and the title *Sync contacts from your phone*.
+    - White 1-2-3 circles, a bright live dot, and the QR on a raised white tile.
+  - **An *or* rule** sits between the two.
+  - **The attach card is the fallback:** plain white with a hairline border, a smaller title, quieter step rows, and the clip at 88% size.
+  - **Its button** is a real outlined button: a 42px, 1.5px ink edge, ink text, filling dark on hover.
+  - Once people are in, the hero goes compact without the badge.
+  - The full loop was rechecked with 3 contacts from the phone page. `?v=` `20261001J9`.
+- **Later (owner: simplify Contacts to one step where he just marks each contact as customer, supplier or staff; remove *looks like*):**
+  - **Desktop Contacts** is now *Who do you work with?* (bring them in), then *Who is who?* (mark them), then on to Daily work.
+  - **Who is who?** lists everyone, marked or not, so he can change any mark. It shows Name, Mobile and the Customer / Staff / Supplier / ✕ buttons, still with keys 1, 2, 3 and 0.
+  - **No guesses:** the *Looks like* column and the dashed hint on a guessed tag are gone.
+  - **Hidden screens:** *When do you deliver to each customer?* and *Your staff and suppliers* are hidden, not deleted, with their questions. `model.js HIDDEN_ASKS = ["days", "team"]` skips a customer's days, area and terms, staff jobs and the delivery-person gap in *To follow up* on both pages. Remove one from the list to bring it back.
+  - The phone page keeps its tabs. Its edit sheet still has those fields, but nothing asks for them.
+  - Tests: 34 pass (one new). `?v=` `20261001K3`.
+- **Later (owner: remove the last column of key numbers and the clear mark; keep it simple, tag customer, supplier or staff, with a remove on each row):**
+  - Each row of *Who is who?* has three plain marks in this order: Customer, Supplier, Staff. The 1-2-3 badges and the ✕ *not needed* mark are gone.
+  - A bin at the row's end removes the contact, with *Undo* in the toast. The keys 1, 2 and 3 still mark the focused row, unshown.
+  - `?v=` `20261001K5`.
+- **Later (owner: help him see he has to bring the contacts of customers, suppliers and staff):**
+  - Under *Who do you work with?* sit three soft badges: Customers (shop), Suppliers (truck) and Staff. They use the same green, purple and blue as the marks on *Who is who?*, so the colours carry from bringing to marking.
+  - The list card's title is now *Add your contact list*, since it isn't only customers.
+  - `?v=` `20261001K6`.
+- **Later (owner: the card's content must not scroll):** Contacts now fits its card at every height from 900 down to 660 px, both before and after people are in.
+  - **Removed:** the *N people* strip (the footer counts them, *Who is who?* lists them) and the third how-to line (*Attach it here*). The Attach files button now takes a green ring in time with the clip instead.
+  - **Tighter:** the spacing, a 152 px QR and the clip at 78%.
+  - **Under 820 px tall:** the clip steps aside and the hero goes compact.
+  - **Under 760 px tall:** the card is just *Add your contact list* and the button.
+  - Checked by measuring the screen's scroll height against its height at 900, 800, 760, 700 and 660 px. `?v=` `20261001K8`.
+- **Later (owner: it isn't clear the contacts came in, so he doesn't know he can go on):**
+  - Once anyone is in, the phone hero turns into a green success card: a white tick (it pops in), *3 contacts added*, the initials of the latest five (and +N), and a white **Mark who is who ›** button.
+  - The QR stays small at the side under *Scan to add more*.
+  - The footer button now reads **Next: Mark who is who** instead of *Continue*. *Try it with sample data* steps out of the footer on Contacts once real contacts are in.
+  - The card still fits at 900 and 700 px tall.
+  - Checked: 3 contacts from the phone page bring up the success card, and its button opens *Who is who?*.
+  - Hindi included. `?v=` `20261001L1`.
+- **Later (owner: add audio input to *Anything else?* on Daily work):**
+  - A round mic button sits inside the box, bottom right.
+  - **Chrome, Edge and Safari:** it turns speech into words as he talks, in Hindi or English with the page language (Web Speech, continuous, words appearing live). It turns red with *Listening… click to stop*, and only the settled words are saved.
+  - **Firefox and other browsers without speech-to-text:** the same button records a voice note for the team (MediaRecorder). It shows *Recording… Ns* while it records, and each note shows under the box as a *Voice note · 3s* chip with a remove. The note goes in the build like every other voice note.
+  - If a browser's speech service turns out to be missing, the mic switches to recording and says so.
+  - The phone page already had a mic here.
+  - Checked with a stand-in speech service (live, then final text, saved) and with a fake microphone (a 3-second note saved and shown).
+  - Hindi included. `?v=` `20261001L3`.

@@ -154,7 +154,7 @@
     if (r && r.people.length) {
       p.people = []; p.contacts = 0; p.dup = 0;
       r.people.forEach(function (c) {
-        const x = M.addPerson(s, { name: c.name, phone: c.phone, src: "vcf", type: null });
+        const x = M.addPerson(s, { name: c.name, phone: c.phone, src: "vcf", type: c.type || null });
         if (x.dup) p.dup++; else { p.contacts++; p.people.push(x.id); }
       });
     }

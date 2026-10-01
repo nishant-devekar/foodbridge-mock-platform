@@ -41,6 +41,21 @@
       adT: "Who do you work with?", adL: "Bring in your contacts or customer list, or type a few names. You sort them next.",
       adFile: "Bring in a file", adFileS: "A contacts file, an Excel list, or a photo of your register",
       adType: "Type names", adTypeS: "Name and mobile, one by one", sumPeople: "{n} people", sumPeople_1: "1 person",
+      hoDone: "{n} contacts added", hoDone_1: "1 contact added", hoMark: "Mark who is who", hoMore: "Scan to add more", ctaMark: "Next: Mark who is who",
+      adPhone: "Sync contacts from your phone", hoTag: "Fastest", orWord: "or", adPhoneS: "Scan this with your phone's camera, pick your customers and suppliers, and tap Send. They come straight here.",
+      adStep1: "Scan", adStep2: "Pick contacts", adStep3: "Send",
+      hoWait: "Waiting for your phone", hoOpen: "Phone connected. Pick your contacts", hoGot: "{n} came from your phone", hoGot_1: "1 came from your phone",
+      hoOff: "Can't reach FoodBridge right now. Use a list or paste instead.", hoAgain: "Show the code again", hoSleep: "The code went to sleep",
+      adList: "Tally or Excel list", adListS: "Customers and suppliers get sorted for you", adListFrom: "Tally · Busy · Marg · Vyapar · Excel · Google Contacts",
+      adPaste: "Paste a list", adPasteS: "Copy rows from Excel or WhatsApp, then press", adOr: "or type names one by one",
+      pasteNone: "Nothing with a name or number in what you pasted", pasted: "{n} added from what you pasted", pasted_1: "1 added from what you pasted",
+      pasteHow: "Press {k} to paste", micSpeakDk: "Speak instead of typing", micStop: "Stop", micListening: "Listening… click to stop",
+      micRecDk: "Record a voice note for the team", micGoneDk: "This browser can't turn speech into words. The mic now records a voice note for the team.", pRemovedOne: "{name} removed",
+      edu1b: "Export from Tally or Excel", edu2b: "Or a photo of your register", edu3b: "Attach it here",
+      evTally: "Tally", evCam: "Camera", evExport: "Export", evExcel: "Excel", evFile: "Party list.xlsx",
+      evDrop: "Attach here", evOkA: "42 customers · 6 suppliers", evOkB: "Photo sent to the team",
+      adGoogle: "No phone handy? Sync Google Contacts", gotGoogle: "{n} came from Google Contacts", gotGoogle_1: "1 came from Google Contacts",
+      googleFail: "Google didn't send the contacts. Try again.",
       srT: "Who is who?", srL: "Mark each one: 1 customer, 2 staff, 3 supplier, 0 not needed. Arrow keys move, U undoes.",
       dyT: "When do you deliver to each customer?", dyLeft: "{n} without a day", dyLeft_1: "1 without a day",
       tmT: "Your staff and suppliers", tmL: "What each person on your team does, and your suppliers.",
@@ -89,6 +104,19 @@
       adT: "आप किन-किन के साथ काम करते हैं?", adL: "अपने कॉन्टैक्ट या ग्राहकों की लिस्ट लाएँ, या कुछ नाम लिखें। अगले चरण में छाँटेंगे।",
       adFile: "फ़ाइल लाएँ", adFileS: "कॉन्टैक्ट फ़ाइल, Excel लिस्ट, या रजिस्टर की फ़ोटो",
       adType: "नाम लिखें", adTypeS: "नाम और मोबाइल, एक-एक करके", sumPeople: "{n} लोग",
+      hoDone: "{n} कॉन्टैक्ट जुड़ गए", hoMark: "कौन क्या है, चुनें", hoMore: "और जोड़ने के लिए स्कैन करें", ctaMark: "आगे: कौन क्या है",
+      adPhone: "फ़ोन से कॉन्टैक्ट सिंक करें", hoTag: "सबसे तेज़", orWord: "या", adPhoneS: "फ़ोन के कैमरे से इसे स्कैन करें, ग्राहक और सप्लायर चुनें, और भेजें दबाएँ। वे सीधे यहाँ आ जाएँगे।",
+      adStep1: "स्कैन", adStep2: "कॉन्टैक्ट चुनें", adStep3: "भेजें",
+      hoWait: "आपके फ़ोन का इंतज़ार", hoOpen: "फ़ोन जुड़ गया। कॉन्टैक्ट चुनें", hoGot: "{n} फ़ोन से आए",
+      hoOff: "अभी FoodBridge से जुड़ नहीं पा रहे। लिस्ट या पेस्ट से जोड़ें।", hoAgain: "कोड फिर दिखाएँ", hoSleep: "कोड सो गया",
+      adList: "Tally या Excel लिस्ट", adListS: "ग्राहक और सप्लायर अपने-आप छँट जाते हैं", adListFrom: "Tally · Busy · Marg · Vyapar · Excel · Google Contacts",
+      adPaste: "लिस्ट पेस्ट करें", adPasteS: "Excel या WhatsApp से कॉपी करें, फिर दबाएँ", adOr: "या एक-एक करके नाम लिखें",
+      pRemovedOne: "{name} हटाया गया", micSpeakDk: "लिखने की जगह बोलें", micStop: "रोकें", micListening: "सुन रहे हैं… रोकने के लिए दबाएँ",
+      micRecDk: "टीम के लिए आवाज़ रिकॉर्ड करें", micGoneDk: "यह ब्राउज़र बोली को शब्दों में नहीं बदलता। अब माइक टीम के लिए आवाज़ रिकॉर्ड करेगा।", pasteNone: "पेस्ट में कोई नाम या नंबर नहीं मिला", pasted: "पेस्ट से {n} जुड़े", pasteHow: "पेस्ट के लिए {k} दबाएँ",
+      edu1b: "Tally या Excel से export करें", edu2b: "या रजिस्टर की फ़ोटो", edu3b: "यहाँ जोड़ें",
+      evTally: "Tally", evCam: "कैमरा", evExport: "Export", evExcel: "Excel", evFile: "Party list.xlsx",
+      evDrop: "यहाँ जोड़ें", evOkA: "42 ग्राहक · 6 सप्लायर", evOkB: "फ़ोटो टीम को गई",
+      adGoogle: "फ़ोन पास नहीं? Google Contacts से जोड़ें", gotGoogle: "Google Contacts से {n} आए", googleFail: "Google से कॉन्टैक्ट नहीं आए। फिर कोशिश करें।",
       srT: "कौन क्या है?", srL: "हर एक को चुनें: 1 ग्राहक, 2 स्टाफ़, 3 सप्लायर, 0 ज़रूरत नहीं। तीर से ऊपर-नीचे, U से वापस।",
       dyT: "किस ग्राहक को किस दिन माल देते हैं?", dyLeft: "{n} बिना दिन के",
       tmT: "आपका स्टाफ़ और सप्लायर", tmL: "आपकी टीम में कौन क्या करता है, और आपके सप्लायर।",
@@ -268,6 +296,77 @@
     return tag === "textarea" ? "<textarea rows=\"3\"" + attrs + ">" + h(v) + "</textarea>" : "<input type=\"" + (o.type || "text") + '"' + attrs + ' value="' + h(v == null ? "" : v) + '">';
   }
 
+  /* Speak instead of typing (owner, 1 Oct 2026). Chrome, Edge and Safari turn speech into words as he
+     talks (Web Speech, en-IN or hi-IN with the page); where they can't (Firefox), the same button
+     records a voice note for the team instead (recStart), so the mic always does something. */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function micBtn(path) {
+    if (SR && !ui.micOff) {
+      const on = ui.dict && ui.dict.path === path;
+      return '<button type="button" class="mic' + (on ? " on" : "") + '" data-act="dictate" data-path="' + h(path) + '" aria-pressed="' + !!on + '" title="' + h(t(on ? "micStop" : "micSpeakDk")) + '">' +
+        ic(on ? "stop" : "mic", 16) + (on ? "<span>" + h(t("micListening")) + "</span>" : "") + "</button>";
+    }
+    if (!canRecord) return "";
+    return ui.rec ? '<button type="button" class="mic on" data-act="recStop">' + ic("stop", 16) + '<span id="recT">' + h(t("paRecording", { s: Math.round((Date.now() - ui.rec.started) / 1000) })) + "</span></button>"
+      : '<button type="button" class="mic" data-act="recStart" title="' + h(t("micRecDk")) + '">' + ic("mic", 16) + "</button>";
+  }
+  /* The voice notes he recorded here (the mic where speech can't become words), each with a remove. */
+  function voiceChips() {
+    const step = dropStep();
+    const vs = S.papers.filter(function (p) { return p.kind === "voice" && p.step === step; });
+    return vs.length ? '<div class="vchips">' + vs.map(function (p) {
+      return '<i class="fx-f">' + ic("mic", 14) + "<span>" + h(t("fdVoice")) + "</span><small>" + (p.secs ? p.secs + "s" : "") + "</small>" +
+        '<button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("fdRemove")) + '">' + ic("x", 13) + "</button></i>";
+    }).join("") + "</div>" : "";
+  }
+  function withMic(path, html) { return '<div class="inx-mic">' + html + micBtn(path) + "</div>" + voiceChips(); }
+
+  function dictate(path) {
+    if (ui.dict) { const same = ui.dict.path === path; stopDictate(); if (same) return; }
+    let r;
+    try { r = new SR(); } catch (e) { micGone(); return; }
+    r.lang = S.lang === "en" ? "en-IN" : "hi-IN";
+    r.continuous = true;
+    r.interimResults = true;
+    const d = ui.dict = { r: r, path: path, base: String(getPath(path) || "").trim(), fin: "", heard: false };
+    r.onresult = function (e) {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const x = e.results[i], said = x[0] ? x[0].transcript.trim() : "";
+        if (!said) continue;
+        if (x.isFinal) d.fin = d.fin ? d.fin + " " + said : said; else interim += (interim ? " " : "") + said;
+      }
+      d.heard = d.heard || !!(d.fin || interim);
+      const v = [d.base, d.fin].filter(Boolean).join(" ");
+      setPath(path, v);
+      save();
+      /* What he is still saying shows as he says it; only what is settled is kept. */
+      const el = document.querySelector('[data-bind="' + path + '"]');
+      if (el) { el.value = interim ? (v ? v + " " : "") + interim : v; el.scrollTop = el.scrollHeight; }
+    };
+    r.onerror = function (e) { if (e.error !== "aborted") d.err = e.error; };
+    r.onend = function () {
+      if (ui.dict !== d) return;
+      ui.dict = null;
+      render();
+      if (d.err === "service-not-allowed" || d.err === "language-not-supported") micGone();
+      else if (d.err && d.err !== "no-speech") toast(t({ "not-allowed": "micBlocked", "audio-capture": "micNone", network: "micNet" }[d.err] || "micFail"));
+      else if (!d.heard && !d.stopped) toast(t("micNoSpeech"));
+    };
+    try { r.start(); } catch (e) { ui.dict = null; toast(t("micFail")); return; }
+    render();
+    const el = document.querySelector('[data-bind="' + path + '"]');
+    if (el) el.focus({ preventScroll: true });
+  }
+  function stopDictate() {
+    const d = ui.dict;
+    if (!d) return;
+    d.stopped = true;
+    try { d.r.stop(); } catch (e) { /* not started */ }
+  }
+  /* No speech service here after all: the mic becomes the voice-note recorder. */
+  function micGone() { ui.dict = null; ui.micOff = true; render(); toast(t("micGoneDk")); }
+
   function field(label, inner, hint) {
     return '<div class="fld"><label class="fld-l">' + h(label) + "</label>" + inner + (hint ? '<p class="hint">' + hint + "</p>" : "") + "</div>";
   }
@@ -361,18 +460,42 @@
   function attachBtn(step, label, cls) {
     return '<label class="btn ' + (cls || "") + '">' + ic("clip", 16) + h(label) + '<input type="file" multiple class="sr" data-fx="' + step + '"></label>';
   }
+  /* A Tally list's people arrive already sorted (import.js): then the note does not send him to To sort. */
+  function sortedAll(papers) {
+    const ids = [].concat.apply([], papers.map(function (p) { return p.people || []; }));
+    return ids.length > 0 && ids.every(function (id) { return !S.people[id] || S.people[id].type; });
+  }
+  /* Contacts, before any file (owner, 1 Oct 2026): what to bring and how, beside a short looping
+     clip of it being done -- a party list exported from Tally and attached, a photo of the register
+     attached. The step on the left lights up with the clip. Pure CSS (desk.css .ev-*), 10 s a loop. */
+  function attachEdu(step) {
+    const li = function (n, icon) { return '<li class="e' + n + '"><i>' + ic(icon, 16) + "</i><b>" + h(t("edu" + n + "b")) + "</b></li>"; };
+    const rows = [72, 56, 64, 48, 60].map(function (w) { return '<i style="width:' + w + '%"></i>'; }).join("");
+    return '<section class="att att-edu"><div class="edu-l"><b class="edu-t">' + h(t("at_" + step + "_t")) + "</b>" +
+        '<ol class="edu-steps">' + li(1, "table") + li(2, "camera") + "</ol>" +   // step three is the button, lit with the clip
+        attachBtn(step, t("atBtn"), "is-up") + "</div>" +
+      '<div class="edu-v" aria-hidden="true">' +
+        '<div class="ev-bar"><span></span><span></span><span></span><em class="ev-ta">' + h(t("evTally")) + '</em><em class="ev-tb">' + h(t("evCam")) + "</em></div>" +
+        '<div class="ev-a"><div class="ev-rows">' + rows + '</div><div class="ev-menu"><span>' + h(t("evExport")) + "</span><b>" + ic("table", 12) + h(t("evExcel")) + "</b></div>" +
+          '<svg class="ev-cur" viewBox="0 0 16 16" width="16" height="16"><path d="M2 1l11 6.5-4.6 1.2L6.5 13z" fill="#10281b" stroke="#fff" stroke-width="1.2"/></svg>' +
+          '<div class="ev-file">' + ic("table", 12) + h(t("evFile")) + "</div></div>" +
+        '<div class="ev-b"><div class="ev-phone"><div class="ev-page">' + rows + rows + '</div></div><div class="ev-flash"></div><div class="ev-photo"><div class="ev-page">' + rows + "</div></div></div>" +
+        '<div class="ev-drop"><span class="ev-d0">' + ic("clip", 13) + h(t("evDrop")) + '</span><span class="ev-da">' + ic("check", 13) + h(t("evOkA")) + '</span><span class="ev-db">' + ic("check", 13) + h(t("evOkB")) + "</span></div>" +
+      "</div></section>";
+  }
   function attach(step) {
     const mine = M.filesFor(S, step);
+    if (step === "people" && !mine.length) return attachEdu(step);
     const found = mine.reduce(function (n, p) { return n + (p.contacts || 0); }, 0);
     return '<section class="att' + (mine.length ? " has" : "") + '">' +
-      '<div class="att-h"><span class="att-ic">' + ic("clip", 18) + '</span><div class="att-m"><b>' + h(t("at_" + step + "_t")) + "</b><small>" + h(t("at_" + step + "_s")) + "</small></div>" +
+      '<div class="att-h"><span class="att-ic">' + ic("clip", 18) + '</span><div class="att-m"><b>' + h(t("at_" + step + "_t")) + "</b></div>" +
         attachBtn(step, mine.length ? t("atMore") : t("atBtn"), mine.length ? "is-quiet" : "is-g") + "</div>" +
       (mine.length ? '<div class="att-files">' + mine.map(function (p) {
           return '<i class="fx-f k-' + kindOf(p) + '">' + ic(KIND_IC[kindOf(p)], 14) + "<span>" + h(p.name || t("fdPhoto")) + "</span><small>" + (p.size ? h(kb(p.size)) : "") + "</small>" +
             '<button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("fdRemove")) + '" title="' + h(t("fdRemove")) + '">' + ic("x", 13) + "</button></i>";
         }).join("") + "</div>" +
-        (found ? '<p class="att-note">' + ic("contacts", 14) + h(t("atFound", { n: found })) + "</p>" : M.fromFile(S, step) ? '<p class="att-note">' + ic("circleCheck", 14) + h(t("fxDone_" + step)) + "</p>" : "")
-        : '<p class="att-drop">' + h(t("atDrop")) + "</p>") +
+        (found ? '<p class="att-note">' + ic("contacts", 14) + h(t(sortedAll(mine) ? "atSorted" : "atFound", { n: found })) + "</p>" : M.fromFile(S, step) ? '<p class="att-note">' + ic("circleCheck", 14) + h(t("fxDone_" + step)) + "</p>" : "")
+        : "") +   // no sub-text (owner, 1 Oct 2026): the title and the button say it; a drop still works anywhere
       "</section>";
   }
 
@@ -388,9 +511,11 @@
     { id: "items.pick", step: "items" },
     { id: "items.prices", step: "items", show: function () { return Object.keys(S.items).length > 0; } },
     { id: "people.add", step: "people" },
-    { id: "people.sort", step: "people", show: function () { return M.unsorted(S).length > 0; } },
-    { id: "people.days", step: "people", show: function () { return M.peopleOf(S, "shop").length > 0; } },
-    { id: "people.team", step: "people", show: function () { return S.order.length > 0; } },
+    /* One screen to mark who is who, everyone on it, for as long as there is anyone (owner, 1 Oct 2026).
+       The days and team screens after it are hidden with their questions (model.js HIDDEN_ASKS). */
+    { id: "people.sort", step: "people", show: function () { return S.order.length > 0; } },
+    { id: "people.days", step: "people", show: function () { return M.asked("days") && M.peopleOf(S, "shop").length > 0; } },
+    { id: "people.team", step: "people", show: function () { return M.asked("team") && S.order.length > 0; } },
     { id: "stock", step: "stock" },
     { id: "rules", step: "rules" },
     { id: "review", step: "send" },
@@ -454,8 +579,9 @@
     const f = flow(), i = f.findIndex(function (x) { return x.id === id; }), next = f[i + 1];
     const cta = id === "review"
       ? '<button class="cta" data-act="build"' + (ui.building ? " disabled" : "") + ">" + ic("send", 18) + h(t(ui.building ? "fiWorking" : "fiBuild")) + "</button>"
-      : '<button class="cta" data-act="next">' + h(next && next.step !== step ? t("nextTo", { s: stepName(next.step) }) : t("ctaContinue")) + ic("chev", 18) + "</button>";
-    const sample = M.SAMPLE_STEPS.indexOf(step) >= 0   // sample data for the step in view, on every step (owner, 1 Oct 2026)
+      : '<button class="cta" data-act="next">' + h(next && next.step !== step ? t("nextTo", { s: stepName(next.step) }) : next && SCR[next.id] && SCR[next.id].go ? SCR[next.id].go() : t("ctaContinue")) + ic("chev", 18) + "</button>";
+    /* Not on Contacts once real contacts are in: the footer's room goes to the count and the way on. */
+    const sample = M.SAMPLE_STEPS.indexOf(step) >= 0 && !(step === "people" && S.order.length)   // sample data for the step in view, on every step (owner, 1 Oct 2026)
       ? '<button class="link foot-sample" data-act="sampleAsk" data-step="' + step + '">' + ic("sparkle", 15) + h(t("stSample")) + "</button>" : "";
     return '<span class="foot-l">' + (i > 0 ? '<button class="btn is-quiet" data-act="back">' + ic("back", 16) + h(t("back")) + "</button>" : "") +
         '<span class="foot-sum">' + h(d.s ? d.s() : "") + "</span></span>" +
@@ -625,17 +751,22 @@
     return !q || (p.name + " " + p.phone).toLowerCase().indexOf(q) >= 0 || M.phone10(p.phone).indexOf(q.replace(/\D/g, "") || "~") >= 0;
   }
   function sortList() {
-    return S.order.map(function (id) { return S.people[id]; }).filter(function (p) {
-      return p && (!p.type || ui.sortedHere.indexOf(p.id) >= 0);   // a contact tagged here stays, its tag lit, until he leaves the tab
-    }).filter(matchQ);
+    /* Everyone, marked or not: this is the only place he says who is who, so he can change any of it. */
+    return S.order.map(function (id) { return S.people[id]; }).filter(Boolean).filter(matchQ);
   }
 
-  function tagBtns(p, guess) {
-    return '<span class="tags">' + TAGS.map(function (x) {
+  /* Just the three marks, in the owner's order, and a way to take the contact off (1 Oct 2026).
+     No key badges and no "not needed" mark: a contact he doesn't want, he removes. The keys 1-3
+     still work, unshown. */
+  const MARKS = [["shop", "pShop"], ["supplier", "pSupplier"], ["staff", "pStaff"]];
+  function tagBtns(p) {
+    return '<span class="tags">' + MARKS.map(function (x) {
       const on = p.type === x[0];
-      return '<button class="tag ' + x[0] + (on ? " on" : !p.type && guess === x[0] ? " is-guess" : "") + '" data-act="sort" data-id="' + h(p.id) + '" data-v="' + x[0] + '" aria-pressed="' + on + '"><kbd>' + x[2] + "</kbd>" + h(t(x[1])) + "</button>";
-    }).join("") +
-      '<button class="tag is-x' + (p.type === "skip" ? " on" : "") + '" data-act="sort" data-id="' + h(p.id) + '" data-v="skip" aria-label="' + h(t("pSkip")) + '" title="' + h(t("pSkip")) + '"><kbd>0</kbd>' + ic("x", 14) + "</button></span>";
+      return '<button class="tag ' + x[0] + (on ? " on" : "") + '" data-act="sort" data-id="' + h(p.id) + '" data-v="' + x[0] + '" aria-pressed="' + on + '">' + h(t(x[1])) + "</button>";
+    }).join("") + "</span>";
+  }
+  function rmBtn(p) {
+    return '<button class="icbtn rm" data-act="rmPerson" data-id="' + h(p.id) + '" aria-label="' + h(t("pRemove")) + '" title="' + h(t("pRemove")) + '">' + ic("trash", 16) + "</button>";
   }
 
   function nameCell(p, sub, warn) {
@@ -671,13 +802,12 @@
     return '<div class="sortbar">' +
         (left > 1 ? '<button class="btn is-g" data-act="sortAll">' + ic("users", 16) + h(t("pRestCustomers", { n: left })) + "</button>" : "") +
         (ui.lastSorted.length ? '<button class="btn is-quiet" data-act="undoSort">' + ic("undo", 16) + h(t("pUndo")) + "</button>" : "") + "</div>" +
-      '<table class="tbl sort"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colNumber")) + "</th><th>" + h(t("colLooks")) + "</th><th></th></tr></thead><tbody>" +
+      '<table class="tbl sort"><thead><tr><th>' + h(t("colName")) + "</th><th>" + h(t("colNumber")) + "</th><th></th><th></th></tr></thead><tbody>" +
       rows.map(function (p) {
-        const g = M.guessType(p.name);
         return '<tr class="' + (p.id === ui.sortFocus ? "focus" : "") + (p.type ? " is-tagged" : "") + '" data-row="' + h(p.id) + '">' +
           nameCell(p, null) + '<td class="num">' + h(M.phoneShow(p.phone)) + "</td>" +
-          '<td class="guess">' + (g ? h(t({ shop: "pShop", staff: "pStaff", supplier: "pSupplier" }[g])) : "") + "</td>" +
-          '<td class="r">' + tagBtns(p, g) + "</td></tr>";
+          /* No "looks like" (owner, 1 Oct 2026): no guess column and no hinted tag; he marks, plainly. */
+          '<td class="r">' + tagBtns(p) + '</td><td class="rmc">' + rmBtn(p) + "</td></tr>";
       }).join("") + "</tbody></table>";
   }
 
@@ -793,21 +923,125 @@
     return [S.order.length ? t("sumPeople", { n: S.order.length }) : "", P.left ? t("pToSort", { n: P.left }) : ""].filter(Boolean).join(" · ");
   }
 
+  /* ── His phone's contacts, over a QR code (1 Oct 2026) ──
+     The code is fresh for each visit and only on this screen. The phone page (../send/) posts
+     what he picks to the bridge under it (zoho-function/handoff.js); this page asks every few
+     seconds while the screen is open and in view, and stops after a quiet quarter of an hour. */
+  const GG = window.SB_GOOGLE;   // Google Contacts, when switched on (gcontacts.js): no phone needed
+  if (GG) GG.preload();
+  const HO = { code: "", opened: false, got: 0, off: 0, since: 0, timer: null, busy: false };
+  function hoCode() {
+    if (!HO.code) {
+      const a = new Uint8Array(12);
+      crypto.getRandomValues(a);
+      HO.code = Array.from(a, function (b) { return "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]; }).join("");
+      HO.since = Date.now();
+    }
+    return HO.code;
+  }
+  function phoneUrl() { return new URL("../send/#c=" + hoCode() + (S.lang === "hi" ? "&l=hi" : ""), location.href).href; }
+  function qrSvg(text) {
+    if (!window.SB_QR) return "";
+    const q = window.SB_QR.create(text, { errorCorrectionLevel: "Q" }).modules, n = q.size;
+    let d = "";
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.data[y * n + x]) d += "M" + x + " " + y + "h1v1h-1z";
+    /* The FoodBridge mark in the middle: Q-level correction reads through it. */
+    const m = Math.round(n * 0.22), o = (n - m) / 2;
+    return '<svg viewBox="-2 -2 ' + (n + 4) + " " + (n + 4) + '" shape-rendering="crispEdges"><path d="' + d + '" fill="#10281b"/>' +
+      '<rect x="' + (o - 0.6) + '" y="' + (o - 0.6) + '" width="' + (m + 1.2) + '" height="' + (m + 1.2) + '" rx="1.4" fill="#fff"/>' +
+      '<image href="../foodbridge-mark-green.png?v=1" x="' + o + '" y="' + o + '" width="' + m + '" height="' + m + '"/></svg>';
+  }
+  function hoActive() { return view === "desk" && ui.scr === "people.add" && !document.hidden && Date.now() - HO.since < 15 * 60e3; }
+  function hoStatus() {
+    if (Date.now() - HO.since >= 15 * 60e3 && HO.since) return '<span class="ho-dot is-off"></span>' + h(t("hoSleep")) + ' <button class="link" data-act="hoWake">' + h(t("hoAgain")) + "</button>";
+    if (HO.off >= 2) return '<span class="ho-dot is-off"></span>' + h(t("hoOff"));
+    if (HO.got) return '<span class="ho-dot is-ok"></span><b>' + h(t("hoGot", { n: HO.got })) + "</b>";
+    if (HO.opened) return '<span class="ho-dot is-live"></span>' + h(t("hoOpen"));
+    return '<span class="ho-dot is-live"></span>' + h(t("hoWait"));
+  }
+  function hoPaint() { const el = document.getElementById("hoSt"); if (el) el.innerHTML = hoStatus(); }
+  async function hoTick() {
+    if (!hoActive()) { clearInterval(HO.timer); HO.timer = null; hoPaint(); return; }
+    if (HO.busy) return;
+    HO.busy = true;
+    try {
+      const r = await fetch(OB.bridge() + "/api/handoff?code=" + hoCode(), { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      HO.off = 0;
+      if (j.opened && !HO.opened) { HO.opened = true; HO.since = Date.now(); }
+      if (j.people && j.people.length) {
+        HO.since = Date.now();
+        const n = addList(j.people, "contact");
+        HO.got += n.added;
+        render();
+        toast(t("hoGot", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
+      }
+    } catch (e) { HO.off++; }
+    HO.busy = false;
+    hoPaint();
+  }
+  function hoSync() {
+    if (hoActive() && !HO.timer) { HO.timer = setInterval(hoTick, 3000); hoTick(); }
+  }
+  document.addEventListener("visibilitychange", hoSync);
+
+  /* People from a list (the phone, a paste): new ones wait to be sorted, ones he has are skipped. */
+  function addList(list, src) {
+    let added = 0, dup = 0;
+    list.forEach(function (c) {
+      if (!c.name && !c.phone) return;
+      const r = M.addPerson(S, { name: c.name || c.phone, phone: M.phone10(c.phone) || c.phone || "", src: src, type: c.type || null });
+      if (r.dup) dup++; else added++;
+    });
+    save();
+    return { added: added, dup: dup };
+  }
+  function takePaste(text) {
+    const list = IMP.fromText(text);
+    if (!list.length) { toast(t("pasteNone")); return; }
+    const n = addList(list, "paste");
+    render();
+    toast(t("pasted", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
+  }
+
   SCR["people.add"] = {
     t: function () { return t("adT"); }, l: function () { return t("adL"); }, s: peopleSum,
+    /* Nobody types a customer list (owner, 1 Oct 2026): his phone's contacts over a QR code (the
+       phone page's picker, sent across), and below it the same attach card every step ends with
+       (owner: keep it consistent). A Tally or Excel list attached there comes in sorted (import.js);
+       Ctrl+V of copied rows still works on this screen, with nothing on it to explain. */
     b: function () {
-      const recent = S.order.slice(-6).reverse().map(function (id) { return S.people[id]; }).filter(Boolean);
-      return '<div class="ways">' +
-          '<label class="way">' + '<span class="way-ic">' + ic("contacts", 22) + '</span><b>' + h(t("adFile")) + "</b><small>" + h(t("adFileS")) + "</small>" +
-            '<input type="file" multiple class="sr" data-fx="people"></label>' +
-          '<button class="way' + (ui.adding ? " on" : "") + '" data-act="addOpen"><span class="way-ic">' + ic("pen", 22) + "</span><b>" + h(t("adType")) + "</b><small>" + h(t("adTypeS")) + "</small></button>" +
-        "</div>" + addRow("") + filesChips("people") +
-        (recent.length ? '<div class="sofar"><b>' + h(t("sumPeople", { n: S.order.length })) + "</b>" +
-          '<span class="sofar-l">' + recent.map(function (p) { return avatar(p.name) + "<span>" + h(p.name) + "</span>"; }).join("") + (S.order.length > 6 ? "<span>…</span>" : "") + "</span></div>" : "");
+      /* Whose numbers to bring (owner, 1 Oct 2026): the three kinds, in the colours they are marked with next. */
+      const who = '<p class="who3" aria-label="' + h([t("tShops"), t("tSuppliers"), t("tStaff")].join(", ")) + '">' +
+        '<span class="w-shop">' + ic("store", 15) + h(t("tShops")) + '</span><span class="w-sup">' + ic("truck", 15) + h(t("tSuppliers")) + "</span>" +
+        '<span class="w-staff">' + ic("staff", 15) + h(t("tStaff")) + "</span></p>";
+      /* Once people are in, the card says so plainly and points on (owner, 1 Oct 2026: it wasn't clear
+         the contacts had come in): a green tick, how many, who, and Mark who is who. The code shrinks
+         to the side, still there to send more. */
+      if (S.order.length) {
+        const ppl = S.order.slice(-5).reverse().map(function (id) { return S.people[id]; }).filter(Boolean);
+        return who + '<div class="ho is-done">' +
+            '<span class="ho-ok">' + ic("check", 30) + "</span>" +
+            '<div class="ho-m"><b>' + h(t("hoDone", { n: S.order.length })) + "</b>" +
+              '<span class="ho-av">' + ppl.map(function (p) { return avatar(p.name); }).join("") + (S.order.length > 5 ? "<i>+" + (S.order.length - 5) + "</i>" : "") + "</span>" +
+              '<button class="ho-go" data-act="next">' + h(t("hoMark")) + ic("chev", 16) + "</button></div>" +
+            '<div class="ho-more"><div class="ho-qr" aria-hidden="true" data-url="' + h(phoneUrl()) + '">' + qrSvg(phoneUrl()) + "</div><small>" + h(t("hoMore")) + "</small>" +
+              '<span class="ho-st" id="hoSt"></span></div>' +
+          "</div>" + attach("people");
+      }
+      return who + '<div class="ho">' +
+          '<div class="ho-qr" aria-hidden="true" data-url="' + h(phoneUrl()) + '">' + qrSvg(phoneUrl()) + "</div>" +
+          '<div class="ho-m"><span class="ho-tag">' + ic("smartphone", 13) + h(t("hoTag")) + "</span><b>" + h(t("adPhone")) + "</b>" +   // no sub-text (owner): the 1-2-3 says how
+            '<ol class="ho-steps"><li><i>1</i>' + h(t("adStep1")) + "</li><li><i>2</i>" + h(t("adStep2")) + "</li><li><i>3</i>" + h(t("adStep3")) + "</li></ol>" +
+            '<div class="ho-st" id="hoSt">' + hoStatus() + "</div>" +
+            (GG && GG.ready() ? '<button class="link ho-g" data-act="googleSync">' + GG.logo + h(t("adGoogle")) + "</button>" : "") + "</div></div>" +
+        /* No "so far" strip (owner: the card must not scroll): the footer counts them, Who is who lists them. */
+        (M.filesFor(S, "people").length ? "" : '<div class="or-div"><span>' + h(t("orWord")) + "</span></div>") + attach("people");
     },
   };
   SCR["people.sort"] = {
-    wide: true, t: function () { return t("srT"); }, l: function () { return t("srL"); }, s: peopleSum,
+    wide: true, go: function () { return t("ctaMark"); }, t: function () { return t("srT"); }, l: function () { return t("srL"); }, s: peopleSum,
     b: function () { return '<div id="plist">' + sortTable() + "</div>"; },
   };
   SCR["people.days"] = {
@@ -890,7 +1124,7 @@
           field(t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") }, { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }, other]) + otherBox("rules.payMethods")) +
           field(t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }, other]) + otherBox("rules.returns")) +
           field(t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") }, { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other]) + otherBox("rules.morning")) +
-          field(t("ruNote"), inp("rules.note", { area: true, ph: t("notePh") })) +
+          field(t("ruNote"), withMic("rules.note", inp("rules.note", { area: true, ph: t("notePh") }))) +
         "</div>" + attach("rules");
     },
   };
@@ -955,7 +1189,7 @@
         pvBlock("people", t("tShops"), shops.length, people) +
         (M.shown("stock") ? pvBlock("stock", t("pvStock"), P.stock.n, stock) : "") +
         pvBlock("rules", t("pvDaily"), "", dailyBody) +
-        pvBlock("papers", t("pvFiles"), S.papers.length, files) +
+        (S.papers.length ? pvBlock("papers", t("pvFiles"), S.papers.length, files) : "") +   // no files: no row (an empty bar read as loading)
       "</div>";
   }
 
@@ -1146,6 +1380,7 @@
       }
     }
     hydrate();
+    hoSync();
   }
 
   function paperUrl(id) {
@@ -1175,7 +1410,7 @@
   }
   /* A step's first screen that applies; a gap names the screen that fixes it. */
   function firstOf(step, tab) {
-    if (step === "people" && tab) return tab === "shop" ? "people.days" : tab === "staff" || tab === "supplier" ? "people.team" : "people.sort";
+    if (step === "people" && tab) return tab === "shop" && M.asked("days") ? "people.days" : (tab === "staff" || tab === "supplier") && M.asked("team") ? "people.team" : "people.sort";
     const f = flow().find(function (x) { return x.step === step; });
     return f ? f.id : "store";
   }
@@ -1247,7 +1482,7 @@
           const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
           const id = M.uid("vn");
           await DB.put(id, blob);
-          S.papers.push({ id: id, kind: "voice", step: step, at: Date.now(), mime: blob.type });
+          S.papers.push({ id: id, kind: "voice", step: step, at: Date.now(), mime: blob.type, secs: Math.max(1, Math.round((Date.now() - started) / 1000)) });
           save();
           toast("✓ " + t("paSaved"));
         }
@@ -1363,6 +1598,7 @@
     papers: function () { openDlg({ kind: "papers" }); },
     recStart: recStart,
     recStop: stopRec,
+    dictate: function (el) { dictate(el.dataset.path); },
     delPaper: function (el) {
       OB.drop(M, S, el.dataset.id);   // and the contacts it brought, if still unsorted
       save();
@@ -1472,6 +1708,40 @@
     },
     person: function (el) { openDlg({ kind: "person", id: el.dataset.id }); },
     delPerson: function (el) { M.removePerson(S, el.dataset.id); save(); closeDlg(); },
+    /* Off the list from its row, with a moment to take it back. */
+    rmPerson: function (el) {
+      const id = el.dataset.id, p = S.people[id];
+      if (!p) return;
+      const at = S.order.indexOf(id), usual = S.usual[id];
+      M.removePerson(S, id);
+      ui.removed = { p: p, at: at, usual: usual };
+      save();
+      render();
+      toast(t("pRemovedOne", { name: p.name }), '<button class="link" data-act="unRemove">' + h(t("pUndo")) + "</button>");
+    },
+    unRemove: function () {
+      const r = ui.removed;
+      if (!r || S.people[r.p.id]) return;
+      S.people[r.p.id] = r.p;
+      S.order.splice(Math.max(0, r.at), 0, r.p.id);
+      if (r.usual) S.usual[r.p.id] = r.usual;
+      ui.removed = null;
+      save();
+      render();
+      $toast.classList.remove("show");
+    },
+    googleSync: function () {
+      GG.read().then(function (list) {
+        const n = addList(list, "google");
+        render();
+        toast(t("gotGoogle", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
+      }, function (e) { if (!/closed|denied/.test(e.message)) toast(t("googleFail")); });
+    },
+    hoWake: function () { HO.code = ""; HO.opened = false; HO.off = 0; render(); },
+    pasteList: async function () {
+      const k = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V";
+      try { takePaste(await navigator.clipboard.readText()); } catch (e) { toast(t("pasteHow", { k: k })); }
+    },
     addOpen: function () {
       ui.adding = true;
       render();
@@ -1733,7 +2003,7 @@
     }
     /* Sorting contacts from the keyboard. */
     if (view === "desk" && ui.scr === "people.sort" && ui.sortFocus) {
-      const map = { 1: "shop", 2: "staff", 3: "supplier", 0: "skip" };
+      const map = { 1: "shop", 2: "supplier", 3: "staff" };   // the marks' order on screen
       const rows = sortList();
       const i = rows.findIndex(function (p) { return p.id === ui.sortFocus; });
       if (map[e.key]) { e.preventDefault(); tagPerson(ui.sortFocus, map[e.key]); render(); showSortFocus(); return; }
@@ -1753,6 +2023,16 @@
   }
   window.addEventListener("dragenter", function (e) { if (!hasFiles(e)) return; e.preventDefault(); ui.dragN++; dragging(true); });
   window.addEventListener("dragover", function (e) { if (hasFiles(e)) e.preventDefault(); });
+  /* Ctrl+V on the contacts screens: copied rows become people; a pasted screenshot is kept as a file. */
+  document.addEventListener("paste", function (e) {
+    if (view !== "desk" || dlg || typing(e.target) || (ui.scr !== "people.add" && ui.scr !== "people.sort")) return;
+    const cd = e.clipboardData;
+    if (!cd) return;
+    const files = Array.from(cd.files || []);
+    const text = cd.getData("text/plain");
+    if (text && text.trim()) { e.preventDefault(); takePaste(text); }
+    else if (files.length) { e.preventDefault(); takeFiles(files, "people"); }
+  });
   window.addEventListener("dragleave", function (e) { if (!hasFiles(e)) return; ui.dragN = Math.max(0, ui.dragN - 1); if (!ui.dragN) dragging(false); });
   window.addEventListener("drop", function (e) {
     if (!hasFiles(e)) return;

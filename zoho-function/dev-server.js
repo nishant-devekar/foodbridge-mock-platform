@@ -27,6 +27,7 @@ const ROUTES = {
   "/api/gstin": () => import("./api/gstin.js"),
   "/api/feedback": () => import("./api/feedback.js"),
   "/api/stores": () => import("./api/stores.js"),
+  "/api/handoff": () => import("./api/handoff.js"),
   "/api/connect": () => import("./api/connect.js"),
   "/api/callback": () => import("./api/callback.js"),
   "/api/zoho/ready": () => import("./routes/zoho/ready.js"),
@@ -80,6 +81,7 @@ createServer(async (req, res) => {
     `  gstin    http://localhost:${port}/api/gstin?gstin=<15 chars>\n` +
     `  feedback http://localhost:${port}/api/feedback       (POST to save, GET to read)\n` +
     `  stores   http://localhost:${port}/api/stores         (Store Builder builds → stores-data/)\n` +
+    `  handoff  http://localhost:${port}/api/handoff        (Store Builder: contacts from his phone to his computer)\n` +
     `  zoho     http://localhost:${port}/api/zoho/*        (onboarding: sign in + read)\n` +
     `  xero     http://localhost:${port}/api/xero/*        (onboarding: sign in + read${process.env.XERO_CLIENT_ID ? "" : " — XERO_CLIENT_ID/SECRET not set"})\n` +
     (process.env.ALLOW_LOOPBACK_ORIGINS === "1"

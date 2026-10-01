@@ -7,7 +7,13 @@
      a number column;
    - .xlsx: the customer list he keeps in Excel (its first sheet).
    Each comes back as [{ name, phone }], one per person, the mobile picked
-   when a person has several numbers. Tally and Busy exports are not read yet. */
+   when a person has several numbers.
+   - A ledger list from Tally, Busy, Marg or Vyapar (as Excel or CSV): its
+     group column ("Under": Sundry Debtors, Sundry Creditors…) says who is a
+     customer and who a supplier, so they arrive sorted; banks, taxes and
+     expense ledgers are left out. Title rows above the header are skipped.
+   - Pasted text (fromText): rows copied from Excel, a list from WhatsApp or
+     notes, or vCards -- whatever he presses Ctrl+V on. */
 
 (function (root) {
   "use strict";
@@ -88,11 +94,29 @@
     return rows.filter(function (r) { return r.some(function (x) { return String(x).trim(); }); });
   }
 
-  const NAME_H = /^(name|full ?name|display ?name|contact ?name|customer|customer ?name|party|party ?name|shop|shop ?name|firm|store|नाम)$/i;
+  const NAME_H = /^(name|full ?name|display ?name|contact ?name|customer|customer ?name|party|party ?name|shop|shop ?name|firm|store|नाम|particulars|ledger|ledger ?name|name ?of ?(the )?ledger|account|account ?name|a\/c ?name)$/i;
   const FIRST_H = /^(first ?name|given ?name)$/i, LAST_H = /^(last ?name|family ?name|surname)$/i;
   const ORG_H = /^(organi[sz]ation ?(1 - )?name|company)$/i;
   const PHONE_H = /(phone|mobile|mob\.?|cell|tel|contact ?no|number|whatsapp|फ़ोन|मोबाइल)/i;
   const PHONE_LABEL_H = /(type|label)$/i;
+  const NOT_PHONE_H = /(gst|pan|ifsc|bank|account|a\/c|pin|aadhaa?r)/i;
+  /* Tally's "Under", Busy's "Group", Vyapar's "Party type": who this ledger is. */
+  const GROUP_H = /^(under|group|group ?name|parent|parent ?group|account ?group|ledger ?group|party ?type|type|category|customer ?type|ग्रुप|समूह)$/i;
+  function groupType(v) {
+    v = String(v || "").toLowerCase();
+    if (!v) return null;
+    if (/debtor|customer|buyer|retail|shop|dealer|outlet|ग्राहक/.test(v)) return "shop";
+    if (/creditor|supplier|vendor|manufacturer|सप्लायर/.test(v)) return "supplier";
+    if (/staff|employee|salesm[ae]n|driver|salary|कर्मचारी/.test(v)) return "staff";
+    /* A ledger that is not a person: banks, cash, taxes, sales and purchase accounts, expenses... */
+    if (/bank|cash|tax|duties|gst|expense|income|sales|purchase|capital|loan|asset|stock|provision|reserve|deposit|suspense|profit|branch|investment|liabilit|od a\/c|cc a\/c/.test(v)) return "skip";
+    return null;
+  }
+  const isHeadRow = function (r) {
+    let hits = 0;
+    r.forEach(function (x) { if (NAME_H.test(x) || FIRST_H.test(x) || GROUP_H.test(x) || (PHONE_H.test(x) && !NOT_PHONE_H.test(x))) hits++; });
+    return hits;
+  };
 
   function digits(s) { return String(s || "").replace(/\D/g, "").length; }
   function looksPhone(s) { const n = digits(s); return n >= 8 && n <= 13 && !/[a-z]{3}/i.test(String(s)); }
@@ -105,23 +129,28 @@
      phone and the first mostly-words column is the name. */
   function fromTable(rows) {
     rows = rows.map(function (r) { return r.map(function (x) { return String(x == null ? "" : x).trim(); }); });
+    /* Tally and Busy put the firm's name and the report title above the header: start at the header. */
+    for (let i = 1; i < Math.min(rows.length, 12); i++) {
+      if (!isHeadRow(rows[0]) && isHeadRow(rows[i]) >= 1 && (isHeadRow(rows[i]) >= 2 || rows.slice(0, i).every(function (r) { return r.filter(Boolean).length <= 1; }))) { rows = rows.slice(i); break; }
+    }
     if (!rows.length) return [];
     const head = rows[0];
-    let name = -1, first = -1, last = -1, org = -1;
+    let name = -1, first = -1, last = -1, org = -1, group = -1;
     const phones = [];
     head.forEach(function (hd, i) {
       if (NAME_H.test(hd)) { if (name < 0) name = i; }
       else if (FIRST_H.test(hd)) first = i;
       else if (LAST_H.test(hd)) last = i;
       else if (ORG_H.test(hd)) org = i;
-      else if (PHONE_H.test(hd) && !PHONE_LABEL_H.test(hd)) phones.push(i);
+      else if (GROUP_H.test(hd)) { if (group < 0) group = i; }
+      else if (PHONE_H.test(hd) && !PHONE_LABEL_H.test(hd) && !NOT_PHONE_H.test(hd)) phones.push(i);
     });
     let body = rows.slice(1);
     const w = Math.max.apply(null, rows.map(function (r) { return r.length; }));
     const share = function (list, i, fn) { const vals = list.map(function (r) { return r[i] || ""; }).filter(Boolean); return vals.length ? vals.filter(fn).length / vals.length : 0; };
     /* A name column we know but a number column we don't ("Party", "Cell no."): the numbers say which. */
     if ((name >= 0 || first >= 0 || org >= 0) && !phones.length) {
-      for (let i = 0; i < w; i++) if ([name, first, last, org].indexOf(i) < 0 && share(body, i, looksPhone) > 0.6) phones.push(i);
+      for (let i = 0; i < w; i++) if ([name, first, last, org, group].indexOf(i) < 0 && share(body, i, looksPhone) > 0.6) phones.push(i);
     }
     if (name < 0 && first < 0 && org < 0 && !phones.length) {
       /* No header we know: guess from what the cells hold. */
@@ -138,7 +167,11 @@
       if (!nm && org >= 0) nm = r[org];
       const phone = pickPhone([].concat.apply([], phones.map(function (i) { return cellPhones(r[i]); })));
       if (!nm && !phone) return;
-      out.push({ name: nm || phone, phone: phone });
+      const type = group >= 0 ? groupType(r[group]) : null;
+      if (type === "skip") return;
+      /* Tally's totals and group rows ("Sundry Debtors" itself, "Grand Total") are not people. */
+      if (!phone && /^(grand )?total$|^sundry (debtors|creditors)$/i.test(nm)) return;
+      out.push(type ? { name: nm || phone, phone: phone, type: type } : { name: nm || phone, phone: phone });
     });
     return out;
   }
@@ -215,16 +248,51 @@
     return rows;
   }
 
+  /* ── pasted text ── */
+
+  /* A phone number inside a line of text: 10 digits from 6-9, with +91 / 0 / spaces / dashes allowed. */
+  const PHONE_IN = /(?:\+?91[\s-]?|0)?[6-9](?:[\s-]?\d){9}(?!\d)/;
+  function lineName(s) {
+    return s.replace(/^\s*\[[^\]]{4,30}\]\s*/, "")         // a WhatsApp timestamp "[01/10/26, 9:30 pm]"
+      .replace(/^\s*(\d{1,4}[.)]|[-•*–])\s+/, "")           // a list mark "1." "-" "•"
+      .replace(/(mob(ile)?|ph(one)?|cell|tel|contact|no)\.?\s*[:.-]?\s*$/i, "")
+      .replace(/[\s:,;|()–-]+$/, "").replace(/^[\s:,;|()–-]+/, "").replace(/\s+/g, " ").trim();
+  }
+
+  /* Whatever he pasted → [{ name, phone }]: rows from Excel (tabs), a CSV with its header, vCards,
+     or plain lines with a name and a number on each (or the number on the line under the name). */
+  function fromText(text) {
+    text = String(text || "").replace(/\r\n?/g, "\n").trim();
+    if (!text) return [];
+    if (/BEGIN:VCARD/i.test(text)) return parseVcf(text);
+    const lines = text.split("\n").filter(function (l) { return l.trim(); });
+    const tabbed = lines.filter(function (l) { return l.indexOf("\t") >= 0; }).length;
+    if (tabbed && tabbed >= lines.length / 2) return fromTable(parseCsv(text));
+    if (lines.length > 1 && isHeadRow(parseCsv(lines[0])[0] || []) >= 2) return fromTable(parseCsv(text));
+    const out = [];
+    let pending = "";
+    lines.forEach(function (l) {
+      const m = l.match(PHONE_IN);
+      if (!m) { pending = lineName(l); return; }
+      const nm = lineName(l.replace(m[0], " "));
+      const phone = M.phone10(m[0]) || m[0].replace(/\D/g, "");
+      out.push({ name: nm || pending || phone, phone: phone });
+      pending = "";
+    });
+    return out;
+  }
+
   /* One file → { kind: "vcf" | "csv" | "xlsx" | null, people }. kind null: not a contacts file we read. */
   async function readFile(name, bytes) {
     const ext = (String(name).toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1];
     if (ext === "vcf" || ext === "vcard") return { kind: "vcf", people: parseVcf(new TextDecoder().decode(bytes)) };
-    if (ext === "csv" || ext === "txt" || ext === "tsv") return { kind: "csv", people: fromTable(parseCsv(new TextDecoder().decode(bytes))) };
+    if (ext === "csv" || ext === "tsv") return { kind: "csv", people: fromTable(parseCsv(new TextDecoder().decode(bytes))) };
+    if (ext === "txt") return { kind: "csv", people: fromText(new TextDecoder().decode(bytes)) };
     if (ext === "xlsx") return { kind: "xlsx", people: fromTable(await xlsxRows(bytes)) };
     return { kind: null, people: [] };
   }
 
-  const api = { parseVcf: parseVcf, parseCsv: parseCsv, fromTable: fromTable, xlsxRows: xlsxRows, readFile: readFile, pickPhone: pickPhone };
+  const api = { parseVcf: parseVcf, parseCsv: parseCsv, fromTable: fromTable, xlsxRows: xlsxRows, readFile: readFile, pickPhone: pickPhone, fromText: fromText, groupType: groupType };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SB_IMPORT = api;
 })(typeof window !== "undefined" ? window : globalThis);

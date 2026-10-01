@@ -128,3 +128,23 @@ test("a file stands in for a step: products, stock, a customer list once sorted;
   assert.ok(follow.some((row) => row[0] === "items" && /Set up from his file: raw\/rate-list\.pdf/.test(row[1])));
   assert.ok(follow.some((row) => row[0] === "stock" && /photos\/fl2\.jpg/.test(row[1])));
 });
+
+test("a Tally ledger list arrives sorted: debtors are customers, creditors suppliers, banks and taxes left out", () => {
+  const rows = [["Vasu Foods Pvt Ltd"], ["List of Ledgers"], [""], ["Particulars", "Under", "Mobile No.", "GSTIN/UIN"],
+    ["Mehta Provision Store", "Sundry Debtors", "9876500011", ""], ["HDFC Bank", "Bank Accounts", "", ""],
+    ["Britannia Industries", "Sundry Creditors", "9876500013", "27AAACB0000A1Z5"], ["CGST", "Duties & Taxes", "", ""],
+    ["Raju", "Salary Payable", "9123456780", ""], ["Grand Total", "", "", ""]];
+  assert.deepEqual(I.fromTable(rows), [
+    { name: "Mehta Provision Store", phone: "9876500011", type: "shop" },
+    { name: "Britannia Industries", phone: "9876500013", type: "supplier" },
+    { name: "Raju", phone: "9123456780", type: "staff" },
+  ]);
+});
+
+test("pasted text: rows from Excel, or lines with a name and a number in any shape", () => {
+  assert.deepEqual(I.fromText("Name\tMobile\nA One Stores\t9820011223\nB Two\t98877 66554"),
+    [{ name: "A One Stores", phone: "9820011223" }, { name: "B Two", phone: "9887766554" }]);
+  assert.deepEqual(I.fromText("1. Sharma Kirana - +91 98200 11223\n[01/10/26, 9:30 pm] Ramesh: 9123456780\nGupta Traders\n+91-98765-43210\nnothing here"),
+    [{ name: "Sharma Kirana", phone: "9820011223" }, { name: "Ramesh", phone: "9123456780" }, { name: "Gupta Traders", phone: "9876543210" }]);
+  assert.deepEqual(I.fromText(""), []);
+});

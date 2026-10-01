@@ -239,6 +239,11 @@
      paper -- a rate list, a customer list, a photo of the register -- with Attach files (the
      phone's own picker: camera, gallery, files) and what is attached. On Products, Contacts and
      Stock an attached file lets the team finish the step (M.fromFile). */
+  /* A Tally list's people arrive already sorted (import.js): then the note does not send him to To sort. */
+  function sortedAll(papers) {
+    const ids = [].concat.apply([], papers.map(function (p) { return p.people || []; }));
+    return ids.length > 0 && ids.every(function (id) { return !S.people[id] || S.people[id].type; });
+  }
   function attachCard(step) {
     if (t("at_" + step + "_t") === "at_" + step + "_t") return "";
     const mine = M.filesFor(S, step).filter(function (p) { return p.kind === "file" || p.kind === "photo"; });
@@ -249,7 +254,7 @@
       (mine.length ? '<span class="fx-files">' + mine.map(function (p) {
           return '<i class="fx-f"><span>' + h(p.name || t("paSaved")) + '</span><button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("remove")) + '">' + ic("x", 12) + "</button></i>";
         }).join("") + "</span>" +
-        (found ? '<p class="att-note">' + h(t("atFound", { n: found })) + "</p>" : M.fromFile(S, step) ? '<p class="att-note">' + h(t("fxDone_" + step)) + "</p>" : "") : "") +
+        (found ? '<p class="att-note">' + h(t(sortedAll(mine) ? "atSorted" : "atFound", { n: found })) + "</p>" : M.fromFile(S, step) ? '<p class="att-note">' + h(t("fxDone_" + step)) + "</p>" : "") : "") +
       '<label class="att-btn">' + ic("clip", 16) + h(mine.length ? t("atMore") : t("atBtn")) + pick + "</label></section>";
   }
 

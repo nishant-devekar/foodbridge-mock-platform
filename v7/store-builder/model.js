@@ -25,6 +25,12 @@
      and What's missing doesn't name them. To bring a step back, take it off this list. */
   const HIDDEN_STEPS = ["items", "stock"];
   function shown(step) { return HIDDEN_STEPS.indexOf(step) < 0; }
+  /* Contacts is only marking who is who (owner, 1 Oct 2026): the details asked after it -- a
+     customer's days, area and terms ("days"), staff jobs and a delivery person ("team") -- are
+     hidden, not deleted. Remove one from the list to ask it again. */
+  const HIDDEN_ASKS = ["days", "team"];
+  function asked(x) { return HIDDEN_ASKS.indexOf(x) < 0; }
+  const ASK_OF = { shopNoDay: "days", shopNoArea: "days", shopNoPay: "days", noDelivery: "team", staffNoRole: "team" };
   const STEPS = ALL_STEPS.filter(shown);
 
   function blank() {
@@ -309,6 +315,7 @@
     function add(step, key, n) {
       if (!n) return;
       if (!all && !shown(step)) return;   // a hidden step is not asked (HIDDEN_STEPS)
+      if (!all && ASK_OF[key] && !asked(ASK_OF[key])) return;   // nor a hidden question (HIDDEN_ASKS)
       if (ASKED_IN_FILE[key] && fromFile(s, ASKED_IN_FILE[key])) return;
       const tab = { shops: "shop", staff: "staff", suppliers: "supplier" }[step];
       gaps.push(tab ? { step: "people", tab: tab, key: key, n: n } : { step: step, key: key, n: n });
@@ -466,7 +473,7 @@
   }
 
   const api = {
-    DAYS: DAYS, STEPS: STEPS, ALL_STEPS: ALL_STEPS, HIDDEN_STEPS: HIDDEN_STEPS, shown: shown, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
+    DAYS: DAYS, STEPS: STEPS, ALL_STEPS: ALL_STEPS, HIDDEN_STEPS: HIDDEN_STEPS, shown: shown, HIDDEN_ASKS: HIDDEN_ASKS, asked: asked, VERSION: VERSION, DEFAULT_RULE: DEFAULT_RULE,
     blank: blank, migrate: migrate, uid: uid, round2: round2,
     phone10: phone10, phoneShow: phoneShow, gstOk: gstOk, storeReady: storeReady,
     companyList: companyList, companyById: companyById, item: item, syncCompanies: syncCompanies, tidy: tidy, aisleOf: aisleOf, chosenItems: chosenItems, unitPrice: unitPrice,

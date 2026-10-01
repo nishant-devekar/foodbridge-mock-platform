@@ -219,7 +219,7 @@
   const RATE = { normal: "Standard", wholesale: "Wholesale", special: "Special" };
   const HOW = { salesman: "Salesman visit", phone: "Phone call", whatsapp: "WhatsApp", self: "Orders himself (app)" };
   const SPEED = { fast: "Fast", med: "Medium", slow: "Slow" };
-  const SRC = { contact: "Phone contacts", vcf: "Contacts file", typed: "Typed in meeting" };
+  const SRC = { contact: "Phone contacts", vcf: "Contacts file", paste: "Pasted list", google: "Google Contacts", typed: "Typed in meeting" };
   const TYPE = { distributor: "Distributor", superstockist: "Super stockist", wholesaler: "Wholesaler", retailer: "Retailer", manufacturer: "Manufacturer" };
   function typeText(st) { return st.type === "other" ? "Other: " + (String(st.typeOther || "").trim() || "(not said)") : TYPE[st.type] || ""; }
 
