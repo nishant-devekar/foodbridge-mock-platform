@@ -9,7 +9,9 @@
    every few seconds and takes what has arrived.
 
    It is a mailbox, not a store:
-     - only names and numbers, trimmed and capped;
+     - only names and numbers, trimmed and capped -- or one photo (or PDF)
+       per post, for the Files step (1 Oct 2026: his khata, route chart and
+       bills are on paper, so on his phone, not on his computer);
      - each post is its own entry (handoff/<code>/<time>-<rand>.json), so two
        posts never overwrite each other;
      - a read TAKES: what the desktop reads is deleted;
@@ -20,7 +22,7 @@
    local folder beside stores-data/), same `not_configured` when neither.
    ========================================================================== */
 
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { storesConfig, storesStore, StoresError } from "./stores.js";
 
@@ -28,6 +30,9 @@ const PREFIX = "handoff/";
 const CODE = /^[a-z0-9]{12}$/;
 const TTL = 60 * 60e3;
 const MAX_PEOPLE = 3000;
+const MAX_PHOTO = 2.5 * 1024 * 1024;   // one photo per post, under Vercel's 4.5 MB body once in base64
+const TAKE_BYTES = 3 * 1024 * 1024;    // what one read hands over; the rest waits for the next
+const PHOTO_TYPE = /^(image\/(jpeg|png|webp|heic|heif)|application\/pdf)$/;
 
 export function cleanPost(body) {
   const b = body || {};
@@ -38,9 +43,19 @@ export function cleanPost(body) {
     name: str(p && p.name, 80),
     phone: str(p && p.phone, 20).replace(/[^\d+ -]/g, ""),
   })).filter((p) => p.name || p.phone);
-  /* "hello": the phone opened the link -- the desktop can say so before any contact arrives. */
-  if (!people.length && !b.hello) throw new StoresError("nothing_sent", 400, "No contacts.");
-  return { code: code, people: people, hello: !!b.hello && !people.length };
+  let file = null;
+  if (b.file) {
+    const type = String(b.file.type || "");
+    if (!PHOTO_TYPE.test(type)) throw new StoresError("bad_type", 400, "Photos and PDFs only.");
+    const data = String(b.file.data || "");
+    const size = Math.floor(data.length * 3 / 4);
+    if (!size) throw new StoresError("empty_file", 400, "The file is empty.");
+    if (size > MAX_PHOTO) throw new StoresError("too_large", 413, "Over 2.5 MB.");
+    file = { name: str(b.file.name, 80).replace(/[^\w .()\u0900-\u097F-]/g, "") || "photo.jpg", type: type, data: data };
+  }
+  /* "hello": the phone opened the link -- the desktop can say so before anything arrives. */
+  if (!people.length && !file && !b.hello) throw new StoresError("nothing_sent", 400, "Nothing sent.");
+  return { code: code, people: people, file: file, hello: !!b.hello && !people.length && !file };
 }
 
 async function blobSdk() {
@@ -55,7 +70,7 @@ export async function post(u) {
   const where = storesStore(cfg);
   /* Sorts in the order they came, even two in the same millisecond. */
   const name = Date.now() + "-" + String(seq++ % 10000).padStart(4, "0") + Math.random().toString(36).slice(2, 6) + ".json";
-  const body = JSON.stringify({ at: Date.now(), hello: u.hello || undefined, people: u.people });
+  const body = JSON.stringify({ at: Date.now(), hello: u.hello || undefined, people: u.people, file: u.file || undefined });
   if (where === "blob") {
     const sdk = await blobSdk();
     try {
@@ -71,31 +86,43 @@ export async function post(u) {
   throw new StoresError("not_configured", 503, "No store on this deployment. Set BLOB_READ_WRITE_TOKEN.");
 }
 
-/** Everything waiting under a code, oldest first, and gone from the mailbox once read. */
+/** What is waiting under a code, oldest first, and gone from the mailbox once read. Photos make
+    it big, so one read stops at about 3 MB and the rest waits for the next (more: true). */
 export async function take(code) {
   if (!CODE.test(String(code))) throw new StoresError("bad_code", 400, "Not a hand-off code.");
   const cfg = storesConfig();
   const where = storesStore(cfg);
   const now = Date.now();
   const entries = [];
+  let more = false;
   if (where === "blob") {
     const sdk = await blobSdk();
     try {
       const page = await sdk.list({ prefix: PREFIX + code + "/", token: cfg.token, limit: 200 });
       const blobs = page.blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+      const read = [];
+      let bytes = 0;
       for (const b of blobs) {
+        if (read.length && bytes + b.size > TAKE_BYTES) { more = true; break; }
         const r = await sdk.get(b.pathname, { access: "private", token: cfg.token, useCache: false }).catch(() => null);
         if (r && r.stream) { try { entries.push(JSON.parse(await new Response(r.stream).text())); } catch { /* a broken entry is dropped */ } }
+        read.push(b.url);
+        bytes += b.size;
       }
-      if (blobs.length) await sdk.del(blobs.map((b) => b.url), { token: cfg.token });
+      if (read.length) await sdk.del(read, { token: cfg.token });
     } catch (e) { throw new StoresError("store_unavailable", 502, "Could not read the store."); }
   } else if (where === "file") {
     const dir = folder(cfg, code);
     if (existsSync(dir)) {
-      readdirSync(dir).sort().forEach((n) => {
-        try { entries.push(JSON.parse(readFileSync(join(dir, n), "utf8"))); } catch { /* dropped */ }
-      });
-      rmSync(dir, { recursive: true, force: true });
+      let bytes = 0;
+      for (const n of readdirSync(dir).sort()) {
+        const f = join(dir, n), size = statSync(f).size;
+        if (bytes && bytes + size > TAKE_BYTES) { more = true; break; }
+        try { entries.push(JSON.parse(readFileSync(f, "utf8"))); } catch { /* dropped */ }
+        rmSync(f, { force: true });
+        bytes += size;
+      }
+      if (!more) rmSync(dir, { recursive: true, force: true });
     }
   } else {
     throw new StoresError("not_configured", 503, "No store on this deployment.");
@@ -104,5 +131,7 @@ export async function take(code) {
   return {
     opened: fresh.length > 0,
     people: [].concat.apply([], fresh.map((e) => e.people || [])),
+    files: fresh.filter((e) => e.file).map((e) => e.file),
+    more: more,
   };
 }

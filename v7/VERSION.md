@@ -3322,3 +3322,38 @@ On a computer his customers already live in three places: on his phone, in his a
   - The phone page already had a mic here.
   - Checked with a stand-in speech service (live, then final text, saved) and with a fake microphone (a 3-second note saved and shown).
   - Hindi included. `?v=` `20261001L3`.
+
+### 1 October 2026 — Store Builder desktop: Files, a step of its own before Send
+
+**Owner:** keep the attach card as one step of its own, where he can drop whatever relevant he wants, just before Send.
+
+- **The steps:** Shop › Contacts › Daily work › **Files** › Send. Files has a paperclip tile in the steps column, ticked once anything is in.
+- ***Anything else that helps?***
+  - Four soft hints show what is useful: Route chart, Bills, Khata page, Rate list.
+  - Under them, the big drop area with its falling-files animation (*Drop it here or choose from this computer*), and *Record voice note*.
+  - Then every file he has added anywhere, each with a remove. The footer counts them.
+  - What is dropped here goes in the build as its *finish* papers, raw for the team as before.
+- **Removed:** the attach card on Daily work and the *Anything else to send?* card on the Send screen. Contacts keeps its own *Add your contact list* card, since that one is about bringing contacts.
+- The footer reads *Next: Files* on Daily work and *Next: Send* on Files.
+- The phone page is unchanged.
+- Checked in headless Chrome: two dropped files saved as *finish* papers and listed, and the step ticked. `?v=` `20261001L4`.
+- **Later (owner: the animation should help, not just look nice):**
+  - The Files drop area now teaches the gesture. A *Downloads* folder holds Route.jpg, Bills.pdf, Khata.jpg and Rates.xlsx, the four kinds named above it.
+  - In four 3-second beats a cursor picks each file and drags it into the *Store Builder* box, which turns green and reads *Added* the moment it lands. The matching hint above (Route chart, Bills, Khata page, Rate list) lights up while that file is in hand.
+  - The words under it say *Drag your files here, or choose from this computer*.
+  - CSS only. It stands still for reduced motion and steps aside under 760 px tall.
+  - The old falling-files art stays for the menu's *Your files* dialog. `?v=` `20261001L6`.
+- **Later (owner: "from Downloads" is no reference; research, think, be creative):**
+  - **Where his files start:** a distributor's papers start on paper (the khata, the route chart on the wall, bills), so on his phone; on WhatsApp (a company's rate list); and in Tally. Files now follows that.
+  - **Paper? Snap it with your phone:** the Contacts hero, smaller. It has its own QR and code, and opens the phone page in photo mode (`send/#m=photos`).
+    - On the phone: *Take a photo* (the camera, any browser) or *Choose from gallery* (photos or PDFs).
+    - Each photo is shrunk to 1600 px JPEG and posted alone to `/api/handoff`. The bridge mailbox now carries one photo or PDF of up to 2.5 MB per post, and hands over about 3 MB a read (`more: true` for the rest).
+    - On the computer: the photos arrive in Files as *finish* papers, raw for the team. The card says *2 photos came from your phone*.
+  - ***or*, then the drop zone.** Its clip has three beats of 4 s from real sources, each dragged into *Store Builder*, which says *Added*:
+    - a *Parle Agencies* WhatsApp chat with *Rate list.pdf*;
+    - Tally's Export › Excel giving *Bills.xlsx*;
+    - an email from the salesman with *Route chart.pdf*.
+  - **Once files are in:** the drop zone is one line (*Drag more files here*), the files are compact chips with a remove, and the card still fits without scrolling. *Record voice note* is a quiet link.
+  - **Tests:** bridge 98 pass (photos: types refused, a big batch handed over in parts, in order); Store Builder 34 pass.
+  - **Checked end to end in headless Chrome against the local bridge:** two 2400 × 1800 photos from the phone page arrived in Files as about 19 KB JPEGs, and the contacts loop still works.
+  - The live bridge needs the redeploy before either phone link works from the published page. `?v=` `20261001L9`.

@@ -41,6 +41,12 @@
       adT: "Who do you work with?", adL: "Bring in your contacts or customer list, or type a few names. You sort them next.",
       adFile: "Bring in a file", adFileS: "A contacts file, an Excel list, or a photo of your register",
       adType: "Type names", adTypeS: "Name and mobile, one by one", sumPeople: "{n} people", sumPeople_1: "1 person",
+      pgFiles: "Files", flT: "Anything else that helps?", flN: "{n} files", flN_1: "1 file",
+      fkRoute: "Route chart", fkBills: "Bills", fkKhata: "Khata page", fkRates: "Rate list",
+      dzF1: "Rate list.pdf", dzF2: "Bills.xlsx", dzF3: "Route chart.pdf", dzHere: "Store Builder", dzAdded: "Added", dzMore: "Drag more files here",
+      dzWaFrom: "Parle Agencies", dzWaMsg: "New rates from 1st", dzMail: "Inbox", dzMailFrom: "Suresh (salesman)", dzMailSub: "Route chart for October",
+      hpT: "Paper? Snap it with your phone", hpStep2: "Snap", hpGot: "{n} photos came from your phone", hpGot_1: "1 photo came from your phone", hpOpen: "Phone connected. Take your photos",
+      dzDrag: "Drag your files here",
       hoDone: "{n} contacts added", hoDone_1: "1 contact added", hoMark: "Mark who is who", hoMore: "Scan to add more", ctaMark: "Next: Mark who is who",
       adPhone: "Sync contacts from your phone", hoTag: "Fastest", orWord: "or", adPhoneS: "Scan this with your phone's camera, pick your customers and suppliers, and tap Send. They come straight here.",
       adStep1: "Scan", adStep2: "Pick contacts", adStep3: "Send",
@@ -104,6 +110,12 @@
       adT: "आप किन-किन के साथ काम करते हैं?", adL: "अपने कॉन्टैक्ट या ग्राहकों की लिस्ट लाएँ, या कुछ नाम लिखें। अगले चरण में छाँटेंगे।",
       adFile: "फ़ाइल लाएँ", adFileS: "कॉन्टैक्ट फ़ाइल, Excel लिस्ट, या रजिस्टर की फ़ोटो",
       adType: "नाम लिखें", adTypeS: "नाम और मोबाइल, एक-एक करके", sumPeople: "{n} लोग",
+      pgFiles: "फ़ाइलें", flT: "और कुछ जो काम आए?", flN: "{n} फ़ाइलें",
+      fkRoute: "रूट चार्ट", fkBills: "बिल", fkKhata: "खाता पेज", fkRates: "रेट लिस्ट",
+      dzF1: "Rate list.pdf", dzF2: "Bills.xlsx", dzF3: "Route chart.pdf", dzHere: "Store Builder", dzAdded: "जुड़ गई", dzMore: "और फ़ाइलें यहाँ खींचकर लाएँ",
+      dzWaFrom: "Parle Agencies", dzWaMsg: "1 तारीख से नए रेट", dzMail: "Inbox", dzMailFrom: "सुरेश (सेल्समैन)", dzMailSub: "अक्टूबर का रूट चार्ट",
+      hpT: "कागज़ है? फ़ोन से फ़ोटो भेजें", hpStep2: "फ़ोटो", hpGot: "{n} फ़ोटो फ़ोन से आईं", hpOpen: "फ़ोन जुड़ गया। फ़ोटो खींचें",
+      dzDrag: "अपनी फ़ाइलें यहाँ खींचकर लाएँ",
       hoDone: "{n} कॉन्टैक्ट जुड़ गए", hoMark: "कौन क्या है, चुनें", hoMore: "और जोड़ने के लिए स्कैन करें", ctaMark: "आगे: कौन क्या है",
       adPhone: "फ़ोन से कॉन्टैक्ट सिंक करें", hoTag: "सबसे तेज़", orWord: "या", adPhoneS: "फ़ोन के कैमरे से इसे स्कैन करें, ग्राहक और सप्लायर चुनें, और भेजें दबाएँ। वे सीधे यहाँ आ जाएँगे।",
       adStep1: "स्कैन", adStep2: "कॉन्टैक्ट चुनें", adStep3: "भेजें",
@@ -518,19 +530,22 @@
     { id: "people.team", step: "people", show: function () { return M.asked("team") && S.order.length > 0; } },
     { id: "stock", step: "stock" },
     { id: "rules", step: "rules" },
+    /* Files are a step of their own, just before Send (owner, 1 Oct 2026): one place to drop whatever
+       helps -- a route chart, bills, a khata page. They are kept as the build's "finish" papers. */
+    { id: "files", step: "files" },
     { id: "review", step: "send" },
   ];
-  const STEPS6 = SECS.concat(["send"]);
+  const STEPS6 = SECS.concat(["files", "send"]);
   /* The screens that apply now; the one he is on stays, even if it just stopped applying. */
   function flow() { return FLOW.filter(function (f) { return (f.step === "send" || M.shown(f.step)) && (!f.show || f.id === ui.scr || f.show()); }); }
   function stepOf(id) { const f = FLOW.find(function (x) { return x.id === id; }); return f ? f.step : "store"; }
-  function stepName(s) { return s === "send" ? t("pgSend") : secName(s); }
+  function stepName(s) { return s === "send" ? t("pgSend") : s === "files" ? t("pgFiles") : secName(s); }
 
   /* The steps column (1 Oct 2026, owner, from a reference design): the six steps down the card's
      right side -- an icon tile each, its name, and one line: what it asks while it is to do, what
      he gave once it is done. Done steps are ticked in green, the one he is on is dark, the ones
      ahead are faded. It is also the way around. */
-  const STEP_IC = { store: "store", items: "box", people: "contacts", stock: "warehouse", rules: "rules", send: "send" };
+  const STEP_IC = { store: "store", items: "box", people: "contacts", stock: "warehouse", rules: "rules", files: "clip", send: "send" };
   function stepLine(s, P) {
     const p = P[s];
     if (s !== "send" && p.done) {
@@ -559,7 +574,7 @@
   function progressHTML() {
     const P = M.progress(CAT, S), cur = stepOf(ui.scr);
     return STEPS6.map(function (s) {
-      const on = s === cur, d = s !== "send" && P[s].done;
+      const on = s === cur, d = s === "files" ? M.filesFor(S, "finish").length > 0 : s !== "send" && P[s].done;
       return '<li class="' + (on ? "on" : "") + (d ? " is-done" : "") + '"><button class="ls" data-act="goStep" data-to="' + s + '"' + (on ? ' aria-current="step"' : "") + ">" +
         '<span class="ls-ic">' + ic(d && !on ? "check" : STEP_IC[s], 18) + '</span><span class="ls-m"><b>' + h(stepName(s)) + "</b></span></button></li>";   // the name only (owner, 1 Oct 2026); stepLine kept for later
     }).join("");
@@ -929,17 +944,26 @@
      seconds while the screen is open and in view, and stops after a quiet quarter of an hour. */
   const GG = window.SB_GOOGLE;   // Google Contacts, when switched on (gcontacts.js): no phone needed
   if (GG) GG.preload();
-  const HO = { code: "", opened: false, got: 0, off: 0, since: 0, timer: null, busy: false };
-  function hoCode() {
-    if (!HO.code) {
+  /* Two phone links, each with its own code: contacts on Contacts, photos on Files (1 Oct 2026). HO is
+     the one for the screen in view; each polls only while its screen is open, in view, and awake. */
+  function newHo(mode) { return { mode: mode, code: "", opened: false, got: 0, off: 0, since: 0, timer: null, busy: false }; }
+  const HOS = { "people.add": newHo("contacts"), files: newHo("photos") };
+  let HO = HOS["people.add"];
+  function hoPick() { HO = HOS[ui.scr] || HO; return HO; }
+  function hoCode(o) {
+    o = o || hoPick();
+    if (!o.code) {
       const a = new Uint8Array(12);
       crypto.getRandomValues(a);
-      HO.code = Array.from(a, function (b) { return "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]; }).join("");
-      HO.since = Date.now();
+      o.code = Array.from(a, function (b) { return "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]; }).join("");
+      o.since = Date.now();
     }
-    return HO.code;
+    return o.code;
   }
-  function phoneUrl() { return new URL("../send/#c=" + hoCode() + (S.lang === "hi" ? "&l=hi" : ""), location.href).href; }
+  function phoneUrl() {
+    const o = hoPick();
+    return new URL("../send/#c=" + hoCode(o) + (o.mode === "photos" ? "&m=photos" : "") + (S.lang === "hi" ? "&l=hi" : ""), location.href).href;
+  }
   function qrSvg(text) {
     if (!window.SB_QR) return "";
     const q = window.SB_QR.create(text, { errorCorrectionLevel: "Q" }).modules, n = q.size;
@@ -951,38 +975,55 @@
       '<rect x="' + (o - 0.6) + '" y="' + (o - 0.6) + '" width="' + (m + 1.2) + '" height="' + (m + 1.2) + '" rx="1.4" fill="#fff"/>' +
       '<image href="../foodbridge-mark-green.png?v=1" x="' + o + '" y="' + o + '" width="' + m + '" height="' + m + '"/></svg>';
   }
-  function hoActive() { return view === "desk" && ui.scr === "people.add" && !document.hidden && Date.now() - HO.since < 15 * 60e3; }
+  function hoActive(o) { return view === "desk" && HOS[ui.scr] === o && !document.hidden && Date.now() - o.since < 15 * 60e3; }
   function hoStatus() {
-    if (Date.now() - HO.since >= 15 * 60e3 && HO.since) return '<span class="ho-dot is-off"></span>' + h(t("hoSleep")) + ' <button class="link" data-act="hoWake">' + h(t("hoAgain")) + "</button>";
-    if (HO.off >= 2) return '<span class="ho-dot is-off"></span>' + h(t("hoOff"));
-    if (HO.got) return '<span class="ho-dot is-ok"></span><b>' + h(t("hoGot", { n: HO.got })) + "</b>";
-    if (HO.opened) return '<span class="ho-dot is-live"></span>' + h(t("hoOpen"));
+    const o = hoPick(), pics = o.mode === "photos";
+    if (Date.now() - o.since >= 15 * 60e3 && o.since) return '<span class="ho-dot is-off"></span>' + h(t("hoSleep")) + ' <button class="link" data-act="hoWake">' + h(t("hoAgain")) + "</button>";
+    if (o.off >= 2) return '<span class="ho-dot is-off"></span>' + h(t("hoOff"));
+    if (o.got) return '<span class="ho-dot is-ok"></span><b>' + h(t(pics ? "hpGot" : "hoGot", { n: o.got })) + "</b>";
+    if (o.opened) return '<span class="ho-dot is-live"></span>' + h(t(pics ? "hpOpen" : "hoOpen"));
     return '<span class="ho-dot is-live"></span>' + h(t("hoWait"));
   }
-  function hoPaint() { const el = document.getElementById("hoSt"); if (el) el.innerHTML = hoStatus(); }
-  async function hoTick() {
-    if (!hoActive()) { clearInterval(HO.timer); HO.timer = null; hoPaint(); return; }
-    if (HO.busy) return;
-    HO.busy = true;
+  function hoPaint() { const el = document.getElementById("hoSt"); if (el && HOS[ui.scr]) el.innerHTML = hoStatus(); }
+  function b64File(f) {
+    const bin = atob(f.data || ""), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    return new File([a], f.name || "photo.jpg", { type: f.type || "image/jpeg" });
+  }
+  async function hoTick(o) {
+    if (!hoActive(o)) { clearInterval(o.timer); o.timer = null; hoPaint(); return; }
+    if (o.busy) return;
+    o.busy = true;
     try {
-      const r = await fetch(OB.bridge() + "/api/handoff?code=" + hoCode(), { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status);
-      const j = await r.json();
-      HO.off = 0;
-      if (j.opened && !HO.opened) { HO.opened = true; HO.since = Date.now(); }
-      if (j.people && j.people.length) {
-        HO.since = Date.now();
-        const n = addList(j.people, "contact");
-        HO.got += n.added;
-        render();
-        toast(t("hoGot", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
+      let more = true;
+      while (more) {
+        const r = await fetch(OB.bridge() + "/api/handoff?code=" + hoCode(o), { cache: "no-store" });
+        if (!r.ok) throw new Error(r.status);
+        const j = await r.json();
+        more = !!j.more;
+        o.off = 0;
+        if (j.opened && !o.opened) { o.opened = true; o.since = Date.now(); }
+        if (j.people && j.people.length) {
+          o.since = Date.now();
+          const n = addList(j.people, "contact");
+          o.got += n.added;
+          render();
+          toast(t("hoGot", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
+        }
+        /* Photos from his phone land in Files, kept as they came, like a file dropped here. */
+        if (j.files && j.files.length) {
+          o.since = Date.now();
+          o.got += j.files.length;
+          await takeFiles(j.files.map(b64File), "finish");
+        }
       }
-    } catch (e) { HO.off++; }
-    HO.busy = false;
+    } catch (e) { o.off++; }
+    o.busy = false;
     hoPaint();
   }
   function hoSync() {
-    if (hoActive() && !HO.timer) { HO.timer = setInterval(hoTick, 3000); hoTick(); }
+    const o = HOS[ui.scr];
+    if (o && hoActive(o) && !o.timer) { o.timer = setInterval(function () { hoTick(o); }, 3000); hoTick(o); }
   }
   document.addEventListener("visibilitychange", hoSync);
 
@@ -1004,6 +1045,60 @@
     render();
     toast(t("pasted", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
   }
+
+  /* Files: what kind of paper helps, a big drop area that shows how, a voice note if that is easier,
+     and every file he has added anywhere -- each removable. */
+  /* The drop area teaches where files come from and what to do with them (owner, 1 Oct 2026: "help,
+     not look fancy"; "Downloads" was nobody's starting point). Three beats of 4 s: a rate list a company
+     sent on WhatsApp, bills exported from Tally, a route chart that came by email -- each dragged into
+     Store Builder, which says Added. Paper (khata, the wall chart) is the phone card above it. CSS only. */
+  function dropScene() {
+    const cur = '<svg class="dz-cur" viewBox="0 0 16 16" width="15" height="15"><path d="M2 1l11 6.5-4.6 1.2L6.5 13z" fill="#10281b" stroke="#fff" stroke-width="1.2"/></svg>';
+    const g = function (n, icon, name) { return '<span class="dz-g g' + n + '">' + ic(icon, 13) + "<em>" + h(name) + "</em>" + cur + "</span>"; };
+    return '<label class="dump is-big is-scene"><span class="dz" aria-hidden="true">' +
+        /* WhatsApp: a company's message with its rate list */
+        '<span class="dz-src s1"><span class="dz-wa-h">' + h(t("dzWaFrom")) + '</span><span class="dz-wa-b"><span class="dz-wa-m">' + h(t("dzWaMsg")) + "</span>" +
+          '<span class="dz-wa-doc">' + ic("file", 14) + "<em>" + h(t("dzF1")) + "</em></span></span><i class=\"dz-tag\">WhatsApp</i></span>" +
+        /* Tally: Export › Excel */
+        '<span class="dz-src s2"><span class="dz-bar"><i></i><i></i><i></i><em>Tally</em></span><span class="dz-rows"><i></i><i></i><i></i><i></i></span>' +
+          '<span class="dz-menu"><span>' + h(t("evExport")) + "</span><b>" + ic("table", 12) + "Excel</b></span>" +
+          '<span class="dz-out">' + ic("table", 13) + "<em>" + h(t("dzF2")) + "</em></span></span>" +
+        /* Email: a message with the route chart attached */
+        '<span class="dz-src s3"><span class="dz-bar"><i></i><i></i><i></i><em>' + h(t("dzMail")) + '</em></span><span class="dz-mail"><b>' + h(t("dzMailFrom")) + "</b><small>" + h(t("dzMailSub")) + "</small></span>" +
+          '<span class="dz-att">' + ic("map", 13) + "<em>" + h(t("dzF3")) + "</em></span></span>" +
+        '<span class="dz-tray"><span class="dz-t0">' + ic("clip", 14) + h(t("dzHere")) + '</span><span class="dz-t1">' + ic("check", 14) + h(t("dzAdded")) + "</span></span>" +
+        g(1, "file", t("dzF1")) + g(2, "table", t("dzF2")) + g(3, "map", t("dzF3")) +
+      "</span>" +
+      "<b>" + h(t("dzDrag")) + "</b><span>" + h(t("fdOr")) + " <u>" + h(t("fdBrowse")) + "</u></span>" +
+      '<input type="file" class="sr" data-files multiple></label>';
+  }
+
+  /* Files: what helps; paper by the phone (a photo straight from its camera, through the same kind of
+     QR as Contacts); files on this computer dropped; a voice note; and everything he has added. */
+  SCR.files = {
+    t: function () { return t("flT"); },
+    s: function () { return S.papers.length ? t("flN", { n: S.papers.length }) : ""; },
+    b: function () {
+      const kinds = [["note", "fkKhata"], ["map", "fkRoute"], ["receipt", "fkBills"], ["list", "fkRates"]];
+      return '<p class="fkinds">' + kinds.map(function (k) { return "<span>" + ic(k[0], 15) + h(t(k[1])) + "</span>"; }).join("") + "</p>" +
+        '<div class="ho is-photo"><div class="ho-qr" aria-hidden="true" data-url="' + h(phoneUrl()) + '">' + qrSvg(phoneUrl()) + "</div>" +
+          '<div class="ho-m"><b>' + h(t("hpT")) + "</b>" +
+            '<ol class="ho-steps"><li><i>1</i>' + h(t("adStep1")) + "</li><li><i>2</i>" + h(t("hpStep2")) + "</li><li><i>3</i>" + h(t("adStep3")) + "</li></ol>" +
+            '<div class="ho-st" id="hoSt">' + hoStatus() + "</div></div></div>" +
+        '<div class="or-div"><span>' + h(t("orWord")) + "</span></div>" +
+        /* Once files are in, the lesson has done its job: one line to drop more, and the files as chips,
+           so the card still fits without scrolling. */
+        (S.papers.length ? '<label class="dump is-line">' + ic("clip", 16) + "<b>" + h(t("dzMore")) + "</b><span>" + h(t("fdOr")) + " <u>" + h(t("fdBrowse")) + "</u></span>" +
+            '<input type="file" class="sr" data-files multiple></label>' : dropScene()) +
+        (canRecord ? '<p class="fl-voice">' + (ui.rec ? '<button class="btn is-bad" data-act="recStop">' + ic("stop", 16) + '<span id="recT">' + h(t("paRecording", { s: Math.round((Date.now() - ui.rec.started) / 1000) })) + "</span></button>"
+          : '<button class="link" data-act="recStart">' + ic("mic", 15) + h(t("paVoice")) + "</button>") + "</p>" : "") +
+        (S.papers.length ? '<div class="fl-chips">' + S.papers.slice().reverse().map(function (p) {
+          const k = kindOf(p);
+          return '<i class="fx-f k-' + k + '">' + ic(KIND_IC[k], 14) + "<span>" + h(p.name || (p.kind === "voice" ? t("fdVoice") : t("fdPhoto"))) + "</span><small>" + (p.size ? h(kb(p.size)) : p.secs ? p.secs + "s" : "") + "</small>" +
+            '<button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("fdRemove")) + '">' + ic("x", 13) + "</button></i>";
+        }).join("") + "</div>" : "");
+    },
+  };
 
   SCR["people.add"] = {
     t: function () { return t("adT"); }, l: function () { return t("adL"); }, s: peopleSum,
@@ -1125,7 +1220,7 @@
           field(t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }, other]) + otherBox("rules.returns")) +
           field(t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") }, { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other]) + otherBox("rules.morning")) +
           field(t("ruNote"), withMic("rules.note", inp("rules.note", { area: true, ph: t("notePh") }))) +
-        "</div>" + attach("rules");
+        "</div>";   // its files go on the Files step now (owner, 1 Oct 2026)
     },
   };
 
@@ -1197,7 +1292,7 @@
     wide: true, t: function () { return t("rvT"); },
     b: function () {
       return '<div class="review"><div>' + previewHTML() + "</div>" +
-        '<div class="rv-side">' + gapsHTML(true) + attach("finish") + buildState() + "</div></div>";
+        '<div class="rv-side">' + gapsHTML(true) + buildState() + "</div></div>";
     },
   };
 
@@ -1448,7 +1543,7 @@
   /* Anything dropped or chosen is kept as it came, for raw/ (outbox.js take). A drop lands on
      the section in view, or on Build while its dialog is open; a contacts file or a list is also
      read, and its people wait in Contacts to sort. */
-  function dropStep() { const st = stepOf(ui.scr); return view !== "desk" ? "store" : st === "send" ? "finish" : st; }
+  function dropStep() { const st = stepOf(ui.scr); return view !== "desk" ? "store" : st === "send" || st === "files" ? "finish" : st; }
   async function takeFiles(files, step) {
     step = step || dropStep();
     let n = 0, found = 0;
@@ -1737,7 +1832,7 @@
         toast(t("gotGoogle", { n: n.added }) + (n.dup ? " · " + t("pDup", { n: n.dup }) : ""));
       }, function (e) { if (!/closed|denied/.test(e.message)) toast(t("googleFail")); });
     },
-    hoWake: function () { HO.code = ""; HO.opened = false; HO.off = 0; render(); },
+    hoWake: function () { const o = hoPick(); o.code = ""; o.opened = false; o.off = 0; render(); },
     pasteList: async function () {
       const k = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ V" : "Ctrl V";
       try { takePaste(await navigator.clipboard.readText()); } catch (e) { toast(t("pasteHow", { k: k })); }

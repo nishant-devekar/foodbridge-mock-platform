@@ -5,7 +5,12 @@
    (Android Chrome; an iPhone once its Safari setting is on), and only the
    names and numbers go to the bridge under
    that code (zoho-function/handoff.js). His computer takes them from there.
-   Nothing is kept on the phone. */
+   Nothing is kept on the phone.
+
+   #m=photos (the Files step, 1 Oct 2026): the same page takes photos instead --
+   his khata, the route chart on the wall, bills, a rate list -- with the phone's
+   camera or from its gallery, one post each, and they land in Files. A camera
+   works in every browser, so this mode needs no hand-over to another one. */
 
 (function () {
   "use strict";
@@ -131,11 +136,82 @@
     } catch (e) { /* he closed the picker */ }
   }
 
+  /* ── Photos for the Files step ── */
+  const PHOTOS = q.get("m") === "photos";
+  const PW = HI ? {
+    t: "फ़ोटो अपने कंप्यूटर पर भेजें", s: "खाता, दीवार का रूट चार्ट, बिल, रेट लिस्ट: फ़ोटो खींचें, सीधे Store Builder में पहुँच जाएँगे।",
+    snap: "फ़ोटो खींचें", gallery: "गैलरी से चुनें", safe: "सिर्फ़ FoodBridge टीम देखती है",
+    sending: "भेज रहे हैं… {i} / {n}", okT: "{n} फ़ोटो भेज दीं", okS: "अपने कंप्यूटर पर देखें: Files में आ गई हैं।", more: "और खींचें",
+    fail: "{n} नहीं गईं। इंटरनेट देखें और फिर कोशिश करें।", big: "{name} बहुत बड़ी है",
+  } : {
+    t: "Send photos to your computer", s: "Your khata, the route chart on the wall, bills, a rate list: photograph them and they go straight to Store Builder.",
+    snap: "Take a photo", gallery: "Choose from gallery", safe: "Only the FoodBridge team sees them",
+    sending: "Sending… {i} of {n}", okT: "{n} photos sent", okS: "Look at your computer: they're in Files.", more: "Take more",
+    fail: "{n} didn't go. Check your internet and try again.", big: "{name} is too big",
+  };
+  let sentPics = [];
+  function photoHome(err) {
+    $card.innerHTML = '<span class="hero">' + ic("camera", 30) + "</span><h1>" + PW.t + '</h1><p class="s">' + PW.s + "</p>" +
+      (err ? '<p class="s err">' + err + "</p>" : "") +
+      (sentPics.length ? '<div class="pics">' + sentPics.slice(-8).map(function (u) { return '<img src="' + u + '" alt="">'; }).join("") + "</div>" : "") +
+      '<div class="fill"></div>' +
+      '<label class="cta">' + ic("camera", 20) + PW.snap + '<input type="file" class="sr" accept="image/*" capture="environment" id="snap"></label>' +
+      '<label class="alt">' + ic("image", 18) + PW.gallery + '<input type="file" class="sr" accept="image/*,application/pdf" multiple id="gal"></label>' +
+      '<p class="safe">' + ic("lock", 13) + PW.safe + "</p>";
+    ["snap", "gal"].forEach(function (id) {
+      document.getElementById(id).addEventListener("change", function (e) { sendPhotos(Array.from(e.target.files || [])); });
+    });
+  }
+  /* A phone photo is 3-6 MB: down to 1600 px and JPEG, enough to read a khata page. */
+  function shrink(f) {
+    return new Promise(function (res) {
+      if (!/^image\//.test(f.type) || /gif/.test(f.type)) { res(f); return; }
+      const img = new Image(), u = URL.createObjectURL(f);
+      img.onload = function () {
+        const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(u);
+        c.toBlob(function (b) { res(b ? new File([b], (f.name || "photo").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : f); }, "image/jpeg", 0.78);
+      };
+      img.onerror = function () { URL.revokeObjectURL(u); res(f); };
+      img.src = u;
+    });
+  }
+  function b64(file) {
+    return file.arrayBuffer().then(function (buf) {
+      const a = new Uint8Array(buf); let s = "";
+      for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000));
+      return btoa(s);
+    });
+  }
+  async function sendPhotos(files) {
+    if (!files.length) return;
+    let ok = 0, bad = 0, note = "";
+    for (let i = 0; i < files.length; i++) {
+      $card.innerHTML = '<span class="hero">' + ic("send", 30) + "</span><h1>" + PW.sending.replace("{i}", i + 1).replace("{n}", files.length) + "</h1>";
+      const f = await shrink(files[i]);
+      if (f.size > 2.5 * 1024 * 1024) { bad++; note = PW.big.replace("{name}", esc(files[i].name || "")); continue; }
+      const name = f.name || "photo-" + (i + 1) + ".jpg";
+      if (await post({ file: { name: name, type: f.type || "image/jpeg", data: await b64(f) } })) {
+        ok++;
+        if (/^image\//.test(f.type)) sentPics.push(URL.createObjectURL(f));
+      } else bad++;
+    }
+    if (!ok) { photoHome(note || PW.fail.replace("{n}", bad)); return; }
+    $card.innerHTML = '<span class="hero is-ok">' + ic("check", 32) + "</span><h1>" + PW.okT.replace("{n}", ok) + '</h1><p class="s">' + PW.okS + "</p>" +
+      (bad ? '<p class="s err">' + (note || PW.fail.replace("{n}", bad)) + "</p>" : "") +
+      '<div class="pics">' + sentPics.slice(-8).map(function (u) { return '<img src="' + u + '" alt="">'; }).join("") + "</div>" +
+      '<div class="fill"></div><button class="alt" id="more">' + ic("camera", 18) + PW.more + "</button>";
+    document.getElementById("more").onclick = function () { photoHome(); };
+  }
+
   if (!CODE) {
     $card.innerHTML = '<span class="hero">' + ic("alert", 30) + "</span><h1>" + W.badT + '</h1><p class="s">' + W.badS + "</p>";
     return;
   }
-  home();
-  if (G) G.preload();
+  if (PHOTOS) photoHome();
+  else { home(); if (G) G.preload(); }
   post({ hello: true });   // the computer can say "phone connected" before anything is picked
 })();

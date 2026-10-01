@@ -1,7 +1,7 @@
-/* POST /api/handoff               — the owner's phone sends contacts for his computer
-                                     { code, people: [{ name, phone }] } or { code, hello: true }
+/* POST /api/handoff               — the owner's phone sends contacts or a photo for his computer
+                                     { code, people: [{ name, phone }] } | { code, file: { name, type, data } } | { code, hello: true }
    GET  /api/handoff?code=…        — the computer takes what has arrived
-                                     200 { opened, people }  (read once, then gone)
+                                     200 { opened, people, files, more }  (read once, then gone)
 
    See handoff.js. Errors as /api/stores: 400 bad_code / nothing_sent,
    503 not_configured, 502 store_unavailable. */
