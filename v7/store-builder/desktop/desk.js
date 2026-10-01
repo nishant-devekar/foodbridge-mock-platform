@@ -331,6 +331,9 @@
         '<button type="button" data-act="delPaper" data-id="' + h(p.id) + '" aria-label="' + h(t("fdRemove")) + '">' + ic("x", 13) + "</button></i>";
     }).join("") + "</div>" : "";
   }
+  /* A note box that starts as one line and grows with what he says, up to four. */
+  function growArea(el) { el.rows = 1; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight + 2, 112) + "px"; }
+  document.addEventListener("input", function (e) { if (e.target.matches && e.target.matches("textarea.grow")) growArea(e.target); });
   function withMic(path, html) { return '<div class="inx-mic">' + html + micBtn(path) + "</div>" + voiceChips(); }
 
   function dictate(path) {
@@ -354,7 +357,7 @@
       save();
       /* What he is still saying shows as he says it; only what is settled is kept. */
       const el = document.querySelector('[data-bind="' + path + '"]');
-      if (el) { el.value = interim ? (v ? v + " " : "") + interim : v; el.scrollTop = el.scrollHeight; }
+      if (el) { el.value = interim ? (v ? v + " " : "") + interim : v; if (el.classList.contains("grow")) growArea(el); el.scrollTop = el.scrollHeight; }
     };
     r.onerror = function (e) { if (e.error !== "aborted") d.err = e.error; };
     r.onend = function () {
@@ -1208,21 +1211,30 @@
     return on ? inp(path + "Other", { ph: t("otherPh"), cls: "wide" }) : "";
   }
 
+  /* Daily work fits its card without scrolling (owner, 1 Oct 2026: "be creative"): the three yes/no
+     questions are three tiles side by side, each with its picture; each choice is one row, its
+     question on the left and its answers on the right; "anything else" is one line that grows as
+     he types or speaks. The same questions, half the height. */
   SCR.rules = {
-    t: function () { return t("rlT"); },
+    wide: true, t: function () { return t("rlT"); },
     s: function () { const n = M.progress(CAT, S).rules.n; return n ? t("sRules", { n: n, total: M.RULES_N }) : ""; },
     b: function () {
       const other = { v: "other", label: t("tOther") };
-      const yn = function (label, path) { return '<div class="yn"><span>' + h(t(label)) + "</span>" + seg(path) + "</div>"; };
-      return '<div class="card">' + yn("ruRoutes", "rules.routes") + yn("ruSelf", "rules.selfOrder") + yn("ruPart", "rules.partPay") + "</div>" +
-        '<div class="card">' +
-          field(t("ruPay"), setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") }, { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }, other]) + otherBox("rules.payMethods")) +
-          field(t("ruReturns"), setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }, other]) + otherBox("rules.returns")) +
-          field(t("ruMorning"), setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") }, { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other]) + otherBox("rules.morning")) +
-          field(t("ruNote"), withMic("rules.note", inp("rules.note", { area: true, ph: t("notePh") }))) +
+      const tile = function (icon, label, path) {
+        const v = getPath(path);
+        return '<div class="ynt' + (v != null ? " is-set" : "") + '"><span class="ynt-q"><span class="ynt-ic">' + ic(icon, 17) + "</span><b>" + h(t(label)) + "</b></span>" + seg(path) + "</div>";
+      };
+      const row = function (label, inner) { return '<div class="rowf"><span class="rowf-l">' + h(t(label)) + '</span><div class="rowf-r">' + inner + "</div></div>"; };
+      return '<div class="yn3">' + tile("map", "ruRoutes", "rules.routes") + tile("phone", "ruSelf", "rules.selfOrder") + tile("divide", "ruPart", "rules.partPay") + "</div>" +
+        '<div class="rows">' +
+          row("ruPay", setChips("rules.payMethods", "arr", [{ v: "cash", label: t("mCash") }, { v: "upi", label: t("mUpi") }, { v: "cheque", label: t("mCheque") }, { v: "credit", label: t("mCredit") }, other]) + otherBox("rules.payMethods")) +
+          row("ruReturns", setChips("rules.returns", "str", [{ v: "credit", label: t("retCredit") }, { v: "replace", label: t("retReplace") }, { v: "none", label: t("retNone") }, other]) + otherBox("rules.returns")) +
+          row("ruMorning", setChips("rules.morning", "str", [{ v: "orders", label: t("mnOrders") }, { v: "money", label: t("mnMoney") }, { v: "stock", label: t("mnStock") }, { v: "trucks", label: t("mnTrucks") }, other]) + otherBox("rules.morning")) +
+          row("ruNote", withMic("rules.note", inp("rules.note", { area: true, ph: t("notePh"), cls: "grow" }))) +
         "</div>";   // its files go on the Files step now (owner, 1 Oct 2026)
     },
   };
+
 
   function gapsHTML(open) {
     const gaps = M.missing(CAT, S);
@@ -1476,6 +1488,7 @@
     }
     hydrate();
     hoSync();
+    document.querySelectorAll("textarea.grow").forEach(growArea);
   }
 
   function paperUrl(id) {

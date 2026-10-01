@@ -3357,3 +3357,12 @@ On a computer his customers already live in three places: on his phone, in his a
   - **Tests:** bridge 98 pass (photos: types refused, a big batch handed over in parts, in order); Store Builder 34 pass.
   - **Checked end to end in headless Chrome against the local bridge:** two 2400 × 1800 photos from the phone page arrived in Files as about 19 KB JPEGs, and the contacts loop still works.
   - The live bridge needs the redeploy before either phone link works from the published page. `?v=` `20261001L9`.
+
+### 1 October 2026 — Store Builder desktop: Daily work without scrolling
+
+**Owner:** be creative and make this screen non-scrollable.
+
+- **Yes/no as tiles:** the three yes/no questions are three tiles side by side, each with a picture (a map for fixed route days, a phone for phone orders, a split for part payments) and a full-width Yes/No. A tile turns green once answered.
+- **One row per choice:** each choice question is one row, the question on the left and its answers on one line on the right (the screen uses the card's full width). *Other* still opens its box.
+- ***Anything else?*** is one line with the mic. It grows as he types or speaks, up to four lines.
+- **Fit:** it fits at every height from 900 down to 660 px, empty or filled, and in Hindi. Short screens tighten the padding, and the tile pictures step aside under 700 px. `?v=` `20261001M3`.

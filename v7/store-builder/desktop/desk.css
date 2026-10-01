@@ -994,3 +994,36 @@ body { background: var(--t-page); overflow: hidden; }
 .dump.is-line b { font-size: 14.5px; }
 .dump.is-line span { color: var(--sub); }
 .fl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+
+/* Daily work without scrolling (1 Oct 2026): three yes/no tiles, then one row per choice. */
+.yn3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ynt { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 14px 12px; border-radius: 14px; background: #fff;
+  box-shadow: inset 0 0 0 1px #e3e9e5; transition: box-shadow .12s, background .12s; }
+.ynt.is-set { background: var(--g-tint); box-shadow: inset 0 0 0 1px var(--g-100); }
+.ynt-ic { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--fill); color: var(--g); }
+.ynt.is-set .ynt-ic { background: #fff; }
+.ynt b { flex: 1; font-size: 14px; line-height: 1.3; }
+.ynt .seg { align-self: stretch; display: grid; grid-template-columns: 1fr 1fr; }
+.ynt .seg button { height: 32px; }
+.ynt .seg button.on { background: var(--g-50); color: var(--g-dd); box-shadow: 0 0 0 1px var(--g-100) inset; }
+.rows { margin-top: 18px; }
+.rowf { display: grid; grid-template-columns: 172px 1fr; align-items: start; gap: 14px; padding: 12px 0; border-top: 1px solid #eef1ef; }
+.rowf-l { padding-top: 10px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.rowf-r { min-width: 0; }
+.rowf .chips { gap: 6px; }
+.rowf .inx-mic textarea.in.grow { min-height: 44px; height: 44px; padding-top: 11px; padding-bottom: 11px; resize: none; line-height: 1.45; }
+.rowf .inx-mic .mic { bottom: 5px; right: 6px; height: 34px; min-width: 34px; }
+.ynt { gap: 10px; padding: 12px 12px 12px 14px; }
+.ynt-q { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.ynt-ic { flex: 0 0 auto; }
+.rowf { grid-template-columns: 196px 1fr; padding: 10px 0; }
+.rowf-l { padding-top: 8px; }
+.rowf .chip { height: 34px; padding: 0 13px; font-size: 13.5px; }
+.app-card.is-wide .rows, .app-card.is-wide .yn3 { max-width: 812px; }
+@media (max-height: 760px) {
+  .ynt { padding: 9px 10px 9px 12px; gap: 7px; }
+  .ynt .seg button { height: 30px; }
+  .rowf { padding: 7px 0; }
+  .rows { margin-top: 12px; }
+}
+@media (max-height: 700px) { .ynt-ic { display: none; } .ynt-q { min-height: 0; } }
