@@ -859,12 +859,9 @@ html.ct-desk .ct-main { max-width: var(--dw); margin: 0 auto; padding: 24px var(
 html.ct-desk.ct-ov .ct-main { padding-top: 28px; padding-bottom: 48px; }
 
 /* ── the board ─────────────────────────────────────────────────────── */
-.ct-dhello { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 0; }
+.ct-dhello { padding: 0; }
 html.ct-desk .ct-dhello h1 { font-size: 28px; line-height: 34px; }
-html.ct-desk .ct-dhello p { font-size: 16px; line-height: 22px; margin-top: 4px; }
-html.ct-desk .ct-dhello .ct-ddate { margin: 0 0 4px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-3); }
-.ct-dsum { margin-left: 6px; padding: 2px 10px; border-radius: 10px; background: var(--ugly-t); color: var(--ugly); font-size: 14px; font-weight: 700; white-space: nowrap; }
-.ct-dsum.is-good { background: var(--good-t); color: var(--good); }
+html.ct-desk .ct-dhello .ct-ddate { margin: 0 0 2px; line-height: 18px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-3); }
 
 /* Tower · Timeline · Assistant: on the page, not in the top bar (owner,
    3 Oct 2026) — one segmented control, right-hand side of every desk page. */
@@ -877,17 +874,19 @@ html.ct-desk .ct-top-nav { display: none; }
 .ct-dnav-b .cb-face { position: relative; inset: auto; display: inline-block; width: 20px; height: 20px; flex: none; }
 .ct-dnav-b[aria-current="page"] { background: var(--surface); color: var(--brand); box-shadow: 0 1px 2px rgba(17, 20, 24, .08), 0 0 0 1px rgba(17, 20, 24, .04); }
 .ct-dnav-b .ct-fnew { top: 6px; right: 6px; }
-.ct-dlv-top { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 0 20px; }
-.ct-dlv-top h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -.01em; }
-.ct-dlv-top .ct-pn-i .i { width: 24px; height: 24px; color: var(--ink-2); }
-.ct-dlv-top .ct-lvword { margin-left: 4px; font-size: 14px; }
-/* The desk's bar: the same row on every desk page — areas left, pages
-   right — sticky under the top bar, lined up with the page's column. */
-html.ct-desk { --dbar: 60px; }
-.ct-dbar { position: sticky; top: var(--top); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
-.ct-dbar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: var(--dw); height: var(--dbar); margin: 0 auto; padding: 0 var(--dg); }
-.ct-dareas { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.ct-dareas::-webkit-scrollbar { display: none; }
+
+/* The desk's header row: what the page is on the left, the pages pinned
+   top-right — the same place on every desk page. */
+html.ct-desk.ct-ov .ct-main { padding-top: 24px; }
+.ct-dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin: 0 0 20px; }
+.ct-dhead-l { min-width: 0; }
+.ct-dhead-t { display: flex; align-items: center; gap: 10px; min-height: 40px; margin: 0; font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -.01em; }
+.ct-dhead-t .ct-pn-i .i { width: 24px; height: 24px; color: var(--ink-2); }
+.ct-dhead-t .ct-lvword { margin-left: 4px; font-size: 14px; }
+.ct-dback { display: grid; place-items: center; width: 36px; height: 36px; margin-left: -6px; border-radius: 10px; color: var(--ink); }
+.ct-dback:hover { background: #EAECEF; }
+.ct-dback .i { width: 20px; height: 20px; }
+html.ct-desk .ct-dhead + .ct-board { margin-top: 0; }
 
 .ct-board { margin-top: 22px; }
 .ct-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -963,17 +962,9 @@ html.ct-desk { --dbar: 60px; }
 
 /* ── a lever: the five as tabs, then summary | list ───────────────── */
 html.ct-desk .ct-lvhead { background: var(--surface); }
-.ct-dtab { position: relative; display: inline-flex; align-items: center; gap: 8px; flex: none; height: 40px; padding: 0 12px; border-radius: 10px;
-  font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
-.ct-dtab:hover { background: var(--fill); color: var(--ink); }
-.ct-dtab .i { width: 18px; height: 18px; }
-.ct-dtab-i { display: grid; }
-.ct-dtab .ct-dot { width: 8px; height: 8px; }
-.ct-dtab[aria-current="page"] { background: var(--ink); color: #fff; }
-.ct-dtab[aria-current="page"] .ct-dot { box-shadow: 0 0 0 2px var(--ink); }
 
 .ct-dlv { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 28px; align-items: start; }
-.ct-dlv-side { position: sticky; top: calc(var(--top) + var(--dbar) + 20px); padding: 4px 22px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.ct-dlv-side { position: sticky; top: calc(var(--top) + 20px); padding: 4px 22px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
 html.ct-desk .ct-dlv-side .ct-head { padding: 16px 0 18px; }
 html.ct-desk .ct-dlv-side .ct-head-v { font-size: 30px; line-height: 36px; }
 html.ct-desk .ct-dlv .ct-tiles { grid-template-columns: 1fr; gap: 8px; }
@@ -1001,5 +992,3 @@ html.ct-desk .ct-main:has(.ct-promise) { max-width: 640px; }
   html.ct-desk { --dg: 24px; }
   .ct-dlv { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
 }
-/* A smaller desk: the areas drop their icons so the bar keeps one line. */
-@media (max-width: 1100px) { .ct-dareas .ct-dtab-i { display: none; } .ct-dareas .ct-dtab { padding: 0 10px; } }

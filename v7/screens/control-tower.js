@@ -262,7 +262,7 @@
     const lv = over ? null : lever();
     const root = $("#ct");
     const keep = window.scrollY;
-    root.innerHTML = (ui.desk ? deskBar() : over ? "" : leverBar(lv)) +
+    root.innerHTML = (ui.desk || over ? "" : leverBar(lv)) +
       liveLine() +
       '<main class="ct-main" data-lever="' + (over ? "overview" : lv.id) + '">' +
         (over ? (ui.desk ? deskBoard() : overviewBody()) : lv.status === "preview" ? previewBody(lv) : ui.desk ? deskLever(lv) : leverBody(lv)) + "</main>" +
@@ -290,9 +290,9 @@
     ui.shown = {};
     const keep = window.scrollY;
     $("#ct").innerHTML =
-      (ui.desk ? deskBar(tl) : '<div class="ct-lvhead"><div class="ct-lvbar ct-upbar"><h2 class="ct-lvname"><span class="ct-lvicon">' + I.updates + "</span>Business Timeline</h2></div></div>") +
+      (ui.desk ? "" : '<div class="ct-lvhead"><div class="ct-lvbar ct-upbar"><h2 class="ct-lvname"><span class="ct-lvicon">' + I.updates + "</span>Business Timeline</h2></div></div>") +
       '<main class="ct-main" data-lever="updates">' +
-      (ui.desk ? '<header class="ct-dlv-top"><h2><span class="ct-pn-i">' + I.updates + "</span>Business Timeline</h2></header>" : "") + (tl.days.length ? tl.days.map(function (d) {
+      (ui.desk ? deskHead('<h2 class="ct-dhead-t"><span class="ct-pn-i">' + I.updates + "</span>Business Timeline</h2>", "updates", tl) : "") + (tl.days.length ? tl.days.map(function (d) {
         /* Today needs no heading (owner, 22 Sep 2026); earlier days keep theirs. */
         return '<section class="ct-day">' + (d.label === "Today" ? "" : "<h3>" + esc(d.label) + "</h3>") + '<ol class="ct-tl">' + d.items.map(function (it) {
           ui.updItems[it.key] = it;
@@ -517,9 +517,10 @@
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
     ui.sel = sel;
     const title = LIST_TITLE[lv.id] ? LIST_TITLE[lv.id][sel] : lv.tiles[sel].word;
-    /* The area's name and where it stands, over its two columns. */
-    return '<header class="ct-dlv-top"><h2><span class="ct-pn-i">' + (ICON_OF[lv.id] || "") + "</span>" + esc(leverName(lv.id)) +
-        '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></h2></header>" +
+    /* The way back to the board, the area's name and where it stands. */
+    return deskHead('<h2 class="ct-dhead-t"><button type="button" class="ct-dback" data-home aria-label="Back to all areas" title="All areas">' + I.arrowL + "</button>" +
+        '<span class="ct-pn-i">' + (ICON_OF[lv.id] || "") + "</span>" + esc(leverName(lv.id)) +
+        '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></h2>", "tower") +
       '<div class="ct-dlv">' +
       '<aside class="ct-dlv-side">' + head(lv) + tiles(lv, sel) +
         (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
@@ -529,19 +530,15 @@
         list(rows, lv, sel, true) + "</section></div>";
   }
 
-  /* ── The desk's bar: one row under the top bar, the same on every desk
-     page so nothing moves as the owner goes between them (owner, 3 Oct
-     2026: no shape shifts). The five areas on the left, each with its dot;
-     Tower · Timeline · Assistant on the right (moved off the top bar). The
-     page in view is lit, and the Timeline carries its "new" dot. ── */
-  function deskBar(tl) {
-    const page = ui.page === "updates" ? "updates" : "tower";
-    return '<div class="ct-dbar"><div class="ct-dbar-in"><nav class="ct-dareas" aria-label="Areas">' + HOME_ORDER.map(function (id) {
-        const x = lever(id); if (!x) return "";
-        const on = page === "tower" && ui.tab === id;
-        return '<button type="button" class="ct-dtab" data-dgo="' + id + '"' + (on ? ' aria-current="page"' : "") + ' aria-label="' + esc(leverName(id) + ", " + WORD[x.status]) + '">' +
-          '<span class="ct-dtab-i">' + (ICON_OF[id] || "") + "</span>" + esc(leverName(id)) + '<i class="ct-dot" data-s="' + x.status + '"></i></button>';
-      }).join("") + "</nav>" + deskNav(page, tl) + "</div></div>";
+  /* ── The desk's header: every desk page opens on one row — what the page
+     is on the left (the greeting, an area, the Timeline), Tower · Timeline ·
+     Assistant on the right, moved off the top bar. The row starts at the
+     same place on every page and the pages sit at its top, so they never
+     move between pages (owner, 3 Oct 2026: no shape shifts). No row of
+     areas: the board is where an area is chosen, and an area page has its
+     way back (owner, 3 Oct 2026: the area tabs were redundant). ── */
+  function deskHead(left, page, tl) {
+    return '<header class="ct-dhead"><div class="ct-dhead-l">' + left + "</div>" + deskNav(page, tl) + "</header>";
   }
   function deskNav(cur, tl) {
     const fresh = cur !== "updates" && !!tower && unseen(tl);
@@ -558,13 +555,11 @@
     const byId = {};
     model.levers.forEach(function (x) { byId[x.id] = x; });
     const levers = HOME_ORDER.map(function (id) { return byId[id]; }).filter(Boolean);
-    const areas = levers.filter(function (x) { return x.status === "ugly" || x.status === "bad"; }).length;
     ui.board = {};
     const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-    return '<header class="ct-hello ct-dhello"><div><p class="ct-ddate">' + esc(today) + "</p><h1>" + esc(helloText()) + "</h1>" +
-        "<p>" + (areas ? "Here is what needs your attention today" : "Your business is on track today") +
-          (areas ? ' <b class="ct-dsum">' + areas + " of " + levers.length + " areas need you</b>" : ' <b class="ct-dsum is-good">All ' + levers.length + " areas on track</b>") + "</p></div>" +
-      "</header>" +
+    /* The date and the greeting only (owner, 3 Oct 2026): the panels say
+       what needs attention. */
+    return deskHead('<div class="ct-hello ct-dhello"><p class="ct-ddate">' + esc(today) + "</p><h1>" + esc(helloText()) + "</h1></div>", "tower") +
       /* No Timeline beside the levers: it has its own page (owner, 3 Oct 2026). */
       '<div class="ct-board"><div class="ct-panels">' + levers.map(panelHtml).join("") + "</div></div>";
   }
@@ -865,7 +860,6 @@
     }
     /* The desk's board: a row opens its card where it stands; a count or a
        panel's foot opens the lever on that list. */
-    if (d.dgo) return openLever(d.dgo);
     if (d.dnav) { if (d.dnav === "assistant") return openAssistant(); return d.dnav === "updates" ? goUpdates() : goTower(); }
     if (d.hrow) { const p = d.hrow.split(":"); ui.itemLever = p[0]; return openItem((ui.board[p[0]] || [])[+p[1]]); }
     if (d.ptile) { const p = d.ptile.split(":"); return openLever(p[0], p[1]); }
