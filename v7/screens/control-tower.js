@@ -80,9 +80,19 @@
     return null;
   }
   function shellDesktop() { const pw = platformWin(); try { return !!pw && pw.innerWidth >= 1024; } catch (e) { return false; } }
+  /* The desk (owner, 3 Oct 2026): on a big screen the tower is its own
+     layout, not the phone's column stretched — a board of all five levers
+     with the Timeline beside it, and each lever as summary | list. Where the
+     top bar shows (the platform's sidebar is up, or 1024 px standalone). The
+     phone is untouched: every desk rule hangs off html.ct-desk. */
+  function isDesk() { return platformWin() ? shellDesktop() : window.innerWidth >= 1024; }
   function applyFrame() {
     document.documentElement.classList.toggle("ct-framed", !!platformWin());
     document.documentElement.classList.toggle("ct-shell-desktop", shellDesktop());
+    const desk = isDesk(), was = ui.desk;
+    ui.desk = desk;
+    document.documentElement.classList.toggle("ct-desk", desk);
+    if (was !== undefined && was !== desk && model && !isOpen()) draw();
   }
   /* ── the keyboard ───────────────────────────────────────────────────────
      On a phone the keyboard does not shrink the page: iOS Safari, and
@@ -252,9 +262,10 @@
     const lv = over ? null : lever();
     const root = $("#ct");
     const keep = window.scrollY;
-    root.innerHTML = (over ? "" : leverBar(lv)) +
+    root.innerHTML = (ui.desk ? deskBar() : over ? "" : leverBar(lv)) +
       liveLine() +
-      '<main class="ct-main" data-lever="' + (over ? "overview" : lv.id) + '">' + (over ? overviewBody() : lv.status === "preview" ? previewBody(lv) : leverBody(lv)) + "</main>" +
+      '<main class="ct-main" data-lever="' + (over ? "overview" : lv.id) + '">' +
+        (over ? (ui.desk ? deskBoard() : overviewBody()) : lv.status === "preview" ? previewBody(lv) : ui.desk ? deskLever(lv) : leverBody(lv)) + "</main>" +
       (ui.pending ? '<button class="ct-newbar" id="ct-newbar">New updates · tap to update</button>' : "");
     window.scrollTo(0, keep);
     document.documentElement.classList.toggle("ct-ov", over);
@@ -279,8 +290,9 @@
     ui.shown = {};
     const keep = window.scrollY;
     $("#ct").innerHTML =
-      '<div class="ct-lvhead"><div class="ct-lvbar ct-upbar"><h2 class="ct-lvname"><span class="ct-lvicon">' + I.updates + "</span>Business Timeline</h2></div></div>" +
-      '<main class="ct-main" data-lever="updates">' + (tl.days.length ? tl.days.map(function (d) {
+      (ui.desk ? deskBar(tl) : '<div class="ct-lvhead"><div class="ct-lvbar ct-upbar"><h2 class="ct-lvname"><span class="ct-lvicon">' + I.updates + "</span>Business Timeline</h2></div></div>") +
+      '<main class="ct-main" data-lever="updates">' +
+      (ui.desk ? '<header class="ct-dlv-top"><h2><span class="ct-pn-i">' + I.updates + "</span>Business Timeline</h2></header>" : "") + (tl.days.length ? tl.days.map(function (d) {
         /* Today needs no heading (owner, 22 Sep 2026); earlier days keep theirs. */
         return '<section class="ct-day">' + (d.label === "Today" ? "" : "<h3>" + esc(d.label) + "</h3>") + '<ol class="ct-tl">' + d.items.map(function (it) {
           ui.updItems[it.key] = it;
@@ -488,12 +500,106 @@
       '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
       (fig ? '<b class="ct-row-v">' + esc(fig) + "</b>" : "") + '<span class="ct-go">' + I.chev + "</span></button>";
   }
-  function list(rows, lv, sel) {
+  function list(rows, lv, sel, all) {
     ui.rows = rows;
     if (!rows.length) return lv.tiles[sel].count ? "" : '<p class="ct-empty">Nothing here.</p>';
+    const good = sel === "good", n = all ? rows.length : L.T.ROWS;
+    return '<div class="ct-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' + rows.slice(0, n).map(function (r, i) { return rowHtml(r, i, good); }).join("") + "</div>" +
+      (rows.length > n ? '<button class="ct-more" data-all>Show all ' + rows.length + "</button>" : "");
+  }
+
+  /* ── The desk's lever: where it stands on the left, the list on the right.
+     The same head, tiles and rows as the phone, so a figure never differs;
+     the list is whole (no "Show all" sheet with the room to show it). ── */
+  function deskLever(lv) {
+    const sel = selectedTile(lv);
+    let rows = lv.tiles[sel].rows;
+    if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
+    ui.sel = sel;
+    const title = LIST_TITLE[lv.id] ? LIST_TITLE[lv.id][sel] : lv.tiles[sel].word;
+    /* The area's name and where it stands, over its two columns. */
+    return '<header class="ct-dlv-top"><h2><span class="ct-pn-i">' + (ICON_OF[lv.id] || "") + "</span>" + esc(leverName(lv.id)) +
+        '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></h2></header>" +
+      '<div class="ct-dlv">' +
+      '<aside class="ct-dlv-side">' + head(lv) + tiles(lv, sel) +
+        (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
+        (lv.facts && lv.facts.length ? facts(lv.facts) : "") + "</aside>" +
+      '<section class="ct-dlv-list" aria-label="' + esc(title) + '">' +
+        '<header class="ct-dlv-h"><h3>' + esc(title) + "</h3><span>" + rows.length + "</span></header>" +
+        list(rows, lv, sel, true) + "</section></div>";
+  }
+
+  /* ── The desk's bar: one row under the top bar, the same on every desk
+     page so nothing moves as the owner goes between them (owner, 3 Oct
+     2026: no shape shifts). The five areas on the left, each with its dot;
+     Tower · Timeline · Assistant on the right (moved off the top bar). The
+     page in view is lit, and the Timeline carries its "new" dot. ── */
+  function deskBar(tl) {
+    const page = ui.page === "updates" ? "updates" : "tower";
+    return '<div class="ct-dbar"><div class="ct-dbar-in"><nav class="ct-dareas" aria-label="Areas">' + HOME_ORDER.map(function (id) {
+        const x = lever(id); if (!x) return "";
+        const on = page === "tower" && ui.tab === id;
+        return '<button type="button" class="ct-dtab" data-dgo="' + id + '"' + (on ? ' aria-current="page"' : "") + ' aria-label="' + esc(leverName(id) + ", " + WORD[x.status]) + '">' +
+          '<span class="ct-dtab-i">' + (ICON_OF[id] || "") + "</span>" + esc(leverName(id)) + '<i class="ct-dot" data-s="' + x.status + '"></i></button>';
+      }).join("") + "</nav>" + deskNav(page, tl) + "</div></div>";
+  }
+  function deskNav(cur, tl) {
+    const fresh = cur !== "updates" && !!tower && unseen(tl);
+    const b = function (id, label, extra) {
+      return '<button type="button" class="ct-dnav-b' + (id === "assistant" ? " is-assist" : "") + (id === "updates" && fresh ? " has-new" : "") + '" data-dnav="' + id + '"' +
+        (id === cur ? ' aria-current="page"' : "") + ">" + (extra || "") + esc(label) + (id === "updates" ? '<i class="ct-fnew" aria-hidden="true"></i>' : "") + "</button>";
+    };
+    return '<nav class="ct-dnav" aria-label="Control Tower pages">' + b("tower", "Tower", I.tower) + b("updates", "Timeline", I.updates) + b("assistant", "Assistant", ASSIST_FACE) + "</nav>";
+  }
+
+  /* ── The desk's home: every lever as a panel ─────────────────────────── */
+  const BOARD_ROWS = 3;
+  function deskBoard() {
+    const byId = {};
+    model.levers.forEach(function (x) { byId[x.id] = x; });
+    const levers = HOME_ORDER.map(function (id) { return byId[id]; }).filter(Boolean);
+    const areas = levers.filter(function (x) { return x.status === "ugly" || x.status === "bad"; }).length;
+    ui.board = {};
+    const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+    return '<header class="ct-hello ct-dhello"><div><p class="ct-ddate">' + esc(today) + "</p><h1>" + esc(helloText()) + "</h1>" +
+        "<p>" + (areas ? "Here is what needs your attention today" : "Your business is on track today") +
+          (areas ? ' <b class="ct-dsum">' + areas + " of " + levers.length + " areas need you</b>" : ' <b class="ct-dsum is-good">All ' + levers.length + " areas on track</b>") + "</p></div>" +
+      "</header>" +
+      /* No Timeline beside the levers: it has its own page (owner, 3 Oct 2026). */
+      '<div class="ct-board"><div class="ct-panels">' + levers.map(panelHtml).join("") + "</div></div>";
+  }
+  function panelHtml(x) {
+    const name = HOME_NAME[x.id] || x.label;
+    const top = '<header class="ct-pn-h"><button class="ct-pn-open" data-goto="' + x.id + '">' +
+      '<span class="ct-pn-i">' + (ICON_OF[x.id] || "") + '</span><span class="ct-pn-n">' + esc(name) + "</span>" +
+      '<span class="ct-lvword" data-s="' + x.status + '"><i class="ct-dot" data-s="' + x.status + '"></i>' + WORD[x.status] + "</span>" +
+      '<span class="ct-go">' + I.chev + "</span></button></header>";
+    if (x.status === "preview") {
+      return '<article class="ct-pn" data-s="preview" data-pn="' + x.id + '">' + top +
+        '<p class="ct-pn-v">' + esc(x.preview.promise) + '</p><p class="ct-pn-c">' + esc(x.preview.sub) + "</p>" +
+        '<button class="ct-pn-foot" data-goto="' + x.id + '">' + esc(x.preview.connect.label) + I.chev + "</button></article>";
+    }
+    const h = x.headline, t = x.tiles;
+    const sel = selectedTile(x);
+    const rows = t[sel].rows || [];
+    ui.board[x.id] = rows;
     const good = sel === "good";
-    return '<div class="ct-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' + rows.slice(0, L.T.ROWS).map(function (r, i) { return rowHtml(r, i, good); }).join("") + "</div>" +
-      (rows.length > L.T.ROWS ? '<button class="ct-more" data-all>Show all ' + rows.length + "</button>" : "");
+    const label = LIST_TITLE[x.id] ? LIST_TITLE[x.id][sel] : t[sel].word;
+    return '<article class="ct-pn" data-s="' + x.status + '" data-pn="' + x.id + '">' + top +
+      '<div class="ct-pn-head"><p class="ct-pn-v' + (x.status === "good" ? " is-good" : "") + '">' + esc(h.value) + "</p>" +
+        '<p class="ct-pn-c">' + esc(h.context) + "</p>" +
+        (typeof h.bar === "number" ? '<div class="ct-bar" role="img" aria-label="' + Math.round(h.bar * 100) + '% delivered"><i style="width:' + Math.round(h.bar * 100) + '%"></i></div>' : "") + "</div>" +
+      /* The three tiles as one strip: each opens the lever on its list. */
+      '<div class="ct-pn-k">' + ["good", "bad", "ugly"].map(function (k) {
+        const off = !t[k].count && !(t[k].rows && t[k].rows.length);
+        return '<button class="ct-pn-kt" data-k="' + k + '" data-ptile="' + x.id + ":" + k + '"' + (k === sel ? ' aria-current="true"' : "") + (off ? " disabled" : "") +
+          ' title="' + esc(t[k].word) + '"><b>' + esc(t[k].value) + "</b><span>" + esc(t[k].label) + "</span></button>";
+      }).join("") + "</div>" +
+      (rows.length
+        ? '<h4 class="ct-pn-lt">' + esc(label) + '</h4><div class="ct-list ct-pn-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' +
+            rows.slice(0, BOARD_ROWS).map(function (r, i) { return rowHtml(r, i, good).replace('data-row="' + i + '"', 'data-hrow="' + x.id + ":" + i + '"'); }).join("") + "</div>"
+        : '<p class="ct-pn-empty">' + I.check + "Nothing needs you here</p>") +
+      '<button class="ct-pn-foot" data-ptile="' + x.id + ":" + sel + '">' + (rows.length > BOARD_ROWS ? "See all " + rows.length : "Open " + esc(name)) + I.chev + "</button></article>";
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -757,6 +863,13 @@
       if (ui.colour) ui.tile.collections = ui.colour === "red" || ui.colour === "fire" ? "ugly" : "bad";
       draw(); return;
     }
+    /* The desk's board: a row opens its card where it stands; a count or a
+       panel's foot opens the lever on that list. */
+    if (d.dgo) return openLever(d.dgo);
+    if (d.dnav) { if (d.dnav === "assistant") return openAssistant(); return d.dnav === "updates" ? goUpdates() : goTower(); }
+    if (d.hrow) { const p = d.hrow.split(":"); ui.itemLever = p[0]; return openItem((ui.board[p[0]] || [])[+p[1]]); }
+    if (d.ptile) { const p = d.ptile.split(":"); return openLever(p[0], p[1]); }
+    ui.itemLever = null;
     if (d.row !== undefined) return openItem(ui.rows[+d.row]);
     if ("all" in d) return openAll();
     if (d.goto) { setTab(d.goto); return; }
@@ -824,7 +937,7 @@
   function back() { ui.stack.pop(); if (ui.stack.length) paint(); else closeAll(); }
   function closeAll() {
     stopTalk();
-    ui.stack = [];
+    ui.stack = []; ui.itemLever = null;
     const l = $("#ct-layer"); if (l) l.innerHTML = "";
     document.body.classList.remove("ct-locked");
     if (ui.pending) { ui.pending = false; compute(); draw(); }
@@ -1689,7 +1802,7 @@
     const paid = lastPaymentOf(id);
     const reminded = lastReminderOf(id);
     const good = !!(row && row.good);
-    const buying = ui.tab === "order";
+    const buying = (ui.itemLever || ui.tab) === "order";
     const overdueDays = Number(cad.daysOverdue) || 0;             // past their usual order day
     const gap = cad.cycleDays || null;
     const since = cad.lastOrderAt ? daysSince(cad.lastOrderAt) : null;

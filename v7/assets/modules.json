@@ -69,7 +69,7 @@
           "id": "control-tower",
           "name": "Control Tower",
           "ownExitBar": true,
-          "url": "screens/control-tower.html?v=20260929CB1",
+          "url": "screens/control-tower.html?v=20261003DK6",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

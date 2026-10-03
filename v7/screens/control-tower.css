@@ -845,3 +845,161 @@ button.ct-dm-call { border: 0; }
 .ct-ph-view button { position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.16); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
 /* File It As: a family's label sits close over its chips. */
 .ct-ap-refile { margin-top: 6px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE DESK (owner, 3 Oct 2026) — the tower on a big screen is its own
+   layout: a board of all five levers with the Timeline beside it, and a
+   lever as summary | whole list, with the five levers as tabs above. Every
+   rule hangs off html.ct-desk (control-tower.js isDesk), so the phone is
+   exactly as it was.
+   ══════════════════════════════════════════════════════════════════════ */
+html.ct-desk { --dw: 1280px; --dg: 32px; background: #F6F7F9; }
+html.ct-desk body { background: #F6F7F9; }
+html.ct-desk .ct-main { max-width: var(--dw); margin: 0 auto; padding: 24px var(--dg) 48px; }
+html.ct-desk.ct-ov .ct-main { padding-top: 28px; padding-bottom: 48px; }
+
+/* ── the board ─────────────────────────────────────────────────────── */
+.ct-dhello { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 0; }
+html.ct-desk .ct-dhello h1 { font-size: 28px; line-height: 34px; }
+html.ct-desk .ct-dhello p { font-size: 16px; line-height: 22px; margin-top: 4px; }
+html.ct-desk .ct-dhello .ct-ddate { margin: 0 0 4px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-3); }
+.ct-dsum { margin-left: 6px; padding: 2px 10px; border-radius: 10px; background: var(--ugly-t); color: var(--ugly); font-size: 14px; font-weight: 700; white-space: nowrap; }
+.ct-dsum.is-good { background: var(--good-t); color: var(--good); }
+
+/* Tower · Timeline · Assistant: on the page, not in the top bar (owner,
+   3 Oct 2026) — one segmented control, right-hand side of every desk page. */
+html.ct-desk .ct-top-nav { display: none; }
+.ct-dnav { display: inline-flex; align-items: center; gap: 2px; flex: none; padding: 3px; border-radius: 12px; background: #EDEFF2; }
+.ct-dnav-b { position: relative; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 9px;
+  font-size: 14px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.ct-dnav-b:hover { color: var(--ink); background: rgba(255, 255, 255, .6); }
+.ct-dnav-b .i { width: 17px; height: 17px; }
+.ct-dnav-b .cb-face { position: relative; inset: auto; display: inline-block; width: 20px; height: 20px; flex: none; }
+.ct-dnav-b[aria-current="page"] { background: var(--surface); color: var(--brand); box-shadow: 0 1px 2px rgba(17, 20, 24, .08), 0 0 0 1px rgba(17, 20, 24, .04); }
+.ct-dnav-b .ct-fnew { top: 6px; right: 6px; }
+.ct-dlv-top { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 0 20px; }
+.ct-dlv-top h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -.01em; }
+.ct-dlv-top .ct-pn-i .i { width: 24px; height: 24px; color: var(--ink-2); }
+.ct-dlv-top .ct-lvword { margin-left: 4px; font-size: 14px; }
+/* The desk's bar: the same row on every desk page — areas left, pages
+   right — sticky under the top bar, lined up with the page's column. */
+html.ct-desk { --dbar: 60px; }
+.ct-dbar { position: sticky; top: var(--top); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.ct-dbar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: var(--dw); height: var(--dbar); margin: 0 auto; padding: 0 var(--dg); }
+.ct-dareas { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.ct-dareas::-webkit-scrollbar { display: none; }
+
+.ct-board { margin-top: 22px; }
+.ct-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+/* A lever's panel: its name and word on a tint of how it is, the headline,
+   the three counts as one strip, the first rows of its worst list. */
+.ct-pn { --s: var(--ink-2); --st: #F1F2F4; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: 0 1px 2px rgba(17, 20, 24, .04); overflow: hidden; }
+.ct-pn[data-s="ugly"] { --s: #D92D20; --st: #FEEDED; }
+.ct-pn[data-s="bad"] { --s: #C9731A; --st: #FEF4E6; }
+.ct-pn[data-s="good"] { --s: #1E9A58; --st: #ECFAF0; }
+.ct-pn-h { background: var(--st); }
+.ct-pn-open { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px 12px 18px; }
+.ct-pn-open:hover .ct-go { color: var(--ink); }
+.ct-pn-i { display: grid; color: var(--s); }
+.ct-pn-i .i { width: 22px; height: 22px; stroke-width: 2.1; }
+.ct-pn-n { font-size: 16px; line-height: 22px; font-weight: 700; color: var(--ink); }
+.ct-pn .ct-lvword { margin-left: auto; }
+.ct-pn-open .ct-lvword[data-s="ugly"] { color: #C0362C; }
+.ct-pn-head { padding: 16px 18px 0; }
+.ct-pn-v { margin: 0; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.ct-pn-v.is-good { color: var(--good); }
+.ct-pn-c { margin: 2px 0 0; font-size: 14px; line-height: 20px; color: var(--ink-2); font-weight: 500; }
+.ct-pn-head .ct-bar { height: 6px; margin-top: 10px; border-radius: 3px; background: #E8ECEF; }
+.ct-pn-head .ct-bar i { background: #2E8B47; }
+.ct-pn-k { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 14px 18px 0; padding: 4px; border-radius: 12px; background: var(--fill); }
+.ct-pn-kt { display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; padding: 7px 10px; border-radius: 9px; border: 1px solid transparent; }
+.ct-pn-kt b { font-size: 18px; line-height: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ct-pn-kt span { font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; }
+.ct-pn-kt[data-k="good"] { color: #1E8A45; }
+.ct-pn-kt[data-k="bad"] { color: #B7791F; }
+.ct-pn-kt[data-k="ugly"] { color: #C62828; }
+.ct-pn-kt:not(:disabled):hover { background: var(--surface); }
+.ct-pn-kt[aria-current="true"] { background: var(--surface); border-color: var(--line); box-shadow: 0 1px 2px rgba(17, 20, 24, .06); }
+.ct-pn-kt:disabled { color: var(--ink-3); }
+.ct-pn-lt { margin: 16px 18px 0; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+/* Its rows: flat in the panel, one line each. */
+.ct-pn .ct-pn-list { margin: 4px 0 0; padding: 0 18px; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+.ct-pn .ct-pn-list .ct-row { min-height: 0; gap: 10px; padding: 10px 0; border-radius: 0; }
+.ct-pn .ct-pn-list .ct-row:hover { background: transparent; }
+.ct-pn .ct-pn-list .ct-row:hover .ct-row-n { text-decoration: underline; text-underline-offset: 2px; }
+.ct-pn .ct-row-n { -webkit-line-clamp: 1; font-size: 14.5px; line-height: 20px; }
+.ct-pn .ct-row-t small { font-size: 13px; line-height: 18px; }
+.ct-pn .ct-tag { height: 26px; padding: 0 10px; border-radius: 8px; font-size: 12.5px; }
+.ct-pn .ct-row-v { font-size: 14px; }
+.ct-pn-empty { display: flex; align-items: center; gap: 8px; margin: 16px 18px 0; font-size: 14px; font-weight: 600; color: var(--good); }
+.ct-pn-empty .i { width: 18px; height: 18px; stroke-width: 2.4; }
+.ct-pn-foot { display: flex; align-items: center; justify-content: flex-end; gap: 2px; margin-top: auto; padding: 12px 14px 14px 18px; font-size: 14px; font-weight: 600; color: var(--brand); }
+.ct-pn-foot .i { width: 16px; height: 16px; stroke-width: 2.4; }
+.ct-pn-foot:hover { color: var(--brand-d); }
+.ct-pn > .ct-pn-foot { border-top: 1px solid transparent; }
+/* A wide desk: three on top, the last two wider below (6-column grid). */
+@media (min-width: 1150px) {
+  .ct-panels { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ct-pn { grid-column: span 2; }
+  .ct-pn:nth-child(n+4) { grid-column: span 3; }
+}
+/* The last lever alone on its row runs the width: its figures on the
+   left, its rows on the right. */
+@media (max-width: 1149px) {
+.ct-pn:last-child:nth-child(odd) { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-areas: "h h" "hd lt" "hd ls" "k ls" ". ls" "f f"; grid-template-rows: auto auto auto auto 1fr auto; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-h { grid-area: h; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-head { grid-area: hd; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-k { grid-area: k; align-self: start; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-lt { grid-area: lt; margin-left: 6px; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-list,
+.ct-pn:last-child:nth-child(odd) > .ct-pn-empty { grid-area: ls; padding-left: 6px; margin-left: 0; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-empty { margin-left: 24px; padding-left: 0; }
+.ct-pn:last-child:nth-child(odd) > .ct-pn-foot { grid-area: f; }
+}
+
+
+/* ── a lever: the five as tabs, then summary | list ───────────────── */
+html.ct-desk .ct-lvhead { background: var(--surface); }
+.ct-dtab { position: relative; display: inline-flex; align-items: center; gap: 8px; flex: none; height: 40px; padding: 0 12px; border-radius: 10px;
+  font-size: 14.5px; font-weight: 600; color: var(--ink-2); }
+.ct-dtab:hover { background: var(--fill); color: var(--ink); }
+.ct-dtab .i { width: 18px; height: 18px; }
+.ct-dtab-i { display: grid; }
+.ct-dtab .ct-dot { width: 8px; height: 8px; }
+.ct-dtab[aria-current="page"] { background: var(--ink); color: #fff; }
+.ct-dtab[aria-current="page"] .ct-dot { box-shadow: 0 0 0 2px var(--ink); }
+
+.ct-dlv { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 28px; align-items: start; }
+.ct-dlv-side { position: sticky; top: calc(var(--top) + var(--dbar) + 20px); padding: 4px 22px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+html.ct-desk .ct-dlv-side .ct-head { padding: 16px 0 18px; }
+html.ct-desk .ct-dlv-side .ct-head-v { font-size: 30px; line-height: 36px; }
+html.ct-desk .ct-dlv .ct-tiles { grid-template-columns: 1fr; gap: 8px; }
+html.ct-desk .ct-dlv .ct-tiles .ct-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l v" "w v"; align-items: center;
+  column-gap: 12px; row-gap: 2px; min-height: 0; padding: 12px 14px; }
+html.ct-desk .ct-dlv .ct-tiles .ct-tile::after { display: none; }
+html.ct-desk .ct-dlv .ct-tile-l { grid-area: l; font-size: 14px; line-height: 18px; justify-content: flex-start; gap: 4px; }
+html.ct-desk .ct-dlv .ct-tile-v { grid-area: v; font-size: 26px; line-height: 32px; }
+html.ct-desk .ct-dlv .ct-tile-w { grid-area: w; font-size: 13px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.ct-desk .ct-dlv .ct-tile-go .i { transform: none; }
+html.ct-desk .ct-dlv .ct-facts { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+html.ct-desk .ct-dlv .ct-clabels { flex-wrap: wrap; overflow: visible; }
+.ct-dlv-list { min-width: 0; padding: 6px 22px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.ct-dlv-h { display: flex; align-items: center; gap: 10px; padding: 14px 0 10px; border-bottom: 1px solid var(--line); }
+.ct-dlv-h h3 { margin: 0; font-size: 17px; line-height: 24px; font-weight: 700; }
+.ct-dlv-h span { padding: 0 8px; border-radius: 10px; background: var(--fill); font-size: 13px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+html.ct-desk .ct-dlv-list .ct-list { margin-top: 0; border: 0; border-radius: 0; background: transparent; }
+html.ct-desk .ct-dlv-list .ct-row { padding-left: 4px; padding-right: 4px; }
+html.ct-desk .ct-dlv-list .ct-row:hover { background: #F7F8F9; }
+html.ct-desk .ct-dlv-list .ct-row-n { -webkit-line-clamp: 1; }
+html.ct-desk .ct-dlv-list .ct-empty { margin: 16px 4px; }
+html.ct-desk .ct-main:has(.ct-promise) { max-width: 640px; }
+/* A narrow desk (the platform at ~1024 px): the Timeline goes under the levers. */
+@media (max-width: 960px) {
+  html.ct-desk { --dg: 24px; }
+  .ct-dlv { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
+}
+/* A smaller desk: the areas drop their icons so the bar keeps one line. */
+@media (max-width: 1100px) { .ct-dareas .ct-dtab-i { display: none; } .ct-dareas .ct-dtab { padding: 0 10px; } }
