@@ -938,11 +938,10 @@ html.ct-desk .ct-dhead + .ct-board { margin-top: 0; }
 .ct-pn-foot .i { width: 16px; height: 16px; stroke-width: 2.4; }
 .ct-pn-foot:hover { color: var(--brand-d); }
 .ct-pn > .ct-pn-foot { border-top: 1px solid transparent; }
-/* A wide desk: three on top, the last two wider below (6-column grid). */
+/* A wide desk: the six areas, three to a row (6-column grid). */
 @media (min-width: 1150px) {
   .ct-panels { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .ct-pn { grid-column: span 2; }
-  .ct-pn:nth-child(n+4) { grid-column: span 3; }
 }
 /* The last lever alone on its row runs the width: its figures on the
    left, its rows on the right. */
@@ -992,3 +991,29 @@ html.ct-desk .ct-main:has(.ct-promise) { max-width: 640px; }
   html.ct-desk { --dg: 24px; }
   .ct-dlv { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
 }
+
+/* ── Production (owner, 3 Oct 2026): the plan's four tabs, and a row that
+   asks in place before it goes to the board. Phone and desk alike; nothing
+   animates. ─────────────────────────────────────────────────────────── */
+.ct-ptabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ct-ptabs .ct-tile { min-height: 76px; }
+.ct-ptabs .ct-tile[aria-selected="true"]::after { display: none; }
+.ct-ptabs .ct-tile, .ct-ptabs .ct-tile:not(:disabled):active { transition: none; transform: none; }
+.ct-ptabs .ct-tile[data-k="good"] .ct-tile-l { color: var(--good); }
+.ct-ptabs .ct-tile[data-k="bad"] .ct-tile-l { color: var(--bad); }
+.ct-ptabs .ct-tile[data-k="ugly"] .ct-tile-l { color: var(--ugly); }
+.ct-pn-k.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ct-pn-k.is-four .ct-pn-kt { padding: 7px 8px; }
+.ct-pn-k.is-four .ct-pn-kt span { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ct-plist .ct-prow + .ct-prow > .ct-row { border-top: 1px solid var(--line); }
+.ct-plist .ct-prow:first-child > .ct-row { border-top: 0; }
+.ct-pdot { flex: none; width: 10px; height: 10px; margin: 0 5px; border-radius: 50%; background: var(--ink-3); }
+.ct-pdot[data-t="ugly"] { background: var(--ugly); }
+.ct-pdot[data-t="bad"] { background: var(--bad); }
+.ct-prow.is-asking > .ct-row .ct-go .i { transform: rotate(90deg); }
+.ct-pask { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--fill); }
+.ct-plist:not(.ct-pn-list) .ct-pask { margin: 0 12px 12px 14px; }
+.ct-pask p { flex: 1 1 100%; margin: 0; font-size: 14px; line-height: 20px; color: var(--ink); }
+.ct-pask .ct-btn { flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; }
+@media (min-width: 420px) { .ct-pask p { flex: 1 1 auto; } }
+html.ct-desk .ct-dlv .ct-ptabs { grid-template-columns: 1fr; }

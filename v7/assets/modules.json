@@ -69,7 +69,7 @@
           "id": "control-tower",
           "name": "Control Tower",
           "ownExitBar": true,
-          "url": "screens/control-tower.html?v=20261003SH1",
+          "url": "screens/control-tower.html?v=20261003PR1",
           "clipLeft": 0,
           "mHeaderH": 0,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -261,7 +261,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20261003FL1",
+          "url": "modules/foodbridge-production-flow/production.html?v=20261003PL1",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"

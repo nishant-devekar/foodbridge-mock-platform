@@ -114,6 +114,9 @@
     ctx.empties = emptiesByCustomer(ctx);
 
     const levers = [deliveries(ctx), collections(ctx), purchase(ctx), inventory(ctx), order(ctx)];
+    /* Production (owner, 3 Oct 2026): built by ct/production.js from the
+       plan's four tables, where the factory's records are; passed in whole. */
+    if (opts && opts.production) levers.push(opts.production);
     balances(ctx, levers);
     levers.forEach(function (lv) {
       lv.health = lv.status === "preview" ? null : health(ctx, lv);
@@ -658,6 +661,7 @@
   function health(c, lv) {
     const t = lv.tiles;
     const ratio = function (n, d, what) { return d > 0 ? { value: Math.max(0, Math.min(1, n / d)), what: what } : null; };
+    if (lv.healthOf !== undefined) return lv.healthOf;                 // a lever built elsewhere brings its own
     if (lv.id === "deliveries") {
       /* On time and in full, against every stop that was due: "did I fulfil
          what I committed, on time?" (owner, 22 Sep 2026). Late and short fail
@@ -758,7 +762,7 @@
   function goodLine(x) {
     const g = x.tiles.good;
     return { deliveries: g.value + " delivered today", collections: g.value + " collected this week", purchase: g.value + " fast movers covered",
-             inventory: g.value + " fast movers healthy", order: g.value + " orders in 30 days" }[x.id];
+             inventory: g.value + " fast movers healthy", order: g.value + " orders in 30 days", production: x.headline.value }[x.id];
   }
 
   /* ═════ BALANCE — where one lever hurts another (spec §5) ═══════════ */

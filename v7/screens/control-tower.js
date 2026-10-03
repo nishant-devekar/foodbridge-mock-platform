@@ -48,6 +48,8 @@
     phone: sv('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>'),
     spark: sv('<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
     bang: sv('<path d="M12 7v6M12 17h.01"/>'),
+    /* Production: a factory, its sawtooth roof and chimney. */
+    factory: sv('<path d="M3 21V10l5 3V10l5 3V10l5 3V4h3v17z"/><path d="M3 21h18M7 17h2M12 17h2M17 17h1"/>'),
     /* Says a tab opens a menu, not a page; turns over while it is open. */
   };
   const CREATE = [
@@ -57,7 +59,7 @@
     { id: "count", label: "Stock count", icon: I.box },
     { id: "order", label: "New order", icon: I.cart },
   ];
-  const ICON_OF = { deliveries: I.truck, collections: I.rupee, purchase: I.clip, inventory: I.box, order: I.cart };
+  const ICON_OF = { deliveries: I.truck, collections: I.rupee, purchase: I.clip, inventory: I.box, order: I.cart, production: I.factory };
   const COLOUR = { green: "Green", yellow: "Yellow", orange: "Orange", red: "Red", fire: "Fire" };
   const WORD = { ugly: "Urgent", bad: "Needs work", good: "On track", preview: "Not connected" };
 
@@ -198,8 +200,25 @@
   }
   function compute() {
     view = tower.pass();
-    model = L.build(view, { demand: window.CTSignals._detectors.demand(view.state) });
+    model = L.build(view, { demand: window.CTSignals._detectors.demand(view.state), production: productionLever() });
     if (ui.ready) trackStatus();
+  }
+  /* Production (owner, 3 Oct 2026): the plan's four tables, read from the
+     factory's one record — the same tables the Production board draws — and
+     every production incident (the floor's alerts) filed under the tab that
+     makes its batch. No record, no lever. */
+  function productionLever() {
+    const P = window.FB_PRODUCTION, T = window.FBPlanTables, C = window.CTProduction;
+    if (!P || !P.read || !T || !C) return null;
+    try {
+      const alerts = P.read(function (D) {
+        return D.alerts().map(function (a) {
+          const b = a.batch ? D.batch(a.batch) : null, bk = b && b.recipeId ? D.book(b.recipeId) : null;
+          return Object.assign({ tab: bk && bk.kind === "semi" ? "sf" : "fg", batchNo: b ? b.batchNumber : null }, a);
+        });
+      });
+      return C.lever(T.build(P), alerts, Date.now());
+    } catch (e) { if (window.console) console.warn("Control Tower: production", e); return null; }
   }
 
   /* ── Where each lever stands, over time: the Timeline's "… is on track now".
@@ -236,7 +255,7 @@
       const i = h.indexOf("?");
       if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); chat = chat || hq.get("chat"); }
     } catch (e) { /* not ours to read */ }
-    return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order"].indexOf(lv) !== -1 ? lv : null, item: item,
+    return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order", "production"].indexOf(lv) !== -1 ? lv : null, item: item,
              /* `chat=1`: the Assistant action on a work screen comes back to
                 the tower with the chat open, where it left off. */
              chat: chat === "1", updates: vw === "updates" && !lv };
@@ -386,6 +405,10 @@
   }
 
   function leverBody(lv) {
+    if (lv.id === "production") {
+      const pt = prodTab(lv);
+      return head(lv) + prodTabs(lv, pt.id) + '<h3 class="ct-ltitle">' + esc(pt.label) + "</h3>" + prodList(pt.rows, "lv");
+    }
     const sel = selectedTile(lv);
     let rows = lv.tiles[sel].rows;
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
@@ -512,15 +535,18 @@
      The same head, tiles and rows as the phone, so a figure never differs;
      the list is whole (no "Show all" sheet with the room to show it). ── */
   function deskLever(lv) {
+    if (lv.id === "production") {
+      const pt = prodTab(lv);
+      return deskLeverHead(lv) + '<div class="ct-dlv"><aside class="ct-dlv-side">' + head(lv) + prodTabs(lv, pt.id) + "</aside>" +
+        '<section class="ct-dlv-list" aria-label="' + esc(pt.label) + '"><header class="ct-dlv-h"><h3>' + esc(pt.label) + "</h3><span>" + pt.rows.length + "</span></header>" +
+        prodList(pt.rows, "lv") + "</section></div>";
+    }
     const sel = selectedTile(lv);
     let rows = lv.tiles[sel].rows;
     if (lv.id === "collections" && ui.colour) rows = rows.filter(function (r) { return r.colour === ui.colour; });
     ui.sel = sel;
     const title = LIST_TITLE[lv.id] ? LIST_TITLE[lv.id][sel] : lv.tiles[sel].word;
-    /* The way back to the board, the area's name and where it stands. */
-    return deskHead('<h2 class="ct-dhead-t"><button type="button" class="ct-dback" data-home aria-label="Back to all areas" title="All areas">' + I.arrowL + "</button>" +
-        '<span class="ct-pn-i">' + (ICON_OF[lv.id] || "") + "</span>" + esc(leverName(lv.id)) +
-        '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></h2>", "tower") +
+    return deskLeverHead(lv) +
       '<div class="ct-dlv">' +
       '<aside class="ct-dlv-side">' + head(lv) + tiles(lv, sel) +
         (lv.id === "collections" && lv.colours && sel !== "good" ? colourBar(lv) : "") +
@@ -528,6 +554,49 @@
       '<section class="ct-dlv-list" aria-label="' + esc(title) + '">' +
         '<header class="ct-dlv-h"><h3>' + esc(title) + "</h3><span>" + rows.length + "</span></header>" +
         list(rows, lv, sel, true) + "</section></div>";
+  }
+  /* The way back to the board, the area's name and where it stands. */
+  function deskLeverHead(lv) {
+    return deskHead('<h2 class="ct-dhead-t"><button type="button" class="ct-dback" data-home aria-label="Back to all areas" title="All areas">' + I.arrowL + "</button>" +
+        '<span class="ct-pn-i">' + (ICON_OF[lv.id] || "") + "</span>" + esc(leverName(lv.id)) +
+        '<span class="ct-lvword" data-s="' + lv.status + '"><i class="ct-dot" data-s="' + lv.status + '"></i>' + WORD[lv.status] + "</span></h2>", "tower");
+  }
+
+  /* ── Production's four tabs (owner, 3 Oct 2026): Orders · Finished Goods ·
+     Semi Finished Goods · Purchase — the board's own tabs, and only those.
+     Each counts what needs the owner; its list is that tab's lines and
+     incidents. A row asks, in place, before it leaves: "Open Finished
+     Goods on the Production board?" Not now, or Open — and Open simply
+     goes there, on that tab. No sheet, nothing animated. ── */
+  const PROD_SHORT = { or: "Orders", fg: "Finished", sf: "Semi", pu: "Purchase" };
+  function prodTab(lv) {
+    const pick = ui.tile.production, by = function (id) { return lv.tabs.filter(function (t) { return t.id === id; })[0]; };
+    return (pick && by(pick)) || lv.tabs.filter(function (t) { return t.tone === "ugly"; })[0] || lv.tabs.filter(function (t) { return t.tone === "bad"; })[0] || lv.tabs[0];
+  }
+  function prodTabs(lv, sel) {
+    return '<div class="ct-tiles ct-ptabs" role="tablist" aria-label="Production plan">' + lv.tabs.map(function (t) {
+      return '<button class="ct-tile" role="tab" data-k="' + t.tone + '" data-ptab="' + t.id + '" aria-selected="' + (t.id === sel) + '">' +
+        '<span class="ct-tile-l">' + esc(t.label) + "</span>" +
+        '<span class="ct-tile-v' + (t.count ? "" : " is-zero") + '">' + t.count + "</span>" +
+        '<span class="ct-tile-w">' + esc(t.count ? t.word : "on track") + "</span></button>";
+    }).join("") + "</div>";
+  }
+  function prodList(rows, where, max) {
+    if (!rows.length) return '<p class="ct-empty">Nothing here.</p>';
+    return '<div class="ct-list ct-plist">' + rows.slice(0, max || rows.length).map(function (r) {
+      const key = where + "|" + r.id, asking = ui.prodAsk === key, good = r.tone === "good";
+      const sub = good ? r.note : r.note + (r.next ? " · " + r.next : "");
+      return '<div class="ct-prow' + (asking ? " is-asking" : "") + '">' +
+        '<button class="ct-row" data-pask="' + esc(key) + '" aria-expanded="' + asking + '">' +
+          (good ? '<i class="ct-ok" role="img" aria-label="On track">' + I.check + "</i>" : '<i class="ct-pdot" data-t="' + r.tone + '" role="img" aria-label="' + WORD[r.tone] + '"></i>') +
+          '<span class="ct-row-t"><span class="ct-row-n">' + esc(r.title) + "</span>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span>" +
+          '<span class="ct-go">' + I.chev + "</span></button>" +
+        (asking ? '<div class="ct-pask" role="group" aria-label="Open ' + esc(r.tabLabel) + '">' +
+          "<p>Open <b>" + esc(r.tabLabel) + "</b> on the Production board?</p>" +
+          '<button type="button" class="ct-btn is-ghost" data-pask-no>Not now</button>' +
+          '<button type="button" class="ct-btn" data-pask-go="' + r.tab + '">Open</button></div>' : "") +
+        "</div>";
+    }).join("") + "</div>";
   }
 
   /* ── The desk's header: every desk page opens on one row — what the page
@@ -574,6 +643,7 @@
         '<p class="ct-pn-v">' + esc(x.preview.promise) + '</p><p class="ct-pn-c">' + esc(x.preview.sub) + "</p>" +
         '<button class="ct-pn-foot" data-goto="' + x.id + '">' + esc(x.preview.connect.label) + I.chev + "</button></article>";
     }
+    if (x.id === "production") return prodPanel(x, top);
     const h = x.headline, t = x.tiles;
     const sel = selectedTile(x);
     const rows = t[sel].rows || [];
@@ -597,6 +667,20 @@
       '<button class="ct-pn-foot" data-ptile="' + x.id + ":" + sel + '">' + (rows.length > BOARD_ROWS ? "See all " + rows.length : "Open " + esc(name)) + I.chev + "</button></article>";
   }
 
+  /* Production's panel: the headline, its four tabs as the strip, the
+     chosen tab's first rows — each asking before it goes to the board. */
+  function prodPanel(x, top) {
+    const pt = prodTab(x), h = x.headline;
+    return '<article class="ct-pn" data-s="' + x.status + '" data-pn="production">' + top +
+      '<div class="ct-pn-head"><p class="ct-pn-v' + (x.status === "good" ? " is-good" : "") + '">' + esc(h.value) + '</p><p class="ct-pn-c">' + esc(h.context) + "</p></div>" +
+      '<div class="ct-pn-k is-four">' + x.tabs.map(function (t) {
+        return '<button class="ct-pn-kt" data-k="' + t.tone + '" data-ptab="' + t.id + '"' + (t.id === pt.id ? ' aria-current="true"' : "") +
+          ' title="' + esc(t.label + ": " + t.count + " " + t.word) + '"><b>' + t.count + "</b><span>" + esc(PROD_SHORT[t.id]) + "</span></button>";
+      }).join("") + "</div>" +
+      '<h4 class="ct-pn-lt">' + esc(pt.label) + "</h4>" + prodList(pt.rows, "pn", BOARD_ROWS).replace('class="ct-list ct-plist"', 'class="ct-list ct-plist ct-pn-list"') +
+      '<button class="ct-pn-foot" data-ptile="production:' + pt.id + '">' + (pt.rows.length > BOARD_ROWS ? "See all " + pt.rows.length : "Open Production") + I.chev + "</button></article>";
+  }
+
   /* ════════════════════════════════════════════════════════════════════
      OVERVIEW — home: the whole business through its five levers.
      ════════════════════════════════════════════════════════════════════ */
@@ -604,7 +688,7 @@
      lever, two to a row (owner, 23 Sep 2026: replaces the dials). The tint
      and the line under the name say how it is; the figures are the
      lever's own, so a card never disagrees with the page it opens. */
-  const HOME_ORDER = ["deliveries", "collections", "inventory", "order", "purchase"];
+  const HOME_ORDER = ["deliveries", "collections", "inventory", "order", "production", "purchase"];
   const HOME_NAME = { order: "Orders" };
   /* By the owner's clock: night 9 pm–5 am. */
   function greeting() {
@@ -737,7 +821,7 @@
      Assistant and EXIT DEMO live in More and open exactly what they opened
      from the old bar. */
   const PINS = ["deliveries", "collections"];              // goods out, money in: what a distributor runs every day
-  const LEVER_IDS = ["deliveries", "collections", "purchase", "inventory", "order"];
+  const LEVER_IDS = ["deliveries", "collections", "purchase", "inventory", "order", "production"];
   const SHORT_NAME = { order: "Orders" };
   const RANK = { ugly: 0, bad: 1, good: 2, preview: 3 };
   function leverName(id) { const x = model && lever(id); return SHORT_NAME[id] || (x ? x.label : id); }
@@ -862,6 +946,16 @@
        panel's foot opens the lever on that list. */
     if (d.dnav) { if (d.dnav === "assistant") return openAssistant(); return d.dnav === "updates" ? goUpdates() : goTower(); }
     if (d.hrow) { const p = d.hrow.split(":"); ui.itemLever = p[0]; return openItem((ui.board[p[0]] || [])[+p[1]]); }
+    /* Production: a tab shows its list here; a row asks, in place, before it
+       goes to that tab on the Production board. */
+    if (d.ptab) { ui.tile.production = d.ptab; ui.prodAsk = null; draw(); return; }
+    if ("paskNo" in d) { ui.prodAsk = null; draw(); return; }
+    if (d.paskGo) { ui.prodAsk = null; draw(); go("#/production/production-board?tab=" + d.paskGo); return; }
+    if (d.pask) {
+      ui.prodAsk = ui.prodAsk === d.pask ? null : d.pask; draw();
+      const y = $(".ct-pask [data-pask-go]"); if (y) y.focus({ preventScroll: true });
+      return;
+    }
     if (d.ptile) { const p = d.ptile.split(":"); return openLever(p[0], p[1]); }
     ui.itemLever = null;
     if (d.row !== undefined) return openItem(ui.rows[+d.row]);
@@ -877,7 +971,7 @@
   function setTab(id) {
     if (id === ui.tab) return;
     if (ui.tab === "overview") ui.overY = window.scrollY;             // where the owner was among the cards
-    delete ui.tile[id];
+    delete ui.tile[id]; ui.prodAsk = null;
     ui.tab = id; ui.colour = null;
     draw(); window.scrollTo(0, 0);
   }
@@ -899,6 +993,7 @@
     });
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
+      if (ui.prodAsk && !isOpen()) { ui.prodAsk = null; draw(); return; }
       if (isOpen()) back(); else if (ui.page === "tower") goHome();
     });
     window.addEventListener("resize", function () { applyFrame(); });
