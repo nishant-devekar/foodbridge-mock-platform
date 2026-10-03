@@ -58,7 +58,7 @@
 
   var STORE_KEY = "fb.v7.production";
   var LOG_KEY = "fb.v7.production.log";
-  var VERSION = 10;
+  var VERSION = 11;
   var MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
   /* ── The business: Vasu Foods, Samana ───────────────────────────────────
@@ -728,6 +728,84 @@
       if (!s.retired && D.packs(s.recipeId).length === 1) throw invalid("A product needs one pack on sale");
       s.retired = true; rebalance(s.recipeId, null); s.split = 0;
       D.emit("production.pack.retired", { where: "Recipes", how: "office", by: (o && o.actor) || "admin", data: { pack: s.name } });
+      return s;
+    };
+    /* the plan's other standing figures, set from the Production Plan (owner, 3 Oct 2026):
+       a cut's MSQ (kg in the freezer), a material's MSQ (its threshold), a material's
+       wastage in the cuts made from it, and a cut's share of a finished product */
+    var planNum = function (v, max) { v = Number(v); if (!isFinite(v) || v < 0 || (max != null && v > max)) throw invalid("Enter a number from 0" + (max != null ? " to " + max : "")); return v; };
+    var planSaid = function (what, o, data) { D.emit("production.plan." + what, { where: (o && o.where) || "Production Plan", how: "office", by: (o && o.actor) || "admin", data: data }); };
+    D.setRecipeMsq = function (id, qty, o) {
+      var bk = D.book(id);
+      if (!bk) throw new ApiError(404, "No such product");
+      bk.msq = Math.round(planNum(qty));
+      planSaid("msq", o, { product: bk.name, msq: bk.msq });
+      return bk;
+    };
+    D.setMaterialMsq = function (id, qty, o) {
+      var m = D.material(id);
+      if (!m) throw new ApiError(404, "No such material");
+      m.threshold = r2(planNum(qty));
+      planSaid("msq", o, { material: m.name, msq: m.threshold });
+      return m;
+    };
+    /* wastage: every cut made from the material takes (100 + wastage) per 100 kg it makes */
+    D.setWastage = function (id, pct, o) {
+      var m = D.material(id), w = planNum(pct, 95), hit = 0;
+      if (!m) throw new ApiError(404, "No such material");
+      db.semiOrder.forEach(function (sid) {
+        D.book(sid).ingredients.forEach(function (i) {
+          if (i.rmId !== id) return;
+          var old = i.wastage || 0;
+          i.qty = r2(i.qty * (100 + w) / (100 + old)); i.wastage = w; i.yield = r1(100 / (100 + w) * 100); hit++;
+        });
+      });
+      if (!hit) throw invalid("No cut is made from " + m.name);
+      planSaid("wastage", o, { material: m.name, wastage: w });
+      return m;
+    };
+    /* the master carton's size (owner, 3 Oct 2026: the plan's "No. of Packs per 30kg"):
+       every pack that goes in a master carton holds as many whole packs as fit; a pack
+       that is its own outer (the chaap's 20 kg bag) stays one. Planned batches keep theirs. */
+    D.cartonKg = function () { return (db.business && db.business.cartonKg) || 30; };
+    D.setCartonKg = function (kg, o) {
+      var v = planNum(kg, 100);
+      if (!(v > 0)) throw invalid("A master carton holds more than 0 kg");
+      var tooBig = db.skus.filter(function (k) { return !k.retired && (k.cartoned != null ? k.cartoned : k.perCarton > 1) && k.grams > v * 1000; })[0];
+      if (tooBig) throw invalid(tooBig.name + " doesn't fit in a " + v + " kg carton");
+      db.business = db.business || {};
+      db.business.cartonKg = v;
+      db.skus.forEach(function (k) {
+        if (k.cartoned == null) k.cartoned = k.perCarton > 1;
+        if (k.cartoned) k.perCarton = Math.max(1, Math.floor(v * 1000 / k.grams + 1e-9));
+      });
+      var box = D.material("rm-k11");
+      if (box) box.name = box.name.replace(/\([\d.]+ kg\)/, "(" + v + " kg)");
+      planSaid("carton", o, { kg: v });
+      return v;
+    };
+    /* a cut's share of a finished product: the other cuts take the rest, in the same proportion as before */
+    D.setRecipeShare = function (recipeId, sfId, pct, o) {
+      var bk = D.book(recipeId), p = planNum(pct, 100);
+      if (!bk) throw new ApiError(404, "No such product");
+      var comps = bk.ingredients.filter(function (i) { return i.sfId; }), me = comps.filter(function (i) { return i.sfId === sfId; })[0];
+      if (!me) throw invalid(bk.name + " has no " + ((D.book(sfId) || {}).name || "such cut"));
+      var tot = comps.reduce(function (t, i) { return t + i.qty; }, 0), rest = tot - me.qty;
+      if (comps.length === 1) { if (p !== 100) throw invalid("It is the only cut in " + bk.name); return bk; }
+      if (p >= 100) throw invalid("Leave some of " + bk.name + " for the other cuts");
+      if (!(rest > 0)) throw invalid("The other cuts have no share to give");
+      var mine = tot * p / 100;
+      comps.forEach(function (i) { i.qty = i === me ? r2(mine) : r2(i.qty * (tot - mine) / rest); });
+      planSaid("share", o, { product: bk.name, cut: D.book(sfId).name, pct: p });
+      return bk;
+    };
+    /* a pack's minimum stock (MSQ), set from the Production Plan (owner, 3 Oct 2026): the plan approves Ordered − InStock + MSQ */
+    D.setPackMsq = function (id, qty, o) {
+      var s = D.sku(id), v = Number(qty);
+      if (!s) throw new ApiError(404, "No such pack");
+      if (!isFinite(v) || v < 0) throw invalid("MSQ is a number, 0 or more");
+      s.msq = Math.round(v);
+      D.emit("production.pack.msq", { where: (o && o.where) || "Production Plan", how: "office", by: (o && o.actor) || "admin", data: { pack: s.name, msq: s.msq } });
       return s;
     };
     /* Batch Management's shapes, made from the packs whenever it loads */
@@ -1459,8 +1537,9 @@
        A step is recorded once — by the phone, or by the office on the
        batch's Steps tab with the same fields. Either way it runs the same
        step completion, so the same stock moves (29 Sep 2026). */
-    D.settings = function () { db.settings = db.settings || { recording: "app" }; return db.settings; };
-    D.recordingOf = function (b) { return (b && b.recording) || D.settings().recording || "app"; };
+    /* the office records by default (owner, 3 Oct 2026); a batch can still go to the Worker App */
+    D.settings = function () { db.settings = db.settings || { recording: "office" }; return db.settings; };
+    D.recordingOf = function (b) { return (b && b.recording) || D.settings().recording || "office"; };
     D.setRecording = function (batchId, mode, actor) {
       var b = D.batch(batchId);
       if (!b) throw invalid("Unknown batch");
@@ -2682,6 +2761,19 @@
         packs: D.packs(x[2]).map(function (sk) { return { skuId: sk.id, qty: Math.floor(x[3] * 0.97 * sk.split / 100 / kgOf(sk) / sk.perCarton) * sk.perCarton }; }).filter(function (p) { return p.qty > 0; }) }).batch;
       D.schedule(b.id, nextDay(x[0]), x[1], "Admin");
     });
+    /* where today's buying for the plan stands (3 Oct 2026, owner: mock the plan's
+       Requested / On the way / To order end to end). Kaur's truck of cauliflower and
+       broccoli was approved last night and is due this afternoon; Garg's beans wait
+       for approval since this morning. Neither has reached the gate, so the store is
+       still the sheet's; the gate (or Received at gate on the plan) books them in. */
+    clk.t = at(today, -1, 19).getTime();
+    var kaurTruck = D.raisePO({ supplierId: "sup-kaur", lines: [{ materialId: "rm-p03", qty: 15000 }, { materialId: "rm-p10", qty: 8000 }], at: clock().toISOString(),
+      expectedAt: at(today, 0, 16).toISOString(), status: "Pending Approval", by: "Rohit Sachdeva", via: "phone", where: "Production Plan", comments: "For today's Production and Purchase Plan" });
+    clk.t = at(today, -1, 19, 40).getTime();
+    D.setPOStatus(kaurTruck.id, "InProgress", "Chanchal Sachdeva");
+    clk.t = Math.min(at(today, 0, 9).getTime(), t - 20 * MIN);
+    D.raisePO({ supplierId: "sup-garg", lines: [{ materialId: "rm-p04", qty: 10000 }], at: clock().toISOString(), expectedAt: at(today, 1, 6).toISOString(),
+      status: "Pending Approval", by: "Rohit Sachdeva", via: "office", where: "Production Plan", comments: "Small beans only" });
     D.createProductionOrder({ recipeId: "mix-veg", batchSize: 15000, plannedDate: nextDay(3), expectedFinishDate: nextDay(3), where: "Sales Orders", actor: "Mahesh" });
     D.createProductionOrder({ recipeId: "green-peas", batchSize: 25000, plannedDate: nextDay(4), expectedFinishDate: nextDay(4), where: "Sales Orders", actor: "Mahesh" });
     var shop = db.dispatches.filter(function (x) { return x.customerId === "cus-aggarwal" && x.status === "Delivered" && x.deliveredAt < at(today, -6, 0).toISOString(); }).pop();
@@ -2696,7 +2788,21 @@
     var garg = D.account("cus-garg-ca");
     if (garg.outstanding > 0) { clk.t = t - 100 * MIN; D.receipt({ customerId: "cus-garg-ca", amount: Math.round(Math.min(garg.outstanding, 250000)), mode: "Cheque", ref: "CHQ 104518 · PNB Samana", by: "Neha Arora" }); }
     clk.t = t;
+    officeByDefault(db);
     return db;
+  }
+  /* The office records by default (owner, 3 Oct 2026). The replay above runs on the
+     phones, as the floor did; once it is done, every batch the floor has worked on
+     (started, or with steps on a shift) keeps the Worker App, and the rest — and every
+     new batch — is recorded in the office. Also run once on a store seeded before. */
+  function officeByDefault(db) {
+    (db.batches || []).forEach(function (b) {
+      if (b.recording) return;
+      if (b.stateId !== "planned" || (db.tasks || []).some(function (t) { return t.batch === b.id; })) b.recording = "app";
+    });
+    db.settings = db.settings || {};
+    db.settings.recording = "office";
+    db.settings.officeDefault = true;
   }
 
   /* ── The JobFlow API over the store (the two floor apps) ─────────────── */
@@ -2711,6 +2817,9 @@
       if (!stored || stored.version !== VERSION || stored.seededOn !== dayKey(now())) {
         if (opts.onReseed) opts.onReseed();
         stored = seed(now(), log);
+        save(stored);
+      } else if (!(stored.settings && stored.settings.officeDefault)) {
+        officeByDefault(stored);
         save(stored);
       }
       db = stored; D = Domain(db, now, log);

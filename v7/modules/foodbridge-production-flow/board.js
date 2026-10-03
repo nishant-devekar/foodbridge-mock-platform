@@ -27,7 +27,7 @@
   /* the board's views (owner, 29 Sep 2026): Demand & supply opens the board; All shifts is the Week;
      Needs you the alerts. Today was retired — an old ?view=today opens Demand & supply. */
   var VIEWS = ["flow", "week", "needs"];
-  var S = { lens: "flow", plan: "fg", puSel: {}, pr: null, prRow: null, prAsk: null, prDone: null, prErr: "", open: {}, from: null, panel: null, form: {}, ask: null, rm: null, add: null, err: "" };
+  var S = { lens: "flow", plan: "fg", puSel: {}, pr: null, prErr: "", pbSel: {}, pb: null, edit: null, open: {}, from: null, panel: null, form: {}, ask: null, rm: null, add: null, err: "" };
   /* All shifts is the next 7 days from today (owner, 29 Sep 2026: no week to page through) */
   S.from = isoDay(Date.now());
   /* #/production/production-board?view=week opens the Week (Batch detail's "Week ›") */
@@ -471,9 +471,6 @@
      day, on this device. A confirmed line keeps its deviation.            */
   var PLAN_TABS = [["or", "Orders"], ["fg", "Finished Goods"], ["sf", "Semi Finished Goods"], ["pu", "Purchase"]];
   try { S.plan = sessionStorage.getItem("fb.v7.flow.plantab") || "or"; } catch (e) { S.plan = "or"; }
-  /* the sheet's colours: a product's packs and its total; each vegetable down Semi Finished and Purchase */
-  var TINT = { "mix-veg": "peach", "green-peas": "green", "sf-cauliflower": "cyan", "sf-broccoli": "pink", "sf-carrots": "lime", "sf-beans": "violet", "sf-peas": "orange",
-    "rm-p03": "cyan", "rm-p10": "pink", "rm-p02": "lime", "rm-p04": "violet", "rm-p01": "orange" };
   function planKey() { return "fb.v7.plan." + isoDay(Date.now()); }
   function planMarks() { try { return JSON.parse(localStorage.getItem(planKey()) || "null") || { dev: {}, ok: {} }; } catch (e) { return { dev: {}, ok: {} }; } }
   function savePlanMarks(m) { try { localStorage.setItem(planKey(), JSON.stringify(m)); } catch (e) { /* this visit only */ } }
@@ -485,26 +482,55 @@
   function packLabel(s) { return s.perCarton > 1 ? s.name + " / " + n(s.perCarton * s.grams / 1000) + " kg pack" : s.name; }
   function planModel() {
     var mk = planMarks();
-    var dev = function (k) { return Number(mk.dev[k]) || 0; };
-    var resolve = function () { return null; };
+    /* a line's need, the sheet's: Ordered − InStock + MSQ. It drives the chain (Finished →
+       Semi Finished → Purchase). On Purchase it is the Approved Purchase; MSQ Deviation is
+       where stock ends up against MSQ once the approved quantity is in: InStock + Approved −
+       Ordered − MSQ */
     var line = function (key, msq, ordered, stock) {
-      var d = dev(key);
-      return { key: key, msq: msq, ordered: ordered, stock: stock, short: stock - ordered, approved: Math.max(0, ordered - stock + msq + d), dev: d, ok: resolve(mk.ok[key]) };
+      var need = Math.max(0, ordered - stock + msq);
+      return { key: key, msq: msq, ordered: ordered, stock: stock, short: stock - ordered, need: need, approved: need, dev: stock + need - ordered - msq };
     };
     return FB_PRODUCTION.read(function (D, d) {
-      /* a line is confirmed by the batch or purchase order it created — read back
-         from the store, so one withdrawn or cancelled elsewhere frees the line */
-      resolve = function (m) {
-        if (!m || !m.kind) return null;
-        if (m.kind === "batch") {
-          var b = D.batch(m.id);
-          if (!b || b.stateId === "rejected") return null;
-          var untouched = b.stateId === "planned" && !d.tasks.some(function (t) { return t.batch === b.id; }) && !(b.ingredientSummary || []).some(function (r) { return r.issuedQty > 0; });
-          return Object.assign({}, m, { state: b.when ? b.statusLabel + " · " + D.slotName(b.when.slot) + " shift, " + new Date(b.when.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : b.statusLabel + " · not on a shift yet", undoable: untouched });
+      /* what the batches already made from the plan still have to make (owner, 3 Oct 2026:
+         "approved for production is how many in batches, to produce how much is not
+         allotted to batches"). Batch Management's states: Waiting to Start (planned) and
+         In Progress (started, or on hold). What a batch has packed (packs) or bagged (a
+         cut's kg) is in stock already, so only the rest counts; a completed batch is in
+         InStock and counts no more. */
+      var allot = {};
+      var whenOf = function (b) { return b.when ? D.slotName(b.when.slot) + " shift, " + new Date(b.when.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "not on a shift yet"; };
+      var put = function (key, b, qty) {
+        if (!(qty > 0.5)) return;
+        var a = allot[key] = allot[key] || { wait: 0, run: 0, list: [] }, waiting = b.stateId === "planned";
+        if (waiting) a.wait += qty; else a.run += qty;
+        a.list.push({ id: b.id, no: b.batchNumber, waiting: waiting, state: waiting ? "waiting to start" : b.stateId === "on-hold" ? "on hold" : "in progress", qty: qty, when: whenOf(b) });
+      };
+      d.batches.filter(function (b) { return ["planned", "in-progress", "on-hold"].indexOf(b.stateId) !== -1; }).forEach(function (b) {
+        if (b.kind === "packing") { put("fg:" + b.skuId, b, (b.packets || 0) - (b.packedPackets || 0)); return; }
+        if (b.kind !== "production") return;
+        var bk0 = D.book(b.recipeId);
+        if (bk0 && bk0.kind === "semi") {
+          var bagged = d.bags.filter(function (g) { return g.batchId === b.id; }).reduce(function (t, g) { return t + g.kg; }, 0);
+          put("sf:" + b.recipeId, b, b.batchSize - bagged);
+          return;
         }
-        var po = D.po(m.id);
-        if (!po || ["Cancelled", "Rejected", "Not accepted"].indexOf(po.status) !== -1) return null;
-        return Object.assign({}, m, { state: po.status === "InProgress" ? "Sent to the supplier" : po.status, undoable: !po.receipts.length });
+        (b.packagingLines || []).forEach(function (l) {
+          var got = (b.packedLines || []).filter(function (x) { return x.skuId === l.packagingConfigId; })[0];
+          put("fg:" + l.packagingConfigId, b, (l.plannedUnits || 0) - (got ? got.packets : 0));
+        });
+      });
+      /* Finished and Semi Finished (owner, 3 Oct 2026: "approved for production is how many
+         in batches; to produce, how much is not allotted to batches"): Approved Production
+         is what is in open batches — approving for production is making the batch — and To
+         produce is the need no batch covers yet */
+      var allotted = function (l) {
+        var a = allot[l.key] || { wait: 0, run: 0, list: [] };
+        l.wait = Math.round(a.wait); l.run = Math.round(a.run); l.batches = a.list;
+        l.approved = l.wait + l.run;
+        l.toProduce = Math.max(0, Math.round(l.need) - l.approved);
+        /* against the need as To produce counts it (whole units), plus any stock already above MSQ */
+        l.dev = l.approved - Math.round(l.need) + (l.stock - l.ordered - l.msq + l.need);
+        return l;
       };
       var plan = D.plan();
       var rowOf = {};
@@ -520,41 +546,42 @@
           var r = rowOf[s.id] || { open: 0, free: 0 };
           var l = line("fg:" + s.id, s.msq || 0, r.open, r.free);
           l.name = packLabel(s); l.kg = s.grams / 1000; l.skuId = s.id;
-          return l;
+          return allotted(l);
         });
         var sum = function (k) { return fRows.reduce(function (t, x) { return t + x[k]; }, 0); };
         fg.push({ recipeId: rid, name: bk.name, version: bk.label, packs: fRows,
-          approvedKg: fRows.reduce(function (t, x) { return t + x.approved * x.kg; }, 0),
-          total: { msq: sum("msq"), ordered: sum("ordered"), stock: sum("stock"), short: sum("short"), approved: sum("approved") } });
+          needKg: fRows.reduce(function (t, x) { return t + x.need * x.kg; }, 0),
+          total: { msq: sum("msq"), ordered: sum("ordered"), stock: sum("stock"), short: sum("short"), approved: sum("approved"), wait: sum("wait"), run: sum("run"), toProduce: sum("toProduce"), dev: sum("dev") } });
       });
       /* Semi Finished: each product's Approved (kg) × the good's share of its recipe */
       var need = {}, shares = {};
       fg.forEach(function (g) {
         var bk = D.book(g.recipeId), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
         comps.forEach(function (i) {
-          need[i.sfId] = (need[i.sfId] || 0) + g.approvedKg * i.qty / tot;
-          (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name });
+          need[i.sfId] = (need[i.sfId] || 0) + g.needKg * i.qty / tot;
+          (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name, rid: g.recipeId, single: comps.length === 1 });
         });
       });
       var semi = (d.semiOrder || []).map(function (sid) {
         var bk = D.book(sid);
         var l = line("sf:" + sid, bk.msq || 0, need[sid] || 0, D.inFreezer(sid));
         l.id = sid; l.name = bk.name; l.cut = bk.label; l.shares = shares[sid] || [];
-        return l;
+        return allotted(l);
       });
       /* Purchase: the raw material each semi-finished good is cut from, by its wastage */
       var buy = {}, order = [];
-      var add = function (rmId, qty, waste) {
+      var add = function (rmId, qty, waste, cut) {
         if (!buy[rmId]) { buy[rmId] = { qty: 0, waste: waste }; order.push(rmId); }
         buy[rmId].qty += qty;
+        if (cut) buy[rmId].cut = true;
       };
       semi.forEach(function (s) {
         var bk = D.book(s.id);
-        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, s.approved * i.qty / bk.base, i.wastage != null ? i.wastage : Math.max(0, 100 - (i.yield || 100))); });
+        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, s.need * i.qty / bk.base, i.wastage != null ? i.wastage : Math.max(0, 100 - (i.yield || 100)), true); });
       });
       fg.forEach(function (g) {
         var bk = D.book(g.recipeId);
-        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, g.approvedKg * i.qty / bk.base, 0); });
+        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, g.needKg * i.qty / bk.base, 0); });
       });
       /* where each material stands with its suppliers (3 Oct 2026, owner: show what is
          staged for a purchase request and what is in flight): Requested is on purchase
@@ -563,7 +590,7 @@
       var purchase = order.map(function (id) {
         var m = D.material(id);
         var l = line("pu:" + id, m.threshold || 0, buy[id].qty, Math.max(0, D.onHand(id) - D.reserved(id)));
-        l.id = id; l.name = m.name; l.unit = m.unit; l.grade = m.grade || "—"; l.waste = buy[id].waste;
+        l.id = id; l.name = m.name; l.unit = m.unit; l.grade = m.grade || "—"; l.waste = buy[id].waste; l.wasteEdit = !!buy[id].cut;
         l.supplierId = m.supplierId; l.price = m.price; l.store = m.store; l.kind = m.kind;
         l.pos = live.map(function (po) {
           var q = D.openOnPO(po, id);
@@ -572,12 +599,19 @@
           return { id: po.id, no: po.number, status: po.status, waiting: po.status === "Pending Approval", qty: q, ordered: ln.qty, received: ln.received, supplier: sup ? sup.name : "",
             expectedAt: po.expectedAt, createdAt: po.createdAt, by: po.by, cancellable: !po.receipts.length };
         }).filter(Boolean);
+        /* the same reading as Approved Production (owner, 3 Oct 2026: "Approved Purchase —
+           sent to the supplier? Requested — internally requested?"): Approved Purchase is
+           what is approved and with the supplier, not at the gate yet; Awaiting approval is
+           raised and waiting for someone to approve it; To order is the need (the sheet's
+           Ordered − InStock + MSQ) that neither covers. Goods in at the gate are InStock. */
         l.requested = l.pos.filter(function (x) { return x.waiting; }).reduce(function (t, x) { return t + x.qty; }, 0);
         l.onWay = l.pos.filter(function (x) { return !x.waiting; }).reduce(function (t, x) { return t + x.qty; }, 0);
-        l.toOrder = Math.max(0, Math.round(l.approved) - l.requested - l.onWay);
+        l.approved = l.onWay;
+        l.toOrder = Math.max(0, Math.round(l.need) - l.requested - l.onWay);
+        l.dev = l.approved - Math.round(l.need) + (l.stock - l.ordered - l.msq + l.need);
         return l;
       });
-      return { orders: orders, fg: fg, semi: semi, purchase: purchase };
+      return { orders: orders, fg: fg, semi: semi, purchase: purchase, cartonKg: D.cartonKg() };
     });
   }
 
@@ -585,78 +619,119 @@
     var tab = PLAN_TABS.some(function (t) { return t[0] === S.plan; }) ? S.plan : "or";
     var q = function (v) { return n(v); };
     var sh = function (v) { return '<td class="num' + (v < -0.5 ? " pp-neg" : "") + '">' + (Math.abs(v) < 0.5 ? "0" : (v < 0 ? "-" : "") + n(Math.abs(v))) + "</td>"; };
-    var tint = function (id) { return TINT[id] ? ' data-tint="' + TINT[id] + '"' : ""; };
-    /* MSQ Deviation and Confirm: the planner's, per line; Confirm creates the record */
-    var marks = function (l) {
-      var ok = l.ok, open = S.pc && S.pc.key === l.key;
-      return '<td class="num pp-dev"><input type="number" step="1" inputmode="decimal" data-dev="' + esc(l.key) + '" value="' + (l.dev ? l.dev : "") + '" placeholder="0" aria-label="MSQ deviation"' + (ok ? " disabled" : "") + "></td>" +
-        '<td class="pp-ok">' + (ok
-          ? '<span class="pp-ref"><a href="#" ' + (ok.kind === "po" ? 'data-go="procurement/purchase-orders"' : 'data-batch="' + esc(ok.id) + '"') + ">✓ " + esc(ok.no) + "</a><small>" + esc(ok.state) + " · " + esc(ok.by) + " " + esc(time(ok.at)) + "</small></span>" +
-            '<button type="button" class="pp-undo" data-pok="' + esc(l.key) + '" aria-expanded="' + !!open + '">Undo</button>'
-          : '<button type="button" class="pp-conf" data-pok="' + esc(l.key) + '" aria-expanded="' + !!open + '"' + (l.approved > 0 ? "" : " disabled") + ">Confirm</button>") + "</td>";
+    /* one colour, one meaning (owner, 3 Oct 2026: the sheet's per-vegetable colours "aren't
+       making sense"): an amber edge on a line that still needs you — to confirm, or to
+       order — and a green edge once it is taken care of; nothing to do, no colour */
+    var st = function (l) {
+      var need = l.toOrder != null ? l.toOrder > 0 : l.toProduce > 0;
+      var done = l.toOrder != null ? !need && (l.requested + l.onWay) > 0 : !need && (l.wait + l.run) > 0;
+      return need ? ' class="pp-row-need"' : done ? ' class="pp-row-done"' : "";
     };
-    /* the panel under a row, when its Confirm or Undo is open */
-    var after = function (key, cols) { return S.pc && S.pc.key === key ? pcPanel(p, cols) : ""; };
+    /* a standing figure (MSQ, wastage, a cut's share) or the approved quantity: a figure with
+       a pencil; the pencil opens it to type, ✓ (or Enter) saves, × (or Esc) leaves it */
+    var ed = function (key, value, shown, label) {
+      var pen = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+      if (S.edit !== key) return '<span class="pp-ed"><span class="pp-msq-v">' + shown + '</span><button type="button" class="pp-pen" data-edit="' + esc(key) + '" aria-label="Edit ' + esc(label) + '" title="Edit">' + pen + "</button></span>";
+      return '<span class="pp-msq-e"><input type="number" min="0" step="any" inputmode="decimal" data-edit-in="' + esc(key) + '" value="' + esc(value) + '" aria-label="' + esc(label) + '">' +
+        '<button type="button" class="pp-msq-ok" data-edit-save aria-label="Save" title="Save">✓</button><button type="button" class="pp-msq-x" data-edit-cancel aria-label="Cancel" title="Cancel">×</button></span>';
+    };
+    var r2 = function (v) { return Math.round(v * 100) / 100; };
+    /* Approved: on Purchase the sheet's; on Finished and Semi Finished what is in batches —
+       its states under it (Batch Management's), the batches on hover, a click opens Batches */
+    var apprCell = function (l, u) {
+      if (l.batches == null) return '<td class="num pp-big"><b>' + q(l.approved) + (u || "") + "</b></td>";
+      if (!(l.approved > 0)) return '<td class="num pp-big pp-muted">0</td>';
+      var tip = l.batches.map(function (x) { return x.no + " · " + q(x.qty) + " · " + x.state + " · " + x.when; }).join("\n");
+      return '<td class="num pp-big"><a href="#" class="pp-blink pp-appr" ' + (l.batches.length === 1 ? 'data-batch="' + esc(l.batches[0].id) + '"' : 'data-go="production/batch-management"') + ' title="' + esc(tip) + '"><b>' + q(l.approved) + "</b>" +
+        '<small>' + [l.wait ? '<span class="pp-st-wait">' + q(l.wait) + " waiting</span>" : "", l.run ? '<span class="pp-st-run">' + q(l.run) + " in progress</span>" : ""].filter(Boolean).join(" · ") + "</small></a></td>";
+    };
+    var devCell = function (l, u) {
+      var v = (l.dev < 0 ? -1 : 1) * Math.round(Math.abs(l.dev)), tip = "InStock " + q(l.stock) + " + Approved " + q(l.approved) + " − " + (l.toOrder != null ? "Required " : "Ordered ") + q(l.ordered) + " − MSQ " + q(l.msq);
+      return '<td class="num ' + (v > 0 ? "pp-dev-up" : v < 0 ? "pp-neg" : "pp-muted") + '" title="' + esc(tip) + '">' + (v > 0 ? "+" : v < 0 ? "−" : "") + n(Math.abs(v)) + (v && u ? u : "") + "</td>";
+    };
+    var marks = function (l) {
+      return devCell(l) +
+        '<td class="num pp-to">' + (l.toProduce > 0 ? "<b>" + q(l.toProduce) + "</b>"
+          : l.approved > 0 ? '<span class="pp-covered">Approved</span>' : '<span class="pp-muted">—</span>') + "</td>";
+    };
+    var aheads = '<th class="num" title="Approved for production: what is in batches — waiting to start or in progress. What a batch makes moves to InStock.">Approved Production</th>' +
+      '<th class="num" title="Where stock ends up against MSQ once the approved production is made: InStock + Approved − Ordered − MSQ">MSQ Deviation</th>';
+    var bheads = '<th class="num pp-h-to" title="What the plan needs (Ordered − InStock + MSQ) that no batch covers yet">To produce</th>';
     var tabsHtml = '<div class="pp-tabs" role="tablist" aria-label="Today\'s Production and Purchase Plan">' + PLAN_TABS.map(function (t) {
       return '<button type="button" role="tab" class="pp-tab" data-ptab="' + t[0] + '" aria-selected="' + (t[0] === tab) + '">' + t[1] + "</button>";
     }).join("") + "</div>";
     var body;
     if (tab === "or") {
-      body = '<table class="pp pp-or"><thead><tr><th>Item name</th><th class="num">No. of Packs per 30kg</th><th class="num">Qty Ordered (Packs)</th><th class="num">Qty Ordered (Kg)</th></tr></thead><tbody>' +
+      body = '<table class="pp pp-or"><thead><tr><th>Item name</th><th class="num pp-th-ed">No. of Packs per ' + ed("carton:kg", p.cartonKg, n(p.cartonKg, 100) + "kg", "master carton size in kg") + '</th><th class="num">Qty Ordered (Packs)</th><th class="num">Qty Ordered (Kg)</th></tr></thead><tbody>' +
         p.orders.map(function (g) {
           return g.rows.map(function (r) {
-            return "<tr" + tint(g.recipeId) + '><th scope="row">' + esc(r.name) + '</th><td class="num">' + q(r.perCarton) + '</td><td class="num">' + q(r.cartons) + '</td><td class="num">' + q(r.qty) + "</td></tr>";
+            return '<tr><th scope="row">' + esc(r.name) + '</th><td class="num">' + q(r.perCarton) + '</td><td class="num">' + q(r.cartons) + '</td><td class="num">' + q(r.qty) + "</td></tr>";
           }).join("") +
-            '<tr class="pp-total pp-center"' + tint(g.recipeId) + '><th scope="row">' + esc(g.name) + '</th><td class="num">' + q(g.total.perCarton) + '</td><td class="num">' + q(g.total.cartons) + '</td><td class="num">' + q(g.total.qty) + "</td></tr>";
+            '<tr class="pp-total pp-center"><th scope="row">' + esc(g.name) + '</th><td class="num">' + q(g.total.perCarton) + '</td><td class="num">' + q(g.total.cartons) + '</td><td class="num">' + q(g.total.qty) + "</td></tr>";
         }).join("") + "</tbody></table>";
     } else if (tab === "fg") {
-      body = '<table class="pp pp-fg"><thead><tr><th>Product Name</th><th>Recipe Version</th><th class="num">MSQ (Min. Stock Qty in kg)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Production</th><th class="num">MSQ Deviation</th><th>ConfirmBy</th></tr></thead><tbody>' +
+      body = pbBar(p, "fg") + '<table class="pp pp-fg"><thead><tr><th>Product Name</th><th>Recipe Version</th><th class="num">MSQ (Min. Stock Qty in kg)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num" title="InStock − Ordered">Shortfall</th>' + aheads + bheads + '</tr></thead><tbody>' +
         p.fg.map(function (g) {
           return g.packs.map(function (l) {
-            return "<tr" + tint(g.recipeId) + '><th scope="row">' + esc(l.name) + '</th><td></td><td class="num">' + q(l.msq) + '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) +
-              '<td class="num"><b>' + q(l.approved) + "</b></td>" + marks(l) + "</tr>" + after(l.key, 9);
+            return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + '</th><td></td><td class="num pp-msq">' + ed("msq:" + l.skuId, l.msq, q(l.msq), "MSQ of " + l.name) + '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) +
+              apprCell(l) + marks(l) + "</tr>";
           }).join("") +
-            '<tr class="pp-total"' + tint(g.recipeId) + '><th scope="row">' + esc(g.name) + '</th><td class="pp-ver">' + esc(g.version) + '</td><td class="num">' + q(g.total.msq) + '</td><td class="num">' + q(g.total.ordered) + '</td><td class="num">' + q(g.total.stock) + "</td>" + sh(g.total.short) +
-            '<td class="num">' + q(g.total.approved) + '</td><td colspan="2" class="pp-ok pp-all">' + (function () {
-              var left = g.packs.filter(function (l) { return !l.ok && l.approved > 0; }).length, k = "fgall:" + g.recipeId;
-              return left > 1 ? '<button type="button" class="pp-conf" data-pok="' + k + '" aria-expanded="' + !!(S.pc && S.pc.key === k) + '">Confirm all ' + left + "</button>" : left ? "" : '<small class="pp-alldone">All confirmed</small>';
-            })() + "</td></tr>" + after("fgall:" + g.recipeId, 9);
+            '<tr class="pp-total"><th scope="row">' + esc(g.name) + '</th><td class="pp-ver">' + esc(g.version) + '</td><td class="num">' + q(g.total.msq) + '</td><td class="num">' + q(g.total.ordered) + '</td><td class="num">' + q(g.total.stock) + "</td>" + sh(g.total.short) +
+            '<td class="num">' + q(g.total.approved) + '</td><td class="num' + (g.total.dev < -0.5 ? " pp-neg" : g.total.dev > 0.5 ? " pp-dev-up" : "") + '">' + (g.total.dev > 0.5 ? "+" : g.total.dev < -0.5 ? "−" : "") + q(Math.round(Math.abs(g.total.dev))) + '</td><td class="num">' +
+              (g.total.toProduce ? q(g.total.toProduce) : g.total.approved ? '<small class="pp-alldone">Approved</small>' : "—") + "</td></tr>";
         }).join("") + "</tbody></table>";
     } else if (tab === "sf") {
-      body = '<table class="pp pp-sf"><thead><tr><th>Product Name</th><th>Cut Recipe</th><th class="num">Ingredient %age</th><th class="num">MSQ (Min. Stock Qty)</th><th class="num">Ordered Qty (Kg)</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Production</th><th class="num">MSQ Deviation</th><th>Confirm</th></tr></thead><tbody>' +
+      body = pbBar(p, "sf") + '<table class="pp pp-sf"><thead><tr><th>Product Name</th><th>Cut Recipe</th><th class="num">Ingredient %age</th><th class="num">MSQ (Min. Stock Qty)</th><th class="num">Ordered Qty (Kg)</th><th class="num">InStock</th><th class="num" title="InStock − Ordered">Shortfall</th>' + aheads + bheads + '</tr></thead><tbody>' +
         p.semi.map(function (l) {
-          var pct = l.shares.map(function (s) { return n(s.pct); }).join(" · ") || "—";
-          return "<tr" + tint(l.id) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.cut) + '</td><td class="num" title="' + esc(l.shares.map(function (s) { return n(s.pct) + "% of " + s.of; }).join(" · ")) + '">' + pct + '</td><td class="num">' + q(l.msq) +
-            '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) + '<td class="num"><b>' + q(l.approved) + "</b></td>" + marks(l) + "</tr>" + after(l.key, 10);
+          /* a cut's share of the products it goes into; a product made of this cut alone (100%) is left out
+             when the cut is also part of a mix (owner, 3 Oct 2026: "keep only 20") */
+          var mixed = l.shares.some(function (s) { return !s.single; });
+          var pct = l.shares.filter(function (s) { return !mixed || !s.single; }).map(function (s) {
+            return s.single ? '<span title="' + esc("All of " + s.of) + '">' + n(s.pct) + "</span>" : '<span title="' + esc(n(s.pct, 100) + "% of " + s.of) + '">' + ed("share:" + s.rid + ":" + l.id, r2(s.pct), n(s.pct, 100), l.name + "'s % of " + s.of) + "</span>";
+          }).join(" · ") || "—";
+          return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.cut) + '</td><td class="num pp-msq">' + pct + '</td><td class="num pp-msq">' + ed("smsq:" + l.id, l.msq, q(l.msq), "MSQ of " + l.name) +
+            '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) + apprCell(l) + marks(l) + "</tr>";
         }).join("") + "</tbody></table>";
     } else {
       /* Purchase (owner, 3 Oct 2026): not a purchase order per row. Pick what to buy
-         (the boxes), Create purchase request, and the table keeps count of what is
+         (the boxes), Create order, and the table keeps count of what is
          requested (waiting for approval), on the way, and still to order. */
       var buyable = p.purchase.filter(function (l) { return l.toOrder > 0; });
       var picked = buyable.filter(function (l) { return S.puSel[l.id]; });
       var unitOf = function (l) { return l.unit === "kg" ? "" : " " + l.unit; };
-      var cell = function (l, which, v) {
-        if (!(v > 0)) return '<td class="num pp-muted">—</td>';
-        var open = S.prRow && S.prRow.id === l.id && S.prRow.which === which;
-        return '<td class="num"><button type="button" class="pp-cnt pp-cnt-' + which + '" data-prrow="' + esc(l.id) + ":" + which + '" aria-expanded="' + !!open + '">' + q(v) + unitOf(l) + "</button></td>";
+      /* a figure's orders on hover (number · supplier · qty · state · expected); a click opens Purchase Orders */
+      var poTip = function (l, waiting) {
+        return l.pos.filter(function (x) { return x.waiting === waiting; }).map(function (x) {
+          return x.no + " · " + x.supplier.split(/ · |, /)[0] + " · " + n(x.qty) + " " + uword(l.unit) + " · " + (PR_WORD[x.status] || x.status).toLowerCase() +
+            (x.expectedAt ? " · expected " + new Date(x.expectedAt).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", hour12: true }) : "");
+        }).join("\n");
       };
-      body = prBar(p, buyable, picked) + (S.pr ? prPanel(p) : "") +
-        '<table class="pp pp-pu"><thead><tr><th class="pp-sel"><input type="checkbox" data-pusel-all aria-label="Select everything still to order"' + (buyable.length && picked.length === buyable.length ? " checked" : "") + (buyable.length ? "" : " disabled") + '></th>' +
-        '<th>Product Name</th><th>Quality / Brand</th><th class="num">Wastage %age</th><th class="num">MSQ (Min Stk Qty)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Purchase</th><th class="num">MSQ Deviation</th>' +
-        '<th class="num pp-h-req">Requested</th><th class="num pp-h-way">On the way</th><th class="num pp-h-to">To order</th></tr></thead><tbody>' +
+      var waitCell = function (l) {
+        if (!(l.requested > 0)) return '<td class="num pp-muted">—</td>';
+        return '<td class="num"><a href="#" class="pp-cnt pp-cnt-req pp-blink" data-go="procurement/purchase-orders" title="' + esc(poTip(l, true)) + '">' + q(l.requested) + unitOf(l) + "</a></td>";
+      };
+      /* Approved Purchase: what is with the supplier (its orders on hover) */
+      var poCell = function (l, u) {
+        if (!(l.approved > 0)) return '<td class="num pp-big pp-muted">0</td>';
+        return '<td class="num pp-big"><a href="#" class="pp-blink pp-appr" data-go="procurement/purchase-orders" title="' + esc(poTip(l, false)) + '"><b>' + q(l.approved) + u + "</b></a></td>";
+      };
+      body = prBar(p, buyable, picked) +
+        '<table class="pp pp-pu"><thead><tr>' +
+        '<th>Product Name</th><th>Quality / Brand</th><th class="num">Wastage %age</th><th class="num">MSQ (Min Stk Qty)</th><th class="num" title="Production demand: the raw material today\'s Semi Finished and Finished Goods need">Required Quantity</th><th class="num">InStock</th><th class="num" title="InStock − Required">Shortfall</th>' +
+        '<th class="num" title="Approved purchase orders with the supplier, not at the gate yet. What comes in at the gate moves to InStock.">Approved Purchase</th>' +
+        '<th class="num" title="Where stock ends up against MSQ once the approved purchase is in: InStock + Approved − Required − MSQ">MSQ Deviation</th>' +
+        '<th class="num pp-h-req" title="Purchase orders raised and waiting for someone to approve them. Not sent to the supplier yet.">Awaiting approval</th>' +
+        '<th class="num pp-h-to" title="What the plan needs (Required − InStock + MSQ) that no purchase order covers yet">To order</th></tr></thead><tbody>' +
         p.purchase.map(function (l) {
           var u = unitOf(l);
-          return "<tr" + tint(l.id) + '><td class="pp-sel"><input type="checkbox" data-pusel="' + esc(l.id) + '" aria-label="Select ' + esc(l.name) + '"' + (S.puSel[l.id] && l.toOrder > 0 ? " checked" : "") + (l.toOrder > 0 ? "" : " disabled") + "></td>" +
-            '<th scope="row">' + esc(l.name) + "</th><td>" + esc(l.grade) + '</td><td class="num">' + n(l.waste) + '</td><td class="num">' + q(l.msq) + u +
-            '</td><td class="num">' + q(l.ordered) + u + '</td><td class="num">' + q(l.stock) + u + "</td>" + sh(l.short) + '<td class="num pp-big"><b>' + q(l.approved) + u + "</b></td>" +
-            '<td class="num pp-dev"><input type="number" step="1" inputmode="decimal" data-dev="' + esc(l.key) + '" value="' + (l.dev ? l.dev : "") + '" placeholder="0" aria-label="MSQ deviation"></td>' +
-            cell(l, "req", l.requested) + cell(l, "way", l.onWay) +
+          return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.grade) + '</td><td class="num pp-msq">' + (l.wasteEdit ? ed("waste:" + l.id, l.waste, n(l.waste), "wastage % of " + l.name) : n(l.waste)) +
+            '</td><td class="num pp-msq">' + ed("pmsq:" + l.id, l.msq, q(l.msq) + u, "MSQ of " + l.name) +
+            '</td><td class="num">' + q(l.ordered) + u + '</td><td class="num">' + q(l.stock) + u + "</td>" + sh(l.short) + poCell(l, u) + devCell(l, u) + waitCell(l) +
             '<td class="num pp-to">' + (l.toOrder > 0 ? "<b>" + q(l.toOrder) + u + "</b>" : '<span class="pp-covered">Covered</span>') + "</td></tr>" +
-            (S.prRow && S.prRow.id === l.id ? prRows(l, 13) : "");
+            "";
         }).join("") + "</tbody></table>";
     }
-    return tabsHtml + '<section class="card pp-card"><div class="tbl-wrap">' + body + "</div></section>";
+    return tabsHtml + '<section class="card pp-card"><div class="tbl-wrap">' + body + "</div></section>" + (S.pr && tab === "pu" ? prPanel(p) : "") + (S.pb && S.pb.tab === tab ? pbPanel() : "");
   }
 
   /* ── Purchase requests (owner, 3 Oct 2026) ───────────────────────────
@@ -664,21 +739,14 @@
      made the way the purchase person thinks: what the plan still needs, from
      one supplier at a time, plus anything else regular from that supplier.
 
-       Create purchase request   the boxes ticked (or everything still to
-                                 order) come in; the supplier is the one who
-                                 usually supplies most of it by value; the
-                                 lines are what that supplier usually
-                                 supplies, at what is still to order. The
-                                 rest wait as chips to add here or for the
-                                 next request.
-       + Add a product           the supplier's other regular products (a
-                                 suggested quantity: what the plan buys, or
-                                 back up to its MSQ), or any other product.
-       Raise purchase request    a purchase order waiting for approval
-                                 (Pending Approval): Requested in the table.
-                                 Approve it right here, or in Purchase
-                                 Orders: it goes to the supplier and is On
-                                 the way until the gate receives it.
+       Create order              the boxes ticked (or everything still to
+                                 order) come into the order form below,
+                                 one section per usual supplier.
+       Order                     one purchase order per supplier, each
+                                 Pending Approval: Requested in the table.
+                                 Approve them right after (one tap), or in
+                                 Purchase Orders: then On the way until the
+                                 gate receives it.
      A request can be rejected (with a reason) and an order cancelled while
      nothing has come in on it; either way the quantity is To order again. */
   var PR_LIVE = ["Pending Approval", "InProgress", "Pending", "Partial Delivered"];
@@ -705,294 +773,382 @@
     var due = new Date(); due.setDate(due.getDate() + (fresh ? 1 : 3));
     return isoDay(due.getTime());
   }
-  /* open the builder: the ticked lines (or all still to order), the supplier who covers most of it */
-  function prStart(p, supplierId) {
-    var cat = prCatalogue();
-    var pool = p.purchase.filter(function (l) { return l.toOrder > 0 && (S.puSel[l.id] || !Object.keys(S.puSel).some(function (k) { return S.puSel[k]; })); });
-    if (!pool.length) pool = p.purchase.filter(function (l) { return l.toOrder > 0; });
-    var by = {};
-    pool.forEach(function (l) { by[l.supplierId] = (by[l.supplierId] || 0) + l.toOrder * l.price; });
-    var sup = supplierId || Object.keys(by).sort(function (a, b) { return by[b] - by[a]; })[0] || (cat.suppliers[0] || {}).id;
-    var lines = pool.filter(function (l) { return l.supplierId === sup; }).map(function (l) { return { materialId: l.id, qty: l.toOrder, price: l.price, plan: true }; });
-    S.pr = { supplierId: sup, pool: pool.map(function (l) { return l.id; }), lines: lines, due: prDue(lines, cat), note: "", err: "" };
-    S.prDone = null;
+  /* The order form (3 Oct 2026, third pass — the owner: "simple: products
+     supplier wise, add supplier, add product, price, edit quantity, search
+     and add product, and just order"). A plain form, nothing hidden:
+       a section per supplier (change it from its name)
+         a row per product: price and quantity to type in, the amount
+         a search box: type, pick, it's on
+       + Add supplier
+       Order: one purchase order per supplier, each waiting for approval. */
+  var supShort = function (name) { return String(name || "").split(/ · |, /)[0]; };
+  var rupeeShort = function (v) { return v >= 1e7 ? "₹" + (v / 1e7).toFixed(2) + " Cr" : v >= 1e5 ? "₹" + (v / 1e5).toFixed(2) + " L" : rupee(v); };
+  var rupee = function (v) { return "₹" + Math.round(v).toLocaleString("en-IN"); };
+  /* open it: the ticked lines (or everything still to order), grouped by usual supplier, the biggest first */
+  function prStart(p) {
+    var ticked = Object.keys(S.puSel).filter(function (k) { return S.puSel[k]; });
+    var pool = p.purchase.filter(function (l) { return l.toOrder > 0 && (!ticked.length || ticked.indexOf(l.id) !== -1); });
+    var val = {};
+    pool.forEach(function (l) { val[l.supplierId] = (val[l.supplierId] || 0) + l.toOrder * l.price; });
+    S.pr = { err: "", groups: Object.keys(val).sort(function (a, b) { return val[b] - val[a]; }).map(function (sup) {
+      return { sup: sup, lines: pool.filter(function (l) { return l.supplierId === sup; }).map(function (l) { return { materialId: l.id, qty: l.toOrder, price: l.price }; }) };
+    }) };
   }
-  function prTotals(cat) {
+  function prTotals(cat, g) {
     var t = { taxable: 0, gst: 0 };
-    S.pr.lines.forEach(function (l) {
+    g.lines.forEach(function (l) {
       var m = cat.materials.filter(function (x) { return x.id === l.materialId; })[0], v = (Number(l.qty) || 0) * (Number(l.price) || 0);
       t.taxable += v; t.gst += v * ((m && m.tax) || 0) / 100;
     });
     t.total = Math.round(t.taxable + t.gst);
     return t;
   }
-  var rupee = function (v) { return "₹" + Math.round(v).toLocaleString("en-IN"); };
+  function prGroupTot(t) { return (t.gst >= 1 ? "<small>incl. " + rupee(t.gst) + " GST</small> " : "") + rupee(t.total); }
+  function prGrand(cat) { return S.pr.groups.reduce(function (t, g) { return t + prTotals(cat, g).total; }, 0); }
+  function prLive() { return S.pr.groups.filter(function (g) { return g.lines.some(function (l) { return Number(l.qty) > 0; }); }); }
   /* the bar above the table: what is still to order, and the one way to buy it */
   function prBar(p, buyable, picked) {
     var value = buyable.reduce(function (t, l) { return t + l.toOrder * l.price; }, 0);
     var req = p.purchase.filter(function (l) { return l.requested > 0; }).length, way = p.purchase.filter(function (l) { return l.onWay > 0; }).length;
-    var done = S.prDone ? prDoneBar(p) : "";
-    return done + '<div class="pp-bar"><div class="pp-bar-t">' +
+    return '<div class="pp-bar"><div class="pp-bar-t">' +
       (buyable.length ? "<b>" + buyable.length + " to order</b> · " + rupee(value) : '<b class="pp-ok-t">Nothing left to order</b>') +
-      (req ? ' · <span class="pp-chip-req">' + req + " requested</span>" : "") + (way ? ' · <span class="pp-chip-way">' + way + " on the way</span>" : "") + "</div>" +
-      (S.pr ? "" : '<button type="button" class="btn primary" data-pr-open' + (buyable.length ? "" : " disabled") + ">Create purchase request" + (picked.length ? " · " + picked.length + " selected" : "") + "</button>") + "</div>";
+      (req ? ' · <span class="pp-chip-req">' + req + " awaiting approval</span>" : "") + (way ? ' · <span class="pp-chip-way">' + way + " with the supplier</span>" : "") + "</div>" +
+      (S.pr ? "" : '<button type="button" class="btn primary" data-pr-open>' + (picked.length ? "Order the " + picked.length + " selected" : buyable.length ? "Create order" : "New order") + "</button>") + "</div>";
   }
-  /* after a request is raised: approve it now, or go on with the next supplier */
-  function prDoneBar(p) {
-    var x = S.prDone;
-    var left = p.purchase.filter(function (l) { return l.toOrder > 0; });
-    var next = {};
-    left.forEach(function (l) { (next[l.supplierId] = next[l.supplierId] || []).push(l.name); });
-    var nextId = Object.keys(next)[0];
-    var supName = function (id) { return (prCatalogue().suppliers.filter(function (s) { return s.id === id; })[0] || {}).name || ""; };
-    return '<div class="pp-done-bar' + (x.approved ? " is-approved" : "") + '"><div><b>' + (x.approved ? "Approved · sent to " : "Purchase request raised · ") + esc(x.supplier) + "</b>" +
-      '<small>' + esc(x.no) + " · " + x.count + " product" + (x.count === 1 ? "" : "s") + " · " + rupee(x.amount) + (x.approved ? " · on the way, expected " + esc(x.due) : " · waiting for approval") + "</small></div>" +
-      '<div class="pp-done-a">' + (x.approved ? "" : '<button type="button" class="btn primary" data-pr-approve="' + esc(x.id) + '">Approve now</button>') +
-      '<a href="#" class="btn" data-go="procurement/purchase-orders">Purchase Orders</a>' +
-      (nextId ? '<button type="button" class="btn" data-pr-next="' + esc(nextId) + '">Next: ' + esc(supName(nextId).split(/ ·|,/)[0]) + " · " + esc(next[nextId].join(", ")) + "</button>" : "") +
-      '<button type="button" class="pp-x" data-pr-donex aria-label="Dismiss">×</button></div></div>';
-  }
+  /* what was just ordered: one line, and approving it is one more tap */
+
+  /* a modal with one sheet (owner, 3 Oct 2026: "make this modal and excel like"):
+     gridlines, row numbers, a band per supplier with its subtotal, cells to
+     type straight into (Enter or ↓ goes down the column, ↑ up), and under each
+     supplier an empty row whose Product cell searches and adds */
   function prPanel(p) {
-    var cat = prCatalogue(), pr = S.pr;
-    var sup = cat.suppliers.filter(function (s) { return s.id === pr.supplierId; })[0] || {};
+    var cat = prCatalogue(), pr = S.pr, rn = 0;
     var matOf = function (id) { return cat.materials.filter(function (m) { return m.id === id; })[0]; };
-    var lineOf = function (id) { return p.purchase.filter(function (l) { return l.id === id; })[0]; };
-    var t = prTotals(cat);
-    var rows = pr.lines.map(function (l, i) {
-      var m = matOf(l.materialId), pl = lineOf(l.materialId);
-      var over = pl && Number(l.qty) > pl.toOrder + 0.5;
-      return '<tr><td><b>' + esc(m.name) + "</b>" + (m.grade ? '<small>' + esc(m.grade) + "</small>" : "") + "</td>" +
-        '<td class="pp-pr-for">' + (pl ? 'For the plan · to order <b>' + n(pl.toOrder) + " " + uword(m.unit) + "</b>" : "Regular" + (m.free ? " · " + n(m.free) + " " + uword(m.unit) + " in store" : "")) +
-          (pl && m.supplierId !== pr.supplierId ? '<small class="pp-pr-warn">Usually from ' + esc(((cat.suppliers.filter(function (s) { return s.id === m.supplierId; })[0]) || {}).name || "") + "</small>" : "") + "</td>" +
-        '<td class="num"><input type="number" min="0" step="1" data-prq="' + i + '" value="' + esc(l.qty) + '" aria-label="Quantity"> <span>' + uword(m.unit) + "</span>" +
-          '<small class="pp-pr-warn" data-prover="' + i + '"' + (over ? "" : " hidden") + ">More than to order</small></td>" +
-        '<td class="num">₹ <input type="number" min="0" step="0.01" data-prr="' + i + '" value="' + esc(l.price) + '" aria-label="Rate"><small>/' + uword(m.unit) + (m.tax ? " + " + m.tax + "% GST" : "") + "</small></td>" +
-        '<td class="num" data-pramt="' + i + '">' + rupee((Number(l.qty) || 0) * (Number(l.price) || 0)) + "</td>" +
-        '<td><button type="button" class="pp-x" data-pr-rm="' + i + '" aria-label="Remove ' + esc(m.name) + '">×</button></td></tr>';
+    var used = pr.groups.map(function (g) { return g.sup; });
+    var body = pr.groups.map(function (g, gi) {
+      var t = prTotals(cat, g);
+      var opts = cat.suppliers.filter(function (s) { return s.id === g.sup || used.indexOf(s.id) === -1; })
+        .map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === g.sup ? " selected" : "") + ">" + esc(s.name) + "</option>"; }).join("");
+      var band = '<tr class="xl-band"><td class="xl-n"></td><td colspan="5"><select class="xl-sup" data-pr-gsup="' + gi + '" aria-label="Supplier">' + opts + "</select>" +
+          '<small class="xl-cnt">' + g.lines.length + " item" + (g.lines.length === 1 ? "" : "s") + "</small></td>" +
+        '<td class="xl-num xl-sub" data-pr-gt="' + gi + '">' + prGroupTot(t) + "</td>" +
+        '<td class="xl-x"><button type="button" class="pp-x" data-pr-grm="' + gi + '" aria-label="Remove this supplier" title="Remove this supplier">×</button></td></tr>';
+      var rows = g.lines.map(function (l, i) {
+        var m = matOf(l.materialId), u = uword(m.unit), k = gi + ":" + i;
+        rn++;
+        return '<tr><td class="xl-n">' + rn + "</td>" +
+          '<td class="xl-p">' + esc(m.name) + "</td><td class=\"xl-g\">" + esc(m.grade || "") + '</td><td class="xl-u">' + u + "</td>" +
+          '<td class="xl-c"><input type="number" min="0" step="0.01" inputmode="decimal" data-prr="' + k + '" value="' + esc(l.price) + '" aria-label="Rate of ' + esc(m.name) + '"></td>' +
+          '<td class="xl-c"><input type="number" min="0" step="1" inputmode="decimal" data-prq="' + k + '" value="' + esc(l.qty) + '" aria-label="Quantity of ' + esc(m.name) + '"></td>' +
+          '<td class="xl-num xl-amt" data-pramt="' + k + '">' + n((Number(l.qty) || 0) * (Number(l.price) || 0)) + "</td>" +
+          '<td class="xl-x"><button type="button" class="pp-x" data-pr-rm="' + k + '" aria-label="Remove ' + esc(m.name) + '" title="Remove row">×</button></td></tr>';
+      }).join("");
+      var add = '<tr class="xl-add"><td class="xl-n">+</td><td colspan="3" class="xl-c xl-s"><input type="search" data-prs="' + gi + '" placeholder="Type a product to add…" autocomplete="off" aria-label="Search a product to add">' +
+          '<div class="po-sl" data-prsl="' + gi + '" role="listbox" hidden></div></td><td></td><td></td><td></td><td class="xl-x"></td></tr>';
+      return band + rows + add;
     }).join("");
-    /* what the plan still needs and is not on this request */
-    var chips = pr.pool.concat(p.purchase.filter(function (l) { return l.toOrder > 0; }).map(function (l) { return l.id; }))
-      .filter(function (id, i, a) { return a.indexOf(id) === i && !pr.lines.some(function (l) { return l.materialId === id; }); })
-      .map(lineOf).filter(function (l) { return l && l.toOrder > 0; });
-    var mine = cat.materials.filter(function (m) { return m.supplierId === pr.supplierId && !pr.lines.some(function (l) { return l.materialId === m.id; }); });
-    var others = cat.materials.filter(function (m) { return m.supplierId !== pr.supplierId && !pr.lines.some(function (l) { return l.materialId === m.id; }); });
-    var opt = function (m) { return '<option value="' + esc(m.id) + '" data-suggest="' + m.suggest + '">' + esc(m.name) + (m.grade ? " · " + esc(m.grade) : "") + " — suggest " + n(m.suggest) + " " + uword(m.unit) + "</option>"; };
-    return '<div class="pp-pr" role="group" aria-label="New purchase request">' +
-      '<div class="pp-pr-h"><b>New purchase request</b><button type="button" class="pp-x" data-pr-close aria-label="Close">×</button></div>' +
-      '<div class="pp-pr-sup"><label>Supplier <select data-prsup>' + cat.suppliers.map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === pr.supplierId ? " selected" : "") + ">" + esc(s.name) + "</option>"; }).join("") + "</select></label>" +
-        "<span>" + esc(sup.person || "") + " · " + esc(phone(sup.contact)) + " · " + (sup.terms ? sup.terms + "-day credit" : "cash") + (sup.supplies ? " · supplies " + esc(sup.supplies.toLowerCase()) : "") + "</span></div>" +
-      (rows ? '<table class="pp-pr-t"><thead><tr><th>Product</th><th>Why</th><th class="num">Quantity</th><th class="num">Rate</th><th class="num">Amount</th><th></th></tr></thead><tbody>' + rows + "</tbody></table>"
-        : '<p class="pp-pr-empty">Nothing on this request yet. ' + esc(sup.name || "This supplier") + " doesn't usually supply what the plan needs — add it from the list below, or pick another supplier.</p>") +
-      (chips.length ? '<div class="pp-pr-chips"><span>Also to order:</span>' + chips.map(function (l) {
-        return '<button type="button" class="pp-chip" data-pr-chip="' + esc(l.id) + '">+ ' + esc(l.name) + " · " + n(l.toOrder) + " " + uword(l.unit) + (l.supplierId !== pr.supplierId ? " <small>usually " + esc(((cat.suppliers.filter(function (s) { return s.id === l.supplierId; })[0]) || {}).name.split(/ ·|,/)[0]) + "</small>" : "") + "</button>";
-      }).join("") + "</div>" : "") +
-      '<div class="pp-pr-add"><label>Add a product <select data-pradd><option value="">Choose…</option>' +
-        (mine.length ? '<optgroup label="' + esc(sup.name) + ' supplies">' + mine.map(opt).join("") + "</optgroup>" : "") +
-        '<optgroup label="Other products">' + others.map(opt).join("") + "</optgroup></select></label>" +
-        '<input type="number" min="0" step="1" data-praddq placeholder="Qty" aria-label="Quantity to add"><button type="button" class="btn" data-pr-add>Add</button></div>' +
-      '<div class="pp-pr-meta"><label>Expected at the gate <input type="date" data-prdue value="' + esc(pr.due) + '"></label><label class="pp-pr-note">Note <input type="text" data-prnote value="' + esc(pr.note) + '" placeholder="e.g. Big Size heads only, morning truck"></label></div>' +
-      '<div class="pp-pr-f"><div class="pp-pr-tot" data-prtot>' + prTotHtml(t) + "</div>" + (pr.err ? '<p class="pp-pc-err">' + esc(pr.err) + "</p>" : "") +
-        '<span class="pp-pr-hint">It waits for approval — approve it here or in Purchase Orders.</span>' +
-        '<button type="button" class="btn" data-pr-close>Cancel</button><button type="button" class="btn primary" data-pr-go' + (pr.lines.length ? "" : " disabled") + ">Raise purchase request</button></div></div>";
+    return '<div class="xl-back"><div class="xl-modal" role="dialog" aria-modal="true" aria-label="New purchase order">' +
+      '<header class="xl-h"><b>New purchase order</b><span>' + pr.groups.length + " supplier" + (pr.groups.length === 1 ? "" : "s") + " · one order each</span>" +
+        '<button type="button" class="pp-x" data-pr-close aria-label="Close">×</button></header>' +
+      '<div class="xl-body"><table class="xl"><colgroup><col class="c-n"><col class="c-p"><col class="c-g"><col class="c-u"><col class="c-r"><col class="c-q"><col class="c-a"><col class="c-x"></colgroup>' +
+        '<thead><tr><th class="xl-n"></th><th>Product</th><th>Grade</th><th>Unit</th><th class="xl-num xl-edh"><svg class="xl-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Rate (₹)</th><th class="xl-num xl-edh"><svg class="xl-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Quantity</th><th class="xl-num">Amount (₹)</th><th></th></tr></thead>' +
+        "<tbody>" + body + "</tbody></table>" +
+        (used.length < cat.suppliers.length ? '<button type="button" class="xl-addsup" data-pr-gadd>+ Add supplier</button>' : "") + "</div>" +
+      '<footer class="xl-f">' + (pr.err ? '<p class="pp-pc-err">' + esc(pr.err) + "</p>" : "") +
+        '<span class="po-tot">Total <b data-prtot>' + rupee(prGrand(cat)) + "</b></span>" +
+        '<button type="button" class="btn" data-pr-close>Cancel</button>' +
+        '<button type="button" class="btn primary" data-pr-go' + (prLive().length ? "" : " disabled") + ">Order</button></footer></div></div>";
   }
-  function prTotHtml(t) { return "Taxable <b>" + rupee(t.taxable) + "</b> · GST <b>" + rupee(t.gst) + "</b> · Total <b>" + rupee(t.total) + "</b>"; }
-  /* the requests and orders behind a Requested or On the way figure, with what can be done to them */
-  function prRows(l, cols) {
-    var which = S.prRow.which, list = l.pos.filter(function (x) { return which === "req" ? x.waiting : !x.waiting; });
-    var when = function (iso) { return iso ? new Date(iso).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", hour12: true }) : "no date"; };
-    return '<tr class="pp-pc"><td colspan="' + cols + '"><div class="pp-pc-box pp-po-list">' + list.map(function (x) {
-      var asking = S.prAsk && S.prAsk.id === x.id;
-      var acts = x.waiting
-        ? (asking && S.prAsk.what === "reject"
-          ? '<input type="text" data-prreason placeholder="Why? (the supplier is not told)" aria-label="Reason to reject"><button type="button" class="btn" data-pr-askx>Keep it</button><button type="button" class="btn pp-pc-danger" data-pr-reject="' + esc(x.id) + '">Reject</button>'
-          : '<button type="button" class="btn primary" data-pr-approve="' + esc(x.id) + '">Approve</button><button type="button" class="btn" data-pr-ask="' + esc(x.id) + ':reject">Reject…</button>')
-        : x.cancellable
-          ? (asking ? '<span class="pp-pc-warn">Cancel it? The supplier is told.</span><button type="button" class="btn" data-pr-askx>Keep it</button><button type="button" class="btn pp-pc-danger" data-pr-cancel="' + esc(x.id) + '">Cancel the order</button>'
-            : '<button type="button" class="btn" data-pr-ask="' + esc(x.id) + ':cancel">Cancel…</button>')
-          : '<span class="pp-muted">Part received — change it in Purchase Orders</span>';
-      return '<div class="pp-po"><div><b>' + esc(x.no) + "</b> · " + esc(x.supplier) + ' <span class="pp-po-s ' + (x.waiting ? "is-req" : "is-way") + '">' + esc(PR_WORD[x.status] || x.status) + "</span>" +
-        "<small>" + n(x.qty) + " " + uword(l.unit) + (x.received ? " still to come of " + n(x.ordered) : "") + " · raised " + esc(when(x.createdAt)) + " by " + esc(x.by) + " · expected " + esc(when(x.expectedAt)) + "</small></div>" +
-        '<div class="pp-po-a">' + acts + "</div></div>";
-    }).join("") + (S.prErr ? '<p class="pp-pc-err">' + esc(S.prErr) + "</p>" : "") + "</div></td></tr>";
+  /* the search under a supplier: their products first, then the rest */
+  function prSearch(gi, text) {
+    var cat = prCatalogue(), g = S.pr.groups[gi], q0 = String(text || "").trim().toLowerCase();
+    var have = g.lines.map(function (l) { return l.materialId; });
+    return cat.materials.filter(function (m) { return have.indexOf(m.id) === -1 && (!q0 || (m.name + " " + (m.grade || "")).toLowerCase().indexOf(q0) !== -1); })
+      .sort(function (a, b) { return (b.supplierId === g.sup) - (a.supplierId === g.sup); }).slice(0, 8);
   }
-  function prRaise(p) {
-    var pr = S.pr, cat = prCatalogue(), who = planWho();
-    var lines = pr.lines.filter(function (l) { return Number(l.qty) > 0; }).map(function (l) { return { materialId: l.materialId, qty: Number(l.qty), price: Number(l.price) }; });
-    if (!lines.length) throw new Error("Add a quantity to at least one product.");
-    var due = new Date(pr.due + "T00:00:00"), fresh = lines.some(function (l) { var m = cat.materials.filter(function (x) { return x.id === l.materialId; })[0]; return m && m.store === "Cold room"; });
-    due.setHours(fresh ? 6 : 11, 0, 0, 0);
-    var po = FB_PRODUCTION.write(function (D) {
-      var x = D.raisePO({ supplierId: pr.supplierId, lines: lines, expectedAt: due.toISOString(), status: "Pending Approval", by: who, via: "office", where: "Production Plan",
-        comments: pr.note || "For today's Production and Purchase Plan" });
-      return { id: x.id, no: x.number, amount: x.amount };
+  function prSearchHtml(gi, list, text) {
+    if (!list.length) {
+      var q0 = String(text || "").trim().toLowerCase(), cat = prCatalogue();
+      var on = S.pr.groups[gi].lines.map(function (l) { return cat.materials.filter(function (m) { return m.id === l.materialId; })[0]; })
+        .filter(function (m) { return m && q0 && (m.name + " " + (m.grade || "")).toLowerCase().indexOf(q0) !== -1; })[0];
+      return '<p class="po-none">' + (on ? esc(on.name) + " is already on this order — change its quantity above" : "No product called that") + "</p>";
+    }
+    return list.map(function (m, i) {
+      return '<button type="button" role="option" class="po-opt' + (i ? "" : " is-first") + '" data-pr-pick="' + gi + ":" + esc(m.id) + '"><span>' + esc(m.name) + (m.grade ? " <small>" + esc(m.grade) + "</small>" : "") + "</span><small>₹" + n(m.price, 100) + "/" + uword(m.unit) + "</small></button>";
+    }).join("");
+  }
+  function prPick(gi, id) {
+    var cat = prCatalogue(), m = cat.materials.filter(function (x) { return x.id === id; })[0], g = S.pr.groups[gi];
+    if (!m || !g) return;
+    var pl = planModel().purchase.filter(function (x) { return x.id === id && x.toOrder > 0; })[0];
+    g.lines.push({ materialId: id, qty: pl ? pl.toOrder : m.suggest, price: m.price });
+    S.pr.err = "";
+    render();
+    var inp = app.querySelector('[data-prq="' + gi + ":" + (g.lines.length - 1) + '"]');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+  /* Order: one purchase order per supplier with something on it, each waiting for approval */
+  function prRaise() {
+    var cat = prCatalogue(), who = planWho(), live = prLive();
+    if (!live.length) throw new Error("Put a quantity on at least one product.");
+    live.forEach(function (g) {
+      var lines = g.lines.filter(function (l) { return Number(l.qty) > 0; }).map(function (l) { return { materialId: l.materialId, qty: Number(l.qty), price: Number(l.price) }; });
+      var due = new Date(prDue(lines, cat) + "T00:00:00"), fresh = lines.some(function (l) { var m = cat.materials.filter(function (x) { return x.id === l.materialId; })[0]; return m && m.store === "Cold room"; });
+      due.setHours(fresh ? 6 : 11, 0, 0, 0);
+      var po = FB_PRODUCTION.write(function (D) {
+        var x = D.raisePO({ supplierId: g.sup, lines: lines, expectedAt: due.toISOString(), status: "Pending Approval", by: who, via: "office", where: "Production Plan",
+          comments: "For today's Production and Purchase Plan" });
+        return { id: x.id, no: x.number, amount: x.amount };
+      });
+      var sup = cat.suppliers.filter(function (s) { return s.id === g.sup; })[0];
+      lines.forEach(function (l) { delete S.puSel[l.materialId]; });
+      g.lines = [];
     });
-    var sup = cat.suppliers.filter(function (s) { return s.id === pr.supplierId; })[0];
-    S.prDone = { id: po.id, no: po.no, amount: po.amount, count: lines.length, supplier: sup ? sup.name : "", due: due.toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", hour: "numeric", hour12: true }) };
-    lines.forEach(function (l) { delete S.puSel[l.materialId]; });
     S.pr = null;
   }
-  function prDecide(id, status, note) {
-    var who = planWho();
-    FB_PRODUCTION.write(function (D) { D.setPOStatus(id, status, who, note); });
-    if (S.prDone && S.prDone.id === id) { if (status === "InProgress") S.prDone.approved = true; else S.prDone = null; }
-    S.prAsk = null; S.prErr = "";
-  }
 
-  /* ── Confirm: the line becomes a real record (owner, 3 Oct 2026) ─────
-     Finished Goods → a finished batch that mixes the product and packs
-     that pack in the run (or, from the product's row, every pack still to
-     confirm in one batch). Semi Finished → a cutting batch. (Purchase is
-     bought through purchase requests, below the plan model.)
-     Each asks first, in a panel under its row: what it will create, what it
-     takes and whether that is in the store, and who supervises. A created
-     line shows its batch or order; Undo asks the same way, and works while
-     nothing has happened to it (a batch still planned and off the floor; an
-     order nothing has come in on). */
+
+  /* ── Batches from the plan (owner, 3 Oct 2026: "same pattern as the purchase
+     order") ─────────────────────────────────────────────────────────────
+     Tick the lines (or none, for all still to produce), Create batches, and a
+     sheet opens like the purchase order's: Finished Goods by product — a band
+     with the batch size and supervisor, a row per pack, the packs to type —
+     and Semi Finished a row per cut, its kg to type. Create batches makes one
+     finished batch per product (its packs packed in the run) and one cutting
+     batch per cut, planned for today, not on a shift yet. A line's To produce
+     opens the sheet with that line alone. */
   var SUPS = null;
-  function pcOf(p, key) {
-    var parts = key.split(":"), kind = parts[0], id = parts[1];
-    if (kind === "fg" || kind === "fgall") {
-      var g = p.fg.filter(function (x) { return kind === "fgall" ? x.recipeId === id : x.packs.some(function (l) { return l.key === key; }); })[0];
-      if (!g) return null;
-      var lines = kind === "fgall" ? g.packs.filter(function (l) { return !l.ok && l.approved > 0; }) : g.packs.filter(function (l) { return l.key === key; });
-      return { kind: "fg", recipeId: g.recipeId, name: g.name, version: g.version, lines: lines };
-    }
-    if (kind === "sf") { var s = p.semi.filter(function (l) { return l.key === key; })[0]; return s ? { kind: "sf", line: s } : null; }
-    return null;
+  var free = function (D, id) { return Math.max(0, D.onHand(id) - D.reserved(id)); };
+  function pbLines(p, tab) { return tab === "fg" ? [].concat.apply([], p.fg.map(function (g) { return g.packs; })) : p.semi; }
+  function pbOpen(p, tab) { return pbLines(p, tab).filter(function (l) { return l.toProduce > 0; }); }
+  function pbBar(p, tab) {
+    var open = pbOpen(p, tab), picked = open.filter(function (l) { return S.pbSel[l.key]; });
+    var kg = open.reduce(function (t, l) { return t + l.toProduce * (tab === "fg" ? l.kg : 1); }, 0);
+    return '<div class="pp-bar"><div class="pp-bar-t">' + (open.length ? "<b>" + open.length + " to produce</b> · " + n(kg) + " kg" : '<b class="pp-ok-t">Everything is approved for production</b>') + "</div>" +
+      (S.pb || !open.length ? "" : '<button type="button" class="btn primary" data-pb-open>' + (picked.length ? "Approve the " + picked.length + " selected" : "Approve for production") + "</button>") + "</div>";
   }
-  /* what the confirm will create, worked out from the store as it is now */
-  function pcPlan(p, key) {
-    var c = pcOf(p, key);
-    if (!c) return null;
-    return FB_PRODUCTION.read(function (D, d) {
+  /* open the sheet: the ticked lines, or everything still to produce */
+  function pbStart(p, tab) {
+    var ticked = pbOpen(p, tab).filter(function (l) { return S.pbSel[l.key]; });
+    var pool = (ticked.length ? ticked : pbOpen(p, tab)).map(function (l) { return l.key; });
+    S.pb = FB_PRODUCTION.read(function (D, d) {
       SUPS = d.operators.map(function (o) { return o.name; });
-      var today = isoDay(Date.now());
-      if (c.kind === "fg") {
-        var bk = D.book(c.recipeId);
-        var packs = c.lines.map(function (l) { var sk = D.sku(l.skuId); return { skuId: sk.id, name: sk.name, qty: Math.ceil(l.approved), kg: Math.ceil(l.approved) * sk.grams / 1000, cartons: sk.perCarton > 1 ? Math.ceil(Math.ceil(l.approved) / sk.perCarton) : 0, pouchId: sk.pouchId, keys: [l.key] }; })
-          .filter(function (x) { return x.qty > 0; });
-        var kg = packs.reduce(function (t, x) { return t + x.kg; }, 0);
-        var size = Math.ceil(kg / (1 - ((bk.loss || 0.5) + 0.5) / 100) / 10) * 10;
-        var comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
-        var takes = comps.map(function (i) { return { name: D.book(i.sfId).name, kg: size * i.qty / tot, have: D.inFreezer(i.sfId) }; })
-          .concat(bk.ingredients.filter(function (i) { return i.rmId; }).map(function (i) { var m = D.material(i.rmId); return { name: m.name, kg: size * i.qty / bk.base, unit: m.unit, have: Math.max(0, D.onHand(i.rmId) - D.reserved(i.rmId)) }; }));
-        var pouches = packs.map(function (x) { var m = D.material(x.pouchId); return { name: m.name, need: x.qty, have: Math.max(0, D.onHand(m.id) - D.reserved(m.id)) }; });
-        var cartons = packs.reduce(function (t, x) { return t + x.cartons; }, 0);
-        return { kind: "batch", recipeId: c.recipeId, title: c.name + " · " + n(size) + " kg", version: c.version, size: size, packs: packs, takes: takes, pouches: pouches,
-          cartons: cartons ? { need: cartons, have: Math.max(0, D.onHand("rm-k11") - D.reserved("rm-k11")) } : null, sup: "Suresh Kumar", today: today,
-          keys: packs.map(function (x) { return "fg:" + x.skuId; }) };
+      if (tab === "fg") {
+        return { tab: "fg", err: "", groups: p.fg.map(function (g) {
+          var bk = D.book(g.recipeId), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
+          var pack = function (l) {
+            var sk = D.sku(l.skuId), pm = D.material(sk.pouchId);
+            return { key: l.key, skuId: sk.id, name: sk.name, grams: sk.grams, perCarton: sk.perCarton, qty: l.toProduce > 0 ? l.toProduce : sk.perCarton, pouch: pm ? { name: pm.name, have: free(D, pm.id) } : null };
+          };
+          var rows = g.packs.filter(function (l) { return pool.indexOf(l.key) !== -1; }).map(pack);
+          if (!rows.length) return null;
+          return { recipeId: g.recipeId, name: g.name, version: g.version, loss: bk.loss, sup: "Suresh Kumar", rows: rows, cartonsHave: free(D, "rm-k11"),
+            spare: g.packs.map(pack),
+            needs: comps.map(function (i) { return { name: D.book(i.sfId).name, share: i.qty / tot, have: D.inFreezer(i.sfId), unit: "kg" }; })
+              .concat(bk.ingredients.filter(function (i) { return i.rmId; }).map(function (i) { var m = D.material(i.rmId); return { name: m.name, per: i.qty / bk.base, have: free(D, m.id), unit: m.unit }; })) };
+        }).filter(Boolean) };
       }
-      if (c.kind === "sf") {
-        var sb = D.book(c.line.id), sz = Math.ceil(c.line.approved);
-        var raw = sb.ingredients.filter(function (i) { return i.rmId; }).map(function (i) { var m = D.material(i.rmId); return { name: m.name, grade: m.grade, kg: sz * i.qty / sb.base, wastage: i.wastage, unit: m.unit, have: Math.max(0, D.onHand(i.rmId) - D.reserved(i.rmId)) }; });
-        var fill = ((d.workflows.filter(function (w) { return w.recipeId === sb.id; })[0] || {}).steps || []).filter(function (st) { return st.bags; }).pop() || {};
-        return { kind: "batch", recipeId: sb.id, title: sb.name + " · " + n(sz) + " kg", version: sb.label, size: sz, raw: raw, fill: { n: Math.ceil(sz / (fill.bags || 50)), size: fill.bags || 50, container: (fill.container || "Big bags").toLowerCase(), store: fill.store || "Cold store" },
-          sup: "Priya Sharma", today: today, keys: [key] };
-      }
-      return null;
+      var cut = function (l) {
+        var sb = D.book(l.id), fill = ((d.workflows.filter(function (w) { return w.recipeId === sb.id; })[0] || {}).steps || []).filter(function (s) { return s.bags; }).pop() || {};
+        return { key: l.key, id: l.id, name: l.name, cut: l.cut, qty: l.toProduce > 0 ? l.toProduce : (fill.bags || 50), sup: "Priya Sharma", bag: fill.bags || 50,
+          raw: sb.ingredients.filter(function (i) { return i.rmId; }).map(function (i) { var m = D.material(i.rmId); return { name: m.name, per: i.qty / sb.base, have: free(D, m.id), unit: m.unit }; }) };
+      };
+      return { tab: "sf", err: "", groups: [{ rows: p.semi.filter(function (l) { return pool.indexOf(l.key) !== -1; }).map(cut), spare: p.semi.map(cut) }] };
     });
   }
-  function pcPanel(p, cols) {
-    var pc = S.pc;
-    if (!pc) return "";
-    var ok = pc.ok, body = "", foot = "";
-    var short = function (have, need) { return have + 0.5 < need; };
-    if (pc.mode === "undo") {
-      var isPo = ok.kind === "po", mk0 = planMarks();
-      /* a batch confirmed with "Confirm all" covers every pack it packs */
-      var shared = Object.keys(mk0.ok).filter(function (k) { return mk0.ok[k] && mk0.ok[k].id === ok.id; }).length;
-      body = '<p class="pp-pc-t">' + (isPo ? "Cancel purchase order " : "Withdraw batch ") + "<b>" + esc(ok.no) + "</b>?</p>" +
-        (ok.undoable ? '<p class="pp-pc-s">' + (isPo ? "Nothing has come in on it yet. The supplier is told it is cancelled, and this line can be confirmed again." : "It is planned and not on the floor yet. Withdrawing deletes it, and " + (shared > 1 ? "all " + shared + " packs it covers" : "this line") + " can be confirmed again.") + "</p>"
-          : '<p class="pp-pc-s pp-pc-warn">' + (isPo ? "Goods have come in on it, so it can't be cancelled here." : "It has started (or the store has issued to it), so it can't be withdrawn here.") + ' Change it in <a href="#" data-go="' + (isPo ? "procurement/purchase-orders" : "production/batch-management") + '">' + (isPo ? "Purchase Orders" : "Batches") + "</a>.</p>");
-      foot = '<button type="button" class="btn" data-pc-cancel>' + (ok.undoable ? "Keep it" : "Close") + "</button>" +
-        (ok.undoable ? '<button type="button" class="btn pp-pc-danger" data-pc-go>' + (isPo ? "Cancel the order" : "Withdraw the batch") + "</button>" : "");
+  /* a finished batch's size: its packs' kg over the mix's loss, to the next 10 kg */
+  function pbSize(g) {
+    var kg = g.rows.reduce(function (t, r) { return t + (Number(r.qty) || 0) * r.grams / 1000; }, 0);
+    return kg > 0 ? Math.ceil(kg / (1 - ((g.loss || 0.5) + 0.5) / 100) / 10) * 10 : 0;
+  }
+  function pbCount() { return S.pb.groups.reduce(function (t, g) { return t + (S.pb.tab === "fg" ? (pbSize(g) ? 1 : 0) : g.rows.filter(function (r) { return Number(r.qty) > 0; }).length); }, 0); }
+  function pbKg() { return S.pb.groups.reduce(function (t, g) { return t + (S.pb.tab === "fg" ? pbSize(g) : g.rows.reduce(function (s, r) { return s + (Number(r.qty) || 0); }, 0)); }, 0); }
+  function pbFoot() { var c = pbCount(); return "<span>" + c + " batch" + (c === 1 ? "" : "es") + " to approve</span> <b>" + n(pbKg()) + " kg</b>"; }
+  var supOpts = function (cur) { return (SUPS || []).map(function (nm) { return "<option" + (nm === cur ? " selected" : "") + ">" + esc(nm) + "</option>"; }).join(""); };
+  /* the sheet, cut to what is decided (owner, 3 Oct 2026: "too much clutter"): Finished — a
+     band per product (name, supervisor, batch size), a row per pack (packs to type, weight);
+     Semi Finished — a row per cut (kg to type, bags, supervisor) */
+  function pbPanel() {
+    var pb = S.pb, rn = 0, fg = pb.tab === "fg", body;
+    var x = function (attr, label) { return '<td class="xl-x"><button type="button" class="pp-x" ' + attr + ' aria-label="' + esc(label) + '" title="' + esc(label) + '">×</button></td>'; };
+    if (fg) {
+      body = pb.groups.map(function (g, gi) {
+        var have = g.rows.map(function (r) { return r.skuId; }), spare = g.spare.filter(function (r) { return have.indexOf(r.skuId) === -1; });
+        return '<tr class="xl-band"><td class="xl-n"></td><td><b>' + esc(g.name) + "</b>" +
+            '<label class="xl-who">Supervisor <select data-pb-gsup="' + gi + '" aria-label="Supervisor of the ' + esc(g.name) + ' batch">' + supOpts(g.sup) + "</select></label></td>" +
+          '<td colspan="2" class="xl-num xl-sub" data-pb-size="' + gi + '">Batch ' + n(pbSize(g)) + " kg</td>" + x('data-pb-grm="' + gi + '"', "Leave out " + g.name) + "</tr>" +
+          g.rows.map(function (r, i) {
+            var k = gi + ":" + i; rn++;
+            return '<tr><td class="xl-n">' + rn + '</td><td class="xl-p">' + esc(r.name) + "</td>" +
+              '<td class="xl-c"><input type="number" min="0" step="1" inputmode="numeric" data-pbq="' + k + '" value="' + esc(r.qty) + '" aria-label="Packs of ' + esc(r.name) + '"></td>' +
+              '<td class="xl-num xl-amt" data-pbkg="' + k + '">' + n((Number(r.qty) || 0) * r.grams / 1000) + "</td>" + x('data-pb-rm="' + k + '"', "Remove " + r.name) + "</tr>";
+          }).join("") +
+          (spare.length ? '<tr class="xl-add"><td class="xl-n">+</td><td class="xl-c xl-s"><select class="xl-addsel" data-pb-add="' + gi + '" aria-label="Add a pack"><option value="">Add a pack…</option>' +
+            spare.map(function (r) { return '<option value="' + esc(r.skuId) + '">' + esc(r.name) + "</option>"; }).join("") + '</select></td><td></td><td></td><td class="xl-x"></td></tr>' : "");
+      }).join("");
     } else {
-      var x = pc.plan;
-      if (!x) body = '<p class="pp-pc-s">Nothing to create: the line approves 0.</p>';
-      else if (x.kind === "batch" && x.packs) {
-        body = '<p class="pp-pc-t">Create a finished batch: <b>' + esc(x.title) + "</b> <span class=\"pp-pc-v\">" + esc(x.version) + "</span></p>" +
-          '<ul class="pp-pc-l"><li><span>Packs in the run</span><b>' + x.packs.map(function (k) { return n(k.qty) + " × " + esc(k.name); }).join(" · ") + "</b></li>" +
-          '<li><span>Takes</span><b>' + x.takes.map(function (t) { return '<em class="' + (short(t.have, t.kg) ? "pp-pc-no" : "") + '">' + n(t.kg) + " " + (t.unit && t.unit !== "kg" ? t.unit : "kg") + " " + esc(t.name) + "</em>"; }).join(" · ") + "</b></li>" +
-          '<li><span>Packaging</span><b>' + x.pouches.map(function (u) { return '<em class="' + (short(u.have, u.need) ? "pp-pc-no" : "") + '">' + n(u.need) + " " + esc(u.name) + "</em>"; }).join(" · ") +
-            (x.cartons ? ' · <em class="' + (short(x.cartons.have, x.cartons.need) ? "pp-pc-no" : "") + '">' + n(x.cartons.need) + " master cartons</em>" : "") + "</b></li></ul>" +
-          (x.takes.some(function (t) { return short(t.have, t.kg); }) ? '<p class="pp-pc-s pp-pc-warn">The cold store doesn\'t hold enough yet (in red). The batch can be planned now; it waits for the Semi Finished Goods to be cut.</p>' : "");
-      } else if (x.kind === "batch") {
-        body = '<p class="pp-pc-t">Create a cutting batch: <b>' + esc(x.title) + "</b> <span class=\"pp-pc-v\">" + esc(x.version) + "</span></p>" +
-          '<ul class="pp-pc-l"><li><span>Takes</span><b>' + x.raw.map(function (r) { return '<em class="' + (short(r.have, r.kg) ? "pp-pc-no" : "") + '">' + n(r.kg) + " " + (r.unit === "kg" ? "kg" : r.unit) + " " + esc(r.name) + (r.grade ? " (" + esc(r.grade) + ")" : "") + "</em>" + (r.wastage ? " · " + r.wastage + "% wastage" : ""); }).join(" · ") + "</b></li>" +
-          '<li><span>Fills</span><b>' + n(x.fill.n) + " " + esc(x.fill.container) + " of " + x.fill.size + " kg · " + esc(x.fill.store) + "</b></li></ul>" +
-          (x.raw.some(function (r) { return short(r.have, r.kg); }) ? '<p class="pp-pc-s pp-pc-warn">The raw store doesn\'t hold enough yet (in red): only ' + x.raw.filter(function (r) { return short(r.have, r.kg); }).map(function (r) { return n(r.have) + " kg " + esc(r.name); }).join(", ") + ". Confirm it on Purchase; the batch waits for it.</p>" : "");
-      }
-      if (x && x.kind === "batch") body += '<p class="pp-pc-s">Planned for today and not on a shift yet — give it one in All shifts. Supervisor <select class="pp-pc-sel" data-pcsup>' +
-        (SUPS || []).map(function (nm) { return "<option" + (nm === (pc.sup || x.sup) ? " selected" : "") + ">" + esc(nm) + "</option>"; }).join("") + "</select></p>";
-      foot = '<button type="button" class="btn" data-pc-cancel>Cancel</button>' + (x ? '<button type="button" class="btn primary" data-pc-go>Create the batch</button>' : "");
+      var g = pb.groups[0], have = g.rows.map(function (r) { return r.id; }), spare = g.spare.filter(function (r) { return have.indexOf(r.id) === -1; });
+      body = g.rows.map(function (r, i) {
+        var k = "0:" + i; rn++;
+        return '<tr><td class="xl-n">' + rn + '</td><td class="xl-p">' + esc(r.name) + "</td>" +
+          '<td class="xl-c"><input type="number" min="0" step="1" inputmode="numeric" data-pbq="' + k + '" value="' + esc(r.qty) + '" aria-label="Kg of ' + esc(r.name) + '"></td>' +
+          '<td class="xl-num" data-pbbag="' + k + '">' + n(Math.ceil((Number(r.qty) || 0) / r.bag)) + "</td>" +
+          '<td class="xl-c xl-selc"><select data-pb-rsup="' + k + '" aria-label="Supervisor of ' + esc(r.name) + '">' + supOpts(r.sup) + "</select></td>" + x('data-pb-rm="' + k + '"', "Remove " + r.name) + "</tr>";
+      }).join("") +
+        (spare.length ? '<tr class="xl-add"><td class="xl-n">+</td><td class="xl-c xl-s"><select class="xl-addsel" data-pb-add="0" aria-label="Add a cut"><option value="">Add a cut…</option>' +
+          spare.map(function (r) { return '<option value="' + esc(r.id) + '">' + esc(r.name) + "</option>"; }).join("") + '</select></td><td></td><td></td><td></td><td class="xl-x"></td></tr>' : "");
     }
-    return '<tr class="pp-pc"><td colspan="' + cols + '"><div class="pp-pc-box" role="group" aria-label="Confirm">' + body + (S.pcErr ? '<p class="pp-pc-s pp-pc-err">' + esc(S.pcErr) + "</p>" : "") +
-      '<div class="pp-pc-f">' + foot + "</div></div></td></tr>";
+    var pen = '<svg class="xl-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    var head = fg
+      ? '<colgroup><col class="c-n"><col><col style="width:150px"><col style="width:150px"><col class="c-x"></colgroup>' +
+        '<thead><tr><th class="xl-n"></th><th>Pack</th><th class="xl-num xl-edh">' + pen + ' Packs</th><th class="xl-num">Weight (kg)</th><th></th></tr></thead>'
+      : '<colgroup><col class="c-n"><col><col style="width:150px"><col style="width:90px"><col style="width:170px"><col class="c-x"></colgroup>' +
+        '<thead><tr><th class="xl-n"></th><th>Cut</th><th class="xl-num xl-edh">' + pen + ' Batch (kg)</th><th class="xl-num">Bags</th><th class="xl-edh">' + pen + " Supervisor</th><th></th></tr></thead>";
+    return '<div class="xl-back"><div class="xl-modal xl-narrow" role="dialog" aria-modal="true" aria-label="Approve for production">' +
+      '<header class="xl-h"><b>Approve for production</b><span>planned for today</span>' +
+        '<button type="button" class="pp-x" data-pb-close aria-label="Close">×</button></header>' +
+      '<div class="xl-body"><table class="xl">' + head + "<tbody>" + (body || '<tr><td class="xl-n"></td><td colspan="4" class="pp-muted">Nothing on this sheet.</td></tr>') + "</tbody></table></div>" +
+      '<footer class="xl-f">' + (pb.err ? '<p class="pp-pc-err">' + esc(pb.err) + "</p>" : "") +
+        '<span class="po-tot" data-pbtot>' + pbFoot() + "</span>" +
+        '<button type="button" class="btn" data-pb-close>Cancel</button>' +
+        '<button type="button" class="btn primary" data-pb-go' + (pbCount() ? "" : " disabled") + ">Approve for production</button></footer></div></div>";
   }
-  /* the create or undo, once the panel is answered */
-  function pcGo(p) {
-    var pc = S.pc, who = planWho(), mk = planMarks();
-    if (pc.mode === "undo") {
-      FB_PRODUCTION.write(function (D) {
-        if (pc.ok.kind === "po") D.setPOStatus(pc.ok.id, "Cancelled", who, "Withdrawn from today's Production and Purchase Plan");
-        else D.withdrawBatch(pc.ok.id, who);
+  /* create: one finished batch per product, one cutting batch per cut */
+  function pbGo() {
+    var pb = S.pb, who = planWho(), today = isoDay(Date.now()), made = [];
+    if (!pbCount()) throw new Error("Put a quantity on at least one row.");
+    FB_PRODUCTION.write(function (D) {
+      pb.groups.forEach(function (g) {
+        if (pb.tab === "fg") {
+          var size = pbSize(g), rows = g.rows.filter(function (r) { return Number(r.qty) > 0; });
+          if (!size) return;
+          var b = D.createProductionOrder({ recipeId: g.recipeId, batchSize: size, plannedDate: today, expectedFinishDate: today, supervisor: g.sup, actor: who, where: "Production Plan",
+            packs: rows.map(function (r) { return { skuId: r.skuId, qty: Math.round(Number(r.qty)) }; }) }).batch;
+          made.push({ id: b.id, no: b.batchNumber, name: g.name, kg: size, keys: rows.map(function (r) { return r.key; }) });
+        } else {
+          g.rows.filter(function (r) { return Number(r.qty) > 0; }).forEach(function (r) {
+            var c = D.createProductionOrder({ recipeId: r.id, batchSize: Math.round(Number(r.qty)), plannedDate: today, expectedFinishDate: today, supervisor: r.sup, actor: who, where: "Production Plan" }).batch;
+            made.push({ id: c.id, no: c.batchNumber, name: r.name, kg: Math.round(Number(r.qty)), keys: [r.key] });
+          });
+        }
       });
-      Object.keys(mk.ok).forEach(function (k) { if (mk.ok[k] && mk.ok[k].id === pc.ok.id) delete mk.ok[k]; });
-      savePlanMarks(mk);
-      return;
-    }
-    var x = pc.plan, at = new Date().toISOString();
-    var made = FB_PRODUCTION.write(function (D) {
-      var b = D.createProductionOrder({ recipeId: x.recipeId, batchSize: x.size, plannedDate: x.today, expectedFinishDate: x.today, supervisor: pc.sup || x.sup, actor: who, where: "Production Plan",
-        packs: (x.packs || []).map(function (k) { return { skuId: k.skuId, qty: k.qty }; }) }).batch;
-      return { kind: "batch", id: b.id, no: b.batchNumber };
     });
-    x.keys.forEach(function (k) { mk.ok[k] = { by: who, at: at, kind: made.kind, id: made.id, no: made.no }; });
-    savePlanMarks(mk);
+    made.forEach(function (x) { x.keys.forEach(function (k) { delete S.pbSel[k]; }); });
+    S.pb = null;
   }
-
-  /* the planner's marks: a deviation as it is typed in, a confirm on a click */
-  app.addEventListener("change", function (e) {
-    var k = e.target.getAttribute && e.target.getAttribute("data-dev");
-    if (!k) return;
-    var m = planMarks(), v = Number(e.target.value);
-    if (e.target.value === "" || !isFinite(v) || !v) delete m.dev[k]; else m.dev[k] = v;
-    savePlanMarks(m); render();
-  });
+  /* a pencil's save: the standing figures go to the store */
+  function editSave() {
+    var inp = app.querySelector("[data-edit-in]");
+    if (!inp) { S.edit = null; return true; }
+    var key = inp.getAttribute("data-edit-in"), kind = key.slice(0, key.indexOf(":")), rest = key.slice(key.indexOf(":") + 1), v = inp.value === "" ? 0 : Number(inp.value), who = planWho();
+    try {
+      if (!isFinite(v) || v < 0) throw new Error("Enter a number, 0 or more");
+      FB_PRODUCTION.write(function (D) {
+        var o = { actor: who };
+        if (kind === "msq") D.setPackMsq(rest, v, o);
+        else if (kind === "smsq") D.setRecipeMsq(rest, v, o);
+        else if (kind === "pmsq") D.setMaterialMsq(rest, v, o);
+        else if (kind === "waste") D.setWastage(rest, v, o);
+        else if (kind === "share") D.setRecipeShare(rest.split(":")[0], rest.split(":")[1], v, o);
+        else if (kind === "carton") D.setCartonKg(v, o);
+      });
+      S.edit = null;
+    } catch (err) { inp.classList.add("is-bad"); inp.title = (err && err.body && err.body.error) || err.message || ""; inp.focus(); return false; }
+    return true;
+  }
   app.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-dev")) e.target.blur();
-    if (e.key === "Escape" && S.pc) { S.pc = null; S.pcErr = ""; render(); }
-  });
-  app.addEventListener("change", function (e) {
-    if (e.target.hasAttribute && e.target.hasAttribute("data-pcsup") && S.pc) S.pc.sup = e.target.value;
+    if (!e.target.getAttribute || !e.target.getAttribute("data-edit-in")) return;
+    if (e.key === "Enter") { e.preventDefault(); if (editSave()) render(); }
+    else if (e.key === "Escape") { e.stopPropagation(); S.edit = null; render(); }
   });
 
-  /* the builder's fields: kept as they are typed; only the totals move */
+  /* the form's fields: kept as they are typed; only the figures around them move */
+  function prKey(t, attr) { var k = t.getAttribute(attr).split(":"); return { g: S.pr.groups[+k[0]], gi: +k[0], i: +k[1] }; }
   app.addEventListener("input", function (e) {
     if (!S.pr) return;
-    var t = e.target, i;
-    if (t.hasAttribute("data-prq")) { i = +t.getAttribute("data-prq"); S.pr.lines[i].qty = t.value; }
-    else if (t.hasAttribute("data-prr")) { i = +t.getAttribute("data-prr"); S.pr.lines[i].price = t.value; }
-    else if (t.hasAttribute("data-prnote")) { S.pr.note = t.value; return; }
+    var t = e.target, k;
+    if (t.hasAttribute("data-prs")) {
+      var gi = +t.getAttribute("data-prs"), box = app.querySelector('[data-prsl="' + gi + '"]');
+      if (box) { box.innerHTML = prSearchHtml(gi, prSearch(gi, t.value), t.value); box.hidden = false; }
+      return;
+    }
+    if (t.hasAttribute("data-prq")) { k = prKey(t, "data-prq"); k.g.lines[k.i].qty = t.value; }
+    else if (t.hasAttribute("data-prr")) { k = prKey(t, "data-prr"); k.g.lines[k.i].price = t.value; }
     else return;
-    var l = S.pr.lines[i], amt = app.querySelector('[data-pramt="' + i + '"]'), tot = app.querySelector("[data-prtot]");
-    if (amt) amt.textContent = rupee((Number(l.qty) || 0) * (Number(l.price) || 0));
-    if (tot) tot.innerHTML = prTotHtml(prTotals(prCatalogue()));
-    var pl = planModel().purchase.filter(function (x) { return x.id === l.materialId; })[0], ov = app.querySelector('[data-prover="' + i + '"]');
-    if (ov) ov.hidden = !(pl && Number(l.qty) > pl.toOrder + 0.5);
+    var l = k.g.lines[k.i], cat = prCatalogue();
+    var amt = app.querySelector('[data-pramt="' + k.gi + ":" + k.i + '"]'), gt = app.querySelector('[data-pr-gt="' + k.gi + '"]'), tot = app.querySelector("[data-prtot]");
+    if (amt) amt.textContent = n((Number(l.qty) || 0) * (Number(l.price) || 0));
+    if (gt) gt.innerHTML = prGroupTot(prTotals(cat, k.g));
+    if (tot) tot.textContent = rupee(prGrand(cat));
+  });
+  /* the search opens its list on focus, closes when left */
+  function prHideLists(except) { [].forEach.call(app.querySelectorAll("[data-prsl]"), function (b) { if (b !== except) b.hidden = true; }); }
+  function prOpenList(e) {
+    if (S.pr && e.type === "click" && !e.target.closest(".xl-s")) prHideLists();
+    if (!S.pr || !e.target.hasAttribute || !e.target.hasAttribute("data-prs")) return;
+    var gi = +e.target.getAttribute("data-prs"), box = app.querySelector('[data-prsl="' + gi + '"]');
+    if (box) { prHideLists(box); box.innerHTML = prSearchHtml(gi, prSearch(gi, e.target.value), e.target.value); box.hidden = false; }
+  }
+  app.addEventListener("focusin", prOpenList);
+  app.addEventListener("click", prOpenList);
+  app.addEventListener("focusout", function (e) {
+    if (!e.target.hasAttribute || !e.target.hasAttribute("data-prs")) return;
+    var box = app.querySelector('[data-prsl="' + e.target.getAttribute("data-prs") + '"]');
+    setTimeout(function () { if (box && !box.contains(document.activeElement)) box.hidden = true; }, 150);
+  });
+  app.addEventListener("keydown", function (e) {
+    if (!S.pr || !e.target.hasAttribute || !e.target.hasAttribute("data-prs")) return;
+    var gi = +e.target.getAttribute("data-prs");
+    if (e.key === "Enter") { e.preventDefault(); var first = prSearch(gi, e.target.value)[0]; if (first) prPick(gi, first.id); }
+    else if (e.key === "Escape") { e.target.value = ""; prHideLists(); e.target.blur(); }
+  });
+  /* the batch sheet's cells: kept as typed; the figures around them move */
+  function pbKey(t, attr) { var k = t.getAttribute(attr).split(":"); return { gi: +k[0], i: +k[1], g: S.pb.groups[+k[0]] }; }
+  app.addEventListener("input", function (e) {
+    var t = e.target;
+    if (!S.pb || !t.hasAttribute || !t.hasAttribute("data-pbq")) return;
+    var k = pbKey(t, "data-pbq"), r = k.g.rows[k.i], id = k.gi + ":" + k.i, q0 = Number(t.value) || 0;
+    r.qty = t.value;
+    var set = function (sel, html) { var el = app.querySelector(sel); if (el) el.innerHTML = html; };
+    if (S.pb.tab === "fg") {
+      set('[data-pbkg="' + id + '"]', n(q0 * r.grams / 1000));
+      set('[data-pb-size="' + k.gi + '"]', "Batch " + n(pbSize(k.g)) + " kg");
+    } else {
+      set('[data-pbbag="' + id + '"]', n(Math.ceil(q0 / r.bag)));
+    }
+    set("[data-pbtot]", pbFoot());
+    var go = app.querySelector("[data-pb-go]"); if (go) go.disabled = !pbCount();
   });
   app.addEventListener("change", function (e) {
     var t = e.target;
-    if (t.hasAttribute && t.hasAttribute("data-prdue") && S.pr) { S.pr.due = t.value; return; }
-    /* another supplier: what the plan needs from them comes in; added products stay */
-    if (t.hasAttribute && t.hasAttribute("data-prsup") && S.pr) {
-      var pm = planModel(), sup = t.value;
-      var kept = S.pr.lines.filter(function (l) { return !l.plan; });
-      var plan = pm.purchase.filter(function (l) { return l.toOrder > 0 && l.supplierId === sup && S.pr.pool.indexOf(l.id) !== -1; })
-        .map(function (l) { return { materialId: l.id, qty: l.toOrder, price: l.price, plan: true }; });
-      S.pr.supplierId = sup; S.pr.lines = plan.concat(kept); S.pr.due = prDue(S.pr.lines, prCatalogue()); S.pr.err = "";
+    if (!S.pb || !t.hasAttribute) return;
+    if (t.hasAttribute("data-pb-gsup")) { S.pb.groups[+t.getAttribute("data-pb-gsup")].sup = t.value; return; }
+    if (t.hasAttribute("data-pb-rsup")) { var k = pbKey(t, "data-pb-rsup"); k.g.rows[k.i].sup = t.value; return; }
+    if (t.hasAttribute("data-pb-add") && t.value) {
+      var g = S.pb.groups[+t.getAttribute("data-pb-add")], r = g.spare.filter(function (x) { return (x.skuId || x.id) === t.value; })[0];
+      if (r) g.rows.push(Object.assign({}, r));
       render();
+      var inp = app.querySelector('[data-pbq="' + t.getAttribute("data-pb-add") + ":" + (g.rows.length - 1) + '"]');
+      if (inp) { inp.focus(); inp.select(); }
     }
+  });
+  /* the sheet's keys: Enter or ↓ down the column, ↑ up; Esc closes */
+  app.addEventListener("keydown", function (e) {
+    if (!S.pr && !S.pb) return;
+    var t = e.target, col = t.hasAttribute && (t.hasAttribute("data-prq") ? "data-prq" : t.hasAttribute("data-prr") ? "data-prr" : t.hasAttribute("data-pbq") ? "data-pbq" : "");
+    if (col && (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      var all = [].slice.call(app.querySelectorAll("[" + col + "]")), at = all.indexOf(t) + (e.key === "ArrowUp" ? -1 : 1);
+      if (all[at]) { all[at].focus(); all[at].select(); } else if (e.key !== "ArrowUp") t.blur();
+      return;
+    }
+    if (e.key === "Escape" && !(t.hasAttribute && t.hasAttribute("data-prs"))) { S.pr = null; S.pb = null; render(); }
+  });
+  app.addEventListener("change", function (e) {
+    var t = e.target;
+    if (!S.pr || !t.hasAttribute || !t.hasAttribute("data-pr-gsup")) return;
+    S.pr.groups[+t.getAttribute("data-pr-gsup")].sup = t.value;
+    render();
   });
 
   /* ── render ────────────────────────────────────────────────────────── */
@@ -1005,11 +1161,15 @@
       /* All shifts' one link sits on the date's row (owner, 29 Sep 2026) */
       tabs.action(S.lens === "week" ? { label: "Shift settings", icon: "settings", quiet: true, onClick: function () { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; render(); } } : null);
     }
+    var xlb = app.querySelector(".xl-body"), xlTop = xlb ? xlb.scrollTop : 0;
     app.innerHTML =
       (S.lens === "needs" ? Needs(m)
         : S.lens === "flow" ? Plan(planModel())
         : Roster(w)) +
       (S.panel ? (S.panel.kind === "settings" ? Settings(w) : ShiftPanel(w)) : "");
+    /* the order sheet is a modal: the page behind stays put, the sheet keeps its scroll */
+    document.documentElement.classList.toggle("xl-lock", !!app.querySelector(".xl-back"));
+    if (xlTop && app.querySelector(".xl-body")) app.querySelector(".xl-body").scrollTop = xlTop;
   }
 
   /* ── the page only navigates: batches start and are made in Batches ── */
@@ -1026,75 +1186,38 @@
     if (pt) { S.plan = pt.getAttribute("data-ptab"); try { sessionStorage.setItem("fb.v7.flow.plantab", S.plan); } catch (e2) { /* this visit only */ } render(); return; }
     /* purchase requests: the boxes, the builder, and the orders behind a figure */
     var t0 = e.target;
-    var selOne = t0.closest("[data-pusel]");
-    if (selOne) { S.puSel[selOne.getAttribute("data-pusel")] = selOne.checked; render(); return; }
-    if (t0.closest("[data-pusel-all]")) {
-      var on = t0.closest("[data-pusel-all]").checked, pm0 = planModel();
-      S.puSel = {}; if (on) pm0.purchase.forEach(function (l) { if (l.toOrder > 0) S.puSel[l.id] = true; });
+    var me = t0.closest("[data-edit]");
+    if (me) { S.edit = me.getAttribute("data-edit"); render(); var mi = app.querySelector("[data-edit-in]"); if (mi) { mi.focus(); mi.select(); } return; }
+    if (t0.closest("[data-edit-save]")) { if (editSave()) render(); return; }
+    if (t0.closest("[data-edit-cancel]")) { S.edit = null; render(); return; }
+    if (t0.closest("[data-pb-open]")) { pbStart(planModel(), S.plan); render(); return; }
+    if (t0.closest("[data-pb-close]")) { S.pb = null; render(); return; }
+    var pbr = t0.closest("[data-pb-rm]");
+    if (pbr && S.pb) { var rk2 = pbKey(pbr, "data-pb-rm"); rk2.g.rows.splice(rk2.i, 1); render(); return; }
+    var pbg = t0.closest("[data-pb-grm]");
+    if (pbg && S.pb) { S.pb.groups.splice(+pbg.getAttribute("data-pb-grm"), 1); render(); return; }
+    if (t0.closest("[data-pb-go]") && S.pb) {
+      try { pbGo(); } catch (err) { if (S.pb) S.pb.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; }
       render(); return;
     }
-    if (t0.closest("[data-pr-open]")) { prStart(planModel()); render(); return; }
-    var nx = t0.closest("[data-pr-next]");
-    if (nx) { e.preventDefault(); S.puSel = {}; prStart(planModel(), nx.getAttribute("data-pr-next")); render(); return; }
+    if (t0.closest("[data-pr-open]")) { prStart(planModel()); if (!S.pr.groups.length) S.pr.groups.push({ sup: (prCatalogue().suppliers[0] || {}).id, lines: [] }); render(); return; }
     if (t0.closest("[data-pr-close]")) { S.pr = null; render(); return; }
-    if (t0.closest("[data-pr-donex]")) { S.prDone = null; render(); return; }
+    var pick = t0.closest("[data-pr-pick]");
+    if (pick && S.pr) { var pk2 = pick.getAttribute("data-pr-pick"), cut = pk2.indexOf(":"); prPick(+pk2.slice(0, cut), pk2.slice(cut + 1)); return; }
     var rm = t0.closest("[data-pr-rm]");
-    if (rm && S.pr) { S.pr.lines.splice(+rm.getAttribute("data-pr-rm"), 1); render(); return; }
-    var chip = t0.closest("[data-pr-chip]");
-    if (chip && S.pr) {
-      var id = chip.getAttribute("data-pr-chip"), pl = planModel().purchase.filter(function (l) { return l.id === id; })[0];
-      if (pl) S.pr.lines.push({ materialId: id, qty: pl.toOrder, price: pl.price, plan: true });
-      render(); return;
-    }
-    if (t0.closest("[data-pr-add]") && S.pr) {
-      var sel = app.querySelector("[data-pradd]"), qy = app.querySelector("[data-praddq]");
-      if (sel && sel.value) {
-        var m = prCatalogue().materials.filter(function (x) { return x.id === sel.value; })[0];
-        var amt = Number(qy && qy.value) || Number(sel.selectedOptions[0].getAttribute("data-suggest")) || 0;
-        S.pr.lines.push({ materialId: m.id, qty: amt, price: m.price, plan: false });
-        S.pr.err = "";
-      } else S.pr.err = "Choose a product to add.";
-      render(); return;
+    if (rm && S.pr) { var rk = prKey(rm, "data-pr-rm"); rk.g.lines.splice(rk.i, 1); render(); return; }
+    var grm = t0.closest("[data-pr-grm]");
+    if (grm && S.pr) { S.pr.groups.splice(+grm.getAttribute("data-pr-grm"), 1); render(); return; }
+    if (t0.closest("[data-pr-gadd]") && S.pr) {
+      var usedS = S.pr.groups.map(function (g) { return g.sup; }), free = prCatalogue().suppliers.filter(function (s2) { return usedS.indexOf(s2.id) === -1; })[0];
+      if (free) S.pr.groups.push({ sup: free.id, lines: [] });
+      render();
+      var sel = app.querySelector('[data-pr-gsup="' + (S.pr.groups.length - 1) + '"]');
+      if (sel) sel.focus();
+      return;
     }
     if (t0.closest("[data-pr-go]") && S.pr) {
-      try { prRaise(planModel()); } catch (err) { S.pr.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; }
-      render(); return;
-    }
-    var rr = t0.closest("[data-prrow]");
-    if (rr) {
-      var parts = rr.getAttribute("data-prrow").split(":");
-      S.prRow = S.prRow && S.prRow.id === parts[0] && S.prRow.which === parts[1] ? null : { id: parts[0], which: parts[1] };
-      S.prAsk = null; S.prErr = ""; render(); return;
-    }
-    var ask = t0.closest("[data-pr-ask]");
-    if (ask) { var a = ask.getAttribute("data-pr-ask").split(":"); S.prAsk = { id: a[0], what: a[1] }; S.prErr = ""; render(); return; }
-    if (t0.closest("[data-pr-askx]")) { S.prAsk = null; S.prErr = ""; render(); return; }
-    var dec = t0.closest("[data-pr-approve], [data-pr-reject], [data-pr-cancel]");
-    if (dec) {
-      try {
-        if (dec.hasAttribute("data-pr-approve")) prDecide(dec.getAttribute("data-pr-approve"), "InProgress");
-        else if (dec.hasAttribute("data-pr-reject")) {
-          var why = (app.querySelector("[data-prreason]") || {}).value || "";
-          if (!why.trim()) throw new Error("Say why it is rejected.");
-          prDecide(dec.getAttribute("data-pr-reject"), "Rejected", why.trim());
-        } else prDecide(dec.getAttribute("data-pr-cancel"), "Cancelled", "Cancelled from today's Production and Purchase Plan");
-      } catch (err) { S.prErr = (err && err.body && err.body.error) || err.message; }
-      render(); return;
-    }
-    var pk = e.target.closest("[data-pok]");
-    if (pk) {
-      var key = pk.getAttribute("data-pok");
-      if (S.pc && S.pc.key === key) { S.pc = null; S.pcErr = ""; render(); return; }
-      var pm = planModel(), line = null;
-      [].concat.apply([], pm.fg.map(function (g) { return g.packs; })).concat(pm.semi, pm.purchase).forEach(function (l) { if (l.key === key) line = l; });
-      S.pcErr = "";
-      S.pc = line && line.ok ? { key: key, mode: "undo", ok: line.ok } : { key: key, mode: "confirm", plan: pcPlan(pm, key) };
-      render(); return;
-    }
-    if (e.target.closest("[data-pc-cancel]")) { S.pc = null; S.pcErr = ""; render(); return; }
-    if (e.target.closest("[data-pc-go]") && S.pc) {
-      try { pcGo(); S.pc = null; S.pcErr = ""; }
-      catch (err) { S.pcErr = (err && err.body && err.body.error) || (err && err.message) || "That didn't go through. Try again."; }
+      try { prRaise(); } catch (err) { if (S.pr) S.pr.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; }
       render(); return;
     }
     var b = e.target.closest("[data-act]");

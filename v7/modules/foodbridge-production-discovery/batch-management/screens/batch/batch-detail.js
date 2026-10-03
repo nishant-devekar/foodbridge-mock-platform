@@ -234,18 +234,28 @@
   function transitionExtras(trigger) {
     const b = state.batch;
     if (trigger === "start") {
-      const def = P.read((D) => D.recordingOf(D.batch(b.id)));
-      if (!state.recording) state.recording = def;
-      const opt = (v, t, d) => el("label", { class: "ws-status-option" + (state.recording === v ? " selected" : ""), style: "cursor:pointer" },
-        el("input", { type: "radio", name: "rec", checked: state.recording === v || undefined, onchange: () => { state.recording = v; render(); }, style: "margin-right:6px" }),
-        el("span", { class: "label" }, t), el("span", { class: "desc" }, d));
+      /* the office records by default (owner, 3 Oct 2026: the business setting); a batch set to the Worker App keeps it */
+      if (!state.recording) state.recording = P.read((D) => D.recordingOf(D.batch(b.id)));
+      const ICON = {
+        office: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
+        app: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg>',
+      };
+      const opt = (v, t, d) => {
+        const on = state.recording === v;
+        const ic = el("span", { class: "rec-ic", "aria-hidden": "true" }); ic.innerHTML = ICON[v];
+        return el("label", { class: "rec-opt" + (on ? " on" : "") },
+          el("input", { type: "radio", name: "rec", class: "rec-radio", value: v, checked: on || undefined, onchange: () => { state.recording = v; render(); } }),
+          ic,
+          el("span", { class: "rec-txt" }, el("span", { class: "rec-t" }, t), el("span", { class: "rec-d" }, d)),
+          el("span", { class: "rec-check", "aria-hidden": "true" }, "✓"));
+      };
       const where = P.read((D) => { const bb = D.batch(b.id), today = new Date(); const key = bb.when || null; const sh = key && D.findSlot(key.date, key.slot); return { slot: slotLabel(key), inCharge: sh ? sh.inCharge : bb.operator, crew: sh ? sh.workers.length : 0 }; });
       return el("div", { class: "ws-comment-field" },
-        el("div", { class: "ws-su-label", style: "margin-bottom:6px" }, "Record this batch"),
-        el("div", { class: "ws-status-options" },
-          opt("app", "Worker App", "Its steps go to the phones of the shift's people."),
-          opt("office", "Office", "Record its steps on this batch's Steps tab.")),
-        el("div", { class: "muted small", style: "margin-top:8px" }, "Shift: " + where.slot + (where.inCharge ? " · " + where.inCharge : "") + (where.crew ? " · crew of " + where.crew : "")));
+        el("div", { class: "ws-su-label", style: "margin-bottom:8px" }, "Record this batch"),
+        el("div", { class: "rec-seg", role: "radiogroup", "aria-label": "Record this batch" },
+          opt("office", "Office", "Steps recorded on this batch's Steps tab"),
+          opt("app", "Worker App", "Steps go to the shift's phones")),
+        el("div", { class: "rec-shift" }, "Shift: " + where.slot + (where.inCharge ? " · " + where.inCharge : "") + (where.crew ? " · crew of " + where.crew : "")));
     }
     if (trigger === "reject") {
       return el("div", { class: "ws-note attn", style: "margin-top:12px" }, "Whatever it has made so far goes to quarantine: its bags leave Semi-Finished and its packets leave Finished Goods until you release or scrap them.");
