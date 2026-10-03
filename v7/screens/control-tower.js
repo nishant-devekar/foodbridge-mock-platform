@@ -619,7 +619,6 @@
   }
 
   /* ── The desk's home: every lever as a panel ─────────────────────────── */
-  const BOARD_ROWS = 3;
   function deskBoard() {
     const byId = {};
     model.levers.forEach(function (x) { byId[x.id] = x; });
@@ -644,41 +643,33 @@
         '<button class="ct-pn-foot" data-goto="' + x.id + '">' + esc(x.preview.connect.label) + I.chev + "</button></article>";
     }
     if (x.id === "production") return prodPanel(x, top);
-    const h = x.headline, t = x.tiles;
     const sel = selectedTile(x);
-    const rows = t[sel].rows || [];
+    const rows = sel === "good" ? [] : x.tiles[sel].rows || [];
     ui.board[x.id] = rows;
-    const good = sel === "good";
-    const label = LIST_TITLE[x.id] ? LIST_TITLE[x.id][sel] : t[sel].word;
+    return panelShell(x, top, rows.length
+      ? '<div class="ct-list ct-pn-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' + rowHtml(rows[0], 0, false).replace('data-row="0"', 'data-hrow="' + x.id + ':0"') + "</div>" : "",
+      rows.length - 1, x.id + ":" + sel);
+  }
+  /* A panel, cut to what matters (owner, 3 Oct 2026: "too much cluttered"):
+     the area and where it stands, its headline, and the one thing that needs
+     the owner most — "+ N more need you" opens the area on the rest. No
+     count strip, no list title, no three rows, no foot. */
+  function panelShell(x, top, one, more, ptile) {
+    const h = x.headline;
     return '<article class="ct-pn" data-s="' + x.status + '" data-pn="' + x.id + '">' + top +
       '<div class="ct-pn-head"><p class="ct-pn-v' + (x.status === "good" ? " is-good" : "") + '">' + esc(h.value) + "</p>" +
-        '<p class="ct-pn-c">' + esc(h.context) + "</p>" +
-        (typeof h.bar === "number" ? '<div class="ct-bar" role="img" aria-label="' + Math.round(h.bar * 100) + '% delivered"><i style="width:' + Math.round(h.bar * 100) + '%"></i></div>' : "") + "</div>" +
-      /* The three tiles as one strip: each opens the lever on its list. */
-      '<div class="ct-pn-k">' + ["good", "bad", "ugly"].map(function (k) {
-        const off = !t[k].count && !(t[k].rows && t[k].rows.length);
-        return '<button class="ct-pn-kt" data-k="' + k + '" data-ptile="' + x.id + ":" + k + '"' + (k === sel ? ' aria-current="true"' : "") + (off ? " disabled" : "") +
-          ' title="' + esc(t[k].word) + '"><b>' + esc(t[k].value) + "</b><span>" + esc(t[k].label) + "</span></button>";
-      }).join("") + "</div>" +
-      (rows.length
-        ? '<h4 class="ct-pn-lt">' + esc(label) + '</h4><div class="ct-list ct-pn-list' + ("tag" in rows[0] ? " is-tagged" : "") + '">' +
-            rows.slice(0, BOARD_ROWS).map(function (r, i) { return rowHtml(r, i, good).replace('data-row="' + i + '"', 'data-hrow="' + x.id + ":" + i + '"'); }).join("") + "</div>"
-        : '<p class="ct-pn-empty">' + I.check + "Nothing needs you here</p>") +
-      '<button class="ct-pn-foot" data-ptile="' + x.id + ":" + sel + '">' + (rows.length > BOARD_ROWS ? "See all " + rows.length : "Open " + esc(name)) + I.chev + "</button></article>";
+        '<p class="ct-pn-c">' + esc(h.context) + "</p></div>" +
+      (one || '<p class="ct-pn-empty">' + I.check + "Nothing needs you here</p>") +
+      (one && more > 0 ? '<button class="ct-pn-more" data-ptile="' + ptile + '">+ ' + more + (more === 1 ? " more needs" : " more need") + " you" + I.chev + "</button>" : "") +
+      "</article>";
   }
 
-  /* Production's panel: the headline, its four tabs as the strip, the
-     chosen tab's first rows — each asking before it goes to the board. */
+  /* Production's panel: the same cut — the worst line of the worst tab,
+     asking before it goes to the board, and how many more need the owner. */
   function prodPanel(x, top) {
-    const pt = prodTab(x), h = x.headline;
-    return '<article class="ct-pn" data-s="' + x.status + '" data-pn="production">' + top +
-      '<div class="ct-pn-head"><p class="ct-pn-v' + (x.status === "good" ? " is-good" : "") + '">' + esc(h.value) + '</p><p class="ct-pn-c">' + esc(h.context) + "</p></div>" +
-      '<div class="ct-pn-k is-four">' + x.tabs.map(function (t) {
-        return '<button class="ct-pn-kt" data-k="' + t.tone + '" data-ptab="' + t.id + '"' + (t.id === pt.id ? ' aria-current="true"' : "") +
-          ' title="' + esc(t.label + ": " + t.count + " " + t.word) + '"><b>' + t.count + "</b><span>" + esc(PROD_SHORT[t.id]) + "</span></button>";
-      }).join("") + "</div>" +
-      '<h4 class="ct-pn-lt">' + esc(pt.label) + "</h4>" + prodList(pt.rows, "pn", BOARD_ROWS).replace('class="ct-list ct-plist"', 'class="ct-list ct-plist ct-pn-list"') +
-      '<button class="ct-pn-foot" data-ptile="production:' + pt.id + '">' + (pt.rows.length > BOARD_ROWS ? "See all " + pt.rows.length : "Open Production") + I.chev + "</button></article>";
+    const pt = prodTab(x), first = pt.rows.filter(function (r) { return r.tone !== "good"; })[0];
+    const need = x.tabs.reduce(function (n, t) { return n + t.count; }, 0);
+    return panelShell(x, top, first ? prodList([first], "pn").replace('class="ct-list ct-plist"', 'class="ct-list ct-plist ct-pn-list"') : "", need - 1, "production:" + pt.id);
   }
 
   /* ════════════════════════════════════════════════════════════════════

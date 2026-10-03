@@ -1017,3 +1017,33 @@ html.ct-desk .ct-main:has(.ct-promise) { max-width: 640px; }
 .ct-pask .ct-btn { flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; }
 @media (min-width: 420px) { .ct-pask p { flex: 1 1 auto; } }
 html.ct-desk .ct-dlv .ct-ptabs { grid-template-columns: 1fr; }
+
+/* The panel cut to its headline and one line (owner, 3 Oct 2026: the desk
+   was too cluttered): the line sits under a hairline, "+ N more" under it. */
+.ct-pn { padding-bottom: 14px; }
+.ct-pn > .ct-pn-list { margin: 14px 18px 0; padding: 2px 0 0; border-top: 1px solid var(--line); }
+.ct-pn > .ct-pn-list .ct-prow .ct-pask { margin: 0 0 4px; }
+.ct-pn > .ct-pn-empty { margin-top: 14px; padding-top: 12px; margin-left: 18px; margin-right: 18px; border-top: 1px solid var(--line); }
+.ct-pn-more { display: flex; align-items: center; gap: 2px; align-self: flex-start; margin: 0 18px; padding: 2px 0; font-size: 13.5px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+.ct-pn-more .i { width: 15px; height: 15px; stroke-width: 2.4; }
+.ct-pn-more:hover { color: var(--ink); }
+
+/* The header reads first (owner, 3 Oct 2026, picked "bigger, same light
+   tint" after rejecting solid bands): the same pale tint, more room, the
+   area's name and where it stands in large capitals. */
+.ct-pn-open { gap: 12px; padding: 20px 18px 20px 20px; }
+.ct-pn-h .ct-pn-i .i { width: 26px; height: 26px; stroke-width: 2.2; }
+.ct-pn-h .ct-pn-n { font-size: 18px; line-height: 24px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+.ct-pn-h .ct-lvword { gap: 7px; font-size: 13px; line-height: 20px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.ct-pn-h .ct-lvword[data-s="ugly"] { color: #C0362C; }
+.ct-pn-h .ct-dot { width: 10px; height: 10px; }
+.ct-pn-h .ct-go .i { width: 20px; height: 20px; }
+
+/* The headline steps back so the header leads (owner, 3 Oct 2026: "make
+   this bit subtle, it's taking away the attention"): body-size, medium
+   weight, the context in grey beside it on one line. */
+.ct-pn-head { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; row-gap: 0; padding: 14px 18px 0; }
+.ct-pn-v { font-size: 15px; line-height: 22px; font-weight: 600; letter-spacing: 0; color: var(--ink); }
+.ct-pn-v.is-good { color: var(--ink); }
+.ct-pn-c { margin: 0; font-size: 13.5px; line-height: 22px; font-weight: 500; color: var(--ink-3); }
+.ct-pn > .ct-pn-list, .ct-pn > .ct-pn-empty { margin-top: 12px; }

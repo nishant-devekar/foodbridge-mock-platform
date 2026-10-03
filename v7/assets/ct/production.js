@@ -119,8 +119,10 @@
     return {
       id: "production", label: "Production", period: "Today", byIncidents: true,
       status: tiles.ugly.count ? "ugly" : tiles.bad.count ? "bad" : "good",
-      headline: cartons > 0
-        ? { value: n(covered) + " of " + plural(cartons, "carton") + " covered", context: "today's orders, by stock and batches approved for production" }
+      /* the problem first, like Collections' "₹52 Cr overdue": what orders still lack */
+      headline: cartons > 0 && short >= 0.5
+        ? { value: plural(Math.ceil(short), "carton") + " not covered", context: "of " + n(cartons) + " ordered" }
+        : cartons > 0 ? { value: "All " + plural(cartons, "carton") + " covered", context: "by stock and approved batches" }
         : { value: "No open orders", context: "nothing to make for customers today" },
       healthOf: cartons > 0 ? { value: covered / cartons, what: "of ordered cartons covered by stock or approved batches" } : null,
       tiles: tiles, tabs: tabs,
