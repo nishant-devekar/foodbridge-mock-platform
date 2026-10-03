@@ -410,7 +410,7 @@
     if (window.FB_PRODUCTION || !SELF) return Promise.resolve();
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = new URL("../../../assets/production/production-api.js?v=20261003FL1", SELF).href;
+      s.src = new URL("../../../assets/production/production-api.js?v=20261003BM1", SELF).href;
       s.onload = s.onerror = () => resolve();
       document.head.appendChild(s);
     });

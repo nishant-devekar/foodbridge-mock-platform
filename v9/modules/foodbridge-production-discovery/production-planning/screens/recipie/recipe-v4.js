@@ -16,7 +16,7 @@
   const num = FB.num || ((v) => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; });
   const money = FB.money || ((n) => '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 }));
   // trim trailing zeros for quantity labels (e.g. 0.50 -> 0.5, 24.00 -> 24)
-  const fmtQty = (n) => { n = Math.round(n * 1000) / 1000; return String(n); };
+  const fmtQty = (n) => { n = Math.round(n * 1000) / 1000; return n.toLocaleString('en-IN', { maximumFractionDigits: 3 }); };
 
   /* ---------- batch-size preview (non-destructive) ----------
      Base recipe is authored at BASE_BATCH kg (factor 1). The preview

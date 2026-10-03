@@ -502,6 +502,10 @@
     var r2 = function (v) { return Math.round(v * 100) / 100; };
     /* Approved: on Purchase the sheet's; on Finished and Semi Finished what is in batches —
        its states under it (Batch Management's), the batches on hover, a click opens Batches */
+    /* a row's recipe version opens that recipe in Recipes (owner, 3 Oct 2026: "map recipe versions here") */
+    var verLink = function (recipeId, label) {
+      return label ? '<a href="#" class="pp-vlink" data-go="production/configure-recipe?recipe=' + encodeURIComponent(recipeId) + '" title="Open this recipe in Recipes">' + esc(label) + "</a>" : "—";
+    };
     var apprCell = function (l, u) {
       if (l.batches == null) return '<td class="num pp-big"><b>' + q(l.approved) + (u || "") + "</b></td>";
       if (!(l.approved > 0)) return '<td class="num pp-big pp-muted">0</td>';
@@ -542,10 +546,10 @@
       body = pbBar(p, "fg") + '<table class="pp pp-fg"><thead><tr><th>Product Name</th><th>Recipe Version</th><th class="num">MSQ (Min. Stock Qty in kg)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num" title="InStock − Ordered">Shortfall</th>' + aheads + bheads + '</tr></thead><tbody>' +
         p.fg.map(function (g) {
           return g.packs.map(function (l) {
-            return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + '</th><td></td><td class="num pp-msq">' + ed("msq:" + l.skuId, l.msq, q(l.msq), "MSQ of " + l.name) + '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) +
+            return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + '</th><td class="pp-ver">' + verLink(g.recipeId, g.version) + '</td><td class="num pp-msq">' + ed("msq:" + l.skuId, l.msq, q(l.msq), "MSQ of " + l.name) + '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) +
               apprCell(l) + marks(l) + "</tr>";
           }).join("") +
-            '<tr class="pp-total"><th scope="row">' + esc(g.name) + '</th><td class="pp-ver">' + esc(g.version) + '</td><td class="num">' + q(g.total.msq) + '</td><td class="num">' + q(g.total.ordered) + '</td><td class="num">' + q(g.total.stock) + "</td>" + sh(g.total.short) +
+            '<tr class="pp-total"><th scope="row">' + esc(g.name) + '</th><td class="pp-ver">' + verLink(g.recipeId, g.version) + '</td><td class="num">' + q(g.total.msq) + '</td><td class="num">' + q(g.total.ordered) + '</td><td class="num">' + q(g.total.stock) + "</td>" + sh(g.total.short) +
             '<td class="num">' + q(g.total.approved) + '</td><td class="num' + (g.total.dev < -0.5 ? " pp-neg" : g.total.dev > 0.5 ? " pp-dev-up" : "") + '">' + (g.total.dev > 0.5 ? "+" : g.total.dev < -0.5 ? "−" : "") + q(Math.round(Math.abs(g.total.dev))) + '</td><td class="num">' +
               (g.total.toProduce ? q(g.total.toProduce) : g.total.approved ? '<small class="pp-alldone">Approved</small>' : "—") + "</td></tr>";
         }).join("") + "</tbody></table>";
@@ -558,7 +562,7 @@
           var pct = l.shares.filter(function (s) { return !mixed || !s.single; }).map(function (s) {
             return s.single ? '<span title="' + esc("All of " + s.of) + '">' + n(s.pct) + "</span>" : '<span title="' + esc(n(s.pct, 100) + "% of " + s.of) + '">' + ed("share:" + s.rid + ":" + l.id, r2(s.pct), n(s.pct, 100), l.name + "'s % of " + s.of) + "</span>";
           }).join(" · ") || "—";
-          return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.cut) + '</td><td class="num pp-msq">' + pct + '</td><td class="num pp-msq">' + ed("smsq:" + l.id, l.msq, q(l.msq), "MSQ of " + l.name) +
+          return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td class=\"pp-ver\">" + verLink(l.id, l.cut) + '</td><td class="num pp-msq">' + pct + '</td><td class="num pp-msq">' + (l.bulk ? "—" : ed("smsq:" + l.id, l.msq, q(l.msq), "MSQ of " + l.name)) +
             '</td>' + demandCell(l, "") + '<td class="num">' + q(l.stock) + "</td>" + sh(l.short) + apprCell(l) + marks(l) + "</tr>";
         }).join("") + "</tbody></table>";
     } else {

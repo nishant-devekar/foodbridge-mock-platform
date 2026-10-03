@@ -43,11 +43,13 @@
         if (b.kind === "packing") { put("fg:" + b.skuId, b, (b.packets || 0) - (b.packedPackets || 0)); return; }
         if (b.kind !== "production") return;
         var bk0 = D.book(b.recipeId);
+        var bagged = d.bags.filter(function (g) { return g.batchId === b.id; }).reduce(function (t, g) { return t + g.kg; }, 0);
         if (bk0 && bk0.kind === "semi") {
-          var bagged = d.bags.filter(function (g) { return g.batchId === b.id; }).reduce(function (t, g) { return t + g.kg; }, 0);
           put("sf:" + b.recipeId, b, b.batchSize - bagged);
           return;
         }
+        /* a finished good that goes into other recipes: what its run does not pack is bulk, bagged for them (v9) */
+        if (bk0 && D.usedIn && D.usedIn(b.recipeId).length) put("sf:" + b.recipeId, b, (b.semiFinishedKg || 0) - bagged);
         (b.packagingLines || []).forEach(function (l) {
           var got = (b.packedLines || []).filter(function (x) { return x.skuId === l.packagingConfigId; })[0];
           put("fg:" + l.packagingConfigId, b, (l.plannedUnits || 0) - (got ? got.packets : 0));
@@ -95,17 +97,22 @@
          approved finished batches still need from the cold store, and Purchase's is what
          approved batches still need from the store (D.demand: open batches, less what their
          steps have already taken). */
+      /* every recipe that takes a made product, at any level (v9: a cut can go into a dough,
+         a finished good into another finished good) */
       var shares = {};
-      fg.forEach(function (g) {
-        var bk = D.book(g.recipeId), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
+      d.recipeOrder.concat(d.semiOrder || []).forEach(function (rid) {
+        var bk = D.book(rid), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
         comps.forEach(function (i) {
-          (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name, rid: g.recipeId, single: comps.length === 1 });
+          (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name, rid: rid, single: comps.length === 1 });
         });
       });
-      var semi = (d.semiOrder || []).map(function (sid) {
-        var bk = D.book(sid), dm = D.demand(sid);
-        var l = line("sf:" + sid, bk.msq || 0, dm.qty, D.inFreezer(sid));
-        l.id = sid; l.name = bk.name; l.cut = bk.label; l.shares = shares[sid] || []; l.demand = dm.list;
+      /* Semi Finished Goods: the semi-finished goods, then any finished good that goes into
+         another recipe — its bulk, what a run does not pack (v9) */
+      var bulk = d.recipeOrder.filter(function (rid) { return shares[rid]; });
+      var semi = (d.semiOrder || []).concat(bulk).map(function (sid) {
+        var bk = D.book(sid), dm = D.demand(sid), fin = bk.kind === "finished";
+        var l = line("sf:" + sid, fin ? 0 : bk.msq || 0, dm.qty, D.inFreezer(sid));
+        l.id = sid; l.name = fin ? bk.name + " (bulk)" : bk.name; l.cut = fin ? "finished good · bulk" : bk.label; l.bulk = fin; l.shares = shares[sid] || []; l.demand = dm.list;
         return allotted(l);
       });
       /* Purchase: the recipes' raw materials always (the sheet's rows), and any packaging

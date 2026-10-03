@@ -818,6 +818,161 @@
       planSaid("share", o, { product: bk.name, cut: D.book(sfId).name, pct: p });
       return bk;
     };
+    /* ── Recipes as a bill of materials (v9, 3 Oct 2026; the owner: "one
+       recipe can be of a finished good or a semi-finished good, and a
+       finished good can go into another finished good as its semi-finished").
+
+       Every recipe makes one product, in kg. Its ingredients are of three
+       kinds:
+         · a material bought in   rmId — raw or packaging, taken from the store
+         · a product made here    sfId — ANY recipe: a semi-finished good from
+                                  its bags, or a finished good from its bulk
+                                  bags (what a run did not pack)
+         · a plain input          name only — water, steam: costed, not stocked
+       Levels nest (cut → dough → finished → another finished), so a product
+       can be sold AND go into another. A recipe never takes itself, directly
+       or through another. ── */
+    D.recipes = function () { return (db.recipeOrder || []).concat(db.semiOrder || []).map(function (id) { return db.book[id]; }).filter(Boolean); };
+    D.madeFrom = function (recipeId) { return ((D.book(recipeId) || {}).ingredients || []).filter(function (i) { return i.sfId; }); };
+    D.ingKey = function (i) { return i.sfId ? "sf:" + i.sfId : i.rmId ? "rm:" + i.rmId : "nm:" + String(i.name || "").trim().toLowerCase(); };
+    /* what a product goes into: the recipes that take it, and how much per their base */
+    D.usedIn = function (id) {
+      var rm = /^rm:/.test(id), ref = rm ? id.slice(3) : id;
+      return D.recipes().filter(function (b) { return b.ingredients.some(function (i) { return rm ? i.rmId === ref : i.sfId === ref; }); }).map(function (b) {
+        var i = b.ingredients.filter(function (x) { return rm ? x.rmId === ref : x.sfId === ref; })[0];
+        return { id: b.id, name: b.name, kind: b.kind, emoji: b.emoji, qty: i.qty, unit: i.unit, base: b.base };
+      });
+    };
+    /* would `recipeId` taking `ingId` close a loop? The chain that would, or null */
+    D.wouldLoop = function (recipeId, ingId) {
+      if (recipeId === ingId) return [D.book(recipeId).name];
+      var seen = {}, path = null;
+      (function walk(id, trail) {
+        if (path || seen[id]) return;
+        seen[id] = 1;
+        D.madeFrom(id).forEach(function (i) {
+          if (path || !D.book(i.sfId)) return;
+          var next = trail.concat([D.book(i.sfId).name]);
+          if (i.sfId === recipeId) path = next; else walk(i.sfId, next);
+        });
+      })(ingId, [D.book(ingId).name]);
+      return path;
+    };
+    /* the floor follows the recipe: a weighed step takes the stocked materials,
+       and the step that mixes takes the products made here (Recipes › Process) */
+    function syncFloor(bk) {
+      var wf = db.workflows.filter(function (w) { return w.recipeId === bk.id && w.kind !== "packing"; })[0];
+      if (!wf) return;
+      var steps = wf.steps.slice().sort(byOrder);
+      var raw = bk.ingredients.filter(function (i) { return i.rmId && (i.unit === "kg" || i.unit === "litre"); }).map(function (i) { return i.rmId; });
+      steps.forEach(function (st) { st.takes = (st.takes || []).filter(function (id) { return raw.indexOf(id) !== -1; }); });
+      var target = steps.filter(function (st) { return st.weigh && (st.takes.length || st.mixes); })[0] || steps.filter(function (st) { return st.weigh; })[0];
+      var loose = raw.filter(function (id) { return !steps.some(function (st) { return st.takes.indexOf(id) !== -1; }); });
+      if (loose.length && target) target.takes = target.takes.concat(loose);
+      var made = D.madeFrom(bk.id).length > 0;
+      if (made && !steps.some(function (st) { return st.mixes; })) {
+        if (target) target.mixes = true;
+        else {
+          steps.forEach(function (st) { st.order += 1; });
+          wf.steps.push({ order: 1, name: "Take from the cold store · mix by recipe", role: "packer", expectedMinutes: 40, unlocksNext: true, _id: newId(db), weigh: true, takes: [], mixes: true, loss: 0.5, sticks: false,
+            bags: null, pack: false, cartons: false, container: null, unit: null, store: null, instructions: "Oldest bags first, by the recipe's %. Weigh what goes in and what comes out." });
+        }
+      }
+      if (!made) steps.forEach(function (st) { st.mixes = false; });
+      wf.steps.sort(byOrder); wf.updatedAt = iso();
+    }
+    /* a finished good that goes into another keeps what a run did not pack in
+       bags: its process ends by filling them, so the other recipe can take them */
+    function ensureBulkFill(rid) {
+      var bk = D.book(rid), wf = db.workflows.filter(function (w) { return w.recipeId === rid && w.kind !== "packing"; })[0];
+      if (!bk || bk.kind !== "finished" || !wf || wf.steps.some(function (st) { return st.bags; })) return;
+      wf.steps.push({ order: wf.steps.length + 1, name: "Rest into bags · cold store", role: "packer", expectedMinutes: 15, unlocksNext: true, _id: newId(db), weigh: false, takes: [], mixes: false, loss: null,
+        sticks: false, bags: bk.bagKg || 30, pack: false, cartons: false, container: "Big bags", unit: "kg", store: "Freezer",
+        instructions: "What the run did not pack goes into bags, batch number on every bag — for the recipes " + bk.name + " goes into." });
+      wf.updatedAt = iso();
+    }
+    var recipeSaid = function (what, by, data) { D.emit("production.recipe." + what, { where: "Recipes", how: "office", by: by || "admin", data: data }); };
+    /* add or change one ingredient; o: { sfId | rmId | name, qty, unit, yield, wastage, brand } */
+    D.saveIngredient = function (recipeId, o, by) {
+      var bk = D.book(recipeId);
+      if (!bk) throw new ApiError(404, "No such recipe");
+      o = o || {};
+      var qty = Number(o.qty);
+      if (!isFinite(qty) || !(qty > 0)) throw invalid("Enter a quantity above 0");
+      var sb = null, m = null;
+      if (o.sfId) {
+        sb = D.book(o.sfId);
+        if (!sb) throw invalid("No such product");
+        var loop = D.wouldLoop(recipeId, o.sfId);
+        if (loop) throw invalid(o.sfId === recipeId ? bk.name + " can't go into itself" : sb.name + " is already made from " + bk.name + (loop.length > 2 ? " (" + loop.join(" ← ") + ")" : ""));
+      } else if (o.rmId) {
+        m = D.material(o.rmId);
+        if (!m) throw invalid("No such material");
+      } else if (!String(o.name || "").trim()) throw invalid("Name the ingredient");
+      var ref = D.ingKey(o), cur = bk.ingredients.filter(function (i) { return D.ingKey(i) === ref; })[0];
+      var yieldPct = o.yield == null || o.yield === "" ? (cur ? cur.yield : 100) : Number(o.yield);
+      if (!(yieldPct > 0 && yieldPct <= 100)) throw invalid("Yield is a % from 1 to 100");
+      var ing = cur || {};
+      ing.rmId = m ? m.id : null;
+      if (sb) ing.sfId = sb.id; else delete ing.sfId;
+      ing.name = sb ? sb.name : m ? m.name : String(o.name).trim();
+      ing.brand = o.brand != null && String(o.brand).trim() ? String(o.brand).trim() : ing.brand || (sb ? (sb.kind === "semi" ? "Semi-finished" : "Finished good") : m ? String(m.supplier || "").split(/ ·|,/)[0] : "");
+      ing.qty = r2(qty);
+      ing.unit = sb ? "kg" : (o.unit || ing.unit || (m ? m.unit : "kg"));
+      ing.yield = r1(yieldPct);
+      if (o.wastage != null && o.wastage !== "") { var w = Number(o.wastage); if (!(w >= 0 && w < 100)) throw invalid("Wastage is a % from 0 to 99"); ing.wastage = r1(w); }
+      if (!cur) bk.ingredients.push(ing);
+      syncFloor(bk);
+      if (sb) ensureBulkFill(sb.id);
+      recipeSaid(cur ? "ingredient.changed" : "ingredient.added", by, { recipe: bk.name, ingredient: ing.name, qty: ing.qty, unit: ing.unit });
+      return ing;
+    };
+    D.removeIngredient = function (recipeId, ref, by) {
+      var bk = D.book(recipeId);
+      if (!bk) throw new ApiError(404, "No such recipe");
+      var cur = bk.ingredients.filter(function (i) { return D.ingKey(i) === ref; })[0];
+      if (!cur) throw invalid("That isn't in " + bk.name);
+      bk.ingredients.splice(bk.ingredients.indexOf(cur), 1);
+      syncFloor(bk);
+      recipeSaid("ingredient.removed", by, { recipe: bk.name, ingredient: cur.name });
+      return bk;
+    };
+    /* a new recipe: a finished good (sold in packs) or a semi-finished good (made to go into others) */
+    D.createRecipe = function (o, by) {
+      o = o || {};
+      var name = String(o.name || "").trim(), kind = o.kind === "semi" ? "semi" : "finished", pre = kind === "semi" ? "sf-" : "";
+      if (!name) throw invalid("Name the recipe");
+      if (D.recipes().some(function (b) { return b.name.toLowerCase() === name.toLowerCase(); })) throw invalid("There is already a recipe called " + name);
+      var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "recipe", id = pre + slug, n = 2;
+      while (db.book[id]) id = pre + slug + "-" + n++;
+      var sizes = (o.sizes || []).map(Number).filter(function (x) { return x > 0; }).sort(function (a, b) { return a - b; });
+      if (!sizes.length) sizes = kind === "semi" ? [500, 1000, 5000] : [1000, 5000];
+      var best = Math.round(Number(o.bestBeforeDays)), bag = Math.round(Number(o.bagKg));
+      if (!(best > 0)) best = kind === "semi" ? 30 : 180;
+      if (!(bag > 0)) bag = kind === "semi" ? 50 : 30;
+      var label = String(o.version || "").trim() || "v1";
+      var bk = { id: id, kind: kind, name: name, label: label, sizes: sizes, base: 100, short: name, version: id + "@" + label,
+        line: String(o.line || "").trim() || (kind === "semi" ? "Cutting · IQF" : "Mixing · packing"), bestBeforeDays: best, bagKg: bag,
+        emoji: o.emoji || (kind === "semi" ? "🥣" : "📦"), ingredients: [], making: [], created: iso() };
+      if (kind === "semi") bk.msq = Math.max(0, Math.round(Number(o.msq) || 0));
+      else { bk.category = String(o.category || "").trim() || "Frozen Vegetables"; bk.brand = String(o.brand || "").trim() || "Vasu"; bk.loss = 0.5; }
+      db.book[id] = bk;
+      (kind === "semi" ? db.semiOrder : db.recipeOrder).push(id);
+      db.recipes.push({ id: id, name: name, subtitle: (kind === "semi" ? "Semi-finished" : "Finished") + " · 1 version", active: true, hasPublishedVersion: true, kind: kind });
+      db.recipeHeaders[id] = { recipeId: id, name: name, kind: kind, versions: [{ id: bk.version, label: label, subLabel: sizes.join("/") + " kg" }], activeVersionId: bk.version,
+        statusLabel: "published", allowedBatchSizes: sizes.slice(), bestBeforeDays: best, batchBaseSize: 100, referenceBatchQty: 100, batchYieldPct: 100, batchBaseUnit: "kg", isLocked: false, branchActions: [] };
+      var step = function (order, nm, role, mins, f) {
+        return Object.assign({ order: order, name: nm, role: role, expectedMinutes: mins, instructions: "", unlocksNext: true, _id: newId(db), weigh: false, takes: [], mixes: false, loss: null, sticks: false,
+          bags: null, pack: false, cartons: false, container: null, unit: null, store: null }, f);
+      };
+      var steps = kind === "semi"
+        ? [step(1, "Weigh in · prepare", "washer", 45, { weigh: true, loss: 2, instructions: "Oldest stock first, by the recipe. Weigh what goes in and what comes out." }),
+           step(2, "Into bags · cold store", "packer", 20, { bags: bag, container: "Big bags", unit: "kg", store: "Freezer", instructions: "Batch number on every bag." })]
+        : [step(1, "Take from the cold store · mix by recipe", "packer", 40, { weigh: true, mixes: true, loss: 0.5, instructions: "Oldest bags first, by the recipe's %. Weigh what goes in and what comes out." })];
+      db.workflows.push({ _id: newId(db), product: name, recipeId: id, kind: "production", steps: steps, createdAt: iso(), updatedAt: iso(), __v: 0, _seq: ++db.seq });
+      recipeSaid("created", by, { recipe: name, kind: kind });
+      return bk;
+    };
     /* a pack's minimum stock (MSQ), set from the Production Plan (owner, 3 Oct 2026): the plan approves Ordered − InStock + MSQ */
     D.setPackMsq = function (id, qty, o) {
       var s = D.sku(id), v = Number(qty);
@@ -1446,7 +1601,10 @@
            oldest bags first, from the cold store (3 Oct 2026) */
         if (task.mixes && b) {
           var comps = bk.ingredients.filter(function (i) { return i.sfId; });
-          var ctot = comps.reduce(function (s, i) { return s + i.qty; }, 0);
+          /* a step that also takes raw material splits what went in across all of it (v9) */
+          var ctot = task.takes && task.takes.length
+            ? bk.ingredients.filter(function (i) { return i.unit === "kg" || i.unit === "litre"; }).reduce(function (s, i) { return s + i.qty; }, 0)
+            : comps.reduce(function (s, i) { return s + i.qty; }, 0);
           comps.forEach(function (i) {
             var need = r2(kin * i.qty / ctot), have = D.inFreezer(i.sfId);
             if (have + 0.0001 < need) throw new ApiError(409, "Only " + have + " kg of " + D.book(i.sfId).name + " in the cold store for this batch");
@@ -1473,9 +1631,13 @@
       }
       if (task.bags) {
         var kb = num(input.kgOut);
-        if (!(kb > 0)) throw invalid("Enter the kg that went into bags");
-        rec.kgOut = r2(kb);
-        rec.bagsMade = D.fillBags(b, kb, task.bags, { container: task.container, unit: task.unit, store: task.store }).map(function (g) { return { bagNo: g.bagNo, kg: g.kg }; });
+        /* a finished run that packed it all has nothing left to bag (v9: its bulk fill step) */
+        if (kb === 0 && D.sameRunLines(b).length) { rec.kgOut = 0; rec.bagsMade = []; }
+        else {
+          if (!(kb > 0)) throw invalid("Enter the kg that went into bags");
+          rec.kgOut = r2(kb);
+          rec.bagsMade = D.fillBags(b, kb, task.bags, { container: task.container, unit: task.unit, store: task.store }).map(function (g) { return { bagNo: g.bagNo, kg: g.kg }; });
+        }
       }
       if (task.pack) {
         var s = D.sku(b.skuId), p = Math.round(num(input.packets));
@@ -3121,7 +3283,8 @@
       if (t.bags && b) c.bagPlan = { bagKg: t.bags, expectedKg: b.batchSize, bestBeforeDays: D.book(b.recipeId).bestBeforeDays };
       /* a finished recipe's mix: each semi-finished good it takes from the cold store, oldest bags first */
       if (t.mixes && b) {
-        var fbk = D.book(b.recipeId), comps = fbk.ingredients.filter(function (i) { return i.sfId; }), ctot = comps.reduce(function (a, i) { return a + i.qty; }, 0);
+        var fbk = D.book(b.recipeId), comps = fbk.ingredients.filter(function (i) { return i.sfId; }), ctot = (t.takes && t.takes.length
+          ? fbk.ingredients.filter(function (i) { return i.unit === "kg" || i.unit === "litre"; }) : comps).reduce(function (a, i) { return a + i.qty; }, 0);
         c.mixes = comps.map(function (i) { return { product: D.book(i.sfId).name, pct: i.qty, needKg: r2(b.batchSize * i.qty / ctot), onHand: D.inFreezer(i.sfId),
           oldest: D.bagsFIFO(i.sfId).slice(0, 2).map(function (g) { return { bagNo: g.bagNo, remaining: g.remaining, madeAt: g.madeAt, useBy: g.useBy }; }) }; });
       }

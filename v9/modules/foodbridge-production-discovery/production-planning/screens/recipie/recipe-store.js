@@ -29,17 +29,41 @@
     /* two levels (3 Oct 2026): the finished products, then the semi-finished
        goods they are mixed from — each with its own recipe */
     const all = d.recipeOrder.concat(d.semiOrder || []);
-    const want = new URLSearchParams(location.search).get('recipe');
+    /* ?recipe= on the page, or on the platform's address: the Production board's recipe
+       versions open #/production/configure-recipe?recipe=… (3 Oct 2026) */
+    let want = new URLSearchParams(location.search).get('recipe');
+    if (!want) {
+      try {
+        const h = window.parent !== window ? window.parent.location.hash : '', i = h.indexOf('?');
+        if (i !== -1 && /configure-recipe\?/.test(h)) {
+          want = new URLSearchParams(h.slice(i + 1)).get('recipe');
+          window.parent.history.replaceState(null, '', window.parent.location.pathname + window.parent.location.search + h.slice(0, i));
+        }
+      } catch (e) { /* not inside the platform */ }
+    }
     const id = all.indexOf(want) !== -1 ? want : all[0];
     const bk = D.book(id);
-    const subOf = (b) => b.kind === 'semi'
-      ? 'Semi-finished · ' + b.label + ' · ' + b.ingredients.filter((i) => i.rmId).map((i) => i.name + (i.wastage ? ' (' + i.wastage + '% wastage)' : '')).join(', ')
-      : 'Finished · ' + b.label + ' · ' + b.ingredients.filter((i) => i.sfId).length + ' semi-finished';
+    /* v9 (3 Oct 2026): a recipe's line says what it is made from and what it goes into —
+       any product made here can be an ingredient, at any level */
+    const from = (b) => b.ingredients.length ? b.ingredients.map((i) => i.name + (i.rmId && i.wastage ? ' (' + i.wastage + '% wastage)' : '')).join(', ') : 'no ingredients yet';
+    const subOf = (b) => (b.kind === 'semi' ? 'Semi-finished' : 'Finished') + ' · ' + b.label + ' · ' + from(b);
+    const typeOf = (i) => i.sfId ? (D.book(i.sfId) && D.book(i.sfId).kind === 'finished' ? 'finished' : 'semi') : i.rmId ? 'raw' : 'plain';
     return {
       id, bk,
-      rail: all.map((rid) => { const b = D.book(rid); return { id: rid, name: b.name, sub: subOf(b), emoji: b.emoji, kind: b.kind }; }),
-      /* a semi-finished good costs what its own recipe costs */
-      sfCost: Object.fromEntries((d.semiOrder || []).map((sid) => [sid, Math.round(D.costPerKg(sid) * 100) / 100])),
+      rail: all.map((rid, n) => { const b = D.book(rid); return { id: rid, name: b.name, sub: subOf(b), emoji: b.emoji, kind: b.kind, order: n,
+        made: b.ingredients.filter((i) => i.sfId).length, inputs: b.ingredients.length, usedIn: D.usedIn(rid).length,
+        /* one short line under the name (owner, 3 Oct 2026: less to read): a finished good's
+           ingredient count, a semi-finished good's raw material */
+        short: !b.ingredients.length ? 'No ingredients yet' : b.kind === 'semi'
+          ? 'From ' + b.ingredients.filter((i) => i.rmId || i.sfId).slice(0, 2).map((i) => i.name).join(', ') + (b.ingredients.filter((i) => i.rmId || i.sfId).length > 2 ? '…' : '')
+          : b.ingredients.length + ' ingredient' + (b.ingredients.length === 1 ? '' : 's'),
+        find: (b.name + ' ' + b.label + ' ' + b.ingredients.map((i) => i.name).join(' ')).toLowerCase() }; }),
+      /* a product made here costs what its own recipe costs, at any level */
+      sfCost: Object.fromEntries(all.map((sid) => [sid, Math.round(D.costPerKg(sid) * 100) / 100])),
+      types: Object.fromEntries(bk.ingredients.map((i) => [D.ingKey(i), typeOf(i)])),
+      keys: bk.ingredients.map((i) => D.ingKey(i)),
+      usedIn: D.usedIn(id),
+      madeFrom: bk.ingredients.filter((i) => i.sfId).map((i) => ({ id: i.sfId, name: i.name, qty: i.qty, kind: (D.book(i.sfId) || {}).kind })),
       /* the packs on sale, as Recipes › Packaging keeps them, with what a packet costs */
       skus: D.packs(id).map((s) => Object.assign({}, s, { cost: D.packCost(s), pouchName: s.pouchId ? D.material(s.pouchId).name : '' })),
       demand: d.demand,
@@ -75,38 +99,66 @@
     const rail = $('#rail-list');
     if (rail) rail.innerHTML = data.rail.map((r, i) =>
       (i === 0 || data.rail[i - 1].kind !== r.kind ? `<div class="rl-group" style="padding:10px 12px 4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fb-text-muted,#6B7280)">${r.kind === 'semi' ? 'Semi-finished goods' : 'Finished goods'}</div>` : '') +
-      `<a class="rl-item${r.id === data.id ? ' active' : ''}" data-recipe="${esc(r.name)}" data-rid="${esc(r.id)}" href="?recipe=${encodeURIComponent(r.id)}"><span class="rl-nm">${esc(r.emoji + ' ' + r.name)}</span><span class="rl-sub">${esc(r.sub)}</span></a>`).join('');
+      `<a class="rl-item${r.id === data.id ? ' active' : ''}" data-recipe="${esc(r.name)}" data-rid="${esc(r.id)}" data-kind="${r.kind}" data-order="${r.order}" data-used="${r.usedIn}" data-inputs="${r.inputs}" data-find="${esc(r.find)}" href="?recipe=${encodeURIComponent(r.id)}"><span class="rl-nm">${esc(r.emoji + ' ' + r.name)}</span><span class="rl-sub">${esc(r.short)}</span></a>`).join('');
+    window.FB_RECIPE_RAIL = data.rail;
 
-    /* header */
-    const h1 = $('.v4-head h1'); if (h1) h1.textContent = bk.name;
+    /* header (owner, 3 Oct 2026: "redesign this section"): two lines. The name and
+       the one control that changes what you see — quantities for a batch size —
+       then one quiet line of what the product is. Everything else lives in its
+       tab: ingredients in Ingredients, steps in Process, packs in Packaging,
+       MSQ on the Production board. */
     document.title = bk.name + ' — Recipes';
-    const linked = $('.v4-head .linked');
-    if (linked) linked.innerHTML = data.skus.map((s) => `<a class="v4-chip" href="#" data-v4tab="packaging" title="Open in Packaging">${bk.emoji} ${esc(s.name.replace(bk.name + ' ', ''))}</a>`).join('');
-    const ver = $('.v4-ver select');
-    if (ver) ver.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)} (Latest)</option>`;
     const semi = bk.kind === 'semi';
-    const meta = $('.v4-head .meta');
-    if (meta) meta.innerHTML = `<span class="m">Line <b>${esc(bk.line)}</b></span><span class="m">Batch sizes <b>${bk.sizes.join(' / ')} kg</b></span><span class="m">Best before <b>${bk.bestBeforeDays} days</b></span>${semi ? `<span class="m">Fills <b data-bag-kg>${bagKg} kg</b> ${esc(((fillStep && fillStep.container) || 'Big bags').toLowerCase())} · ${esc((fillStep && fillStep.store) || 'Cold store')}</span><span class="m">MSQ <b>${bk.msq || 0} kg</b></span>` : `<span class="m">Mixed from <b>${bk.ingredients.filter((i) => i.sfId).map((i) => esc(i.name) + ' ' + i.qty + '%').join(' · ')}</b></span>`}<a class="m m-link" href="#" data-v4tab="process" title="See how it's made">Process <b data-steps-count style="color:${data.steps.length ? 'var(--fb-green-700)' : 'var(--fb-red-700,#B91C1C)'}">${stepsLabel}</b> ›</a>`;
-    const bs = $('#batch-size');
-    if (bs) bs.innerHTML = bk.sizes.map((z) => `<option value="${z}"${z === bk.base ? ' selected' : ''}>${z} kg</option>`).join('');
-    const hint = $('.batch-prev .bp-hint'); if (hint) hint.textContent = `Base = ${bk.base} kg · quantities & costs scale for preview only; edits change the base recipe.`;
+    const head = $('.v4-head');
+    if (head) {
+      const kg = (v) => Number(v).toLocaleString('en-IN') + ' kg';
+      const fill = ((fillStep && fillStep.container) || 'Big bags').toLowerCase() + ', ' + ((fillStep && fillStep.store) || 'Cold store').toLowerCase();
+      const facts = [
+        `<b>${semi ? 'Semi-finished' : 'Finished good'}</b>`,
+        esc(bk.label),
+        'Keeps ' + bk.bestBeforeDays + ' day' + (bk.bestBeforeDays === 1 ? '' : 's'),
+        semi ? `<span data-bag-kg>${bagKg} kg</span> ${esc(fill)}`
+          : `<a href="#" class="vh-link" data-v4tab="packaging">${data.skus.length ? 'Sold in ' + data.skus.length + ' pack' + (data.skus.length === 1 ? '' : 's') : 'No packs yet'}</a>`,
+        data.usedIn.length ? 'Goes into ' + data.usedIn.map((x) => `<a class="vh-link" href="?recipe=${encodeURIComponent(x.id)}">${esc(x.name)}</a>`).join(', ') : '',
+      ].filter(Boolean);
+      head.innerHTML = `
+        <div class="vh-top">
+          <h1>${esc(bk.name)}</h1>
+          <label class="vh-qty" title="Quantities and costs are shown for this batch size. The recipe itself is written per ${bk.base} kg, and edits change it.">
+            <span>Quantities for</span>
+            <select id="batch-size" aria-label="Show quantities for a batch of">${bk.sizes.map((z) => `<option value="${z}"${z === bk.base ? ' selected' : ''}>${kg(z)}</option>`).join('')}</select>
+          </label>
+        </div>
+        <p class="vh-facts">${facts.join('<i aria-hidden="true">·</i>')}</p>`;
+    }
 
     /* ingredients — the markup recipe-v4.js reads (data-qty / data-unit / data-yield) */
     const list = $('.ing-list');
-    if (list) list.innerHTML = bk.ingredients.map((i) => `
-            <div class="ing" data-qty="${i.qty}" data-unit="${esc(i.unit)}" data-yield="${i.yield}">
-              <div class="ing-row"><div class="nm">${esc(i.name)}<small>${i.sfId ? 'Semi-finished · its own recipe · ' + i.qty + '% of the mix' : esc(i.brand) + (((data.mats.find((m) => m.id === i.rmId) || {}).grade) ? ' · ' + esc(data.mats.find((m) => m.id === i.rmId).grade) : '') + ' · ' + esc(i.unit) + (i.wastage != null ? ' · Wastage ' + i.wastage + '%' : ' · Yield ' + i.yield + '%') + (i.rmId ? '' : ' · not stocked')}</small></div><div class="ing-track"><div class="ing-fill"></div></div><div class="ing-qty">${i.qty} ${esc(i.unit)}</div></div>
+    /* v9: every row says what kind of input it is — bought in, or made here (and
+       which level) — and a made one opens its own recipe */
+    const TYPE = { raw: 'Raw material', semi: 'Semi-finished', finished: 'Finished good', plain: 'Not stocked' };
+    if (list) list.innerHTML = (bk.ingredients.length ? '' : '<div class="ing-empty">No ingredients yet. Add what goes in: raw materials, semi-finished goods, or another finished good.</div>') + bk.ingredients.map((i, n) => {
+      const key = data.keys[n], type = data.types[key], m = i.rmId && data.mats.find((x) => x.id === i.rmId);
+      const made = type === 'semi' || type === 'finished';
+      /* one line: what kind of input, and the one figure that matters for it (owner, 3 Oct 2026: less to read) */
+      const sub = TYPE[type] + ' · ' + (made ? i.qty + (bk.base === 100 ? '% of the mix' : ' kg per ' + bk.base + ' kg') + (type === 'finished' ? ' · from its bulk' : '')
+        : type === 'plain' ? esc(i.unit) : esc(i.brand) + (i.wastage ? ' · ' + i.wastage + '% wastage' : ''));
+      const nm = made ? `<a class="ing-link" href="?recipe=${encodeURIComponent(i.sfId)}" title="Open its recipe">${esc(i.name)}</a>` : esc(i.name);
+      return `
+            <div class="ing" data-qty="${i.qty}" data-unit="${esc(i.unit)}" data-yield="${i.yield}" data-ref="${esc(key)}" data-type="${type}">
+              <div class="ing-row"><div class="nm"><span class="ing-name">${nm}</span><small>${sub}</small></div><div class="ing-track"><div class="ing-fill"></div></div><div class="ing-qty">${i.qty} ${esc(i.unit)}</div></div>
               <div class="ing-edit"><div class="grid">
-                <div class="fld"><label class="label">Brand</label><input class="input" data-f="brand" value="${esc(i.brand)}"></div>
-                <div class="fld"><label class="label">Quality</label><input class="input" data-f="quality" value="Grade A"></div>
-                <div class="fld"><label class="label">Quantity</label><input class="input" data-f="qty" type="number" value="${i.qty}"></div>
-                <div class="fld"><label class="label">Unit</label><select class="input" data-f="unit">${['kg', 'g', 'litre', 'ml', 'pcs'].map((u) => `<option${u === i.unit ? ' selected' : ''}>${u}</option>`).join('')}</select></div>
-                <div class="fld"><label class="label">Yield %</label><input class="input" data-f="yield" type="number" value="${i.yield}"></div>
-              </div><div class="save-row"><button class="btn btn-sm btn-primary" data-ing-save>✓ Save</button></div></div>
-            </div>`).join('');
+                ${made ? '' : `<div class="fld"><label class="label">Brand</label><input class="input" data-f="brand" value="${esc(i.brand)}"></div>`}
+                <div class="fld"><label class="label">Quantity <span class="muted">per ${bk.base} kg</span></label><input class="input" data-f="qty" type="number" min="0" step="0.01" value="${i.qty}"></div>
+                ${made ? '<div class="fld"><label class="label">Unit</label><output class="input" style="display:block;background:#FAFBFC">kg</output></div>' : `<div class="fld"><label class="label">Unit</label><select class="input" data-f="unit">${['kg', 'g', 'litre', 'ml', 'pcs'].map((u) => `<option${u === i.unit ? ' selected' : ''}>${u}</option>`).join('')}</select></div>`}
+                <div class="fld"><label class="label">Yield %</label><input class="input" data-f="yield" type="number" min="1" max="100" value="${i.yield}"></div>
+                ${type === 'raw' ? `<div class="fld"><label class="label">Wastage %</label><input class="input" data-f="wastage" type="number" min="0" max="99" value="${i.wastage == null ? '' : i.wastage}" placeholder="0"></div>` : ''}
+              </div><div class="save-row"><button class="btn btn-sm ing-rm" data-ing-rm>Remove</button><button class="btn btn-sm btn-primary" data-ing-save>✓ Save</button></div></div>
+            </div>`;
+    }).join('');
     const stocked = bk.ingredients.filter((i) => i.unit === 'kg' || i.unit === 'litre');
-    const yieldPct = Math.round(stocked.reduce((s, i) => s + i.qty * i.yield / 100, 0) / stocked.reduce((s, i) => s + i.qty, 0) * 100);
-    const yv = $('#yield-value'); if (yv) yv.textContent = yieldPct + '%';
+    const yieldPct = stocked.length ? Math.round(stocked.reduce((s, i) => s + i.qty * i.yield / 100, 0) / stocked.reduce((s, i) => s + i.qty, 0) * 100) : 0;
+    const yv = $('#yield-value'); if (yv) yv.textContent = stocked.length ? yieldPct + '%' : '—';
 
     /* cost — ingredient rows and making lines (data-* read by renderCost) */
     const cl = $('#ing-cost-list');

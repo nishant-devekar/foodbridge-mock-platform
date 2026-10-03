@@ -176,7 +176,7 @@
             "worker-analytics"
           ],
           "name": "Production board",
-          "url": "modules/foodbridge-production-flow/production.html?v=20261003PL1",
+          "url": "modules/foodbridge-production-flow/production.html?v=20261003BM1",
           "clipLeft": 0,
           "hideBurger": true,
           "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
@@ -190,7 +190,7 @@
             "production/process-steps"
           ],
           "name": "Recipes",
-          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20261003SH1",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20261003BM1",
           "clipLeft": 212,
           "hideBurger": true,
           "clipLeftMobile": 212,

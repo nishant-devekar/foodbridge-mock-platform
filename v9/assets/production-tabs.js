@@ -32,7 +32,9 @@
 
   /* Owner, 29 Sep 2026: Demand & supply first, then All batches, All shifts (the Week), Needs you; Today retired */
   /* "Production requests", not "All batches" (owner, 29 Sep 2026): a batch is a request to produce, worked in shifts */
-  var VIEWS = [["flow", "Demand & supply"], ["all", "Production requests"], ["week", "All shifts"], ["needs", "Needs you", "hidden"]];
+  /* 3 Oct 2026 (owner): the first view is the owner's "Todays Production and Purchase Plan"
+     sheet — Orders · Finished Goods · Semi Finished Goods · Purchase — so it is named after it */
+  var VIEWS = [["flow", "Production & purchase plan"], ["all", "Production requests"], ["week", "All shifts"], ["needs", "Needs you", "hidden"]];
   /* "hidden": off the strip for now (owner, 29 Sep 2026 — "hide Needs you, do not delete"). The view
      still works (?view=needs); drop the word to bring the tab back. */
   /* icons an action can carry: 24-unit line icons, drawn in the text's colour */

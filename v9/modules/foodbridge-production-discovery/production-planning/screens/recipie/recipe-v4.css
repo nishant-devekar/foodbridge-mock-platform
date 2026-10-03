@@ -438,3 +438,76 @@
 .stp-next b{color:var(--fb-teal-800)}
 .stp-next:hover{border-color:var(--fb-teal-600)}
 @media (max-width:560px){.pkr-head{display:none}.pkr-row{grid-template-columns:56px minmax(0,1fr) auto}.pkr-split{display:none}.pkr-row > :last-child{grid-column:1/-1;justify-self:start}.pkr-edit .grid{grid-template-columns:1fr 1fr}.pkr-edit .pkr-wide{grid-column:1/-1}}
+
+/* ── v9 (3 Oct 2026): recipes as a bill of materials — any product made
+   here can go into another recipe. Rail filters, typed ingredient rows,
+   the picker, Goes into, and the Create drawer. Same tokens as above. ── */
+/* the rail, quiet (owner, 3 Oct 2026): search, one switch, name + one line */
+.rail-list .rl-item[hidden],.rail-list .rl-group[hidden]{display:none}
+.rl-seg{display:flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:10px;background:#F3F4F6}
+.rl-seg button{padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--fb-text-secondary);white-space:nowrap}
+.rl-seg button[aria-selected="true"]{background:#fff;color:var(--fb-text-primary);box-shadow:0 1px 2px rgba(17,24,39,.08)}
+.rail-list .rl-item{padding:9px 12px}
+.rail-list .rl-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-none{padding:14px 12px;font-size:12.5px;color:var(--fb-text-muted)}
+.rl-clear{color:var(--fb-teal-800);font-weight:700;text-decoration:underline}
+.ing-name{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ing-link{color:inherit;text-decoration:none}
+.ing-link:hover{color:var(--fb-teal-800);text-decoration:underline}
+.ing-type{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.02em;background:#F3F4F6;color:#4B5563}
+.ing-type[data-t="semi"]{background:var(--fb-teal-50);color:var(--fb-teal-800)}
+.ing-type[data-t="finished"]{background:var(--fb-green-50);color:var(--fb-green-700)}
+.ing-type[data-t="plain"]{background:#FEF9EC;color:#92400E}
+.ing-empty{padding:16px;border:1.5px dashed var(--fb-border);border-radius:14px;color:var(--fb-text-muted);font-size:13px}
+.ing-edit .save-row{gap:8px;align-items:center}
+.ing-edit .save-row .ing-rm{margin-right:auto;color:var(--fb-red-700,#B91C1C)}
+.ing-edit .save-row.is-ask{background:#FEF2F2;border-radius:10px;padding:8px 10px}
+.ing-ask{margin-right:auto;font-size:13px;color:var(--fb-text-primary)}
+.btn-danger{background:var(--fb-red-700,#B91C1C);border-color:var(--fb-red-700,#B91C1C);color:#fff}
+.ing-err{margin-top:10px;padding:8px 10px;border-radius:9px;background:#FEF2F2;color:var(--fb-red-700,#B91C1C);font-size:12.5px;font-weight:600}
+.add-search.pick{padding:12px}
+.pick-top{display:flex;gap:8px;margin-bottom:8px}
+.pick-top .input{flex:1}
+.pick-list{max-height:320px;overflow-y:auto;margin-top:8px}
+.pick-g{padding:8px 12px 4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fb-text-muted)}
+.add-search .pick-o{display:flex;flex-direction:column;gap:2px}
+.add-search .pick-o small{font-size:11.5px;font-weight:500;color:var(--fb-text-muted)}
+.add-search .pick-o:disabled{opacity:.55;cursor:not-allowed;background:transparent}
+.add-search .pick-o:disabled small{color:var(--fb-red-700,#B91C1C)}
+.pick-none{padding:12px;color:var(--fb-text-muted);font-size:13px}
+.pick-qty .pick-qh{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:14px}
+.pick-qty .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.pick-qty .save-row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.ing-usedin{margin-top:14px;padding:14px 16px;border:1px solid var(--fb-border);border-radius:14px;background:#fff}
+.ui-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--fb-border);color:inherit;text-decoration:none}
+.ui-row:first-of-type{border-top:0}
+.ui-row span{flex:1;font-weight:700;font-size:13.5px}
+.ui-row span small{display:block;font-weight:500;font-size:11.5px;color:var(--fb-text-muted)}
+.ui-row b{font-size:13.5px}
+.ui-row b small{font-weight:500;color:var(--fb-text-muted)}
+.ui-row .ui-go{flex:none;color:var(--fb-text-muted)}
+.ui-row:hover span{color:var(--fb-teal-800)}
+.v4-head .v4-goes{color:var(--fb-teal-800);text-decoration:none;border-bottom:1px dashed var(--fb-teal-600)}
+.v4-saved{align-self:center}
+.v4-flash{margin-bottom:12px;padding:10px 14px;border-radius:12px;background:var(--fb-green-50);border:1px solid var(--fb-green-100);color:var(--fb-green-700);font-size:13px;font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg-b{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border:1.5px solid var(--fb-border);border-radius:12px;background:#fff}
+.seg-b b{font-size:13px}
+.seg-b small{font-size:11.5px;color:var(--fb-text-muted);line-height:1.35}
+.seg-b[aria-checked="true"]{border-color:var(--fb-teal-800);background:var(--fb-teal-50)}
+.pick-seg{align-self:flex-start;display:inline-flex}
+
+/* the header, two lines (owner, 3 Oct 2026): name and the quantities control,
+   then one quiet line of facts; details live in their tabs */
+.v4-head{padding:16px 20px 14px}
+.vh-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.vh-top h1{margin:0;font-size:20px;font-weight:800;line-height:1.25}
+.vh-qty{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--fb-text-muted);cursor:help}
+.vh-qty select{padding:6px 10px;border:1px solid var(--fb-border);border-radius:9px;font-size:13px;font-weight:700;color:var(--fb-text-primary);background:#fff;font-variant-numeric:tabular-nums;cursor:pointer}
+.vh-qty select:focus{outline:none;border-color:var(--fb-teal-600);box-shadow:0 0 0 3px var(--fb-teal-50)}
+.vh-facts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:6px 0 0;font-size:12.5px;color:var(--fb-text-muted)}
+.vh-facts b{color:var(--fb-text-secondary);font-weight:700}
+.vh-facts i{font-style:normal;color:#C4C8CE}
+.vh-link{color:var(--fb-teal-800);text-decoration:none;font-weight:600}
+.vh-link:hover{text-decoration:underline}
+
