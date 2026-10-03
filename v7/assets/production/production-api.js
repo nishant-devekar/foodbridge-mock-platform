@@ -804,6 +804,21 @@
       if (o.packNow) wanted.filter(function (p) { return !D.sku(p.skuId).sameRun; }).forEach(function (p) { if (p.qty > 0) packs.push(D.createPackingOrder({ skuId: p.skuId, qty: p.qty, from: no, plannedDate: planned, supervisor: b.operator, actor: o.actor })); });
       return { batch: b, packing: packs };
     };
+    /* A batch confirmed on the Production board's plan can be withdrawn
+       there (3 Oct 2026) while nothing has happened to it yet: still
+       planned, no steps on a shift, no material issued. After that it is
+       Batches' to hold, reject or close. */
+    D.withdrawBatch = function (id, by) {
+      var b = D.batch(id);
+      if (!b) throw new ApiError(404, "No such batch");
+      if (b.stateId !== "planned" || db.tasks.some(function (t) { return t.batch === id; }))
+        throw new ApiError(409, b.batchNumber + " is " + (b.stateId === "planned" ? "on a shift" : b.statusLabel.toLowerCase()) + " — change it in Batches");
+      if ((b.ingredientSummary || []).some(function (r) { return r.issuedQty > 0; })) throw new ApiError(409, "The store has issued material to " + b.batchNumber + " — return it first, in Batches");
+      db.batches.splice(db.batches.indexOf(b), 1);
+      db.shifts.forEach(function (sh) { var i = sh.batches.indexOf(id); if (i !== -1) sh.batches.splice(i, 1); });
+      D.emit("production.batch.withdrawn", { where: "Production Plan", how: "office", by: by || "admin", data: { batch: b.batchNumber, product: b.displayName } });
+      return b;
+    };
     D.createPackingOrder = function (o) {
       var s = D.sku(o.skuId);
       if (!s) throw invalid("Unknown pack");

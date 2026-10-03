@@ -94,6 +94,22 @@ test("a finished batch mixes from the oldest bags by its recipe and packs its pa
   assert.equal(b.stateId, "completed");
 });
 
+test("a batch confirmed on the plan can be withdrawn while nothing has happened to it", () => {
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
+  const b = D.createProductionOrder({ recipeId: "sf-cauliflower", batchSize: 23581, where: "Production Plan", actor: "Owner" }).batch;
+  const n = d.batches.length;
+  D.withdrawBatch(b.id, "Owner");
+  assert.equal(d.batches.length, n - 1);
+  assert.ok(!D.batch(b.id));
+  /* one on the floor stays: it is Batches' to change */
+  const running = d.batches.find((x) => x.stateId === "in-progress");
+  assert.throws(() => D.withdrawBatch(running.id, "Owner"), (e) => /change it in Batches/.test(e.body.error));
+  /* one the store has issued to stays too */
+  const c = D.createProductionOrder({ recipeId: "sf-broccoli", batchSize: 50, actor: "Owner" }).batch;
+  D.issueFromStore(c.id, "rm-p10", 20, "Mohan");
+  assert.throws(() => D.withdrawBatch(c.id, "Owner"), (e) => /issued material/.test(e.body.error));
+});
+
 test("a step that can't be covered changes nothing", () => {
   const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
   const b = D.createProductionOrder({ recipeId: "mix-veg", batchSize: 1000, actor: "test" }).batch;
