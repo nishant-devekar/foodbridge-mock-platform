@@ -147,23 +147,24 @@ test("a held batch pauses its steps on the floor", () => {
   assert.ok(!pool.some((x) => x.batch._id === b.id));
 });
 
-test("the plan is the owner's sheet: Ordered − InStock + MSQ, down through the recipes", () => {
-  const { db } = server(), D = A.Domain(db(), () => new Date(), () => {});
+test("the plan follows the business flow: orders drive Finished Goods, approved batches drive the rest", () => {
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
   const p = D.plan(), r2 = (n) => Math.round(n * 100) / 100;
+  /* Finished Goods: the sheet's need, Ordered − InStock + MSQ */
   p.skus.forEach((r) => assert.equal(r.shortPackets, Math.max(0, r.open + r.msq - r.free), r.name));
-  p.products.forEach((x) => {
-    assert.equal(x.needKg, r2(x.skus.reduce((t, r) => t + r.shortKg, 0)));
-    const sizes = D.book(x.recipeId).sizes;
-    x.batches.forEach((z) => assert.ok(sizes.includes(z)));
+  /* Semi Finished: what approved finished batches still need from the cold store, + MSQ − the cold store */
+  p.semis.forEach((x) => {
+    assert.equal(x.needKg, D.demand(x.recipeId).qty, x.name);
+    assert.equal(x.toMakeKg, r2(Math.max(0, x.needKg + x.msq - x.freezerKg)), x.name);
   });
-  /* a semi-finished good: each product's kg × its share, + MSQ − the cold store */
-  const cauli = p.semis.find((x) => x.recipeId === "sf-cauliflower"), mv = p.products.find((x) => x.recipeId === "mix-veg");
-  assert.ok(Math.abs(cauli.needKg - mv.toMakeKg * 0.2) < 0.05);
-  assert.equal(cauli.toMakeKg, r2(cauli.needKg + 100 - 50));
-  /* raw material: the semi-finished good × (1 + wastage), + MSQ − free − on order */
-  const raw = p.materials.find((m) => m.id === "rm-p03");
-  assert.ok(Math.abs(raw.need - cauli.toMakeKg * 1.6) < 0.05);
-  assert.equal(raw.buy, r2(raw.need + 75 - (raw.onHand - raw.reserved) - raw.ordered));
+  /* this evening's Mix Veg (10,000 kg) is approved: it needs 2,000 kg of Cut Cauliflower */
+  const eve = d.batches.find((b) => b.recipeId === "mix-veg" && b.batchSize === 10000 && b.stateId === "planned");
+  assert.ok(D.demand("sf-cauliflower").list.some((x) => x.id === eve.id && x.qty === 2000));
+  /* Purchase: what approved batches still need from the store, + MSQ − the store − on order */
+  p.materials.forEach((m) => {
+    assert.equal(m.need, D.demand(m.id).qty, m.name);
+    assert.equal(m.buy, r2(Math.max(0, m.need + D.material(m.id).threshold - m.onHand - m.ordered)), m.name);
+  });
 });
 
 test("receiving: an accepted lot is stock, a sent-back truck is not", () => {

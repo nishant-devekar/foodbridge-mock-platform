@@ -553,43 +553,48 @@
           needKg: fRows.reduce(function (t, x) { return t + x.need * x.kg; }, 0),
           total: { msq: sum("msq"), ordered: sum("ordered"), stock: sum("stock"), short: sum("short"), approved: sum("approved"), wait: sum("wait"), run: sum("run"), toProduce: sum("toProduce"), dev: sum("dev") } });
       });
-      /* Semi Finished: each product's Approved (kg) × the good's share of its recipe */
-      var need = {}, shares = {};
+      /* The business flow (owner, 3 Oct 2026): customers order → Finished Goods is checked
+         against them → a finished batch approved for production raises the demand for its
+         semi-finished goods → a semi-finished batch approved (with the finished batches)
+         raises the demand for raw material and packaging → purchase brings it in → the cuts
+         are made → the finished goods are made → dispatch. So Semi Finished's Ordered is what
+         approved finished batches still need from the cold store, and Purchase's is what
+         approved batches still need from the store (D.demand: open batches, less what their
+         steps have already taken). */
+      var shares = {};
       fg.forEach(function (g) {
         var bk = D.book(g.recipeId), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
         comps.forEach(function (i) {
-          need[i.sfId] = (need[i.sfId] || 0) + g.needKg * i.qty / tot;
           (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name, rid: g.recipeId, single: comps.length === 1 });
         });
       });
       var semi = (d.semiOrder || []).map(function (sid) {
-        var bk = D.book(sid);
-        var l = line("sf:" + sid, bk.msq || 0, need[sid] || 0, D.inFreezer(sid));
-        l.id = sid; l.name = bk.name; l.cut = bk.label; l.shares = shares[sid] || [];
+        var bk = D.book(sid), dm = D.demand(sid);
+        var l = line("sf:" + sid, bk.msq || 0, dm.qty, D.inFreezer(sid));
+        l.id = sid; l.name = bk.name; l.cut = bk.label; l.shares = shares[sid] || []; l.demand = dm.list;
         return allotted(l);
       });
-      /* Purchase: the raw material each semi-finished good is cut from, by its wastage */
+      /* Purchase: the recipes' raw materials always (the sheet's rows), and any packaging
+         approved batches need; Required is what approved batches still need from the store */
       var buy = {}, order = [];
-      var add = function (rmId, qty, waste, cut) {
-        if (!buy[rmId]) { buy[rmId] = { qty: 0, waste: waste }; order.push(rmId); }
-        buy[rmId].qty += qty;
-        if (cut) buy[rmId].cut = true;
+      var add = function (rmId, waste, cut) {
+        if (!buy[rmId]) { buy[rmId] = { waste: waste }; order.push(rmId); }
+        if (cut) { buy[rmId].cut = true; buy[rmId].waste = waste; }
       };
-      semi.forEach(function (s) {
-        var bk = D.book(s.id);
-        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, s.need * i.qty / bk.base, i.wastage != null ? i.wastage : Math.max(0, 100 - (i.yield || 100)), true); });
+      (d.semiOrder || []).forEach(function (sid) {
+        D.book(sid).ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, i.wastage != null ? i.wastage : Math.max(0, 100 - (i.yield || 100)), true); });
       });
-      fg.forEach(function (g) {
-        var bk = D.book(g.recipeId);
-        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, g.needKg * i.qty / bk.base, 0); });
-      });
+      d.recipeOrder.forEach(function (rid) { D.book(rid).ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, 0); }); });
+      d.materials.forEach(function (m) { if (m.kind === "packaging" && D.demand(m.id).qty > 0) add(m.id, 0); });
       /* where each material stands with its suppliers (3 Oct 2026, owner: show what is
          staged for a purchase request and what is in flight): Requested is on purchase
          requests waiting for approval; On the way is approved and not at the gate yet. */
       var live = (d.purchaseOrders || []).filter(function (po) { return ["Pending Approval", "InProgress", "Pending", "Partial Delivered"].indexOf(po.status) !== -1; });
       var purchase = order.map(function (id) {
-        var m = D.material(id);
-        var l = line("pu:" + id, m.threshold || 0, buy[id].qty, Math.max(0, D.onHand(id) - D.reserved(id)));
+        var m = D.material(id), dm = D.demand(id);
+        /* InStock is what is in the store: what approved batches will take is Required, not netted off twice */
+        var l = line("pu:" + id, m.threshold || 0, dm.qty, D.onHand(id));
+        l.demand = dm.list;
         l.id = id; l.name = m.name; l.unit = m.unit; l.grade = m.grade || "—"; l.waste = buy[id].waste; l.wasteEdit = !!buy[id].cut;
         l.supplierId = m.supplierId; l.price = m.price; l.store = m.store; l.kind = m.kind;
         l.pos = live.map(function (po) {
@@ -610,7 +615,7 @@
         l.toOrder = Math.max(0, Math.round(l.need) - l.requested - l.onWay);
         l.dev = l.approved - Math.round(l.need) + (l.stock - l.ordered - l.msq + l.need);
         return l;
-      });
+      }).filter(function (l) { return l.kind !== "packaging" || l.toOrder > 0; });   /* packaging only when there is some to order */
       return { orders: orders, fg: fg, semi: semi, purchase: purchase, cartonKg: D.cartonKg() };
     });
   }
@@ -654,6 +659,11 @@
         '<td class="num pp-to">' + (l.toProduce > 0 ? "<b>" + q(l.toProduce) + "</b>"
           : l.approved > 0 ? '<span class="pp-covered">Approved</span>' : '<span class="pp-muted">—</span>') + "</td>";
     };
+    var demandCell = function (l, u) {
+      if (!(l.ordered > 0.5)) return '<td class="num pp-muted" title="No batch approved for production needs it">0</td>';
+      var tip = "From batches approved for production:\n" + (l.demand || []).map(function (x) { return x.no + " · " + x.product + " · " + x.state + " · " + n(x.qty) + (u || " kg"); }).join("\n");
+      return '<td class="num"><a href="#" class="pp-blink" ' + ((l.demand || []).length === 1 ? 'data-batch="' + esc(l.demand[0].id) + '"' : 'data-go="production/batch-management"') + ' title="' + esc(tip) + '">' + q(l.ordered) + (u || "") + "</a></td>";
+    };
     var aheads = '<th class="num" title="Approved for production: what is in batches — waiting to start or in progress. What a batch makes moves to InStock.">Approved Production</th>' +
       '<th class="num" title="Where stock ends up against MSQ once the approved production is made: InStock + Approved − Ordered − MSQ">MSQ Deviation</th>';
     var bheads = '<th class="num pp-h-to" title="What the plan needs (Ordered − InStock + MSQ) that no batch covers yet">To produce</th>';
@@ -681,7 +691,7 @@
               (g.total.toProduce ? q(g.total.toProduce) : g.total.approved ? '<small class="pp-alldone">Approved</small>' : "—") + "</td></tr>";
         }).join("") + "</tbody></table>";
     } else if (tab === "sf") {
-      body = pbBar(p, "sf") + '<table class="pp pp-sf"><thead><tr><th>Product Name</th><th>Cut Recipe</th><th class="num">Ingredient %age</th><th class="num">MSQ (Min. Stock Qty)</th><th class="num">Ordered Qty (Kg)</th><th class="num">InStock</th><th class="num" title="InStock − Ordered">Shortfall</th>' + aheads + bheads + '</tr></thead><tbody>' +
+      body = pbBar(p, "sf") + '<table class="pp pp-sf"><thead><tr><th>Product Name</th><th>Cut Recipe</th><th class="num">Ingredient %age</th><th class="num">MSQ (Min. Stock Qty)</th><th class="num" title="What finished batches approved for production still need from the cold store">Ordered Qty (Kg)</th><th class="num">InStock</th><th class="num" title="InStock − Ordered">Shortfall</th>' + aheads + bheads + '</tr></thead><tbody>' +
         p.semi.map(function (l) {
           /* a cut's share of the products it goes into; a product made of this cut alone (100%) is left out
              when the cut is also part of a mix (owner, 3 Oct 2026: "keep only 20") */
@@ -690,7 +700,7 @@
             return s.single ? '<span title="' + esc("All of " + s.of) + '">' + n(s.pct) + "</span>" : '<span title="' + esc(n(s.pct, 100) + "% of " + s.of) + '">' + ed("share:" + s.rid + ":" + l.id, r2(s.pct), n(s.pct, 100), l.name + "'s % of " + s.of) + "</span>";
           }).join(" · ") || "—";
           return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.cut) + '</td><td class="num pp-msq">' + pct + '</td><td class="num pp-msq">' + ed("smsq:" + l.id, l.msq, q(l.msq), "MSQ of " + l.name) +
-            '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) + apprCell(l) + marks(l) + "</tr>";
+            '</td>' + demandCell(l, "") + '<td class="num">' + q(l.stock) + "</td>" + sh(l.short) + apprCell(l) + marks(l) + "</tr>";
         }).join("") + "</tbody></table>";
     } else {
       /* Purchase (owner, 3 Oct 2026): not a purchase order per row. Pick what to buy
@@ -717,7 +727,7 @@
       };
       body = prBar(p, buyable, picked) +
         '<table class="pp pp-pu"><thead><tr>' +
-        '<th>Product Name</th><th>Quality / Brand</th><th class="num">Wastage %age</th><th class="num">MSQ (Min Stk Qty)</th><th class="num" title="Production demand: the raw material today\'s Semi Finished and Finished Goods need">Required Quantity</th><th class="num">InStock</th><th class="num" title="InStock − Required">Shortfall</th>' +
+        '<th>Product Name</th><th>Quality / Brand</th><th class="num">Wastage %age</th><th class="num">MSQ (Min Stk Qty)</th><th class="num" title="What batches approved for production — Semi Finished cuts and Finished Goods — still need from the store">Required Quantity</th><th class="num">InStock</th><th class="num" title="InStock − Required">Shortfall</th>' +
         '<th class="num" title="Approved purchase orders with the supplier, not at the gate yet. What comes in at the gate moves to InStock.">Approved Purchase</th>' +
         '<th class="num" title="Where stock ends up against MSQ once the approved purchase is in: InStock + Approved − Required − MSQ">MSQ Deviation</th>' +
         '<th class="num pp-h-req" title="Purchase orders raised and waiting for someone to approve them. Not sent to the supplier yet.">Awaiting approval</th>' +
@@ -726,7 +736,7 @@
           var u = unitOf(l);
           return "<tr" + st(l) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.grade) + '</td><td class="num pp-msq">' + (l.wasteEdit ? ed("waste:" + l.id, l.waste, n(l.waste), "wastage % of " + l.name) : n(l.waste)) +
             '</td><td class="num pp-msq">' + ed("pmsq:" + l.id, l.msq, q(l.msq) + u, "MSQ of " + l.name) +
-            '</td><td class="num">' + q(l.ordered) + u + '</td><td class="num">' + q(l.stock) + u + "</td>" + sh(l.short) + poCell(l, u) + devCell(l, u) + waitCell(l) +
+            '</td>' + demandCell(l, u) + '<td class="num">' + q(l.stock) + u + "</td>" + sh(l.short) + poCell(l, u) + devCell(l, u) + waitCell(l) +
             '<td class="num pp-to">' + (l.toOrder > 0 ? "<b>" + q(l.toOrder) + u + "</b>" : '<span class="pp-covered">Covered</span>') + "</td></tr>" +
             "";
         }).join("") + "</tbody></table>";
@@ -854,10 +864,23 @@
         '<thead><tr><th class="xl-n"></th><th>Product</th><th>Grade</th><th>Unit</th><th class="xl-num xl-edh"><svg class="xl-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Rate (₹)</th><th class="xl-num xl-edh"><svg class="xl-pen" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Quantity</th><th class="xl-num">Amount (₹)</th><th></th></tr></thead>' +
         "<tbody>" + body + "</tbody></table>" +
         (used.length < cat.suppliers.length ? '<button type="button" class="xl-addsup" data-pr-gadd>+ Add supplier</button>' : "") + "</div>" +
-      '<footer class="xl-f">' + (pr.err ? '<p class="pp-pc-err">' + esc(pr.err) + "</p>" : "") +
-        '<span class="po-tot">Total <b data-prtot>' + rupee(prGrand(cat)) + "</b></span>" +
-        '<button type="button" class="btn" data-pr-close>Cancel</button>' +
-        '<button type="button" class="btn primary" data-pr-go' + (prLive().length ? "" : " disabled") + ">Order</button></footer></div></div>";
+      prFootHtml(cat) + "</div></div>";
+  }
+  /* the footer, and its inline confirmation: Order asks once, in place, before anything is raised */
+  function prFootHtml(cat) {
+    var pr = S.pr;
+    if (pr.ask) {
+      var live = prLive(), names = live.map(function (g) { return supShort((cat.suppliers.filter(function (s) { return s.id === g.sup; })[0] || {}).name); });
+      return '<footer class="xl-f xl-ask" role="alertdialog" aria-label="Confirm the order">' +
+        '<p class="xl-q"><b>Raise ' + live.length + " purchase order" + (live.length === 1 ? "" : "s") + " for " + rupee(prGrand(cat)) + "?</b>" +
+          "<span>" + esc(names.join(", ")) + " · " + (live.length === 1 ? "waits" : "each waits") + " for approval in Purchase Orders</span></p>" +
+        '<button type="button" class="btn" data-pr-back>Back</button>' +
+        '<button type="button" class="btn primary" data-pr-yes>Yes, order</button></footer>';
+    }
+    return '<footer class="xl-f">' + (pr.err ? '<p class="pp-pc-err">' + esc(pr.err) + "</p>" : "") +
+      '<span class="po-tot">Total <b data-prtot>' + rupee(prGrand(cat)) + "</b></span>" +
+      '<button type="button" class="btn" data-pr-close>Cancel</button>' +
+      '<button type="button" class="btn primary" data-pr-go' + (prLive().length ? "" : " disabled") + ">Order</button></footer>";
   }
   /* the search under a supplier: their products first, then the rest */
   function prSearch(gi, text) {
@@ -1008,10 +1031,32 @@
       '<header class="xl-h"><b>Approve for production</b><span>planned for today</span>' +
         '<button type="button" class="pp-x" data-pb-close aria-label="Close">×</button></header>' +
       '<div class="xl-body"><table class="xl">' + head + "<tbody>" + (body || '<tr><td class="xl-n"></td><td colspan="4" class="pp-muted">Nothing on this sheet.</td></tr>') + "</tbody></table></div>" +
-      '<footer class="xl-f">' + (pb.err ? '<p class="pp-pc-err">' + esc(pb.err) + "</p>" : "") +
-        '<span class="po-tot" data-pbtot>' + pbFoot() + "</span>" +
-        '<button type="button" class="btn" data-pb-close>Cancel</button>' +
-        '<button type="button" class="btn primary" data-pb-go' + (pbCount() ? "" : " disabled") + ">Approve for production</button></footer></div></div>";
+      pbFootHtml() + "</div></div>";
+  }
+  /* the footer, and its inline confirmation: Approve for production asks once, in place */
+  function pbFootHtml() {
+    var pb = S.pb;
+    if (pb.ask) {
+      var c = pbCount(), names = pb.tab === "fg"
+        ? pb.groups.filter(function (g) { return pbSize(g); }).map(function (g) { return g.name + " " + n(pbSize(g)) + " kg"; })
+        : [].concat.apply([], pb.groups.map(function (g) { return g.rows.filter(function (r) { return Number(r.qty) > 0; }).map(function (r) { return r.name + " " + n(Number(r.qty)) + " kg"; }); }));
+      return '<footer class="xl-f xl-ask" role="alertdialog" aria-label="Confirm approval">' +
+        '<p class="xl-q"><b>Approve ' + c + " batch" + (c === 1 ? "" : "es") + " · " + n(pbKg()) + " kg for today?</b>" +
+          "<span>" + esc(names.join(", ")) + "</span></p>" +
+        '<button type="button" class="btn" data-pb-back>Back</button>' +
+        '<button type="button" class="btn primary" data-pb-yes>Yes, approve</button></footer>';
+    }
+    return '<footer class="xl-f">' + (pb.err ? '<p class="pp-pc-err">' + esc(pb.err) + "</p>" : "") +
+      '<span class="po-tot" data-pbtot>' + pbFoot() + "</span>" +
+      '<button type="button" class="btn" data-pb-close>Cancel</button>' +
+      '<button type="button" class="btn primary" data-pb-go' + (pbCount() ? "" : " disabled") + ">Approve for production</button></footer>";
+  }
+  /* an edit while the footer is asking takes the question back: the figures it named have moved */
+  function unask(o, html) {
+    if (!o || !o.ask) return;
+    o.ask = false;
+    var f = app.querySelector(".xl-f");
+    if (f) f.outerHTML = html();
   }
   /* create: one finished batch per product, one cutting batch per cut */
   function pbGo() {
@@ -1072,6 +1117,7 @@
       if (box) { box.innerHTML = prSearchHtml(gi, prSearch(gi, t.value), t.value); box.hidden = false; }
       return;
     }
+    if (t.hasAttribute("data-prq") || t.hasAttribute("data-prr")) unask(S.pr, function () { return prFootHtml(prCatalogue()); });
     if (t.hasAttribute("data-prq")) { k = prKey(t, "data-prq"); k.g.lines[k.i].qty = t.value; }
     else if (t.hasAttribute("data-prr")) { k = prKey(t, "data-prr"); k.g.lines[k.i].price = t.value; }
     else return;
@@ -1107,6 +1153,7 @@
   app.addEventListener("input", function (e) {
     var t = e.target;
     if (!S.pb || !t.hasAttribute || !t.hasAttribute("data-pbq")) return;
+    unask(S.pb, pbFootHtml);
     var k = pbKey(t, "data-pbq"), r = k.g.rows[k.i], id = k.gi + ":" + k.i, q0 = Number(t.value) || 0;
     r.qty = t.value;
     var set = function (sel, html) { var el = app.querySelector(sel); if (el) el.innerHTML = html; };
@@ -1142,6 +1189,7 @@
       if (all[at]) { all[at].focus(); all[at].select(); } else if (e.key !== "ArrowUp") t.blur();
       return;
     }
+    if (e.key === "Escape" && ((S.pr && S.pr.ask) || (S.pb && S.pb.ask))) { if (S.pr) S.pr.ask = false; if (S.pb) S.pb.ask = false; render(); return; }
     if (e.key === "Escape" && !(t.hasAttribute && t.hasAttribute("data-prs"))) { S.pr = null; S.pb = null; render(); }
   });
   app.addEventListener("change", function (e) {
@@ -1150,6 +1198,15 @@
     S.pr.groups[+t.getAttribute("data-pr-gsup")].sup = t.value;
     render();
   });
+
+  /* touching the sheet while the footer asks takes the question back */
+  function unaskAll() {
+    if (S.pb) unask(S.pb, pbFootHtml);
+    if (S.pr) unask(S.pr, function () { return prFootHtml(prCatalogue()); });
+  }
+  app.addEventListener("change", function (e) { if (e.target.closest && e.target.closest(".xl-body")) unaskAll(); }, true);
+  /* the question takes the footer; Enter says yes, Esc goes back */
+  function askFocus() { render(); var y = app.querySelector("[data-pb-yes],[data-pr-yes]"); if (y) y.focus(); }
 
   /* ── render ────────────────────────────────────────────────────────── */
   function render() {
@@ -1186,6 +1243,7 @@
     if (pt) { S.plan = pt.getAttribute("data-ptab"); try { sessionStorage.setItem("fb.v7.flow.plantab", S.plan); } catch (e2) { /* this visit only */ } render(); return; }
     /* purchase requests: the boxes, the builder, and the orders behind a figure */
     var t0 = e.target;
+    if (t0.closest(".xl-body")) unaskAll();
     var me = t0.closest("[data-edit]");
     if (me) { S.edit = me.getAttribute("data-edit"); render(); var mi = app.querySelector("[data-edit-in]"); if (mi) { mi.focus(); mi.select(); } return; }
     if (t0.closest("[data-edit-save]")) { if (editSave()) render(); return; }
@@ -1196,8 +1254,10 @@
     if (pbr && S.pb) { var rk2 = pbKey(pbr, "data-pb-rm"); rk2.g.rows.splice(rk2.i, 1); render(); return; }
     var pbg = t0.closest("[data-pb-grm]");
     if (pbg && S.pb) { S.pb.groups.splice(+pbg.getAttribute("data-pb-grm"), 1); render(); return; }
-    if (t0.closest("[data-pb-go]") && S.pb) {
-      try { pbGo(); } catch (err) { if (S.pb) S.pb.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; }
+    if (t0.closest("[data-pb-go]") && S.pb) { if (pbCount()) { S.pb.ask = true; S.pb.err = ""; } askFocus(); return; }
+    if (t0.closest("[data-pb-back]") && S.pb) { S.pb.ask = false; render(); return; }
+    if (t0.closest("[data-pb-yes]") && S.pb) {
+      try { pbGo(); } catch (err) { if (S.pb) { S.pb.ask = false; S.pb.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; } }
       render(); return;
     }
     if (t0.closest("[data-pr-open]")) { prStart(planModel()); if (!S.pr.groups.length) S.pr.groups.push({ sup: (prCatalogue().suppliers[0] || {}).id, lines: [] }); render(); return; }
@@ -1216,8 +1276,10 @@
       if (sel) sel.focus();
       return;
     }
-    if (t0.closest("[data-pr-go]") && S.pr) {
-      try { prRaise(); } catch (err) { if (S.pr) S.pr.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; }
+    if (t0.closest("[data-pr-go]") && S.pr) { if (prLive().length) { S.pr.ask = true; S.pr.err = ""; } askFocus(); return; }
+    if (t0.closest("[data-pr-back]") && S.pr) { S.pr.ask = false; render(); return; }
+    if (t0.closest("[data-pr-yes]") && S.pr) {
+      try { prRaise(); } catch (err) { if (S.pr) { S.pr.ask = false; S.pr.err = (err && err.body && err.body.error) || err.message || "That didn't go through."; } }
       render(); return;
     }
     var b = e.target.closest("[data-act]");

@@ -90,11 +90,10 @@ test("a finished batch packs in the run: its pouches and whole master cartons", 
   assert.equal(Dm.onHand("rm-k11"), before.cartons - 1, "90 × 200G is less than a 150-pouch carton: one carton");
 });
 
-test("the plan buys pouches for short packets and cartons to hold them", () => {
+test("approving a finished batch makes its pouches and master cartons Purchase's demand", () => {
   const { D } = fresh();
-  const p = D.plan();
-  const short = p.skus.filter((r) => r.shortPackets);
-  const pouchNeed = p.materials.find((m) => m.id === D.sku(short[0].skuId).pouchId).need;
-  assert.equal(pouchNeed, short.filter((r) => D.sku(r.skuId).pouchId === D.sku(short[0].skuId).pouchId).reduce((t, r) => t + r.shortPackets, 0));
-  assert.equal(p.materials.find((m) => m.id === "rm-k11").need, short.reduce((t, r) => t + (D.sku(r.skuId).perCarton > 1 ? Math.ceil(r.shortPackets / D.sku(r.skuId).perCarton) : 0), 0));
+  const pouch = D.sku("fg-p02").pouchId, need0 = D.plan().materials.find((m) => m.id === pouch).need, cartons0 = D.demand("rm-k11").qty;
+  D.createProductionOrder({ recipeId: "mix-veg", batchSize: 1000, packs: [{ skuId: "fg-p02", qty: 1500 }], actor: "Owner" });
+  assert.equal(D.plan().materials.find((m) => m.id === pouch).need, need0 + 1500, "a pouch a packet");
+  assert.equal(D.demand("rm-k11").qty, cartons0 + 25, "1,500 × 500G is 25 master cartons of 30 kg");
 });

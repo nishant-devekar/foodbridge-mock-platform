@@ -529,6 +529,25 @@
       });
       return r2(n);
     };
+    /* What approved batches still need of an item (owner, 3 Oct 2026: the business
+       flow — a finished batch approved raises the demand for its semi-finished goods;
+       a semi-finished batch approved, with the finished batches, raises the demand for
+       raw material and packaging). Open production batches only (waiting to start, in
+       progress, on hold); what a step has already taken is no longer needed. */
+    D.demand = function (itemId) {
+      var out = { qty: 0, list: [] };
+      db.batches.forEach(function (b) {
+        if (b.kind !== "production" || ["planned", "in-progress", "on-hold"].indexOf(b.stateId) === -1) return;
+        (b.ingredientSummary || []).forEach(function (r) {
+          if (r.ingredientId !== itemId) return;
+          var left = r2(Math.max(0, r.recommendedQty - (r.semi ? (r.usedQty || 0) : r.netConsumed)));
+          if (!(left > 0)) return;
+          out.qty = r2(out.qty + left);
+          out.list.push({ id: b.id, no: b.batchNumber, product: b.displayName, qty: left, state: b.stateId === "planned" ? "waiting to start" : b.stateId === "on-hold" ? "on hold" : "in progress" });
+        });
+      });
+      return out;
+    };
     /* on order: what open purchase orders have still to bring */
     D.ordered = function (materialId) { return r2((db.purchaseOrders || []).reduce(function (t, p) { return t + D.openOnPO(p, materialId); }, 0) + ((db.ordered || {})[materialId] || 0)); };
     D.receive = function (o) {
@@ -875,6 +894,15 @@
         var m = D.material(id);
         b.ingredientSummary.push({ ingredientId: id, ingredientName: m.name, uom: m.unit, recommendedQty: pk[id], issuedQty: 0, returnedQty: 0, netConsumed: 0, remainingRecommended: pk[id], variance: -pk[id], recipeIngredient: false, forPacks: true });
       });
+      /* a semi-finished batch fills big bags: they are planned (reserved) with it, so
+         Purchase sees them as demand (3 Oct 2026) */
+      if (bk.kind === "semi") {
+        var fillStep = ((db.workflows.filter(function (w) { return w.recipeId === bk.id; })[0] || {}).steps || []).filter(function (st) { return st.bags; }).pop();
+        if (fillStep && (fillStep.container || "Big bags") === "Big bags" && D.material("rm-p08")) {
+          var nb = Math.ceil(size / (fillStep.bags || 50)), bm = D.material("rm-p08");
+          b.ingredientSummary.push({ ingredientId: bm.id, ingredientName: bm.name, uom: bm.unit, recommendedQty: nb, issuedQty: 0, returnedQty: 0, netConsumed: 0, remainingRecommended: nb, variance: -nb, recipeIngredient: false, forPacks: true });
+        }
+      }
       if (o.when) { b.when = { date: o.when.date, slot: o.when.slot }; }
       db.batches.push(b);
       D.emit("production.batch.planned", { where: o.where || "Recipes", how: "office", by: o.actor || "admin", data: { batch: no, product: bk.name, kg: size } });
@@ -1718,43 +1746,20 @@
         var toMake = r2(Math.max(0, needKg));
         return { recipeId: rid, name: bk.name, line: bk.line, needKg: needKg, freezerKg: 0, plannedKg: plannedKg, toMakeKg: toMake, batches: cut(bk.sizes, toMake), skus: mine };
       });
-      /* semi-finished: what those batches take by the recipes' %, less the cold store and open batches */
+      /* semi-finished: what approved finished batches still need from the cold store
+         (the business flow, 3 Oct 2026), + MSQ, less the cold store */
       var semis = (db.semiOrder || []).map(function (sid) {
-        var bk = D.book(sid), needKg = 0;
-        products.forEach(function (p) {
-          var fb = D.book(p.recipeId), comps = fb.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
-          comps.forEach(function (i) { if (i.sfId === sid) needKg += p.toMakeKg * i.qty / tot; });
-        });
+        var bk = D.book(sid), needKg = D.demand(sid).qty;
         var freezer = D.inFreezer(sid), planned = r2(openBatches.filter(function (b) { return b.recipeId === sid; }).reduce(function (t, b) { return t + b.batchSize; }, 0));
         var toMake = r2(Math.max(0, needKg + (bk.msq || 0) - freezer));
         return { recipeId: sid, name: bk.name, line: bk.line, needKg: r2(needKg), freezerKg: freezer, plannedKg: planned, toMakeKg: toMake, batches: toMake ? cut(bk.sizes, toMake) : [], msq: bk.msq || 0 };
       });
-      /* raw material and packaging for all of it, against the store */
-      var needMat = {};
-      semis.forEach(function (x) {
-        var bk = D.book(x.recipeId);
-        bk.ingredients.forEach(function (i) { if (i.rmId) needMat[i.rmId] = r2((needMat[i.rmId] || 0) + i.qty * x.toMakeKg / bk.base); });
-        var fill = ((db.workflows.filter(function (w) { return w.recipeId === x.recipeId; })[0] || {}).steps || []).filter(function (st) { return st.bags; }).pop();
-        if (x.toMakeKg && fill && (fill.container || "Big bags") === "Big bags") needMat["rm-p08"] = (needMat["rm-p08"] || 0) + Math.ceil(x.toMakeKg / (fill.bags || 50));
-      });
-      products.forEach(function (p) {
-        var bk = D.book(p.recipeId);
-        bk.ingredients.forEach(function (i) { if (i.rmId) needMat[i.rmId] = r2((needMat[i.rmId] || 0) + i.qty * p.toMakeKg / bk.base); });
-      });
-      /* a pouch for every short packet, and the cartons they fill */
-      rows.forEach(function (r) {
-        var sk = D.sku(r.skuId);
-        if (!r.shortPackets) return;
-        if (sk.pouchId) needMat[sk.pouchId] = (needMat[sk.pouchId] || 0) + r.shortPackets;
-        var c = cartonsFor(sk, r.shortPackets);
-        if (c) needMat[CARTON] = (needMat[CARTON] || 0) + c;
-      });
       var materials = db.materials.map(function (m) {
-        var need = r2(needMat[m.id] || 0), onHand = D.onHand(m.id), reserved = D.reserved(m.id), ordered = D.ordered(m.id);
-        var free = r2(onHand - reserved);
-        /* the sheet's Approved Purchase: Ordered − InStock + MSQ, less what is already on order */
+        /* raw material and packaging: what approved batches (cuts and finished) still
+           need from the store, + MSQ, less the store and what is already on order */
+        var need = D.demand(m.id).qty, onHand = D.onHand(m.id), reserved = D.reserved(m.id), ordered = D.ordered(m.id);
         return { id: m.id, name: m.name, unit: m.unit, supplier: m.supplier, grade: m.grade || "", need: need, onHand: onHand, reserved: reserved, ordered: ordered,
-          buy: need > 0 ? r2(Math.max(0, need + (m.threshold || 0) - free - ordered)) : 0 };
+          buy: r2(Math.max(0, need + (m.threshold || 0) - onHand - ordered)) };
       });
       return { skus: rows, products: products, semis: semis, materials: materials };
     };

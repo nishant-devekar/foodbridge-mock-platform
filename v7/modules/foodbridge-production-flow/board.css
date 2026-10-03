@@ -468,3 +468,9 @@ a.pp-appr small { margin-top: 1px; font-size: 11px; font-weight: 600; white-spac
 .pp td.pp-to b { font-size: 14px; }
 .pp-covered { color: var(--green-700); font-weight: 600; font-size: 12.5px; }
 table.pp.pp-pu { min-width: 1240px; }
+
+/* the footer's inline confirmation (3 Oct 2026): the question takes the footer, Back or Yes */
+.xl-f.xl-ask { background: #fffbeb; border-top-color: #fde68a; }
+.xl-q { display: flex; flex-direction: column; gap: 2px; margin: 0 auto 0 0; min-width: 0; }
+.xl-q b { font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.xl-q span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
