@@ -12,7 +12,7 @@
 
   ?data=fixture opens the module on dataset.json, as the parity harness does.
 */
-const STORE_SRC = '../../assets/production/production-api.js?v=20260930RD1';
+const STORE_SRC = '../../assets/production/production-api.js?v=20261003SH1';
 const MIN = 60000;
 
 export function loadStore() {
@@ -28,7 +28,6 @@ export function loadStore() {
 
 /* the platform's customer kinds, as this screen knows them */
 const TYPE = { COMMISSION_AGENT: 'WHOLESALER', DISTRIBUTOR: 'WHOLESALER', RETAILER: 'RETAILER', HORECA: 'HORECA', CONSUMER: 'RETAILER' };
-const TOP = { 'frozen-peas': 'Frozen Vegetables', 'mixed-veg': 'Frozen Vegetables', 'soya-chaap': 'Soya Chaap', 'soya-chaap-premium': 'Soya Chaap', 'soya-chaap-plain': 'Soya Chaap' };
 
 export function vasuDataset(P, now) {
   return P.read((D, d) => {
@@ -42,7 +41,7 @@ export function vasuDataset(P, now) {
       seller: { storeName: biz.name, admin: { name: biz.owner, role: biz.role } },
       creditGroups: Object.values(groups),
       customers: d.customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone, email: '', type: TYPE[c.type] || 'RETAILER', kind: d.customerTypes[c.type], area: c.city, address: `${c.address}`, creditGroupId: `crg-${c.creditDays}`, person: c.person })),
-      products: d.skus.filter((s) => !s.retired).map((s) => ({ id: s.id, articleNo: s.article, name: s.name, category: TOP[s.recipeId] || 'Frozen Vegetables', subCategory: D.book(s.recipeId).name, price: s.price, unit: 'Pkt', tax: biz.gstPct, stock: D.packetsOf(s.id), brand: s.brand })),
+      products: d.skus.filter((s) => !s.retired).map((s) => ({ id: s.id, articleNo: s.article, name: s.name, category: D.book(s.recipeId).category || 'Frozen Vegetables', subCategory: D.book(s.recipeId).name, price: s.price, unit: 'Pkt', tax: biz.gstPct, stock: D.availableToSell(s.id), brand: s.brand })),
       staff: d.team.filter((t) => t.role === 'DRIVER').map((t) => ({ id: t.id, name: t.name, phone: t.phone, role: 'DRIVER', vehicle: t.vehicle })),
       routeTemplates: d.routes.map((r) => ({ id: r.id, name: r.name, customerIds: d.customers.filter((c) => c.routeId === r.id).map((c) => c.id), staffIds: [r.staffId] })),
       orders: d.orders.slice().sort((a, b) => (a.placedAt < b.placedAt ? -1 : 1)).map((o) => ({

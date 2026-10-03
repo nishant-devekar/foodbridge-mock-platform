@@ -10,21 +10,30 @@ const A = require("../production-api.js");
 const fresh = () => { const d = A.seed(new Date(), () => {}); return { d, D: A.Domain(d, () => new Date(), () => {}) }; };
 const refuses = (fn, re) => assert.throws(fn, (e) => re.test(e.body && e.body.error));
 
-test("the business is Vasu Foods: its brands, packs, recipes and customers", () => {
+test("the business is Vasu Foods: its brands, packs, two levels of recipes, and customers", () => {
   const { d, D } = fresh();
   assert.equal(d.business.name, "Vasu Foods");
   assert.deepEqual(d.business.brands.map((b) => b.name), ["Vasu", "Vasu Gold"]);
-  assert.equal(D.book("frozen-peas").bestBeforeDays, 365);
-  assert.equal(D.book("mixed-veg").bestBeforeDays, 3, "the owner's figure");
-  /* mixed vegetables by the brief's proportions */
-  const mv = D.book("mixed-veg").ingredients, kg = (id) => mv.find((i) => i.rmId === id).qty;
-  assert.deepEqual([kg("rm-p02"), kg("rm-p03"), kg("rm-p01"), kg("rm-p10"), kg("rm-p04")], [44, 22, 22, 11, 11]);
-  /* soya chaap: soya flour, gluten, maida, atta, water and sticks */
-  assert.deepEqual(D.book("soya-chaap").ingredients.map((i) => i.name.split(" (")[0]), ["Soya Flour", "Gluten Powder", "Maida", "Atta", "Water", "Wooden Sticks"]);
-  assert.ok(!D.book("soya-chaap-plain").ingredients.some((i) => i.rmId === "rm-p07"), "without stick");
-  assert.ok(d.skus.filter((s) => s.recipeId === "soya-chaap-premium").every((s) => s.brand === "Vasu Gold"));
-  /* master cartons of 30 kg (peas, vegetables) and 35 kg (chaap) */
-  d.skus.forEach((s) => assert.equal(s.grams * s.perCarton / 1000, /soya/.test(s.recipeId) ? 35 : 30, s.name));
+  /* the owner's sheet (3 Oct 2026): three finished products and the six semi-finished goods they are made from */
+  assert.deepEqual(d.recipeOrder.map((r) => D.book(r).name + " · " + D.book(r).label), ["Mix Veg · low-season-recipie", "Green Peas · low-season-recipie", "Soya Chaap · soya-chaap-premumium"]);
+  assert.deepEqual(d.semiOrder.map((r) => D.book(r).name), ["Cut Cauliflower 50 Kg", "Cut Broccoli 50 Kg", "Cut Carrots 50 Kg", "Cut Beans 50 Kg", "Green Peas 50 Kg", "Soya Chaap Dough"]);
+  assert.equal(D.book("green-peas").bestBeforeDays, 365);
+  assert.equal(D.book("mix-veg").bestBeforeDays, 3, "the owner's figure");
+  /* Mix Veg by the sheet's Ingredient %age, each its own semi-finished recipe */
+  assert.deepEqual(D.book("mix-veg").ingredients.map((i) => [i.sfId, i.qty]), [["sf-cauliflower", 20], ["sf-broccoli", 10], ["sf-carrots", 40], ["sf-beans", 10], ["sf-peas", 20]]);
+  /* each cut vegetable from its raw material by the sheet's wastage, cut fine-size-20mm */
+  const cut = (id) => { const i = D.book(id).ingredients[0]; return [D.book(id).label, i.rmId, i.wastage, i.qty]; };
+  assert.deepEqual(cut("sf-cauliflower"), ["fine-size-20mm", "rm-p03", 60, 160]);
+  assert.deepEqual(cut("sf-peas"), ["fine-size-20mm", "rm-p01", 30, 130]);
+  /* the raw vegetables at the sheet's grade and minimum stock */
+  assert.deepEqual(["rm-p03", "rm-p10", "rm-p02", "rm-p04", "rm-p01"].map((id) => [D.material(id).name, D.material(id).grade, D.material(id).threshold]),
+    [["Cauliflower", "Big Size", 75], ["Broccoli", "Big Size", 100], ["Carrots", "Medium", 100], ["Beans", "Small", 75], ["Green Peas", "Medium", 50]]);
+  /* soya chaap: dough (soya flour, gluten, maida, atta, water) on wooden sticks, in 20 kg bags — Vasu Gold */
+  assert.deepEqual(D.book("sf-chaap-dough").ingredients.map((i) => i.name.split(" (")[0]), ["Soya Flour", "Gluten Powder", "Maida", "Atta", "Water"]);
+  assert.ok(D.book("soya-chaap").ingredients.some((i) => i.rmId === "rm-p07"), "on sticks");
+  assert.ok(d.skus.filter((s) => s.recipeId === "soya-chaap").every((s) => s.brand === "Vasu Gold" && s.grams === 20000));
+  /* every veg pack: 30 kg to a master carton */
+  d.skus.filter((s) => s.recipeId !== "soya-chaap").forEach((s) => assert.equal(s.grams * s.perCarton / 1000, 30, s.name));
   assert.ok(d.customers.some((c) => c.type === "COMMISSION_AGENT" && /Anaj Mandi, Samana/.test(c.address)));
 });
 

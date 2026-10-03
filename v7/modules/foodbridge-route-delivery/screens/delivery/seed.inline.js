@@ -703,9 +703,9 @@
       Object.assign(S_DRIVER, { id: 'STF-' + me.id.toUpperCase(), name: me.name, phone: me.phone, email: me.name.toLowerCase().replace(/\s+/g, '.') + '@vasufoods.example', joiningDate: '2023-11-01', syncedAt: new Date().toISOString(), vehicle: me.vehicle });
 
       PRODUCT_CATEGORIES.splice(0, PRODUCT_CATEGORIES.length,
-        { id: 'CAT-PEAS', name: 'Frozen Green Peas', icon: '🫛', count: 0 }, { id: 'CAT-MIXVEG', name: 'Frozen Mixed Vegetables', icon: '🥕', count: 0 },
-        { id: 'CAT-CHAAP', name: 'Soya Chaap · Vasu', icon: '🍢', count: 0 }, { id: 'CAT-GOLD', name: 'Soya Chaap · Vasu Gold', icon: '🍢', count: 0 });
-      const catOf = (k) => (k.recipeId === 'frozen-peas' ? 'CAT-PEAS' : k.recipeId === 'mixed-veg' ? 'CAT-MIXVEG' : k.recipeId === 'soya-chaap-premium' ? 'CAT-GOLD' : 'CAT-CHAAP');
+        { id: 'CAT-MIXVEG', name: 'Mix Veg', icon: '🥕', count: 0 }, { id: 'CAT-PEAS', name: 'Green Peas', icon: '🫛', count: 0 },
+        { id: 'CAT-GOLD', name: 'Soya Chaap · Vasu Gold', icon: '🍢', count: 0 });
+      const catOf = (k) => (k.recipeId === 'green-peas' ? 'CAT-PEAS' : k.recipeId === 'mix-veg' ? 'CAT-MIXVEG' : 'CAT-GOLD');
       const incl = (p) => Math.round(p * (1 + gst) * 100) / 100;
       S_PRODUCTS.splice(0, S_PRODUCTS.length, ...d.skus.filter((k) => !k.retired).map((k) => {
         PRODUCT_CATEGORIES.find((c) => c.id === catOf(k)).count += 1;

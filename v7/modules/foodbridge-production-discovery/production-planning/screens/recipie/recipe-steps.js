@@ -32,6 +32,8 @@
   const ROLES = FB_PRODUCTION.FACTORY_ROLES || ['washer', 'blancher', 'dough maker', 'packer'];
   const recipe = FB_PRODUCTION.read((D) => D.book(FB_RECIPE.id));
   const stocked = recipe.ingredients.filter((i) => i.rmId);
+  /* what a weighed step can take from the store: the materials weighed in kg (sticks are counted) */
+  const stockedKg = stocked.filter((i) => i.unit === 'kg' || i.unit === 'litre');
 
   const s = { wf: null, packing: null, names: {}, open: null, packOpen: false, busy: false, error: '', loading: true };
 
@@ -77,6 +79,7 @@
   function flags(st) {
     const out = [];
     if (st.weigh) out.push(`<span class="stp-flag">kg in → out${st.loss != null ? ' · ≤' + st.loss + '% loss' : ''}</span>`);
+    if (st.mixes) out.push('<span class="stp-flag store">takes the semi-finished goods by the recipe\'s %</span>');
     if (st.takes && st.takes.length) out.push(`<span class="stp-flag store">takes ${esc(st.takes.map((id) => s.names[id] || id).join(', '))}</span>`);
     if (st.sticks) out.push('<span class="stp-flag store">counts sticks</span>');
     if (st.bags) { const f = fillOf(st); out.push(`<span class="stp-flag bag">fills ${st.bags} ${esc(f.unit)} ${esc(f.container.toLowerCase())} · ${esc(f.store)}</span>`); }
@@ -94,9 +97,11 @@
       : check(f.weigh, 'data-sf="weigh"', 'Weight before and after (kg)')
         + `<div class="stp-weigh"${f.weigh ? '' : ' hidden'}>
             <div class="fld"><label class="label">Loss allowed (%)</label><input class="input" data-sf="loss" type="number" min="0" max="50" step="0.5" value="${f.loss == null ? '' : f.loss}" placeholder="10"></div>
-            <div class="fld"><span class="label">Takes from the store</span>${stocked.length
-              ? stocked.map((i) => check(f.takes.indexOf(i.rmId) !== -1, `data-take="${esc(i.rmId)}"`, esc(i.name))).join('')
-              : '<span class="muted small">This recipe lists no stocked materials.</span>'}</div>
+            ${recipe.kind === 'finished'
+              ? `<div class="fld"><span class="label">Takes from the cold store</span>${check(!!f.mixes, 'data-sf="mixes"', 'The semi-finished goods, by the recipe\'s % (' + esc(recipe.ingredients.filter((i) => i.sfId).map((i) => i.name + ' ' + i.qty + '%').join(', ')) + ')')}</div>`
+              : `<div class="fld"><span class="label">Takes from the store</span>${stockedKg.length
+              ? stockedKg.map((i) => check(f.takes.indexOf(i.rmId) !== -1, `data-take="${esc(i.rmId)}"`, esc(i.name))).join('')
+              : '<span class="muted small">This recipe lists no stocked materials.</span>'}</div>`}
           </div>`
         + (sticks ? check(f.sticks, 'data-sf="sticks"', 'Sticks used (taken from the store)') : '')
         + (() => { const fl = fillOf(f); return `<div class="fld stp-fill"><label class="label">Fills <span class="muted">· leave the size empty if it doesn't; Semi-Finished Inventory shows what it fills</span></label>
@@ -148,7 +153,8 @@
       ${steps.length || (s.open && s.open.wf === 'recipe') ? '' : '<div class="stp-empty">No steps yet. Batches of this recipe won\'t reach the floor until it has them.</div>'}
       ${s.error ? `<div class="stp-err">${esc(s.error)}</div>` : ''}
       ${list(s.wf, false)}
-      ${s.packing ? `<a class="stp-next" href="#" data-v4tab="packaging">Then packed into packets · ${pk.length} step${pk.length === 1 ? '' : 's'}, same for every product · <b>Packaging ›</b></a>` : ''}
+      ${recipe.kind === 'semi' ? `<div class="stp-next">Then mixed into ${esc(FB_PRODUCTION.read((D, d) => d.recipeOrder.filter((rid) => D.book(rid).ingredients.some((i) => i.sfId === FB_RECIPE.id)).map((rid) => D.book(rid).name)).join(', ') || 'no finished product yet')} by their recipes</div>`
+        : `<a class="stp-next" href="#" data-v4tab="packaging">Then packed in the same run into its packs · <b>Packaging ›</b></a>`}
       <div class="muted small mt16">Changes apply to batches put on a shift after you save. Batches already on the floor keep their steps.</div>`;
     if (pack && s.packing) {
       pack.className = 'stp-shared' + (s.packOpen ? ' open' : '');
@@ -187,6 +193,7 @@
     return Object.assign(p, {
       weigh, loss: weigh && loss !== '' ? Number(loss) : null,
       takes: weigh ? $$('[data-take]', li).filter((c) => c.checked).map((c) => c.getAttribute('data-take')) : [],
+      mixes: weigh && !!v('mixes'),
       sticks: !!v('sticks'), bags: bags ? Number(bags) : null,
     }, fill);
   }

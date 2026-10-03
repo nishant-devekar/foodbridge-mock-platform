@@ -16,68 +16,101 @@ function server() {
 test("the seeded month balances: every lot, bag and packet adds up", () => {
   const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
   for (const l of d.lots) assert.ok(l.remaining >= 0 && l.remaining <= l.qty, "lot " + l.lotNo);
-  for (const g of d.bags) assert.ok(g.remaining >= 0 && g.remaining <= g.kg, "bag " + g.bagNo);
-  /* every kg taken from the store is on some batch's ingredient ledger */
+  for (const g of d.bags) assert.ok(g.remaining >= 0, "bag " + g.bagNo);
+  /* every kg taken from the store is on some batch's ingredient ledger, or the night count's */
   d.materials.forEach((m) => {
     const received = d.lots.filter((l) => l.materialId === m.id && l.qc === "accepted").reduce((s, l) => s + l.qty, 0);
     const issued = d.batches.reduce((s, b) => s + (b.ingredientSummary || []).filter((r) => r.ingredientId === m.id).reduce((a, r) => a + r.issuedQty, 0), 0);
-    assert.ok(Math.abs(received - issued - D.onHand(m.id)) < 0.05, m.name + ": received " + received + " = issued " + issued + " + on hand " + D.onHand(m.id));
+    const counted = d.ledger.filter((e) => e.kind === "rm" && e.item === m.id && e.what === "stock count").reduce((s, e) => s + e.qty, 0);
+    assert.ok(Math.abs(received - issued + counted - D.onHand(m.id)) < 0.05, m.name + ": received " + received + " − issued " + issued + " + counted " + counted + " = on hand " + D.onHand(m.id));
   });
-  /* today: two batches on the floor; the packing order, the same-run peas and
-     the evening's chaap planned; three more across the week; two requests */
+  /* today: two semi-finished batches cutting on the floor; the evening's Mix Veg, three
+     finished batches across the coming days, and two requests from Sales */
   const open = d.batches.filter((b) => b.stateId !== "closed" && b.stateId !== "completed").map((b) => b.stateId).sort();
-  assert.deepEqual(open, ["in-progress", "in-progress", "planned", "planned", "planned", "planned", "planned", "planned", "planned", "planned"]);
+  assert.deepEqual(open, ["in-progress", "in-progress", "planned", "planned", "planned", "planned", "planned", "planned"]);
 });
 
-test("the floor moves the batch: first step starts it, the last completes it and bags it", () => {
+test("this morning is the owner's sheet: orders in hand, free stock, the cold store and the raw store", () => {
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
+  const cartons = { "fg-p01": 1200, "fg-p02": 1100, "fg-p03": 900, "fg-p04": 700, "fg-p05": 60, "fg-p06": 1800, "fg-p07": 1500, "fg-p08": 1200, "fg-p09": 900, "fg-p10": 500, "fg-p11": 200 };
+  const free = { "fg-p01": 1100, "fg-p02": 950, "fg-p03": 1100, "fg-p04": 700, "fg-p05": 60, "fg-p06": 1500, "fg-p07": 1200, "fg-p08": 1000, "fg-p09": 700, "fg-p10": 400, "fg-p11": 450 };
+  d.skus.forEach((s) => {
+    assert.equal(D.demandOf(s.id).open, cartons[s.id] * s.perCarton, s.name + " ordered");
+    assert.equal(D.availableToSell(s.id), free[s.id], s.name + " in stock");
+  });
+  assert.deepEqual(d.semiOrder.map((id) => D.inFreezer(id)), [50, 20, 10, 30, 30, 0]);
+  assert.deepEqual(["rm-p03", "rm-p10", "rm-p02", "rm-p04", "rm-p01"].map((id) => D.onHand(id) - D.reserved(id)), [50, 100, 25, 100, 200]);
+  /* the plan, as the sheet works it: Mixed Veg 200G is 1,80,000 ordered − 1,100 + 500 MSQ */
+  assert.equal(D.plan().skus.find((r) => r.skuId === "fg-p01").shortPackets, 179400);
+  /* and today's vans are out on every route with yesterday's orders */
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  assert.equal(d.deliveries.filter((v) => v.createdAt >= today.toISOString()).length, 3);
+});
+
+test("the floor moves the batch: Cut Carrots blanched, frozen and into 50 kg bags in the cold store", () => {
   const { h, login, db } = server();
   const meena = login("Meena", "3333"), farida = login("farida", "5555");
   const live = h("GET", "/api/shifts", { status: "live" }, null, meena).data.shifts[0];
   const avail = (tok) => h("GET", "/api/tasks", { shift: live._id, status: "available", open: "1" }, null, tok).data.tasks;
   const run = (tok, pick, input) => { const t = avail(tok).find(pick); assert.ok(t, "a task to run"); assert.equal(h("POST", "/api/tasks/" + t._id + "/claim", {}, null, tok).status, 200); const r = h("POST", "/api/tasks/" + t._id + "/complete", {}, input || {}, tok); assert.equal(r.status, 200, JSON.stringify(r.data)); return r.data.task; };
-  run(farida, (t) => t.stepName === "Boil (blanch)");
-  run(farida, (t) => t.stepName === "Freeze");
-  const bag = run(meena, (t) => t.bags, { kgOut: 103.2 });
-  assert.deepEqual(bag.bagsMade.map((g) => g.kg), [30, 30, 30, 13.2]);
-  const b = db().batches.find((x) => x.id === bag.batch._id);
+  const carrots = db().batches.find((b) => b.recipeId === "sf-carrots" && b.stateId === "in-progress");
+  const bagsBefore = A.Domain(db(), () => new Date(), () => {}).onHand("rm-p08");
+  run(farida, (t) => t.batch._id === carrots.id && t.stepName === "Blanch");
+  run(farida, (t) => t.batch._id === carrots.id && t.stepName === "IQF freeze");
+  const bag = run(meena, (t) => t.batch._id === carrots.id && t.bags, { kgOut: 9900 });
+  assert.deepEqual(bag.bagsMade.map((g) => g.kg), [9900], "one lot of bags for the fill");
+  const b = db().batches.find((x) => x.id === carrots.id), D = A.Domain(db(), () => new Date(), () => {});
+  assert.equal(db().bags.find((g) => g.batchId === b.id).count, 198, "9,900 kg is 198 bags of 50 kg");
+  assert.equal(D.onHand("rm-p08"), bagsBefore - 198, "one big bag a bag");
+  assert.equal(D.inFreezer("sf-carrots"), 9910);
   assert.equal(b.stateId, "completed");
-  assert.equal(b.actualOutcome.actualSemiFinishedKg, 103.2);
+  assert.equal(b.actualOutcome.actualSemiFinishedKg, 9900);
   assert.deepEqual(b.statusHistory.map((x) => x.toStatusLabel), ["Planned", "In Progress", "Completed"]);
 });
 
-test("packing takes the oldest bags first and posts the packets", () => {
-  const { h, login, db } = server();
-  const meena = login("Meena", "3333");
-  const before = A.Domain(db(), () => new Date(), () => {}).bagsFIFO("mixed-veg").map((g) => g.bagNo);
-  const pk = h("GET", "/api/tasks", { status: "available", open: "1" }, null, meena).data.tasks.find((t) => t.pack);
-  h("POST", "/api/tasks/" + pk._id + "/claim", {}, null, meena);
-  const done = h("POST", "/api/tasks/" + pk._id + "/complete", {}, { packets: 48 }, meena).data.task;
-  assert.equal(done.bagsTaken[0].bagNo, before[0], "the oldest bag goes first");
-  assert.equal(Math.round(done.bagsTaken.reduce((s, g) => s + g.kg, 0) * 10) / 10, 24);
-  const packetsBefore = A.Domain(db(), () => new Date(), () => {}).packetsOf("fg-p05");
-  const ct = h("GET", "/api/tasks", { status: "available" }, null, meena).data.tasks.find((t) => t.cartons);
-  h("POST", "/api/tasks/" + ct._id + "/claim", {}, null, meena);
-  h("POST", "/api/tasks/" + ct._id + "/complete", {}, {}, meena);
-  assert.equal(A.Domain(db(), () => new Date(), () => {}).packetsOf("fg-p05"), packetsBefore + 48);
+/* a finished batch small enough for this morning's cold store: 20 kg of Green Peas */
+function peasBatch(D, d, packs) {
+  const b = D.createProductionOrder({ recipeId: "green-peas", batchSize: 20, packs: packs || [{ skuId: "fg-p06", qty: 50 }, { skuId: "fg-p10", qty: 2 }], actor: "test" }).batch;
+  D.startOnFloor(b.id, { slot: "morning", crew: d.workers.filter((w) => w.role !== "admin").map((w) => w._id) });
+  return b;
+}
+const stepsOf = (d, b) => d.tasks.filter((t) => t.batch === b.id).sort((x, y) => x.stepOrder - y.stepOrder);
+const W = (d, name) => d.workers.find((w) => w.name === name);
+
+test("a finished batch mixes from the oldest bags by its recipe and packs its packs in the run", () => {
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
+  const before = D.bagsFIFO("sf-peas").map((g) => g.bagNo), pouch = D.onHand("rm-k06"), cartons = D.onHand("rm-k11");
+  const b = peasBatch(D, d);
+  const [mix, pack] = stepsOf(d, b);
+  assert.deepEqual(stepsOf(d, b).map((t) => t.stepName), ["Take bags from the cold store · check", "Pack the planned packs"]);
+  D.claim(mix, W(d, "Meena")); const m = D.complete(mix, W(d, "Meena"), { kgIn: 20, kgOut: 20 });
+  assert.equal(m.bagsTaken[0].bagNo, before[0], "the oldest bag goes first");
+  assert.equal(D.inFreezer("sf-peas"), 10, "20 of the 30 kg");
+  assert.equal(b.ingredientSummary.find((r) => r.ingredientId === "sf-peas").usedQty, 20);
+  D.claim(pack, W(d, "Meena")); D.complete(pack, W(d, "Meena"), {});
+  assert.equal(D.packetsOf("fg-p06"), 1500 + 50 + d.dispatches.filter((x) => x.status === "Dispatch Created").reduce((t, x) => t + x.items.filter((i) => i.skuId === "fg-p06").reduce((a, i) => a + i.qty, 0), 0));
+  assert.equal(D.onHand("rm-k06"), pouch - 50, "one pouch a packet");
+  assert.equal(D.onHand("rm-k11"), cartons - 2, "whole 30 kg master cartons: 1 for 50 × 200G, 1 for 2 × 5KG");
+  assert.equal(b.stateId, "completed");
 });
 
 test("a step that can't be covered changes nothing", () => {
-  const { h, login, db } = server();
-  const meena = login("Meena", "3333");
-  const pk = h("GET", "/api/tasks", { status: "available", open: "1" }, null, meena).data.tasks.find((t) => t.pack);
-  h("POST", "/api/tasks/" + pk._id + "/claim", {}, null, meena);
-  const bagsBefore = JSON.stringify(db().bags);
-  const r = h("POST", "/api/tasks/" + pk._id + "/complete", {}, { packets: 5000 }, meena);
-  assert.equal(r.status, 409);
-  assert.match(r.data.error, /in the freezer/);
-  assert.equal(JSON.stringify(db().bags), bagsBefore);
-  assert.equal(db().tasks.find((t) => t._id === pk._id).status, "in_progress");
+  const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
+  const b = D.createProductionOrder({ recipeId: "mix-veg", batchSize: 1000, actor: "test" }).batch;
+  D.startOnFloor(b.id, { slot: "morning", crew: [W(d, "Meena")._id] });
+  const [mix] = stepsOf(d, b);
+  D.claim(mix, W(d, "Meena"));
+  const bagsBefore = JSON.stringify(d.bags);
+  assert.throws(() => D.complete(mix, W(d, "Meena"), { kgIn: 1000, kgOut: 995 }), (e) => /in the cold store/.test(e.body.error));
+  assert.equal(JSON.stringify(d.bags), bagsBefore);
+  assert.equal(mix.status, "in_progress");
 });
 
 test("weighing records the loss and flags it over the recipe's limit", () => {
   const { h, login, log } = server();
   const alerts = h("GET", "/api/alerts", {}, null, login("Asha", "1111")).data.alerts;
-  assert.ok(alerts.some((a) => a.type === "weight_loss" && /12\.9%/.test(a.message)));
+  /* this morning's carrots: 11,500 kg in, 9,960 out — 13.4% against the 13% their 15% wastage allows */
+  assert.ok(alerts.some((a) => a.type === "weight_loss" && /13\.4%/.test(a.message)));
   assert.ok(log.some((e) => e.type === "production.weight.loss"));
   /* the business's own record: the floor, and since 29 Sep the trade around it */
   assert.ok(!log.some((e) => !/^(production|sales|purchase|finance)\./.test(String(e.type))), "only the business's events, never the Control Tower's stream");
@@ -85,7 +118,7 @@ test("weighing records the loss and flags it over the recipe's limit", () => {
 
 test("a held batch pauses its steps on the floor", () => {
   const { s, h, login, db } = server();
-  const d = db(); const b = d.batches.find((x) => x.stateId === "in-progress" && x.recipeId === "mixed-veg");
+  const d = db(); const b = d.batches.find((x) => x.stateId === "in-progress" && x.recipeId === "sf-carrots");
   b.stateId = "on-hold"; b.statusLabel = "On Hold";
   s.handle("GET", "/__noop"); // no-op; write the change back through a fresh server over it
   let st = d; const s2 = A.createServer({ load: () => st, save: (x) => { st = x; }, log: () => {} });
@@ -98,16 +131,23 @@ test("a held batch pauses its steps on the floor", () => {
   assert.ok(!pool.some((x) => x.batch._id === b.id));
 });
 
-test("the plan: orders + forecast − packets − freezer − planned, in the recipe's batch sizes", () => {
+test("the plan is the owner's sheet: Ordered − InStock + MSQ, down through the recipes", () => {
   const { db } = server(), D = A.Domain(db(), () => new Date(), () => {});
-  const p = D.plan();
+  const p = D.plan(), r2 = (n) => Math.round(n * 100) / 100;
+  p.skus.forEach((r) => assert.equal(r.shortPackets, Math.max(0, r.open + r.msq - r.free), r.name));
   p.products.forEach((x) => {
+    assert.equal(x.needKg, r2(x.skus.reduce((t, r) => t + r.shortKg, 0)));
     const sizes = D.book(x.recipeId).sizes;
     x.batches.forEach((z) => assert.ok(sizes.includes(z)));
-    assert.ok(x.batches.reduce((a, b) => a + b, 0) >= x.toMakeKg - 0.001);
-    assert.equal(x.toMakeKg, Math.max(0, Math.round((x.needKg - x.freezerKg - x.plannedKg) * 100) / 100));
   });
-  p.materials.forEach((m) => assert.equal(m.buy, Math.max(0, Math.round((m.need - (m.onHand - m.reserved) - m.ordered) * 100) / 100)));
+  /* a semi-finished good: each product's kg × its share, + MSQ − the cold store */
+  const cauli = p.semis.find((x) => x.recipeId === "sf-cauliflower"), mv = p.products.find((x) => x.recipeId === "mix-veg");
+  assert.ok(Math.abs(cauli.needKg - mv.toMakeKg * 0.2) < 0.05);
+  assert.equal(cauli.toMakeKg, r2(cauli.needKg + 100 - 50));
+  /* raw material: the semi-finished good × (1 + wastage), + MSQ − free − on order */
+  const raw = p.materials.find((m) => m.id === "rm-p03");
+  assert.ok(Math.abs(raw.need - cauli.toMakeKg * 1.6) < 0.05);
+  assert.equal(raw.buy, r2(raw.need + 75 - (raw.onHand - raw.reserved) - raw.ordered));
 });
 
 test("receiving: an accepted lot is stock, a sent-back truck is not", () => {
@@ -119,14 +159,14 @@ test("receiving: an accepted lot is stock, a sent-back truck is not", () => {
   assert.equal(d.lots.slice(-2)[0].gateQty, 51);
 });
 
-test("stickers: one per sack, crate or box of a lot, the last one holds what is left", () => {
+test("stickers: one per bin, sack or box of a lot, the last one holds what is left", () => {
   const { db } = server(), d = db(), D = A.Domain(d, () => new Date(), () => {});
-  const peas = D.receive({ materialId: "rm-p01", qty: 330, gateQty: 333, by: "Store · Mohan" });
+  const peas = D.receive({ materialId: "rm-p01", qty: 3300, gateQty: 3320, by: "Store · Mohan" });
   const st = D.stickers(peas.lotNo);
-  assert.equal(st.length, 17);
-  assert.deepEqual([st[0].n, st[0].of, st[0].packName, st[0].qty], [1, 17, "crate", 20]);
-  assert.equal(st[16].qty, 10);
-  assert.equal(st.reduce((n, x) => n + x.qty, 0), 330);
+  assert.equal(st.length, 4);
+  assert.deepEqual([st[0].n, st[0].of, st[0].packName, st[0].qty], [1, 4, "bin", 1000]);
+  assert.equal(st[3].qty, 300);
+  assert.equal(st.reduce((n, x) => n + x.qty, 0), 3300);
   assert.ok(st.every((x) => x.lotNo === peas.lotNo && x.store === "Cold room" && x.useBy === peas.useBy && x.by === "Store · Mohan"));
   const flour = D.receive({ materialId: "rm-p05", qty: 100 });
   assert.deepEqual(D.stickers(flour.lotNo).map((x) => [x.packName, x.qty]), [["sack", 50], ["sack", 50]]);

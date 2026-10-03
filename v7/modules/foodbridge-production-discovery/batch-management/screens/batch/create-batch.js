@@ -358,7 +358,10 @@
       if (state.mix === null) mixBody = el("div", { class: "readonly-note", style: "padding:12px" }, "Loading packaging…");
       else if (!rows.length) mixBody = el("div", { class: "readonly-note", style: "padding:12px" }, window.FB_PRODUCTION
         /* only packs set to "In the same run" in Recipes › Packaging are planned here (29 Sep 2026) */
-        ? ["No pack of this product is packed in the same run, so the whole batch goes into bags and is packed later from them. To pack a size in the run, set it in ", el("b", {}, "Recipes › Packaging"), "."]
+        ? (state.header && state.header.kind === "semi"
+          /* a semi-finished good is not packed (3 Oct 2026): it fills the cold store */
+          ? ["A semi-finished good isn't packed: the whole batch goes into 50 kg bags in the cold store, and the finished products are mixed from it by their recipes."]
+          : ["No pack of this product is packed in the same run, so the whole batch goes into bags and is packed later from them. To pack a size in the run, set it in ", el("b", {}, "Recipes › Packaging"), "."])
         : "This recipe version has no mass-denominated packaging to plan.");
       else {
         mixBody = el("div", {}, ...rows.map((r, i) => {
@@ -415,7 +418,9 @@
        "later" become packing orders from those bags */
     const laterRows = rows.filter((r) => !r.sameRun && rowQty(r, sizeNum) > 0);
     const bagged = r2(sizeNum - rows.filter((r) => r.sameRun).reduce((t, r) => t + rowQty(r, sizeNum) * r.net, 0));
-    if (!over && window.FB_PRODUCTION && bagged > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${bagged} ${batchUnit}`), " goes into bags as ", el("b", {}, "Semi-Finished Inventory"),
+    const finished = !!(state.header && state.header.kind === "finished");
+    if (!over && window.FB_PRODUCTION && finished && bagged > sizeNum * 0.01) notices.push(el("div", { class: "nb" }, el("b", {}, `${bagged} ${batchUnit}`), " of the mix isn't planned into a pack. Allow about 1% for the mixing loss; plan the rest into packs."));
+    else if (!over && window.FB_PRODUCTION && !finished && bagged > 1e-9) notices.push(el("div", { class: "nb" }, el("b", {}, `${bagged} ${batchUnit}`), " goes into bags as ", el("b", {}, "Semi-Finished Inventory"),
       laterRows.length ? [", and ", el("b", {}, `${laterRows.length} packing order${laterRows.length === 1 ? "" : "s"}`), " pack it from them."] : ", packed later by packing orders."));
     else if (!over && residual > 1e-9 && !window.FB_PRODUCTION) notices.push(el("div", { class: "nb" }, el("b", {}, `${residual} ${batchUnit}`), " has no packaging assigned yet — that's fine to leave for now. It's tracked separately as ", el("b", {}, "Semi Finished Inventory"), " (leftover stock from this batch) and can be packed into SKUs later."));
     if (notPublished && !isEdit) notices.push(el("div", { class: "nb nb-bad" }, "This recipe version is a draft. Production requires a published version."));

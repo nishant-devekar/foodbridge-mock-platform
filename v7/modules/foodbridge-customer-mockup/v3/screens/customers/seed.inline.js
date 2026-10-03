@@ -542,15 +542,15 @@
       shelfAvailability: "available", facings: 3 }, extra || {});
     const audits = {
       "cus-aggarwal": [{ id: "aud-vf-1", at: ago(5, 17), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 3, outcome: "healthy", notes: "Deep freezer at −19 °C.",
-        lines: [line("fg-p01", 20, { good: 18 }), line("fg-p02", 12, { good: 12 }), line("fg-p07", 20, { good: 17 }, { storageBreakdown: { shelf: 12, backroom: 5 } })], followUp: { required: false, note: "", at: "" } }],
+        lines: [line("fg-p01", 150, { good: 138 }), line("fg-p02", 60, { good: 60 }), line("fg-p06", 150, { good: 141 }, { storageBreakdown: { shelf: 60, backroom: 81 } })], followUp: { required: false, note: "", at: "" } }],
       "cus-sethi": [{ id: "aud-vf-2", at: ago(2, 12), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "pull", notes: "Shop freezer failed overnight — packets soft.",
-        lines: [line("fg-p01", 10, { good: 4, damaged: 6 }, { damageType: "thawed", notes: "Six packets thawed and refrozen — not saleable.", shelfAvailability: "partial" }), line("fg-p07", 12, { good: 12 })],
+        lines: [line("fg-p06", 150, { good: 130, damaged: 20 }, { damageType: "thawed", notes: "Twenty packets thawed and refrozen — not saleable.", shelfAvailability: "partial" }), line("fg-p07", 12, { good: 12 })],
         followUp: { required: true, note: "Take back the thawed peas; check the freezer is repaired before the next drop.", at: ago(2, 12) } }],
       "cus-tricity": [{ id: "aud-vf-3", at: ago(1, 15), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "pull", notes: "Mixed vegetables keep 3 days — rotate every drop.",
-        lines: [line("fg-p11", 150, { good: 90, nearExpiry: 40, expired: 20 }, { expiryDetails: [{ bucket: "nearExpiry", date: new Date(Date.now() + DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 40 }, { bucket: "expired", date: new Date(Date.now() - DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 20 }], notes: "20 past use-by pulled; 40 go tomorrow.", storageBreakdown: { shelf: 60, backroom: 90 } }),
-          line("fg-p01", 150, { good: 150 }, { storageBreakdown: { shelf: 30, backroom: 120 } })], followUp: { required: true, note: "Send mixed vegetables in smaller, more frequent drops.", at: ago(1, 15) } }],
+        lines: [line("fg-p01", 1500, { good: 1440, nearExpiry: 40, expired: 20 }, { expiryDetails: [{ bucket: "nearExpiry", date: new Date(Date.now() + DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 40 }, { bucket: "expired", date: new Date(Date.now() - DAY).toISOString().slice(0, 10), batch: "PK-2026-mixveg", qty: 20 }], notes: "20 past use-by pulled; 40 go tomorrow.", storageBreakdown: { shelf: 60, backroom: 90 } }),
+          line("fg-p06", 1500, { good: 1500 }, { storageBreakdown: { shelf: 300, backroom: 1200 } })], followUp: { required: true, note: "Send mixed vegetables in smaller, more frequent drops.", at: ago(1, 15) } }],
       "cus-gupta-mart": [{ id: "aud-vf-4", at: ago(41, 11), status: "completed", auditor: REP, purpose: "routine", locationId: "primary", expectedProducts: 2, outcome: "replenish", notes: "",
-        lines: [line("fg-p01", 12, { good: 5 }, { shelfAvailability: "partial" }), line("fg-p09", 4, {}, { shelfAvailability: "not_on_shelf", notes: "1 kg chaap sold out." })], followUp: { required: false, note: "", at: "" } }],
+        lines: [line("fg-p03", 30, { good: 12 }, { shelfAvailability: "partial" }), line("fg-p08", 30, {}, { shelfAvailability: "not_on_shelf", notes: "1 kg peas sold out." })], followUp: { required: false, note: "", at: "" } }],
     };
     Object.assign(window.SEED, {
       tenant: { name: biz.name, user: { name: biz.owner, role: biz.role } },

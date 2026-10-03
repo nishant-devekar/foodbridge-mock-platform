@@ -13,129 +13,133 @@ function world() {
   const h = (m, p, q, b, t) => s.handle(m, p, q || {}, b, t);
   const d = s.snapshot(), D = A.Domain(d, () => new Date(), () => {});
   const W = (name) => d.workers.find((w) => w.name === name);
-  const peas = () => d.batches.find((b) => b.kind === "production" && (b.packagingLines || []).length && b.stateId === "planned");
+  /* two batches for the tests, small enough for this morning's stock (3 Oct 2026):
+     100 kg of Cut Beans from the raw store, and 20 kg of Green Peas from the cold store */
+  const beans = () => D.createProductionOrder({ recipeId: "sf-beans", batchSize: 100, actor: "test" }).batch;
+  const peas = () => D.createProductionOrder({ recipeId: "green-peas", batchSize: 20, packs: [{ skuId: "fg-p06", qty: 50 }, { skuId: "fg-p10", qty: 2 }], actor: "test" }).batch;
   const tasks = (b) => d.tasks.filter((t) => t.batch === b.id).sort((x, y) => x.stepOrder - y.stepOrder);
   const run = (t, w, input) => { D.claim(t, w, input); return D.complete(t, w, input); };
   const lotsOf = (id) => d.lots.filter((l) => l.materialId === id).reduce((t, l) => t + l.remaining, 0);
   const push = () => { st = JSON.parse(JSON.stringify(d)); };   /* the server reads this copy next */
-  return { s, h, d, D, W, peas, tasks, run, lotsOf, push };
+  return { s, h, d, D, W, beans, peas, tasks, run, lotsOf, push };
 }
 const near = (a, b) => Math.abs(a - b) < 0.01;
 
-test("the owner's example on the phones: 100 kg peas → 16 × 5 kg packed in the run + 20 kg into bags", () => {
-  const { d, D, W, peas, tasks, run, lotsOf } = world();
-  const b = peas();
-  assert.equal(b.batchSize, 100);
-  assert.equal(b.semiFinishedKg, 20, "100 kg less 16 × 5 kg");
-  const peasBefore = lotsOf("rm-p01"), pouchBefore = lotsOf("rm-k04"), cartonBefore = lotsOf("rm-k11");
-  const fgBefore = D.packetsOf("fg-p04"), sfBefore = D.inFreezer("frozen-peas");
-
-  /* the store issues 100 kg before production: the lot goes down now */
-  D.issueFromStore(b.id, "rm-p01", 100, "Mohan");
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 100));
-
+test("the two levels on the phones: beans cut into Cut Beans; Green Peas mixed from the cold store and packed in the run", () => {
+  const { d, D, W, beans, peas, tasks, run, lotsOf } = world();
+  /* raw → semi-finished: 100 kg of Cut Beans takes 105 kg of beans (5% wastage) */
+  const b = beans(), beansBefore = lotsOf("rm-p04"), bagsBefore = lotsOf("rm-p08"), sfBefore = D.inFreezer("sf-beans");
+  D.issueFromStore(b.id, "rm-p04", 100, "Mohan");
+  assert.ok(near(lotsOf("rm-p04"), beansBefore - 100));
+  D.receive({ materialId: "rm-p04", qty: 20, by: "Store · Mohan" });
   D.releaseToFloor(b.id, "admin", "app");
-  const [wash, blanch, freeze, pack, fill] = tasks(b);
-  assert.deepEqual(tasks(b).map((t) => t.stepName), ["Peel · cut · wash", "Boil (blanch)", "Freeze", "Pack the planned packs", "Fill big bags · into freezer"]);
-  assert.equal(pack.packRun, true);
-
-  /* weighing uses the 100 kg issued first and takes only 6 more */
-  run(wash, W("Asha"), { kgIn: 106, kgOut: 100 });
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 106), "6 more from the store, not 106");
-  run(blanch, W("Farida"));
-  run(freeze, W("Farida"));
-  run(pack, W("Meena"), { packs: { "fg-p04": 16 } });
-  assert.equal(D.packetsOf("fg-p04"), fgBefore + 16, "finished goods +16");
-  assert.ok(near(lotsOf("rm-k04"), pouchBefore - 16), "one pouch a packet");
-  assert.ok(near(lotsOf("rm-k11"), cartonBefore - 3), "whole master cartons, 6 × 5 kg to a carton");
-  run(fill, W("Meena"), { kgOut: 20 });
-  assert.ok(near(D.inFreezer("frozen-peas"), sfBefore + 20), "semi-finished +20 kg");
-
+  const [sort, cut, blanch, iqf, fill] = tasks(b);
+  assert.deepEqual(tasks(b).map((t) => t.stepName), ["Sort · grade", "Trim · cut 20 mm · wash", "Blanch", "IQF freeze", "Fill 50 kg bags · into cold store"]);
+  run(sort, W("Asha"));
+  run(cut, W("Asha"), { kgIn: 105, kgOut: 100 });
+  assert.ok(near(lotsOf("rm-p04"), beansBefore + 20 - 105), "the 100 issued first, 5 more from the store");
+  run(blanch, W("Farida")); run(iqf, W("Farida"));
+  run(fill, W("Meena"), { kgOut: 100 });
+  assert.ok(near(D.inFreezer("sf-beans"), sfBefore + 100), "semi-finished +100 kg");
+  assert.ok(near(lotsOf("rm-p08"), bagsBefore - 2), "two 50 kg big bags");
   assert.equal(b.stateId, "completed");
-  const bal = D.balance(b);
-  assert.equal(bal.packedKg, 80); assert.equal(bal.baggedKg, 20); assert.equal(bal.outKg, 100);
-  assert.equal(b.actualOutcome.lines[0].actualUnits, 16);
-
+  /* semi-finished → finished: 20 kg of Green Peas 50 Kg, packed in the run */
+  const f = peas(), pouchBefore = lotsOf("rm-k06"), cartonBefore = lotsOf("rm-k11"), fgBefore = D.packetsOf("fg-p06"), peasBefore = D.inFreezer("sf-peas");
+  D.releaseToFloor(f.id, "admin", "app");
+  const [mix, pack] = tasks(f);
+  assert.equal(pack.packRun, true);
+  run(mix, W("Meena"), { kgIn: 20, kgOut: 20 });
+  assert.ok(near(D.inFreezer("sf-peas"), peasBefore - 20), "cold store −20 kg");
+  run(pack, W("Meena"), {});
+  assert.equal(D.packetsOf("fg-p06"), fgBefore + 50, "finished goods +50");
+  assert.ok(near(lotsOf("rm-k06"), pouchBefore - 50), "one pouch a packet");
+  assert.ok(near(lotsOf("rm-k11"), cartonBefore - 2), "whole 30 kg master cartons");
+  assert.equal(f.stateId, "completed");
+  assert.equal(D.balance(f).packedKg, 20);
   /* one ledger line per movement, all tied to the batch */
-  const mv = D.movementsOfBatch(b.id);
+  const mv = D.movementsOfBatch(b.id).concat(D.movementsOfBatch(f.id));
   assert.ok(mv.some((e) => e.kind === "rm" && e.what === "issued" && e.via === "store"));
-  assert.ok(mv.some((e) => e.kind === "rm" && e.what === "used" && e.step === "Peel · cut · wash" && e.by === "Asha"));
-  assert.ok(mv.some((e) => e.kind === "fg" && e.qty === 16 && e.step === "Pack the planned packs"));
-  assert.ok(mv.some((e) => e.kind === "sf" && e.qty === 20 && e.what === "bagged"));
+  assert.ok(mv.some((e) => e.kind === "rm" && e.what === "used" && e.step === "Trim · cut 20 mm · wash" && e.by === "Asha"));
+  assert.ok(mv.some((e) => e.kind === "sf" && e.qty === 100 && e.what === "bagged"));
+  assert.ok(mv.some((e) => e.kind === "sf" && e.qty === -20 && e.what === "mixed"));
+  assert.ok(mv.some((e) => e.kind === "fg" && e.qty === 50 && e.step === "Pack the planned packs"));
 });
 
 test("the same batch recorded in the office: same stock, and never on the phones", () => {
-  const { h, d, D, W, peas, tasks, lotsOf, push } = world();
-  const b = peas(), fgBefore = D.packetsOf("fg-p04"), sfBefore = D.inFreezer("frozen-peas"), peasBefore = lotsOf("rm-p01");
+  const { h, d, D, W, peas, tasks, push } = world();
+  const b = peas(), fgBefore = D.packetsOf("fg-p06"), sfBefore = D.inFreezer("sf-peas");
   D.releaseToFloor(b.id, "admin", "office");
   assert.equal(b.recording, "office");
   push();
   /* the Worker App can't see or claim its steps */
-  const tok = "Bearer " + h("POST", "/api/auth/worker-login", {}, { name: "Asha", pin: "1111" }).data.accessToken;
+  const tok = "Bearer " + h("POST", "/api/auth/worker-login", {}, { name: "Meena", pin: "3333" }).data.accessToken;
   const shift = d.shifts.find((sh) => sh.batches.includes(b.id) && sh.status === "live");
   const seen = h("GET", "/api/tasks", { shift: shift._id, status: "available", open: "1" }, null, tok).data.tasks;
   assert.ok(!seen.some((t) => t.batch && t.batch._id === b.id));
   assert.equal(h("POST", "/api/tasks/" + tasks(b)[0]._id + "/claim", {}, {}, tok).status, 409);
-  /* record all at once, with the same four numbers */
-  const [wash, , , pack, fill] = tasks(b);
-  D.recordAll(b.id, { workerId: W("Asha")._id, actor: "Priya", steps: { [wash._id]: { kgIn: 106, kgOut: 100 }, [pack._id]: { packs: { "fg-p04": 16 } }, [fill._id]: { kgOut: 20 } } });
+  /* record all at once, with the same numbers */
+  const [mix, pack] = tasks(b);
+  D.recordAll(b.id, { workerId: W("Meena")._id, actor: "Priya", steps: { [mix._id]: { kgIn: 20, kgOut: 20 }, [pack._id]: {} } });
   assert.equal(b.stateId, "completed");
-  assert.equal(D.packetsOf("fg-p04"), fgBefore + 16);
-  assert.ok(near(D.inFreezer("frozen-peas"), sfBefore + 20));
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 106));
+  assert.equal(D.packetsOf("fg-p06"), fgBefore + 50);
+  assert.ok(near(D.inFreezer("sf-peas"), sfBefore - 20));
   assert.ok(tasks(b).every((t) => t.enteredVia === "office"));
   assert.ok(D.movementsOfBatch(b.id).every((e) => e.via === "office" || e.via === "store"));
 });
 
-test("the floor differs: 14 packed leaves 30 kg for bags; too few pouches blocks before anything moves", () => {
-  const { d, D, W, peas, tasks, run, lotsOf } = world();
+test("the floor differs: fewer packs than planned; too few pouches blocks before anything moves", () => {
+  const { d, D, W, peas, tasks, run } = world();
   const b = peas();
   D.releaseToFloor(b.id, "admin", "app");
-  const [wash, blanch, freeze, pack] = tasks(b);
-  run(wash, W("Asha"), { kgIn: 106, kgOut: 100 }); run(blanch, W("Farida")); run(freeze, W("Farida"));
+  const [mix, pack] = tasks(b);
+  run(mix, W("Meena"), { kgIn: 20, kgOut: 20 });
   /* not enough pouches: nothing moves */
-  const lot = d.lots.filter((l) => l.materialId === "rm-k04"); const keep = lot.map((l) => l.remaining);
+  const lot = d.lots.filter((l) => l.materialId === "rm-k06"); const keep = lot.map((l) => l.remaining);
   lot.forEach((l) => { l.remaining = 0; }); lot[0].remaining = 5;
-  const fg = D.packetsOf("fg-p04");
+  const fg = D.packetsOf("fg-p06");
   D.claim(pack, W("Meena"));
-  assert.throws(() => D.complete(pack, W("Meena"), { packs: { "fg-p04": 16 } }), (e) => /Only 5/.test(e.body.error));
-  assert.equal(D.packetsOf("fg-p04"), fg);
+  assert.throws(() => D.complete(pack, W("Meena"), { packs: { "fg-p06": 50 } }), (e) => /Only 5/.test(e.body.error));
+  assert.equal(D.packetsOf("fg-p06"), fg);
   lot.forEach((l, i) => { l.remaining = keep[i]; });
-  D.complete(pack, W("Meena"), { packs: { "fg-p04": 14 } });
-  assert.equal(D.balance(b).packedKg, 70);
-  assert.equal(D.madeKg(b) - D.packedKg(b), 30, "the fill step's rest");
+  D.complete(pack, W("Meena"), { packs: { "fg-p06": 40, "fg-p10": 2 } });
+  assert.equal(D.balance(b).packedKg, 18);
+  assert.equal(b.actualOutcome.lines.find((l) => l.packagingConfigId === "fg-p06").actualUnits, 40);
+  assert.equal(b.actualOutcome.settlementRequired, true, "40 of 50 planned: the office settles it");
 });
 
 test("return, correction and quarantine keep every store honest", () => {
-  const { d, D, W, peas, tasks, run, lotsOf } = world();
-  const b = peas(), peasBefore = lotsOf("rm-p01");
-  D.issueFromStore(b.id, "rm-p01", 120, "Mohan");
+  const { d, D, W, beans, tasks, run, lotsOf } = world();
+  D.receive({ materialId: "rm-p04", qty: 100, by: "Store · Mohan" });
+  const b = beans(), beansBefore = lotsOf("rm-p04");
+  D.issueFromStore(b.id, "rm-p04", 120, "Mohan");
   D.releaseToFloor(b.id, "admin", "app");
-  const [wash, blanch, freeze, pack, fill] = tasks(b);
-  run(wash, W("Asha"), { kgIn: 160, kgOut: 100 });                 /* typed wrong */
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 160));
-  D.correctStep(wash._id, { input: { kgIn: 106, kgOut: 100 }, reason: "160 was a typo", actor: "Priya" });
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 120), "the 40 kg taken beyond the issue went back");
+  const [sort, cut, blanch, iqf, fill] = tasks(b);
+  run(sort, W("Asha"));
+  run(cut, W("Asha"), { kgIn: 160, kgOut: 100 });                 /* typed wrong */
+  assert.ok(near(lotsOf("rm-p04"), beansBefore - 160));
+  D.correctStep(cut._id, { input: { kgIn: 105, kgOut: 100 }, reason: "160 was a typo", actor: "Priya" });
+  assert.ok(near(lotsOf("rm-p04"), beansBefore - 120), "the 40 kg taken beyond the issue went back");
   assert.ok(D.movementsOfBatch(b.id).some((e) => e.what === "corrected"));
-  /* 14 kg issued and not used goes back to its lot */
-  assert.ok(near(D.unusedIssued(b, "rm-p01"), 14));
-  D.returnToStore(b.id, "rm-p01", 14, "Mohan");
-  assert.ok(near(lotsOf("rm-p01"), peasBefore - 106));
-  assert.throws(() => D.returnToStore(b.id, "rm-p01", 1), (e) => /issued and not used/.test(e.body.error));
-  run(blanch, W("Farida")); run(freeze, W("Farida")); run(pack, W("Meena"), { packs: { "fg-p04": 16 } }); run(fill, W("Meena"), { kgOut: 20 });
-  /* QC rejects: its packets and bag are held, not sold */
-  const fg = D.packetsOf("fg-p04"), sf = D.inFreezer("frozen-peas");
+  /* 15 kg issued and not used goes back to its lot */
+  assert.ok(near(D.unusedIssued(b, "rm-p04"), 15));
+  D.returnToStore(b.id, "rm-p04", 15, "Mohan");
+  assert.ok(near(lotsOf("rm-p04"), beansBefore - 105));
+  assert.throws(() => D.returnToStore(b.id, "rm-p04", 1), (e) => /issued and not used/.test(e.body.error));
+  run(blanch, W("Farida")); run(iqf, W("Farida")); run(fill, W("Meena"), { kgOut: 100 });
+  /* QC rejects: its bags are held, not mixed */
+  const sf = D.inFreezer("sf-beans");
   D.move(b, "rejected", "reject", "QC"); const held = D.quarantine(b, "QC");
-  assert.equal(held.packets, 16); assert.equal(held.kg, 20);
-  assert.equal(D.packetsOf("fg-p04"), fg - 16); assert.ok(near(D.inFreezer("frozen-peas"), sf - 20));
+  assert.equal(held.kg, 100);
+  assert.ok(near(D.inFreezer("sf-beans"), sf - 100));
   D.releaseQuarantine(b.id, "scrap", "QC");
-  assert.equal(D.packetsOf("fg-p04"), fg - 16, "scrapped stays out");
-  assert.ok(D.movements("fg", "fg-p04").some((e) => e.what === "scrapped" && e.qty === -16));
-  /* after all of it: received = issued (net of returns) + on hand, every material */
+  assert.ok(near(D.inFreezer("sf-beans"), sf - 100), "scrapped stays out");
+  assert.ok(D.movements("sf", "sf-beans").some((e) => e.what === "scrapped" && e.qty === -100));
+  /* after all of it: received = issued (net of returns) − the night count + on hand, every material */
   d.materials.forEach((m) => {
     const received = d.lots.filter((l) => l.materialId === m.id && l.qc === "accepted").reduce((s, l) => s + l.qty, 0);
     const net = d.batches.reduce((s, x) => s + (x.ingredientSummary || []).filter((r) => r.ingredientId === m.id).reduce((a, r) => a + r.issuedQty - r.returnedQty, 0), 0);
-    assert.ok(Math.abs(received - net - D.onHand(m.id)) < 0.05, m.name);
+    const counted = d.ledger.filter((e) => e.kind === "rm" && e.item === m.id && e.what === "stock count").reduce((t, e) => t + e.qty, 0);
+    assert.ok(Math.abs(received - net + counted - D.onHand(m.id)) < 0.05, m.name);
   });
 });
 
@@ -169,15 +173,15 @@ test("slots: schedule, stop and resume, cancel a day, hand over to the next slot
 });
 
 test("a batch recorded in the office: a late step asks the office to record it, not the floor", () => {
-  const { D, W, peas, tasks } = world();
-  const b = peas();
+  const { D, W, beans, tasks } = world();
+  const b = beans();
   D.releaseToFloor(b.id, "admin", "office");
   const first = tasks(b)[0];
   first.availableAt = new Date(Date.now() - 45 * 60000).toISOString();
   const mine = D.alerts().filter((a) => a.batch === b.id);
   assert.deepEqual(mine.map((a) => a.type), ["to_record"], "one line for the batch, no 'nobody started it'");
   assert.equal(mine[0].step, first.stepName);
-  D.recordStep(first._id, { workerId: W("Suresh")._id, input: { kgIn: 106, kgOut: 100 }, actor: "admin" });
+  D.recordStep(first._id, { workerId: W("Suresh")._id, input: {}, actor: "admin" });
   assert.equal(D.alerts().filter((a) => a.batch === b.id && a.step === first.stepName).length, 0);
 });
 

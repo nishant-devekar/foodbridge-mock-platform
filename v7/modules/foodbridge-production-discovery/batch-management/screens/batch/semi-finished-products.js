@@ -38,7 +38,7 @@
     const d = daysTo(r.useBy);
     if (d < 0) return el("span", { class: "ps-status-open", style: "color:#b91c1c" }, el("span", { class: "dot", style: "background:#b91c1c" }), "Past use-by");
     if (d <= 30) return el("span", { class: "ps-status-open", style: "color:#b45309" }, el("span", { class: "dot", style: "background:#b45309" }), `Use in ${d} days`);
-    return el("span", { class: "ps-status-open" }, el("span", { class: "dot" }), r.first ? "Packs next" : "In freezer");
+    return el("span", { class: "ps-status-open" }, el("span", { class: "dot" }), r.first ? "Mixed next" : "In cold store");
   }
   function bagRow(r) {
     const made = new Date(r.madeAt).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -52,22 +52,24 @@
         el("span", {})),
       el("div", { class: "ps-row-mobile" },
         el("div", { style: "flex:1;min-width:0" },
-          el("div", { class: "ps-row-name" }, `${r.product} · bag ${r.bagNo}`),
+          el("div", { class: "ps-row-name" }, `${r.product} · ${r.count ? Math.max(1, Math.ceil(r.remaining / (r.bagKg || 50))).toLocaleString("en-IN") + " " + (r.container === "Tubs" ? "tubs" : "bags") : "bag"} ${r.bagNo}`),
           el("div", { class: "ps-row-meta" }, "🧊 " + r.batchNumber),
           el("div", { style: "display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center" },
             el("span", { class: "ps-badge" }, `${r.remaining} of ${r.kg} kg`), bagStatus(r)),
           el("div", { class: "ps-updated", style: "margin-top:6px" }, `Made ${made} · use by ${useBy}`))));
   }
   function summary() {
-    const rows = window.FB_PRODUCTION.read((D, d) => d.recipeOrder.map((rid) => {
-      const bags = D.bagsFIFO(rid);
-      return { name: D.book(rid).name, kg: D.inFreezer(rid), bags: bags.length, oldest: bags[0] };
+    /* the semi-finished goods, each made by its own recipe into the cold store (3 Oct 2026) */
+    const rows = window.FB_PRODUCTION.read((D, d) => (d.semiOrder || d.recipeOrder).map((rid) => {
+      const lots = D.bagsFIFO(rid), bk = D.book(rid);
+      const bags = lots.reduce((t, g) => t + Math.max(1, Math.ceil(g.remaining / (g.bagKg || 50))), 0);
+      return { name: bk.name, kg: D.inFreezer(rid), bags, oldest: lots[0], msq: bk.msq || 0, container: (lots[0] && lots[0].container) || (bk.line === "Cutting · IQF" ? "Big bags" : "Tubs") };
     }));
     return el("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px" },
       ...rows.map((r) => el("div", { style: "background:#fff;border:1px solid var(--fb-border);border-radius:12px;padding:14px 16px" },
         el("div", { style: "font-size:13px;color:var(--fb-text-muted)" }, r.name),
         el("div", { style: "font-size:22px;font-weight:700;margin-top:2px" }, `${Math.round(r.kg * 10) / 10} kg`),
-        el("div", { style: "font-size:12px;color:var(--fb-text-muted);margin-top:2px" }, r.bags ? `${r.bags} bag${r.bags > 1 ? "s" : ""} · packs next from ${r.oldest.bagNo}` : "No bags — make a batch"))));
+        el("div", { style: "font-size:12px;color:var(--fb-text-muted);margin-top:2px" }, (r.bags ? `${r.bags.toLocaleString("en-IN")} ${r.container === "Tubs" ? "tub" : "bag"}${r.bags > 1 ? "s" : ""} · mixed next from ${r.oldest.bagNo}` : "Nothing in store — make a batch") + (r.msq ? ` · MSQ ${r.msq} kg` : "")))));
   }
 
   function row(r) {
@@ -99,7 +101,7 @@
     }
     return el("div", { class: "ps-empty" },
       el("div", { class: "ps-empty-icon" }, "🧺"),
-      el("div", { class: "ps-empty-title" }, FREEZER ? "The freezer is empty" : "No semi-finished products yet"),
+      el("div", { class: "ps-empty-title" }, FREEZER ? "The cold store is empty" : "No semi-finished products yet"),
       el("div", { class: "ps-empty-desc" }, FREEZER ? "Bags go in when a batch's last step on the floor fills them." : "A batch's bulk/leftover residual shows up here once it's captured during Inventory Sync."));
   }
 
@@ -108,7 +110,7 @@
       const q = (state.debouncedSearch || "").trim().toLowerCase();
       state.rows = window.FB_PRODUCTION.read((D, d) => {
         const out = [];
-        d.recipeOrder.forEach((rid) => D.bagsFIFO(rid).forEach((g, i) => out.push({ ...g, first: i === 0 })));
+        (d.semiOrder || d.recipeOrder).forEach((rid) => D.bagsFIFO(rid).forEach((g, i) => out.push({ ...g, first: i === 0 })));
         return out.filter((g) => !q || g.product.toLowerCase().includes(q) || g.batchNumber.toLowerCase().includes(q) || g.bagNo.includes(q));
       });
       render();

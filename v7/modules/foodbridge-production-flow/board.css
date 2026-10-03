@@ -265,68 +265,42 @@
   .sf-big { font-size: 18px; }
 }
 
-/* Demand & supply as three departments (owner, 29 Sep 2026): Sales → Production → Purchase.
-   Each tab carries its department's headline, so every head sees the others at a glance. */
-.dx-tabs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 8px; margin-bottom: 14px; }
-.dx-arr { align-self: center; color: #9ca3af; font-size: 18px; }
-.dx-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font: inherit; color: var(--ink); text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-.dx-t:hover { border-color: #cbd5e1; }
-.dx-t[aria-selected="true"] { border-color: #16a34a; box-shadow: 0 0 0 1px #16a34a inset, 0 1px 2px rgba(15,23,42,.04); }
-.dx-t:focus-visible { outline: 2px solid rgba(34,197,94,.5); outline-offset: 2px; }
-.dx-k { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.dx-t[aria-selected="true"] .dx-k { color: var(--green-700); }
-.dx-t b { font-size: 17px; font-weight: 700; line-height: 1.3; }
-.dx-t.bad b { color: var(--red); }
-.dx-t.warn b { color: #b45309; }
-.dx-t.ok b { color: var(--green-700); }
-.dx-t small { font-size: 12.5px; color: var(--ink2); }
-.dx-err { margin: 0 0 12px; }
-.dx table { table-layout: auto; }
-.dx thead th { width: auto !important; }
-.dx .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dx td.num small { display: block; font-size: 12px; color: var(--muted); }
-.dx .blk, .dx .fx-pm.blk { color: var(--red); }
-.dx .np, .dx .fx-pm.np { color: #b45309; }
-.dx .ok, .dx .fx-pm.ok { color: var(--green-700); }
-/* Sales and Production: an item per line; open, its detail sits under it, indented, on a light band */
-/* fixed widths, so opening a row does not shift the columns */
-.dx table.dx-xp { table-layout: fixed; min-width: 640px; }
-.dx-sales thead th:nth-child(1) { width: 28% !important; }
-.dx-sales thead th:nth-child(n+2):nth-child(-n+5) { width: 11% !important; }
-.dx-make thead th:nth-child(1) { width: 28% !important; }
-.dx-make thead th:nth-child(n+2):nth-child(-n+4) { width: 12% !important; }
-.dx-buy col.c1 { width: 26%; }
-.dx-buy col.c2 { width: 28%; }
-.dx-buy col.c3 { width: 12%; }
-.dx-xp tr.dx-k2.dx-cols th { padding-left: 12px; padding-top: 10px; padding-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.dx-xp tr.dx-k2.dx-cols th:first-child { padding-left: 34px; }
-/* Purchase: a situation per line — its name, how many, and what it means, in a sentence */
-.dx-sit-in { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.dx-sit th { text-align: left; font-size: 14px; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; padding: 14px 12px; border-bottom: 1px solid #f1f2f4; background: none; }
-.dx-n { flex: 0 0 auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
-.dx-sit.bad .dx-n { background: var(--red-50); color: var(--red); }
-.dx-sit.warn .dx-n { background: #fef3c7; color: #92400e; }
-.dx-sit.ok .dx-n { background: var(--green-50); color: var(--green-700); }
-.dx-xp tr.dx-m th { padding-left: 34px; font-weight: 600; color: var(--ink); font-size: 13.5px; }
-.dx-xp tr.dx-m td { font-size: 13px; vertical-align: top; }
-.dx-xp tr.dx-p { cursor: pointer; }
-.dx-xp tr.dx-p:hover td, .dx-xp tr.dx-p:hover th { background: #f9fafb; }
-.dx-xp tr.dx-p.on td, .dx-xp tr.dx-p.on th { border-bottom: 0; }
-.dx-x { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
-.dx-x svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--muted); transition: transform .15s ease; }
-.dx-x[aria-expanded="true"] svg { transform: rotate(90deg); }
-.dx-x:focus-visible { outline: 2px solid rgba(34,197,94,.5); outline-offset: 2px; border-radius: 4px; }
-.dx-xp tr.dx-k2 th, .dx-xp tr.dx-k2 td { background: #f8fafc; border-bottom: 0; padding-top: 8px; padding-bottom: 8px; font-size: 13px; }
-.dx-xp tr.dx-k2 th { padding-left: 34px; font-weight: 500; color: var(--ink2); }
-.dx-xp tr.dx-k2.end th, .dx-xp tr.dx-k2.end td { border-bottom: 1px solid #f1f2f4; padding-bottom: 12px; }
-.dx-no { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
-.fx-pm .dx-no { display: inline; }
-.dx tbody tr.dx-g th { padding: 10px 12px 6px; background: #f8fafc; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid #eef2f6; }
-@media (max-width: 719.98px) {
-  .dx-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .dx-arr { display: none; }
-  .dx-t { padding: 10px; }
-  .dx-t b { font-size: 14px; }
-  .dx-t small { display: none; }
-  .dx .fx-pm { white-space: normal; }
-}
+/* Today's Production and Purchase Plan (owner, 3 Oct 2026): the owner's sheet as three
+   tabs — Finished Goods, Semi Finished Goods, Purchase — with its columns and its colours. */
+.pp-tabs { display: flex; gap: 4px; margin-bottom: -1px; border-bottom: 1px solid var(--line); }
+.pp-tab { position: relative; padding: 10px 16px; border: 0; background: none; font: 600 14px/1.3 inherit; color: var(--muted); cursor: pointer; }
+.pp-tab:hover { color: var(--ink); }
+.pp-tab[aria-selected="true"] { color: var(--green-700); }
+.pp-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--green); }
+.pp-tab:focus-visible { outline: 2px solid rgba(34,197,94,.5); outline-offset: -2px; border-radius: 8px; }
+.pp-card { margin-top: 14px; overflow: hidden; }
+table.pp { min-width: 980px; }
+.pp thead th { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink2); white-space: normal; vertical-align: bottom; line-height: 1.3; }
+.pp tbody th { text-align: left; font-size: 13.5px; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; background: none; padding: 9px 12px; border-bottom: 1px solid rgba(17,24,39,.06); white-space: nowrap; }
+.pp td { padding: 9px 12px; border-bottom: 1px solid rgba(17,24,39,.06); }
+.pp .pp-neg { color: var(--red); }
+.pp tr.pp-total th, .pp tr.pp-total td { font-weight: 700; }
+.pp td.pp-big b { font-size: 15px; }
+/* the sheet's colours, a little softer: a product's packs, then its total, a shade deeper */
+.pp tr[data-tint="peach"] > * { background: #fdeee3; }
+.pp tr.pp-total[data-tint="peach"] > * { background: #f9cfae; }
+.pp tr[data-tint="green"] > * { background: #e3f8de; }
+.pp tr.pp-total[data-tint="green"] > * { background: #a8e58f; }
+.pp tr.pp-total:not([data-tint]) > * { background: var(--wash); }
+.pp tr.pp-center th { text-align: center; }
+table.pp.pp-or { min-width: 640px; }
+.pp tr[data-tint="cyan"] > * { background: #d8f6f8; }
+.pp tr[data-tint="pink"] > * { background: #fbe0f6; }
+.pp tr[data-tint="lime"] > * { background: #c9f3cd; }
+.pp tr[data-tint="violet"] > * { background: #e6d8ff; }
+.pp tr[data-tint="orange"] > * { background: #ffd9b8; }
+/* MSQ Deviation and Confirm: the planner's */
+.pp-dev input { width: 84px; padding: 5px 8px; border: 1px solid rgba(17,24,39,.15); border-radius: 8px; background: rgba(255,255,255,.85); font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
+.pp-dev input:focus { outline: 2px solid rgba(34,197,94,.45); outline-offset: 0; border-color: var(--green); }
+.pp-dev input:disabled { background: transparent; border-color: transparent; color: var(--ink2); }
+.pp-ok { white-space: nowrap; }
+.pp-sf td:nth-child(2) { white-space: nowrap; }
+.pp-conf { padding: 5px 12px; border: 1px solid rgba(17,24,39,.15); border-radius: 8px; background: #fff; font: 600 12.5px/1.2 inherit; color: var(--ink2); cursor: pointer; }
+.pp-conf:hover { border-color: var(--green); color: var(--green-700); }
+.pp-done { display: inline-flex; align-items: baseline; gap: 6px; padding: 0; border: 0; background: none; font: 600 12.5px/1.2 inherit; color: var(--green-700); cursor: pointer; }
+.pp-done small { font-weight: 500; color: var(--muted); }

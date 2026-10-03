@@ -17,7 +17,7 @@
 */
 import { oid } from './resolve.js';
 
-const STORE_SRC = '../../assets/production/production-api.js?v=20260930RD1';
+const STORE_SRC = '../../assets/production/production-api.js?v=20261003SH1';
 const DAY = 86400000;
 
 /** The store, loaded once per page (the platform's other screens load the same file). */
@@ -36,18 +36,19 @@ const num = (id) => String(id).replace(/\D/g, '');
 /* stable dataset ids: packs fg-pNN → prd-NN, raw materials rm-pNN → prd-1NN, packaging rm-kNN → prd-2NN */
 const prdOfSku = (skuId) => `prd-${Number(num(skuId))}`;
 const prdOfMaterial = (id) => `prd-${(id.startsWith('rm-k') ? 200 : 100) + Number(num(id))}`;
-const RECIPE_CAT = { 'frozen-peas': 'cat-1', 'mixed-veg': 'cat-2', 'soya-chaap': 'cat-3', 'soya-chaap-premium': 'cat-4', 'soya-chaap-plain': 'cat-5' };
+/* a category per finished product (the engine's recipe book, 3 Oct 2026) */
+const RECIPE_CAT = { 'mix-veg': 'cat-2', 'green-peas': 'cat-1', 'soya-chaap': 'cat-3' };
 const CATEGORIES = [
   { id: 'cat-11', name: 'Frozen Vegetables' }, { id: 'cat-12', name: 'Soya Chaap' }, { id: 'cat-13', name: 'Raw Materials' }, { id: 'cat-14', name: 'Packaging Material' },
-  { id: 'cat-1', name: 'Frozen Green Peas', parent: 'cat-11' }, { id: 'cat-2', name: 'Frozen Mixed Vegetables', parent: 'cat-11' },
-  { id: 'cat-3', name: 'Soya Chaap Stick (Normal)', parent: 'cat-12' }, { id: 'cat-4', name: 'Soya Chaap Stick (Premium)', parent: 'cat-12' }, { id: 'cat-5', name: 'Soya Chaap Without Stick', parent: 'cat-12' },
+  { id: 'cat-1', name: 'Green Peas', parent: 'cat-11' }, { id: 'cat-2', name: 'Mix Veg', parent: 'cat-11' },
+  { id: 'cat-3', name: 'Soya Chaap 20 Kg', parent: 'cat-12' },
   { id: 'cat-6', name: 'Fresh Vegetables', parent: 'cat-13' }, { id: 'cat-7', name: 'Flours & Gluten', parent: 'cat-13' }, { id: 'cat-8', name: 'Chaap Sticks', parent: 'cat-13' },
-  { id: 'cat-9', name: 'Pouches', parent: 'cat-14' }, { id: 'cat-10', name: 'Master Cartons & Big Bags', parent: 'cat-14' },
+  { id: 'cat-9', name: 'Pouches & Bags', parent: 'cat-14' }, { id: 'cat-10', name: 'Master Cartons & Big Bags', parent: 'cat-14' },
 ];
-const materialCat = (m) => (m.store === 'Cold room' ? 'cat-6' : m.kind === 'packaging' ? (/^Pouch/.test(m.name) ? 'cat-9' : 'cat-10') : m.unit === 'pcs' ? 'cat-8' : 'cat-7');
+const materialCat = (m) => (m.store === 'Cold room' ? 'cat-6' : m.kind === 'packaging' ? (/^(Pouch|Bag) /.test(m.name) ? 'cat-9' : 'cat-10') : m.unit === 'pcs' ? 'cat-8' : 'cat-7');
 /* GST on what is bought, as the store books it */
 const materialTax = (m) => (m.store === 'Cold room' ? 0 : m.kind === 'packaging' ? 18 : m.unit === 'pcs' ? 12 : 5);
-const PACK_UNIT = { crate: 'Crate', sack: 'Bag', box: 'Box', bundle: 'Bundle' };
+const PACK_UNIT = { crate: 'Crate', bin: 'Bin', sack: 'Bag', box: 'Box', bundle: 'Bundle', carton: 'Carton' };
 const PIN = { Samana: '147101', Patran: '147105', Patiala: '147001', Rajpura: '140401', Mohali: '160055', Sangrur: '148001', Zirakpur: '140603', Ghagga: '147102' };
 const PAY_MODE = { CASH: 'Cash', UPI: 'UPI', BANK_TRANSFER: 'NEFT', CHEQUE: 'Cheque' };
 
@@ -64,7 +65,7 @@ export function vasuDataset(P, now) {
       maps.prd[oid('prd', id)] = { skuId: s.id, boxes: s.perCarton };
       return {
         id, articleNo: s.article, name: s.name, categoryId: RECIPE_CAT[s.recipeId] || 'cat-1', measurement: 'Pkt-Carton-Pallet', boxes: s.perCarton, pallets: 20,
-        price: s.price, tax: biz.gstPct, stock: D.packetsOf(s.id), moq: 1, priceMap: { Pkt: s.price, Carton: s.price * s.perCarton, Pallet: s.price * s.perCarton * 20 },
+        price: s.price, tax: biz.gstPct, stock: D.availableToSell(s.id), moq: 1, priceMap: { Pkt: s.price, Carton: s.price * s.perCarton, Pallet: s.price * s.perCarton * 20 },
       };
     });
     const rawMaterials = d.materials.map((m) => {
@@ -129,7 +130,7 @@ export function forecastFromStore(P) {
     const cat = (id, name) => ({ id: oid('cat', id), name });
     const catName = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.name]));
     const finished = d.skus.filter((s) => !s.retired).map((s) => {
-      const dm = D.demandOf(s.id), demand = dm.weekly.reduce((a, b) => a + b, 0) + dm.open, stock = D.packetsOf(s.id);
+      const dm = D.demandOf(s.id), demand = dm.weekly.reduce((a, b) => a + b, 0) + dm.open, stock = D.availableToSell(s.id);
       const rec = Math.max(demand - stock, 0);
       const c = RECIPE_CAT[s.recipeId] || 'cat-1';
       return demand > 0 ? { articleNumber: s.article, productId: oid('prd', prdOfSku(s.id)), name: s.name, category: cat(c, catName[c]), measurement: 'Pkt-Carton-Pallet', unitPrice: `${s.price}/Pkt-Carton-Pallet`,

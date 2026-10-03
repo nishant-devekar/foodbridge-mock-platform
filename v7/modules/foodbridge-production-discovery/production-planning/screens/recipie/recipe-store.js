@@ -26,12 +26,20 @@
   const r2 = (n) => Math.round(n * 100) / 100;
 
   const data = FB_PRODUCTION.read((D, d) => {
+    /* two levels (3 Oct 2026): the finished products, then the semi-finished
+       goods they are mixed from — each with its own recipe */
+    const all = d.recipeOrder.concat(d.semiOrder || []);
     const want = new URLSearchParams(location.search).get('recipe');
-    const id = d.recipeOrder.indexOf(want) !== -1 ? want : d.recipeOrder[0];
+    const id = all.indexOf(want) !== -1 ? want : all[0];
     const bk = D.book(id);
+    const subOf = (b) => b.kind === 'semi'
+      ? 'Semi-finished · ' + b.label + ' · ' + b.ingredients.filter((i) => i.rmId).map((i) => i.name + (i.wastage ? ' (' + i.wastage + '% wastage)' : '')).join(', ')
+      : 'Finished · ' + b.label + ' · ' + b.ingredients.filter((i) => i.sfId).length + ' semi-finished';
     return {
       id, bk,
-      rail: d.recipeOrder.map((rid) => { const b = D.book(rid); return { id: rid, name: b.name, sub: b.line + ' · ' + b.ingredients.length + ' ingredients', emoji: b.emoji }; }),
+      rail: all.map((rid) => { const b = D.book(rid); return { id: rid, name: b.name, sub: subOf(b), emoji: b.emoji, kind: b.kind }; }),
+      /* a semi-finished good costs what its own recipe costs */
+      sfCost: Object.fromEntries((d.semiOrder || []).map((sid) => [sid, Math.round(D.costPerKg(sid) * 100) / 100])),
       /* the packs on sale, as Recipes › Packaging keeps them, with what a packet costs */
       skus: D.packs(id).map((s) => Object.assign({}, s, { cost: D.packCost(s), pouchName: s.pouchId ? D.material(s.pouchId).name : '' })),
       demand: d.demand,
@@ -46,7 +54,7 @@
   const fillStep = data.steps.filter((st) => st.bags).pop();
   const bagKg = fillStep ? fillStep.bags : bk.bagKg;
   const stepsLabel = data.steps.length ? data.steps.length + ' step' + (data.steps.length === 1 ? '' : 's') : 'No steps yet';
-  const priceOf = (i) => { const m = i.rmId && data.mats.find((x) => x.id === i.rmId); return m ? m.price : 0; };
+  const priceOf = (i) => { if (i.sfId) return data.sfCost[i.sfId] || 0; const m = i.rmId && data.mats.find((x) => x.id === i.rmId); return m ? m.price : 0; };
 
   /* recipe-v4.js reads these instead of its cookie constants */
   window.FB_RECIPE = {
@@ -65,7 +73,8 @@
   function rewrite() {
     /* rail */
     const rail = $('#rail-list');
-    if (rail) rail.innerHTML = data.rail.map((r) =>
+    if (rail) rail.innerHTML = data.rail.map((r, i) =>
+      (i === 0 || data.rail[i - 1].kind !== r.kind ? `<div class="rl-group" style="padding:10px 12px 4px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--fb-text-muted,#6B7280)">${r.kind === 'semi' ? 'Semi-finished goods' : 'Finished goods'}</div>` : '') +
       `<a class="rl-item${r.id === data.id ? ' active' : ''}" data-recipe="${esc(r.name)}" data-rid="${esc(r.id)}" href="?recipe=${encodeURIComponent(r.id)}"><span class="rl-nm">${esc(r.emoji + ' ' + r.name)}</span><span class="rl-sub">${esc(r.sub)}</span></a>`).join('');
 
     /* header */
@@ -75,8 +84,9 @@
     if (linked) linked.innerHTML = data.skus.map((s) => `<a class="v4-chip" href="#" data-v4tab="packaging" title="Open in Packaging">${bk.emoji} ${esc(s.name.replace(bk.name + ' ', ''))}</a>`).join('');
     const ver = $('.v4-ver select');
     if (ver) ver.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)} (Latest)</option>`;
+    const semi = bk.kind === 'semi';
     const meta = $('.v4-head .meta');
-    if (meta) meta.innerHTML = `<span class="m">Line <b>${esc(bk.line)}</b></span><span class="m">Batch sizes <b>${bk.sizes.join(' / ')} kg</b></span><span class="m">Best before <b>${bk.bestBeforeDays} days</b></span><span class="m">Big bags <b data-bag-kg>${bagKg} kg</b></span><a class="m m-link" href="#" data-v4tab="process" title="See how it's made">Process <b data-steps-count style="color:${data.steps.length ? 'var(--fb-green-700)' : 'var(--fb-red-700,#B91C1C)'}">${stepsLabel}</b> ›</a>`;
+    if (meta) meta.innerHTML = `<span class="m">Line <b>${esc(bk.line)}</b></span><span class="m">Batch sizes <b>${bk.sizes.join(' / ')} kg</b></span><span class="m">Best before <b>${bk.bestBeforeDays} days</b></span>${semi ? `<span class="m">Fills <b data-bag-kg>${bagKg} kg</b> ${esc(((fillStep && fillStep.container) || 'Big bags').toLowerCase())} · ${esc((fillStep && fillStep.store) || 'Cold store')}</span><span class="m">MSQ <b>${bk.msq || 0} kg</b></span>` : `<span class="m">Mixed from <b>${bk.ingredients.filter((i) => i.sfId).map((i) => esc(i.name) + ' ' + i.qty + '%').join(' · ')}</b></span>`}<a class="m m-link" href="#" data-v4tab="process" title="See how it's made">Process <b data-steps-count style="color:${data.steps.length ? 'var(--fb-green-700)' : 'var(--fb-red-700,#B91C1C)'}">${stepsLabel}</b> ›</a>`;
     const bs = $('#batch-size');
     if (bs) bs.innerHTML = bk.sizes.map((z) => `<option value="${z}"${z === bk.base ? ' selected' : ''}>${z} kg</option>`).join('');
     const hint = $('.batch-prev .bp-hint'); if (hint) hint.textContent = `Base = ${bk.base} kg · quantities & costs scale for preview only; edits change the base recipe.`;
@@ -85,7 +95,7 @@
     const list = $('.ing-list');
     if (list) list.innerHTML = bk.ingredients.map((i) => `
             <div class="ing" data-qty="${i.qty}" data-unit="${esc(i.unit)}" data-yield="${i.yield}">
-              <div class="ing-row"><div class="nm">${esc(i.name)}<small>${esc(i.brand)} · ${esc(i.unit)} · Yield ${i.yield}%${i.rmId ? '' : ' · not stocked'}</small></div><div class="ing-track"><div class="ing-fill"></div></div><div class="ing-qty">${i.qty} ${esc(i.unit)}</div></div>
+              <div class="ing-row"><div class="nm">${esc(i.name)}<small>${i.sfId ? 'Semi-finished · its own recipe · ' + i.qty + '% of the mix' : esc(i.brand) + (((data.mats.find((m) => m.id === i.rmId) || {}).grade) ? ' · ' + esc(data.mats.find((m) => m.id === i.rmId).grade) : '') + ' · ' + esc(i.unit) + (i.wastage != null ? ' · Wastage ' + i.wastage + '%' : ' · Yield ' + i.yield + '%') + (i.rmId ? '' : ' · not stocked')}</small></div><div class="ing-track"><div class="ing-fill"></div></div><div class="ing-qty">${i.qty} ${esc(i.unit)}</div></div>
               <div class="ing-edit"><div class="grid">
                 <div class="fld"><label class="label">Brand</label><input class="input" data-f="brand" value="${esc(i.brand)}"></div>
                 <div class="fld"><label class="label">Quality</label><input class="input" data-f="quality" value="Grade A"></div>
@@ -133,7 +143,9 @@
     /* production tab: the floor's words */
     const pv = $('#pb-ver'); if (pv) pv.innerHTML = `<option>${esc(bk.label)} — ${esc(bk.name)}</option>`;
     const sub = $('[data-prodpanel="batch"] .stage-sub');
-    if (sub) sub.innerHTML = `Made on the floor by its <b>Process</b> steps — ${esc(bk.line.toLowerCase())} line, into <span data-bag-kg>${bagKg} kg</span> bags in the freezer. Planned in <b>kg</b>, never in pieces.`;
+    if (sub) sub.innerHTML = bk.kind === 'semi'
+      ? `Made on the floor by its <b>Process</b> steps — ${esc(bk.line.toLowerCase())} line, into <span data-bag-kg>${bagKg} kg</span> ${esc(((fillStep && fillStep.container) || 'Big bags').toLowerCase())} in the ${esc(((fillStep && fillStep.store) || 'Cold store').toLowerCase())}. Planned in <b>kg</b>, never in pieces.`
+      : `Mixed on the floor from the semi-finished goods by the recipe's %, then packed in the same run into its packs. Planned in <b>kg</b>.`;
     const band = $('#pb-band .band-row span');
     if (band) band.innerHTML = `Quality band <b>${r2(bk.base * 0.9)}–${r2(bk.base * 1.1)} kg</b> · nominal ${bk.base} (±10%)`;
     const size = $('#pb-size'); if (size) size.value = bk.base;
@@ -157,7 +169,7 @@
       const lab = ms.closest('.fld') && ms.closest('.fld').querySelector('.label'); if (lab) lab.textContent = 'Split';
       const h = ms.closest('.fld') && ms.closest('.fld').querySelector('.hint'); if (h) h.innerHTML = 'Each pack\'s share, set in <a href="#" data-v4tab="packaging">Packaging</a>. Editing a row here rebalances the others for this order; lock a row to hold it.';
     }
-    const note = $('#pb-actnote'); if (note) note.textContent = 'Creates a Planned batch in Batch Management and a packing order for each pack. Add it to a shift to put it on the floor.';
+    const note = $('#pb-actnote'); if (note) note.textContent = bk.kind === 'semi' ? 'Creates a Planned batch in Batch Management; it fills bags into the cold store. Add it to a shift to put it on the floor.' : 'Creates a Planned batch in Batch Management that mixes and packs its packs in the same run. Add it to a shift to put it on the floor.';
   }
 
   /* a rail click opens that recipe (the page is built for one recipe at a time),

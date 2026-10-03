@@ -33,7 +33,9 @@
     return {
       bk, perKg: D.costPerKg(RID), cartonPrice: carton ? carton.price : 0,
       packs: D.packs(RID, true).map((s) => Object.assign({}, s, { cost: D.packCost(s), used: D.packUsed(s.id), pouchName: s.pouchId ? D.material(s.pouchId).name : '' })),
-      pouches: d.materials.filter((m) => m.kind === 'packaging' && /^Pouch /.test(m.name)).map((m) => ({ id: m.id, name: m.name, price: m.price })),
+      pouches: d.materials.filter((m) => m.kind === 'packaging' && /^(Pouch|Bag) /.test(m.name)).map((m) => ({ id: m.id, name: m.name, price: m.price })),
+      /* a semi-finished good is not packed: it goes into the cold store and is mixed into these */
+      into: bk.kind === 'semi' ? d.recipeOrder.filter((rid) => D.book(rid).ingredients.some((i) => i.sfId === RID)).map((rid) => D.book(rid).name) : [],
     };
   });
   const onSale = data.packs.filter((s) => !s.retired), offSale = data.packs.filter((s) => s.retired);
@@ -41,7 +43,7 @@
 
   /* ---------- view ---------- */
   function form(s) {
-    const f = s || { grams: '', perCarton: '', price: '', split: 0, pouchId: '', sameRun: false };
+    const f = s || { grams: '', perCarton: '', price: '', split: 0, pouchId: '', sameRun: true };
     const pouchOpts = data.pouches.map((p) => `<option value="${esc(p.id)}"${p.id === f.pouchId ? ' selected' : ''}>${esc(p.name)} · ${money(p.price)}</option>`).join('');
     return `<div class="pkr-edit">
       <div class="grid">
@@ -51,7 +53,7 @@
         <div class="fld pkr-newpouch" hidden><label class="label">New pouch ₹</label><input class="input" data-pf="newPouchPrice" type="number" min="0" step="0.1" placeholder="2.50"></div>
         <div class="fld"><label class="label">Price ₹</label><input class="input" data-pf="price" type="number" min="1" step="0.5" value="${f.price}"></div>
         <div class="fld"><label class="label">Split %</label><input class="input" data-pf="split" type="number" min="0" max="100" step="1" value="${f.split}"></div>
-        <div class="fld pkr-wide"><label class="label">Packed</label><select class="input" data-pf="sameRun"><option value="1"${f.sameRun ? ' selected' : ''}>In the same run, before the bags</option><option value="0"${f.sameRun ? '' : ' selected'}>Later, from the bags</option></select></div>
+        <div class="fld pkr-wide"><label class="label">Packed</label><select class="input" data-pf="sameRun"><option value="1" selected>In the same run, as the batch is mixed</option></select></div>
       </div>
       <div class="pkr-note">${s && s.used ? 'Made already, so its size stays: a new size is a new pack. ' : ''}The other packs' split makes room.</div>
       <div class="pkr-cost" data-pkr-cost></div>
@@ -66,7 +68,7 @@
     return `<li class="pkr${isOpen ? ' open' : ''}${s.retired ? ' off' : ''}" data-pkr="${esc(s.id)}">
       <div class="pkr-row">
         <b>${size(s.grams)}</b>
-        <span class="pkr-sub">Carton of ${s.perCarton} · ${esc(s.pouchName || 'no pouch')} · ${s.sameRun ? 'packed in the run' : 'packed later, from bags'} · ${esc(s.article)}<small>Costs ${money(s.cost.total)} a packet · margin ${s.cost.marginPct}%</small></span>
+        <span class="pkr-sub">${s.perCarton > 1 ? 'Carton of ' + s.perCarton + ' (' + Math.round(s.perCarton * s.grams / 1000) + ' kg)' : 'Its own bag, no carton'} · ${esc(s.pouchName || 'no pouch')} · MSQ ${s.msq || 0} · ${esc(s.article)}<small>Costs ${money(s.cost.total)} a packet · margin ${s.cost.marginPct}%</small></span>
         <span class="pkr-split">${s.retired ? '' : s.split + '%'}</span>
         <span class="pkr-price">${money(s.price)}</span>
         ${s.retired ? '<button class="btn btn-sm" data-pkr-back>Put back on sale</button>' : '<span class="muted">✎</span>'}
@@ -77,6 +79,10 @@
   function render() {
     const host = $('[data-packs]');
     if (!host) return;
+    if (data.bk.kind === 'semi') {
+      host.innerHTML = `<div class="section-eyebrow mb8">Not packed</div><div class="muted">${esc(data.bk.name)} is semi-finished: its batches fill ${esc(String(data.bk.bagKg))} kg bags into the cold store, and it is mixed into ${esc(data.into.join(', ') || 'no finished product yet')} by their recipes. Packs belong to the finished products.</div>`;
+      return;
+    }
     const total = onSale.reduce((t, s) => t + s.split, 0);
     host.innerHTML = `
       <div class="section-eyebrow mb8">Packs on sale · ${onSale.length} · split ${total}%</div>
@@ -98,7 +104,7 @@
     const g = Number(v('grams')), per = Number(v('perCarton')), price = Number(v('price'));
     const p = v('pouchId') === 'new' ? Number(v('newPouchPrice')) || 0 : ((data.pouches.find((x) => x.id === v('pouchId')) || {}).price || 0);
     if (!(g > 0 && per > 0)) { out.textContent = ''; return; }
-    const product = data.perKg * g / 1000, carton = data.cartonPrice / per, total = product + p + carton;
+    const product = data.perKg * g / 1000, carton = per > 1 ? data.cartonPrice / per : 0, total = product + p + carton;
     out.innerHTML = `${size(g)} of ${esc(data.bk.name)} ${money(product)} + pouch ${money(p)} + carton share ${money(carton)} = <b>${money(total)} a packet</b>`
       + (price > 0 ? ` · margin ${money(price - total)} (${Math.round((price - total) / price * 100)}%)` : '');
   }

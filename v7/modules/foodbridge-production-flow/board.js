@@ -27,8 +27,7 @@
   /* the board's views (owner, 29 Sep 2026): Demand & supply opens the board; All shifts is the Week;
      Needs you the alerts. Today was retired — an old ?view=today opens Demand & supply. */
   var VIEWS = ["flow", "week", "needs"];
-  var S = { lens: "flow", dept: "sales", open: {}, from: null, panel: null, form: {}, ask: null, rm: null, add: null, err: "" };
-  try { S.dept = sessionStorage.getItem("fb.v7.flow.dept") || "sales"; } catch (e) { /* a private window: start on Sales */ }
+  var S = { lens: "flow", plan: "fg", open: {}, from: null, panel: null, form: {}, ask: null, rm: null, add: null, err: "" };
   /* All shifts is the next 7 days from today (owner, 29 Sep 2026: no week to page through) */
   S.from = isoDay(Date.now());
   /* #/production/production-board?view=week opens the Week (Batch detail's "Week ›") */
@@ -447,357 +446,174 @@
   }
 
 
-  /* ── the plan: sell, make, buy ─────────────────────────────────────── */
+  /* ── Today's Production and Purchase Plan (owner, 3 Oct 2026) ─────────
+     The owner's own sheets, as tabs with their columns, worked out from the
+     store instead of typed in. One chain, the way Vasu makes things:
 
+       Orders           what customers have ordered, per pack: packs per 30 kg
+                        master carton, cartons ordered (Qty Ordered (Packs)),
+                        and pouches (the sheet's "Qty Ordered (Kg)" column is
+                        cartons × packs per carton — pouches).
+       Finished Goods   a row per pack under its product (the product row
+                        carries the recipe version and adds its packs up), in
+                        pouches like the sheet:
+                          Shortfall  In stock − Ordered (short is negative)
+                          Approved   Ordered − In stock + MSQ + deviation
+       Semi Finished    the semi-finished goods those packs are mixed from, in
+                        kg: each product's Approved, in kg, × the good's share
+                        of the finished recipe. Approved as above.
+       Purchase         the raw material the semi-finished goods are cut from:
+                        Ordered = Semi Finished Approved × (1 + wastage), the
+                        semi-finished recipe's own; sticks straight from the
+                        chaap. MSQ is the material's; In stock what is free.
 
-  /* ── Flow: sales → production → purchase (29 Sep 2026, owner) ─────────
-     Only what stops a customer packet, in packets: left, the packs with a
-     gap (of their demand: orders in hand + next week) and what holds each;
-     right, the materials whose purchase frees them, and how many packets.
-     A booked batch the store cannot cover is found by walking the store
-     forward (on hand, less each booked batch's remaining need at its
-     shift's start, plus each open order on its day; an overdue, undated or
-     unapproved order has not come).                                       */
-  function flowModel() {
+     MSQ Deviation (+ or −) and Confirm are the planner's, per line, for the
+     day, on this device. A confirmed line keeps its deviation.            */
+  var PLAN_TABS = [["or", "Orders"], ["fg", "Finished Goods"], ["sf", "Semi Finished Goods"], ["pu", "Purchase"]];
+  try { S.plan = sessionStorage.getItem("fb.v7.flow.plantab") || "or"; } catch (e) { S.plan = "or"; }
+  /* the sheet's colours: a product's packs and its total; each vegetable down Semi Finished and Purchase */
+  var TINT = { "mix-veg": "peach", "green-peas": "green", "sf-cauliflower": "cyan", "sf-broccoli": "pink", "sf-carrots": "lime", "sf-beans": "violet", "sf-peas": "orange",
+    "rm-p03": "cyan", "rm-p10": "pink", "rm-p02": "lime", "rm-p04": "violet", "rm-p01": "orange" };
+  function planKey() { return "fb.v7.plan." + isoDay(Date.now()); }
+  function planMarks() { try { return JSON.parse(localStorage.getItem(planKey()) || "null") || { dev: {}, ok: {} }; } catch (e) { return { dev: {}, ok: {} }; } }
+  function savePlanMarks(m) { try { localStorage.setItem(planKey(), JSON.stringify(m)); } catch (e) { /* this visit only */ } }
+  function planWho() {
+    try { var a = (window.parent.FBContext || window.FBContext).account(); if (a && a.name && !a.guest) return a.name; } catch (e) { /* standalone */ }
+    return "Owner";
+  }
+  /* a pack's name as the sheet writes it: "Mixed Veg 200G / 30 kg pack" (the chaap's bag is its own outer) */
+  function packLabel(s) { return s.perCarton > 1 ? s.name + " / " + n(s.perCarton * s.grams / 1000) + " kg pack" : s.name; }
+  function planModel() {
+    var mk = planMarks();
+    var dev = function (k) { return Number(mk.dev[k]) || 0; };
+    var line = function (key, msq, ordered, stock) {
+      var d = dev(key);
+      return { key: key, msq: msq, ordered: ordered, stock: stock, short: stock - ordered, approved: Math.max(0, ordered - stock + msq + d), dev: d, ok: mk.ok[key] || null };
+    };
     return FB_PRODUCTION.read(function (D, d) {
-      var plan = D.plan(), pat = D.pattern(), now = Date.now();
-      function at(w, edge) {
-        var x = w && pat.slots[w.slot];
-        if (!x) return null;
-        var t = new Date(w.date + "T00:00:00");
-        if (edge === "end" && x.end <= x.start) t.setDate(t.getDate() + 1);
-        t.setHours(edge === "end" ? x.end : x.start, 0, 0, 0);
-        return t.getTime();
-      }
-      var open = d.batches.filter(function (b) { return ["planned", "in-progress", "on-hold"].indexOf(b.stateId) !== -1; });
-      function timing(list) {
-        var ends = list.map(function (b) { return at(b.when, "end"); });
-        return { eta: ends.length && ends.indexOf(null) === -1 ? Math.max.apply(null, ends) : null, noShift: ends.filter(function (e) { return e === null; }).length,
-          late: list.filter(function (b, i) { return b.stateId !== "planned" && ends[i] !== null && ends[i] < now; }).length };
-      }
-      var bookName = {};
-      plan.products.forEach(function (p) { bookName[p.recipeId] = p.name; });
-
-      /* purchase first: it tells production whether its material is in */
-      var blocked = {};            /* recipeId → its booked batches the store cannot cover */
-      var matOf = {};
-      plan.materials.forEach(function (m) { matOf[m.id] = m; });
-      var shortFor = {};           /* recipeId → [{ name, qty, unit, t }] for its booked batches */
-      var buy = plan.materials.map(function (m) {
-        var mat = D.material(m.id), ev = [];
-        open.forEach(function (b) {
-          if (b.kind !== "production") return;
-          (b.ingredientSummary || []).forEach(function (r) {
-            var left = Math.max(0, r.recommendedQty - r.netConsumed);
-            if (r.ingredientId === m.id && left > 0) ev.push({ t: b.stateId === "planned" ? at(b.when, "start") : now, q: -left, b: b });
-          });
-        });
-        var arrives = null, overdue = false, pending = 0;
-        (d.purchaseOrders || []).forEach(function (p) {
-          var q = D.openOnPO(p, m.id);
-          if (!(q > 0)) return;
-          if (p.status === "Pending Approval") pending += q;
-          /* an order with no day (or still waiting for approval) comes after every batch with a shift */
-          if (!p.expectedAt || p.status === "Pending Approval") { ev.push({ t: null, q: q }); return; }
-          var due = new Date(p.expectedAt).getTime();
-          if (due < now) overdue = true;
-          ev.push({ t: Math.max(due, now + 1), q: q });
-          arrives = arrives === null ? due : Math.min(arrives, due);
-        });
-        ev.sort(function (a, b) { return (a.t === null ? Infinity : a.t) - (b.t === null ? Infinity : b.t) || b.q - a.q; });
-        var stock = m.onHand, by = null, forR = [];
-        ev.forEach(function (e) {
-          stock += e.q;
-          if (e.q < 0 && stock < -0.001 && e.b) {
-            var short = r2(Math.min(-stock, -e.q));
-            (shortFor[e.b.recipeId] = shortFor[e.b.recipeId] || []).push({ id: m.id, name: m.name, qty: short, unit: m.unit, t: e.t });
-            var bl = (blocked[e.b.recipeId] = blocked[e.b.recipeId] || []);
-            if (bl.indexOf(e.b) === -1) bl.push(e.b);
-            if (forR.indexOf(e.b.recipeId) === -1) forR.push(e.b.recipeId);
-            if (by === null) by = { t: e.t, recipeId: e.b.recipeId };
-          }
-        });
-        var free = r2(m.onHand - m.reserved), low = mat.threshold && free < mat.threshold;
-        var order = m.buy > 0 ? m.buy : low ? r2(Math.max(0, mat.threshold - free - m.ordered)) : 0;
-        /* by: a booked batch with a shift runs short; noShift: one with no shift yet; new: only batches still to plan */
-        var status = m.buy > 0 ? (by && by.t !== null ? "by" : by ? "noShift" : "new") : by && by.t !== null ? "late" : order > 0 ? "low" : null;
-        /* on order in time for what production needs: Purchase still sees it, as on the way */
-        if (!status && m.ordered > 0 && m.need > 0) status = "onOrder";
-        if (!status) return null;
-        /* for what: every product whose batch runs short, and the products still to plan that use it */
-        if (m.buy > 0) plan.products.forEach(function (p) {
-          if (p.toMakeKg > 0 && forR.indexOf(p.recipeId) === -1 && D.book(p.recipeId).ingredients.some(function (i) { return i.rmId === m.id; })) forR.push(p.recipeId);
-        });
-        /* a pouch is for the packs short that it fills */
-        if (m.buy > 0) plan.skus.forEach(function (k) { if (k.shortPackets > 0 && D.sku(k.skuId).pouchId === m.id && forR.indexOf(k.recipeId) === -1) forR.push(k.recipeId); });
-        var forWhat = status === "low" ? "Minimum " + (m.unit === "kg" ? n(mat.threshold, 10) + " kg" : n(mat.threshold) + " " + m.unit) : forR.map(function (r) { return bookName[r]; }).filter(Boolean).join(", ");
-        return { id: m.id, name: m.name, unit: m.unit, supplier: m.supplier, order: order, by: by, status: status, forWhat: forWhat,
-          onHand: m.onHand, reserved: m.reserved, ordered: m.ordered, arrives: arrives, overdue: overdue, pending: pending };
-      }).filter(Boolean).sort(function (a, b) {
-        var rank = { by: 0, late: 1, noShift: 2, new: 3, low: 4, onOrder: 5 };
-        return rank[a.status] - rank[b.status] || (a.by && b.by ? a.by.t - b.by.t : 0) || b.order - a.order;
-      });
-
-      /* Only what stops a customer packet (owner, 29 Sep 2026: "too much waste
-         data"). Per product (recipe, in kg), the packets still to come are
-         covered in this order: the freezer, then batches whose material is in
-         the store. What is left is the gap, and what holds it:
-           a booked batch the store cannot cover  → held by that material
-           nothing planned, material to buy first → held by that material
-           nothing planned                        → "Not planned"
-         Each pack gets its share of the gap by its packets short, at its own
-         pack weight. A material counts only for the packets it would free.   */
-      var rows = [], frees = {}, forWhom = {};
-      plan.products.forEach(function (p) {
-        var skus = plan.skus.filter(function (s) { return s.recipeId === p.recipeId && s.need > 0; });
-        var kgOf = function (s) { return s.grams / 1000; };
-        var own = function (s) { return Math.max(0, s.shortPackets - Math.min(s.packing, Math.max(0, s.need - s.packets))); };
-        var rem = skus.reduce(function (t, s) { return t + own(s) * kgOf(s); }, 0);
-        if (rem < 0.05) return;
-        /* production, in the same kg as sales, split three ways that add up to it (owner: sales must see how
-           much is being made, purchase where it is blocked):
-             covered      the freezer, then batches whose material is in the store — with the ETA
-             blocked      batches the store cannot cover, and what cannot be planned until a material comes
-             not planned  the rest                                                                              */
-        var t = timing(open.filter(function (b) { return b.kind === "production" && b.recipeId === p.recipeId; }));
-        var blockedKg = Math.min(p.plannedKg, (blocked[p.recipeId] || []).reduce(function (t, b) { return t + b.batchSize; }, 0));
-        var shortMats = (shortFor[p.recipeId] || []).map(function (w) { return w.id; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-        var bk = D.book(p.recipeId);
-        var firstMats = buy.filter(function (b) { return (b.status === "new" || b.status === "noShift") && bk.ingredients.some(function (i) { return i.rmId === b.id; }); }).map(function (b) { return b.id; });
-        var fz = Math.min(p.freezerKg, rem), okB = Math.min(Math.max(0, p.plannedKg - blockedKg), rem - fz), covered = fz + okB;
-        var blkB = Math.min(blockedKg, rem - covered), unpl = rem - covered - blkB;
-        var names = (blkB > 0.05 ? shortMats : []).concat(unpl > 0.05 && firstMats.length ? firstMats : []).filter(function (v, i, a) { return a.indexOf(v) === i; }).map(function (id) { return matOf[id].name; });
-        rows.push({ recipeId: p.recipeId, name: p.name, needKg: r2(rem), mats: [],
-          covered: r2(covered), eta: okB > 0.05 ? (t.late ? "late" : t.noShift ? "no shift yet" : when(t.eta)) : fz > 0.05 ? "in freezer" : null,
-          blocked: r2(blkB + (firstMats.length ? unpl : 0)), blockedBy: names, notPlanned: r2(firstMats.length ? 0 : unpl),
-          packs: skus.filter(function (s) { return own(s) > 0; }).sort(function (a, b) { return a.grams - b.grams; })
-            .map(function (s) { return { size: s.grams < 1000 ? s.grams + " g" : s.grams / 1000 + " kg", count: own(s) }; }) });
-        var row = rows[rows.length - 1];
-        /* the gap — what production does not cover — feeds the purchase chit */
-        var gapKg = rem - covered;
-        if (gapKg < 0.05) return;
-        var viaBlocked = blkB;
-        var mats = row.mats;
-        skus.forEach(function (s) {
-          var share = own(s) * kgOf(s) / rem, gap = Math.round(gapKg * share / kgOf(s));
-          if (gap < 1) return;
-          var fromBlocked = Math.round(viaBlocked * share / kgOf(s)), fromNew = gap - fromBlocked;
-          var m = (fromBlocked > 0 ? shortMats : []).concat(fromNew > 0 ? firstMats : []);
-          buy.forEach(function (b) { if (D.sku(s.skuId).pouchId === b.id && (b.status === "new" || b.status === "noShift")) m.push(b.id); });
-          m.forEach(function (id) {
-            if (mats.indexOf(id) === -1) mats.push(id);
-            frees[id] = (frees[id] || 0) + (shortMats.indexOf(id) !== -1 ? fromBlocked : 0) + (firstMats.indexOf(id) !== -1 || D.sku(s.skuId).pouchId === id ? fromNew : 0);
-            (forWhom[id] = forWhom[id] || []).indexOf(p.name) === -1 && forWhom[id].push(p.name);
-          });
-        });
-      });
-      /* purchase: only the materials that free a customer packet, as a chit */
-      var purchase = buy.filter(function (b) { return frees[b.id] > 0; }).map(function (b) {
-        return { id: b.id, name: b.name, order: b.order, unit: b.unit, frees: frees[b.id], forWhom: forWhom[b.id] || [] };
-      }).sort(function (a, b) { return b.frees - a.frees; });
-      var rank = {};
-      purchase.forEach(function (b, i) { rank[b.id] = i; });
-      var rk = function (r) { return r.mats.length ? Math.min.apply(null, r.mats.map(function (id) { return id in rank ? rank[id] : 99; })) : 100; };
-      /* the products production covers least first */
-      rows.sort(function (a, b) { return (b.blocked + b.notPlanned) - (a.blocked + a.notPlanned) || rk(a) - rk(b); });
-
-      /* ── the same chain, per department (owner, 29 Sep 2026: Sales | Production | Purchase) ──
-         Each reads its own part in its own unit, and what it waits on from the others. */
+      var plan = D.plan();
       var rowOf = {};
-      rows.forEach(function (r) { rowOf[r.recipeId] = r; });
-      var size = function (g) { return g < 1000 ? g + " g" : g / 1000 + " kg"; };
-      /* Sales, in packets: per pack, ordered + next week against what is packed */
-      var sales = plan.products.map(function (p) {
-        var packs = p.skus.filter(function (k) { return k.need > 0; }).sort(function (a, b) { return a.grams - b.grams; });
-        if (!packs.length) return null;
-        return { recipeId: p.recipeId, name: p.name, row: rowOf[p.recipeId] || null,
-          packs: packs.map(function (k) { return { size: size(k.grams), open: k.open, forecast: k.forecast, stock: k.packets, packing: k.packing, short: k.shortPackets }; }) };
-      }).filter(Boolean);
-      /* Production, in kg: what Sales needs, what covers it (freezer, batches), what waits on Purchase */
-      var making = plan.products.map(function (p) {
-        var r = rowOf[p.recipeId];
-        var mine = open.filter(function (b) { return b.kind === "production" && b.recipeId === p.recipeId; }).map(function (b) {
-          return { id: b.id, no: b.batchNumber, kg: b.batchSize, state: b.stateId, start: b.when ? when(at(b.when, "start")) : null,
-            held: (blocked[p.recipeId] || []).indexOf(b) !== -1 };
+      plan.skus.forEach(function (r) { rowOf[r.skuId] = r; });
+      /* Orders and Finished Goods: a row per pack under its finished product */
+      var orders = [], fg = [];
+      d.recipeOrder.forEach(function (rid) {
+        var bk = D.book(rid), packs = D.packs(rid);
+        var oRows = packs.map(function (s) { var r = rowOf[s.id] || { open: 0 }; return { id: s.id, name: packLabel(s), perCarton: s.perCarton, cartons: r.open / (s.perCarton || 1), qty: r.open }; });
+        var sumO = function (k) { return oRows.reduce(function (t, x) { return t + x[k]; }, 0); };
+        orders.push({ recipeId: rid, name: bk.name, rows: oRows, total: { perCarton: sumO("perCarton"), cartons: sumO("cartons"), qty: sumO("qty") } });
+        var fRows = packs.map(function (s) {
+          var r = rowOf[s.id] || { open: 0, free: 0 };
+          var l = line("fg:" + s.id, s.msq || 0, r.open, r.free);
+          l.name = packLabel(s); l.kg = s.grams / 1000;
+          return l;
         });
-        if (!r && !mine.length) return null;
-        return { recipeId: p.recipeId, name: p.name, needKg: r ? r.needKg : 0, freezerKg: p.freezerKg, batches: mine, row: r, toMakeKg: p.toMakeKg };
-      }).filter(Boolean);
-      /* Purchase, in its units: what production waits on, and where each order stands */
-      var holds = {};
-      rows.forEach(function (r) { if (r.blocked > 0.05) r.blockedBy.forEach(function (nm) { (holds[nm] = holds[nm] || []).push({ name: r.name, kg: r.blocked }); }); });
-      var buying = buy.map(function (b) {
-        var mat = D.material(b.id), sup = D.supplier(mat.supplierId || mat.supplier);
-        return Object.assign({}, b, { holds: holds[b.name] || [], supplierName: sup ? sup.name : (b.supplier || ""), supplierId: sup ? sup.id : null });
+        var sum = function (k) { return fRows.reduce(function (t, x) { return t + x[k]; }, 0); };
+        fg.push({ recipeId: rid, name: bk.name, version: bk.label, packs: fRows,
+          approvedKg: fRows.reduce(function (t, x) { return t + x.approved * x.kg; }, 0),
+          total: { msq: sum("msq"), ordered: sum("ordered"), stock: sum("stock"), short: sum("short"), approved: sum("approved") } });
       });
-
-      return { rows: rows, purchase: purchase, sales: sales, making: making, buying: buying };
+      /* Semi Finished: each product's Approved (kg) × the good's share of its recipe */
+      var need = {}, shares = {};
+      fg.forEach(function (g) {
+        var bk = D.book(g.recipeId), comps = bk.ingredients.filter(function (i) { return i.sfId; }), tot = comps.reduce(function (t, i) { return t + i.qty; }, 0);
+        comps.forEach(function (i) {
+          need[i.sfId] = (need[i.sfId] || 0) + g.approvedKg * i.qty / tot;
+          (shares[i.sfId] = shares[i.sfId] || []).push({ pct: i.qty / tot * 100, of: bk.name });
+        });
+      });
+      var semi = (d.semiOrder || []).map(function (sid) {
+        var bk = D.book(sid);
+        var l = line("sf:" + sid, bk.msq || 0, need[sid] || 0, D.inFreezer(sid));
+        l.id = sid; l.name = bk.name; l.cut = bk.label; l.shares = shares[sid] || [];
+        return l;
+      });
+      /* Purchase: the raw material each semi-finished good is cut from, by its wastage */
+      var buy = {}, order = [];
+      var add = function (rmId, qty, waste) {
+        if (!buy[rmId]) { buy[rmId] = { qty: 0, waste: waste }; order.push(rmId); }
+        buy[rmId].qty += qty;
+      };
+      semi.forEach(function (s) {
+        var bk = D.book(s.id);
+        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, s.approved * i.qty / bk.base, i.wastage != null ? i.wastage : Math.max(0, 100 - (i.yield || 100))); });
+      });
+      fg.forEach(function (g) {
+        var bk = D.book(g.recipeId);
+        bk.ingredients.forEach(function (i) { if (i.rmId) add(i.rmId, g.approvedKg * i.qty / bk.base, 0); });
+      });
+      var purchase = order.map(function (id) {
+        var m = D.material(id);
+        var l = line("pu:" + id, m.threshold || 0, buy[id].qty, Math.max(0, D.onHand(id) - D.reserved(id)));
+        l.id = id; l.name = m.name; l.unit = m.unit; l.grade = m.grade || "—"; l.waste = buy[id].waste;
+        return l;
+      });
+      return { orders: orders, fg: fg, semi: semi, purchase: purchase };
     });
   }
-  function r2(v) { return Math.round(v * 100) / 100; }
-  /* "today 3 pm", "tomorrow 7 am", "Thu, 1 Oct 7 am" */
-  function when(t) {
-    if (t === null || t === undefined || !isFinite(t)) return null;
-    var dt = new Date(t), k = isoDay(t), today = isoDay(Date.now());
-    var h = dt.toLocaleTimeString("en-IN", dt.getMinutes() ? { hour: "numeric", minute: "2-digit", hour12: true } : { hour: "numeric", hour12: true });
-    return (k === today ? "today" : k === addDays(today, 1) ? "tomorrow" : dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })) + " " + h;
-  }
-  function soon(t) { return t !== null && isFinite(t) && t - Date.now() < 24 * 3600000; }
 
-  /* Owner, 29 Sep 2026: one chain, three departments — Sales | Production | Purchase.
-     Each tab is one department's view in its own unit (packets, kg, material):
-     what it is asked for, where it stands, what it waits on from the others
-     (the column names the department). No actions here. The tabs carry each
-     department's headline, so every head sees the others' state at a glance. */
-  var DEPTS = ["sales", "production", "purchase"];
-  function day(t) { return t == null || !isFinite(t) ? null : new Date(t).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }); }
-  var STATE = { planned: "planned", "in-progress": "in progress", "on-hold": "on hold" };
-  /* where a material stands with Purchase, in a few words */
-  function standing(b) {
-    var out = [];
-    var free = Math.max(0, b.onHand - (b.reserved || 0));
-    if (b.onHand > 0) out.push({ t: qty(b.onHand, b.unit) + " in store" + (b.reserved > 0 ? (free > 0 ? " · " + qty(free, b.unit) + " free" : " · all reserved") : "") });
-    if (b.ordered > 0) {
-      var onWay = b.ordered - b.pending;
-      if (b.pending > 0) out.push({ t: qty(b.pending, b.unit) + " awaiting approval", c: "np" });
-      if (onWay > 0) out.push(b.overdue ? { t: qty(onWay, b.unit) + " overdue", c: "blk" } : { t: qty(onWay, b.unit) + " on order" + (b.arrives ? " · arrives " + day(b.arrives) : ""), c: "ok" });
-    }
-    if (b.order > 0) out.push({ t: "Not ordered", c: "blk" });
-    return out;
-  }
-  function Flow(f) {
-    var dept = DEPTS.indexOf(S.dept) !== -1 ? S.dept : "sales";
-    var bySales = f.sales.reduce(function (t, p) { p.packs.forEach(function (k) { t.short += k.short; t.open += k.open; t.next += k.forecast; }); return t; }, { short: 0, open: 0, next: 0 });
-    var needKg = f.rows.reduce(function (t, r) { return t + r.needKg; }, 0), covKg = f.rows.reduce(function (t, r) { return t + r.covered; }, 0);
-    var heldKg = f.rows.reduce(function (t, r) { return t + r.blocked; }, 0), npKg = f.rows.reduce(function (t, r) { return t + r.notPlanned; }, 0);
-    var toBuy = f.buying.filter(function (b) { return b.order > 0; }), onOrder = f.buying.filter(function (b) { return !b.holds.length && b.status !== "low" && !(b.order > 0); });
-    var holding = toBuy.filter(function (b) { return b.holds.length; }), low = toBuy.filter(function (b) { return b.status === "low"; });
-    var head = {
-      sales: { big: bySales.short ? n(bySales.short) + " packets short" : "All packed", sub: n(bySales.open) + " ordered · " + n(bySales.next) + " next week", tone: bySales.short ? "warn" : "ok" },
-      production: { big: needKg > 0.05 ? kg(covKg) + " of " + kg(needKg) + " covered" : "Nothing to make", sub: [heldKg > 0.05 ? kg(heldKg) + " waits on Purchase" : "", npKg > 0.05 ? kg(npKg) + " not planned" : ""].filter(Boolean).join(" · ") || "On track", tone: heldKg > 0.05 ? "bad" : npKg > 0.05 ? "warn" : "ok" },
-      purchase: { big: holding.length ? holding.length + (holding.length === 1 ? " item holds" : " items hold") + " production" : toBuy.length ? toBuy.length + " to buy" : "Nothing to buy",
-        sub: [holding.length && heldKg > 0.05 ? "unblocks " + kg(heldKg) : "", toBuy.length - holding.length - low.length > 0 ? (toBuy.length - holding.length - low.length) + " for planned batches" : "", low.length ? low.length + " below minimum" : "", onOrder.length ? onOrder.length + " on order" : ""].filter(Boolean).join(" · ") || "Production has what it needs",
-        tone: holding.length ? "bad" : toBuy.length ? "warn" : "ok" },
+  function Plan(p) {
+    var tab = PLAN_TABS.some(function (t) { return t[0] === S.plan; }) ? S.plan : "or";
+    var q = function (v) { return n(v); };
+    var sh = function (v) { return '<td class="num' + (v < -0.5 ? " pp-neg" : "") + '">' + (Math.abs(v) < 0.5 ? "0" : (v < 0 ? "-" : "") + n(Math.abs(v))) + "</td>"; };
+    var tint = function (id) { return TINT[id] ? ' data-tint="' + TINT[id] + '"' : ""; };
+    /* MSQ Deviation and Confirm: the planner's, per line */
+    var marks = function (l) {
+      var ok = l.ok;
+      return '<td class="num pp-dev"><input type="number" step="1" inputmode="decimal" data-dev="' + esc(l.key) + '" value="' + (l.dev ? l.dev : "") + '" placeholder="0" aria-label="MSQ deviation"' + (ok ? " disabled" : "") + "></td>" +
+        '<td class="pp-ok">' + (ok ? '<button type="button" class="pp-done" data-pok="' + esc(l.key) + '" title="Undo">✓ ' + esc(ok.by) + "<small>" + esc(time(ok.at)) + "</small></button>"
+          : '<button type="button" class="pp-conf" data-pok="' + esc(l.key) + '">Confirm</button>') + "</td>";
     };
-    var NAME = { sales: "Sales", production: "Production", purchase: "Purchase" };
-    var tabsHtml = '<div class="dx-tabs" role="tablist" aria-label="Departments">' + DEPTS.map(function (k, i) {
-      return (i ? '<span class="dx-arr" aria-hidden="true">→</span>' : "") +
-        '<button type="button" role="tab" class="dx-t ' + head[k].tone + '" data-act="dept" data-dept="' + k + '" aria-selected="' + (k === dept) + '"><span class="dx-k">' + NAME[k] + "</span><b>" + esc(head[k].big) + "</b><small>" + esc(head[k].sub) + "</small></button>";
+    var tabsHtml = '<div class="pp-tabs" role="tablist" aria-label="Today\'s Production and Purchase Plan">' + PLAN_TABS.map(function (t) {
+      return '<button type="button" role="tab" class="pp-tab" data-ptab="' + t[0] + '" aria-selected="' + (t[0] === tab) + '">' + t[1] + "</button>";
     }).join("") + "</div>";
-    var body = dept === "sales" ? SalesTab(f) : dept === "production" ? MakeTab(f) : BuyTab(f);
-    return tabsHtml + (S.err ? '<div class="wk-err dx-err">' + esc(S.err) + "</div>" : "") + body;
+    var body;
+    if (tab === "or") {
+      body = '<table class="pp pp-or"><thead><tr><th>Item name</th><th class="num">No. of Packs per 30kg</th><th class="num">Qty Ordered (Packs)</th><th class="num">Qty Ordered (Kg)</th></tr></thead><tbody>' +
+        p.orders.map(function (g) {
+          return g.rows.map(function (r) {
+            return "<tr" + tint(g.recipeId) + '><th scope="row">' + esc(r.name) + '</th><td class="num">' + q(r.perCarton) + '</td><td class="num">' + q(r.cartons) + '</td><td class="num">' + q(r.qty) + "</td></tr>";
+          }).join("") +
+            '<tr class="pp-total pp-center"' + tint(g.recipeId) + '><th scope="row">' + esc(g.name) + '</th><td class="num">' + q(g.total.perCarton) + '</td><td class="num">' + q(g.total.cartons) + '</td><td class="num">' + q(g.total.qty) + "</td></tr>";
+        }).join("") + "</tbody></table>";
+    } else if (tab === "fg") {
+      body = '<table class="pp pp-fg"><thead><tr><th>Product Name</th><th>Recipe Version</th><th class="num">MSQ (Min. Stock Qty in kg)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Production</th><th class="num">MSQ Deviation</th><th>ConfirmBy</th></tr></thead><tbody>' +
+        p.fg.map(function (g) {
+          return g.packs.map(function (l) {
+            return "<tr" + tint(g.recipeId) + '><th scope="row">' + esc(l.name) + '</th><td></td><td class="num">' + q(l.msq) + '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) +
+              '<td class="num"><b>' + q(l.approved) + "</b></td>" + marks(l) + "</tr>";
+          }).join("") +
+            '<tr class="pp-total"' + tint(g.recipeId) + '><th scope="row">' + esc(g.name) + "</th><td>" + esc(g.version) + '</td><td class="num">' + q(g.total.msq) + '</td><td class="num">' + q(g.total.ordered) + '</td><td class="num">' + q(g.total.stock) + "</td>" + sh(g.total.short) +
+            '<td class="num">' + q(g.total.approved) + "</td><td></td><td></td></tr>";
+        }).join("") + "</tbody></table>";
+    } else if (tab === "sf") {
+      body = '<table class="pp pp-sf"><thead><tr><th>Product Name</th><th>Cut Recipe</th><th class="num">Ingredient %age</th><th class="num">MSQ (Min. Stock Qty)</th><th class="num">Ordered Qty (Kg)</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Production</th><th class="num">MSQ Deviation</th><th>Confirm</th></tr></thead><tbody>' +
+        p.semi.map(function (l) {
+          var pct = l.shares.map(function (s) { return n(s.pct); }).join(" · ") || "—";
+          return "<tr" + tint(l.id) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.cut) + '</td><td class="num" title="' + esc(l.shares.map(function (s) { return n(s.pct) + "% of " + s.of; }).join(" · ")) + '">' + pct + '</td><td class="num">' + q(l.msq) +
+            '</td><td class="num">' + q(l.ordered) + '</td><td class="num">' + q(l.stock) + "</td>" + sh(l.short) + '<td class="num"><b>' + q(l.approved) + "</b></td>" + marks(l) + "</tr>";
+        }).join("") + "</tbody></table>";
+    } else {
+      body = '<table class="pp pp-pu"><thead><tr><th>Product Name</th><th>Quality / Brand</th><th class="num">Wastage %age</th><th class="num">MSQ (Min Stk Qty)</th><th class="num">Ordered Quantity</th><th class="num">InStock</th><th class="num">Shortfall</th><th class="num">Approved Purchase</th><th class="num">MSQ Deviation</th><th>Confirm</th></tr></thead><tbody>' +
+        p.purchase.map(function (l) {
+          var u = l.unit === "kg" ? "" : " " + l.unit;
+          return "<tr" + tint(l.id) + '><th scope="row">' + esc(l.name) + "</th><td>" + esc(l.grade) + '</td><td class="num">' + n(l.waste) + '</td><td class="num">' + q(l.msq) + u +
+            '</td><td class="num">' + q(l.ordered) + u + '</td><td class="num">' + q(l.stock) + u + "</td>" + sh(l.short) + '<td class="num pp-big"><b>' + q(l.approved) + u + "</b></td>" + marks(l) + "</tr>";
+        }).join("") + "</tbody></table>";
+    }
+    return tabsHtml + '<section class="card pp-card"><div class="tbl-wrap">' + body + "</div></section>";
   }
-  /* Production's answer, in Sales' terms (owner, 29 Sep 2026: kg of production did not tell Sales
-     anything): of the packets short, how many can ship and by when, and how many are stuck and why.
-     The kg split (coming / held / not planned) is shared out over the short packets. */
-  function shipParts(r, short) {
-    if (!short) return [];
-    if (!r || r.needKg < 0.05) return [{ q: short, t: "being packed", c: "ok" }];
-    var part = function (v) { return Math.round(short * v / r.needKg); };
-    var blk = part(r.blocked), np = part(r.notPlanned), cov = Math.max(0, short - blk - np);
-    var eta = r.eta === "in freezer" ? "after packing" : r.eta === "no shift yet" ? "being made · no date yet" : r.eta === "late" ? "running late" : r.eta ? "by " + r.eta : "being made";
-    return [cov ? { q: cov, t: eta, c: r.eta === "late" ? "blk" : "" } : null,
-      blk ? { q: blk, t: "stuck · waiting on " + r.blockedBy.join(", "), c: "blk" } : null,
-      np ? { q: np, t: "not planned yet", c: "np" } : null].filter(Boolean);
-  }
-  function shipAll(r, short) {
-    if (!short) return '<span class="fx-pm ok">In stock</span>';
-    return shipParts(r, short).map(function (x) { return '<span class="fx-pm' + (x.c ? " " + x.c : "") + '"><b>' + n(x.q) + "</b> " + esc(x.t) + "</span>"; }).join("");
-  }
-  /* the one line: the worst part first, out of the total; or all of it when it all comes the same way */
-  function shipOne(r, short) {
-    if (!short) return '<span class="fx-pm ok">In stock</span>';
-    var parts = shipParts(r, short), worst = parts.filter(function (x) { return x.c === "blk"; })[0] || parts.filter(function (x) { return x.c === "np"; })[0];
-    if (!worst) return '<span class="fx-pm' + (parts[0].c ? " " + parts[0].c : "") + '"><b>All ' + n(short) + "</b> " + esc(parts[0].t) + "</span>";
-    return '<span class="fx-pm ' + worst.c + '"><b>' + n(worst.q) + " of " + n(short) + "</b> " + esc(worst.t) + "</span>";
-  }
-  /* one line per product (owner, 29 Sep 2026: less to take in); a click opens its packs and the full production picture */
-  function SalesTab(f) {
-    if (!f.sales.length) return '<section class="card fx"><div class="fx-none-msg">No customer demand in hand or next week.</div></section>';
-    var sum = function (list, k) { return list.reduce(function (t, x) { return t + x[k]; }, 0); };
-    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-sales dx-xp"><thead><tr><th>Product</th><th class="num">Ordered</th><th class="num">Next week</th><th class="num">In stock</th><th class="num">Short</th><th>When you can ship</th></tr></thead><tbody>' +
-      f.sales.map(function (p) {
-        var open = !!S.open[p.recipeId], short = sum(p.packs, "short");
-        var head = '<tr class="dx-p' + (open ? " on" : "") + '" data-act="xp" data-id="' + p.recipeId + '"><th scope="row"><button type="button" class="dx-x" aria-expanded="' + open + '">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' + esc(p.name) + "</button></th>" +
-          '<td class="num">' + n(sum(p.packs, "open")) + '</td><td class="num">' + n(sum(p.packs, "forecast")) + '</td><td class="num">' + n(sum(p.packs, "stock")) +
-          '</td><td class="num ' + (short ? "blk" : "ok") + '">' + (short ? n(short) : "—") + "</td><td>" + (open ? shipAll(p.row, short) : shipOne(p.row, short)) + "</td></tr>";
-        if (!open) return head;
-        return head + p.packs.map(function (k, i) {
-          return '<tr class="dx-k2' + (i === p.packs.length - 1 ? " end" : "") + '"><th scope="row">' + esc(k.size) + '</th><td class="num">' + n(k.open) + '</td><td class="num">' + n(k.forecast) + '</td><td class="num">' + n(k.stock) + '</td><td class="num ' + (k.short ? "blk" : "ok") + '">' + (k.short ? n(k.short) : "—") + "</td><td></td></tr>";
-        }).join("");
-      }).join("") + "</tbody></table></div></section>";
-  }
-  /* Production, one line per product (owner, 29 Sep 2026): what Sales needs made, how much is covered,
-     what is short, and the one next step — worst first. A click opens where each kg stands. */
-  function MakeTab(f) {
-    if (!f.making.length) return '<section class="card fx"><div class="fx-none-msg">Nothing to make: packed stock covers what customers need.</div></section>';
-    var mat = {};
-    f.buying.forEach(function (b) { mat[b.name] = b; });
-    var matSt = function (nm) { var b = mat[nm], st = b ? standing(b).filter(function (x) { return x.c; })[0] : null; return st ? st.t.toLowerCase() : ""; };
-    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-make dx-xp"><thead><tr><th>Product</th><th class="num">To make</th><th class="num">Covered</th><th class="num">Short</th><th>What\'s next</th></tr></thead><tbody>' +
-      f.making.map(function (p) {
-        var r = p.row, key = "m:" + p.recipeId, open = !!S.open[key];
-        var cov = r ? r.covered : 0, gap = r ? Math.max(0, r.needKg - r.covered) : 0;
-        var noShiftKg = p.batches.filter(function (b) { return b.state === "planned" && !b.start; }).reduce(function (t, b) { return t + b.kg; }, 0);
-        /* the one next step, worst first */
-        var next = !r ? '<span class="fx-pm ok">Nothing more needed</span>'
-          : r.blocked > 0.05 ? '<span class="fx-pm blk"><b>' + kg(r.blocked) + "</b> waiting on " + esc(r.blockedBy.map(function (nm) { var t = matSt(nm); return nm + (t ? " (" + t + ")" : ""); }).join(", ")) + "</span>"
-          : r.notPlanned > 0.05 ? '<span class="fx-pm np">Plan <b>' + kg(r.notPlanned) + "</b></span>"
-          : noShiftKg > 0.05 ? '<span class="fx-pm np"><b>' + kg(noShiftKg) + "</b> needs a shift</span>"
-          : r.eta === "late" ? '<span class="fx-pm blk">Running late</span>'
-          : r.eta === "in freezer" ? '<span class="fx-pm ok">Pack from freezer</span>'
-          : '<span class="fx-pm ok">Done by ' + esc(r.eta || "—") + "</span>";
-        var head = '<tr class="dx-p' + (open ? " on" : "") + '" data-act="xp" data-id="' + key + '"><th scope="row"><button type="button" class="dx-x" aria-expanded="' + open + '">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>' + esc(p.name) + "</button></th>" +
-          '<td class="num">' + (p.needKg > 0.05 ? kg(p.needKg) : "—") + '</td><td class="num">' + (cov > 0.05 ? kg(cov) : "—") + '</td><td class="num ' + (gap > 0.05 ? "blk" : "ok") + '">' + (gap > 0.05 ? kg(gap) : "—") + "</td><td>" + next + "</td></tr>";
-        if (!open) return head;
-        /* where each kg stands: what Sales asked for, then the freezer, each batch, and what waits on Purchase */
-        var lines = [];
-        if (r) lines.push(["For Sales", '<span class="fx-pm">' + r.packs.map(function (k) { return n(k.count) + " × " + esc(k.size); }).join(" · ") + "</span>"]);
-        if (p.freezerKg > 0.05 && p.needKg > 0.05) lines.push([kg(Math.min(p.freezerKg, p.needKg)) + " in freezer", '<span class="fx-pm ok">ready to pack</span>']);
-        p.batches.forEach(function (b) {
-          var t = b.state !== "planned" ? (STATE[b.state] || b.state) : b.start ? "planned · " + b.start : "planned · needs a shift";
-          lines.push([kg(b.kg) + " batch", '<span class="fx-pm' + (b.held ? " blk" : b.state === "planned" && !b.start ? " np" : "") + '">' + esc(t) + (b.held ? " · material short" : "") + "</span>"]);
-        });
-        if (r && r.blocked > 0.05) r.blockedBy.forEach(function (nm) { var t = matSt(nm); lines.push([kg(r.blocked) + " held", '<span class="fx-pm blk">waiting on ' + esc(nm) + (t ? " · " + esc(t) : "") + "</span>"]); });
-        if (r && r.notPlanned > 0.05) lines.push([kg(r.notPlanned) + " not planned", '<span class="fx-pm np">no batch yet</span>']);
-        return head + lines.map(function (x, i) {
-          return '<tr class="dx-k2' + (i === lines.length - 1 ? " end" : "") + '"><th scope="row" colspan="4">' + x[0] + "</th><td>" + x[1] + "</td></tr>";
-        }).join("");
-      }).join("") + "</tbody></table></div></section>";
-  }
-  /* Purchase, one line per situation (owner, 29 Sep 2026) — not per material: what holds production up,
-     what planned batches need soon, what is below its minimum, what is already on its way. Each line
-     is asked as a question, with how many; a click opens the answer — its materials. */
-  function BuyTab(f) {
-    if (!f.buying.length) return '<section class="card fx"><div class="fx-none-msg">Production has every material it needs.</div></section>';
-    var group = function (b) { return b.holds.length ? "hold" : b.status === "low" ? "low" : b.order > 0 ? "plan" : "way"; };
-    var GROUPS = [
-      { k: "hold", name: "What is holding up production?", tone: "bad" },
-      { k: "plan", name: "What do planned batches need urgently?", tone: "warn" },
-      { k: "low", name: "What is below minimum stock?", tone: "warn" },
-      { k: "way", name: "What is already on order?", tone: "ok" },
-    ];
-    var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
-    return '<section class="card fx dx"><div class="tbl-wrap"><table class="dx-buy dx-xp"><colgroup><col class="c1"><col class="c2"><col class="c3"><col></colgroup><tbody>' +
-      GROUPS.map(function (g) {
-        var list = f.buying.filter(function (b) { return group(b) === g.k; });
-        if (!list.length) return "";
-        var key = "b:" + g.k, open = !!S.open[key];
-        var head = '<tr class="dx-p dx-sit ' + g.tone + (open ? " on" : "") + '" data-act="xp" data-id="' + key + '"><th scope="rowgroup" colspan="4"><span class="dx-sit-in">' +
-          '<button type="button" class="dx-x" aria-expanded="' + open + '">' + CHEV + esc(g.name) + '</button><span class="dx-n">' + list.length + "</span></span></th></tr>";
-        if (!open) return head;
-        /* the column names, only where there are columns to read */
-        return head + '<tr class="dx-k2 dx-cols"><th scope="col">Material</th><th scope="col">For Production</th><th scope="col" class="num">To buy</th><th scope="col">Where it stands</th></tr>' + list.map(function (b, i) {
-          var forP = b.holds.length ? b.holds.map(function (h) { return '<span class="fx-pm blk">' + esc(h.name) + " · <b>" + kg(h.kg) + "</b> held</span>"; }).join("")
-            : '<span class="fx-pm">' + esc(b.forWhat || "—") + "</span>";
-          var st = standing(b).map(function (x) { return '<span class="fx-pm' + (x.c ? " " + x.c : "") + '">' + esc(x.t) + "</span>"; }).join("");
-          return '<tr class="dx-k2 dx-m' + (i === list.length - 1 ? " end" : "") + '"><th scope="row">' + esc(b.name) + (b.supplierName ? '<small class="dx-no">' + esc(b.supplierName) + "</small>" : "") + "</th><td>" + forP +
-            '</td><td class="num">' + (b.order > 0 ? "<b>" + esc(qty(b.order, b.unit)) + "</b>" : "—") + "</td><td>" + st + "</td></tr>";
-        }).join("");
-      }).join("") + "</tbody></table></div></section>";
-  }
+
+  /* the planner's marks: a deviation as it is typed in, a confirm on a click */
+  app.addEventListener("change", function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute("data-dev");
+    if (!k) return;
+    var m = planMarks(), v = Number(e.target.value);
+    if (e.target.value === "" || !isFinite(v) || !v) delete m.dev[k]; else m.dev[k] = v;
+    savePlanMarks(m); render();
+  });
+  app.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-dev")) e.target.blur();
+  });
 
   /* ── render ────────────────────────────────────────────────────────── */
   function render() {
@@ -811,7 +627,7 @@
     }
     app.innerHTML =
       (S.lens === "needs" ? Needs(m)
-        : S.lens === "flow" ? Flow(flowModel())
+        : S.lens === "flow" ? Plan(planModel())
         : Roster(w)) +
       (S.panel ? (S.panel.kind === "settings" ? Settings(w) : ShiftPanel(w)) : "");
   }
@@ -826,13 +642,20 @@
     if (gl) { go(gl.getAttribute("data-go")); return; }
     var sh = e.target.closest("[data-shift]");
     if (sh) { S.panel = { kind: "shift", key: sh.getAttribute("data-shift") }; S.form = {}; S.ask = null; S.rm = null; S.add = null; S.err = ""; render(); return; }
+    var pt = e.target.closest("[data-ptab]");
+    if (pt) { S.plan = pt.getAttribute("data-ptab"); try { sessionStorage.setItem("fb.v7.flow.plantab", S.plan); } catch (e2) { /* this visit only */ } render(); return; }
+    var pk = e.target.closest("[data-pok]");
+    if (pk) {
+      var mk = planMarks(), key = pk.getAttribute("data-pok");
+      if (mk.ok[key]) delete mk.ok[key]; else mk.ok[key] = { by: planWho(), at: new Date().toISOString() };
+      savePlanMarks(mk); render(); return;
+    }
     var b = e.target.closest("[data-act]");
     if (!b || b.disabled) return;
     var act = b.getAttribute("data-act");
     if (act === "lens") { S.lens = b.getAttribute("data-lens"); S.panel = null; S.err = ""; window.scrollTo(0, 0); }
     else if (act === "settings") { S.panel = { kind: "settings", edit: null }; S.form = {}; S.err = ""; }
     else if (act === "xp") { var xid = b.getAttribute("data-id"); if (S.open[xid]) delete S.open[xid]; else S.open[xid] = true; }
-    else if (act === "dept") { S.dept = b.getAttribute("data-dept"); S.err = ""; try { sessionStorage.setItem("fb.v7.flow.dept", S.dept); } catch (e2) { /* remembered for this visit only */ } }
     else if (act === "close") { S.panel = null; S.ask = null; S.rm = null; S.add = null; S.form = {}; S.err = ""; }
     else if (S.panel) panelAct(act, b);
     render();

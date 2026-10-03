@@ -16,25 +16,26 @@
   var pad = function (n) { return String(n).padStart(2, "0"); };
   var ymd = function (t) { var x = new Date(t); return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); };
   var time = function (t) { return new Date(t).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }); };
-  var CAT = { "frozen-peas": "frozen-peas", "mixed-veg": "mixed-veg", "soya-chaap": "soya-chaap", "soya-chaap-premium": "vasu-gold", "soya-chaap-plain": "soya-chaap" };
+  /* the shop's categories are the finished products (the engine's recipe book, 3 Oct 2026) */
+  var CAT = { "green-peas": "green-peas", "mix-veg": "mix-veg", "soya-chaap": "soya-chaap" };
 
   function apply(seed, seed2, seed5) {
     P.read(function (D, d) {
       var b = d.business, c = D.customer(SHOP), gst = b.gstPct;
-      seed2.store = { name: b.name, subtitle: "Frozen peas, mixed vegetables & soya chaap · Vasu and Vasu Gold", location: b.city + ", " + b.state, verified: true, logoInitial: "V",
+      seed2.store = { name: b.name, subtitle: "Mix Veg, Green Peas & Soya Chaap · Vasu and Vasu Gold", location: b.city + ", " + b.state, verified: true, logoInitial: "V",
         phone: "+91 " + b.phone, whatsapp: "+91 " + b.phone, gstin: b.gstin, supportHours: "8AM – 8PM", year: new Date().getFullYear() };
       seed2.account = { initials: "AS", name: c.name, role: "Owner" };
-      seed2.promo = { badge: "Vasu Gold week", headline: "Premium stick chaap — ask for it by the master carton", validTill: new Date(Date.now() + 5 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ", 8:00 PM",
-        offerCount: d.skus.filter(function (s) { return s.recipeId === "soya-chaap-premium"; }).length, freeDeliveryAbove: 3000 };
-      seed2.categoriesV2 = [{ id: "all", label: "All" }, { id: "offers", label: "Offers" }, { id: "buy-again", label: "Buy again" }, { id: "frozen-peas", label: "Frozen Peas" },
-        { id: "mixed-veg", label: "Mixed Vegetables" }, { id: "soya-chaap", label: "Soya Chaap" }, { id: "vasu-gold", label: "Vasu Gold" }, { id: "new", label: "New Arrivals" }];
+      seed2.promo = { badge: "Vasu Gold week", headline: "Soya Chaap in 20 kg bags — ask for it by the bag", validTill: new Date(Date.now() + 5 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + ", 8:00 PM",
+        offerCount: d.skus.filter(function (s) { return s.recipeId === "soya-chaap"; }).length, freeDeliveryAbove: 3000 };
+      seed2.categoriesV2 = [{ id: "all", label: "All" }, { id: "offers", label: "Offers" }, { id: "buy-again", label: "Buy again" }, { id: "mix-veg", label: "Mix Veg" },
+        { id: "green-peas", label: "Green Peas" }, { id: "soya-chaap", label: "Soya Chaap · Vasu Gold" }, { id: "new", label: "New Arrivals" }];
       var bought = {};
       d.orders.forEach(function (o) { if (o.customerId === SHOP) o.items.forEach(function (i) { bought[i.skuId] = 1; }); });
       seed5.productsV5 = d.skus.filter(function (s) { return !s.retired; }).map(function (s) {
         var price = D.priceFor(SHOP, s.id), mrp = Math.ceil(s.price * 1.3 / 5) * 5;
-        return { id: s.id, name: s.name, brand: s.brand || "Vasu", category: CAT[s.recipeId] || "all", packSize: (s.grams >= 1000 ? s.grams / 1000 + " kg" : s.grams + " g") + " pouch · " + s.perCarton + " to a carton",
-          price: price, mrp: mrp, discount: Math.round((1 - price / mrp) * 100), available: D.availableToSell(s.id), offer: s.recipeId === "soya-chaap-premium", buyAgain: !!bought[s.id],
-          addedDate: ymd(Date.now() - (s.id === "fg-p15" ? 5 : 90) * 864e5), taxRate: gst, perCarton: s.perCarton };
+        return { id: s.id, name: s.name, brand: s.brand || "Vasu", category: CAT[s.recipeId] || "all", packSize: s.perCarton > 1 ? (s.grams >= 1000 ? s.grams / 1000 + " kg" : s.grams + " g") + " pouch · " + s.perCarton + " to a 30 kg carton" : s.grams / 1000 + " kg bag",
+          price: price, mrp: mrp, discount: Math.round((1 - price / mrp) * 100), available: D.availableToSell(s.id), offer: s.recipeId === "soya-chaap", buyAgain: !!bought[s.id],
+          addedDate: ymd(Date.now() - (s.grams === 2000 ? 5 : 90) * 864e5), taxRate: gst, perCarton: s.perCarton };
       });
       var mine = d.orders.filter(function (o) { return o.customerId === SHOP; }).sort(function (a, b2) { return a.placedAt < b2.placedAt ? 1 : -1; });
       var stepOf = function (o) {

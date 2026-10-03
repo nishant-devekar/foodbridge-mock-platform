@@ -340,6 +340,10 @@
     (task.store || []).forEach(function (m) {
       lines.push(html`<div class="wk-take"><span aria-hidden="true">🏷️</span><div><b>${m.name}</b><small>${m.oldest ? t("lotOldest", { lot: m.oldest.lotNo }) : t("noneStore")}</small></div></div>`);
     });
+    (task.mixes || []).forEach(function (fz) {
+      var bags = fz.oldest.map(function (g) { return g.bagNo; });
+      lines.push(html`<div class="wk-take"><span aria-hidden="true">🧊</span><div><b>${t("kgN", { n: fz.needKg })} · ${fz.product} (${fz.pct}%)</b><small>${bags.length ? t("bagsOldest", { list: bags.join(", ") }) : t("noBags")}</small></div></div>`);
+    });
     if (task.freezer) {
       var fz = task.freezer, bags = fz.oldest.map(function (g) { return g.bagNo; });
       lines.push(html`<div class="wk-take"><span aria-hidden="true">🧊</span><div><b>${t("kgN", { n: fz.needKg })} · ${fz.product}</b><small>${bags.length ? t("bagsOldest", { list: bags.join(", ") }) : t("noBags")}</small></div></div>`);
