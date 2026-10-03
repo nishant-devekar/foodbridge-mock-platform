@@ -1,0 +1,2176 @@
+{
+ "_comment": "Fake but representative data used only in discovery role-play. Never imported by development/. Shapes mirror what the live storefront-frontend receives: OrderServices.getAllOrders({day,status,page,startDate,endDate,limit,searchTerm}) -> {orders:[...], totalDoc, methodTotals}. Filtering and paging are SERVER-side live; the mock reproduces the same contract client-side.",
+ "_source": "Ported from storefront-frontend@develop -- src/pages/Orders.jsx (route /orders), TabOrders branch. See discovery/instructions/addendum-002-live-orders-port.md.",
+ "_dateComment": "Order dates are stored as OFFSETS (createdMinutesAgo) and resolved at load, so the list always opens on 'today' the way the reference screenshot does and the date-range filter stays meaningful however long after freezing this is opened.",
+ "_statusComment": "Live equivalent: globalSetting.orderWorkflow.statusWorkFlow.ORDER. Drives BOTH the filter options and the per-row select, whose options are the current status plus its nextStatuses -- a status with none renders disabled. The four statuses and their casing are taken from the reference screenshot (Delivered, Dispatch Created, Skipped, Inprogress); the transitions between them are inferred, since a screenshot cannot show them.",
+ "store": {
+  "name": "QA store"
+ },
+ "user": {
+  "displayName": "Mahesh",
+  "role": "Admin",
+  "image": null
+ },
+ "appProp": {
+  "isStoreQrCode": {
+   "isEnabled": true
+  },
+  "isRouteDeliveryEnabled": true,
+  "currency": "\u20b9",
+  "isAllocationStatusEnabled": false,
+  "canShowInvoiceAction": true,
+  "orderManagementFeatures": {
+   "createDelivery": true,
+   "bulkProxyOrder": true,
+   "orderForecast": false,
+   "demandReport": false,
+   "downloadAllOrders": false,
+   "allocationStatus": false
+  }
+ },
+ "statusWorkflow": [
+  {
+   "status": "Inprogress",
+   "nextStatuses": [
+    "Dispatch Created",
+    "Skipped"
+   ]
+  },
+  {
+   "status": "Dispatch Created",
+   "nextStatuses": [
+    "Delivered",
+    "Skipped"
+   ]
+  },
+  {
+   "status": "Delivered",
+   "nextStatuses": []
+  },
+  {
+   "status": "Skipped",
+   "nextStatuses": []
+  }
+ ],
+ "locations": {
+  "loc-001": {
+   "name": "Dinesh Store",
+   "contact": "5550401001"
+  },
+  "loc-003": {
+   "name": "Rana Store",
+   "contact": "5550401003"
+  },
+  "loc-005": {
+   "name": "Anand Store",
+   "contact": "5550401005"
+  },
+  "loc-007": {
+   "name": "Bharat Store",
+   "contact": "5550401007"
+  }
+ },
+ "orders": [
+  {
+   "_id": "ord-001",
+   "invoiceSuffix": "7534374",
+   "createdMinutesAgo": 7,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Dinesh Store",
+    "contact": "5550401001"
+   },
+   "buyer_location_id": "loc-001",
+   "cart": [
+    {
+     "title": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "price": 42.0,
+     "tax": 5,
+     "quantity": 5,
+     "itemTotal": 210.0
+    },
+    {
+     "title": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "price": 60.0,
+     "tax": 18,
+     "quantity": 5,
+     "itemTotal": 300.0
+    }
+   ],
+   "subTotal": 510.0,
+   "discount": 25.5,
+   "total": 484.5,
+   "totalQty": 10,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 10,
+   "paymentMethod": "Credit",
+   "email": "dinesh@example.com",
+   "comments": "Call on arrival, gate is locked.",
+   "item_list": [
+    {
+     "name": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "qty": 5,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7534371",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7534371",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-002",
+   "invoiceSuffix": "7493167",
+   "createdMinutesAgo": 9,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Rakesh",
+    "contact": "5550401002"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 64.0
+    }
+   ],
+   "subTotal": 64.0,
+   "discount": 0.0,
+   "total": 64.0,
+   "totalQty": 2,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 2,
+   "paymentMethod": "COD",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7493161",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7493161",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-003",
+   "invoiceSuffix": "7451960",
+   "createdMinutesAgo": 15,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Rana Store",
+    "contact": "5550401003"
+   },
+   "buyer_location_id": "loc-003",
+   "cart": [
+    {
+     "title": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "price": 42.0,
+     "tax": 5,
+     "quantity": 5,
+     "itemTotal": 210.0
+    }
+   ],
+   "subTotal": 210.0,
+   "discount": 0.0,
+   "total": 210.0,
+   "totalQty": 5,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 5,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7451961",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7451961",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-004",
+   "invoiceSuffix": "7410753",
+   "createdMinutesAgo": 24,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Suresh Kumar",
+    "contact": "5550401004"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 3,
+     "itemTotal": 66.0
+    },
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 5,
+     "itemTotal": 440.0
+    }
+   ],
+   "subTotal": 506.0,
+   "discount": 0.0,
+   "total": 506.0,
+   "totalQty": 8,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 8,
+   "paymentMethod": "Credit",
+   "email": "suresh@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 3,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7410751",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7410751",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-005",
+   "invoiceSuffix": "7369546",
+   "createdMinutesAgo": 34,
+   "status": "Dispatch Created",
+   "user_info": {
+    "name": "Anand Store",
+    "contact": "5550401005"
+   },
+   "buyer_location_id": "loc-005",
+   "cart": [
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 176.0
+    }
+   ],
+   "subTotal": 176.0,
+   "discount": 0.0,
+   "total": 176.0,
+   "totalQty": 2,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 1,
+   "paymentMethod": "COD",
+   "email": "",
+   "comments": "Call on arrival, gate is locked.",
+   "item_list": [
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7369541",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": {
+      "order_number": "DLV-7369541",
+      "progress": 25
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-006",
+   "invoiceSuffix": "7328339",
+   "createdMinutesAgo": 44,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Naveen",
+    "contact": "5550401006"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 1,
+     "itemTotal": 72.0
+    },
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 1,
+     "itemTotal": 88.0
+    },
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 3,
+     "itemTotal": 96.0
+    }
+   ],
+   "subTotal": 256.0,
+   "discount": 0.0,
+   "total": 256.0,
+   "totalQty": 5,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 5,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 1,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 1,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 3,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7328331",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7328331",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-007",
+   "invoiceSuffix": "7287132",
+   "createdMinutesAgo": 45,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Bharat Store",
+    "contact": "5550401007"
+   },
+   "buyer_location_id": "loc-007",
+   "cart": [
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 352.0
+    },
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 88.0
+    }
+   ],
+   "subTotal": 440.0,
+   "discount": 22.0,
+   "total": 418.0,
+   "totalQty": 8,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 8,
+   "paymentMethod": "COD",
+   "email": "bharat@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 4,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 4,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7287131",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7287131",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-008",
+   "invoiceSuffix": "7245925",
+   "createdMinutesAgo": 65,
+   "status": "Skipped",
+   "user_info": {
+    "name": "Kiran",
+    "contact": "5550401008"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 1,
+     "itemTotal": 22.0
+    }
+   ],
+   "subTotal": 22.0,
+   "discount": 0.0,
+   "total": 22.0,
+   "totalQty": 1,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 0,
+   "paymentMethod": "UPI",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 1,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7245921",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": {
+      "order_number": "DLV-7245921",
+      "progress": 75
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-009",
+   "invoiceSuffix": "7204718",
+   "createdMinutesAgo": 71,
+   "status": "Inprogress",
+   "user_info": {
+    "name": "Dinesh Store",
+    "contact": "5550401001"
+   },
+   "buyer_location_id": "loc-001",
+   "cart": [
+    {
+     "title": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "price": 42.0,
+     "tax": 5,
+     "quantity": 5,
+     "itemTotal": 210.0
+    },
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 5,
+     "itemTotal": 360.0
+    },
+    {
+     "title": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "price": 28.5,
+     "tax": 5,
+     "quantity": 1,
+     "itemTotal": 28.5
+    }
+   ],
+   "subTotal": 598.5,
+   "discount": 0.0,
+   "total": 598.5,
+   "totalQty": 11,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 1,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 5,
+   "paymentMethod": "UPI",
+   "email": "",
+   "comments": "Repeat order \u2014 same as last week.",
+   "item_list": [
+    {
+     "name": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "qty": 5,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 5,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "qty": 1,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7204711",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": null,
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-010",
+   "invoiceSuffix": "7163511",
+   "createdMinutesAgo": 76,
+   "status": "Dispatch Created",
+   "user_info": {
+    "name": "Rakesh",
+    "contact": "5550401002"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 1,
+     "itemTotal": 72.0
+    }
+   ],
+   "subTotal": 72.0,
+   "discount": 0.0,
+   "total": 72.0,
+   "totalQty": 1,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 1,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 0,
+   "paymentMethod": "COD",
+   "email": "rakesh@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 1,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7163511",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": null,
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-011",
+   "invoiceSuffix": "7122304",
+   "createdMinutesAgo": 95,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Rana Store",
+    "contact": "5550401003"
+   },
+   "buyer_location_id": "loc-003",
+   "cart": [
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 44.0
+    },
+    {
+     "title": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "price": 28.5,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 57.0
+    }
+   ],
+   "subTotal": 101.0,
+   "discount": 0.0,
+   "total": 101.0,
+   "totalQty": 4,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 1
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 1,
+   "returnsInTransit": 0,
+   "returnRate": 12,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 4,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 2,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7122301",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7122301",
+      "progress": 100
+     },
+     "returns": [
+      {
+       "order_number": "RET-7122301",
+       "status": "pending pickup"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "_id": "ord-012",
+   "invoiceSuffix": "7081097",
+   "createdMinutesAgo": 120,
+   "status": "Inprogress",
+   "user_info": {
+    "name": "Suresh Kumar",
+    "contact": "5550401004"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "price": 60.0,
+     "tax": 18,
+     "quantity": 3,
+     "itemTotal": 180.0
+    },
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 128.0
+    }
+   ],
+   "subTotal": 308.0,
+   "discount": 0.0,
+   "total": 308.0,
+   "totalQty": 7,
+   "fulfillment": {
+    "dispatches": 0,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 0,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "UNALLOCATED",
+   "allocatedQty": 0,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "qty": 3,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 4,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": []
+  },
+  {
+   "_id": "ord-013",
+   "invoiceSuffix": "7039890",
+   "createdMinutesAgo": 1450,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Anand Store",
+    "contact": "5550401005"
+   },
+   "buyer_location_id": "loc-005",
+   "cart": [
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 64.0
+    },
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 1,
+     "itemTotal": 88.0
+    },
+    {
+     "title": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "price": 14.0,
+     "tax": 18,
+     "quantity": 3,
+     "itemTotal": 42.0
+    }
+   ],
+   "subTotal": 194.0,
+   "discount": 9.7,
+   "total": 184.3,
+   "totalQty": 6,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 6,
+   "paymentMethod": "UPI",
+   "email": "anand@example.com",
+   "comments": "Repeat order \u2014 same as last week.",
+   "item_list": [
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 2,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 1,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "qty": 3,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-7039891",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-7039891",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-014",
+   "invoiceSuffix": "6998683",
+   "createdMinutesAgo": 1490,
+   "status": "Dispatch Created",
+   "user_info": {
+    "name": "Naveen",
+    "contact": "5550401006"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "price": 28.5,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 57.0
+    },
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 352.0
+    }
+   ],
+   "subTotal": 409.0,
+   "discount": 0.0,
+   "total": 409.0,
+   "totalQty": 6,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 3,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "qty": 2,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 4,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6998681",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": {
+      "order_number": "DLV-6998681",
+      "progress": 25
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-015",
+   "invoiceSuffix": "6957476",
+   "createdMinutesAgo": 2900,
+   "status": "Skipped",
+   "user_info": {
+    "name": "Bharat Store",
+    "contact": "5550401007"
+   },
+   "buyer_location_id": "loc-007",
+   "cart": [
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 5,
+     "itemTotal": 360.0
+    }
+   ],
+   "subTotal": 360.0,
+   "discount": 0.0,
+   "total": 360.0,
+   "totalQty": 5,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 2,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6957471",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": {
+      "order_number": "DLV-6957471",
+      "progress": 25
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-016",
+   "invoiceSuffix": "6916269",
+   "createdMinutesAgo": 2950,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Kiran",
+    "contact": "5550401008"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 88.0
+    },
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 3,
+     "itemTotal": 216.0
+    },
+    {
+     "title": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "price": 14.0,
+     "tax": 18,
+     "quantity": 3,
+     "itemTotal": 42.0
+    },
+    {
+     "title": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "price": 42.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 84.0
+    }
+   ],
+   "subTotal": 430.0,
+   "discount": 0.0,
+   "total": 430.0,
+   "totalQty": 12,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 12,
+   "paymentMethod": "UPI",
+   "email": "kiran@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 4,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 3,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "qty": 3,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Britannia Brown Bread 400g",
+     "articleNumber": "FG-1002",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6916261",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6916261",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-017",
+   "invoiceSuffix": "6875062",
+   "createdMinutesAgo": 4300,
+   "status": "Inprogress",
+   "user_info": {
+    "name": "Dinesh Store",
+    "contact": "5550401001"
+   },
+   "buyer_location_id": "loc-001",
+   "cart": [
+    {
+     "title": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "price": 14.0,
+     "tax": 18,
+     "quantity": 1,
+     "itemTotal": 14.0
+    },
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 5,
+     "itemTotal": 160.0
+    }
+   ],
+   "subTotal": 174.0,
+   "discount": 0.0,
+   "total": 174.0,
+   "totalQty": 6,
+   "fulfillment": {
+    "dispatches": 0,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 0,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "UNALLOCATED",
+   "allocatedQty": 0,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "Customer asked for delivery before noon.",
+   "item_list": [
+    {
+     "name": "Maggi Noodles 70g x12",
+     "articleNumber": "FG-1009",
+     "qty": 1,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": []
+  },
+  {
+   "_id": "ord-018",
+   "invoiceSuffix": "6833855",
+   "createdMinutesAgo": 4380,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Rakesh",
+    "contact": "5550401002"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "price": 60.0,
+     "tax": 18,
+     "quantity": 1,
+     "itemTotal": 60.0
+    },
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 5,
+     "itemTotal": 360.0
+    },
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 44.0
+    }
+   ],
+   "subTotal": 464.0,
+   "discount": 0.0,
+   "total": 464.0,
+   "totalQty": 8,
+   "fulfillment": {
+    "dispatches": 2,
+    "deliveries": 2,
+    "returns": 1
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 12,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 8,
+   "paymentMethod": "UPI",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Parle-G Gold 1kg",
+     "articleNumber": "FG-1022",
+     "qty": 1,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 5,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6833851",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6833851",
+      "progress": 100
+     },
+     "returns": [
+      {
+       "order_number": "RET-6833851",
+       "status": "pending pickup"
+      }
+     ]
+    },
+    {
+     "order_number": "DSP-6833852",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6833852",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-019",
+   "invoiceSuffix": "6792648",
+   "createdMinutesAgo": 5800,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Rana Store",
+    "contact": "5550401003"
+   },
+   "buyer_location_id": "loc-003",
+   "cart": [
+    {
+     "title": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "price": 28.5,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 114.0
+    },
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 3,
+     "itemTotal": 96.0
+    }
+   ],
+   "subTotal": 210.0,
+   "discount": 10.5,
+   "total": 199.5,
+   "totalQty": 7,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 7,
+   "paymentMethod": "Credit",
+   "email": "rana@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "qty": 4,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 3,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6792641",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6792641",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-020",
+   "invoiceSuffix": "6751441",
+   "createdMinutesAgo": 5900,
+   "status": "Dispatch Created",
+   "user_info": {
+    "name": "Suresh Kumar",
+    "contact": "5550401004"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 5,
+     "itemTotal": 360.0
+    }
+   ],
+   "subTotal": 360.0,
+   "discount": 0.0,
+   "total": 360.0,
+   "totalQty": 5,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 1,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 2,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 5,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6751441",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": null,
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-021",
+   "invoiceSuffix": "6710234",
+   "createdMinutesAgo": 7300,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Anand Store",
+    "contact": "5550401005"
+   },
+   "buyer_location_id": "loc-005",
+   "cart": [
+    {
+     "title": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "price": 28.5,
+     "tax": 5,
+     "quantity": 3,
+     "itemTotal": 85.5
+    },
+    {
+     "title": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "price": 72.0,
+     "tax": 12,
+     "quantity": 4,
+     "itemTotal": 288.0
+    },
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 352.0
+    }
+   ],
+   "subTotal": 725.5,
+   "discount": 0.0,
+   "total": 725.5,
+   "totalQty": 11,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 11,
+   "paymentMethod": "UPI",
+   "email": "",
+   "comments": "Please pack fragile items separately.",
+   "item_list": [
+    {
+     "name": "Nandini Curd 500g",
+     "articleNumber": "FG-1003",
+     "qty": 3,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNumber": "FG-1013",
+     "qty": 4,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 4,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6710231",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6710231",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-022",
+   "invoiceSuffix": "6669027",
+   "createdMinutesAgo": 8700,
+   "status": "Skipped",
+   "user_info": {
+    "name": "Naveen",
+    "contact": "5550401006"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "price": 88.0,
+     "tax": 5,
+     "quantity": 2,
+     "itemTotal": 176.0
+    }
+   ],
+   "subTotal": 176.0,
+   "discount": 0.0,
+   "total": 176.0,
+   "totalQty": 2,
+   "fulfillment": {
+    "dispatches": 1,
+    "deliveries": 1,
+    "returns": 0
+   },
+   "fulfilledPct": 50,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "PARTIALLY_ALLOCATED",
+   "allocatedQty": 1,
+   "paymentMethod": "UPI",
+   "email": "naveen@example.com",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Farm Fresh Paneer 200g",
+     "articleNumber": "FG-1004",
+     "qty": 2,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6669021",
+     "status": "in_transit",
+     "border": "border-blue-200",
+     "bg": "bg-blue-50",
+     "delivery": {
+      "order_number": "DLV-6669021",
+      "progress": 75
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-023",
+   "invoiceSuffix": "6627820",
+   "createdMinutesAgo": 10100,
+   "status": "Delivered",
+   "user_info": {
+    "name": "Bharat Store",
+    "contact": "5550401007"
+   },
+   "buyer_location_id": "loc-007",
+   "cart": [
+    {
+     "title": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "price": 32.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 128.0
+    },
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 1,
+     "itemTotal": 22.0
+    }
+   ],
+   "subTotal": 150.0,
+   "discount": 0.0,
+   "total": 150.0,
+   "totalQty": 5,
+   "fulfillment": {
+    "dispatches": 2,
+    "deliveries": 2,
+    "returns": 0
+   },
+   "fulfilledPct": 100,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "FULLY_ALLOCATED",
+   "allocatedQty": 5,
+   "paymentMethod": "Credit",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNumber": "FG-1001",
+     "qty": 4,
+     "measurement": "Pkt"
+    },
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 1,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": [
+    {
+     "order_number": "DSP-6627821",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6627821",
+      "progress": 100
+     },
+     "returns": []
+    },
+    {
+     "order_number": "DSP-6627822",
+     "status": "delivered",
+     "border": "border-emerald-200",
+     "bg": "bg-emerald-50",
+     "delivery": {
+      "order_number": "DLV-6627822",
+      "progress": 100
+     },
+     "returns": []
+    }
+   ]
+  },
+  {
+   "_id": "ord-024",
+   "invoiceSuffix": "6586613",
+   "createdMinutesAgo": 11600,
+   "status": "Inprogress",
+   "user_info": {
+    "name": "Kiran",
+    "contact": "5550401008"
+   },
+   "buyer_location_id": null,
+   "cart": [
+    {
+     "title": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "price": 22.0,
+     "tax": 5,
+     "quantity": 4,
+     "itemTotal": 88.0
+    }
+   ],
+   "subTotal": 88.0,
+   "discount": 0.0,
+   "total": 88.0,
+   "totalQty": 4,
+   "fulfillment": {
+    "dispatches": 0,
+    "deliveries": 0,
+    "returns": 0
+   },
+   "fulfilledPct": 0,
+   "dispatchRejected": 0,
+   "returnsPending": 0,
+   "returnsInTransit": 0,
+   "returnRate": 0,
+   "unassignedDispatches": 0,
+   "allocationStatus": "UNALLOCATED",
+   "allocatedQty": 0,
+   "paymentMethod": "COD",
+   "email": "",
+   "comments": "",
+   "item_list": [
+    {
+     "name": "Tata Salt 1kg",
+     "articleNumber": "FG-1007",
+     "qty": 4,
+     "measurement": "Pkt"
+    }
+   ],
+   "dispatchRecords": []
+  }
+ ],
+ "totalDoc": 24,
+ "methodTotals": [],
+ "_menusComment": "Live equivalent: setupData.data.storefrontMenus. `component` is the stable key useMenuLabel() looks up first -- 'orders' resolves to the name below, which is why the page and its copy read 'Sales Orders'. ASSUMPTION: no reference screenshot was supplied for this module, so the tree is carried over from the staff module's screenshot of the same QA store tenant; the tenant's real storefrontMenus is authoritative.",
+ "_submenuOpenComment": "`initiallyOpen` is DISCOVERY-ONLY. SidebarSubMenu.jsx uses useState(true) so live every submenu is expanded on first paint; here all are collapsed since Sales Orders is a top-level entry.",
+ "storefrontMenus": [
+  {
+   "name": "Dashboard",
+   "path": "/dashboard",
+   "component": "dashboard",
+   "icon": "layoutGrid"
+  },
+  {
+   "name": "Product Master",
+   "path": "/products",
+   "component": "products",
+   "icon": "package",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Finished Goods",
+     "path": "/products"
+    },
+    {
+     "name": "Product Categories",
+     "path": "/categories"
+    },
+    {
+     "name": "Raw Materials",
+     "path": "/raw-materials"
+    },
+    {
+     "name": "Image Gallery",
+     "path": "/image-gallery"
+    }
+   ]
+  },
+  {
+   "name": "Customer Management",
+   "path": "/customers",
+   "component": "customers",
+   "icon": "usersRound",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Retail Customers",
+     "path": "/retail-customers"
+    },
+    {
+     "name": "Customer Locations",
+     "path": "/customer-locations"
+    }
+   ]
+  },
+  {
+   "name": "Sales Orders",
+   "path": "/orders",
+   "component": "orders",
+   "icon": "shoppingCart"
+  },
+  {
+   "name": "Distribution & Logistics",
+   "path": "/distribution",
+   "component": "distribution",
+   "icon": "usersShare",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Dispatch",
+     "path": "/dispatch"
+    },
+    {
+     "name": "Delivery",
+     "path": "/delivery"
+    },
+    {
+     "name": "Manage Routes",
+     "path": "/manage-routes"
+    }
+   ]
+  },
+  {
+   "name": "Production",
+   "path": "/production",
+   "component": "production",
+   "icon": "factory",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Recipes",
+     "path": "/production/recipes"
+    },
+    {
+     "name": "Batches",
+     "path": "/production/batches"
+    }
+   ]
+  },
+  {
+   "name": "Inventory",
+   "path": "/inventory",
+   "component": "inventory",
+   "icon": "warehouse",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Inventory",
+     "path": "/inventory"
+    },
+    {
+     "name": "Raw Material Inventory",
+     "path": "/raw-material-inventory"
+    },
+    {
+     "name": "Stock Counts",
+     "path": "/stock-counts"
+    }
+   ]
+  },
+  {
+   "name": "Stock Audit Settlement",
+   "path": "/stock-audit",
+   "component": "stock-audit",
+   "icon": "clipboardCheck",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Audits",
+     "path": "/stock-audit/audits"
+    },
+    {
+     "name": "Settlements",
+     "path": "/stock-audit/settlements"
+    }
+   ]
+  },
+  {
+   "name": "Procurement",
+   "path": "/procurement",
+   "component": "procurement",
+   "icon": "shoppingBag",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Purchase Orders",
+     "path": "/procurement/purchase-orders"
+    },
+    {
+     "name": "Suppliers",
+     "path": "/procurement/suppliers"
+    }
+   ]
+  },
+  {
+   "name": "Finance",
+   "path": "/finance",
+   "component": "finance",
+   "icon": "banknote",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Invoices",
+     "path": "/finance/invoices"
+    },
+    {
+     "name": "Payments",
+     "path": "/finance/payments"
+    }
+   ]
+  },
+  {
+   "name": "Workforce Management",
+   "path": "/our-staff",
+   "component": "our-staff",
+   "icon": "userCog"
+  }
+ ],
+ "_featureComment": "Live equivalent: globalSetting.appProp.orderManagementFeatures. Every action-bar button and the allocation column are gated behind these. THESE VALUES ARE READ OFF THE REFERENCE SCREENSHOT of the QA store tenant, which shows exactly four action buttons and no allocation column. Flip any to true to see the fuller layout the code supports.",
+ "_insightComment": "Fields feeding the Smart Insights hover card (generateOrderInsights in OrderTable.jsx). Live these are computed from the dispatch/delivery/return records themselves; the seed carries the derived figures directly since those record sets are a later phase.",
+ "_methodTotalsComment": "Live this bar renders only when the API returns methodTotals. The reference screenshot shows none, so it is empty here and the bar does not render.",
+ "_expandComment": "Fields feeding OrderFulfillmentMetadata, the panel that opens when a row is expanded. It has four tabs -- Details, Items (n), Comments, Fulfillment. Live the dispatch/delivery/return records are fetched per order; the seed carries them inline.",
+ "_overlayComment": "Data for the overlays captured from the live app on 2026-08-11: the Follow-up Reminders modal, the Create Delivery wizard and the Create Sales Orders drawer. Customer names and phone numbers are invented -- the live modals show real tenant customers and this prototype is published publicly.",
+ "followUpCustomers": [
+  {
+   "name": "Aarti General Store",
+   "phone": "5550501001",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Ganesh Kirana Mart",
+   "phone": "5550501002",
+   "catalogue": "Catalogue 2"
+  },
+  {
+   "name": "New Bharat General Store",
+   "phone": "5550501003",
+   "catalogue": "Catalogue 2"
+  },
+  {
+   "name": "Raj Traders",
+   "phone": "5550501004",
+   "catalogue": "Catalogue 1"
+  },
+  {
+   "name": "Shivam Grocery Store",
+   "phone": "5550501005",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Shree Datta Super Store",
+   "phone": "5550501006",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Balaji General Store",
+   "phone": "5550501007",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Krishna Kirana & General Store",
+   "phone": "5550501008",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Om Sai Provision Store",
+   "phone": "5550501009",
+   "catalogue": "Default"
+  },
+  {
+   "name": "Mahalakshmi Super Mart",
+   "phone": "5550501010",
+   "catalogue": "Default"
+  }
+ ],
+ "followUpTotal": 24,
+ "catalogues": [
+  "All Catalogues",
+  "Default",
+  "Catalogue 1",
+  "Catalogue 2"
+ ],
+ "sinceOptions": [
+  "Today",
+  "Yesterday",
+  "This Week"
+ ],
+ "deliveryCandidates": [
+  {
+   "name": "Raman",
+   "address": null,
+   "total": 1652.28,
+   "items": 22,
+   "tone": "amber"
+  },
+  {
+   "name": "Rakesh",
+   "address": "Sangola, Maharashtra, 765456",
+   "total": 88,
+   "items": 2,
+   "tone": "blue"
+  },
+  {
+   "name": "Raj Traders",
+   "address": null,
+   "total": 187.2,
+   "items": 4,
+   "tone": "emerald"
+  },
+  {
+   "name": "Anand Store",
+   "address": null,
+   "total": 367.66,
+   "items": 12,
+   "tone": "violet"
+  },
+  {
+   "name": "Kiran",
+   "address": "Sangola, Maharashtra, 655676",
+   "total": 3000,
+   "items": 1,
+   "tone": "rose"
+  },
+  {
+   "name": "Naveen",
+   "address": "F-262, phase-8b, Mizoram, 160071",
+   "total": 262.5,
+   "items": 1,
+   "tone": "blue"
+  },
+  {
+   "name": "Dinesh Store",
+   "address": "Andheri East, Mumbai, 400069",
+   "total": 1204.5,
+   "items": 8,
+   "tone": "amber"
+  },
+  {
+   "name": "Rana Store",
+   "address": "Dadar West, Mumbai, 400028",
+   "total": 940.0,
+   "items": 6,
+   "tone": "emerald"
+  },
+  {
+   "name": "Suresh Kumar",
+   "address": null,
+   "total": 415.75,
+   "items": 3,
+   "tone": "violet"
+  },
+  {
+   "name": "Bharat Store",
+   "address": "Thane West, Thane, 400601",
+   "total": 2210.4,
+   "items": 15,
+   "tone": "rose"
+  }
+ ],
+ "deliveryCandidateTotal": 161
+}

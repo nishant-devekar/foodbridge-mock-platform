@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+  Purchase Orders — the product-owner prototype of production's /sourcing-orders screen
+  (foodbridge-module-purchase, mounted by storefront-frontend).
+
+  Vanilla HTML/CSS/JS, no build step, no framework. Runs entirely from js/data/*.json.
+  Serve over HTTP (the data is fetched): python3 -m http.server, then open this file.
+
+  URL options (all optional):
+    ?chrome=full     the QA store's sidebar + header around the screen (default)
+    ?chrome=none     the screen alone, in the host's page frame — what the parity harness compares
+    ?scenario=empty | error | loading     how the purchase-order list's "server" answers
+    ?tenant=all-features | no-forecast    a tenant variant (js/data/tenant-variants.json)
+
+  How it is built, and how to change it: README.md.
+-->
+<html lang="en" class="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light only" />
+  <title>Purchase Orders — FoodBridge</title>
+  <!-- The host page's stylesheet comes BEFORE Tailwind, as in production (main.jsx imports it first). -->
+  <link rel="stylesheet" href="css/host/custom.css" />
+  <script src="js/vendor/tailwind-play-3.4.16.js"></script>
+  <script src="js/tailwind.config.js"></script>
+  <!-- Everything below loads AFTER Tailwind's output in production; app.js keeps that order. -->
+  <link rel="stylesheet" href="css/vendor/react-loading-skeleton.css" data-after-tailwind />
+  <link rel="stylesheet" href="css/vendor/react-toastify.css" data-after-tailwind />
+  <link rel="stylesheet" href="css/vendor/react-tooltip.min.css" data-after-tailwind />
+  <link rel="stylesheet" href="css/vendor/module-bundled.css" data-after-tailwind />
+  <link rel="stylesheet" href="css/react-select.css" data-after-tailwind />
+  <link rel="stylesheet" href="css/purchase-orders.css?v=20260929PO11" data-after-tailwind />
+  <link rel="stylesheet" href="assets/mock-shell.css" data-after-tailwind data-shell-only />
+</head>
+<body class="antialiased">
+  <!-- Production's Tailwind utility order, met first (tests/parity/tailwind-order-sync.mjs). -->
+  <script src="js/vendor/tailwind-order.js"></script>
+  <div id="root"></div>
+  <!-- The QA store sidebar + header (classic script, shared with the other module mockups). -->
+  <script src="assets/icons.js"></script>
+  <script src="assets/mock-shell.js"></script>
+  <script type="module" src="js/app.js?v=20260929PO22"></script>
+</body>
+</html>

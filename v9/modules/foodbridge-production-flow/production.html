@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Production — one page for the day and the week (28 Sep 2026). It replaces
+  Production Plan, Shifts and Shop Floor: Needs you on top; To make → On the
+  floor → Done along a batch's life; Crew today at the foot; a This week lens
+  for the plan. Reads and writes the one production store
+  (v7/assets/production/production-api.js). See README.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Production</title>
+  <link rel="stylesheet" href="flow.css?v=20260926PR1" />
+  <link rel="stylesheet" href="board.css?v=20261003CF1" />
+</head>
+<body>
+  <!-- the platform's page header, the same as Sales Orders -->
+  <script src="../../assets/app-header.js?v=20260929VF1"></script>
+  <script>FBAppHeader.mount({ title: "Production" });</script>
+  <!-- Today · Week · All batches: the same fixed tabs on the Batches page -->
+  <script src="../../assets/production-tabs.js?v=20260929PO105"></script>
+  <div class="page" id="app"></div>
+  <script src="../../assets/production/production-api.js?v=20261003FL1"></script>
+  <script src="../../assets/production/plan-tables.js?v=20261003PL1"></script>
+  <script src="board.js?v=20261003PL1"></script>
+</body>
+</html>

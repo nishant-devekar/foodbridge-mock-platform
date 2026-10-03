@@ -1,0 +1,94 @@
+{
+  "_comment": "Fake but representative data used only in discovery role-play. Never imported by development/. Mirrors the As-is screenshots in instructions/inputs/RetailsModuleItteration/As-is/.",
+
+  "company": {
+    "name": "Role Play Wholesale",
+    "tagline": "Beverages & FMCG Distributor",
+    "rating": 4.8,
+    "reviews": 212,
+    "address": "14, Industrial Estate Road, Whitefield, Bengaluru 560066",
+    "phone": "+91 98765 43210",
+    "email": "orders@roleplaywholesale.in",
+    "hours": "Mon–Sat, 9:00 AM – 7:00 PM",
+    "gst": "29ABCDE1234F1Z5"
+  },
+
+  "categories": [
+    { "id": "all", "label": "All" },
+    { "id": "water", "label": "Water" },
+    { "id": "soda", "label": "Soda" },
+    { "id": "bread", "label": "Bread" }
+  ],
+
+  "products": [
+    { "id": "p-34567", "name": "250ml Pet", "artNo": "34567", "category": "water", "brand": "rsquare", "unit": "Bottle", "price": 10.50, "tax": 5, "available": 946, "image": "" },
+    { "id": "p-89744", "name": "500ml Pet", "artNo": "89744", "category": "water", "brand": "rsquare", "unit": "Bottle", "price": 15.75, "tax": 5, "available": 1000, "image": "" },
+    { "id": "p-42534", "name": "1ltr Bottle", "artNo": "42534", "category": "water", "brand": "rsquare", "unit": "Bottle", "price": 21.00, "tax": 5, "available": 1000, "image": "" },
+    { "id": "p-4534", "name": "Natural Water", "artNo": "4534", "category": "water", "brand": "rsquare", "unit": "Bottle", "price": 70.80, "tax": 18, "available": 1000, "image": "" },
+    { "id": "p-435345", "name": "Soda 650ml", "artNo": "435345", "category": "soda", "brand": "rsquare", "unit": "Bottle", "price": 21.00, "tax": 5, "available": 500, "image": "" },
+    { "id": "p-a102", "name": "Paaav", "artNo": "a102", "category": "bread", "brand": "", "unit": "Pc", "price": 8.00, "tax": 0, "available": 300, "image": "" }
+  ],
+
+  "orders": [
+    {
+      "id": "PO-10234",
+      "date": "2026-07-24",
+      "status": "Delivered",
+      "total": 1554.00,
+      "items": [
+        { "name": "250ml Pet", "qty": 100, "unit": "Bottle", "price": 10.50, "total": 1050.00 },
+        { "name": "Soda 650ml", "qty": 24, "unit": "Bottle", "price": 21.00, "total": 504.00 }
+      ],
+      "timeline": [
+        { "step": "Order Placed", "done": true },
+        { "step": "Packed", "done": true },
+        { "step": "Out for Delivery", "done": true },
+        { "step": "Delivered", "done": true }
+      ]
+    },
+    {
+      "id": "PO-10256",
+      "date": "2026-07-25",
+      "status": "Out for Delivery",
+      "total": 1899.60,
+      "items": [
+        { "name": "500ml Pet", "qty": 80, "unit": "Bottle", "price": 15.75, "total": 1260.00 },
+        { "name": "Natural Water", "qty": 9, "unit": "Bottle", "price": 70.80, "total": 637.20 }
+      ],
+      "timeline": [
+        { "step": "Order Placed", "done": true },
+        { "step": "Packed", "done": true },
+        { "step": "Out for Delivery", "done": true },
+        { "step": "Delivered", "done": false }
+      ]
+    },
+    {
+      "id": "PO-10271",
+      "date": "2026-07-27",
+      "status": "Processing",
+      "total": 1600.00,
+      "items": [
+        { "name": "1ltr Bottle", "qty": 76, "unit": "Bottle", "price": 21.00, "total": 1596.00 }
+      ],
+      "timeline": [
+        { "step": "Order Placed", "done": true },
+        { "step": "Packed", "done": false },
+        { "step": "Out for Delivery", "done": false },
+        { "step": "Delivered", "done": false }
+      ]
+    }
+  ],
+
+  "profile": {
+    "businessName": "Aditya Traders",
+    "contactName": "Aditya Kumar",
+    "memberSince": "Jan 2024",
+    "initials": "AT",
+    "credit": { "used": 18400, "limit": 50000 },
+    "addresses": [
+      { "label": "Shop – Main", "detail": "12 MG Road, Bengaluru 560001", "default": true },
+      { "label": "Warehouse", "detail": "Plot 4, Peenya Industrial Area, Bengaluru 560058", "default": false }
+    ],
+    "payment": { "method": "UPI", "handle": "aditya@okhdfc" }
+  }
+}

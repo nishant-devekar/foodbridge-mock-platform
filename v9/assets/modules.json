@@ -1,0 +1,543 @@
+{
+  "_comment": [
+    "The nav tree for the FoodBridge mock platform.",
+    "",
+    "Each leaf points at a module mockup published by its own team on GitHub Pages.",
+    "Nothing here is copied — the platform iframes the live URL, so when a team pushes,",
+    "this reflects it on the next load.",
+    "",
+    "clipLeft / clipTop: every module renders its OWN copy of the QA sidebar and header.",
+    "The platform owns the sidebar, so each module's sidebar is clipped away by offsetting",
+    "its iframe left by clipLeft px inside an overflow-hidden wrapper. clipTop is 0",
+    "everywhere on purpose: the module's own header is kept and serves as the app header,",
+    "because clipping vertically would push any sticky toolbar out of view.",
+    "",
+    "Every value here was MEASURED in a browser, one destination at a time — see",
+    "tools/measuring-clip-offsets.md. Do not infer one from a sibling: four widths are",
+    "in use (0, 212, 250, 256), and two screens in the same repo can differ.",
+    "",
+    "fullBleed (optional): a module that is its OWN experience, not an admin sub-",
+    "screen — e.g. the customer storefront. When it is active the platform hides",
+    "its sidebar (and mobile bar) so the module fills the whole window; clipLeft is",
+    "ignored. Use browser back to return to the admin.",
+    "",
+    "deviceFrame (optional): the module is a PHONE app, not a desktop screen.",
+    "At lg and above the platform draws its iframe as a phone — 400x860, bezel,",
+    "radius 46 — centred on its own canvas, and keeps the sidebar even when the",
+    "module is fullBleed. Below lg it changes nothing. Framing the IFRAME means",
+    "everything inside, sheets and toasts included, is contained by construction.",
+    "",
+    "urlMobile (optional): a phone-specific screen. The platform loads it instead",
+    "of url below 768px, and swaps live when the viewport crosses that width.",
+    "",
+    "mHeaderH (optional, default 56): the height in px of the module's OWN header",
+    "on mobile. Below lg the platform draws a single 56px QA-store header that",
+    "overlays the module's; this value aligns them (0 = module has no header, so",
+    "content is pushed down; 67 = taller header, pulled up and fully covered).",
+    "Measured per module in a browser at ~390px.",
+    "",
+    "clipLeftMobile (optional, default 0): horizontal clip to keep on mobile. 0 for",
+    "modules that collapse their sidebar into a hamburger; = clipLeft for the few",
+    "non-responsive modules that still render a fixed sidebar at phone width.",
+    "",
+    "standalone: destinations that are routable by URL (#/<id>) but NOT shown in",
+    "the sidebar. The storefront lives here: it is reached by scanning the Store",
+    "QR code (storeQr.targetRoute), not from the admin nav."
+  ],
+  "brand": {
+    "name": "Vasu Foods"
+  },
+  "user": {
+    "displayName": "Chanchal Sachdeva",
+    "role": "Owner"
+  },
+  "storeQr": {
+    "label": "Store QR Code",
+    "subtitle": "Share with customers to let them join your store",
+    "targetRoute": "retails-overview"
+  },
+  "nav": [
+    {
+      "_why": "In the sidebar since 21 Sep 2026; rebuilt 22 Sep 2026 on the five levers (context/control-tower/CONTROL_TOWER_LEVERS.md). Framed like every nav destination -- the shell draws the sidebar and, on a phone, the 56px header; the page draws, on a big screen, its own top bar the same as Reports (its name, who is signed in); the Overview's five lever cards are home, a card opens its lever with a Back bar; the Timeline (the business's news) is the footer's second tab; the footer's Assistant opens a WhatsApp-style chat over any screen; the platform footer Tower · Create · EXIT DEMO in place of the shell's EXIT DEMO bar.",
+      "_whyBar": "ownExitBar (24 Sep 2026): the tower draws its own four-slot bar (Tower, Deliveries, Collections, More) and offers Exit demo inside More, so the shell's EXIT DEMO bar stands down here.",
+      "id": "control-tower",
+      "name": "Control Tower",
+      "ownExitBar": true,
+      "url": "screens/control-tower.html?v=20261003PR1",
+      "clipLeft": 0,
+      "mHeaderH": 0,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)",
+      "aliases": [
+        "overview/control-tower"
+      ],
+      "icon": "layoutGrid"
+    },
+    {
+      "_why": "One item, not a group of one and a half: the submenu held the same name as its parent plus Order Drafts, which is a destination onboarding hands off to rather than a place anyone browses to. Order Drafts is standalone now — addressable at #/order-drafts, absent from the sidebar.",
+      "id": "sales-orders",
+      "exitIn": "div.fixed.bottom-0.z-40",
+      "name": "Sales Order",
+      "icon": "shoppingCart",
+      "url": "modules/foodbridge-sales-orders-mockup/index.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nishant-devekar/foodbridge-sales-orders-mockup",
+      "hideBurger": true
+    },
+    {
+      "_why": "deviceFrame: the route rep's field app, drawn inside a phone on desktop the way Stock Audit frames itself, with the sidebar kept. fullBleed still governs mobile, where it has the screen to itself.",
+      "id": "delivery-management",
+      "name": "Delivery Management",
+      "url": "modules/foodbridge-route-delivery/screens/delivery/index.html?v=20261003SH1",
+      "barIn": "#app div:has(> .rd-tab)",
+      "padIn": ".rd-body",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "deviceFrame": true,
+      "ownExitBar": true,
+      "_whyOwnExitBar": "Its own tab bar -- Home, Routes, Follow-up, Reports, EXIT DEMO -- is the footer; EXIT DEMO in it opens the shared exit sheet (delivery-core.js). The shell's bar was drawn over it on a phone (21 Sep 2026, product owner: bring the route delivery footer back).",
+      "owner": "nishant-devekar/foodbridge-mock-platform",
+      "aliases": [
+        "distribution-logistics/delivery-management"
+      ],
+      "icon": "truck"
+    },
+    {
+      "id": "product-master",
+      "name": "Product Master",
+      "icon": "package",
+      "submenus": [
+        {
+          "id": "finished-goods",
+          "exitIn": "#mfooter",
+          "name": "Finished Goods",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html?v=20261003SH1",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
+        },
+        {
+          "id": "semi-finished-goods",
+          "exitIn": "#mfooter",
+          "name": "Semi Finished Goods",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/semi-finished-goods.html?v=20261003V9N1",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ],
+          "_why": "v9 (3 Oct 2026, owner's sidebar): the semi-finished goods as their own master — the cuts made in-house from raw material (Raw Materials lists only what is bought)."
+        },
+        {
+          "id": "raw-materials",
+          "exitIn": "#mfooter",
+          "name": "Raw Materials",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/raw-materials.html?v=20261003V9N1",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
+        },
+        {
+          "id": "product-categories",
+          "exitIn": "#mfooter",
+          "name": "Product Categories",
+          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/categories.html?v=20261003SH1",
+          "clipLeft": 250,
+          "mHeaderH": 67,
+          "owner": "exagon-ai/foodbridge-module-products",
+          "hideBurger": true
+        }
+      ]
+    },
+    {
+      "id": "production",
+      "name": "Production",
+      "icon": "factory",
+      "submenus": [
+        {
+          "_why": "28 Sep 2026, owner: one page instead of Production Plan, Shifts and Shop Floor. Needs you on top; To make → On the floor → Done along a batch's life; Crew today at the foot with the worker-app QR; a This week lens for the plan. 'Put on the floor' makes or joins today's shift itself. Reads and writes the one production store (assets/production/production-api.js). The three old leaves are retired and their addresses land here.",
+          "id": "production-board",
+          "aliases": [
+            "production-plan",
+            "production/production-plan",
+            "shifts",
+            "production/shifts",
+            "worker-shifts",
+            "shop-floor",
+            "production/shop-floor",
+            "worker-management",
+            "worker-live",
+            "worker-analytics"
+          ],
+          "name": "Production board",
+          "url": "modules/foodbridge-production-flow/production.html?v=20261003PL1",
+          "clipLeft": 0,
+          "hideBurger": true,
+          "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+        },
+        {
+          "_why": "Configure Recipe, re-seeded to the reference business (frozen green peas, mixed vegetables, soya chaap) from the production store by recipe-store.js; its Create Production Order makes a real Planned batch. The phone page (mobile-v4.html) still shows the cookie recipe, so phones get this page too. 28 Sep 2026: Process Steps (JobFlow's Workflow Editor) moved in as the recipe's Process tab (recipe-steps.js), with Packing as a closed section every recipe shares; its leaf is retired and its old addresses land here.",
+          "id": "configure-recipe",
+          "aliases": [
+            "process-steps",
+            "workflow-editor",
+            "production/process-steps"
+          ],
+          "name": "Recipes",
+          "url": "modules/foodbridge-production-discovery/production-planning/screens/recipie/recipe-v4.html?v=20261003SH1",
+          "clipLeft": 212,
+          "hideBurger": true,
+          "clipLeftMobile": 212,
+          "owner": "nishant-devekar/foodbridge-production-discovery"
+        },
+        {
+          "_why": "Batch Management owns every batch number (PB- production, PK- packing). Its seed calls read the production store; the floor moves its states (first step started → In Progress, last step done → Completed) and a Steps tab shows who · how much · when. 29 Sep 2026, owner: retired from the sidebar (hidden) — it is the Production page's All batches, reached from its Today · Week · All batches, and every link to a batch still lands here.",
+          "id": "batch-management",
+          "aliases": [
+            "worker-batches"
+          ],
+          "name": "Batches",
+          "hidden": true,
+          "url": "modules/foodbridge-production-discovery/batch-management/screens/batch/batch-workspace.html?v=20261003SH1",
+          "clipLeft": 0,
+          "hideBurger": true,
+          "exitIn": "nav.bottom-nav",
+          "owner": "nishant-devekar/foodbridge-production-discovery"
+        }
+      ],
+      "personas": [
+        "manufacturer"
+      ]
+    },
+    {
+      "id": "inventory",
+      "name": "Inventory",
+      "icon": "warehouse",
+      "submenus": [
+        {
+          "id": "raw-material-inventory",
+          "name": "Raw Material Inventory",
+          "url": "modules/foodbridge-inventory-mockup/screens/raw-material-inventory/screen-01-live-stock.html?v=20261003SH1",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
+        },
+        {
+          "_why": "28 Sep 2026: the third stock, made but not packed yet — Production's Freezer Stock moved here, where stock lives (owner). Same engine as the other two (catalogueType SEMI-FINISHED): Current Stock with Total · Reserved (held for packing orders) · Available · Shortfall, Expiry report, Batch History Report (a lot per container, from its batch to the packing orders that took from it). What it's held in and where comes from each recipe's fill step, so it reads right for any business.",
+          "id": "semi-finished-inventory",
+          "aliases": [
+            "semifinished-products",
+            "production/semifinished-products",
+            "freezer-stock"
+          ],
+          "name": "Semi-Finished Inventory",
+          "url": "modules/foodbridge-inventory-mockup/screens/semi-finished-inventory/screen-01-current-stock.html?v=20261003SH1",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true,
+          "personas": [
+            "manufacturer"
+          ]
+        },
+        {
+          "id": "finished-goods-inventory",
+          "name": "Finished Goods Inventory",
+          "url": "modules/foodbridge-inventory-mockup/screens/inventory/screen-01-current-stock.html?v=20261003SH1",
+          "clipLeft": 256,
+          "owner": "nishant-devekar/foodbridge-inventory-mockup",
+          "hideBurger": true
+        }
+      ]
+    },
+    {
+      "id": "procurement",
+      "name": "Procurement",
+      "icon": "clipboardCheck",
+      "submenus": [
+        {
+          "id": "purchase-orders",
+          "exitIn": "div.fixed.bottom-0.z-40:not([data-tailwind-order])",
+          "name": "Purchase Orders",
+          "url": "modules/foodbridge-module-procurement/index.html?v=20261003SH1",
+          "clipLeft": 256,
+          "owner": "love-scripter/foodbridge-module-procurement",
+          "hideBurger": true
+        },
+        {
+          "id": "supplier-management",
+          "name": "Supplier Management",
+          "url": "modules/foodbridge-module-procurement/screens/screen-09.html?v=20261003SH1",
+          "clipLeft": 256,
+          "clipLeftMobile": 256,
+          "mHeaderH": 86,
+          "owner": "love-scripter/foodbridge-module-procurement",
+          "hideBurger": true
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "icon": "banknote",
+      "submenus": [
+        {
+          "id": "customer-receivables",
+          "name": "Customer Receivables",
+          "url": "modules/invoice-payment-overview/screens/invoices-payments.html?v=20261003SH1",
+          "clipLeft": 250,
+          "owner": "kdansari02/invoice-payment-overview"
+        },
+        {
+          "id": "supplier-payables",
+          "name": "Supplier Payables",
+          "url": "modules/invoice-payment-overview/screens/supplier-invoices-payments.html?v=20261003SH1",
+          "clipLeft": 250,
+          "owner": "kdansari02/invoice-payment-overview"
+        }
+      ]
+    },
+    {
+      "id": "workforce-management",
+      "exitIn": "div.fixed.bottom-0.z-40",
+      "name": "Staff",
+      "icon": "userCog",
+      "url": "modules/foodbridge-staff-mockup/screens/screen-01-staff-list.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nishant-devekar/foodbridge-staff-mockup",
+      "hideBurger": true
+    }
+  ],
+  "standalone": [
+    {
+      "id": "retails-overview",
+      "name": "Store",
+      "url": "modules/retails-overview/discovery/screens/desktop-v6.html?v=20261003SH1",
+      "urlMobile": "modules/retails-overview/discovery/screens/mobile-v6.html?v=20261003SH1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "kdansari02/retails-overview"
+    },
+    {
+      "_whyNoExitBar": "Setting a business up is not a demo to be rated half way through. The flow carries its own ways out — its Back, and \"Have a look around first\" on the first screen — and the bar returns as soon as the flow hands off.",
+      "id": "onboarding",
+      "name": "New user onboarding",
+      "noExitBar": true,
+      "url": "modules/foodbridge-onboarding/screens/onboarding.html?v=20261003SH1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+    },
+    {
+      "_why": "Out of the sidebar on 18 September 2026, product owner's call. The screen and its module folder are untouched and it stays routable at #/inventory-intelligence, so putting it back in the Inventory group is a two-line change.",
+      "id": "inventory-intelligence",
+      "name": "Inventory Intelligence",
+      "url": "modules/foodbridge-inventory-intelligence/v1/screens/inventory-intelligence/index.html",
+      "clipLeft": 256,
+      "owner": "exagon-ai/foodbridge-inventory-intelligence",
+      "hideBurger": true
+    },
+    {
+      "_why": "Where \"show me around\" lands. Before it existed, declining setup opened the import flow — the very question the user had just declined.",
+      "id": "explore",
+      "name": "Explore",
+      "url": "screens/explore.html?v=20261003SH1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+    },
+    {
+      "_why": "The destination onboarding hands prepared drafts to. Same module as onboarding under ?view=drafts, so it reads the record the flow wrote rather than a second copy of it. Reachable at #/order-drafts; not a sidebar item, because nobody browses to it — the flow sends you.",
+      "id": "order-drafts",
+      "name": "Order Drafts",
+      "url": "modules/foodbridge-onboarding/screens/onboarding.html?view=drafts&v=20260921C10",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "owner": "nishant-devekar/foodbridge-mock-platform (v7)"
+    },
+    {
+      "_why": "28 Sep 2026: Production › Month End retired into Reports as the Production Report tab (manufacturers only); its old addresses land here.",
+      "id": "reports",
+      "aliases": [
+        "dashboard",
+        "month-end",
+        "production/month-end",
+        "overview/reports"
+      ],
+      "name": "Reports",
+      "url": "modules/foodbridge-dashboard-mockup/v2/screens/dashboard/dashboard.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nidhimehta9399/foodbridge-dashboard-mockup",
+      "hideBurger": true,
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "image-gallery",
+      "exitIn": "#mfooter",
+      "name": "Image Gallery",
+      "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/image-directory.html?v=20261003SH1",
+      "clipLeft": 250,
+      "mHeaderH": 67,
+      "owner": "exagon-ai/foodbridge-module-products",
+      "hideBurger": true,
+      "aliases": [
+        "product-master/image-gallery"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "b2b-customers",
+      "exitIn": ".mobile-foot",
+      "name": "B2B Customers",
+      "url": "modules/foodbridge-customer-mockup/v1/screens/customers/b2b-customers.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nidhimehta9399/foodbridge-customer-mockup",
+      "hideBurger": true,
+      "aliases": [
+        "customer-management/b2b-customers"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "retail-customers",
+      "exitIn": ".mobile-foot",
+      "name": "Retail Customers",
+      "url": "modules/foodbridge-customer-mockup/v1/screens/customers/retail-customers.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nidhimehta9399/foodbridge-customer-mockup",
+      "hideBurger": true,
+      "aliases": [
+        "customer-management/retail-customers"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "catalog",
+      "exitIn": "#mfooter",
+      "name": "Catalog",
+      "url": "modules/foodbridge-customer-mockup/v1/screens/catalog/catalog.html?v=20261003SH1",
+      "clipLeft": 250,
+      "mHeaderH": 67,
+      "owner": "nidhimehta9399/foodbridge-customer-mockup",
+      "hideBurger": true,
+      "aliases": [
+        "customer-management/catalog"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "stock-audit-health",
+      "name": "Stock Audit",
+      "url": "modules/foodbridge-customer-mockup/v3/screens/customers/stock-audit.html?v=20261003SH1",
+      "clipLeft": 256,
+      "owner": "nidhimehta9399/foodbridge-customer-mockup",
+      "hideBurger": true,
+      "aliases": [
+        "customer-management/stock-audit-health"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "route-planning",
+      "exitIn": "#mfooter",
+      "name": "Route Planning",
+      "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/route-planning/index.html?v=20261003SH1",
+      "clipLeft": 250,
+      "mHeaderH": 67,
+      "owner": "kdansari02/foodbridge-module-distribution-logistics",
+      "hideBurger": true,
+      "aliases": [
+        "distribution-logistics/route-planning"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "logistic-returns",
+      "name": "Logistic Returns",
+      "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/logistic-returns/index.html?v=20261003SH1",
+      "clipLeft": 250,
+      "mHeaderH": 67,
+      "owner": "kdansari02/foodbridge-module-distribution-logistics",
+      "hideBurger": true,
+      "aliases": [
+        "distribution-logistics/logistic-returns"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "id": "live-tracking",
+      "exitIn": "#mfooter",
+      "name": "Live Delivery Tracking",
+      "url": "modules/foodbridge-module-distribution-logistics/discovery/paths/live-tracking/index.html?v=20261003SH1",
+      "clipLeft": 250,
+      "mHeaderH": 67,
+      "owner": "kdansari02/foodbridge-module-distribution-logistics",
+      "hideBurger": true,
+      "aliases": [
+        "distribution-logistics/live-tracking"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    },
+    {
+      "_why": "26 Sep 2026: the worker's phone, not an office screen. 29 Sep 2026, owner: back in the sidebar as Production's third entry, so the office can open what the floor sees. PIN sign-in against the one roster (Workforce Management's factory staff). Framed as a phone on a big screen.",
+      "id": "worker-app",
+      "name": "Worker App",
+      "url": "modules/jobflow-worker-management/worker-app/index.html?v=20261003SH1",
+      "clipLeft": 0,
+      "fullBleed": true,
+      "deviceFrame": true,
+      "owner": "Nidhimehta9399/jobflow-worker-app",
+      "aliases": [
+        "production/worker-app"
+      ],
+      "_v9": "Left the sidebar in v9 (owner, 3 Oct 2026); still routable by its id and its old address."
+    }
+  ],
+  "hidden": [
+    {
+      "name": "Production Settlement",
+      "under": "Production",
+      "why": "A mockup exists (production-settlement/screens/settlement/index.html) but the QA sidebar has no such item, so it is not in the nav."
+    },
+    {
+      "name": "Stock Audit Settlement",
+      "under": "(top level)",
+      "why": "No mockup supplied."
+    },
+    {
+      "name": "Route Delivery",
+      "under": "(sidebar footer)",
+      "why": "No mockup supplied."
+    },
+    {
+      "name": "Store QR Code",
+      "under": "(sidebar footer)",
+      "why": "Present: opens a QR that deep-links to the 'retails-overview' standalone storefront."
+    }
+  ],
+  "personas": [
+    {
+      "id": "manufacturer",
+      "name": "Manufacturer",
+      "blurb": "Makes and sells — the whole platform"
+    },
+    {
+      "id": "distributor",
+      "name": "Distributor",
+      "blurb": "Buys finished goods and resells"
+    }
+  ],
+  "personaDefault": "manufacturer",
+  "_landing": "v5 tests the first session after signing up, so a bare /v5/ opens onboarding rather than the dashboard. Onboarding stays standalone: claiming the landing does not put it in the sidebar.",
+  "landing": "onboarding",
+  "_frozen": "Version 3 — a frozen, self-contained snapshot. Every destination below is a local copy under modules/, not a live GitHub Pages URL, so this folder renders the same whatever the module teams push next. See VERSION.md.",
+  "_v9nav": "v9 (3 Oct 2026): the owner's sidebar for a manufacturer — Control Tower · Sales Order · Delivery Management · Product Master (Finished Goods, Semi Finished Goods, Raw Materials, Product Categories) · Production (Production board, Recipes) · Inventory (Raw Material, Semi-Finished, Finished Goods) · Procurement (Purchase Orders, Supplier Management) · Finance (Customer Receivables, Supplier Payables) · Staff. Pages that left it are standalone, reachable by their old addresses."
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <title>Send contacts · FoodBridge</title>
+  <link rel="icon" href="../../favicon.ico">
+  <style>
+    /* Store Builder · the page his phone opens from the QR code on his computer (1 Oct 2026).
+       One job: pick contacts, send them across. Same greens as the desktop card. */
+    :root { --g: #0e8a3c; --g-d: #0b7534; --ink: #0d0f12; --sub: #4b5058; --muted: #7c838c; --line: #e3e9e5; --tint: #eef5f0; --now: #10281b; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { font: 15px/1.45 Inter, -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif; color: var(--ink); background: #f4f7f5; -webkit-font-smoothing: antialiased; }
+    .pg { min-height: 100svh; display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+    .top { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+    .top img { width: 32px; height: 32px; border-radius: 9px; }
+    .card { margin-top: 18px; flex: 1; display: flex; flex-direction: column; padding: 26px 22px 22px; background: #fff; border-radius: 24px;
+      box-shadow: 0 0 0 1px rgba(16, 40, 27, .05), 0 18px 40px -20px rgba(16, 40, 27, .18); }
+    .hero { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; background: var(--tint); color: var(--g); }
+    .hero.is-ok { background: var(--g); color: #fff; }
+    h1 { margin: 18px 0 0; font-size: 26px; line-height: 1.2; letter-spacing: -.02em; }
+    p.s { margin: 8px 0 0; color: var(--sub); }
+    .fill { flex: 1; min-height: 24px; }
+    .cta { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 56px; border: 0; border-radius: 16px;
+      background: var(--g); color: #fff; font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+    .cta:active { background: var(--g-d); }
+    .cta[disabled] { opacity: .6; }
+    .alt { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; margin-top: 10px; border: 1.5px solid var(--line);
+      border-radius: 14px; background: #fff; color: var(--ink); font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .how { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--tint); font-size: 13px; color: var(--sub); }
+    .how b { display: block; color: var(--ink); font-size: 14px; }
+    .how ol { margin: 8px 0 0; padding-left: 20px; }
+    .how li + li { margin-top: 4px; }
+    .how small { display: block; margin-top: 8px; color: var(--muted); }
+    a.cta { text-decoration: none; }
+    .how.is-alt { background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+    .how.is-alt b { display: inline; font-size: 13px; }
+    .safe { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; font-size: 12.5px; color: var(--muted); justify-content: center; }
+    .who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+    .who span { padding: 5px 10px; border-radius: 99px; background: var(--tint); font-size: 12.5px; font-weight: 600; color: #2c4436; }
+    .err { color: #b42318; }
+    .sr { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .ic { flex: 0 0 auto; }
+    label.cta, label.alt { position: relative; }
+    .pics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 16px; }
+    .pics img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+  </style>
+</head>
+<body>
+  <main class="pg">
+    <div class="top"><img src="../foodbridge-mark-green.png?v=1" alt="">FoodBridge</div>
+    <div class="card" id="card"></div>
+  </main>
+  <script src="../icons.js?v=20261001N3"></script>
+  <script src="../model.js?v=20261001N3"></script>
+  <script src="../import.js?v=20261001N3"></script>
+  <script src="../outbox.js?v=20261001N3"></script>
+  <script src="../gcontacts.js?v=20261001N3"></script>
+  <script src="send.js?v=20261001N3"></script>
+</body>
+</html>

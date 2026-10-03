@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Foodbridge Module Inventory Management — "Live Stock"
+
+  Standalone-openable: serve discovery/ over HTTP and open this file directly.
+  Also reachable from the wiring hub (../../index.html).
+
+  Tab 1 of 4 — the landing tab. The same LiveStockSection as /inventory,
+  scoped to raw materials via catalogueType.
+
+  Outgoing transitions (proto-FSM feeding SSOT-1 / SSOT-5):
+    - Low Stock tab          -> screen-02-low-stock.html
+    - Inventory Health tab   -> screen-03-inventory-health.html
+    - Batch History tab      -> screen-04-batch-history.html
+    - Receive Stock          -> screen-05-receive-stock.html
+
+  Rules: HTML/CSS/vanilla JS only. No frameworks, no build step, no real API calls.
+  Data comes from ../../seed-data/seed.json. Disposable — informs the SSOTs, not
+  imported by development/.
+
+  Ported from storefront-frontend@develop, route /raw-material-inventory (src/pages/RawMaterialsInventory.jsx).
+  See ../../instructions/addendum-002-live-inventory-port.md.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raw Material Inventory — Live Stock</title>
+
+  <!-- Tailwind, vendored (no build step, no network dependency at view time).
+       Downloaded once from https://cdn.tailwindcss.com/3.4.16 -->
+  <script src="../../assets/tailwind-play-3.4.16.js"></script>
+  <script>
+    // Mirrors storefront-frontend/tailwind.config.js — the custom `screens`
+    // scale REPLACES Tailwind's defaults there, so it must here too or the
+    // responsive breakpoints diverge.
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        screens: {
+          xss: "320px", xs: "420px", sm: "640px", md: "768px",
+          ipad: { min: "960px", max: "1023px" },
+          lg: "1024px", xl: "1280px", "2xl": "1440px",
+        },
+        extend: {
+          fontFamily: {
+            sans: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+            serif: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+          },
+          boxShadow: {
+            bottom: "0 5px 6px -7px rgba(0, 0, 0, 0.6), 0 2px 4px -5px rgba(0, 0, 0, 0.06)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="../../assets/mock-shell.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- This module draws its own mobile Receive Stock bar; the control is a tab
+       in the demo footer now, so the bar and the 4rem spacer under it go. -->
+  <style>
+    @media (max-width: 1023.98px) {
+      #root div.fixed.bottom-0:has([data-receivestock]),
+      #root div.fixed.bottom-0:has([data-receivestock]) + div { display: none !important; }
+    }
+  </style>
+  <!-- The end-of-demo footer and the three ways out behind it. One shared
+       asset for every screen that carries it: v7/assets/exit-demo.js. -->
+  <script src="../../../../assets/exit-demo.js?v=20260923DX2"></script>
+  <script>
+    /* This screen mounts its OWN bar even when framed, because it passes a
+       Receive Stock tab through it — suppressing the bar would take the
+       control with it. The shell notices a framed bar and stands its own
+       down; see assets/platform.js. */
+    window.FB_EXIT.mount({
+      /* Above the page, below this module's own overlays. */
+      z: 39,
+        tabs: [{
+          /* Receive Stock was this module's own mobile sticky bar; it is a tab
+             in the demo footer now. The click is forwarded to the module's own
+             control so the AddBatchDrawer opens through the module's wiring,
+             which is re-bound on every render. */
+          label: "Receive Stock", green: true,
+          icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px" aria-hidden="true"><path d="M16 16h6"/><path d="M19 13v6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+          onClick: function () { var b = document.querySelector("#root [data-receivestock]"); if (b) b.click(); }
+        }],
+    });
+  </script>
+  <script src="../../assets/icons.js"></script>
+  <script src="../../assets/mock-shell.js?v=20261003SH1"></script>
+  <script src="../../assets/mock-inventory.js?v=20260929NB1"></script>
+  <script>
+    window.MockInventory.mount({ tab: "live", route: "/raw-material-inventory", catalogueType: "RAW-MATERIAL", tabs: window.MockInventory.TABS_RM });
+  </script>
+</body>
+</html>

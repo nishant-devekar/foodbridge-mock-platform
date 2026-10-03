@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  JobFlow Worker — the Job Workflow worker mockup (jobwork-worker-app.html,
+  28 Sep 2026) over the in-browser JobFlow API in
+  ../../../assets/production/production-api.js. app.css is plain CSS; no
+  build, no service worker: this copy is a screen, not an installable app.
+  See ../README.md.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#1B6272" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="JobFlow" />
+    <title>JobFlow Worker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="app.css?v=20260928WK6" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../../assets/production/production-api.js?v=20261003FL1"></script>
+    <script src="../shared/ui.js?v=20260926PR1"></script>
+    <script src="i18n.js?v=20260929SL2"></script>
+    <script src="worker.js?v=20261003SH1"></script>
+  </body>
+</html>

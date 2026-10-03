@@ -1,0 +1,73 @@
+<!doctype html>
+<!--
+  DISCOVERY SCREEN — Inventory Intelligence (addendum-004)
+
+  The V1 Inventory Intelligence experience: one app, six views. Overview is the
+  workspace; Stock, Expiry, Batches, Working Capital and Opportunities are
+  drill-downs reached from it, not separate report pages.
+
+  Reads ../../seed-data/seed-intelligence.json, which keeps real figures and mock
+  ones apart. Real: stock, committed, batch qty/expiry/price/tax. Mock: dated
+  demand, run rate, KVI flags, opportunity, snapshots — the model's two missing
+  foundations (addendum-003 §9) plus what depends on them. Every mock number is
+  labelled in the UI.
+
+  Serve discovery/ over HTTP and open this file. Rules: HTML/CSS/vanilla JS only,
+  no frameworks, no build step. window.prompt is unusable here because the mock
+  platform iframes these screens.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory Intelligence</title>
+
+  <!-- Tailwind, vendored (no build step, no network dependency at view time).
+       Downloaded once from https://cdn.tailwindcss.com/3.4.16 -->
+  <script src="../../assets/tailwind-play-3.4.16.js"></script>
+  <script>
+    // Mirrors storefront-frontend/tailwind.config.js — the custom `screens`
+    // scale REPLACES Tailwind's defaults there, so it must here too or the
+    // responsive breakpoints diverge.
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        screens: {
+          xss: "320px", xs: "420px", sm: "640px", md: "768px",
+          ipad: { min: "960px", max: "1023px" },
+          lg: "1024px", xl: "1280px", "2xl": "1440px",
+        },
+        extend: {
+          fontFamily: {
+            sans: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+            serif: ["system-ui", "sans-serif", "Arial", "Helvetica"],
+          },
+          boxShadow: {
+            bottom: "0 5px 6px -7px rgba(0, 0, 0, 0.6), 0 2px 4px -5px rgba(0, 0, 0, 0.06)",
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="../../assets/mock-shell.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Discovery-only affordance. Append ?bare=1 for a clean pixel comparison. -->
+  <a id="back-pill" href="../../index.html"
+     style="position:fixed;left:12px;bottom:12px;z-index:99999;font:500 11px system-ui,sans-serif;
+            background:rgba(31,41,55,.88);color:#e5e7eb;padding:5px 10px;border-radius:9999px;
+            text-decoration:none;backdrop-filter:blur(4px)">&#8592; screens</a>
+
+  <script src="../../assets/icons.js"></script>
+  <script src="../../assets/mock-shell.js"></script>
+  <script src="../../assets/mock-intel.js"></script>
+  <script>
+    if (new URLSearchParams(location.search).has("bare")) {
+      document.getElementById("back-pill").remove();
+    }
+    window.MockIntel.mount({});
+  </script>
+</body>
+</html>

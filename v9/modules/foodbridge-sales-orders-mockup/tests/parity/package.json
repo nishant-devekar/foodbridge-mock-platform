@@ -1,0 +1,16 @@
+{
+  "name": "sales-orders-mockup-parity",
+  "private": true,
+  "type": "module",
+  "description": "Pixel + interaction parity between the production Sales Orders module (the oracle) and this HTML prototype. Tooling only — the prototype itself has no build step and no dependencies.",
+  "scripts": {
+    "parity": "node run.mjs",
+    "parity:list": "node run.mjs --list",
+    "compare": "node compare.mjs"
+  },
+  "devDependencies": {
+    "pixelmatch": "^6.0.0",
+    "playwright": "1.62.1",
+    "pngjs": "^7.0.0"
+  }
+}

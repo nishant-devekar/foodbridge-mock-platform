@@ -1,0 +1,210 @@
+/*
+  DISCOVERY MOCK — non-Tailwind styles.
+
+  Everything that the live app gets from a Tailwind *class* is emitted as that
+  same literal class string in the generated markup (see mock-shell.js /
+  mock-staff.js), so the DOM matches the live DOM. This file only carries what
+  the live app gets from hand-written CSS or third-party packages:
+
+    • @keyframes enterAnimation      → src/assets/css/custom.css (AnimatedContent)
+    • scrollbar hiding               → tailwind-scrollbar-hide plugin
+    • .rc-drawer-*                   → rc-drawer package (MainDrawer.jsx)
+    • react-loading-skeleton         → TableLoading.jsx
+    • react-select                   → StaffDrawer.jsx role picker
+
+  Ported from storefront-frontend@develop. See
+  discovery/instructions/addendum-002-live-frontend-port.md.
+*/
+
+/* ── AnimatedContent (custom.css) ──────────────────────────────────────── */
+@keyframes enterAnimation {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-enter {
+  animation: enterAnimation 0.8s ease forwards;
+}
+
+/* ── tailwind-scrollbar-hide plugin ────────────────────────────────────── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Sidebar scroll area — SidebarContent.jsx sets these inline. */
+.sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── rc-drawer (MainDrawer.jsx) ────────────────────────────────────────── */
+/* Live: <Drawer placement="right" width={ windowDimension <= 575 ? "100%" : "82%" } /> */
+.rc-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+.rc-drawer.is-open {
+  pointer-events: auto;
+}
+.rc-drawer-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.rc-drawer.is-open .rc-drawer-mask {
+  opacity: 1;
+}
+.rc-drawer-content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 82%;
+  background: #fff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+}
+.rc-drawer.is-open .rc-drawer-content {
+  transform: translateX(0);
+}
+@media (max-width: 575px) {
+  .rc-drawer-content {
+    width: 100%;
+  }
+}
+
+/* ── react-loading-skeleton (TableLoading.jsx) ─────────────────────────── */
+/* Live baseColor/highlightColor are passed as props: #d7d7d7cd → #E5E7EB. */
+.skeleton {
+  display: inline-block;
+  border-radius: 0.25rem;
+  background-color: #d7d7d7cd;
+  background-image: linear-gradient(90deg, #d7d7d7cd, #e5e7eb, #d7d7d7cd);
+  background-size: 200% 100%;
+  animation: skeletonWave 1.5s ease-in-out infinite;
+}
+@keyframes skeletonWave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── react-select (StaffDrawer.jsx role picker) ────────────────────────── */
+/* Mirrors the `styles` prop overrides on the live <ReactSelect/>. */
+.rs-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.5rem;
+  padding: 0 0.5rem 0 0.75rem;
+  font-size: 0.875rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.rs-control:hover,
+.rs-control.is-focused {
+  border-color: #6ee7b7;
+}
+.rs-control.is-invalid {
+  border-color: #ef4444;
+}
+.rs-placeholder {
+  color: #808080;
+}
+.rs-menu {
+  position: absolute;
+  z-index: 9999;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px hsla(0, 0%, 0%, 0.1), 0 4px 11px hsla(0, 0%, 0%, 0.1);
+  overflow: hidden;
+}
+
+/* ── Windmill <Modal/> transition (modal + backdrop) ───────────────────── */
+.mock-backdrop {
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+.mock-backdrop.is-open {
+  opacity: 1;
+}
+.mock-modal {
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+.mock-backdrop.is-open .mock-modal {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Tooltip (components/tooltip/Tooltip.jsx → react-tooltip) ──────────── */
+.mock-tooltip {
+  position: fixed;
+  z-index: 10050;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  color: #fff;
+  background: #16a34a;
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+  white-space: nowrap;
+}
+.mock-tooltip.is-visible {
+  opacity: 1;
+}
+
+/* ── Discovery-only banner ─────────────────────────────────────────────── */
+/* Not part of the live UI — marks these pages as disposable prototypes.
+   Hidden from the pixel-comparison viewport by sitting above the app shell. */
+.discovery-banner {
+  font-family: system-ui, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 0.4rem 0.75rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.discovery-banner a {
+  color: #6ee7b7;
+  text-decoration: underline;
+}
+.discovery-banner[hidden] {
+  display: none;
+}

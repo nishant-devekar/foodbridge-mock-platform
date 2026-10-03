@@ -1,0 +1,4 @@
+{
+  "//": "Lets Node (the parity harness) load these browser ES modules. The browser ignores this file.",
+  "type": "module"
+}

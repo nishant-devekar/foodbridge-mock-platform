@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supplier Payables — Foodbridge V2</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-route="/supplier-invoices-payments">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand"><div class="brand-logo">▣</div><div><strong>Vasu Foods</strong><small>Samana · Frozen Foods⌄</small></div></div>
+    <nav class="nav">
+      <div class="nav-title active"><span>▧</span>Finance</div>
+      <div class="nav-child"><a href="invoices-payments.html">– Customer Receivables</a></div>
+      <div class="nav-child active"><a href="supplier-invoices-payments.html">– Supplier Payables</a></div>
+    </nav>
+  </aside>
+  <div id="navBackdrop" class="nav-backdrop hide"></div>
+  <header class="topbar"><div class="title-wrap"><button id="menuBtn" class="menu-btn" aria-label="Toggle menu">☰</button><strong>Supplier Payables</strong></div><div class="admin"><div class="admin-avatar">👤</div><div><strong>Chanchal Sachdeva</strong><div class="pos" style="font-size:11px">Owner</div></div><span>⌄</span></div></header>
+  <main class="page">
+    <section id="summary" class="summary" aria-label="Financial summary"></section>
+    <div id="summaryTrack" class="summary-track" aria-hidden="true"><span id="summaryThumb" class="summary-thumb"></span></div>
+    <section class="toolbar search-only" aria-label="Filters">
+      <label class="field search">⌕<input id="search" type="search" placeholder="Search by supplier name, mobile number or supplier code" aria-label="Search supplier name, mobile or code" /></label>
+    </section>
+    <section id="ledger" class="ledger" aria-live="polite"></section>
+    <div id="pager" class="pager hide"></div>
+  </main>
+  <div id="overlay" class="overlay hide"></div>
+  <section id="paymentDrawer" class="drawer hide" role="dialog" aria-modal="true" aria-labelledby="paymentTitle"></section>
+  <div id="toast" class="toast hide" role="status"></div>
+  <!-- The end-of-demo footer and the three ways out behind it. One shared
+       asset for every screen that carries it: v7/assets/exit-demo.js. -->
+  <script src="../../../assets/exit-demo.js?v=20260923DX2"></script>
+  <script>
+    /* The platform shell mounts the exit bar for every destination now.
+       Mount our own only when this screen is opened on its own, or two
+       bars stack at the foot of the page. */
+    if (window.top === window.self) window.FB_EXIT.mount({
+      /* Above the page, below this module's own overlays. */
+      z: 28,
+    });
+  </script>
+  <script>window.LEDGER_CONFIG = { kind: 'supplier', seed: '../seed-data/supplier-seed.json' };</script>
+  <script src="../../../assets/production/production-api.js?v=20261003FL1"></script>
+  <script src="assets/ledger.js?v=20260929VF1"></script>
+</body>
+</html>

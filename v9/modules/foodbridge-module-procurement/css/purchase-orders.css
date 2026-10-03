@@ -1,0 +1,83 @@
+/*
+  The Purchase Orders screen's own rules. Everything else is Tailwind in the markup, the host's
+  stylesheet (host/custom.css) and the libraries' own CSS (vendor/).
+
+  1. SourcingOrderScreen renders this block inline, as a <style> at the end of the screen — verbatim.
+  2. Cascade pins: where production's compiled Tailwind orders two utilities differently from the
+     Play CDN, the pair is pinned here to the order production ships (section at the end).
+*/
+        /* Custom popper with max z-index */
+        .date-picker-popper-fixed {
+          z-index: 2147483647 !important;
+        }
+        
+        /* Override browser default opacity on disabled selects */
+        select:disabled,
+        select[disabled] {
+          opacity: 1 !important;
+        }
+        
+        .react-datepicker__input-container input {
+          line-height: 2.5rem;
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+        }
+
+        /* Historically a global input:focus rule leaked app-wide from the Route
+           Delivery stylesheet and applied its own box-shadow at the same
+           specificity as the rule above, so whichever loaded later won the tie.
+           That leak is fixed at source (module CSS is scoped under .rd-root).
+           The :focus qualifier is kept because it is correct on its own; it can
+           be dropped once visual regression covers this screen. */
+        .react-datepicker__input-container input:focus {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        
+        .react-datepicker {
+          font-family: inherit;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.5rem;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .react-datepicker__header {
+          background-color: #f9fafb;
+          border-bottom: 1px solid #e5e7eb;
+          border-top-left-radius: 0.5rem;
+          border-top-right-radius: 0.5rem;
+          padding-top: 0.5rem;
+        }
+        
+        .react-datepicker__day--selected,
+        .react-datepicker__day--in-selecting-range,
+        .react-datepicker__day--in-range {
+          background-color: #10b981 !important;
+          color: white !important;
+        }
+        
+        .react-datepicker__day--keyboard-selected {
+          background-color: #d1fae5;
+          color: #065f46;
+        }
+        
+        .react-datepicker__day:hover {
+          background-color: #d1fae5;
+        }
+        
+/* 2. Cascade pins ──────────────────────────────────────────────────────────────────────────── */
+/* CustomModal size "other" carries `w-full w-[98.5%]`; production's stylesheet emits .w-[98.5%]
+   BEFORE .w-full, so w-full wins and the review cart is the full width of its overlay. */
+.w-full.w-\[98\.5\%\] { width: 100%; }
+
+/* 3. v7 only — not production ───────────────────────────────────────────────────────────────── */
+/* The host's `.fixed.bottom-0 { padding-bottom: safe-area + 1rem }` (custom.css, meant for drawer
+   and modal Cancel/Save bars) also lands on the phone action bar, whose row already pads for the
+   safe area: the tabs sat at the top with ~20px of white under them. v7's footer pattern has one
+   pad, the row's own, and the tabs centred in the bar (8px above and below, more over a home
+   indicator). v6 keeps production's look (README, defects). */
+.md\:hidden.fixed.bottom-0.z-40:not([data-tailwind-order]) { padding-bottom: 0; }
+.md\:hidden.fixed.bottom-0.z-40:not([data-tailwind-order]) > div { padding-top: 8px; padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px) !important; }

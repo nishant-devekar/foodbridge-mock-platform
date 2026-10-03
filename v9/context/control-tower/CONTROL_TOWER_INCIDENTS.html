@@ -1,0 +1,1015 @@
+<meta charset="utf-8">
+<title>Deliveries Incident Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+:root {
+  --ground: #F3F5F2; --surface: #FFFFFF; --sunk: #E9EDE8; --ink: #131916; --ink-2: #545E58; --ink-3: #85908A;
+  --line: #DAE0DA; --accent: #1E7A46; --accent-t: #E2F0E7;
+  --ugly: #C0362C; --ugly-t: #FBEAE8; --bad: #A86E12; --bad-t: #FBF1E0; --good: #1E7A46; --good-t: #E6F2EA;
+  --cov1: #131916; --cov2: #8E9B93; --bezel: #111416; --shadow: 0 1px 2px rgba(19,25,22,.06), 0 8px 28px rgba(19,25,22,.08);
+  --f-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Instrument Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0E1210; --surface: #161B18; --sunk: #1C231F; --ink: #E5ECE7; --ink-2: #A3AEA7; --ink-3: #737E78;
+    --line: #29312C; --accent: #5CCB8A; --accent-t: #16301F;
+    --ugly: #F07A6E; --ugly-t: #3A1C19; --bad: #E2AE55; --bad-t: #362A14; --good: #5CCB8A; --good-t: #16301F;
+    --cov1: #E5ECE7; --cov2: #6C7972; --bezel: #000; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0E1210; --surface: #161B18; --sunk: #1C231F; --ink: #E5ECE7; --ink-2: #A3AEA7; --ink-3: #737E78;
+  --line: #29312C; --accent: #5CCB8A; --accent-t: #16301F;
+  --ugly: #F07A6E; --ugly-t: #3A1C19; --bad: #E2AE55; --bad-t: #362A14; --good: #5CCB8A; --good-t: #16301F;
+  --cov1: #E5ECE7; --cov2: #6C7972; --bezel: #000; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 400 16px/1.6 var(--f-body); -webkit-font-smoothing: antialiased; }
+.page { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 80px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── masthead ─────────────────────────────────────────── */
+.mast { display: grid; gap: 14px; padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); display: flex; gap: 10px; flex-wrap: wrap; }
+.eyebrow b { color: var(--accent); font-weight: 500; }
+h1 { font: 800 clamp(34px, 6vw, 58px)/1.02 var(--f-display); letter-spacing: -.035em; margin: 0; text-wrap: balance; max-width: 16ch; }
+.lead { max-width: 68ch; color: var(--ink-2); display: grid; gap: 8px; }
+.lead p { margin: 0; }
+.lead strong { color: var(--ink); }
+
+/* ── layout ───────────────────────────────────────────── */
+.grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); display: grid; gap: 2px; font-size: 14px; }
+.toc a { display: flex; gap: 10px; padding: 6px 10px; border-radius: 8px; color: var(--ink-2); text-decoration: none; line-height: 1.3; }
+.toc a:hover { background: var(--sunk); color: var(--ink); }
+.toc a.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.toc .n, h2 .n { font: 500 12px/1.6 var(--f-mono); color: var(--ink-3); min-width: 16px; }
+main { min-width: 0; }
+section { padding-block: 8px 36px; scroll-margin-top: 16px; }
+section + section { border-top: 1px solid var(--line); padding-top: 36px; }
+h2 { font: 700 clamp(24px, 3.4vw, 32px)/1.15 var(--f-display); letter-spacing: -.02em; margin: 0 0 16px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { font-size: 14px; }
+h3 { font: 700 18px/1.3 var(--f-display); margin: 28px 0 10px; }
+main p, main ul, main ol { max-width: 70ch; }
+main p { margin: 0 0 14px; }
+main ol, main ul { padding-left: 22px; margin: 0 0 16px; display: grid; gap: 8px; }
+main li::marker { color: var(--ink-3); font-family: var(--f-mono); font-size: 13px; }
+code { font: 500 .86em var(--f-mono); background: var(--sunk); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+blockquote { margin: 0 0 20px; padding: 18px 22px; background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); font: 700 clamp(18px, 2.4vw, 22px)/1.35 var(--f-display); letter-spacing: -.01em; max-width: none; }
+blockquote strong { font-weight: 800; }
+.tbl { overflow-x: auto; margin: 0 0 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tbl table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.45; }
+.tbl th { text-align: left; font: 500 11px/1.3 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 11px 14px; border-bottom: 1px solid var(--line); background: var(--sunk); white-space: nowrap; }
+.tbl td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; min-width: 120px; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td:first-child { font-weight: 600; }
+pre.code { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 400 13px/1.6 var(--f-mono); margin: 0 0 20px; }
+pre.code code { background: none; padding: 0; font: inherit; }
+figure.mm { margin: 0 0 20px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+figure.mm pre { margin: 0; font: 13px/1.5 var(--f-mono); white-space: pre; color: var(--ink-2); }
+
+/* ── standing pills (shared) ──────────────────────────── */
+.pill { display: inline-flex; align-items: center; gap: 5px; font: 600 12px/1 var(--f-body); padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.ugly { color: var(--ugly); background: var(--ugly-t); }
+.pill.bad { color: var(--bad); background: var(--bad-t); }
+.pill.good { color: var(--good); background: var(--good-t); }
+
+/* ── fig: loop ────────────────────────────────────────── */
+.fig-loop { margin: 4px 0 24px; }
+.loop { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; max-width: none; }
+.loop li { position: relative; background: var(--surface); border-radius: 14px; padding: 14px 14px 16px; box-shadow: var(--shadow); display: grid; gap: 6px; align-content: start; }
+.loop li:not(:last-child)::after { content: "→"; position: absolute; right: -10px; top: 18px; transform: translateX(50%); color: var(--ink-3); font: 600 14px/1 var(--f-mono); z-index: 1; }
+.loop .k { font: 500 11px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.loop .w { font: 700 16px/1.2 var(--f-display); }
+.loop .e { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.loop .dot { width: 10px; height: 10px; border-radius: 50%; }
+.loop .dot.ugly { background: var(--ugly); } .loop .dot.bad { background: var(--bad); } .loop .dot.good { background: var(--good); }
+.loop-back { margin-top: 10px; display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--ink-2); padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; }
+.loop-back b { color: var(--bad); font-weight: 600; }
+
+/* ── fig: catalogue ───────────────────────────────────── */
+.fig-catalog { margin: 8px 0 18px; display: grid; gap: 16px; }
+.cov { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; background: var(--surface); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+.cov-total { display: grid; gap: 12px; align-content: start; }
+.cov-total .big { display: flex; gap: 18px; flex-wrap: wrap; }
+.cov-total .big div { display: grid; }
+.cov-total .big b { font: 800 34px/1 var(--f-display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.cov-total .big span { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+.cov-key { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.cov-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.sw1 { background: var(--cov1); } .sw2 { background: var(--cov2); } .sw3 { background: transparent; border: 1.5px dashed var(--cov2); }
+.cov-rows { display: grid; gap: 7px; }
+.cov-row { display: grid; grid-template-columns: 104px minmax(0, 1fr) 22px; gap: 10px; align-items: center; font-size: 13px; background: none; border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 6px; color: var(--ink); cursor: pointer; text-align: left; font-family: inherit; }
+.cov-row:hover, .cov-row.on { background: var(--sunk); }
+.cov-row .bars { display: flex; height: 12px; gap: 2px; }
+.cov-row .bars i { border-radius: 3px; height: 100%; }
+.cov-row .bars i.s3 { border: 1.5px dashed var(--cov2); }
+.cov-row .c { font: 500 12px var(--f-mono); color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+.cat-ctl { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.cat-ctl input { flex: 1 1 220px; min-width: 0; font: 15px var(--f-body); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 500 13px/1 var(--f-body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.cat-count { font: 500 12px var(--f-mono); color: var(--ink-3); }
+.cat { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow-x: auto; }
+.cat table { border-collapse: collapse; width: 100%; min-width: 1080px; font-size: 13.5px; line-height: 1.45; }
+.cat th { text-align: left; font: 500 11px/1.3 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 11px 12px; background: var(--sunk); border-bottom: 1px solid var(--line); position: sticky; top: 0; }
+.cat td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.cat tr:last-child td { border-bottom: 0; }
+.cat .inc b { display: block; font-weight: 600; }
+.cat .inc small, .cat .who { font: 500 11px/1.4 var(--f-mono); color: var(--ink-3); letter-spacing: .02em; }
+.cat .who { display: block; margin-top: 3px; }
+.today { font: 500 11px/1 var(--f-mono); padding: 5px 8px; border-radius: 6px; white-space: nowrap; display: inline-block; }
+.today.t1 { background: var(--cov1); color: var(--surface); }
+.today.t2 { background: var(--sunk); color: var(--ink); }
+.today.t3 { border: 1.5px dashed var(--cov2); color: var(--ink-2); }
+.done-in { display: inline-block; margin-top: 5px; font: 500 11px/1.35 var(--f-mono); color: var(--accent); }
+.att { font-size: 12.5px; color: var(--ink-2); }
+.att.urgent { color: var(--ugly); font-weight: 600; }
+.cat-empty { padding: 28px; text-align: center; color: var(--ink-2); }
+
+/* ── fig: sketches (player) ───────────────────────────── */
+.fig-sketches { margin: 8px 0 12px; }
+.player { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; background: var(--surface); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+.sc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.sc-arc { font-size: 13px; color: var(--ink-2); margin: 0 0 14px; }
+.stages { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+.stages span { font: 500 11px/1 var(--f-mono); padding: 6px 8px; border-radius: 6px; background: var(--sunk); color: var(--ink-3); letter-spacing: .02em; }
+.stages span.on { background: var(--accent); color: var(--surface); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-width: none; }
+.steps button { width: 100%; text-align: left; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; background: none; color: var(--ink-2); font: 14px/1.5 var(--f-body); cursor: pointer; }
+.steps button:hover { background: var(--sunk); }
+.steps button.on { background: var(--ground); border-color: var(--line); color: var(--ink); }
+.steps .sn { font: 500 12px/26px var(--f-mono); width: 26px; height: 26px; text-align: center; border-radius: 50%; background: var(--sunk); color: var(--ink-3); }
+.steps button.on .sn { background: var(--ink); color: var(--surface); }
+.steps strong { color: var(--ink); }
+.stage-col { display: grid; gap: 12px; justify-items: center; align-content: start; }
+.area { width: 100%; max-width: 320px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; }
+.area .nm { font: 700 14px var(--f-display); }
+.chase { width: 100%; max-width: 320px; font: 500 11px/1.4 var(--f-mono); color: var(--ink-3); display: flex; justify-content: space-between; gap: 8px; }
+.nav { display: flex; gap: 8px; }
+.nav button { font: 600 13px var(--f-body); padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.nav button.pri { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.nav button:disabled { opacity: .4; cursor: default; }
+
+/* The phone is the Control Tower's own look, light only, as the product is. */
+.ph { --c-ink: #111418; --c-ink2: #5B616B; --c-ink3: #8A9099; --c-line: #E5E7E9; --c-fill: #F6F7F8; --c-brand: #1E7A46;
+      --c-good: #1E7A46; --c-good-t: #E8F3EC; --c-bad: #B7791F; --c-bad-t: #FBF1E0; --c-ugly: #C0362C; --c-ugly-t: #FBEAE8; --rd: #1B6272;
+  width: 320px; max-width: 100%; height: 640px; border: 10px solid var(--bezel); border-radius: 40px; background: #fff; color: var(--c-ink);
+  position: relative; overflow: hidden; font: 400 13px/1.35 Inter, -apple-system, "Segoe UI", sans-serif; box-shadow: var(--shadow); isolation: isolate; }
+.ph * { letter-spacing: -.005em; }
+.ph-sb { height: 30px; display: flex; justify-content: space-between; align-items: center; padding: 0 22px; font: 600 12px Inter, sans-serif; }
+.ph-sb i { width: 60px; height: 16px; background: var(--bezel); border-radius: 10px; }
+.ph-app { font: 500 10px/1 var(--f-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--c-ink3); text-align: center; padding: 2px 0 6px; }
+.ph-scr { position: absolute; inset: 48px 0 0 0; display: flex; flex-direction: column; }
+.ph-scr > .bd { flex: 1; overflow: hidden; padding: 0 14px; }
+.ph-tb { display: flex; align-items: center; gap: 8px; padding: 8px 14px 10px; border-bottom: 1px solid var(--c-line); font-weight: 700; font-size: 15px; }
+.ph-tb .bk { color: var(--c-ink2); font-weight: 500; }
+.ph-tb .st { margin-left: auto; font-size: 11px; font-weight: 600; }
+.st.ugly { color: var(--c-ugly); } .st.bad { color: var(--c-bad); } .st.good { color: var(--c-good); }
+.hv { font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin-top: 12px; }
+.hc { color: var(--c-ink2); font-size: 12px; margin-top: 2px; }
+.bar { height: 5px; border-radius: 3px; background: #EDEFF1; margin: 9px 0 12px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--c-good); border-radius: 3px; transition: width .5s ease; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.tile { border: 1px solid var(--c-line); border-radius: 11px; padding: 8px; display: grid; gap: 1px; }
+.tile .l { font-size: 10.5px; font-weight: 700; }
+.tile .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile .w { font-size: 10px; color: var(--c-ink2); }
+.tile.good .l { color: var(--c-good); } .tile.bad .l { color: var(--c-bad); } .tile.ugly .l { color: var(--c-ugly); }
+.tile.on.good { border: 2px solid #A9D3B8; background: var(--c-good-t); } .tile.on.bad { border: 2px solid #E8C98C; background: var(--c-bad-t); } .tile.on.ugly { border: 2px solid #EBAAA4; background: var(--c-ugly-t); }
+.tile.zero .v { color: var(--c-ink3); }
+.lt { font-size: 13px; font-weight: 700; margin: 14px 0 4px; }
+.row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--c-line); }
+.row .av { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
+.row .av svg { width: 15px; height: 15px; }
+.row.ugly .av { background: var(--c-ugly-t); color: var(--c-ugly); } .row.bad .av { background: var(--c-bad-t); color: var(--c-bad); } .row.good .av { background: var(--c-good-t); color: var(--c-good); }
+.row .t { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 11px; color: var(--c-ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .tag { font-size: 10.5px; font-weight: 600; padding: 4px 8px; border-radius: 7px; white-space: nowrap; }
+.row.ugly .tag { background: var(--c-ugly-t); color: var(--c-ugly); } .row.bad .tag { background: var(--c-bad-t); color: var(--c-bad); } .row.good .tag { background: var(--c-good-t); color: var(--c-good); }
+.row.hot { background: linear-gradient(90deg, transparent, rgba(30,122,70,.06), transparent); animation: hot 1.6s ease 1; margin: 0 -14px; padding-inline: 14px; }
+.row.root { border: 1.5px solid #EBAAA4; border-radius: 12px; padding: 10px; margin: 6px 0; background: #FFF8F7; }
+.row.root.good { border-color: #A9D3B8; background: #F6FBF8; }
+.row.root.bad { border-color: #E8C98C; background: #FFFBF3; }
+.held { font-size: 11px; color: var(--c-ink2); padding: 4px 0 0 37px; }
+@keyframes hot { 0% { background-color: rgba(30,122,70,.18); } 100% { background-color: transparent; } }
+.ph-ft { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--c-line); padding: 7px 0 14px; font-size: 10px; color: var(--c-ink3); text-align: center; background: #fff; }
+.ph-ft .on { color: var(--c-brand); font-weight: 700; }
+.ph-ft svg { width: 17px; height: 17px; display: block; margin: 0 auto 2px; }
+.trip { display: flex; gap: 12px; border-top: 1px solid var(--c-line); padding: 9px 14px 14px; font-size: 11px; color: var(--c-ink3); background: #fff; }
+.trip .on { color: var(--c-brand); font-weight: 700; }
+/* modal */
+.dim { position: absolute; inset: 0; background: rgba(17,20,24,.45); z-index: 5; }
+.md { position: absolute; left: 10px; right: 10px; top: 50%; transform: translateY(-50%); background: #fff; border-radius: 18px; padding: 16px; z-index: 6; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.md .x { position: absolute; right: 14px; top: 12px; color: var(--c-ink3); font-size: 16px; }
+.md h5 { margin: 0; font-size: 17px; font-weight: 800; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-right: 20px; }
+.md h5 .tag { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 7px; }
+.md h5 .tag.ugly { background: var(--c-ugly-t); color: var(--c-ugly); } .md h5 .tag.bad { background: var(--c-bad-t); color: var(--c-bad); } .md h5 .tag.good { background: var(--c-good-t); color: var(--c-good); }
+.md .sub { font-size: 11.5px; color: var(--c-ink2); margin: 3px 0 10px; }
+.md .ln { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; padding: 7px 0; }
+.md .ln .ci { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--c-fill); color: var(--c-ink2); }
+.md .ln .ci svg { width: 14px; height: 14px; }
+.md .ln b { display: block; font-size: 12px; }
+.md .ln span { font-size: 11.5px; color: var(--c-ink2); line-height: 1.4; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.btn { border-radius: 11px; padding: 11px 6px; text-align: center; font-weight: 700; font-size: 12px; border: 1.5px solid var(--c-brand); color: var(--c-brand); background: #fff; }
+.btn.p { background: var(--c-brand); color: #fff; }
+.btn .wh { display: block; font: 500 9px/1.2 var(--f-mono); opacity: .8; margin-top: 3px; letter-spacing: .03em; text-transform: uppercase; }
+.trail { margin-top: 12px; border-top: 1px dashed var(--c-line); padding-top: 9px; display: grid; gap: 4px; }
+.trail div { display: grid; grid-template-columns: 42px 8px minmax(0, 1fr); gap: 7px; align-items: center; font-size: 10.5px; color: var(--c-ink2); }
+.trail i { width: 7px; height: 7px; border-radius: 50%; background: var(--c-ink3); }
+.trail .now i { background: var(--c-brand); box-shadow: 0 0 0 3px var(--c-good-t); }
+.trail .now { color: var(--c-ink); font-weight: 600; }
+.trail tt { font: 500 10px var(--f-mono); color: var(--c-ink3); }
+.q { font-size: 12px; font-weight: 700; margin: 10px 0 6px; }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.opt { border: 1.5px solid var(--c-line); border-radius: 10px; padding: 9px 8px; font-size: 11.5px; font-weight: 600; text-align: center; color: var(--c-ink2); }
+.opt.on { border-color: var(--c-brand); background: var(--c-good-t); color: var(--c-brand); }
+.sugg { margin-top: 10px; background: var(--c-fill); border-radius: 11px; padding: 10px; font-size: 11.5px; }
+.sugg b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+/* delivery app (driver) */
+.rd { --b: var(--rd); background: #F2F4F5; }
+.rd .ph-tb { background: #fff; }
+.rd .rdh { flex-direction: column; align-items: flex-start; gap: 1px; }
+.rd .rdh .bk { font-size: 11.5px; color: var(--rd); font-weight: 600; }
+.rd .sec { font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: .08em; text-transform: uppercase; margin: 14px 2px 8px; }
+.rd .cg { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.rd .ch { border: 2px solid #e5e7eb; background: #fff; border-radius: 11px; padding: 10px 6px; text-align: center; font-weight: 600; font-size: 12px; color: #555; position: relative; }
+.rd .ch.on { border-color: var(--rd); background: #e8f5f7; color: var(--rd); }
+.rd .ch.new { border-style: dashed; border-color: #9FB9BF; }
+.rd .ch.new::after { content: "new"; position: absolute; top: -7px; right: 6px; font: 600 8.5px/1 var(--f-mono); background: #fff; color: var(--rd); padding: 2px 4px; border-radius: 4px; border: 1px solid #9FB9BF; text-transform: uppercase; }
+.rd .inp { background: #fafafa; border: 2px solid #e5e7eb; border-radius: 11px; padding: 10px 12px; color: #9ca3af; font-size: 12px; margin-top: 10px; }
+.rd .cta { margin: 8px 14px 16px; border-radius: 14px; background: var(--rd); color: #fff; text-align: center; font-weight: 700; padding: 13px; font-size: 14px; }
+.rd .cta.o { background: #f97316; }
+.rd .card { background: #fff; border-radius: 12px; padding: 11px 12px; margin-top: 10px; font-size: 12px; }
+.rd .card .r { display: flex; justify-content: space-between; gap: 8px; }
+.rd .banner { background: #fff7ed; color: #9a3412; border-radius: 10px; padding: 9px 11px; font-size: 11.5px; margin-top: 10px; }
+.proposed { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 3; font: 600 9.5px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 5px 8px; border-radius: 6px; background: #1B6272; color: #fff; white-space: nowrap; }
+/* tracking */
+.map { height: 240px; margin: 0 -14px; background: #E8EEF0; position: relative; overflow: hidden; }
+.map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.exc { margin-top: 10px; display: grid; gap: 6px; }
+.exc div { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid var(--c-line); border-radius: 10px; padding: 8px 10px; font-size: 11.5px; }
+.exc div.h { border-color: #EBAAA4; background: #FFF8F7; }
+.exc em { font-style: normal; font: 600 9px/1 var(--f-mono); padding: 3px 5px; border-radius: 4px; background: var(--c-ugly-t); color: var(--c-ugly); text-transform: uppercase; }
+.drw .stp { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--c-line); font-size: 12px; }
+.drw .sq { width: 20px; height: 20px; border-radius: 50%; background: var(--c-fill); display: grid; place-items: center; font: 600 10px var(--f-mono); color: var(--c-ink2); }
+.drw .mv { font-size: 10.5px; font-weight: 700; padding: 5px 8px; border-radius: 8px; border: 1.5px solid var(--c-brand); color: var(--c-brand); white-space: nowrap; }
+.drw .mv.dn { background: var(--c-good-t); border-color: transparent; }
+.drw small { display: block; color: var(--c-ink2); font-size: 10.5px; }
+
+/* ── action panes (the Reschedule look, for every action) ── */
+.ap-md { top: 36px; bottom: 10px; transform: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ap-bar { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: center; padding: 12px 12px 10px; border-bottom: 1px solid var(--c-line); font-size: 14px; text-align: center; }
+.ap-bar span { color: var(--c-ink2); font-size: 15px; }
+.ap-bar span:last-child { color: var(--c-ink3); font-size: 13px; }
+.ap-body { flex: 1; overflow: hidden; padding: 2px 14px 10px; }
+.ap-body.dimmed { opacity: .45; }
+.ap-h { font-size: 11.5px; font-weight: 700; margin: 12px 0 6px; }
+.ap-days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.ap-day { border: 1.5px solid var(--c-line); border-radius: 10px; padding: 5px 0; display: grid; text-align: center; line-height: 1.2; }
+.ap-day small { font-size: 9px; color: var(--c-ink2); min-height: 11px; }
+.ap-day b { font-size: 14px; }
+.ap-wins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.ap-win { border: 1.5px solid var(--c-line); border-radius: 10px; padding: 7px 6px; display: grid; gap: 1px; }
+.ap-win b { font-size: 11.5px; } .ap-win small { font-size: 9.5px; color: var(--c-ink2); }
+.ap-day.on, .ap-win.on, .ap-opt.on, .ap-chip.on { border-color: var(--acc, var(--c-brand)); background: var(--acc-t, var(--c-good-t)); }
+.ap-day.on b, .ap-win.on b, .ap-opt.on b, .ap-chip.on { color: var(--acc, var(--c-brand)); }
+.dis { opacity: .4; }
+.ap-opts, .ap-checks, .ap-tell, .ap-items { display: grid; gap: 5px; }
+.ap-opt, .ap-chk { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: center; border: 1.5px solid var(--c-line); border-radius: 10px; padding: 7px 9px; }
+.ap-opt i { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--c-ink3); }
+.ap-opt.on i { border: 4.5px solid var(--acc, var(--c-brand)); }
+.ap-opt b, .ap-chk b { display: block; font-size: 11.5px; line-height: 1.25; }
+.ap-opt small, .ap-chk small { display: block; font-size: 10px; color: var(--c-ink2); line-height: 1.3; }
+.ap-chk { border: 0; padding: 4px 0; }
+.ap-chk i { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--c-ink3); font: 700 10px/12px Inter, sans-serif; text-align: center; font-style: normal; color: #fff; }
+.ap-chk.on i { background: var(--acc, var(--c-brand)); border-color: var(--acc, var(--c-brand)); }
+.ap-tell { margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--c-line); }
+.ap-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1.5px solid var(--c-line); border-radius: 10px; padding: 7px 9px; }
+.ap-item b { display: block; font-size: 11.5px; } .ap-item small { font-size: 10px; color: var(--c-ink2); }
+.ap-step { display: flex; align-items: center; gap: 7px; }
+.ap-step i { width: 20px; height: 20px; border-radius: 6px; background: var(--c-fill); display: grid; place-items: center; font-style: normal; font-weight: 700; color: var(--c-ink2); }
+.ap-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ap-chip { border: 1.5px solid var(--c-line); border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 600; color: var(--c-ink2); }
+.ap-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; background: var(--c-fill); border-radius: 10px; padding: 8px 4px; text-align: center; }
+.ap-facts b { display: block; font-size: 13px; } .ap-facts small { font-size: 9.5px; color: var(--c-ink2); }
+.ap-text { border: 1.5px solid var(--c-line); border-radius: 10px; padding: 6px 9px; margin-top: 7px; display: grid; }
+.ap-text small { font-size: 9.5px; color: var(--c-ink3); } .ap-text span { font-size: 11.5px; }
+.ap-msg { background: #DCF8C6; border-radius: 10px 10px 10px 2px; padding: 8px 10px; font-size: 11px; line-height: 1.4; }
+.ap-note { border: 1.5px solid var(--c-line); border-radius: 10px; padding: 7px 9px; font-size: 11px; color: var(--c-ink3); display: flex; justify-content: space-between; gap: 6px; min-height: 42px; }
+.ap-note small { align-self: flex-end; font-size: 9px; }
+.ap-photo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 6px; margin-top: 10px; }
+.ap-photo span { height: 96px; border-radius: 10px; background: repeating-linear-gradient(135deg, #EEF1F4 0 8px, #E4E8EC 8px 16px); display: grid; place-items: end start; padding: 6px; font-size: 9.5px; color: var(--c-ink2); }
+.ap-cap { font-size: 10.5px; color: var(--c-ink2); margin-top: 5px; }
+.ap-go { margin: 0 14px 14px; background: var(--c-brand); color: #fff; border-radius: 12px; padding: 12px; text-align: center; font-weight: 700; font-size: 13px; }
+.ap-go.red, .ap-yes.red { background: var(--c-ugly); }
+.ap-conf { margin: 0 14px 14px; border: 1.5px solid var(--c-brand); border-radius: 12px; padding: 10px; background: #F6FBF8; }
+.ap-conf p { margin: 0 0 8px; font-size: 12px; line-height: 1.35; }
+.ap-conf small { display: block; font-size: 10.5px; color: var(--c-ink2); margin-top: 2px; }
+.ap-conf div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.ap-no, .ap-yes { border-radius: 10px; padding: 9px; text-align: center; font-weight: 700; font-size: 12px; }
+.ap-no { border: 1.5px solid var(--c-line); color: var(--c-ink2); }
+.ap-yes { background: var(--c-brand); color: #fff; }
+.ap-done { flex: 1; padding: 6px 16px 16px; text-align: center; }
+.ap-art { width: 130px; height: 98px; display: block; margin: 4px auto 0; }
+.ap-done h6 { margin: 4px 0 2px; font-size: 17px; font-weight: 800; }
+.ap-done p { margin: 0 0 12px; font-size: 11.5px; color: var(--c-ink2); }
+.ap-card { border: 1px solid var(--c-line); border-radius: 12px; padding: 4px 12px; text-align: left; }
+.ap-ch { font-size: 11px; font-weight: 700; padding: 8px 0 4px; }
+.ap-card > div:not(.ap-ch) { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--c-line); font-size: 11px; }
+.ap-card span { color: var(--c-ink2); } .ap-card b { text-align: right; font-weight: 600; }
+.ap-pill { font-style: normal; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--c-good-t); color: var(--c-brand); }
+.ap-pill.grey { background: var(--c-fill); color: var(--c-ink2); }
+.proposed.ex { background: #5B616B; }
+.rd { --acc: #1B6272; --acc-t: #e8f5f7; }
+.rd .rd-note, .rd-note { font-size: 11px; color: #5B616B; margin: 10px 2px 0; }
+.rd .rd-btn { margin-top: 10px; border-radius: 12px; background: var(--rd); color: #fff; text-align: center; font-weight: 700; padding: 11px; font-size: 12.5px; }
+.so-row { background: #fff; border-radius: 12px; padding: 12px; display: grid; gap: 4px; font-size: 12px; }
+.so-row span { color: #5B616B; }
+.so-sel { justify-self: start; margin-top: 4px; border: 1.5px solid var(--c-brand); color: var(--c-brand) !important; font-weight: 700; border-radius: 8px; padding: 5px 10px; }
+.bt { display: inline-block; font: 600 11.5px/1 var(--f-body); padding: 6px 9px; border-radius: 8px; border: 1.5px solid var(--accent); color: var(--accent); margin: 0 4px 4px 0; white-space: nowrap; }
+.bt.p { background: var(--accent); color: var(--surface); }
+.act-pick { display: grid; gap: 8px; margin-bottom: 16px; }
+.act-grp { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; align-items: start; }
+.act-grp > span { font: 500 11px/28px var(--f-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.act-head { margin: 4px 0 2px; font: 700 20px/1.2 var(--f-display); }
+.act-meta { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+@media (max-width: 640px) { .act-grp { grid-template-columns: minmax(0, 1fr); gap: 4px; } .act-grp > span { line-height: 1.4; } }
+
+.note { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+footer.end { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); font: 500 12px/1.6 var(--f-mono); color: var(--ink-3); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 1020px) {
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .toc { position: static; display: flex; overflow-x: auto; gap: 4px; margin: 0 -20px 20px; padding: 0 20px 6px; }
+  .toc a { white-space: nowrap; background: var(--surface); }
+  .loop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .loop li:nth-child(3)::after { display: none; }
+  .player { grid-template-columns: minmax(0, 1fr); }
+  .stage-col { order: -1; }
+}
+@media (max-width: 640px) {
+  .page { padding-inline: 16px; }
+  .toc { margin-inline: -16px; padding-inline: 16px; }
+  .loop { grid-template-columns: minmax(0, 1fr); }
+  .loop li::after { display: none; }
+  .cov { grid-template-columns: minmax(0, 1fr); }
+  .player { padding: 14px; }
+  .tbl table { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="page">
+  <header class="mast">
+    <div class="eyebrow"><b>FoodBridge</b><span>Control Tower · Deliveries</span><span>Built · 24 Sep 2026</span></div>
+    <h1>Deliveries, run on incidents</h1>
+    <div class="lead"><p><strong>Built · 24 Sep 2026 · v7 Control Tower · Deliveries area · branch <code>ct-incident-engine</code>.</strong> The delivery engine in <code>assets/ct/levers.js</code> now runs on incidents (<code>assets/ct/incidents.js</code>), every lead action runs in the tower (<code>assets/ct/incident-actions.js</code>), the delivery app writes its facts to the platform's event stream (<code>assets/fb-events.js</code>), and the demo business raises and fixes incidents live. All four phases of §11 are built; the decisions in §12 were taken as recommended and are the owner's to confirm.</p><p>This file and its artifact (https://claude.ai/artifact/DCFtTfeePkveNwFRRJZX6z) are twins: the artifact is this exact text, rendered by <code>incidents-artifact/build.py</code>, with the sketches and the catalogue made interactive. Edit this file, run the build, republish.</p></div>
+  </header>
+  <div class="grid">
+    <nav class="toc" aria-label="Sections"><a href="#the-loop"><span class="n">1</span>The loop</a><a href="#what-we-found-on-the-platform"><span class="n">2</span>What we found on the platform</a><a href="#rules-of-the-engine"><span class="n">3</span>Rules of the engine</a><a href="#the-impact-indicator-standing"><span class="n">4</span>The impact indicator: standing</a><a href="#lifecycle-of-one-incident"><span class="n">5</span>Lifecycle of one incident</a><a href="#lead-actions-sixteen-actions-one-pattern"><span class="n">6</span>Lead actions: sixteen actions, one pattern</a><a href="#the-catalogue-54-incidents-mapped"><span class="n">7</span>The catalogue: 54 incidents, mapped</a><a href="#sketches-the-flow-end-to-end"><span class="n">8</span>Sketches: the flow end to end</a><a href="#architecture"><span class="n">9</span>Architecture</a><a href="#what-the-platform-has-to-add"><span class="n">10</span>What the platform has to add</a><a href="#build-plan-built"><span class="n">11</span>Build plan — built</a><a href="#decisions-for-the-owner"><span class="n">12</span>Decisions for the owner</a><a href="#change-log"><span class="n"></span>Change log</a></nav>
+    <main>
+<section id="the-loop"><h2><span class="n">1</span>The loop</h2>
+<blockquote><strong>Incident → tag → lead action → lead impact → standing → the area back to green.</strong></blockquote>
+<p>Something goes wrong with a real delivery. It is recorded where the work happens (the driver's app, Live Tracking, a stock count), or the system spots it on its own. The platform tags it as one incident from the catalogue. The tower shows it with its <strong>impact</strong> (what it costs) and its <strong>lead action</strong> (the one thing to do, and where to do it). The owner acts: in the tower, on the platform screen that fixes it, or outside with a phone call. When the platform records the fix, the incident closes. The delivery moves from Missed to Pending to On track, and the Deliveries area turns green with it. The day is a chase to all green.</p>
+<div class="fig-loop" id="fig-loop" aria-label="The incident loop"></div>
+<div class="tbl"><table><thead><tr><th>Word</th><th>Means</th><th>Example</th></tr></thead><tbody><tr><td data-label="Word">Incident</td><td data-label="Means">One thing that went wrong with one delivery, van or order</td><td data-label="Example">Shop closed at Best Price Store</td></tr><tr><td data-label="Word">Tag</td><td data-label="Means">The incident's name from the catalogue, set by the platform, one per delivery</td><td data-label="Example">"Shop closed"</td></tr><tr><td data-label="Word">Standing</td><td data-label="Means">Where the delivery stands because of it: <strong>Missed</strong> (needs you), <strong>Pending</strong> (in hand), <strong>On track</strong></td><td data-label="Example">Missed</td></tr><tr><td data-label="Word">Lead impact</td><td data-label="Means">What it costs, in the owner's units: ₹, cases, stops, minutes</td><td data-label="Example">₹4,820 not delivered</td></tr><tr><td data-label="Word">Lead action</td><td data-label="Means">The one step that fixes it, and where it is done</td><td data-label="Example">Call the shop, then reschedule</td></tr><tr><td data-label="Word">Proof</td><td data-label="Means">The platform event that shows it is fixed</td><td data-label="Example">Delivered at 5:10 pm</td></tr></tbody></table></div>
+</section>
+<section id="what-we-found-on-the-platform"><h2><span class="n">2</span>What we found on the platform</h2>
+<p>We walked every Distribution &amp; Logistics screen, action by action, plus the screens next to them where a delivery problem is also recorded.</p>
+<div class="tbl"><table><thead><tr><th>Module</th><th>Screen</th><th>What a person does there that can raise an incident</th></tr></thead><tbody><tr><td data-label="Module">Delivery app (Delivery Management)</td><td data-label="Screen">Pre-start › Load stock</td><td data-label="What a person does there that can raise an incident">Loads less than planned (planned vs loaded per product)</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">Pre-start › Opening cash, Sign-off</td><td data-label="What a person does there that can raise an incident">Route not started by its start time</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">Queue › At customer</td><td data-label="What a person does there that can raise an incident">Edits the order down or up; stepper hits "Max N loaded" or "Out of stock"</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">At customer › Skip stop ("Why no delivery?")</td><td data-label="What a person does there that can raise an incident">Shop Closed · Owner Away · Fully Stocked · Refused · Will Order Later · Other + note</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">At customer › Payment</td><td data-label="What a person does there that can raise an incident">Cash or UPI; pays less, with or without "adjusted as offer"; the rest stays on credit</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">At customer › Product return</td><td data-label="What a person does there that can raise an incident">Damaged · Expired · Unsold · Wrong Product, with quantities</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">At customer › Manage assets</td><td data-label="What a person does there that can raise an incident">Crates given vs crates back</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">Restock / Stock requested</td><td data-label="What a person does there that can raise an incident">Van ran out mid-route and goes back to load</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">Settlement › Stock count</td><td data-label="What a person does there that can raise an incident">Expected vs actual per product: missing or excess, note required</td></tr><tr><td data-label="Module">Delivery app</td><td data-label="Screen">Settlement › Cash handover</td><td data-label="What a person does there that can raise an incident">Counted cash ≠ expected</td></tr><tr><td data-label="Module">Live Tracking</td><td data-label="Screen">Exceptions feed</td><td data-label="What a person does there that can raise an incident">No ping for 15 min · van idle on route · N min behind · stop skipped · money uncollected · cash handover pending</td></tr><tr><td data-label="Module">Live Tracking</td><td data-label="Screen">Route drawer</td><td data-label="What a person does there that can raise an incident">Call driver · Message driver · Acknowledge · Move up · Mark skipped · Reassign to another van</td></tr><tr><td data-label="Module">Route Planning</td><td data-label="Screen">Delivery templates</td><td data-label="What a person does there that can raise an incident">Customers and staff per route; no van, no capacity</td></tr><tr><td data-label="Module">Logistic Returns</td><td data-label="Screen">Asset movement</td><td data-label="What a person does there that can raise an incident">Crates and trays issued vs returned, per customer</td></tr><tr><td data-label="Module">Sales Orders</td><td data-label="Screen">Orders list</td><td data-label="What a person does there that can raise an incident">In progress → Dispatch created → Delivered / Skipped; partly allocated; dispatch rejected; returns pending</td></tr><tr><td data-label="Module">Receivables</td><td data-label="Screen">Invoices and payments</td><td data-label="What a person does there that can raise an incident">Cash, UPI, cheque; outstanding per customer; no credit limit</td></tr><tr><td data-label="Module">Inventory</td><td data-label="Screen">Finished goods</td><td data-label="What a person does there that can raise an incident">Batches, near expiry, expired</td></tr></tbody></table></div>
+<p><strong>Five findings that shape the design:</strong></p>
+<ol><li><strong>The tower does not hear the platform.</strong> The Deliveries area runs on its own simulation (<code>demo.js</code> writes outcomes straight into <code>fb.v7.ct.deliveries</code>). Nothing a driver records in the delivery app reaches the tower. The engine must start with one shared event stream.</li><li><strong>Capture is real but coarse.</strong> The driver picks from 6 skip reasons and 4 return reasons. 17 of the 54 incidents are captured exactly today, 22 only partly (under "Other", a broader reason, or a signal like "van idle"), and 15 not at all.</li><li><strong>Live Tracking is already the fix screen for the road.</strong> It has an exceptions feed and the right interventions (reassign, move up, call, message). Route and vehicle incidents should hand off to it, not rebuild it in the tower.</li><li><strong>Whole families are missing:</strong> vehicle problems (breakdown, accident, fridge), proof of delivery, credit limit, cold chain. They need capture points, not tower screens.</li><li><strong>The owner's own mockup already has the loop.</strong> The delivery modal reads What happened · Impact · FoodBridge recommends. The engine fills those three lines from the incident; the card shows nothing else (owner, 24 Sep 2026: no "So far" section).</li></ol>
+</section>
+<section id="rules-of-the-engine"><h2><span class="n">3</span>Rules of the engine</h2>
+<ol><li><strong>Modules record facts; the engine names incidents.</strong> The delivery app says "stop skipped, reason Shop Closed". The engine turns that into the <em>Shop closed</em> incident. A new incident type is a catalogue row, not a change to a module.</li><li><strong>One tag per delivery.</strong> A delivery shows its worst open incident (Missed before Pending, then the larger ₹). The others are lines under What happened. No "+N" (owner, 23 Sep).</li><li><strong>Standing is computed, never picked.</strong> Nobody chooses Missed or Pending. The rules in §4 decide it, and the clock moves it.</li><li><strong>Every incident has at most two buttons:</strong> its lead action and one alternative (often the call that comes first). Each action is one of sixteen (§6), built the way Reschedule is built, and each has a twin on the ground that writes the same fact.</li><li><strong>Closed by proof, not by say-so.</strong> Anything about goods or money closes only when the platform records the fix (delivered, paid, counted back, reassigned). A talk-only incident ("ask why it was late") closes when the owner picks what they heard.</li><li><strong>Van-level incidents hold their deliveries.</strong> A breakdown is one row with its held stops under it, not nine red rows. Fixing the van frees the stops.</li><li><strong>A return is the stock side of its cause.</strong> Damaged goods and the damaged return are one event: the tag is the cause (Damaged), and the recorded return is part of the proof.</li><li><strong>Owner's words only.</strong> No ids, no "lever", no "incident" on screen: the row says what happened ("Shop closed"), the sheet says what it costs and what to do.</li></ol>
+</section>
+<section id="the-impact-indicator-standing"><h2><span class="n">4</span>The impact indicator: standing</h2>
+<p>Every open incident gets a standing from three questions, asked in order, and a clock.</p>
+<div class="tbl"><table><thead><tr><th>#</th><th>Question</th><th>If yes</th></tr></thead><tbody><tr><td data-label="#">1</td><td data-label="Question">Is it a safety or cold-chain problem, or can the drop <strong>not happen today</strong> without you?</td><td data-label="If yes"><strong>Missed</strong> (needs you)</td></tr><tr><td data-label="#">2</td><td data-label="Question">Is the money or stock at risk above the line (₹2,000 by default, or 5% of the bill)?</td><td data-label="If yes"><strong>Missed</strong></td></tr><tr><td data-label="#">3</td><td data-label="Question">Is anything still open about it?</td><td data-label="If yes"><strong>Pending</strong> (in hand)</td></tr><tr><td data-label="#">–</td><td data-label="Question">Nothing open, or a small delay still inside its window</td><td data-label="If yes"><strong>On track</strong></td></tr></tbody></table></div>
+<p><strong>The clock.</strong> Each incident type has a <em>turns red when</em> moment (in the catalogue): the van finishes its route, the delivery window closes, the next trip leaves, the route is settled. An incident still Pending at that moment escalates to <strong>Missed</strong>.</p>
+<p><strong>Acting.</strong> When the owner takes the lead action, a Missed incident drops to <strong>Pending</strong> ("being fixed") until the proof arrives. When the proof lands, it is <strong>On track</strong> with a tick.</p>
+<p><strong>What moves where:</strong></p>
+<div class="tbl"><table><thead><tr><th>Moment</th><th>Standing</th><th>Tile the delivery sits under</th></tr></thead><tbody><tr><td data-label="Moment">Shop closed recorded at 11:20</td><td data-label="Standing">Missed</td><td data-label="Tile the delivery sits under">Missed · Need you</td></tr><tr><td data-label="Moment">Owner rescheduled it to Van 1, 4–8 pm</td><td data-label="Standing">Pending</td><td data-label="Tile the delivery sits under">Pending · In hand</td></tr><tr><td data-label="Moment">Van 1 delivered it at 5:10 pm</td><td data-label="Standing">On track ✓</td><td data-label="Tile the delivery sits under">On track · Done</td></tr><tr><td data-label="Moment">Short 4 cases, balance not on the next trip</td><td data-label="Standing">Pending → Missed</td><td data-label="Tile the delivery sits under">escalates when the next trip leaves</td></tr></tbody></table></div>
+<p><strong>The area's standing</strong> comes from its deliveries: <strong>Urgent</strong> while any delivery is Missed, <strong>Needs work</strong> while any incident is open or deliveries are still to go, <strong>On track</strong> when every delivery is done and nothing is open. The headline keeps "14 of 32 delivered"; its line adds the money: "17 to deliver · ₹18,400 at risk".</p>
+<p>The tiles keep their names and count deliveries by standing: <strong>On track</strong> (done, nothing open) · <strong>Pending</strong> (to deliver, or being fixed) · <strong>Missed</strong> (needs you). A delivered drop with an open problem (damaged, short) now sits under Pending until it is fixed, not under On track. That is a change from 23 Sep (see §12).</p>
+</section>
+<section id="lifecycle-of-one-incident"><h2><span class="n">5</span>Lifecycle of one incident</h2>
+<figure class="mm"><pre class="mermaid">stateDiagram-v2
+  [*] --&gt; Open: fact recorded or detected
+  Open --&gt; Acting: owner takes the lead action
+  Open --&gt; Open: clock escalates (Pending → Missed)
+  Acting --&gt; Resolved: proof lands on the platform
+  Acting --&gt; Open: action failed (couldn't reach, refused again)
+  Open --&gt; Resolved: fixed on the platform without the owner
+  Resolved --&gt; Closed: end of day, into the Timeline
+  Closed --&gt; [*]</pre></figure>
+<div class="tbl"><table><thead><tr><th>State</th><th>Standing shown</th><th>Row reads</th><th>Trail step added</th></tr></thead><tbody><tr><td data-label="State">Open</td><td data-label="Standing shown">Missed or Pending (by §4)</td><td data-label="Row reads">"Shop closed · 11:20"</td><td data-label="Trail step added">Captured by Kumar in the delivery app</td></tr><tr><td data-label="State">Acting</td><td data-label="Standing shown">Pending</td><td data-label="Row reads">"Being fixed · Van 1, 4–8 pm"</td><td data-label="Trail step added">Rescheduled by you · waiting for delivery</td></tr><tr><td data-label="State">Resolved</td><td data-label="Standing shown">On track ✓</td><td data-label="Row reads">"Delivered 5:10 pm · fixed"</td><td data-label="Trail step added">Delivered by Ajay</td></tr><tr><td data-label="State">Closed</td><td data-label="Standing shown">(leaves the list next day)</td><td data-label="Row reads">–</td><td data-label="Trail step added">Goes to the Timeline as the day's news</td></tr></tbody></table></div>
+</section>
+<section id="lead-actions-sixteen-actions-one-pattern"><h2><span class="n">6</span>Lead actions: sixteen actions, one pattern</h2>
+<p>Reschedule is the only lead action the tower has today. It was built from the owner's pictures on 23 Sep, and it already has everything an action needs. Every other action copies it. An incident opens its sheet, the sheet offers <strong>at most two buttons</strong> (an alternative and the lead action), and the lead action runs in the same card.</p>
+<p><strong>The pattern, taken from Reschedule:</strong></p>
+<ol><li><strong>One button in the sheet.</strong> It shows only while the incident is open, the action hasn't been done from either side, and it can do something (a van with nothing held has nothing to move). When it has been done, the sheet says so instead: "It is on the trip for Fri, morning. Nothing else to do."</li><li><strong>A pane slides in on the same card.</strong> It has ← and a centred title ("Reschedule Delivery"). ← or Esc goes back.</li><li><strong>Only what the owner decides</strong> (owner, 24 Sep 2026: "be very ruthless"). The choices come filled in from the incident, the call's answer and today's clock. A list with one item, an option that can't be picked, a figure the card already shows: none of them appear. A pane with nothing left to decide opens straight on its confirmation, and Cancel goes back to the card.</li><li><strong>No yes/no questions.</strong> Reschedule keeps the owner's optional internal note; no other pane has a note.</li><li><strong>Who gets told is not a question:</strong> the customer on WhatsApp and the driver in the delivery app are always told, and the confirm line says so. Messages are queued in the outbox; nothing is sent by itself.</li><li><strong>Confirm in place.</strong> One tap turns the button into what will happen ("Move to Fri, 25 Sep · 8am – 12pm") with Cancel and Confirm. Nothing is written until Confirm.</li><li><strong>One write, all or nothing.</strong> The fact goes into the event stream, with the note, the outbox, and the audit line. If it fails: "Nothing was changed."</li><li><strong>A Done card.</strong> It has an illustration, "Delivery Rescheduled!", a summary card and a status pill, and no buttons. ✕ or a tap outside closes it.</li><li><strong>The delivery moves.</strong> Missed becomes Pending ("being fixed"). It becomes On track when the proof lands, or goes back to Missed if the proof doesn't come in time.</li></ol>
+<p><strong>Every action has a twin on the ground.</strong> The same fix can be made by the person on the spot, on a platform screen: the driver in the delivery app, the office in Live Tracking or Sales Orders. Both sides write the same fact. Whichever comes first resolves the incident, and the tower says who did it ("Rescheduled by Kumar in the delivery app · Fri morning").</p>
+<p><strong>When the first step is a call.</strong> For "Call the shop", the tower asks when the owner comes back: "What did they say?", with 3–4 answers. The answer opens the right action, already filled in.</p>
+<div class="tbl"><table><thead><tr><th>Incident</th><th>What did they say?</th><th>Opens</th></tr></thead><tbody><tr><td data-label="Incident">Shop closed</td><td data-label="What did they say?">Opens later today · Tomorrow · Doesn't want it · Couldn't reach</td><td data-label="Opens">Try again today (or Move to another van) · Reschedule · Cancel delivery · Reschedule, tomorrow morning</td></tr><tr><td data-label="Incident">Customer unavailable</td><td data-label="What did they say?">Back soon · Tomorrow · Couldn't reach</td><td data-label="Opens">Try again today · Reschedule · Try again today, end of route</td></tr><tr><td data-label="Incident">Customer refused delivery</td><td data-label="What did they say?">Another day · Wants changes · Price problem · Doesn't want it</td><td data-label="Opens">Reschedule · Fix the order · Review adjustment · Cancel delivery</td></tr><tr><td data-label="Incident">Delivery window missed</td><td data-label="What did they say?">Still wants it today · Tomorrow</td><td data-label="Opens">Tell customers · Reschedule</td></tr><tr><td data-label="Incident">Customer disputes order</td><td data-label="What did they say?">Order is right · Needs fixing · Cancel it</td><td data-label="Opens">Close as agreed · Fix the order · Cancel delivery</td></tr><tr><td data-label="Incident">Quality complaint</td><td data-label="What did they say?">Replace it · Credit it · Settled on the call</td><td data-label="Opens">Send on next trip · Raise credit note · Close as settled</td></tr><tr><td data-label="Incident">Cash unavailable, cheque dispute</td><td data-label="What did they say?">Pays on a date · Won't pay</td><td data-label="Opens">Collect later · Decide on credit</td></tr></tbody></table></div>
+<p><strong>The sixteen actions, by what they fix:</strong></p>
+<div class="tbl"><table><thead><tr><th>Action</th><th>Fixes</th><th>Opens from</th><th>Done on the ground (twin)</th><th>Proof that closes it</th></tr></thead><tbody><tr><td data-label="Action">Reschedule</td><td data-label="Fixes">When</td><td data-label="Opens from">Shop closed, customer unavailable, refused, wrong address, access restriction, window missed, van full</td><td data-label="Done on the ground (twin)">Delivery app › Why no delivery? › When can we come back? (new)</td><td data-label="Proof that closes it">Delivered on the new day</td></tr><tr><td data-label="Action">Try again today</td><td data-label="Fixes">When</td><td data-label="Opens from">Customer unavailable, shop opens later, address inaccessible, road closure</td><td data-label="Done on the ground (twin)">Live Tracking › Move up; Delivery app › Queue › Try again (new)</td><td data-label="Proof that closes it">Delivered before the route ends</td></tr><tr><td data-label="Action">Move to another van</td><td data-label="Fixes">When</td><td data-label="Opens from">Breakdown, accident, puncture, fridge failure, van full, driver delayed, insufficient capacity</td><td data-label="Done on the ground (twin)">Live Tracking › Reassign</td><td data-label="Proof that closes it">Every moved stop delivered</td></tr><tr><td data-label="Action">Tell customers</td><td data-label="Fixes">When</td><td data-label="Opens from">Traffic delay, road closure, driver delayed, missing stock</td><td data-label="Done on the ground (twin)">Delivery app › Queue › Tell the next customers (new)</td><td data-label="Proof that closes it">The van arrives inside the promised time</td></tr><tr><td data-label="Action">Send on next trip</td><td data-label="Fixes">Goods</td><td data-label="Opens from">Short, stock not loaded, missing stock, wrong SKU, damaged ×4, substitute rejected, quality complaint, wrong batch</td><td data-label="Done on the ground (twin)">Delivery app › Deliver extra items (on the spot); Sales Orders › Create delivery</td><td data-label="Proof that closes it">Items delivered</td></tr><tr><td data-label="Action">Take it back</td><td data-label="Fixes">Goods</td><td data-label="Opens from">All returns, refused, partial acceptance, excess, expired, temperature</td><td data-label="Done on the ground (twin)">Delivery app › Product return; Settlement › Stock count</td><td data-label="Proof that closes it">Counted back at settlement</td></tr><tr><td data-label="Action">Cancel delivery</td><td data-label="Fixes">Goods</td><td data-label="Opens from">Refused, order dispute, credit refused</td><td data-label="Done on the ground (twin)">Sales Orders › status Skipped</td><td data-label="Proof that closes it">Goods counted back</td></tr><tr><td data-label="Action">Write it off</td><td data-label="Fixes">Goods</td><td data-label="Opens from">Missing item, expired, damaged return, temperature</td><td data-label="Done on the ground (twin)">Delivery app › Stock count note; Inventory adjustment</td><td data-label="Proof that closes it">Adjustment recorded</td></tr><tr><td data-label="Action">Fix the order</td><td data-label="Fixes">Order</td><td data-label="Opens from">Order dispute, changed order, partial acceptance, invoice mismatch</td><td data-label="Done on the ground (twin)">Delivery app › At customer › Edit order</td><td data-label="Proof that closes it">Order and bill match what was delivered</td></tr><tr><td data-label="Action">Fix customer details</td><td data-label="Fixes">Customer</td><td data-label="Opens from">Wrong address, address inaccessible, no parking, access restriction, GST mismatch</td><td data-label="Done on the ground (twin)">Delivery app › At customer › Save this location (new); Customers › Edit</td><td data-label="Proof that closes it">Details saved (then the next action)</td></tr><tr><td data-label="Action">Review adjustment</td><td data-label="Fixes">Money</td><td data-label="Opens from">Price dispute, scheme dispute</td><td data-label="Done on the ground (twin)">Delivery app › Payment › "adjusted as offer" (driver proposes)</td><td data-label="Proof that closes it">Approved, or balance collected</td></tr><tr><td data-label="Action">Raise credit note</td><td data-label="Fixes">Money</td><td data-label="Opens from">Expired, damaged (charged), approved adjustment, POD settled, invoice mismatch</td><td data-label="Done on the ground (twin)">Receivables › Credit note</td><td data-label="Proof that closes it">Credit note recorded</td></tr><tr><td data-label="Action">Collect later</td><td data-label="Fixes">Money</td><td data-label="Opens from">Cash unavailable, UPI failed, cheque dispute</td><td data-label="Done on the ground (twin)">Delivery app › Payment › left on credit</td><td data-label="Proof that closes it">Payment recorded (Collections takes it over)</td></tr><tr><td data-label="Action">Decide on credit</td><td data-label="Fixes">Money</td><td data-label="Opens from">Credit limit exceeded, cheque dispute</td><td data-label="Done on the ground (twin)">Delivery app › At customer › "Collect first" banner (new)</td><td data-label="Proof that closes it">Paid down, or allowed once</td></tr><tr><td data-label="Action">Ask the team</td><td data-label="Fixes">People</td><td data-label="Opens from">Excess, missing item, route deviation, POD missing, wrong loading, wrong batch, near expiry, dispatch papers, puncture</td><td data-label="Done on the ground (twin)">Live Tracking › Message driver; answer in the delivery app (new)</td><td data-label="Proof that closes it">The answer, then the owner closes it or picks the next action</td></tr><tr><td data-label="Action">Share proof</td><td data-label="Fixes">Proof</td><td data-label="Opens from">POD disputed</td><td data-label="Done on the ground (twin)">Delivery app › Stop summary › photo or signature (new)</td><td data-label="Proof that closes it">Customer accepts</td></tr></tbody></table></div>
+<p>The <strong>Buttons in the tower</strong> column of the catalogue (§7) gives each incident its pair. The flows below are what the artifact plays on a phone, one action at a time: the sheet, the pick, the confirm, the done card, the same fix on the ground, and where the delivery ends up.</p>
+<div class="fig-actions" id="fig-actions"></div>
+</section>
+<section id="the-catalogue-54-incidents-mapped"><h2><span class="n">7</span>The catalogue: 54 incidents, mapped</h2>
+<p><strong>Today:</strong> <em>Captured</em> = the platform records it as this exact thing today · <em>Partly</em> = recorded under a broader reason, a note or a signal · <em>Not captured</em> = no place records it yet.</p>
+<p><strong>Where:</strong> Delivery app = Delivery Management · Tracking = Live Tracking.</p>
+<div class="fig-catalog" id="fig-catalog"></div>
+<p><strong>Coverage today:</strong> 17 captured · 22 partly · 15 not captured.</p>
+<p>The crates tag already in the tower ("Crates not back", from Manage assets and Logistic Returns) keeps working as a Returns-family incident: information (On track, tagged), with Call the shop + Ask the team.</p>
+</section>
+<section id="sketches-the-flow-end-to-end"><h2><span class="n">8</span>Sketches: the flow end to end</h2>
+<p>Three real cases from the demo day, each one delivery going round the loop. The artifact plays them step by step on a phone.</p>
+<div class="fig-sketches" id="fig-sketches"></div>
+</section>
+<section id="architecture"><h2><span class="n">9</span>Architecture</h2>
+<figure class="mm"><pre class="mermaid">flowchart LR
+  subgraph Platform["Platform modules (record facts)"]
+    DA[Delivery app]
+    LT[Live Tracking]
+    SO[Sales Orders]
+    RC[Receivables]
+    IN[Inventory]
+  end
+  DA &amp; LT &amp; SO &amp; RC &amp; IN --&gt;|emit| BUS[(Event stream&lt;br/&gt;fb.v7.events)]
+  DEMO[Demo business&lt;br/&gt;emits the same events] --&gt; BUS
+  BUS --&gt; TAG[Tagger&lt;br/&gt;facts → incidents&lt;br/&gt;by the catalogue]
+  CLK[Clock&lt;br/&gt;every minute] --&gt; TAG
+  TAG --&gt; LED[(Incident ledger&lt;br/&gt;fb.v7.incidents)]
+  BUS --&gt; RES[Resolver&lt;br/&gt;proof closes incidents]
+  RES --&gt; LED
+  LED --&gt; STD[Standing engine&lt;br/&gt;pure, runs under node]
+  STD --&gt; UI[Tower · Deliveries&lt;br/&gt;tiles, list, sheet]
+  UI --&gt;|tower action| ACT[actions.js&lt;br/&gt;confirm, class C]
+  UI --&gt;|platform action| DA &amp; LT &amp; SO &amp; RC
+  UI --&gt;|outside| CALL[Call / WhatsApp&lt;br/&gt;then What did they say?]
+  ACT --&gt; BUS
+  CALL --&gt; UI</pre></figure>
+<div class="tbl"><table><thead><tr><th>Part</th><th>Job</th><th>Where it lives (built)</th></tr></thead><tbody><tr><td data-label="Part">Catalogue</td><td data-label="Job">The 54 types and crates: family, attention, starts as, money line, clock, two buttons, recommendation</td><td data-label="Where it lives (built)"><code>assets/ct/incidents.js</code> (<code>CATALOG</code>, <code>OUTCOMES</code>)</td></tr><tr><td data-label="Part">Event stream</td><td data-label="Job">Append-only facts from every module, same origin, so iframes and the tower share it; the <code>storage</code> event makes it live</td><td data-label="Where it lives (built)"><code>localStorage["fb.v7.events"]</code>: <code>assets/fb-events.js</code> (the delivery app's emitter), <code>store.addEvents</code> (the tower's)</td></tr><tr><td data-label="Part">Tagger</td><td data-label="Job">Turns facts into incidents (driver reasons 1:1; detectors for system incidents)</td><td data-label="Where it lives (built)"><code>derive()</code> in <code>assets/ct/incidents.js</code></td></tr><tr><td data-label="Part">Clock</td><td data-label="Job">Re-runs the detectors and escalations every minute</td><td data-label="Where it lives (built)"><code>derive()</code> on every pass; the tower's 60 s refresh and 20 s demo tick</td></tr><tr><td data-label="Part">Resolver</td><td data-label="Job">Matches later facts to open incidents by each type's proof</td><td data-label="Where it lives (built)"><code>derive()</code>; the demo's proofs in <code>simulate()</code></td></tr><tr><td data-label="Part">Incident ledger</td><td data-label="Job">The incidents and their trails</td><td data-label="Where it lives (built)">Not stored: derived from the facts on every pass, so it can never drift from them</td></tr><tr><td data-label="Part">Standing engine</td><td data-label="Job">Pure: incidents + deliveries → standings, tiles, headline, area status</td><td data-label="Where it lives (built)">replaces <code>deliveries()</code> in <code>levers.js</code></td></tr><tr><td data-label="Part">Tower UI</td><td data-label="Job">List row = delivery with its one tag; card = What happened · Impact · FoodBridge recommends · two buttons (no "So far", owner 24 Sep); action panes; What did they say?</td><td data-label="Where it lives (built)"><code>screens/control-tower.js</code> (<code>deliverySheet</code>), <code>assets/ct/incident-actions.js</code></td></tr><tr><td data-label="Part">Demo</td><td data-label="Job">Richer outcomes at the door, a van problem at midday, a spare van, a credit limit, a disputed delivery, the settlement count; writes the proof for the owner's fixes</td><td data-label="Where it lives (built)"><code>assets/ct/demo.js</code></td></tr></tbody></table></div>
+<p><strong>An incident record:</strong></p>
+<pre class="code"><code>{
+  id: "0924-017",                       // never on screen
+  type: "shop-closed",                  // catalogue row: family, copy, rules
+  subject: { kind: "stop", routeId: "r2", stopId: "s14", customerId: "c88", van: "Van 2" },
+  parent: null,                         // a held stop points at its van's incident
+  captured: { at: "2026-09-24T11:20", by: "Kumar", where: "Delivery app · Why no delivery?", how: "driver" },
+  impact: { rupees: 4820, cases: 12, stops: 1, minutes: 0 },
+  state: "open",                        // open · acting · resolved · closed
+  due: "2026-09-24T18:00",              // when it escalates (catalogue clock)
+  trail: [
+    { at: "11:20", step: "captured", text: "Kumar marked the shop closed" },
+    { at: "11:20", step: "tagged",   text: "Shop closed" }
+  ],
+  proof: null                           // { event: "stop.delivered", at, by } once fixed
+}
+// standing is computed on read (§4), never stored.</code></pre>
+<p><strong>Facts the modules emit</strong> (one line each at a place that already saves):</p>
+<div class="tbl"><table><thead><tr><th>Fact</th><th>Emitted by (existing action)</th></tr></thead><tbody><tr><td data-label="Fact"><code>stop.skipped {reason, note}</code></td><td data-label="Emitted by (existing action)">Delivery app › skip-commit</td></tr><tr><td data-label="Fact"><code>stop.delivered {items, total}</code></td><td data-label="Emitted by (existing action)">Delivery app › payment commit</td></tr><tr><td data-label="Fact"><code>stop.itemsEdited {booked, delivered}</code></td><td data-label="Emitted by (existing action)">Delivery app › edit-commit</td></tr><tr><td data-label="Fact"><code>return.recorded {reason, items, value}</code></td><td data-label="Emitted by (existing action)">Delivery app › return commit</td></tr><tr><td data-label="Fact"><code>payment.recorded {method, paid, due, writeoff}</code></td><td data-label="Emitted by (existing action)">Delivery app › payment; Receivables</td></tr><tr><td data-label="Fact"><code>load.confirmed {planned, loaded}</code></td><td data-label="Emitted by (existing action)">Delivery app › Load stock</td></tr><tr><td data-label="Fact"><code>count.submitted {mismatches, note}</code></td><td data-label="Emitted by (existing action)">Delivery app › Stock count</td></tr><tr><td data-label="Fact"><code>cash.handedOver {expected, counted}</code></td><td data-label="Emitted by (existing action)">Delivery app › Cash handover</td></tr><tr><td data-label="Fact"><code>route.started</code>, <code>route.restocking</code></td><td data-label="Emitted by (existing action)">Delivery app › Sign-off, Restock</td></tr><tr><td data-label="Fact"><code>van.ping {speed, at}</code>, <code>stop.reassigned</code>, <code>stop.movedUp</code></td><td data-label="Emitted by (existing action)">Live Tracking</td></tr><tr><td data-label="Fact"><code>order.allocated {allocated, booked}</code></td><td data-label="Emitted by (existing action)">Sales Orders</td></tr><tr><td data-label="Fact"><code>stop.rescheduled {date, window}</code></td><td data-label="Emitted by (existing action)">Tower › Reschedule (exists); Delivery app › When can we come back? (new)</td></tr><tr><td data-label="Fact"><code>stop.requeued {after}</code> · <code>customers.told {stops, times}</code></td><td data-label="Emitted by (existing action)">Tower › Try again today, Tell customers; Live Tracking › Move up</td></tr><tr><td data-label="Fact"><code>order.created {kind: balance or replacement}</code> · <code>order.edited</code> · <code>order.cancelled</code></td><td data-label="Emitted by (existing action)">Tower › Send on next trip, Fix the order, Cancel delivery; Sales Orders; Delivery app › Edit order, Deliver extra items</td></tr><tr><td data-label="Fact"><code>return.accepted {destination}</code> · <code>stock.writtenOff {borneBy}</code></td><td data-label="Emitted by (existing action)">Tower › Take it back, Write it off; Settlement › Stock count</td></tr><tr><td data-label="Fact"><code>customer.updated</code> · <code>adjustment.decided</code> · <code>creditNote.raised</code> · <code>collection.planned</code> · <code>credit.decided</code></td><td data-label="Emitted by (existing action)">Tower › Fix customer details, Review adjustment, Raise credit note, Collect later, Decide on credit; Receivables; Customers</td></tr><tr><td data-label="Fact"><code>question.asked</code> · <code>question.answered</code> · <code>pod.shared</code></td><td data-label="Emitted by (existing action)">Tower › Ask the team, Share proof; delivery app (answer, photo)</td></tr></tbody></table></div>
+</section>
+<section id="what-the-platform-has-to-add"><h2><span class="n">10</span>What the platform has to add</h2>
+<p>Must-haves only, in the order they unlock incidents. Every one is a few chips on a screen that already exists; none is a new screen.</p>
+<div class="tbl"><table><thead><tr><th>Add</th><th>On</th><th>Unlocks</th></tr></thead><tbody><tr><td data-label="Add">The event emitter (one line per save)</td><td data-label="On">Delivery app, Live Tracking, Sales Orders</td><td data-label="Unlocks">Everything: without it the tower stays a simulation</td></tr><tr><td data-label="Add">2 skip reasons: Wrong address · Can't reach the shop</td><td data-label="On">Delivery app › Why no delivery?</td><td data-label="Unlocks">Wrong address, Address inaccessible</td></tr><tr><td data-label="Add">Report a problem: Breakdown · Accident · Puncture · Fridge not cooling</td><td data-label="On">Delivery app › route bar</td><td data-label="Unlocks">The whole Vehicle family</td></tr><tr><td data-label="Add">Customer disputes: Order · Price · Scheme</td><td data-label="On">Delivery app › At customer › More actions</td><td data-label="Unlocks">Three disputes, exactly</td></tr><tr><td data-label="Add">Damaged: Leaking · Wet carton · Broken pack (one more tap)</td><td data-label="On">Delivery app › Product return</td><td data-label="Unlocks">Three Product incidents, exactly</td></tr><tr><td data-label="Add">UPI didn't go through</td><td data-label="On">Delivery app › Payment</td><td data-label="Unlocks">UPI failed</td></tr><tr><td data-label="Add">Photo or signature at the door</td><td data-label="On">Delivery app › Stop summary</td><td data-label="Unlocks">POD missing, POD disputed</td></tr><tr><td data-label="Add">Credit limit per customer</td><td data-label="On">Customers</td><td data-label="Unlocks">Credit limit exceeded</td></tr><tr><td data-label="Add">Van and capacity per route</td><td data-label="On">Route Planning</td><td data-label="Unlocks">Van full, Insufficient capacity</td></tr></tbody></table></div>
+<p><strong>Built (24 Sep 2026):</strong> the event emitter and the first seven rows, in the delivery app. <strong>Not built:</strong> a credit limit field in Customers and van capacity in Route Planning; the tower already reads <code>creditLimitById</code> and the route's <code>vanCases</code> when they are there (the demo supplies both).</p>
+<p>The modules belong to their teams (see <code>assets/modules.json</code>). In this prototype the emitter and the chips go into the copies under <code>v7/modules/</code>; each change is listed for its owning team.</p>
+</section>
+<section id="build-plan-built"><h2><span class="n">11</span>Build plan — built</h2>
+<div class="tbl"><table><thead><tr><th>Phase</th><th>Built</th><th>Checked by</th></tr></thead><tbody><tr><td data-label="Phase">0 · Sign-off</td><td data-label="Built">The decisions in §12, taken as recommended</td><td data-label="Checked by">The owner, to confirm</td></tr><tr><td data-label="Phase">1 · Engine</td><td data-label="Built">Catalogue (54 + crates), event stream, derive (tag, clock, resolve, standing), the Deliveries list on incidents (one row per delivery, one row per van problem), the chase line, the incident card with its two buttons, all 16 actions in the card, "What did they say?" after a call; the old tags still read (aliases)</td><td data-label="Checked by"><code>test/control-tower/incidents.test.js</code>, <code>deliveries.test.js</code>, <code>levers.test.js</code></td></tr><tr><td data-label="Phase">2 · Detectors</td><td data-label="Built">A stop past its window (Missed, grouped under its van when several), the van's clock, van full at the dock, short vs booked, money above the line, a later drop closing a missed one; the demo's van problem, credit limit, disputed delivery and settlement count</td><td data-label="Checked by">the same, and <code>e2e/control-tower.e2e.js</code></td></tr><tr><td data-label="Phase">3 · Capture chips</td><td data-label="Built">Delivery app: 3 more skip reasons and "When can we come back?", damage kinds on returns, "Something wrong here?" (order, price, scheme, quality, never came), "Report a problem" (breakdown, puncture, accident, fridge), UPI didn't go through, "adjusted as offer" to the tower, edit order and stock count mismatches to the tower, proof at the door</td><td data-label="Checked by">the browser: a skip in the app shows in the tower on the next refresh</td></tr><tr><td data-label="Phase">4 · Money and papers</td><td data-label="Built">Review adjustment, Raise credit note, Collect later, Decide on credit, Share proof; credit limits from <code>creditLimitById</code> (the demo's from its ledger); GSTIN in Fix customer details</td><td data-label="Checked by"><code>incidents.test.js</code></td></tr></tbody></table></div>
+</section>
+<section id="decisions-for-the-owner"><h2><span class="n">12</span>Decisions for the owner</h2>
+<p>All eight were built as recommended. Each is one line to change if the owner decides otherwise.</p>
+<ol><li><strong>Delivered with an open problem sits under Pending, not On track.</strong> On 23 Sep a late, short or damaged drop stayed under On track with its tag. For the loop to mean anything, "On track" has to mean finished. <em>Recommended: yes.</em></li><li><strong>The area's status comes from open incidents</strong> (Urgent while any delivery is Missed), not from the 75% health line. <em>Recommended: yes; the 75% line stays for the other areas.</em></li><li><strong>The ₹ line for Missed:</strong> ₹2,000 or 5% of the bill, whichever is lower. <em>Owner to set.</em></li><li><strong>Closed by proof.</strong> The owner can't tick an incident closed when it is about goods or money. <em>Recommended: yes; it's what makes the tower trustworthy.</em></li><li><strong>Van-level rows.</strong> A breakdown shows as one row holding its stops. <em>Recommended: yes.</em></li><li><strong>Tile words.</strong> On track · Done / Pending · In hand / Missed · Need you. <em>Owner to confirm.</em></li><li><strong>Two buttons per sheet, and the owner can do the ground's job.</strong> Every lead action can be done in the tower <em>or</em> on the ground, and whichever comes first wins. <em>Recommended: yes; the tower shows who did it, so nothing is done twice.</em></li><li><strong>Money actions need the owner.</strong> Review adjustment, Decide on credit and Write it off are never done by the ground alone; the driver can only propose. <em>Recommended: yes.</em></li></ol>
+</section>
+<section id="change-log"><h2>Change log</h2>
+<ul><li><strong>24 Sep 2026, evening (3).</strong> The owner removed the "No order" incident (order not found by the customer) and its skip reason in the delivery app. The catalogue is 54; a record that still says "No order with them" reads as an order dispute.</li><li><strong>24 Sep 2026, evening (2).</strong> Ruthless pass on every pane: no notify/tell/remind checkboxes (always told, said in the confirm line), no empty or one-option questions, no facts the card already has, no options that can't be picked; a pane with nothing to decide opens on its confirmation; an action that can't apply isn't offered (and a call's answer falls back to Reschedule). The card lost its repeats too: a van row is the van's name, What happened is one sentence, no "0 stops".</li><li><strong>24 Sep 2026, evening.</strong> The owner removed the card's "So far" section: the card is What happened · Impact · FoodBridge recommends and its buttons. The engine still keeps each incident's trail (it feeds the Timeline and the notes on what was done), just not on the card.</li><li><strong>24 Sep 2026, built.</strong> All four phases on branch <code>ct-incident-engine</code>: the engine, the 16 actions in the tower, the delivery app's capture points, the demo business raising and fixing incidents live, the Timeline's fixes as wins. 100 unit tests and 11 browser tests pass.</li><li><strong>24 Sep 2026, later.</strong> Lead actions: sixteen actions built on the Reschedule pattern, each with its twin on the ground, the call outcomes that open them, two buttons for every incident in the catalogue, and a flow for each action.</li><li><strong>24 Sep 2026.</strong> First proposal: loop, standing rules, lifecycle, 55-incident catalogue mapped to the platform, three sketched cases, architecture, capture gaps, plan.</li></ul>
+</section>
+      <footer class="end"><span>Rendered from v7/context/control-tower/CONTROL_TOWER_INCIDENTS.md</span><span>Sketches use the demo business: Van 1 · Ajay, Van 2 · Kumar</span></footer>
+    </main>
+  </div>
+</div>
+
+<script id="data" type="application/json">{"catalog": [{"family": "Customer", "incident": "Customer unavailable", "attention": "Sometimes", "today": "Captured", "where": "Delivery app › Why no delivery? › Owner Away · driver", "starts": "Pending", "red": "The van finishes its route without retrying", "buttons": "Call the shop + Try again today", "closed": "Delivered or rescheduled"}, {"family": "Customer", "incident": "Shop closed", "attention": "Sometimes", "today": "Captured", "where": "Delivery app › Why no delivery? › Shop Closed · driver", "starts": "Missed", "red": "At once: no drop today", "buttons": "Call the shop + Reschedule", "closed": "Rescheduled, then delivered"}, {"family": "Customer", "incident": "Customer refused delivery", "attention": "Yes", "today": "Captured", "where": "Delivery app › Why no delivery? › Refused · driver", "starts": "Missed", "red": "At once", "buttons": "Call the customer + Reschedule", "closed": "Rescheduled and delivered, or order cancelled and stock counted back"}, {"family": "Customer", "incident": "Customer partially accepted", "attention": "Yes", "today": "Partly", "where": "Delivery app › At customer › Edit order below booked, no reason · system", "starts": "Pending", "red": "The route is settled with the balance not counted back", "buttons": "Ask the team + Fix the order", "closed": "Stock count matches"}, {"family": "Customer", "incident": "Customer changed order", "attention": "Yes", "today": "Partly", "where": "Delivery app › At customer › Edit order, Deliver extra items · system", "starts": "Pending", "red": "–", "buttons": "Call the customer + Fix the order", "closed": "Owner confirms, or order edited"}, {"family": "Customer", "incident": "Customer disputes order", "attention": "Yes", "today": "Not captured", "where": "Proposed: Delivery app › More actions › Customer disputes › Order · driver", "starts": "Missed", "red": "At once: money held", "buttons": "Call the customer + Fix the order", "closed": "Order confirmed or edited, then paid or on credit"}, {"family": "Customer", "incident": "Customer disputes price", "attention": "Yes", "today": "Partly", "where": "Delivery app › Payment › paid less, \"adjusted as offer\" · driver", "starts": "Pending", "red": "The gap is over the line (₹500 or 5%)", "buttons": "Call the customer + Review adjustment", "closed": "Approved, or balance paid"}, {"family": "Customer", "incident": "Customer disputes scheme", "attention": "Yes", "today": "Partly", "where": "Delivery app › Payment › paid less, \"adjusted as offer\" · driver", "starts": "Pending", "red": "The claim is over the line", "buttons": "Call the customer + Review adjustment", "closed": "Claim approved or refused"}, {"family": "Location", "incident": "Wrong address", "attention": "Yes", "today": "Partly", "where": "Delivery app › Why no delivery? › Other + note · driver", "starts": "Missed", "red": "At once", "buttons": "Call the shop + Fix customer details", "closed": "Address fixed and delivered"}, {"family": "Location", "incident": "Address inaccessible", "attention": "Sometimes", "today": "Partly", "where": "Delivery app › Why no delivery? › Other; Tracking › van idle at stop · driver, system", "starts": "Pending", "red": "The van leaves the area without the drop", "buttons": "Call the shop + Try again today", "closed": "Delivered"}, {"family": "Location", "incident": "No parking/loading access", "attention": "Sometimes", "today": "Partly", "where": "Tracking › van idle at stop · system", "starts": "On track (idle under 15 min)", "red": "Idle past the stop's window", "buttons": "Ask the team + Fix customer details", "closed": "Van moves, or delivered"}, {"family": "Location", "incident": "Market/shop access restriction", "attention": "Sometimes", "today": "Partly", "where": "Sales Orders › order comments (\"gate is locked\"); Delivery app › Other · office, driver", "starts": "Pending", "red": "The allowed hours close", "buttons": "Fix customer details + Reschedule", "closed": "Delivered in hours"}, {"family": "Order", "incident": "Wrong SKU", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Wrong Product · driver", "starts": "Pending", "red": "The customer's next delivery goes without the right item", "buttons": "Call the customer + Send on next trip", "closed": "Return recorded and right item delivered"}, {"family": "Order", "incident": "Short quantity", "attention": "Yes", "today": "Captured", "where": "Delivery app › At customer › stepper \"Max N loaded\" / \"Out of stock\" · system", "starts": "Pending", "red": "The next trip leaves without the balance", "buttons": "Call the customer + Send on next trip", "closed": "Balance delivered"}, {"family": "Order", "incident": "Excess quantity", "attention": "Yes", "today": "Captured", "where": "Delivery app › Settlement › Stock count (excess) · system", "starts": "Pending", "red": "The route closes unexplained", "buttons": "Ask the team + Take it back", "closed": "Explained and route closed"}, {"family": "Order", "incident": "Missing item", "attention": "Yes", "today": "Captured", "where": "Delivery app › Settlement › Stock count (missing) · system", "starts": "Pending, Missed from ₹1,000", "red": "The route closes unexplained", "buttons": "Ask the team + Write it off", "closed": "Explained, recovered or written off"}, {"family": "Order", "incident": "Substitute rejected", "attention": "Yes", "today": "Not captured", "where": "Proposed: Delivery app › Product return › Substitute rejected · driver", "starts": "Pending", "red": "The next delivery goes without the ordered item", "buttons": "Call the customer + Send on next trip", "closed": "Ordered item delivered"}, {"family": "Product", "incident": "Damaged goods", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Damaged · driver", "starts": "Pending, Missed from ₹2,000", "red": "Not replaced by the customer's next delivery", "buttons": "Raise credit note + Send on next trip", "closed": "Replacement delivered"}, {"family": "Product", "incident": "Leaking product", "attention": "Yes", "today": "Partly", "where": "Delivery app › Product return › Damaged + note · driver", "starts": "Pending", "red": "Not replaced by the next delivery", "buttons": "Raise credit note + Send on next trip", "closed": "Replacement delivered"}, {"family": "Product", "incident": "Wet/carton damage", "attention": "Yes", "today": "Partly", "where": "Delivery app › Product return › Damaged + note · driver", "starts": "Pending", "red": "Not replaced by the next delivery", "buttons": "Raise credit note + Send on next trip", "closed": "Replacement delivered"}, {"family": "Product", "incident": "Broken packaging", "attention": "Yes", "today": "Partly", "where": "Delivery app › Product return › Damaged + note · driver", "starts": "Pending", "red": "Not replaced by the next delivery", "buttons": "Raise credit note + Send on next trip", "closed": "Replacement delivered"}, {"family": "Product", "incident": "Wrong batch", "attention": "Yes", "today": "Not captured", "where": "Proposed: batch on each line at Load stock, checked against the order · system", "starts": "Pending", "red": "The van leaves with it", "buttons": "Ask the team + Send on next trip", "closed": "Right batch loaded"}, {"family": "Product", "incident": "Near expiry", "attention": "Yes", "today": "Partly", "where": "Inventory › near expiry (the van load doesn't know) · system", "starts": "Pending", "red": "Loaded for a customer with less shelf life than their terms", "buttons": "Ask the team", "closed": "Sold or moved"}, {"family": "Product", "incident": "Expired product", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Expired; Inventory › expired · driver, system", "starts": "Missed", "red": "At once", "buttons": "Take it back + Raise credit note", "closed": "Credit note raised and stock written off"}, {"family": "Product", "incident": "Quality complaint", "attention": "Yes", "today": "Not captured", "where": "Proposed: Delivery app › More actions › Quality complaint + photo; customer on WhatsApp · driver, customer", "starts": "Missed", "red": "At once", "buttons": "Call the customer + Send on next trip", "closed": "Outcome noted and replacement delivered"}, {"family": "Product", "incident": "Temperature issue", "attention": "Urgent", "today": "Not captured", "where": "No cold-chain reading anywhere · –", "starts": "Missed", "red": "At once", "buttons": "Call the driver + Take it back", "closed": "Goods checked, returned or cleared"}, {"family": "Vehicle", "incident": "Vehicle breakdown", "attention": "Urgent", "today": "Partly", "where": "Tracking › van idle / no ping; driver confirms (proposed: Report a problem) · system, driver", "starts": "Missed, holds its stops", "red": "At once", "buttons": "Call the driver + Move to another van", "closed": "Every held stop reassigned or delivered"}, {"family": "Vehicle", "incident": "Accident", "attention": "Urgent", "today": "Not captured", "where": "Proposed: Delivery app › route bar › Report a problem › Accident · driver", "starts": "Missed, holds its stops", "red": "At once", "buttons": "Call the driver + Move to another van", "closed": "Driver safe and stops reassigned"}, {"family": "Vehicle", "incident": "Tyre/puncture", "attention": "Sometimes", "today": "Partly", "where": "Tracking › van idle · system", "starts": "Pending, holds its stops", "red": "Idle for 30 min", "buttons": "Ask the team + Move to another van", "closed": "Van moving again"}, {"family": "Vehicle", "incident": "Refrigeration failure", "attention": "Urgent", "today": "Not captured", "where": "Proposed: Report a problem › Fridge not cooling · driver", "starts": "Missed, holds chilled stops", "red": "At once", "buttons": "Call the driver + Move to another van", "closed": "Goods checked, stops reassigned"}, {"family": "Route", "incident": "Traffic delay", "attention": "Sometimes", "today": "Partly", "where": "Tracking › \"N min behind\" (cause unknown) · system", "starts": "Pending", "red": "A delivery window is missed", "buttons": "Ask the team + Tell customers", "closed": "Back inside the windows"}, {"family": "Route", "incident": "Road closure", "attention": "Sometimes", "today": "Partly", "where": "Tracking › behind + idle · system", "starts": "Pending", "red": "A window is missed", "buttons": "Try again today + Tell customers", "closed": "Back on plan"}, {"family": "Route", "incident": "Route deviation", "attention": "Yes if material", "today": "Not captured", "where": "Proposed: Tracking compares GPS to the planned chain · system", "starts": "Pending (over 2 km or 20 min off)", "red": "It repeats, or stays unexplained", "buttons": "Call the driver + Ask the team", "closed": "Explained"}, {"family": "Route", "incident": "Driver delayed", "attention": "Yes if SLA affected", "today": "Captured", "where": "Delivery app › route still Ready past start; Tracking › behind · system", "starts": "Pending", "red": "The first delivery window is at risk", "buttons": "Move to another van + Tell customers", "closed": "Route started, windows held"}, {"family": "Route", "incident": "Delivery window missed", "attention": "Yes", "today": "Captured", "where": "Tower / Tracking › stop 30 min past its slot · system", "starts": "Missed", "red": "At once", "buttons": "Call the customer + Tell customers", "closed": "Delivered, or told and then delivered"}, {"family": "Capacity", "incident": "Van full", "attention": "Yes", "today": "Partly", "where": "Delivery app › Restock / Stock requested; booked beyond the load · system, driver", "starts": "Missed for the stops that don't fit", "red": "At once", "buttons": "Reschedule + Move to another van", "closed": "Every stop has a van"}, {"family": "Capacity", "incident": "Insufficient vehicle capacity", "attention": "Yes", "today": "Not captured", "where": "Route Planning has no van capacity · –", "starts": "Pending (the day before)", "red": "The route starts overbooked", "buttons": "Reschedule + Move to another van", "closed": "The plan fits"}, {"family": "Warehouse", "incident": "Wrong loading", "attention": "Yes", "today": "Partly", "where": "Delivery app › Load stock › loaded differs from plan · system", "starts": "Pending", "red": "The van leaves with it", "buttons": "Ask the team", "closed": "Load matches plan"}, {"family": "Warehouse", "incident": "Missing stock", "attention": "Yes", "today": "Captured", "where": "Sales Orders › order partly allocated · system", "starts": "Pending (the day before)", "red": "Dispatch day, still short", "buttons": "Tell customers + Send on next trip", "closed": "Order fully allocated"}, {"family": "Warehouse", "incident": "Stock not loaded", "attention": "Yes", "today": "Captured", "where": "Delivery app › Load stock › loaded less than planned · system", "starts": "Pending", "red": "The van reaches a stop that needs it", "buttons": "Ask the team + Send on next trip", "closed": "Restocked or delivered"}, {"family": "Warehouse", "incident": "Wrong batch loaded", "attention": "Yes", "today": "Not captured", "where": "Proposed: batch at Load stock · system", "starts": "Pending", "red": "The van leaves with it", "buttons": "Ask the team", "closed": "Right batch loaded"}, {"family": "Warehouse", "incident": "Dispatch document missing", "attention": "Yes", "today": "Partly", "where": "Sales Orders › dispatch not assigned · system", "starts": "Pending", "red": "The van leaves without it", "buttons": "Ask the team", "closed": "Documents present"}, {"family": "Payment", "incident": "Cash unavailable", "attention": "Yes", "today": "Partly", "where": "Delivery app › Payment › left on credit · driver", "starts": "Pending", "red": "Unpaid past the customer's terms (hands over to Collections)", "buttons": "Call the customer + Collect later", "closed": "Payment recorded"}, {"family": "Payment", "incident": "UPI/payment failed", "attention": "Sometimes", "today": "Not captured", "where": "Proposed: Delivery app › Payment › UPI didn't go through · driver", "starts": "Pending", "red": "Not settled by the time the route closes", "buttons": "Ask the team + Collect later", "closed": "Payment recorded"}, {"family": "Payment", "incident": "Cheque/payment dispute", "attention": "Yes", "today": "Partly", "where": "Receivables › cheque payments; bounced not recorded · office", "starts": "Missed", "red": "At once", "buttons": "Call the customer + Decide on credit", "closed": "Cleared"}, {"family": "Payment", "incident": "Credit limit exceeded", "attention": "Yes", "today": "Not captured", "where": "No credit limit anywhere; the tower's Fire hold is the nearest · system", "starts": "Missed (before dispatch)", "red": "At once", "buttons": "Call the customer + Decide on credit", "closed": "Paid down, or approved once"}, {"family": "Documentation", "incident": "POD missing", "attention": "Yes", "today": "Not captured", "where": "Proposed: Delivery app › Stop summary › photo or signature · system", "starts": "Pending", "red": "The route is settled without it", "buttons": "Ask the team", "closed": "Proof attached"}, {"family": "Documentation", "incident": "POD disputed", "attention": "Yes", "today": "Not captured", "where": "Customer says it never came · customer, office", "starts": "Missed", "red": "At once", "buttons": "Call the customer + Share proof", "closed": "Customer accepts"}, {"family": "Documentation", "incident": "Invoice mismatch", "attention": "Yes", "today": "Partly", "where": "Delivery app › order edited after invoicing (delivered ≠ invoiced) · system", "starts": "Pending", "red": "The invoice goes out unchanged", "buttons": "Fix the order", "closed": "Invoice matches delivery"}, {"family": "Documentation", "incident": "GST/billing mismatch", "attention": "Yes", "today": "Not captured", "where": "Customer GSTIN exists; nothing checks it against the invoice · system", "starts": "Pending", "red": "The invoice goes out", "buttons": "Fix customer details", "closed": "Fixed"}, {"family": "Returns", "incident": "Saleable return", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Unsold · driver", "starts": "On track (goods back)", "red": "Not in the settlement count", "buttons": "Take it back", "closed": "Counted back"}, {"family": "Returns", "incident": "Damaged return", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Damaged · driver", "starts": "Pending (tag: Damaged goods)", "red": "Not written off or claimed in 7 days", "buttons": "Raise credit note + Write it off", "closed": "Written off or claimed"}, {"family": "Returns", "incident": "Expiry return", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Expired · driver", "starts": "Pending (tag: Expired product)", "red": "Credit note not raised in 7 days", "buttons": "Raise credit note + Write it off", "closed": "Credit note raised"}, {"family": "Returns", "incident": "Wrong-product return", "attention": "Yes", "today": "Captured", "where": "Delivery app › Product return › Wrong Product · driver", "starts": "Pending (tag: Wrong SKU)", "red": "Not replaced by the next delivery", "buttons": "Take it back + Send on next trip", "closed": "Replaced"}], "scenarios": [{"title": "A · Shop closed (customer)", "arc": "Missed → Pending → On track", "steps": ["<strong>11:20, delivery app.<\/strong> Kumar (Van 2) at Best Price Store taps Skip stop › Shop Closed.", "<strong>Tower.<\/strong> Missed 1. Row: Best Price Store · \"Shop closed · 11:20\" · ₹4,820. Deliveries turns Urgent.", "<strong>Sheet.<\/strong> What happened: Van 2 found the shop shut at 11:20. Impact: ₹4,820 not delivered; they already owe ₹3,100. FoodBridge recommends: call the shop; if they open later, put them on Van 1's evening round. Buttons: Call the shop · Reschedule.", "<strong>Outside.<\/strong> The owner calls. Back in the tower: \"What did they say?\" › Opens after 4 pm.", "<strong>Tower.<\/strong> Confirm \"Move to Van 1 · 4–8 pm\". The delivery moves to Pending: \"Being fixed · Van 1, 4–8 pm\". Deliveries: Needs work.", "<strong>5:10 pm, delivery app.<\/strong> Ajay delivers. Proof lands; the row moves to On track ✓ \"Delivered 5:10 pm · fixed\". Missed 0."]}, {"title": "B · Van 2 stops (vehicle, holds its stops)", "arc": "one root, nine deliveries", "steps": ["<strong>12:05, Tracking.<\/strong> Van 2 idle for 20 minutes with 9 stops left. The system opens <em>Van stopped<\/em>; Kumar confirms Breakdown in the delivery app.", "<strong>Tower.<\/strong> Missed 9, drawn as one row: \"Van 2 broke down · holding 9 stops · ₹38,600\". The held deliveries count under Missed (they cannot happen without you) but get no rows of their own.", "<strong>Sheet.<\/strong> Impact: 9 stops, ₹38,600, 3 of them due before 2 pm. Recommends: move those 3 to Van 1 now; the rest wait for the mechanic. Buttons: Call the driver · Move to another van.", "<strong>Tower.<\/strong> Move to another van: the 3 are ticked, Van 1 has room. Confirm. The 3 are ordinary Van 1 deliveries; the root is Pending: \"Being fixed · 6 still held\". (The office could do the same in Live Tracking › Reassign: same fact.)", "<strong>1:30 pm, Tracking.<\/strong> Van 2 is moving. Proof: pings and speed. The root resolves, the 6 go back on the road, Missed 0."]}, {"title": "C · Damaged goods (delivered, but not finished)", "arc": "Pending until replaced", "steps": ["<strong>2:40 pm, delivery app.<\/strong> Ajay at Cake Corner records a return: 6 packs, Damaged (leaking), ₹540.", "<strong>Tower.<\/strong> Cake Corner under Pending, tag Damaged: \"Replace on the next trip\". Not Missed: the drop happened and it is under ₹2,000.", "<strong>Tower.<\/strong> Send on next trip: 6 packs filled in, Van 1 Fri morning, no charge. Confirm. Pending: \"Being fixed · replacement Fri\". (Ajay could have replaced it on the spot with Deliver extra items: same fact.)", "<strong>Next day, 10:15.<\/strong> Replacement delivered. Resolved ✓. Had tomorrow's van left without it, it would have escalated to Missed."]}], "actions": [{"title": "Reschedule", "group": "When", "meta": "Best Price Store · Shop closed · ₹4,820 (exists today)", "steps": ["<strong>Opens from<\/strong> the sheet's buttons: Call the shop · <strong>Reschedule<\/strong>. It shows only while the delivery is missed and not yet rescheduled.", "<strong>Pick:<\/strong> a day from today and the next four (tomorrow by default; a day with no window left is greyed out) and a window (Morning 8–12, Afternoon 12–4, Evening 4–8), plus the owner's optional note. The customer always gets the WhatsApp; the confirm line says so.", "<strong>Confirm:<\/strong> \"Move to Fri, 25 Sep · 8am – 12pm. Best Price Store will get a WhatsApp confirmation.\" Cancel · Confirm.", "<strong>Done:<\/strong> Delivery Rescheduled! Customer · Date · Time · Order value · Status: Scheduled.", "<strong>On the ground:<\/strong> after Shop Closed, the delivery app asks Kumar \"When can we come back?\" with the same day and window chips, so he can agree it with the shopkeeper at the door. Same fact, by Kumar.", "<strong>Moves the delivery:<\/strong> Missed → Pending \"Rescheduled · Fri morning\" → On track when Friday's van delivers it. Not delivered that day → Missed again."]}, {"title": "Try again today", "group": "When", "meta": "Sai Bakers · Customer unavailable · ₹2,150", "steps": ["<strong>Opens from:<\/strong> Call the shop · <strong>Try again today<\/strong>, or from the call's answer \"Back soon\".", "<strong>Pick:<\/strong> when the van goes back, from the times it can still make: after the next stop · after 2 stops · at the end of the route · after 4 pm (only when the call said the shop opens later). With one time left, it's a line, not a question.", "<strong>Confirm:<\/strong> \"Van 2 goes back at about 3:40 pm, after 4 stops. Kumar is told in the app; Sai Bakers gets a WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Back on Today's Route! Customer · Van · Expected · Status: On the route.", "<strong>On the ground:<\/strong> Live Tracking › Move up, from the office (exists). Or Kumar taps Try again on the skipped stop in his queue (new).", "<strong>Moves the delivery:<\/strong> Missed → Pending \"Back on Van 2 · about 3:40 pm\" → On track when delivered. The route ends without it → Missed."]}, {"title": "Move to another van", "group": "When", "meta": "Van 2 broke down · 9 stops held · ₹38,600", "steps": ["<strong>Opens from:<\/strong> Call the driver · <strong>Move to another van<\/strong>.", "<strong>Pick:<\/strong> which stops (only when there's more than one; the soonest that fit are ticked) and which van (only vans with room; with one, it's a line). Both drivers and the customers are always told.", "<strong>Confirm:<\/strong> \"Move 3 stops (₹12,400) to Van 1. First drop about 1:05 pm. Ajay and Kumar are told; 3 customers get a WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Stops Moved! Stops · To · First drop · Status: On Van 1.", "<strong>On the ground:<\/strong> Live Tracking › route drawer › Reassign, from the office (exists). Same fact.", "<strong>Moves the delivery:<\/strong> the 3 become ordinary Van 1 deliveries (Pending). The van row stays Pending \"6 still held\" until Van 2 moves again or the rest are moved."]}, {"title": "Tell customers", "group": "When", "meta": "Van 1 running 35 min behind · Traffic delay", "steps": ["<strong>Opens from:<\/strong> Ask the team · <strong>Tell customers<\/strong>.", "<strong>Pick:<\/strong> who hears (only when there's more than one; each with its new time). With one customer, the pane is just the confirmation.", "<strong>Confirm:<\/strong> \"Send to 4 customers on WhatsApp: new times 1:40 – 3:10 pm.\" Cancel · Confirm.", "<strong>Done:<\/strong> Customers Told! Customers · New times · Status: Queued.", "<strong>On the ground:<\/strong> Kumar taps Tell the next customers in his queue (new). Same message, same fact.", "<strong>Moves the delivery:<\/strong> it doesn't close the delay, but each told customer's window becomes the promised time, so it won't escalate while the van keeps it. It closes when the van is back inside its windows."]}, {"title": "Send on next trip", "group": "Goods", "meta": "Cake Corner · Damaged · 6 packs · ₹540", "steps": ["<strong>Opens from:<\/strong> Raise credit note · <strong>Send on next trip<\/strong>.", "<strong>Pick:<\/strong> the items, filled in from the incident, with steppers, and the trip (tomorrow by default). The van is the customer's own; the charge follows the problem (a replacement is free, a balance is charged).", "<strong>Confirm:<\/strong> \"Add 6 × Britannia Cake 60g to Van 1, Fri 8–12 · no charge. Cake Corner gets a WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Added to the Next Trip! Customer · Items · Trip · Charge · Status: Booked.", "<strong>On the ground:<\/strong> if the van carries it, Ajay replaces it on the spot with At customer › Deliver extra items (exists), and it closes at once. Otherwise the office uses Sales Orders › Create delivery.", "<strong>Moves the delivery:<\/strong> Pending \"Being fixed · replacement Fri\" → On track when delivered. The trip leaves without it → Missed."]}, {"title": "Take it back", "group": "Goods", "meta": "Fresh Fold · Expired · 8 × Brown Bread 400g · ₹336", "steps": ["<strong>Opens from:<\/strong> <strong>Take it back<\/strong> · Raise credit note.", "<strong>Pick:<\/strong> the items and quantities, filled in, and where they go: back into stock · damaged stock · throw away (expired can't go back into stock, so it isn't offered). They're credited if they paid.", "<strong>Confirm:<\/strong> \"8 packs to be thrown away at settlement · ₹336 credit to Fresh Fold.\" Cancel · Confirm.", "<strong>Done:<\/strong> Return Recorded! Items · Goes to · Credit · Status: Coming back on Van 1.", "<strong>On the ground:<\/strong> Delivery app › Product return (exists), then Settlement › Stock count, where the warehouse counts it in. Same fact.", "<strong>Moves the delivery:<\/strong> Pending \"Coming back on Van 1\" → On track when the settlement count includes it."]}, {"title": "Cancel delivery", "group": "Goods", "meta": "Kanti Sweets · Refused · ₹3,960", "steps": ["<strong>Opens from<\/strong> the call's answer \"Doesn't want it\", or Call the customer · <strong>Cancel delivery<\/strong>.", "<strong>Pick:<\/strong> why (doesn't want it · ordered by mistake · duplicate order · other). The customer is always told.", "<strong>Confirm:<\/strong> \"Cancel ₹3,960 for Kanti Sweets. The goods come back on Van 2 and go back into stock.\" Cancel · Confirm.", "<strong>Done:<\/strong> Delivery Cancelled. Customer · Order value · Goods · Status: Cancelled.", "<strong>On the ground:<\/strong> Sales Orders › set the order to Skipped, from the office (exists).", "<strong>Moves the delivery:<\/strong> it leaves today's count (32 becomes 31) once the goods are counted back; until then it is Pending \"Cancelled · goods on Van 2\"."]}, {"title": "Write it off", "group": "Goods", "meta": "Van 2 stock count · 4 × Parle-G Gold 1kg missing · ₹240", "steps": ["<strong>Opens from:<\/strong> Ask the team · <strong>Write it off<\/strong>.", "<strong>Pick:<\/strong> who bears it (the business · recover from the driver · claim from the supplier). The value is on the button.", "<strong>Confirm:<\/strong> \"Write off ₹240 of Parle-G Gold 1kg. The business bears it.\" Cancel · Confirm.", "<strong>Done:<\/strong> Written Off. Items · Value · Borne by · Status: Adjusted.", "<strong>On the ground:<\/strong> Settlement › Stock count, where the driver's explanation is required (exists), and an Inventory adjustment from the office.", "<strong>Moves the delivery:<\/strong> Pending → On track as soon as the adjustment is recorded."]}, {"title": "Fix the order", "group": "Order", "meta": "ASSAM GOVT. MARKETING · Customer disputes order · ₹6,300", "steps": ["<strong>Opens from<\/strong> the call's answer \"Needs fixing\", or Call the customer · <strong>Fix the order<\/strong>.", "<strong>Pick:<\/strong> the lines, booked vs what they say, with steppers. The new bill goes on WhatsApp, and the driver delivers it if it's still at the door.", "<strong>Confirm:<\/strong> \"New total ₹5,790 (₹510 less). ASSAM GOVT. MARKETING gets the new bill.\" Cancel · Confirm.", "<strong>Done:<\/strong> Order Updated! Customer · Was · Now · Status: Bill resent.", "<strong>On the ground:<\/strong> Delivery app › At customer › Edit order, at the door (exists). Same fact.", "<strong>Moves the delivery:<\/strong> Missed → Pending, then On track when it is delivered and paid, or put on credit, at the new total."]}, {"title": "Fix customer details", "group": "Customer", "meta": "ODC-OVER D COUNTER · Wrong address", "steps": ["<strong>Opens from:<\/strong> Call the shop · <strong>Fix customer details<\/strong>.", "<strong>Pick:<\/strong> only the details this problem is about: the address and a landmark (wrong address), where to unload (no parking), the delivery hours (access), the GSTIN (GST). A missed delivery goes on to Reschedule by itself.", "<strong>Confirm:<\/strong> \"Save the new address for ODC-OVER D COUNTER, then reschedule.\" Cancel · Confirm.", "<strong>Done:<\/strong> Details Saved, then it slides straight on to Reschedule, filled in. One action can lead into the next.", "<strong>On the ground:<\/strong> Kumar taps Save this location at the stop (new). Or the office edits the customer in Customers (exists).", "<strong>Moves the delivery:<\/strong> it stays Missed until the rescheduled delivery is booked, then follows Reschedule."]}, {"title": "Review adjustment", "group": "Money", "meta": "SSK MART JAYANAGAR · Price dispute · ₹500 short", "steps": ["<strong>Opens from:<\/strong> Call the customer · <strong>Review adjustment<\/strong>.", "<strong>Pick:<\/strong> billed ₹5,200, paid ₹4,700, gap ₹500, and the customer's reason as the driver noted it. Then one of: approve this once · approve and use this price from now · don't approve, collect the ₹500.", "<strong>Confirm:<\/strong> \"Approve ₹500 once for SSK MART JAYANAGAR. A credit note is raised; the price list doesn't change.\" Cancel · Confirm.", "<strong>Done:<\/strong> Adjustment Approved (or Balance Added to Collections). Customer · Gap · Decision · Status.", "<strong>On the ground:<\/strong> Delivery app › Payment › \"adjusted as offer\" (exists). That is where the driver proposes it; the owner decides here.", "<strong>Moves the delivery:<\/strong> Pending → On track when approved, or when the balance is collected. Refused and unpaid past the customer's terms → Collections."]}, {"title": "Raise credit note", "group": "Money", "meta": "Fresh Fold · Expired product · ₹336", "steps": ["<strong>Opens from:<\/strong> Take it back · <strong>Raise credit note<\/strong>.", "<strong>Pick:<\/strong> nothing — the amount and the reason come from the incident, and it comes off their outstanding. The pane opens on its confirmation.", "<strong>Confirm:<\/strong> \"₹336 credit to Fresh Fold, taken off their ₹3,100 outstanding. Sent on WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Credit Note Raised. Customer · Amount · Reason · Status: Adjusted.", "<strong>On the ground:<\/strong> Receivables › Credit note, from the office (exists).", "<strong>Moves the delivery:<\/strong> the money side closes. The incident is On track once the goods are also back (Take it back)."]}, {"title": "Collect later", "group": "Money", "meta": "Cake.in · Cash unavailable · ₹2,780", "steps": ["<strong>Opens from:<\/strong> Call the customer · <strong>Collect later<\/strong>.", "<strong>Pick:<\/strong> when (at the next delivery, by the driver · within the week, at the counter). The reminder with the UPI link always goes.", "<strong>Confirm:<\/strong> \"Collect ₹2,780 from Cake.in on Fri, by the Van 1 driver. Reminder on WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Added to Collections. Customer · Amount · When · Who · Status: Planned.", "<strong>On the ground:<\/strong> Delivery app › Payment › left on credit (exists). Recording the payment later in Receivables closes it.", "<strong>Moves the delivery:<\/strong> On track for Deliveries (the goods are there). The money now lives in the Collections area, which chases it."]}, {"title": "Decide on credit", "group": "Money", "meta": "Sai Bakers · Credit limit exceeded · ₹4,820 today", "steps": ["<strong>Opens from:<\/strong> Call the customer · <strong>Decide on credit<\/strong>, before the van reaches them.", "<strong>Pick:<\/strong> limit ₹20,000, owed ₹23,400, today ₹4,820. Then one of: collect first, deliver when paid · deliver this once (reason needed) · raise their limit to ₹__.", "<strong>Confirm:<\/strong> \"Kumar collects ₹3,400 before unloading at Sai Bakers. They get a payment reminder now.\" Cancel · Confirm.", "<strong>Done:<\/strong> Collect First (or Allowed Once, or Limit Raised). Customer · Owed · Decision · Status.", "<strong>On the ground:<\/strong> the delivery app shows a \"Collect ₹3,400 before unloading\" banner at the stop (new). Kumar records the payment, then delivers.", "<strong>Moves the delivery:<\/strong> Missed → Pending \"Collect first\" → On track when paid and delivered, or when allowed once."]}, {"title": "Ask the team", "group": "People", "meta": "Van 2 settlement · 4 cases excess · Parle-G Gold 1kg", "steps": ["<strong>Opens from:<\/strong> <strong>Ask the team<\/strong> · Take it back.", "<strong>Pick:<\/strong> who (the driver · Ravi, warehouse) and the question, from ready ones for this incident (\"Where did the 4 extra cases come from?\").", "<strong>Confirm:<\/strong> \"Ask Kumar in the delivery app.\" Cancel · Confirm.", "<strong>Done:<\/strong> Question Sent. The answer appears under What happened, and the sheet then offers Close as explained or the next action.", "<strong>On the ground:<\/strong> Live Tracking › Message driver (exists). Kumar answers in the delivery app (new).", "<strong>Moves the delivery:<\/strong> it stays Pending while waiting. With the answer it closes as explained, or goes on to Take it back or Write it off."]}, {"title": "Share proof", "group": "Proof", "meta": "Cake.in · says it never came · ₹2,780", "steps": ["<strong>Opens from:<\/strong> Call the customer · <strong>Share proof<\/strong>.", "<strong>Pick:<\/strong> nothing to choose — the photo and signature Ajay took are shown to check, then Send Proof. The bill goes with it.", "<strong>Confirm:<\/strong> \"Send the proof of delivery at 1:12 pm to Cake.in on WhatsApp.\" Cancel · Confirm.", "<strong>Done:<\/strong> Proof Sent. Customer · Delivered · Proof · Status: Sent.", "<strong>On the ground:<\/strong> Delivery app › Stop summary › photo or signature at the door (new). Without it, the lead action is Ask the team.", "<strong>Moves the delivery:<\/strong> Missed → Pending \"Proof sent\" → On track when the customer accepts or pays. Still disputed after 2 days → Raise credit note."]}]}</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("data").textContent);
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+
+  /* ── loop strip ─────────────────────────────────────── */
+  var LOOP = [
+    ["Incident", "Happens", "Van 2 finds Best Price Store shut, 11:20", "ugly"],
+    ["Tag", "Tagged", "Kumar taps Shop Closed in the delivery app", "ugly"],
+    ["Standing", "In the tower", "Missed · ₹4,820 not delivered", "ugly"],
+    ["Lead action", "Fixed", "Call the shop, move it to Van 1, 4–8 pm", "bad"],
+    ["Proof", "Recorded", "Ajay delivers at 5:10 pm", "good"],
+    ["Resolved", "Back to green", "On track ✓ · Missed 0", "good"],
+  ];
+  var loopEl = $("#fig-loop");
+  if (loopEl) {
+    loopEl.innerHTML = '<ol class="loop">' + LOOP.map(function (s) {
+      return '<li><span class="dot ' + s[3] + '"></span><span class="k">' + s[0] + '</span><span class="w">' + s[1] + '</span><span class="e">' + s[2] + "</span></li>";
+    }).join("") + '</ol><div class="loop-back"><span aria-hidden="true">↺</span><span>If the clock runs out before the fix, the delivery <b>escalates to Missed</b> and comes back to the lead action.</span></div>';
+  }
+
+  /* ── catalogue ──────────────────────────────────────── */
+  var CAT = DATA.catalog;
+  var TODAY = ["Captured", "Partly", "Not captured"];
+  var tone = function (s) { return /^Missed/.test(s) ? "ugly" : /^Pending/.test(s) ? "bad" : /^On track/.test(s) ? "good" : ""; };
+  var splitLast = function (s) { var i = s.lastIndexOf(" · "); return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 3)]; };
+  var catEl = $("#fig-catalog");
+  if (catEl && CAT.length) {
+    var families = []; CAT.forEach(function (r) { if (families.indexOf(r.family) < 0) families.push(r.family); });
+    var state = { fam: "All", today: "All", q: "" };
+    try { var saved = JSON.parse(store("fb.incidents.cat") || "null"); if (saved) state = Object.assign(state, saved); } catch (e) {}
+    var count = function (rows, t) { return rows.filter(function (r) { return r.today === t; }).length; };
+    var max = Math.max.apply(null, families.map(function (f) { return CAT.filter(function (r) { return r.family === f; }).length; }));
+    catEl.innerHTML =
+      '<div class="cov"><div class="cov-total"><div class="big">' + TODAY.map(function (t) { return "<div><b>" + count(CAT, t) + "</b><span>" + t.toLowerCase() + "</span></div>"; }).join("") + "</div>" +
+      '<div class="cov-key"><span><i class="sw1"></i>captured today</span><span><i class="sw2"></i>partly</span><span><i class="sw3"></i>not captured</span></div>' +
+      '<p class="note" style="margin:0">Of ' + CAT.length + ' incidents, the platform names ' + count(CAT, "Captured") + ' exactly today. Tap a family to filter.</p></div>' +
+      '<div class="cov-rows">' + families.map(function (f) {
+        var rows = CAT.filter(function (r) { return r.family === f; });
+        var w = function (t) { return (count(rows, t) / max * 100) + "%"; };
+        return '<button type="button" class="cov-row" data-fam="' + esc(f) + '"><span>' + esc(f) + '</span><span class="bars">' +
+          (count(rows, "Captured") ? '<i class="sw1" style="width:' + w("Captured") + '"></i>' : "") +
+          (count(rows, "Partly") ? '<i class="sw2" style="width:' + w("Partly") + '"></i>' : "") +
+          (count(rows, "Not captured") ? '<i class="s3" style="width:' + w("Not captured") + '"></i>' : "") +
+          '</span><span class="c">' + rows.length + "</span></button>";
+      }).join("") + "</div></div>" +
+      '<div class="cat-ctl"><input id="cat-q" type="search" placeholder="Search incidents, screens, actions" aria-label="Search the catalogue">' +
+      '<div class="chips" id="cat-today">' + ["All"].concat(TODAY).map(function (t) { return '<button type="button" class="chip" data-today="' + t + '">' + (t === "All" ? "Any status" : t) + "</button>"; }).join("") + "</div></div>" +
+      '<div class="chips" id="cat-fam">' + ["All"].concat(families).map(function (f) { return '<button type="button" class="chip" data-fam="' + esc(f) + '">' + (f === "All" ? "All families" : esc(f)) + "</button>"; }).join("") + "</div>" +
+      '<div class="cat-count" id="cat-count"></div><div class="cat"><table><thead><tr><th>Incident</th><th>Owner attention</th><th>Today</th><th>Captured where</th><th>Starts as</th><th>Turns Missed when</th><th>Buttons in the tower</th><th>Closed when</th></tr></thead><tbody id="cat-body"></tbody></table></div>';
+    var todayCls = { "Captured": "t1", "Partly": "t2", "Not captured": "t3" };
+    var draw = function () {
+      var q = state.q.trim().toLowerCase();
+      var rows = CAT.filter(function (r) {
+        return (state.fam === "All" || r.family === state.fam) && (state.today === "All" || r.today === state.today) &&
+          (!q || Object.keys(r).some(function (k) { return r[k].toLowerCase().indexOf(q) >= 0; }));
+      });
+      $("#cat-body").innerHTML = rows.length ? rows.map(function (r) {
+        var wh = splitLast(r.where), bs = r.buttons.split(" + ");
+        return "<tr><td class=\"inc\"><small>" + esc(r.family) + "</small><b>" + esc(r.incident) + "</b></td>" +
+          '<td class="att' + (r.attention === "Urgent" ? " urgent" : "") + '">' + esc(r.attention) + "</td>" +
+          '<td><span class="today ' + todayCls[r.today] + '">' + esc(r.today) + "</span></td>" +
+          "<td>" + esc(wh[0]) + (wh[1] ? '<span class="who">by ' + esc(wh[1]) + "</span>" : "") + "</td>" +
+          "<td>" + (tone(r.starts) ? '<span class="pill ' + tone(r.starts) + '">' + esc(r.starts) + "</span>" : esc(r.starts)) + "</td>" +
+          "<td>" + esc(r.red) + "</td>" +
+          "<td>" + bs.map(function (b, k) { return '<span class="bt' + (k === bs.length - 1 ? " p" : "") + '">' + esc(b) + "</span>"; }).join("") + "</td>" +
+          "<td>" + esc(r.closed) + "</td></tr>";
+      }).join("") : '<tr><td colspan="8" class="cat-empty">No incident matches. Clear the search or pick another family.</td></tr>';
+      $("#cat-count").textContent = rows.length + " of " + CAT.length + " incidents";
+      Array.prototype.forEach.call(catEl.querySelectorAll("[data-fam]"), function (b) { b.classList.toggle("on", b.getAttribute("data-fam") === state.fam && (b.classList.contains("chip") || state.fam !== "All")); });
+      Array.prototype.forEach.call(catEl.querySelectorAll("[data-today]"), function (b) { b.classList.toggle("on", b.getAttribute("data-today") === state.today); });
+      store("fb.incidents.cat", JSON.stringify({ fam: state.fam, today: state.today }));
+    };
+    catEl.addEventListener("click", function (e) {
+      var f = e.target.closest("[data-fam]"), t = e.target.closest("[data-today]");
+      if (f) { var v = f.getAttribute("data-fam"); state.fam = f.classList.contains("cov-row") && state.fam === v ? "All" : v; draw(); }
+      if (t) { state.today = t.getAttribute("data-today"); draw(); }
+    });
+    $("#cat-q").addEventListener("input", function (e) { state.q = e.target.value; draw(); });
+    draw();
+  }
+
+  /* ── phone sketches ─────────────────────────────────── */
+  var I = {
+    truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>',
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v8a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>',
+    rupee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a5 5 0 0 0 0-10"/></svg>',
+    spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+    tower: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2.5M4.5 4.5h15l-2.5 5h-10zM9 9.5 8.2 21M15 9.5l.8 11.5M5 21h14M8.8 14.5h6.4"/></svg>',
+    coin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M6 13l8.5 8M6 13h3a5 5 0 0 0 0-10"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+  };
+  var ST = { ugly: "Urgent", bad: "Needs work", good: "On track" };
+
+  function shell(app, time, inner, extra) {
+    return '<div class="ph' + (extra || "") + '"><div class="ph-sb"><span>' + time + '</span><i></i><span>●●●</span></div>' +
+      '<div class="ph-app">' + app + "</div>" + inner + "</div>";
+  }
+  function footer() {
+    return '<div class="ph-ft"><span>' + I.tower + 'Tower</span><span class="on">' + I.truck + 'Deliveries</span><span>' + I.coin + 'Collections</span><span>' + I.more + "More</span></div>";
+  }
+  function row(r) {
+    var av = r.k === "good" ? I.ok : r.k === "ugly" ? (r.icon === "truck" ? I.truck : I.x) : r.icon === "box" ? I.box : I.truck;
+    return '<div class="row ' + r.k + (r.hot ? " hot" : "") + (r.root ? " root" : "") + '"><span class="av">' + av + '</span><span style="min-width:0"><div class="t">' + r.t + '</div><div class="s">' + r.s + '</div></span><span class="tag">' + r.tag + "</span></div>" +
+      (r.held ? '<div class="held">' + r.held + "</div>" : "");
+  }
+  function list(o) {
+    var total = o.good + o.bad + o.ugly;
+    var tile = function (k, l, v, w) { return '<div class="tile ' + k + (o.sel === k ? " on" : "") + (v ? "" : " zero") + '"><span class="l">' + l + '</span><span class="v">' + v + '</span><span class="w">' + w + "</span></div>"; };
+    var titles = { good: "Done", bad: "In hand", ugly: "Need you" };
+    return '<div class="ph-scr"><div class="ph-tb"><span class="bk">‹</span>' + I.truck.replace("<svg", '<svg width="18" height="18"') + '<span>Deliveries</span><span class="st ' + o.status + '">● ' + ST[o.status] + "</span></div>" +
+      '<div class="bd"><div class="hv">' + o.del + " of " + total + ' delivered</div><div class="hc">' + o.ctx + '</div><div class="bar"><i style="width:' + Math.round(o.del / total * 100) + '%"></i></div>' +
+      '<div class="tiles">' + tile("good", "On track", o.good, "Done") + tile("bad", "Pending", o.bad, "In hand") + tile("ugly", "Missed", o.ugly, "Need you") + "</div>" +
+      '<div class="lt">' + titles[o.sel] + "</div>" + o.rows.map(row).join("") + "</div>" + footer() + "</div>";
+  }
+  function modal(m) {
+    var ln = function (ic, h, t) { return '<div class="ln"><span class="ci">' + ic + "</span><span><b>" + h + "</b><span>" + t + "</span></span></div>"; };
+    return '<div class="dim"></div><div class="md"><span class="x">✕</span><h5>' + m.t + ' <span class="tag ' + m.k + '">' + m.tag + '</span></h5><div class="sub">' + m.sub + "</div>" +
+      (m.body || (ln(I.info, "What happened", m.what) + ln(I.rupee, "Impact", m.impact) + ln(I.spark, "FoodBridge recommends", m.rec))) +
+      (m.btns ? '<div class="btns">' + m.btns.map(function (b) { return '<div class="btn' + (b[2] ? " p" : "") + '">' + b[0] + '<span class="wh">' + b[1] + "</span></div>"; }).join("") + "</div>" : "") +
+      "</div>";   /* no "So far" on the card (owner, 24 Sep 2026) */
+  }
+  function driver(title, back, inner, cta, ctaCls, proposed) {
+    return '<div class="ph-scr rd">' + (proposed ? '<div class="proposed">' + proposed + "</div>" : "") +
+      '<div class="ph-tb rdh"><span class="bk">‹ ' + back + "</span><span>" + title + "</span></div>" +
+      '<div class="bd">' + inner + "</div>" + (cta ? '<div class="cta' + (ctaCls || "") + '">' + cta + "</div>" : "") + "</div>";
+  }
+  var chips = function (a) { return '<div class="cg">' + a.map(function (c) { return '<div class="ch' + (c[1] ? " on" : "") + (c[2] ? " new" : "") + '">' + c[0] + "</div>"; }).join("") + "</div>"; };
+  function map(extra) {
+    return '<div class="map"><svg viewBox="0 0 300 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+      '<g stroke="#D3DDE0" stroke-width="10" fill="none"><path d="M-10 60 H320"/><path d="M-10 170 H320"/><path d="M80 -10 V260"/><path d="M210 -10 V260"/></g>' +
+      '<path d="M30 200 L80 170 L140 170 L210 120 L210 60 L270 40" fill="none" stroke="#1E7A46" stroke-width="3" stroke-dasharray="1 0"/>' +
+      '<path d="M40 30 L80 60 L150 60 L150 110 L90 140" fill="none" stroke="#C0362C" stroke-width="3" stroke-dasharray="6 5"/>' +
+      '<g font-family="Inter,sans-serif" font-size="10" font-weight="700"><circle cx="210" cy="120" r="11" fill="#1E7A46"/><text x="210" y="124" fill="#fff" text-anchor="middle">1</text>' +
+      '<circle cx="150" cy="60" r="11" fill="#C0362C"/><text x="150" y="64" fill="#fff" text-anchor="middle">2</text></g>' + (extra || "") + "</svg></div>";
+  }
+  function tracking(inner, trip) {
+    return '<div class="ph-scr"><div class="ph-tb"><span class="bk">‹</span><span>Live Delivery Tracking</span></div><div class="bd">' + inner + "</div>" +
+      (trip ? '<div class="trip"><span class="on">‹ Tower</span><span>Tracking</span><span>Delivery</span><span>Planning</span><span>Assets</span></div>' : "") + "</div>";
+  }
+
+  /* ── action panes: every lead action drawn the way Reschedule is ───── */
+  var DAYS = [["Thu", 24, "Today"], ["Fri", 25, "Tomorrow"], ["Sat", 26, ""], ["Sun", 27, ""], ["Mon", 28, ""]];
+  var WINS = [["Morning", "8am – 12pm"], ["Afternoon", "12pm – 4pm"], ["Evening", "4pm – 8pm"]];
+  var F = {
+    h: function (t) { return '<div class="ap-h">' + t + "</div>"; },
+    days: function (sel, dis) { return F.h("Select new delivery date") + '<div class="ap-days">' + DAYS.map(function (d, i) { return '<span class="ap-day' + (i === sel ? " on" : "") + ((dis || []).indexOf(i) >= 0 ? " dis" : "") + '"><small>' + d[0] + "</small><b>" + d[1] + "</b><small>" + d[2] + "</small></span>"; }).join("") + "</div>"; },
+    wins: function (sel, dis) { return F.h("Preferred time window") + '<div class="ap-wins">' + WINS.map(function (w, i) { return '<span class="ap-win' + (i === sel ? " on" : "") + ((dis || []).indexOf(i) >= 0 ? " dis" : "") + '"><b>' + w[0] + "</b><small>" + w[1] + "</small></span>"; }).join("") + "</div>"; },
+    opts: function (label, items) { return F.h(label) + '<div class="ap-opts">' + items.map(function (o) { return '<span class="ap-opt' + (o[2] === 1 ? " on" : o[2] === -1 ? " dis" : "") + '"><i></i><span><b>' + o[0] + "</b>" + (o[1] ? "<small>" + o[1] + "</small>" : "") + "</span></span>"; }).join("") + "</div>"; },
+    checks: function (label, items) { return F.h(label) + '<div class="ap-checks">' + items.map(function (o) { return '<span class="ap-chk' + (o[2] ? " on" : "") + '"><i>' + (o[2] ? "✓" : "") + "</i><span><b>" + o[0] + "</b>" + (o[1] ? "<small>" + o[1] + "</small>" : "") + "</span></span>"; }).join("") + "</div>"; },
+    items: function (label, items) { return F.h(label) + '<div class="ap-items">' + items.map(function (o) { return '<span class="ap-item"><span><b>' + o[0] + "</b><small>" + o[2] + '</small></span><span class="ap-step"><i>−</i><b>' + o[1] + "</b><i>+</i></span></span>"; }).join("") + "</div>"; },
+    chips: function (label, items) { return F.h(label) + '<div class="ap-chips">' + items.map(function (o) { return '<span class="ap-chip' + (o[1] ? " on" : "") + '">' + o[0] + "</span>"; }).join("") + "</div>"; },
+    facts: function (items) { return '<div class="ap-facts">' + items.map(function (o) { return "<span><b>" + o[0] + "</b><small>" + o[1] + "</small></span>"; }).join("") + "</div>"; },
+    text: function (label, v) { return '<div class="ap-text"><small>' + label + "</small><span>" + v + "</span></div>"; },
+    msg: function (t) { return F.h("Message") + '<div class="ap-msg">' + t + "</div>"; },
+    photo: function (cap) { return '<div class="ap-photo"><span>Photo at the door</span><span>Signature</span></div><div class="ap-cap">' + cap + "</div>"; },
+    note: function (ph) { return F.h("Add internal notes (optional)") + '<div class="ap-note">' + (ph || "e.g. Confirmed on the phone.") + "<small>0/200</small></div>"; },
+    tell: function (items) { return '<div class="ap-tell">' + items.map(function (o) { return '<span class="ap-chk' + (o[2] ? " on" : "") + '"><i>' + (o[2] ? "✓" : "") + "</i><span><b>" + o[0] + "</b>" + (o[1] ? "<small>" + o[1] + "</small>" : "") + "</span></span>"; }).join("") + "</div>"; },
+    notify: function (who) { return F.tell([["Notify customer on WhatsApp", "We'll send " + (who || "a confirmation message") + ".", 1]]); },
+  };
+  var ART = '<svg class="ap-art" viewBox="0 0 120 90" aria-hidden="true"><ellipse cx="60" cy="82" rx="36" ry="5" fill="#EEF1F4"/><rect x="26" y="14" width="56" height="58" rx="7" fill="#fff" stroke="#D7DCE2" stroke-width="2"/><path d="M26 22a7 7 0 0 1 7-7h42a7 7 0 0 1 7 7v8H26z" fill="#1E8A4E"/><rect x="36" y="40" width="10" height="8" rx="2" fill="#E5E8EC"/><rect x="52" y="40" width="10" height="8" rx="2" fill="#E5E8EC"/><rect x="36" y="54" width="10" height="8" rx="2" fill="#E5E8EC"/><circle cx="82" cy="62" r="18" fill="#0E8A4B"/><path d="m74 62 6 6 11-12" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="20" width="4" height="4" rx="1" fill="#3B82F6"/><rect x="100" y="16" width="4" height="4" rx="1" fill="#F59E0B"/><rect x="104" y="44" width="4" height="4" rx="1" fill="#16A34A"/><rect x="10" y="52" width="4" height="4" rx="1" fill="#F97316"/></svg>';
+
+  /* Each action, filled in for one real incident from the demo day. */
+  var ACT = {
+    "Reschedule": {
+      row: { k: "ugly", t: "Best Price Store", s: "Shop closed 11:20 · Van 2 · ₹4,820", tag: "Shop closed" },
+      sheet: { sub: "Missed 11:20 am · Van 2 · Kumar", what: "Van 2 found the shop shut at 11:20.", impact: "₹4,820 not delivered today. They already owe ₹3,100.", rec: "Call the shop and agree a day. Then reschedule.", btns: ["Call the shop", "Reschedule"] },
+      pane: "Reschedule Delivery", fields: function () { return F.days(1) + F.wins(0) + F.note("e.g. Customer asked for tomorrow morning."); },
+      go: "Reschedule Delivery", conf: ["Move to <b>Fri, 25 Sep · 8am – 12pm</b>", "Best Price Store will get a WhatsApp confirmation."],
+      done: { t: "Delivery Rescheduled!", s: "The delivery has been moved to tomorrow morning.", h: "Rescheduled delivery", rows: [["Customer", "Best Price Store"], ["Date", "Fri, 25 Sep 2026"], ["Time", "8am – 12pm"], ["Order value", "₹4,820"]], pill: "Scheduled" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "new", back: "Best Price Store", title: "When can we come back?", body: function () { return '<div class="rd-note">Shop Closed · agree a day with the shopkeeper</div>' + F.days(1, [0]) + F.wins(0); }, cta: "Skip & Reschedule" },
+      after: { c: [13, 19, 0], sel: "bad", st: "bad", ctx: "19 to deliver · nothing at risk", row: { k: "bad", t: "Best Price Store", s: "Rescheduled · Fri morning", tag: "Shop closed" } },
+    },
+    "Try again today": {
+      row: { k: "bad", t: "Sai Bakers", s: "Owner away 12:10 · Van 2 · ₹2,150", tag: "Not available" },
+      sheet: { sub: "Tried 12:10 pm · Van 2 · Kumar", what: "The owner was away and no one could take it.", impact: "₹2,150 still on Van 2. It turns Missed if the route ends without it.", rec: "Call the shop. If the owner is back later, send Van 2 back today.", btns: ["Call the shop", "Try again today"] },
+      pane: "Try Again Today", fields: function () { return F.facts([["Van 2", "Kumar"], ["6", "Stops left"], ["5:30 pm", "Route ends"]]) + F.opts("When should Van 2 go back?", [["After the next stop", "about 12:45 pm"], ["After 2 stops", "about 1:20 pm"], ["After 4 pm, as the shop asked", "about 4:10 pm", 1], ["At the end of the route", "about 5:30 pm"]]); },
+      go: "Put Back on Route", conf: ["Van 2 goes back at <b>about 4:10 pm</b>", "Kumar is told in the app; Sai Bakers gets a WhatsApp."],
+      done: { t: "Back on Today's Route!", s: "Van 2 goes back after 4 pm.", h: "Delivery", rows: [["Customer", "Sai Bakers"], ["Van", "Van 2 · Kumar"], ["Expected", "about 4:10 pm"], ["Order value", "₹2,150"]], pill: "On the route" },
+      ground: { style: "lt", badge: "exists", html: function () { return drawer("Van 2 · Kumar · 6 stops left", [["1", "Fresh Fold", "due 12:40", "Move up"], ["2", "Kanti Sweets", "due 1:15", "Move up"], ["3", "Sai Bakers", "skipped 12:10 · owner away", "Moved ✓", 1], ["4", "Cake Corner", "due 2:10", "Move up"]], "Office moves the skipped stop back up the queue."); } },
+      after: { c: [13, 19, 0], sel: "bad", st: "bad", ctx: "19 to deliver · nothing at risk", row: { k: "bad", t: "Sai Bakers", s: "Back on Van 2 · about 4:10 pm", tag: "Not available" } },
+    },
+    "Move to another van": {
+      row: { k: "ugly", t: "Van 2 broke down", s: "Since 12:05 · holding 9 stops", tag: "Breakdown", root: 1, icon: "truck" },
+      sheet: { sub: "Since 12:05 · Kumar · Jayanagar 4th Block", what: "Van 2 has not moved for 20 minutes. Kumar reported a breakdown.", impact: "9 stops held, ₹38,600. 3 are due before 2 pm.", rec: "Move the 3 due before 2 pm to Van 1 now. The other 6 can wait for the mechanic.", btns: ["Call the driver", "Move to another van"] },
+      pane: "Move to Another Van", fields: function () { return F.checks("Which stops?", [["ODC-OVER D COUNTER", "due 12:50 · ₹4,300", 1], ["Cake Corner", "due 1:20 · ₹3,900", 1], ["ASSAM GOVT. MARKETING", "due 1:45 · ₹4,200", 1], ["Sai Bakers", "due 2:30 · ₹2,150"]]) + F.opts("To which van?", [["Van 1 · Ajay", "Room for 14 cases · 1.2 km away", 1], ["Van 3 · Suresh", "Full · back at 4 pm", -1]]); },
+      go: "Move 3 Stops", conf: ["Move <b>3 stops (₹12,400) to Van 1</b>", "First drop about 1:05 pm. Ajay and Kumar are told; 3 customers get a WhatsApp."],
+      done: { t: "Stops Moved!", s: "3 stops are on Van 1 now.", h: "Moved", rows: [["Stops", "3 · ₹12,400"], ["To", "Van 1 · Ajay"], ["First drop", "about 1:05 pm"], ["Still on Van 2", "6 stops"]], pill: "On Van 1" },
+      ground: { style: "lt", badge: "exists", html: function () { return drawer("Van 2 · Kumar · 9 stops left", [["1", "ODC-OVER D COUNTER", "due 12:50", "✓ Van 1", 1], ["2", "Cake Corner", "due 1:20", "✓ Van 1", 1], ["3", "ASSAM GOVT. MARKETING", "due 1:45", "✓ Van 1", 1], ["4", "Sai Bakers", "due 2:30", "Reassign"], ["5", "Fresh Fold", "due 3:00", "Reassign"]], "Live Tracking › Reassign: the office does the same move."); } },
+      after: { c: [15, 17, 0], sel: "bad", st: "bad", ctx: "17 to deliver · ₹26,200 held", row: { k: "bad", t: "Van 2 · being fixed", s: "3 moved to Van 1 · 6 still held", tag: "Breakdown", root: 1 } },
+    },
+    "Tell customers": {
+      row: { k: "bad", t: "Van 1 · 35 min behind", s: "Traffic on Hosur Road · 4 windows at risk", tag: "Traffic delay", root: 1 },
+      sheet: { sub: "Since 12:40 · Ajay", what: "Van 1 is 35 minutes behind plan: traffic on Hosur Road.", impact: "4 customers' windows at risk, ₹11,600.", rec: "Tell the next customers their new time before they call you.", btns: ["Ask the team", "Tell customers"] },
+      pane: "Tell Customers", fields: function () { return F.checks("Who should hear?", [["SSK MART JAYANAGAR", "was 1:00 → now 1:40 pm", 1], ["Cake.in", "was 1:20 → now 2:00 pm", 1], ["Sai Bakers", "was 2:00 → now 2:35 pm", 1], ["Fresh Fold", "was 2:40 → now 3:10 pm", 1], ["Kanti Sweets", "4:00 pm · still on time"]]) + F.msg("Hello SSK MART JAYANAGAR, today's FoodBridge delivery will reach you around 1:40 pm, a little later than planned. Sorry for the wait."); },
+      go: "Send to 4 Customers", conf: ["Send to <b>4 customers on WhatsApp</b>", "New times 1:40 – 3:10 pm."],
+      done: { t: "Customers Told!", s: "4 customers know their new time.", h: "Sent", rows: [["Customers", "4"], ["New times", "1:40 – 3:10 pm"], ["Channel", "WhatsApp"]], pill: "Queued" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "new", back: "Routes", title: "Delivery Stops", body: function () { return '<div class="banner">Running 35 min late. 4 customers\' windows at risk.</div><div class="rd-btn">Tell the next 4 customers</div>' + ["SSK MART JAYANAGAR", "Cake.in", "Sai Bakers"].map(function (n, i) { return '<div class="card"><div class="r"><b>' + (i + 1) + ". " + n + '</b><span style="color:#c2410c">late</span></div></div>'; }).join(""); } },
+      after: { c: [17, 15, 0], sel: "bad", st: "bad", ctx: "15 to deliver · nothing at risk", row: { k: "bad", t: "Van 1 · 35 min behind", s: "4 customers told · new times kept", tag: "Traffic delay", root: 1 } },
+    },
+    "Send on next trip": {
+      row: { k: "bad", t: "Cake Corner", s: "Delivered · 6 packs back · ₹540", tag: "Damaged", icon: "box" },
+      sheet: { sub: "Delivered 2:40 pm · Van 1 · Ajay", what: "6 packs of Britannia Cake 60g came back leaking.", impact: "₹540 to replace. Cake Corner is short on a fast seller till then.", rec: "Send 6 packs on tomorrow's first trip, no charge.", btns: ["Raise credit note", "Send on next trip"] },
+      pane: "Send on Next Trip", fields: function () { return F.items("What to send", [["Britannia Cake 60g", 6, "packs · 40 in stock"]]) + F.days(1, [0]) + F.opts("Charge", [["No charge", "Replacing damaged packs", 1], ["As ordered", "For a balance still owed"]]); },
+      go: "Add to Trip", conf: ["Add <b>6 × Britannia Cake 60g to Van 1, Fri 8–12</b>", "No charge. Cake Corner gets a WhatsApp."],
+      done: { t: "Added to the Next Trip!", s: "The replacement goes out tomorrow morning.", h: "Replacement", rows: [["Customer", "Cake Corner"], ["Items", "6 packs"], ["Trip", "Fri, 25 Sep · 8am – 12pm"], ["Charge", "No charge"]], pill: "Booked" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "exists", back: "Cake Corner", title: "Deliver Extra Items", body: function () { return '<div class="rd-note">If the van carries it, Ajay replaces it on the spot and the incident closes at once.</div><div class="card"><div class="r"><b>Britannia Cake 60g</b><span>12 on van</span></div><div class="r" style="margin-top:8px"><span style="color:#6b7280">Replacing</span><b>− 6 +</b></div></div>'; }, cta: "Deliver 6 Now" },
+      after: { c: [21, 11, 0], sel: "bad", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "bad", t: "Cake Corner", s: "Being fixed · replacement Fri", tag: "Damaged", icon: "box" } },
+    },
+    "Take it back": {
+      row: { k: "ugly", t: "Fresh Fold", s: "Returned 3:05 pm · 8 packs expired · ₹336", tag: "Expired", icon: "box" },
+      sheet: { sub: "Returned 3:05 pm · Van 1 · Ajay", what: "8 packs of Brown Bread 400g were past their date.", impact: "₹336 of stock lost. Fresh Fold had paid for it.", rec: "Take it back to be thrown away, and credit Fresh Fold.", btns: ["Take it back", "Raise credit note"] },
+      pane: "Take It Back", fields: function () { return F.items("What comes back", [["Britannia Brown Bread 400g", 8, "packs"]]) + F.opts("Where does it go?", [["Back into stock", "It can still be sold", -1], ["Damaged stock", "Claim from the supplier"], ["Throw away", "Past its date", 1]]); },
+      go: "Record Return", conf: ["<b>8 packs to be thrown away</b> at settlement", "₹336 credit to Fresh Fold."],
+      done: { t: "Return Recorded!", s: "Ajay brings it back tonight.", h: "Return", rows: [["Items", "8 × Brown Bread 400g"], ["Goes to", "Throw away"], ["Credit", "₹336"]], pill: "Coming back on Van 1" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "exists", back: "Fresh Fold", title: "Product Return", body: function () { return '<div class="card"><div class="r"><b>Britannia Brown Bread 400g</b><span>× 8</span></div></div><div class="sec">Return reason</div>' + chips([["Damaged"], ["Expired", 1], ["Unsold"], ["Wrong Product"]]); }, cta: "↩ Record Return", ctaCls: " o" },
+      after: { c: [21, 11, 0], sel: "bad", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "bad", t: "Fresh Fold", s: "Coming back on Van 1 · ₹336 credited", tag: "Expired", icon: "box" } },
+    },
+    "Cancel delivery": {
+      row: { k: "ugly", t: "Kanti Sweets", s: "Refused 1:30 pm · Van 2 · ₹3,960", tag: "Refused" },
+      sheet: { sub: "Refused 1:30 pm · Van 2 · Kumar", what: "Kanti Sweets refused the delivery at the door.", impact: "₹3,960 of goods back on Van 2.", rec: "Call to learn why. If they don't want it, cancel and bring it back.", btns: ["Call the customer", "Cancel delivery"] },
+      pane: "Cancel Delivery", fields: function () { return F.facts([["₹3,960", "Order value"], ["14", "Cases"], ["Van 2", "Brings it back"]]) + F.chips("Why?", [["Doesn't want it", 1], ["Ordered by mistake"], ["Duplicate order"], ["Other"]]); },
+      go: "Cancel Delivery", danger: 1, conf: ["Cancel <b>₹3,960 for Kanti Sweets</b>", "The goods come back on Van 2 and go back into stock."],
+      done: { t: "Delivery Cancelled", s: "It leaves today's deliveries once the goods are counted back.", h: "Cancelled delivery", rows: [["Customer", "Kanti Sweets"], ["Order value", "₹3,960"], ["Goods", "Back into stock"]], pill: "Cancelled", grey: 1 },
+      ground: { style: "so", badge: "exists", title: "Sales Orders", html: function () { return '<div class="so-row"><b>Kanti Sweets</b><span>₹3,960 · 14 items</span><span class="so-sel">Skipped ▾</span></div><p class="rd-note">The office sets the order to Skipped. Same fact.</p>'; } },
+      after: { c: [13, 19, 0], sel: "bad", st: "bad", ctx: "19 to deliver · nothing at risk", row: { k: "bad", t: "Kanti Sweets", s: "Cancelled · goods on Van 2", tag: "Refused" } },
+    },
+    "Write it off": {
+      row: { k: "bad", t: "Van 2 stock count", s: "4 × Parle-G Gold 1kg missing · ₹240", tag: "Missing item", icon: "box" },
+      sheet: { sub: "Settlement 6:20 pm · Kumar", what: "Stock count: expected 12 Parle-G Gold 1kg, counted 8.", impact: "₹240 of stock not accounted for.", rec: "Ask Kumar first. If it can't be found, write it off.", btns: ["Ask the team", "Write it off"] },
+      pane: "Write Off", fields: function () { return F.items("What", [["Parle-G Gold 1kg", 4, "packs · ₹240"]]) + F.chips("Why?", [["Lost", 1], ["Damaged"], ["Expired"], ["Stolen"]]) + F.opts("Who bears it?", [["The business", "Written off to stock loss", 1], ["Recover from the driver", "From Kumar's settlement"], ["Claim from the supplier", "If it came short"]]); },
+      go: "Write Off ₹240", conf: ["Write off <b>₹240 of Parle-G Gold 1kg</b>", "The business bears it."],
+      done: { t: "Written Off", s: "Stock is adjusted.", h: "Write-off", rows: [["Items", "4 × Parle-G Gold 1kg"], ["Value", "₹240"], ["Borne by", "The business"]], pill: "Adjusted" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "exists", back: "Settlement", title: "Stock Count", body: function () { return '<div class="card"><div class="r"><b>Parle-G Gold 1kg</b><span>12 → <b style="color:#ef4444">8</b></span></div><div style="color:#92400e;font-size:11px;margin-top:4px">4 missing</div></div><div class="inp" style="color:#374151">4 packs torn, thrown at the shop</div>'; }, cta: "Submit Count" },
+      after: { c: [30, 2, 0], sel: "good", st: "bad", ctx: "2 to deliver · nothing at risk", row: { k: "good", t: "Van 2 stock count", s: "Written off ₹240 · the business", tag: "✓ Fixed" } },
+    },
+    "Fix the order": {
+      row: { k: "ugly", t: "ASSAM GOVT. MARKETING", s: "Disputes order 1:50 pm · ₹6,300", tag: "Order dispute" },
+      sheet: { sub: "At the door 1:50 pm · Van 2 · Kumar", what: "They say they ordered 10 cases of Brown Bread, not 15.", impact: "₹6,300 held at the door.", rec: "Call to confirm. If they're right, fix the order and send the new bill.", btns: ["Call the customer", "Fix the order"] },
+      pane: "Fix the Order", fields: function () { return F.items("Lines", [["Britannia Brown Bread 400g", 10, "cases · booked 15"], ["Parle-G Gold 1kg", 6, "cases · as booked"]]) + F.chips("Why?", [["Customer changed it"], ["Our mistake", 1], ["Customer disputes it"]]); },
+      go: "Save Order", conf: ["New total <b>₹5,790</b> (₹510 less)", "ASSAM GOVT. MARKETING gets the new bill; Kumar delivers 10 cases."],
+      done: { t: "Order Updated!", s: "Kumar delivers the fixed order.", h: "Order", rows: [["Customer", "ASSAM GOVT. MARKETING"], ["Was", "₹6,300"], ["Now", "₹5,790"]], pill: "Bill resent" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "exists", back: "Delivery Stops", title: "ASSAM GOVT. MARKETING", body: function () { return '<div class="sec">Today\'s order · Editing</div><div class="card"><div class="r"><b>Brown Bread 400g</b><b>− 10 +</b></div><div class="r" style="margin-top:8px"><b>Parle-G Gold 1kg</b><b>− 6 +</b></div></div>'; }, cta: "✓ Done Editing" },
+      after: { c: [13, 19, 0], sel: "bad", st: "bad", ctx: "19 to deliver · nothing at risk", row: { k: "bad", t: "ASSAM GOVT. MARKETING", s: "Order fixed · Kumar delivering 10 cases", tag: "Order dispute" } },
+    },
+    "Fix customer details": {
+      row: { k: "ugly", t: "ODC-OVER D COUNTER", s: "Wrong address 11:45 · Van 2 · ₹4,300", tag: "Wrong address" },
+      sheet: { sub: "Missed 11:45 am · Van 2 · Kumar", what: "The shop has moved to the next lane; the address on file is old.", impact: "₹4,300 not delivered.", rec: "Call for the new location, save it, then reschedule.", btns: ["Call the shop", "Fix customer details"] },
+      pane: "Customer Details", fields: function () { return F.text("Address", "Shop 14, 2nd Cross, 4th Block, Jayanagar") + F.text("Landmark", "Opposite Cool Joint") + F.text("Where to unload", "Side gate, lane behind") + F.text("Delivery hours", "9am – 1pm"); },
+      go: "Save Details", conf: ["Save the new address for <b>ODC-OVER D COUNTER</b>", "Then reschedule."],
+      done: { t: "Details Saved", s: "Next: pick when to go back.", h: "Customer", rows: [["Customer", "ODC-OVER D COUNTER"], ["Address", "Shop 14, 2nd Cross"], ["Next", "Reschedule →"]], pill: "Saved" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "new", back: "ODC-OVER D COUNTER", title: "Save This Location", body: function () { return '<div class="map" style="height:170px;margin:10px -14px 0"><svg viewBox="0 0 300 170" preserveAspectRatio="xMidYMid slice"><g stroke="#D3DDE0" stroke-width="10"><path d="M-10 60H320M-10 130H320M110 -10V200"/></g><circle cx="170" cy="95" r="9" fill="#1B6272"/><circle cx="170" cy="95" r="20" fill="#1B6272" opacity=".15"/></svg></div><div class="card">Kumar is here · 12 m accuracy</div>'; }, cta: "Save for Next Time" },
+      after: { c: [13, 18, 1], sel: "ugly", st: "ugly", ctx: "18 to deliver · ₹4,300 at risk", row: { k: "ugly", t: "ODC-OVER D COUNTER", s: "Address saved · reschedule next", tag: "Wrong address" } },
+    },
+    "Review adjustment": {
+      row: { k: "bad", t: "SSK MART JAYANAGAR", s: "Paid ₹500 less · price dispute", tag: "Price dispute" },
+      sheet: { sub: "Paid 12:55 pm · Van 1 · Ajay", what: "They paid ₹4,700 of ₹5,200: they say the scheme rate is ₹42, not ₹47.", impact: "₹500 short on today's bill.", rec: "Check the scheme. Approve once if they're right.", btns: ["Call the customer", "Review adjustment"] },
+      pane: "Price Adjustment", fields: function () { return F.facts([["₹5,200", "Billed"], ["₹4,700", "Paid"], ["₹500", "Gap"]]) + F.text("Customer says", "Scheme rate is ₹42 a pack, not ₹47") + F.opts("Your decision", [["Approve this once", "A credit note of ₹500", 1], ["Approve and use ₹42 from now", "Updates their price list"], ["Don't approve", "Collect ₹500 on the next visit"]]); },
+      go: "Approve ₹500", conf: ["Approve <b>₹500 once</b> for SSK MART JAYANAGAR", "A credit note is raised; the price list doesn't change."],
+      done: { t: "Adjustment Approved", s: "A ₹500 credit note is raised.", h: "Adjustment", rows: [["Customer", "SSK MART JAYANAGAR"], ["Gap", "₹500"], ["Decision", "Approved once"]], pill: "Credit note raised" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "exists", back: "SSK MART JAYANAGAR", title: "Collect Payment", body: function () { return '<div class="card"><div class="r"><span>Total due</span><b>₹5,200</b></div><div class="r" style="margin-top:6px"><span>Collecting</span><b>₹4,700</b></div></div><div class="card" style="color:#16a34a;font-weight:700">☑ ₹500 will be adjusted as offer.</div><div class="rd-note">The driver proposes it. The owner decides in the tower.</div>'; }, cta: "✅ Collect ₹4,700 Cash" },
+      after: { c: [22, 10, 0], sel: "good", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "good", t: "SSK MART JAYANAGAR", s: "Approved once · ₹500 credit", tag: "✓ Fixed" } },
+    },
+    "Raise credit note": {
+      row: { k: "ugly", t: "Fresh Fold", s: "Expired · ₹336 paid for", tag: "Expired", icon: "box" },
+      sheet: { sub: "Returned 3:05 pm · Van 1 · Ajay", what: "8 packs of Brown Bread 400g were past their date.", impact: "₹336 Fresh Fold paid for goods they can't sell.", rec: "Credit them ₹336 against what they owe.", btns: ["Take it back", "Raise credit note"] },
+      pane: "Credit Note", fields: function () { return F.facts([["₹336", "Amount"], ["₹3,100", "They owe"], ["₹2,764", "After"]]) + F.chips("Why?", [["Expired", 1], ["Damaged"], ["Price"], ["Scheme"], ["Short"]]); },
+      go: "Raise Credit Note", conf: ["<b>₹336 credit</b> to Fresh Fold", "Taken off their ₹3,100 outstanding. Sent on WhatsApp."],
+      done: { t: "Credit Note Raised", s: "Fresh Fold now owes ₹2,764.", h: "Credit note", rows: [["Customer", "Fresh Fold"], ["Amount", "₹336"], ["Reason", "Expired"]], pill: "Adjusted" },
+      ground: { style: "so", badge: "exists", title: "Customer Receivables", html: function () { return '<div class="so-row"><b>Credit note · Fresh Fold</b><span>₹336 · Expired goods</span><span class="so-sel">Save</span></div><p class="rd-note">The office raises it in Receivables. Same fact.</p>'; } },
+      after: { c: [21, 11, 0], sel: "bad", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "bad", t: "Fresh Fold", s: "₹336 credited · goods coming back", tag: "Expired", icon: "box" } },
+    },
+    "Collect later": {
+      row: { k: "bad", t: "Cake.in", s: "Delivered · ₹2,780 not paid", tag: "Cash not ready" },
+      sheet: { sub: "Delivered 1:12 pm · Van 1 · Ajay", what: "They had no cash and asked to pay next time.", impact: "₹2,780 on credit. They already owe ₹1,900.", rec: "Collect it on Friday's delivery; send a UPI link now.", btns: ["Call the customer", "Collect later"] },
+      pane: "Collect Later", fields: function () { return F.facts([["₹2,780", "To collect"], ["₹1,900", "Already owed"], ["7 days", "Their terms"]]) + F.opts("When?", [["At the next delivery", "Fri, 25 Sep", 1], ["Pick a day", ""]]) + F.opts("Who collects?", [["Van 1 driver", "On that trip", 1], ["At the counter", "They come to pay"]]); },
+      go: "Plan Collection", conf: ["Collect <b>₹2,780 from Cake.in on Fri</b>", "By the Van 1 driver. Reminder on WhatsApp now."],
+      done: { t: "Added to Collections", s: "Collections chases it from here.", h: "Collection", rows: [["Customer", "Cake.in"], ["Amount", "₹2,780"], ["When", "Fri, 25 Sep"], ["Who", "Van 1 driver"]], pill: "Planned" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "exists", back: "Cake.in", title: "Collect Payment", body: function () { return '<div class="sec">Payment method</div>' + chips([["💵 Cash"], ["📱 UPI"]]) + '<div class="card"><div class="r"><span>Collecting</span><b>₹0</b></div><div style="color:#6b7280;font-size:11px;margin-top:4px">₹2,780 stays on credit</div></div>'; }, cta: "Leave on Credit" },
+      after: { c: [22, 10, 0], sel: "good", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "good", t: "Cake.in", s: "Delivered · ₹2,780 with Collections", tag: "✓ Handed over" } },
+    },
+    "Decide on credit": {
+      row: { k: "ugly", t: "Sai Bakers", s: "Over credit limit · ₹4,820 today", tag: "Credit limit" },
+      sheet: { sub: "Due 2:30 pm · Van 2 · Kumar", what: "They owe ₹23,400 against a ₹20,000 limit.", impact: "₹4,820 more on credit if delivered as usual.", rec: "Ask for ₹3,400 at the door before unloading.", btns: ["Call the customer", "Decide on credit"] },
+      pane: "Over Credit Limit", fields: function () { return F.facts([["₹20,000", "Limit"], ["₹23,400", "Owed"], ["₹4,820", "Today"]]) + F.opts("Your decision", [["Collect first", "Kumar takes ₹3,400 before unloading", 1], ["Deliver this once", "Needs a reason"], ["Raise their limit", "To ₹30,000"]]); },
+      go: "Collect First", conf: ["Kumar collects <b>₹3,400 before unloading</b> at Sai Bakers", "They get a payment reminder now."],
+      done: { t: "Collect First", s: "Kumar sees it when he reaches them.", h: "Credit", rows: [["Customer", "Sai Bakers"], ["Owed", "₹23,400"], ["Decision", "Collect ₹3,400 first"]], pill: "Set" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "new", back: "Delivery Stops", title: "Sai Bakers", body: function () { return '<div class="banner" style="background:#FBEAE8;color:#9B2C22">Collect ₹3,400 before unloading. Owner\'s decision.</div><div class="card"><div class="r"><span>Today\'s order</span><b>₹4,820</b></div><div class="r" style="margin-top:6px"><span>Outstanding</span><b>₹23,400</b></div></div>'; }, cta: "💰 Collect ₹3,400 First" },
+      after: { c: [13, 19, 0], sel: "bad", st: "bad", ctx: "19 to deliver · nothing at risk", row: { k: "bad", t: "Sai Bakers", s: "Collect ₹3,400 first · Van 2, 2:30 pm", tag: "Credit limit" } },
+    },
+    "Ask the team": {
+      row: { k: "bad", t: "Van 2 stock count", s: "4 cases Parle-G Gold over · ₹960", tag: "Excess", icon: "box" },
+      sheet: { sub: "Settlement 6:20 pm · Kumar", what: "Counted 4 more cases of Parle-G Gold 1kg than expected.", impact: "₹960 of stock unexplained; a customer may be short.", rec: "Ask Kumar where they came from before closing the route.", btns: ["Ask the team", "Take it back"] },
+      pane: "Ask the Team", fields: function () { return F.opts("Who?", [["Kumar", "Driver · Van 2", 1], ["Ravi", "Warehouse"]]) + F.chips("Question", [["Where did the 4 extra cases come from?", 1], ["Did a customer refuse them?"], ["Were they loaded twice?"]]); },
+      go: "Ask Kumar", conf: ["Ask <b>Kumar</b> in the delivery app", "WhatsApp if he's offline."],
+      done: { t: "Question Sent", s: "Kumar's answer will show here.", h: "Question", rows: [["To", "Kumar · Van 2"], ["Asked", "6:24 pm"]], pill: "Waiting" },
+      ground: { style: "rd", app: "Delivery app · Kumar, Van 2", badge: "new", back: "Settlement", title: "From the office", body: function () { return '<div class="card"><b>Rakesh asks</b><div style="margin-top:4px">Where did the 4 extra cases come from?</div></div><div class="sec">Reply</div>' + chips([["Customer refused 4", 1], ["Loaded extra"], ["Don't know"], ["Type…"]]); }, cta: "Send Reply" },
+      after: { c: [30, 2, 0], sel: "bad", st: "bad", ctx: "2 to deliver · nothing at risk", row: { k: "bad", t: "Van 2 stock count", s: "Kumar: Kanti Sweets refused 4 · take back", tag: "Excess", icon: "box" } },
+    },
+    "Share proof": {
+      row: { k: "ugly", t: "Cake.in", s: "Says it never came · ₹2,780", tag: "POD disputed" },
+      sheet: { sub: "Delivered 1:12 pm · Van 1 · Ajay", what: "Cake.in says today's delivery never reached them.", impact: "₹2,780 they won't pay until it's settled.", rec: "Share Ajay's photo and signature with the shop.", btns: ["Call the customer", "Share proof"] },
+      pane: "Proof of Delivery", fields: function () { return F.photo("Signed by Ravi (shop staff) · 1:12 pm · 4th Block") + F.text("Send to", "Cake.in · the shop's WhatsApp"); },
+      go: "Send Proof", conf: ["Send the proof of delivery at <b>1:12 pm</b> to Cake.in", "On WhatsApp, with the bill."],
+      done: { t: "Proof Sent", s: "Waiting for Cake.in to confirm.", h: "Proof", rows: [["Customer", "Cake.in"], ["Delivered", "1:12 pm · Ajay"], ["Proof", "Photo + signature"]], pill: "Sent" },
+      ground: { style: "rd", app: "Delivery app · Ajay, Van 1", badge: "new", back: "Cake.in", title: "Stop Summary", body: function () { return '<div class="card"><div class="r"><b>Delivered</b><span>1:12 pm</span></div></div><div class="rd-btn" style="background:#e8f5f7;color:#1B6272">📷 Photo taken ✓</div><div class="rd-btn" style="background:#e8f5f7;color:#1B6272">✍ Signature taken ✓</div>'; }, cta: "Finish Stop" },
+      after: { c: [22, 10, 0], sel: "bad", st: "bad", ctx: "10 to deliver · nothing at risk", row: { k: "bad", t: "Cake.in", s: "Proof sent · waiting for them", tag: "POD disputed" } },
+    },
+  };
+
+  function drawer(head, stops, note) {
+    return '<div class="drw"><div class="lt">' + head + "</div>" + stops.map(function (s) {
+      return '<div class="stp"><span class="sq">' + s[0] + "</span><span>" + s[1] + "<small>" + s[2] + '</small></span><span class="mv' + (s[4] ? " dn" : "") + '">' + s[3] + "</span></div>";
+    }).join("") + '<p style="font-size:11px;color:#5B616B;margin:10px 0 0">' + note + "</p></div>";
+  }
+  function soScreen(title, inner) {
+    return '<div class="ph-scr"><div class="ph-tb"><span class="bk">‹</span><span>' + title + '</span></div><div class="bd" style="background:#F6F7F8;margin:0;padding:12px 14px">' + inner + '</div><div class="trip"><span class="on">‹ Tower</span><span>Orders</span><span>Deliveries</span></div></div>';
+  }
+  var BTN_WHERE = function (b) { return /^Call/.test(b) ? "outside" : "in the tower"; };
+  /* One action, one step: 0 sheet · 1 pick · 2 confirm · 3 done · 4 ground · 5 after. */
+  function actionScreen(name, step) {
+    var a = ACT[name];
+    var start = a.row.k === "ugly" ? { good: 13, bad: 18, ugly: 1, st: "ugly", ctx: "18 to deliver · " + ((a.sheet.impact.match(/₹[\d,]+/) || [""])[0]) + " at risk" }
+      : { good: a.after.c[0], bad: a.after.c[1], ugly: 0, st: "bad", ctx: a.after.ctx };
+    var before = list({ del: start.good, good: start.good, bad: start.bad, ugly: start.ugly, status: start.st, sel: a.row.k === "ugly" ? "ugly" : "bad", ctx: start.ctx, rows: [a.row] });
+    if (step === 0) {
+      return before + modal({ t: a.row.t, tag: a.row.tag, k: a.row.k, sub: a.sheet.sub, what: a.sheet.what, impact: a.sheet.impact, rec: a.sheet.rec,
+        btns: a.sheet.btns.map(function (b) { return [b, BTN_WHERE(b), b === name ? 1 : 0]; }) });
+    }
+    if (step <= 3) {
+      var foot = step === 1 ? '<div class="ap-go' + (a.danger ? " red" : "") + '">' + a.go + "</div>"
+        : '<div class="ap-conf"><p>' + a.conf[0] + "<small>" + a.conf[1] + '</small></p><div><span class="ap-no">Cancel</span><span class="ap-yes' + (a.danger ? " red" : "") + '">Confirm</span></div></div>';
+      var inner = step === 3
+        ? '<div class="ap-done">' + ART + "<h6>" + a.done.t + "</h6><p>" + a.done.s + '</p><div class="ap-card"><div class="ap-ch">' + a.done.h + "</div>" +
+            a.done.rows.map(function (r) { return "<div><span>" + r[0] + "</span><b>" + r[1] + "</b></div>"; }).join("") +
+            '<div><span>Status</span><b><i class="ap-pill' + (a.done.grey ? " grey" : "") + '">' + a.done.pill + "</i></b></div></div></div>"
+        : '<div class="ap-body' + (step === 2 ? " dimmed" : "") + '">' + a.fields() + "</div>" + foot;
+      return before + '<div class="dim"></div><div class="md ap-md"><div class="ap-bar"><span>' + (step === 3 ? "" : "←") + "</span><b>" + (step === 3 ? "" : a.pane) + "</b><span>✕</span></div>" + inner + "</div>";
+    }
+    if (step === 4) {
+      var g = a.ground;
+      var badge = '<div class="proposed' + (g.badge === "exists" ? " ex" : "") + '">' + (g.badge === "exists" ? "On the platform today" : "New on the platform") + "</div>";
+      if (g.style === "lt") return badge + tracking(g.html(), 1);
+      if (g.style === "so") return badge + soScreen(g.title, g.html());
+      return badge.replace("proposed", "proposed rdb") + driver(g.title, g.back, g.body(), g.cta, g.ctaCls);
+    }
+    var af = a.after, r = Object.assign({ hot: 1 }, af.row);
+    return list({ del: af.c[0], good: af.c[0], bad: af.c[1], ugly: af.c[2], status: af.st, sel: af.sel, ctx: af.ctx, rows: [r] });
+  }
+  var ACT_APP = function (name, step) {
+    var g = ACT[name].ground;
+    return step === 4 ? (g.app || (g.style === "lt" ? "Live Tracking · office" : g.title + " · office")) : step === 5 ? "Control Tower · after" : "Control Tower · Rakesh";
+  };
+
+  /* One screen per step, in the order §8 lists them. Figures are the demo business's. */
+  var BP = { t: "Best Price Store" };
+  var others = [
+    { k: "bad", t: "SSK MART JAYANAGAR", s: "On Van 1 · Ajay · due 12:40", tag: "Pending", icon: "truck" },
+    { k: "bad", t: "Cake.in", s: "On Van 1 · Ajay · due 1:10", tag: "Pending", icon: "truck" },
+  ];
+  var SCREENS = [
+    [ // A · Shop closed
+      { st: [0, 1], app: "Delivery app · Kumar, Van 2", time: "11:20", area: "good", chase: ["0 open", "4 fixed today"],
+        html: function () { return driver("Why no delivery?", "Best Price Store", '<div class="sec">Select reason</div>' + chips([["Shop Closed", 1], ["Owner Away"], ["Fully Stocked"], ["Refused"], ["Will Order Later"], ["Other"], ["Wrong address", 0, 1], ["Can't reach shop", 0, 1]]) +
+          '<div class="banner">Best Price Store has ₹3,100 outstanding. This will be added to the follow-up list.</div><div class="inp">Shutter down, no one answering</div>', "Skip This Stop"); } },
+      { st: [2], app: "Control Tower · Rakesh", time: "11:21", area: "ugly", chase: ["1 open · ₹4,820 at risk", "4 fixed today"],
+        html: function () { return list({ del: 13, good: 13, bad: 18, ugly: 1, status: "ugly", sel: "ugly", ctx: "18 to deliver · ₹4,820 at risk",
+          rows: [{ k: "ugly", t: BP.t, s: "Shop closed 11:20 · Van 2 · ₹4,820", tag: "Shop closed", hot: 1 }] }); } },
+      { st: [2, 3], app: "Control Tower · Rakesh", time: "11:22", area: "ugly", chase: ["1 open · ₹4,820 at risk", "4 fixed today"],
+        html: function () { return list({ del: 13, good: 13, bad: 18, ugly: 1, status: "ugly", sel: "ugly", ctx: "18 to deliver · ₹4,820 at risk", rows: [{ k: "ugly", t: BP.t, s: "Shop closed 11:20 · Van 2 · ₹4,820", tag: "Shop closed" }] }) +
+          modal({ t: BP.t, tag: "Shop closed", k: "ugly", sub: "Missed 11:20 am · Van 2 · Kumar", what: "Van 2 found the shop shut at 11:20. Kumar: shutter down, no one answering.",
+            impact: "₹4,820 not delivered today. They already owe ₹3,100.", rec: "Call the shop. If they open later today, put them on Van 1's evening round; if not, tomorrow morning.",
+            btns: [["Call the shop", "outside", 1], ["Reschedule", "in the tower"]],
+            trail: [["11:20", "Kumar marked it Shop Closed"], ["11:20", "Tagged Shop closed · Missed"], ["now", "Needs you", 1]] }); } },
+      { st: [3], app: "Control Tower · after the call", time: "11:26", area: "ugly", chase: ["1 open · ₹4,820 at risk", "4 fixed today"],
+        html: function () { return list({ del: 13, good: 13, bad: 18, ugly: 1, status: "ugly", sel: "ugly", ctx: "18 to deliver · ₹4,820 at risk", rows: [{ k: "ugly", t: BP.t, s: "Shop closed 11:20 · Van 2 · ₹4,820", tag: "Shop closed" }] }) +
+          modal({ t: "You called " + BP.t, tag: "Shop closed", k: "ugly", sub: "11:25 · 2 min call",
+            body: '<div class="q">What did they say?</div><div class="opts"><div class="opt on">Open after 4 pm</div><div class="opt">Tomorrow</div><div class="opt">Doesn\'t want it</div><div class="opt">Couldn\'t reach</div></div>' +
+              '<div class="sugg"><b>Move to Van 1 · today 4–8 pm</b>Van 1 has room on its evening round and passes 600 m away.</div>',
+            btns: [["Not now", ""], ["Confirm", "tower · you confirm", 1]] }); } },
+      { st: [3], app: "Control Tower · Rakesh", time: "11:27", area: "bad", chase: ["1 being fixed", "4 fixed today"],
+        html: function () { return list({ del: 13, good: 13, bad: 19, ugly: 0, status: "bad", sel: "bad", ctx: "19 to deliver · nothing at risk",
+          rows: [{ k: "bad", t: BP.t, s: "Being fixed · Van 1, 4–8 pm", tag: "Shop closed", hot: 1 }].concat(others) }); } },
+      { st: [4, 5], app: "Control Tower · Rakesh", time: "5:10 pm", area: "bad", chase: ["0 open", "5 fixed today"],
+        html: function () { return list({ del: 27, good: 27, bad: 5, ugly: 0, status: "bad", sel: "good", ctx: "5 to deliver · green when they're done",
+          rows: [{ k: "good", t: BP.t, s: "Delivered 5:10 pm by Ajay · fixed", tag: "✓ Fixed", hot: 1 }, { k: "good", t: "SSK MART JAYANAGAR", s: "Paid ₹2,140 at the door", tag: "Delivered" }, { k: "good", t: "Cake.in", s: "On credit", tag: "Delivered" }] }); } },
+    ],
+    [ // B · Van 2 stops
+      { st: [0, 1], app: "Live Tracking · office", time: "12:25", area: "good", chase: ["0 open", "4 fixed today"],
+        html: function () { return tracking(map() + '<div class="exc"><div class="h"><em>high</em>Kumar — van idle at stop · 20 min</div><div class="h"><em>new</em>Kumar reported: Breakdown <span style="color:#8A9099">· Report a problem</span></div><div><em style="background:#FBF1E0;color:#B7791F">med</em>Van 2 — 18 min behind</div></div>'); } },
+      { st: [2], app: "Control Tower · Rakesh", time: "12:26", area: "ugly", chase: ["1 open · ₹38,600 at risk", "4 fixed today"],
+        html: function () { return list({ del: 15, good: 15, bad: 8, ugly: 9, status: "ugly", sel: "ugly", ctx: "8 to deliver · ₹38,600 at risk",
+          rows: [{ k: "ugly", t: "Van 2 broke down", s: "Since 12:05 · Jayanagar 4th Block", tag: "Breakdown", root: 1, hot: 1, icon: "truck", held: "Holding 9 stops · ₹38,600 · 3 due before 2 pm" }] }); } },
+      { st: [2, 3], app: "Control Tower · Rakesh", time: "12:27", area: "ugly", chase: ["1 open · ₹38,600 at risk", "4 fixed today"],
+        html: function () { return list({ del: 15, good: 15, bad: 8, ugly: 9, status: "ugly", sel: "ugly", ctx: "8 to deliver · ₹38,600 at risk", rows: [{ k: "ugly", t: "Van 2 broke down", s: "Since 12:05", tag: "Breakdown", root: 1, icon: "truck" }] }) +
+          modal({ t: "Van 2 broke down", tag: "Breakdown", k: "ugly", sub: "Since 12:05 · Kumar · Jayanagar 4th Block", what: "Van 2 has not moved for 20 minutes. Kumar reported a breakdown.",
+            impact: "9 stops held, ₹38,600. ODC, Cake Corner and ASSAM GOVT. are due before 2 pm.", rec: "Move the 3 due before 2 pm to Van 1 now. The other 6 can wait for the mechanic.",
+            btns: [["Call Kumar", "outside"], ["Open Live Tracking", "platform ↗", 1]],
+            trail: [["12:05", "Van 2 stopped moving"], ["12:25", "Kumar reported Breakdown"], ["now", "Needs you · 9 stops held", 1]] }); } },
+      { st: [3], app: "Control Tower · Move to another van", time: "12:31", area: "ugly", chase: ["1 open · ₹38,600 at risk", "4 fixed today"],
+        html: function () { return actionScreen("Move to another van", 2); } },
+      { st: [4, 5], app: "Control Tower · Rakesh", time: "1:30 pm", area: "bad", chase: ["0 open", "5 fixed today"],
+        html: function () { return list({ del: 19, good: 19, bad: 13, ugly: 0, status: "bad", sel: "good", ctx: "13 to deliver · nothing at risk",
+          rows: [{ k: "good", t: "Van 2 moving again", s: "1:30 pm · 3 stops moved to Van 1, 6 back on route", tag: "✓ Fixed", root: 1, hot: 1 }, { k: "good", t: "ODC-OVER D COUNTER", s: "Delivered 1:05 pm by Ajay", tag: "Delivered" }] }); } },
+    ],
+    [ // C · Damaged goods
+      { st: [0, 1], app: "Delivery app · Ajay, Van 1", time: "2:40 pm", area: "bad", chase: ["0 open", "5 fixed today"],
+        html: function () { return driver("Product Return", "Cake Corner", '<div class="card"><div class="r"><b>Britannia Cake 60g</b><span>× 6</span></div><div class="r" style="color:#6b7280;margin-top:3px"><span>Returned to van stock</span><span>₹540</span></div></div>' +
+          '<div class="sec">Return reason</div>' + chips([["Damaged", 1], ["Expired"], ["Unsold"], ["Wrong Product"]]) + '<div class="sec">What kind of damage?</div>' + chips([["Leaking", 1, 1], ["Wet carton", 0, 1], ["Broken pack", 0, 1]]), "↩ Record Return", " o"); } },
+      { st: [2], app: "Control Tower · Rakesh", time: "2:41 pm", area: "bad", chase: ["1 open · ₹540", "5 fixed today"],
+        html: function () { return list({ del: 22, good: 21, bad: 11, ugly: 0, status: "bad", sel: "bad", ctx: "10 to deliver · ₹540 to replace",
+          rows: [{ k: "bad", t: "Cake Corner", s: "Delivered · 6 packs back · replace next trip", tag: "Damaged", hot: 1, icon: "box" }].concat(others) }); } },
+      { st: [3], app: "Control Tower · Send on next trip", time: "2:43 pm", area: "bad", chase: ["1 being fixed", "5 fixed today"],
+        html: function () { return actionScreen("Send on next trip", 2); } },
+      { st: [4, 5], app: "Control Tower · next day", time: "Fri 10:15", area: "good", chase: ["0 open", "1 fixed today"],
+        html: function () { return list({ del: 9, good: 9, bad: 21, ugly: 0, status: "bad", sel: "good", ctx: "21 to deliver · nothing at risk",
+          rows: [{ k: "good", t: "Cake Corner", s: "Replacement delivered 10:15 · 6 packs", tag: "✓ Fixed", hot: 1 }, { k: "good", t: "Sai Bakers", s: "Paid ₹1,260 at the door", tag: "Delivered" }] }); } },
+    ],
+  ];
+  var STAGES = ["Incident", "Tag", "In the tower", "Lead action", "Proof", "Resolved"];
+
+  var skEl = $("#fig-sketches");
+  if (skEl && DATA.scenarios.length) {
+    var P = { sc: 0, st: 0, timer: null };
+    try { var sv = JSON.parse(store("fb.incidents.player") || "null"); if (sv && SCREENS[sv.sc]) P.sc = sv.sc; } catch (e) {}
+    var render = function () {
+      var sc = DATA.scenarios[P.sc], scr = SCREENS[P.sc][P.st];
+      skEl.innerHTML = '<div class="player"><div>' +
+        '<div class="sc-tabs chips" role="tablist">' + DATA.scenarios.map(function (s, i) { return '<button type="button" role="tab" aria-selected="' + (i === P.sc) + '" class="chip' + (i === P.sc ? " on" : "") + '" data-sc="' + i + '">' + s.title + "</button>"; }).join("") + "</div>" +
+        '<p class="sc-arc">' + sc.arc + "</p>" +
+        '<div class="stages" aria-label="Where this step is in the loop">' + STAGES.map(function (s, i) { return '<span class="' + (scr.st.indexOf(i) >= 0 ? "on" : "") + '">' + s + "</span>"; }).join("") + "</div>" +
+        '<ol class="steps">' + sc.steps.map(function (s, i) { return '<li><button type="button" class="' + (i === P.st ? "on" : "") + '" data-st="' + i + '"><span class="sn">' + (i + 1) + "</span><span>" + s + "</span></button></li>"; }).join("") + "</ol></div>" +
+        '<div class="stage-col"><div class="area"><span class="nm">Deliveries</span><span class="pill ' + scr.area + '">' + ST[scr.area] + '</span></div>' +
+        '<div class="chase"><span>' + scr.chase[0] + "</span><span>" + scr.chase[1] + "</span></div>" +
+        shell(scr.app, scr.time, scr.html()) +
+        '<div class="nav"><button type="button" data-go="-1"' + (P.st ? "" : " disabled") + '>‹ Back</button><button type="button" class="pri" data-play>' + (P.timer ? "Pause" : "Play the loop") + '</button><button type="button" data-go="1"' + (P.st < SCREENS[P.sc].length - 1 ? "" : " disabled") + ">Next ›</button></div></div></div>";
+      store("fb.incidents.player", JSON.stringify({ sc: P.sc }));
+    };
+    var stop = function () { if (P.timer) { clearInterval(P.timer); P.timer = null; } };
+    var go = function (d) { var n = P.st + d; if (n >= 0 && n < SCREENS[P.sc].length) { P.st = n; render(); return true; } return false; };
+    skEl.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.hasAttribute("data-sc")) { stop(); P.sc = +b.getAttribute("data-sc"); P.st = 0; render(); }
+      else if (b.hasAttribute("data-st")) { stop(); P.st = +b.getAttribute("data-st"); render(); }
+      else if (b.hasAttribute("data-go")) { stop(); go(+b.getAttribute("data-go")); }
+      else if (b.hasAttribute("data-play")) {
+        if (P.timer) { stop(); render(); return; }
+        if (P.st === SCREENS[P.sc].length - 1) P.st = 0;
+        P.timer = setInterval(function () { if (!go(1)) { stop(); render(); } }, 3200);
+        render();
+      }
+    });
+    skEl.addEventListener("keydown", function (e) { if (e.key === "ArrowRight") { stop(); go(1); } if (e.key === "ArrowLeft") { stop(); go(-1); } });
+    render();
+  }
+
+
+  /* ── action player: one action at a time, six steps ─── */
+  var acEl = $("#fig-actions");
+  if (acEl && DATA.actions.length) {
+    var ASTEPS = ["Sheet", "Pick", "Confirm", "Done", "On the ground", "After"];
+    var groups = []; DATA.actions.forEach(function (a) { if (groups.indexOf(a.group) < 0) groups.push(a.group); });
+    var A = { i: 0, st: 0 };
+    try { var sa = JSON.parse(store("fb.incidents.actions") || "null"); if (sa && DATA.actions[sa.i]) A.i = sa.i; } catch (e) {}
+    var drawA = function () {
+      var a = DATA.actions[A.i], n = a.steps.length;
+      if (!ACT[a.title]) { acEl.textContent = "No sketch for " + a.title; return; }
+      var tile = ACT[a.title].row.k === "ugly" && A.st < 5 ? "ugly" : ACT[a.title].after.st;
+      acEl.innerHTML = '<div class="player"><div>' +
+        '<div class="act-pick">' + groups.map(function (g) {
+          return '<div class="act-grp"><span>' + esc(g) + '</span><div class="chips">' + DATA.actions.map(function (x, i) {
+            return x.group === g ? '<button type="button" class="chip' + (i === A.i ? " on" : "") + '" data-ai="' + i + '">' + esc(x.title) + "</button>" : "";
+          }).join("") + "</div></div>";
+        }).join("") + "</div>" +
+        '<h4 class="act-head">' + esc(a.title) + '</h4><p class="act-meta">' + a.meta + "</p>" +
+        '<div class="stages">' + ASTEPS.map(function (s, i) { return '<span class="' + (i === A.st ? "on" : "") + '">' + s + "</span>"; }).join("") + "</div>" +
+        '<ol class="steps">' + a.steps.map(function (s, i) { return '<li><button type="button" class="' + (i === A.st ? "on" : "") + '" data-as="' + i + '"><span class="sn">' + (i + 1) + "</span><span>" + s + "</span></button></li>"; }).join("") + "</ol></div>" +
+        '<div class="stage-col"><div class="area"><span class="nm">Deliveries</span><span class="pill ' + tile + '">' + ST[tile] + "</span></div>" +
+        shell(ACT_APP(a.title, A.st), A.st >= 5 ? "later" : "now", actionScreen(a.title, A.st)) +
+        '<div class="nav"><button type="button" data-ago="-1"' + (A.st ? "" : " disabled") + '>‹ Back</button><button type="button" class="pri" data-ago="1"' + (A.st < n - 1 ? "" : " disabled") + ">Next ›</button></div></div></div>";
+      store("fb.incidents.actions", JSON.stringify({ i: A.i }));
+    };
+    acEl.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.hasAttribute("data-ai")) { A.i = +b.getAttribute("data-ai"); A.st = 0; }
+      else if (b.hasAttribute("data-as")) A.st = +b.getAttribute("data-as");
+      else if (b.hasAttribute("data-ago")) A.st = Math.max(0, Math.min(DATA.actions[A.i].steps.length - 1, A.st + +b.getAttribute("data-ago")));
+      drawA();
+    });
+    drawA();
+  }
+
+  /* ── table of contents follows the reader ───────────── */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+  if ("IntersectionObserver" in window && links.length) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (en) { if (en.isIntersecting) links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id); }); });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section").forEach(function (s) { io.observe(s); });
+  }
+})();
+</script>
