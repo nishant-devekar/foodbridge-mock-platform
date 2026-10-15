@@ -1047,3 +1047,51 @@ html.ct-desk .ct-dlv .ct-ptabs { grid-template-columns: 1fr; }
 .ct-pn-v.is-good { color: var(--ink); }
 .ct-pn-c { margin: 0; font-size: 13.5px; line-height: 22px; font-weight: 500; color: var(--ink-3); }
 .ct-pn > .ct-pn-list, .ct-pn > .ct-pn-empty { margin-top: 12px; }
+
+/* ── The store journey (15 Oct 2026; CONTROL_TOWER_JOURNEY.md) ───────────
+   Home while the store is on its way: the chapter trail, the focus card on
+   its own row, the rest two to a row, then what opens later and why. */
+.ct-jtrail { display: flex; gap: 4px; margin: 14px 0 0; padding: 0; list-style: none; }
+.ct-jtrail li { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+.ct-jtrail li[data-s="done"] { background: #22A45D; }
+.ct-jtrail li[data-s="now"] { background: linear-gradient(90deg, #22A45D 45%, var(--line) 45%); }
+.ct-jearned { display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 99px; background: #FFF4DE; color: #8A5300; font-size: 13px; font-weight: 700; }
+.ct-jcards { margin-top: 16px; }
+.ct-jcard { text-align: left; position: relative; }
+.ct-jcard[data-t="focus"] { grid-column: 1 / -1; background: var(--surface); box-shadow: inset 0 0 0 2px var(--brand); min-height: 76px; }
+.ct-jcard[data-t="focus"] .ct-lcard-i { border-radius: 8px; background: var(--brand); color: #fff; }
+.ct-jcard[data-t="focus"] .ct-lcard-i .i { width: 16px; height: 16px; stroke-width: 2.3; }
+.ct-jcard[data-t="focus"] .ct-lcard-w { color: var(--brand-d); font-weight: 600; }
+.ct-jcard[data-t="focus"] .ct-go { margin-left: auto; color: var(--brand); }
+.ct-jcard[data-t="todo"] .ct-lcard-i { color: var(--ink-2); }
+.ct-jcard[data-t="optional"] { background: #FEF4E6; }
+.ct-jcard[data-t="optional"] .ct-lcard-i { color: #C9731A; }
+.ct-jsub { margin: 24px 0 6px; font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ct-jlocked { margin: 0; padding: 0; list-style: none; }
+.ct-jlocked li + li { border-top: 1px solid var(--line); }
+.ct-jlocked button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 2px; text-align: left; font-size: 14px; line-height: 20px; color: var(--ink-3); }
+.ct-jlocked b { color: var(--ink-2); font-weight: 600; }
+.ct-jlk { display: grid; flex: none; color: var(--ink-3); }
+.ct-jlk .i { width: 16px; height: 16px; }
+html.ct-desk .ct-jdesk { max-width: 720px; }
+html.ct-desk .ct-jdesk .ct-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* The step sheet: the area's steps, then the one to do now. */
+.ct-jsteps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; padding: 0; list-style: none; }
+.ct-jsteps li { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 99px; background: var(--fill); color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.ct-jsteps li small { font-weight: 500; }
+.ct-jsteps li .i { width: 14px; height: 14px; }
+.ct-jsteps li[data-s="done"] { background: var(--brand-t); color: var(--brand); }
+.ct-jsteps li[data-s="now"] { background: var(--ink); color: #fff; }
+.ct-jask { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; color: var(--ink); }
+.ct-jask .i { width: 18px; height: 18px; color: var(--ink-3); flex: none; }
+.ct-jsay { margin: 6px 0 0; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--ugly); }
+.ct-jhow { margin: 6px 0 0; font-size: 15px; line-height: 22px; color: var(--ink-2); }
+.ct-jreward { margin: 14px 0 0; padding: 9px 12px; border-radius: 12px; background: #FFF4DE; color: #8A5300; font-size: 14px; font-weight: 700; }
+/* The unlock: a big check, what is open now, what was earned. */
+.ct-junlock { display: grid; justify-items: center; gap: 10px; padding: 8px 0 4px; text-align: center; }
+.ct-junlock p { margin: 0; font-size: 16px; line-height: 23px; color: var(--ink-2); max-width: 34ch; }
+.ct-junlock .ct-jreward { margin: 4px 0 0; width: 100%; }
+.ct-jcheck { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: #22A45D; color: #fff; }
+.ct-jcheck .i { width: 34px; height: 34px; stroke-width: 2.6; }
+.ct-jfoot { display: grid; gap: 8px; width: 100%; }
+.ct-jfoot .ct-btn { width: 100%; }

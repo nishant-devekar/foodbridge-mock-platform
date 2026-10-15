@@ -50,6 +50,11 @@
     bang: sv('<path d="M12 7v6M12 17h.01"/>'),
     /* Production: a factory, its sawtooth roof and chimney. */
     factory: sv('<path d="M3 21V10l5 3V10l5 3V10l5 3V4h3v17z"/><path d="M3 21h18M7 17h2M12 17h2M17 17h1"/>'),
+    /* The store journey's own areas (15 Oct 2026): products are tags on the
+       shelf, customers are people; a locked area is a padlock. */
+    tag: sv('<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1.3"/>'),
+    users: sv('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    lock: sv('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
     /* Says a tab opens a menu, not a page; turns over while it is open. */
   };
   const CREATE = [
@@ -59,7 +64,7 @@
     { id: "count", label: "Stock count", icon: I.box },
     { id: "order", label: "New order", icon: I.cart },
   ];
-  const ICON_OF = { deliveries: I.truck, collections: I.rupee, purchase: I.clip, inventory: I.box, order: I.cart, production: I.factory };
+  const ICON_OF = { deliveries: I.truck, collections: I.rupee, purchase: I.clip, inventory: I.box, order: I.cart, production: I.factory, products: I.tag, customers: I.users };
   const COLOUR = { green: "Green", yellow: "Yellow", orange: "Orange", red: "Red", fire: "Fire" };
   const WORD = { ugly: "Urgent", bad: "Needs work", good: "On track", preview: "Not connected" };
 
@@ -188,20 +193,174 @@
        demo's day) is in place: filling in the day is not news. */
     ui.ready = true; trackStatus();
     const deep = deepLink();
-    /* The Overview is home: every visit opens on the five levers; a link
-       straight to one lever still lands there (owner, 22 Sep 2026). */
-    ui.tab = deep.lever || "overview";
-    ui.page = "tower";
-    if (deep.updates) { ui.page = "updates"; ui.newSince = updSeen() || Date.now(); markSeen(); }
-    draw();
-    if (deep.item) { const r = findRow(deep.item); if (r) openItem(r); }
-    if (deep.chat) setTimeout(openAssistant, 0);            // after the chat's own script has mounted
-    wireGlobal();
+    /* The store journey: `?journey=new` starts a store from day one,
+       `?journey=off` leaves it; otherwise the tower is as it was left. */
+    if (deep.journey === "new") journeyStart();
+    else if (deep.journey === "off") journeyStop();
+    jr.on = !!jget(JKEY.on, false);
+    jr.snap = jget(JKEY.snap, null);
+    (jr.on ? loadJourney() : Promise.resolve()).then(function () {
+      compute();
+      /* The Overview is home: every visit opens on the five levers; a link
+         straight to one lever still lands there (owner, 22 Sep 2026). */
+      ui.tab = deep.lever || "overview";
+      ui.page = "tower";
+      if (deep.updates) { ui.page = "updates"; ui.newSince = updSeen() || Date.now(); markSeen(); }
+      jr.moment = null;                                      // opening the tower is not news
+      draw();
+      if (deep.item) { const r = findRow(deep.item); if (r) openItem(r); }
+      if (deep.chat) setTimeout(openAssistant, 0);            // after the chat's own script has mounted
+      wireGlobal();
+    });
   }
   function compute() {
     view = tower.pass();
     model = L.build(view, { demand: window.CTSignals._detectors.demand(view.state), production: productionLever() });
     if (ui.ready) trackStatus();
+    journeyPass();
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     THE STORE JOURNEY (15 Oct 2026; context/control-tower/CONTROL_TOWER_JOURNEY.md)
+     A graph (assets/journey/graphs/store-journey.json, or one injected)
+     walked by the journey engine, which knows no business, and read for
+     the tower by journey-view.js from the graph's own type and payload.
+     While the store is on its way, home is the journey: the chapter's
+     line, the focus card, the areas still locked and why, the footer's
+     two areas from the chapter. When the graph says "running", home is
+     today's tower again. Opt-in for now (D1 is the owner's): More → Start
+     as a new store, or ?journey=new. The new store's facts are its own,
+     moved by each step's demo button; the live demo business is untouched.
+     ════════════════════════════════════════════════════════════════════ */
+  const JKEY = { on: "fb.v7.ct.journey.on", snap: "fb.v7.ct.journey.snap", demo: "fb.v7.ct.journey.demo", graph: "fb.v7.ct.journey.graph" };
+  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW1";
+  const jr = { on: false, J: null, snap: null, facts: null, ev: null, home: null, moment: null };
+  function jget(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function jput(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* per device only */ } }
+  function loadJourney() {
+    if (!window.FBJourney || !window.CTJourneyView) return Promise.resolve();
+    const injected = jget(JKEY.graph, null);
+    return (injected ? Promise.resolve(injected) : fetch(JGRAPH_URL).then(function (r) { return r.json(); }))
+      .then(function (g) { jr.J = window.FBJourney.load(g); })
+      .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: journey", e && (e.errors || e.message)); });
+  }
+  function journeyStart() { jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jr.on = true; jr.snap = null; }
+  function journeyStop() { jput(JKEY.on, false); jr.on = false; jr.home = null; jr.ev = null; }
+  function journeyPass() {
+    if (!jr.on || !jr.J) { jr.home = null; return; }
+    jr.facts = window.CTJourneyFacts.blank(jget(JKEY.demo, {}));
+    const r = jr.J.step(jr.snap, jr.facts, Date.now());
+    jr.snap = r.snapshot; jput(JKEY.snap, jr.snap);
+    jr.ev = r.ev;
+    jr.home = window.CTJourneyView.home(r.ev, jr.facts);
+    const m = window.CTJourneyView.moment(r.events, r.ev);
+    if (m.announce || m.freeDays) jr.moment = m;            // shown once the screen is drawn
+  }
+  function inJourney() { return !!(jr.home && jr.home.mode === "journey"); }
+  function jArea(k) { return jr.home && jr.home.areas[k]; }
+  function days(n) { return n + (n === 1 ? " free day" : " free days"); }
+
+  /* Home, on the journey: where the store is, the one thing to do, then
+     what opens later and why. A live area keeps its own card. */
+  function journeyBody() {
+    const h = jr.home;
+    const earned = window.CTJourneyView.earned(jr.ev);
+    const trail = '<ol class="ct-jtrail" aria-label="Your store, chapter by chapter">' + h.trail.map(function (t) {
+      return '<li data-s="' + (t.state === "done" ? "done" : t.now ? "now" : "todo") + '" title="' + esc(t.label) + '"><span class="ct-sr">' + esc(t.label) + (t.state === "done" ? ", done" : t.now ? ", now" : "") + "</span></li>";
+    }).join("") + "</ol>";
+    const cards = h.cards.map(function (c) {
+      if (c.tone === "live") { const x = lever(c.area); return x ? leverCard(x) : ""; }
+      return '<button class="ct-lcard ct-jcard" data-jarea="' + esc(c.area) + '" data-t="' + c.tone + '" aria-label="' + esc(c.label + ", " + c.line) + '">' +
+        '<span class="ct-lcard-i">' + (ICON_OF[c.area] || I.check) + "</span>" +
+        '<span class="ct-lcard-t"><span class="ct-lcard-n">' + esc(c.label) + '</span><span class="ct-lcard-w">' + esc(c.line) + "</span></span>" +
+        (c.tone === "focus" ? '<span class="ct-go">' + I.chev + "</span>" : "") + "</button>";
+    }).join("");
+    const locked = h.locked.length ? '<p class="ct-jsub">Opens as your store grows</p><ul class="ct-jlocked">' + h.locked.map(function (x) {
+      return '<li><button type="button" data-jarea="' + esc(x.area) + '"><span class="ct-jlk">' + I.lock + "</span><span><b>" + esc(x.label) + "</b> · " + esc(x.line) + "</span></button></li>";
+    }).join("") + "</ul>" : "";
+    return { line: h.chapter.line, earned: earned, html: trail + '<div class="ct-cards ct-jcards">' + cards + "</div>" + locked };
+  }
+  function journeyHome() {
+    const b = journeyBody();
+    return '<header class="ct-hello"><h1>' + esc(helloText()) + "</h1><p>" + esc(b.line) + "</p>" +
+      (b.earned ? '<span class="ct-jearned">' + esc(days(b.earned)) + " earned</span>" : "") + "</header>" + b.html;
+  }
+
+  /* An area's step sheet: its steps, the next one, where it is done on the
+     platform, and — in the new-store demo — a button that does it. */
+  function openArea(k) {
+    if (inJourney()) {
+      const c = jr.home.cards.filter(function (x) { return x.area === k; })[0];
+      if (!c || c.tone !== "live" || !lever(k)) return openStep(k);
+    }
+    openLeverTab(k);
+  }
+  function openStep(k, push) {
+    if (!jr.ev) return;
+    sheet(function () {
+      const a = window.CTJourneyView.area(jr.ev, jr.facts, k);
+      if (!a) return { title: k, body: "" };
+      const n = a.next;
+      const done = a.steps.filter(function (s) { return s.state === "done"; }).length;
+      const steps = '<ol class="ct-jsteps">' + a.steps.map(function (s) {
+        return '<li data-s="' + (s.state === "done" ? "done" : s.now ? "now" : "todo") + '">' + (s.state === "done" ? I.check : "") + esc(s.label) + (s.optional ? " <small>optional</small>" : "") + "</li>";
+      }).join("") + "</ol>";
+      let body = steps, foot = "";
+      if (a.state === "locked") body += '<p class="ct-jask">' + I.lock + "Opens " + esc(a.waits || "later") + "</p>";
+      else if (!n) {
+        body += '<p class="ct-jask">' + esc(a.label) + " is set up</p>";
+        if (lever(k)) foot = '<button class="ct-btn is-wide" data-jopen="' + esc(k) + '">Open ' + esc(leverName(k)) + "</button>";
+      } else {
+        body += '<p class="ct-jask">' + esc(n.ask) + "</p>" + (n.say ? '<p class="ct-jsay">' + esc(n.say) + "</p>" : "") + (n.how ? '<p class="ct-jhow">' + esc(n.how) + "</p>" : "") +
+          (n.reward && n.reward.freeDays ? '<p class="ct-jreward">+' + esc(days(n.reward.freeDays)) + " when it's done</p>" : "");
+        /* One green button: where it is done on the platform. The demo's
+           button sits under it, quiet, and says it is the demo. */
+        foot = '<div class="ct-jfoot">' + (n.screen ? '<button class="ct-btn" data-jscreen="' + esc(n.screen.route) + '">Open ' + esc(n.screen.label) + "</button>" : "") +
+          (n.demo ? '<button class="ct-btn is-ghost" data-jdemo="' + esc(n.id) + '">' + esc(n.demo.label) + "<small>Demo: as if you did it</small></button>" : "") + "</div>";
+      }
+      return { title: a.label, sub: a.steps.length ? done + " of " + a.steps.length + " steps done" : "", body: body, foot: foot,
+        bind: function (el) {
+          el.addEventListener("click", function (e) {
+            const s = e.target.closest("[data-jscreen]"); if (s) { closeAll(); go(s.dataset.jscreen); return; }
+            const d = e.target.closest("[data-jdemo]"); if (d) { demoStep(d.dataset.jdemo); return; }
+            const o = e.target.closest("[data-jopen]"); if (o) openLever(o.dataset.jopen);
+          });
+        } };
+    }, push);
+  }
+  /* The new-store demo: a step's demo button puts in the facts the step
+     would have made, as the store's own records would. */
+  function demoStep(id) {
+    const n = jr.ev && jr.ev.node(id);
+    if (!n || !n.payload.demo) return;
+    const cur = jget(JKEY.demo, {}) || {};
+    window.CTJourneyFacts.merge(cur, JSON.parse(JSON.stringify(n.payload.demo.facts || {})));
+    jput(JKEY.demo, cur);
+    closeAll(); compute(); draw();
+  }
+  /* The unlock: a moment, not a toast — the big check, what is open now,
+     what was earned, one button into it. A reward with nothing opening is
+     a line at the bottom of the screen. */
+  function showMoment() {
+    const m = jr.moment;
+    if (!m || isOpen()) return;
+    jr.moment = null;
+    if (!m.announce) { if (m.freeDays) toast("+" + days(m.freeDays) + " · " + m.done.join(", ")); return; }
+    const a = m.announce;
+    const t = $("#ct-toast"); if (t) t.remove();            // the moment says it all; no line under it
+    sheet(function () {
+      return { title: a.title,
+        body: '<div class="ct-junlock"><span class="ct-jcheck">' + I.check + "</span>" + (a.line ? "<p>" + esc(a.line) + "</p>" : "") +
+          (m.freeDays ? '<p class="ct-jreward">+' + esc(days(m.freeDays)) + " · " + esc(m.done.join(", ")) + "</p>" : "") + "</div>",
+        foot: '<button class="ct-btn is-ghost" data-close>Later</button><button class="ct-btn" data-jgo autofocus>' + esc(a.button || "Continue") + "</button>",
+        bind: function (el) {
+          el.addEventListener("click", function (e) {
+            if (!e.target.closest("[data-jgo]")) return;
+            closeAll();
+            if (a.open) openArea(a.open); else goTower();
+          });
+        } };
+    });
   }
   /* Production (owner, 3 Oct 2026): the plan's four tables, read from the
      factory's one record — the same tables the Production board draws — and
@@ -249,16 +408,18 @@
   function lever(id) { return model.levers.filter(function (x) { return x.id === (id || ui.tab); })[0]; }
   function deepLink() {
     const q = new URLSearchParams(location.search);
-    let lv = q.get("lever"), item = q.get("item"), vw = q.get("view"), chat = q.get("chat");
+    let lv = q.get("lever"), item = q.get("item"), vw = q.get("view"), chat = q.get("chat"), jy = q.get("journey");
     try {
       const h = (platformWin() || window.top).location.hash || "";
       const i = h.indexOf("?");
-      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); chat = chat || hq.get("chat"); }
+      if (i !== -1) { const hq = new URLSearchParams(h.slice(i + 1)); lv = lv || hq.get("lever"); item = item || hq.get("item"); vw = vw || hq.get("view"); chat = chat || hq.get("chat"); jy = jy || hq.get("journey"); }
     } catch (e) { /* not ours to read */ }
     return { lever: ["overview", "deliveries", "collections", "purchase", "inventory", "order", "production"].indexOf(lv) !== -1 ? lv : null, item: item,
              /* `chat=1`: the Assistant action on a work screen comes back to
                 the tower with the chat open, where it left off. */
-             chat: chat === "1", updates: vw === "updates" && !lv };
+             chat: chat === "1", updates: vw === "updates" && !lv,
+             /* `journey=new` starts the store journey from day one; `journey=off` leaves it. */
+             journey: jy === "new" || jy === "off" ? jy : null };
   }
 
   function skeleton() {
@@ -290,6 +451,8 @@
     document.documentElement.classList.toggle("ct-ov", over);
     syncFooter();
     syncTop();
+    /* A journey moment (an area opened, a reward) shows once the screen is drawn. */
+    if (jr.moment && !isOpen()) setTimeout(showMoment, 0);
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -620,6 +783,12 @@
 
   /* ── The desk's home: every lever as a panel ─────────────────────────── */
   function deskBoard() {
+    if (inJourney()) {
+      const b = journeyBody();
+      return deskHead('<div class="ct-hello ct-dhello"><h1>' + esc(helloText()) + "</h1><p>" + esc(b.line) + "</p>" +
+        (b.earned ? '<span class="ct-jearned">' + esc(days(b.earned)) + " earned</span>" : "") + "</div>", "tower") +
+        '<div class="ct-board ct-jdesk">' + b.html + "</div>";
+    }
     const byId = {};
     model.levers.forEach(function (x) { byId[x.id] = x; });
     const levers = HOME_ORDER.map(function (id) { return byId[id]; }).filter(Boolean);
@@ -708,6 +877,7 @@
     return esc(n + (n === 1 ? " needs" : " need") + " action");
   }
   function overviewBody() {
+    if (inJourney()) return journeyHome();
     const byId = {};
     model.levers.forEach(function (x) { byId[x.id] = x; });
     const levers = HOME_ORDER.map(function (id) { return byId[id]; }).filter(Boolean);
@@ -715,12 +885,13 @@
     return '<header class="ct-hello"><h1>' + esc(helloText()) + "</h1>" +
         "<p>" + (areas ? "Here is what needs your attention today" : "Your business is on track today") + "</p>" +
       "</header>" +
-      '<div class="ct-cards">' + levers.map(function (x) {
-        const name = HOME_NAME[x.id] || x.label;
-        return '<button class="ct-lcard" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(name + ", " + WORD[x.status]) + '">' +
-          '<span class="ct-lcard-i">' + (ICON_OF[x.id] || "") + "</span>" +
-          '<span class="ct-lcard-t"><span class="ct-lcard-n">' + esc(name) + '</span><span class="ct-lcard-w">' + cardLine(x) + "</span></span></button>";
-      }).join("") + "</div>";
+      '<div class="ct-cards">' + levers.map(leverCard).join("") + "</div>";
+  }
+  function leverCard(x) {
+    const name = HOME_NAME[x.id] || x.label;
+    return '<button class="ct-lcard" data-goto="' + x.id + '" data-s="' + x.status + '" aria-label="' + esc(name + ", " + WORD[x.status]) + '">' +
+      '<span class="ct-lcard-i">' + (ICON_OF[x.id] || "") + "</span>" +
+      '<span class="ct-lcard-t"><span class="ct-lcard-n">' + esc(name) + '</span><span class="ct-lcard-w">' + cardLine(x) + "</span></span></button>";
   }
 
   /* ── Preview: the whole lever, before its records arrive ─────────────── */
@@ -815,7 +986,7 @@
   const LEVER_IDS = ["deliveries", "collections", "purchase", "inventory", "order", "production"];
   const SHORT_NAME = { order: "Orders" };
   const RANK = { ugly: 0, bad: 1, good: 2, preview: 3 };
-  function leverName(id) { const x = model && lever(id); return SHORT_NAME[id] || (x ? x.label : id); }
+  function leverName(id) { const x = model && lever(id); const a = jArea(id); return SHORT_NAME[id] || (x ? x.label : a ? a.label : id); }
   const ASSIST_FACE = '<span class="cb-face" style="background-image:url(../assets/ct/mascot/hello-128.png)" aria-hidden="true"></span>';
   function mountFooter() {
     const f = document.createElement("nav");
@@ -827,7 +998,7 @@
       const s = b.dataset.slot;
       if (s === "tower") return goTower();
       if (s === "more") return openMore();
-      openLeverTab(s);
+      openArea(s);
     });
     syncFooter();
     /* Feedback an earlier visit could not deliver goes now, as it did when
@@ -839,14 +1010,28 @@
   function litSlot() {
     if (ui.page === "updates") return "more";
     if (!ui.tab || ui.tab === "overview") return "tower";
-    return PINS.indexOf(ui.tab) !== -1 ? ui.tab : "more";
+    return pins().indexOf(ui.tab) !== -1 ? ui.tab : "more";
+  }
+  /* The two pinned areas: the journey's chapter names them while the store
+     is on its way; then today's Deliveries · Collections. */
+  function pins() { return (inJourney() && jr.home.pins) || PINS; }
+  /* What More lists: every area the tower runs that isn't pinned — on the
+     journey, only the ones the store has made live. */
+  function moreIds() {
+    if (!model) return [];
+    const p = pins();
+    return LEVER_IDS.filter(function (k) { return p.indexOf(k) === -1 && lever(k) && (!inJourney() || (jArea(k) && jArea(k).state === "done")); });
   }
   function syncFooter(tl) {
     const f = $("#ct-foot"); if (!f) return;
     const lit = litSlot();
-    const stOf = function (id) { const x = model && lever(id); return x ? x.status : null; };
+    /* On the journey an area's dot is the focus: the one thing to do now. */
+    const stOf = function (id) {
+      if (inJourney()) return jr.home.focus && jr.home.focus.area === id ? "bad" : (jArea(id) && jArea(id).state === "done" && lever(id) ? lever(id).status : null);
+      const x = model && lever(id); return x ? x.status : null;
+    };
     const hot = function (s) { return s === "ugly" || s === "bad"; };
-    const worst = LEVER_IDS.filter(function (k) { return PINS.indexOf(k) === -1; }).map(stOf).filter(Boolean)
+    const worst = moreIds().map(stOf).filter(Boolean)
       .sort(function (a, b) { return RANK[a] - RANK[b]; })[0];
     const fresh = !!model && ui.page !== "updates" && unseen(tl);
     const tab = function (id, label, icon, dot, say) {
@@ -855,7 +1040,7 @@
         "<span>" + esc(label) + "</span></button>";
     };
     f.innerHTML = tab("tower", "Tower", I.tower) +
-      PINS.map(function (k) { const s = stOf(k); return tab(k, leverName(k), ICON_OF[k], hot(s) ? s : null, hot(s) ? ", " + WORD[s].toLowerCase() : ""); }).join("") +
+      pins().map(function (k) { const s = stOf(k); return tab(k, leverName(k), ICON_OF[k], hot(s) ? s : null, hot(s) ? ", " + WORD[s].toLowerCase() : ""); }).join("") +
       tab("more", "More", I.more, hot(worst) ? worst : fresh ? "new" : null, hot(worst) ? ", an area inside needs you" : fresh ? ", new in the Timeline" : "");
   }
   /* A lever's slot opens the lever; tapped again while there, back to its top. */
@@ -885,8 +1070,7 @@
   function openMore() {
     if (!model) return;
     sheet(function () {
-      const others = LEVER_IDS.filter(function (k) { return PINS.indexOf(k) === -1 && lever(k); })
-        .sort(function (a, b) { return RANK[lever(a).status] - RANK[lever(b).status]; });
+      const others = moreIds().sort(function (a, b) { return RANK[lever(a).status] - RANK[lever(b).status]; });
       const fresh = ui.page !== "updates" && unseen();
       const row = function (attr, icon, title, sub, tone, extra) {
         return '<button type="button" class="ct-mo" ' + attr + '><span class="ct-mo-i"' + (tone ? ' data-s="' + tone + '"' : "") + ">" + icon + "</span>" +
@@ -902,6 +1086,8 @@
           '<p class="ct-mo-h">Your business</p>' +
           row('data-mo="timeline"', I.updates, "Business Timeline", "What happened, newest first", null, fresh ? '<em class="ct-new">New</em>' : "") +
           row('data-mo="assistant"', ASSIST_FACE, "Assistant", "Ask about your business", "assist") +
+          (jr.on ? row('data-mo="journey-off"', I.tower, "Back to the demo business", "Leave the new store", null)
+                 : row('data-mo="journey-on"', I.tag, "Start as a new store", "Set up a store from day one", null)) +
           '<div class="ct-mo-sep"></div>' +
           row('data-mo="exit"', I.exit, "Exit demo", "Leave the demo business", "exit"),
         bind: function (el) {
@@ -910,6 +1096,12 @@
             const m = e.target.closest("[data-mo]"); if (!m) return;
             if (m.dataset.mo === "timeline") { closeAll(); goUpdates(); }
             else if (m.dataset.mo === "assistant") openAssistant();
+            else if (m.dataset.mo === "journey-on" || m.dataset.mo === "journey-off") {
+              closeAll();
+              if (m.dataset.mo === "journey-on") journeyStart(); else journeyStop();
+              ui.tab = "overview"; ui.page = "tower";
+              (jr.on ? loadJourney() : Promise.resolve()).then(function () { compute(); jr.moment = null; draw(); window.scrollTo(0, 0); });
+            }
             /* The same exit the EXIT DEMO button opened: feedback, then out. */
             else if (m.dataset.mo === "exit") { closeAll(); if (window.FB_EXIT) window.FB_EXIT.open(); }
           });
@@ -949,6 +1141,7 @@
     }
     if (d.ptile) { const p = d.ptile.split(":"); return openLever(p[0], p[1]); }
     ui.itemLever = null;
+    if (d.jarea) return openArea(d.jarea);
     if (d.row !== undefined) return openItem(ui.rows[+d.row]);
     if ("all" in d) return openAll();
     if (d.goto) { setTab(d.goto); return; }
@@ -2488,6 +2681,23 @@
     act: function (id) { openLever(id); const lv = lever(id); if (lv && lv.action) doAction(); },
     openTimeline: function () { if (model) goUpdates(); },
     sheetOpen: function () { return isOpen(); },
+    /* The store journey, from outside (a script, or Claude): hand the tower
+       a graph (fb.journey/1) and, optionally, the store's facts. The graph is
+       validated first; nothing changes unless it is valid. */
+    journey: {
+      inject: function (graph, facts) {
+        const v = window.FBJourney ? window.FBJourney.validate(graph) : { ok: false, errors: [{ path: "$", message: "journey engine not loaded" }] };
+        if (!v.ok) return v;
+        jput(JKEY.graph, graph);
+        if (facts) jput(JKEY.demo, facts);
+        if (!jr.on) journeyStart();
+        return loadJourney().then(function () { compute(); ui.tab = "overview"; ui.page = "tower"; draw(); return { ok: true, where: jr.J.where(jr.snap, jr.facts) }; });
+      },
+      reset: function () { jput(JKEY.graph, null); journeyStart(); return loadJourney().then(function () { compute(); jr.moment = null; draw(); }); },
+      stop: function () { journeyStop(); compute(); draw(); },
+      where: function () { return jr.J && jr.on ? jr.J.where(jr.snap, jr.facts) : null; },
+      home: function () { return jr.home; },
+    },
   };
   window.FBControlTower = { mount: mount, api: api, _ui: ui, _model: function () { return model; }, _view: function () { return view; } };
 })();
