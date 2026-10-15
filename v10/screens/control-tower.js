@@ -574,6 +574,7 @@
     const live = $(".ct-now .ct-reels");
     if (live && ui.nowSig === sig) { nowChrome(st, order); return nowFx(); }
     ui.nowSig = sig;
+    coachStop();
     const bal = walletBalance() - (ui.nowFx ? ui.nowFx.coins : 0);        // the chip counts up to the new balance with the burst
     const left = st.cards.length;
     /* What the owner came for is the headline: how much needs them. The
@@ -601,6 +602,64 @@
     reels.addEventListener("scroll", onReelScroll, { passive: true });
     nowChrome(st, order);
     nowFx();
+    const stories = $(".ct-stories");
+    if (stories) stories.addEventListener("scroll", function () { if (stories.scrollLeft > 24 && !jget(STORIES_KEY, false)) jput(STORIES_KEY, true); }, { passive: true });
+    coachArm();
+  }
+
+  /* ── Teaching the two gestures (owner, 16 Oct 2026: a first-time owner may
+     not know the cards go up and the areas go sideways). The way TikTok and
+     Reels teach it on first open: after a few quiet seconds on Now, a finger
+     swipes up over the card while the cards lift to show the next one; then,
+     if the areas run past the screen, a finger swipes the rings sideways
+     while they slide. Any touch, scroll or key stops it at once. Once the
+     owner has done a gesture it is never shown again (per device); until
+     then it plays at most twice a visit. ───────────────────────────────── */
+  const STORIES_KEY = "fb.v7.ct.now.storiesSwiped";
+  const COACH_IDLE = 6000;
+  const HAND = '<svg viewBox="0 0 24 24" fill="#fff" stroke="#111418" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M10 9.5V4a2 2 0 0 0-4 0v10l-1.6-1.6a2 2 0 0 0-2.8 2.8l3.6 3.6C6.7 20.3 8.4 22 12 22h2a8 8 0 0 0 8-8v-3a2 2 0 1 0-4 0v-1a2 2 0 1 0-4 0V9a2 2 0 1 0-4 0z"/></svg>';
+  function coachWire() {
+    if (ui.coachWired) return;
+    ui.coachWired = true;
+    const quiet = function () { coachStop(); coachArm(); };
+    ["pointerdown", "touchstart", "wheel", "keydown"].forEach(function (t) { document.addEventListener(t, quiet, { passive: true, capture: true }); });
+  }
+  /* What is still to teach, cards first. Two rounds a visit at most. */
+  function coachNeeds() {
+    if (ui.page !== "now" || isOpen() || ui.flow || (ui.coachRounds || 0) >= 2) return [];
+    const reels = $(".ct-reels"), stories = $(".ct-stories"), out = [];
+    if (reels && reels.children.length > 2 && !jget(SWIPED_KEY, false)) out.push("v");
+    if (stories && stories.scrollWidth > stories.clientWidth + 8 && !jget(STORIES_KEY, false)) out.push("h");
+    return out;
+  }
+  function coachArm() {
+    coachWire();
+    clearTimeout(ui.coachT);
+    if (!coachNeeds().length) return;
+    ui.coachT = setTimeout(function () { coachPlay(0); }, COACH_IDLE);
+  }
+  function coachPlay(step) {
+    const todo = coachNeeds(), what = todo[step];
+    if (!what) { ui.coachRounds = (ui.coachRounds || 0) + 1; return coachArm(); }
+    const v = what === "v";
+    const host = v ? $(".ct-feed") : $(".ct-ncol"), moving = v ? $(".ct-reels") : $(".ct-stories");
+    if (!host || !moving) return;
+    const c = document.createElement("div");
+    c.className = "ct-coach is-" + what;
+    c.setAttribute("role", "status");
+    if (!v) { const r = moving.getBoundingClientRect(), h = host.getBoundingClientRect(); c.style.top = (r.top - h.top) + "px"; c.style.height = r.height + "px"; }
+    c.innerHTML = '<span class="ct-chand">' + HAND + '</span><span class="ct-ctip">' +
+      (v ? (ui.desk ? "Scroll down for the next card" : "Swipe up for the next card") : "Swipe sideways for more areas") + "</span>";
+    host.appendChild(c);
+    moving.classList.add("is-peek");
+    ui.coachEl = c; ui.coachMoving = moving;
+    ui.coachEnd = setTimeout(function () { coachStop(); ui.coachT = setTimeout(function () { coachPlay(step + 1); }, 700); }, 2900);
+  }
+  function coachStop() {
+    clearTimeout(ui.coachEnd);
+    if (ui.coachEl) { ui.coachEl.remove(); ui.coachEl = null; }
+    if (ui.coachMoving) { ui.coachMoving.classList.remove("is-peek"); ui.coachMoving = null; }
   }
   /* A fix, celebrated where the owner is looking: a check and the coins
      burst over the feed, and the chip counts up. Waits for any open card
@@ -663,7 +722,6 @@
           '<div><button type="button" class="ct-rbtn is-ghost" data-nask="no">Not now</button><button type="button" class="ct-rbtn" data-nask="go">Open</button></div></div>'
       : '<button type="button" class="ct-rcta" data-nact><span>' + esc(label) + '</span><span class="ct-rcoin">' + COIN + "+" + coinsOf(c) + "</span></button>" +
         (demo ? '<button type="button" class="ct-rsec" data-ndemo>' + esc(demo.label) + "</button>" : "");
-    const hint = i === 0 && n > 1 && !jget(SWIPED_KEY, false);
     return '<section class="ct-reel" data-key="' + esc(c.key) + '" data-area="' + c.area + '" aria-label="' + esc((i + 1) + " of " + n + ": " + c.title) + '">' +
       '<article class="ct-rcard' + (c.kind === "group" ? " is-group" : "") + '" data-t="' + c.tone + '" data-v="' + (i % 3) + '">' +
         '<span class="ct-rmark" aria-hidden="true">' + markOf(c) + "</span>" +
@@ -675,7 +733,6 @@
           (c.facts && c.facts.length ? '<div class="ct-rfacts">' + c.facts.map(function (f) { return "<span>" + esc(f) + "</span>"; }).join("") + "</div>" : "") +
           list + ask +
         "</div>" +
-        (hint ? '<span class="ct-rhint" aria-hidden="true">' + I.chev + (ui.desk ? "Scroll for the next" : "Swipe up for the next") + "</span>" : "") +
       "</article></section>";
   }
   /* The foot of the feed. Nothing left: "You're all caught up". Cards
@@ -707,7 +764,7 @@
       const kids = reels.children, top = reels.scrollTop + reels.offsetTop;
       let i = 0;
       for (let k = 0; k < kids.length; k++) if (Math.abs(kids[k].offsetTop - top) < Math.abs(kids[i].offsetTop - top)) i = k;
-      if (i > 0 && !jget(SWIPED_KEY, false)) { jput(SWIPED_KEY, true); const h = $(".ct-rhint"); if (h) h.remove(); }
+      if (i > 0 && !jget(SWIPED_KEY, false)) jput(SWIPED_KEY, true);
       const key = kids[i] && kids[i].dataset.key;
       if (!key || key === ui.nowKey) return;
       ui.nowKey = key; ui.nowIdx = i;

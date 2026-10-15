@@ -42,6 +42,26 @@ on, and a redraw puts them back on the same card, or on the one that took its pl
 The page is one screen high and only the feed scrolls. The footer is **Now · Business · Wallet · More**, and
 Business is the tower home as it was.
 
+## Teaching the gestures (16 Oct 2026)
+
+The owner asked: a first-time owner may not know the cards go up and the areas go sideways. So when the owner
+has been quiet on Now for 6 seconds, it teaches the gestures the way TikTok and Reels do on first open:
+
+1. **Cards:** a finger swipes up over the card while the cards lift to show the next one. The tip reads "Swipe up
+   for the next card", or "Scroll down…" on a computer.
+2. **Areas:** if the rings run past the screen, a finger swipes them while they slide sideways. The tip reads
+   "Swipe sideways for more areas".
+
+How it behaves:
+
+- It never catches a tap. Any touch, scroll, wheel or key stops it at once.
+- At most two rounds a visit.
+- Once the owner has done a gesture (scrolled to the second card, or scrolled the rings), its hint never shows
+  again on that device (`fb.v7.ct.now.swiped`, `fb.v7.ct.now.storiesSwiped`).
+- With reduced motion, only the tips show; nothing moves.
+
+The fixed "Swipe up for the next" line on the first card is gone; the hint replaces it.
+
 ## Third pass: used as the owner (16 Oct 2026)
 
 The owner said: "feels good but a bit weird as an experience". So I used it as the owner would, fixing things

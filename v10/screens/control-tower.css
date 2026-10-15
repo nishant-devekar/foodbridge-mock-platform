@@ -1284,3 +1284,31 @@ html.ct-desk .ct-stories { margin-left: 0; margin-right: 0; padding-left: 0; pad
   30% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.96); } }
 @keyframes ct-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes ct-bump { 0% { transform: scale(1); } 35% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+/* ── The gesture hints (owner, 16 Oct 2026): after a quiet spell on Now, a
+   finger shows the swipe while the cards (or the rings) move with it, the
+   way TikTok and Reels teach on first open. Never in the way: no taps are
+   caught, and any touch ends it. ────────────────────────────────────── */
+.ct-coach { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.ct-coach.is-h { bottom: auto; }
+.ct-chand { position: absolute; left: 50%; top: 58%; width: 56px; height: 56px; margin: -28px 0 0 -28px; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .45)); }
+.ct-chand svg { width: 100%; height: 100%; }
+.ct-chand::before { content: ""; position: absolute; left: 13px; top: -2px; width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 255, 255, .55); opacity: 0; }
+.ct-ctip { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); padding: 8px 14px; border-radius: 99px; background: rgba(17, 20, 24, .86); color: #fff;
+  font-size: 13.5px; font-weight: 700; white-space: nowrap; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .6); }
+.ct-coach.is-h .ct-chand { top: 34px; left: 72%; width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+.ct-coach.is-h .ct-ctip { top: calc(100% + 6px); bottom: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  .ct-coach { animation: ct-cin .25s ease-out; }
+  .ct-coach.is-v .ct-chand { animation: ct-handy 1.45s cubic-bezier(.4, 0, .2, 1) 2; }
+  .ct-coach.is-v .ct-chand::before, .ct-coach.is-h .ct-chand::before { animation: ct-touch 1.45s ease-out 2; }
+  .ct-coach.is-h .ct-chand { animation: ct-handx 1.45s cubic-bezier(.4, 0, .2, 1) 2; }
+  .ct-reels.is-peek > .ct-reel { animation: ct-peeky 1.45s cubic-bezier(.4, 0, .2, 1) 2; }
+  .ct-stories.is-peek > .ct-story { animation: ct-peekx 1.45s cubic-bezier(.4, 0, .2, 1) 2; }
+}
+@keyframes ct-cin { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ct-handy { 0% { opacity: 0; transform: translateY(40px); } 15% { opacity: 1; transform: translateY(40px); } 55% { opacity: 1; transform: translateY(-90px); } 75%, 100% { opacity: 0; transform: translateY(-110px); } }
+@keyframes ct-handx { 0% { opacity: 0; transform: translateX(30px); } 15% { opacity: 1; transform: translateX(30px); } 55% { opacity: 1; transform: translateX(-80px); } 75%, 100% { opacity: 0; transform: translateX(-95px); } }
+@keyframes ct-touch { 0%, 12% { opacity: 0; transform: scale(.4); } 18% { opacity: 1; transform: scale(1); } 55% { opacity: .8; } 70%, 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes ct-peeky { 0%, 15% { transform: translateY(0); } 50%, 62% { transform: translateY(-72px); } 100% { transform: translateY(0); } }
+@keyframes ct-peekx { 0%, 15% { transform: translateX(0); } 50%, 62% { transform: translateX(-56px); } 100% { transform: translateX(0); } }
