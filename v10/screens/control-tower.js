@@ -233,7 +233,7 @@
      moved by each step's demo button; the live demo business is untouched.
      ════════════════════════════════════════════════════════════════════ */
   const JKEY = { on: "fb.v7.ct.journey.on", snap: "fb.v7.ct.journey.snap", demo: "fb.v7.ct.journey.demo", graph: "fb.v7.ct.journey.graph" };
-  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW5";
+  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015PA1";
   const jr = { on: false, J: null, snap: null, facts: null, ev: null, home: null, moment: null };
   function jget(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function jput(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* per device only */ } }
@@ -242,16 +242,20 @@
     const injected = jget(JKEY.graph, null);
     return (injected ? Promise.resolve(injected) : fetch(JGRAPH_URL).then(function (r) { return r.json(); }))
       .then(function (g) { jr.J = window.FBJourney.load(g); })
-      .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: journey", e && (e.errors || e.message)); });
+      .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: journey", e && (e.errors || e.message)); })
+      .then(loadFinishedGoods);
   }
   function journeyStart() {
-    jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jput(SA_KEY, null); jr.on = true; jr.snap = null;
+    jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jput(SA_KEY, null); jput(PFIX_KEY, null); jr.on = true; jr.snap = null;
     const f = typeof document !== "undefined" && document.getElementById("ct-flow"); if (f) f.remove();   // a new store: the module starts fresh too
   }
   function journeyStop() { jput(JKEY.on, false); jr.on = false; jr.home = null; jr.ev = null; }
   function journeyPass() {
     if (!jr.on || !jr.J) { jr.home = null; return; }
     jr.facts = window.CTJourneyFacts.merge(window.CTJourneyFacts.blank(jget(JKEY.demo, {})), saFacts());
+    /* Products are what Finished Goods holds, read with its own rules. */
+    const pm = productsModel();
+    if (pm) jr.facts.products = Object.assign({}, jr.facts.products, pm.facts);
     const r = jr.J.step(jr.snap, jr.facts, Date.now());
     jr.snap = r.snapshot; jput(JKEY.snap, jr.snap);
     jr.ev = r.ev;
@@ -276,7 +280,6 @@
     const s = jget(SA_KEY, null);
     if (!s || !Array.isArray(s.products)) return {};
     const open = s.open || {}, out = {};
-    if (s.products.length || open.items) out.products = { count: s.products.length, broken: open.items || 0, incomplete: 0 };
     const cs = s.customers || [];
     if (cs.length || open.customers) out.customers = { count: cs.length, broken: open.customers || 0,
       incomplete: cs.filter(function (c) { return !c.deliveryLocation && !c.billingAddressLine; }).length };
@@ -318,16 +321,25 @@
   function journeyLever(k) {
     const lv = window.CTJourneyView.lever(jr.ev, jr.facts, k);
     if (!lv) return null;
-    /* Store activation's areas list what it saved, and what is still waiting in its import. */
-    if (jArea(k).payload.source === "store-activation") {
-      const s = jget(SA_KEY, null) || {}, open = (s.open || {})[k === "products" ? "items" : "customers"] || 0;
-      const saved = (k === "products" ? s.products : s.customers) || [];
-      lv.tiles.good.rows = saved.map(function (r) {
-        return k === "products" ? { title: r.Product, note: [r.Category, r.Unit].filter(Boolean).join(" · ") } : { title: r.organizationName, note: r.phone };
-      });
-      if (k === "customers") lv.tiles.bad.rows = saved.filter(function (c) { return !c.deliveryLocation && !c.billingAddressLine; })
-        .map(function (c) { return { title: c.organizationName, note: "No address", next: "Add it", jstep: lv.action && lv.action.step, now: true }; });
-      if (open) lv.tiles.ugly.rows = [{ title: L.plural(open, k === "products" ? "row" : "row") + " waiting in your import", note: "Not saved yet", next: "Review", jstep: lv.action && lv.action.step, now: true }];
+    const pay = jArea(k).payload;
+    /* Products: the tiles are what Finished Goods holds, each product under
+       the tile its worst problem puts it, with that problem as its pill. */
+    if (pay.model === "products") {
+      const pm = productsModel();
+      if (pm) {
+        lv.tiles = pm.tiles;                                 // none yet: three empty tiles, so the page shows its empty state
+        if (!lv.locked && pm.items.length) lv.status = pm.tiles.ugly.count ? "ugly" : pm.tiles.bad.count ? "bad" : "good";
+      }
+    }
+    /* Store activation's customers: what it saved, and what still waits in its import. */
+    if (pay.source === "store-activation") {
+      const s = jget(SA_KEY, null) || {}, open = (s.open || {}).customers || 0;
+      const saved = s.customers || [];
+      const step = lv.action && lv.action.step;
+      lv.tiles.good.rows = saved.map(function (r) { return { title: r.organizationName, note: r.phone, jstep: step, now: false }; });
+      lv.tiles.bad.rows = saved.filter(function (c) { return !c.deliveryLocation && !c.billingAddressLine; })
+        .map(function (c) { return { title: c.organizationName, note: "No address", next: "Add it", jstep: step, now: true }; });
+      if (open) lv.tiles.ugly.rows = [{ title: L.plural(open, "row") + " waiting in your import", note: "Not saved yet", next: "Review", jstep: step, now: true }];
     }
     return lv;
   }
@@ -336,40 +348,298 @@
     return '<header class="ct-hello"><h1>' + esc(helloText()) + "</h1><p>" + esc(jr.home.chapter.line) + "</p></header>" +
       '<div class="ct-cards">' + keys.map(function (k) { const x = lever(k); return x ? leverCard(x) : ""; }).join("") + "</div>";
   }
-  /* The area page of a journey area: the original head, tiles and list,
-     its one button docked above the footer like any primary action. An
-     area with nothing in it yet says so in a proper empty state instead of
-     three zero tiles and "Nothing here". */
+  /* The area page of a journey area, the tower's own way (DESIGN §4.8,
+     §4.10): the head, the On track / Needs work / Urgent tiles and the list
+     under the open tile; every act starts from a row, which opens its card.
+     No button on the page. The one exception is the original Preview's: an
+     area with nothing in it yet keeps one way in, in the flow of the page. */
   function journeyPage(lv) {
     const a = lv.action;
     const empty = ["good", "bad", "ugly"].every(function (k) { return !lv.tiles[k].count && !(lv.tiles[k].rows || []).length; });
     let body;
     if (empty) {
       body = head(lv) + '<div class="ct-jempty"><span class="ct-jempty-i">' + (ICON_OF[lv.id] || "") + "</span>" +
-        "<b>No " + esc(lv.label.toLowerCase()) + " yet</b>" + (lv.promise ? "<p>" + esc(lv.promise) + "</p>" : "") + "</div>";
+        "<b>No " + esc(lv.label.toLowerCase()) + " yet</b>" + (lv.promise ? "<p>" + esc(lv.promise) + "</p>" : "") + "</div>" +
+        (a ? '<button class="ct-connect" data-jact>' + esc(a.label) + "</button>" +
+             (a.demo ? '<button class="ct-link ct-jdemo" data-jdemo="' + esc(a.step) + '">' + esc(a.demo.label) + " · demo</button>" : "") : "");
     } else {
       const sel = selectedTile(lv);
       ui.sel = sel;
       const t = lv.tiles[sel];
-      /* Figures with no rows to list (they are still in the import, or the
-         demo made them): say where to see them, never leave a gap. */
       body = head(lv) + tiles(lv, sel) + (t.rows.length || !t.count ? list(t.rows, lv, sel)
-        : '<p class="ct-empty">' + (a && a.screen ? "See the " + esc(t.value) + " in " + esc(a.screen.label) + "." : a ? "Tap \u201c" + esc(a.label) + "\u201d to see the " + esc(t.value) + "." : "") + "</p>");
+        : '<p class="ct-empty">' + (a && a.screen ? "See the " + esc(t.value) + " in " + esc(a.screen.label) + "." : "") + "</p>");
     }
-    /* On a big screen the page opens on the tower's own area header (the way back, the name, where it stands). */
-    if (ui.desk) body = deskLeverHead(lv) + '<div class="ct-jdesk">' + body;
-    return body + (a ? '<div class="ct-jbar"><button class="ct-connect" data-jact>' + esc(a.label) + "</button>" +
-      (a.demo ? '<button class="ct-link ct-jdemo" data-jdemo="' + esc(a.step) + '">' + esc(a.demo.label) + " · demo</button>" : "") + "</div>" : "") +
-      (ui.desk ? "</div>" : "");
+    return ui.desk ? deskLeverHead(lv) + '<div class="ct-jdesk">' + body + "</div>" : body;
   }
-  /* The page's button: store activation's own modal, else the platform
-     screen where the step is done, else (the new-store demo) the step's demo. */
+  /* A step's way in: store activation's own modal, else the platform screen
+     where the step is done, else (the new-store demo) the step's demo. */
   function journeyAct(a) {
     if (!a) return;
     if (a.flow) return openFlow(a.flow);
     if (a.screen) return go(a.screen.route);
     if (a.demo) return demoStep(a.step);
   }
+
+  /* ── Finished Goods, read by the tower ─────────────────────────────────
+     The page is product-management's frozen discovery v7, cloned as is. It
+     runs on its own seed in memory, so the tower reads the same seed and
+     the same rules (assets/ct/products-area.js): what the page shows as
+     hidden or needing attention, the tower lists under Urgent and Needs
+     work. The new store's products are what store activation imported, and
+     the seed's when the owner adds the sample products. A fix made in the
+     tower is kept as the tower's own (fb.v7.ct.productFixes). */
+  const PFIX_KEY = "fb.v7.ct.productFixes";
+  const FG_SEED_URL = "../modules/foodbridge-module-product-management/discovery/versions/v7/seed-data/seed.json";
+  function loadFinishedGoods() {
+    if (jr.fg || !window.CTProductsArea) return Promise.resolve();
+    return fetch(FG_SEED_URL).then(function (r) { return r.json(); }).then(function (seed) {
+      const d = JSON.parse(JSON.stringify(seed.products));
+      /* The page's default scenario (its boot.js, Addendum 017): Fruit Cake costs more than it sells for, Lemon Soda sells above its MRP. */
+      let sc = {}; try { sc = JSON.parse(localStorage.getItem("discovery.scenario") || "{}") || {}; } catch (e) { sc = {}; }
+      if (sc.pricingMistakes !== false) d.products.forEach(function (p) {
+        if (p.articleNumber === "SB-14") p.costPrice = 24;
+        if (p.articleNumber === "SB-22") p.maxRetailPrice = 79;
+      });
+      jr.fg = d;
+    }).catch(function (e) { if (window.console) console.warn("Control Tower: Finished Goods seed", e); });
+  }
+  /* What store activation imported, in the page's product shape. */
+  function importedProducts() {
+    const s = jget(SA_KEY, null);
+    const rows = (s && s.products) || [];
+    const cats = {};
+    const products = rows.map(function (r, i) {
+      const cn = String(r.Category || "").trim();
+      const cid = cn ? "sa-cat-" + cn.toLowerCase().replace(/[^a-z0-9]+/g, "-") : null;
+      if (cid) cats[cid] = { id: cid, name: cn };
+      return { id: "sa-" + i, name: r.Product, articleNumber: "IMP-" + (i + 1), status: "ACTIVE", measurement: r.Unit || "",
+               price: Number(r.Price) || undefined, tax: Number(r.Tax) || 0, categoryReference: cid, brand: "", attributes: {} };
+    });
+    return { products: products, categories: Object.keys(cats).map(function (k) { return cats[k]; }) };
+  }
+  function productsModel() {
+    if (!window.CTProductsArea || !jr.on) return null;
+    const imp = importedProducts();
+    const sample = !!(((jget(JKEY.demo, {}) || {}).products || {}).sample) && jr.fg;
+    return window.CTProductsArea.build({
+      products: imp.products.concat(sample ? jr.fg.products : []),
+      categories: imp.categories.concat(sample ? jr.fg.categories : []),
+      demand: sample ? jr.fg.stockDemand : {},
+      fixes: jget(PFIX_KEY, {}) || {},
+    });
+  }
+  /* ── A product's card: the tower's modal, the way a delivery opens ────
+     Main: the product, its pill, its figures, what happened, what FoodBridge
+     recommends, then the lead fix and Open in Finished Goods. The fix slides
+     in as its own pane, filled in from the product; Save asks in place what
+     will happen; Confirm writes it once and the done card says so. Open in
+     Finished Goods asks inline before it leaves the tower (as Production's
+     rows do before the board). */
+  const PF_REC = {
+    noUnit: "Set the unit it is sold in. It goes back on sale in every catalogue it was in.",
+    noPrice: "Give it a price. It goes back on sale in every catalogue it was in.",
+    noCategory: "Put it in a category. It goes back on sale in every catalogue it was in.",
+    short: "Count it, then buy the difference before the open orders go out.",
+    out: "Count it. If the shelf really is empty, buy it before the next orders.",
+    belowCost: "Raise the price above what it costs you.",
+    aboveMrp: "Bring the price, with GST, down to the MRP or under.",
+    brand: "Pick one spelling, so the brand reads as one in every report.",
+    noHsn: "Add its HSN code, so its invoices are complete.",
+  };
+  const PF_TITLE = { unit: "Set the unit", price: "Fix the price", category: "Pick the category", brand: "Pick one spelling", hsn: "Add the HSN code", stock: "Count the stock" };
+  function productFixSheet(id, push) {
+    const PA = window.CTProductsArea;
+    const cv = { view: "main", ask: false, fix: null, as: null, confirming: false, done: null };
+    const DEPTH = { main: 0, act: 1, done: 2 };
+    const posOf = function (k) { return k === cv.view ? "on" : DEPTH[k] < DEPTH[cv.view] ? "left" : "right"; };
+    const pm = function () { return productsModel(); };
+    const item = function () { const m = pm(); return m && m.byId[id]; };
+    const H = IA().H;
+    function mainHtml() {
+      const x = item();
+      if (!x) return '<section class="ct-dm-top"><h3>Product</h3><p class="ct-dm-sub">It is no longer on the list.</p></section>';
+      const l = x.lead, tone = l ? l.tone : "good";
+      const facts = H.facts([x.price !== undefined ? [PA.money(x.price), x.tax ? "Price + " + x.tax + "% GST" : "Price"] : null,
+        x.stock !== null ? [String(x.stock), "In stock"] : null, x.inOrders ? [String(x.inOrders), "In open orders"] : null,
+        x.mrp ? [PA.money(x.mrp), "MRP"] : null]);
+      const lines = x.issues.length ? x.issues : [];
+      const acts = cv.ask
+        ? '<div class="ct-pask" role="group" aria-label="Open Finished Goods"><p>Open <b>Finished Goods</b> to work on ' + esc(x.name) + "?</p>" +
+            '<button type="button" class="ct-btn is-ghost" data-pf="ask-no">Not now</button><button type="button" class="ct-btn" data-pf="ask-go">Open</button></div>'
+        : '<div class="ct-dm-row">' + (l ? '<button type="button" class="ct-dm-re is-lead" data-pf="fix">' + esc(l.lead) + "</button>" : "") +
+            '<button type="button" class="ct-dm-re' + (l ? "" : " is-lead") + '" data-pf="ask">Open in Finished Goods</button></div>';
+      return '<section class="ct-dm-top"><h3>' + esc(x.name) + "</h3>" +
+          '<span class="ct-dm-pill" data-t="' + (tone === "good" ? "good" : tone) + '">' + esc(l ? l.label : "Ready to sell") + "</span>" +
+          '<p class="ct-dm-sub">' + esc([x.sku, x.category, x.unit].filter(Boolean).join(" · ")) + "</p></section>" +
+        facts +
+        '<section class="ct-dm-sec"><h4>What happened</h4>' + (lines.length ? lines.map(function (i) {
+          return '<div class="ct-dm-line"><span class="ct-dm-ic" data-t="' + i.tone + '"><b aria-hidden="true">!</b></span><div><p class="ct-dm-main">' + esc(i.label) + "</p><p>" + esc(i.detail) + "</p></div></div>";
+        }).join("") : '<div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.check + '</span><div><p class="ct-dm-main">Ready to sell</p><p>Unit, price and category set; nothing costs money or breaks an invoice.</p></div></div>') + "</section>" +
+        '<section class="ct-dm-sec is-rec"><h4>Foodbridge recommends</h4><div class="ct-dm-line"><span class="ct-dm-ic" data-t="good">' + I.spark + "</span>" +
+          '<div><p class="ct-dm-rec">' + esc(l ? PF_REC[l.kind] : "Nothing to do here.") + "</p></div></div></section>" +
+        '<section class="ct-dm-acts">' + acts + "</section>";
+    }
+    function fixInit(x, l) {
+      if (l.fix === "price") {
+        const top = x.mrp ? Math.floor(x.mrp / (1 + x.tax / 100) * 100) / 100 : null;
+        return { v: l.kind === "belowCost" && x.cost ? String(Math.ceil(x.cost * 1.1 * 100) / 100) : l.kind === "aboveMrp" && top ? String(top) : x.price !== undefined ? String(x.price) : "", top: top };
+      }
+      if (l.fix === "brand") return { v: x.variants.slice().sort(function (a, b) { return a === a.toLowerCase() ? 1 : b === b.toLowerCase() ? -1 : 0; })[0] };
+      if (l.fix === "stock") return { v: x.stock !== null && x.stock > 0 ? String(x.stock) : "" };
+      if (l.fix === "hsn") return { v: x.hsn && PA.HSN_RE.test(x.hsn) ? x.hsn : "" };
+      return { v: "" };
+    }
+    function actHtml() {
+      const x = item(), l = cv.fix;
+      if (!x || !l) return "";
+      const m = pm();
+      const f = cv.as;
+      let body = "";
+      if (l.fix === "unit") body = H.chips("The unit it is sold in", "v", m.units.slice(0, 16), f.v);
+      else if (l.fix === "category") body = H.chips("Category", "v", m.categories.map(function (c) { return c.name; }), f.v);
+      else if (l.fix === "brand") body = H.chips("Spell the brand as", "v", x.variants, f.v);
+      else if (l.fix === "price") body = H.facts([x.cost ? [PA.money(x.cost), "It costs you"] : null, x.mrp ? [PA.money(x.mrp), "MRP"] : null, x.tax ? [x.tax + "%", "GST on top"] : null]) +
+        H.text("Price before GST (₹)", "v", f.v, f.top ? "Up to " + f.top : "e.g. 45", "pf-price");
+      else if (l.fix === "hsn") body = H.text("HSN code: 4, 6 or 8 digits", "v", f.v, "e.g. 1905", "pf-hsn");
+      else if (l.fix === "stock") body = H.facts([x.inOrders ? [String(x.inOrders), "In open orders"] : null, x.stock !== null ? [String(x.stock), "The records say"] : null]) +
+        H.text("Counted on the shelf", "v", f.v, "e.g. 24", "pf-stock");
+      return '<div class="ct-rs ct-ap"><div class="ct-ap-body">' + body + "</div>" +
+        '<p class="ct-dm-err ct-ap-err" role="alert" hidden></p>' +
+        '<div class="ct-rs-foot"><button type="button" class="ct-rs-go" data-a="ap-go">Save</button>' +
+          '<div class="ct-rs-conf" role="group" aria-label="Confirm" hidden><p class="ct-rs-conf-t" aria-live="polite"></p>' +
+            '<div class="ct-rs-conf-b"><button type="button" class="ct-rs-no" data-a="ap-no">Cancel</button>' +
+            '<button type="button" class="ct-rs-yes" data-a="ap-yes">Confirm</button></div></div></div></div>';
+    }
+    /* What the fix will write, or why it can't yet. */
+    function change() {
+      const x = item(), l = cv.fix, v = String(cv.as.v || "").trim();
+      if (l.fix === "unit") return v ? { field: { measurement: v }, says: "Unit: " + v } : { err: "Pick its unit." };
+      if (l.fix === "category") { const c = pm().categories.filter(function (y) { return y.name === v; })[0]; return c ? { field: { categoryReference: c.id }, says: "Category: " + c.name } : { err: "Pick its category." }; }
+      if (l.fix === "brand") return v ? { field: { brand: v }, says: "Brand: " + v + " on every " + x.variants.join(" / ") + " product" } : { err: "Pick a spelling." };
+      if (l.fix === "price") {
+        const n = Number(v.replace(/[₹,\s]/g, ""));
+        if (!(n > 0)) return { err: "Type the price as a number." };
+        if (x.cost && n < x.cost) return { err: "That is still below what it costs (" + PA.money(x.cost) + ")." };
+        if (x.mrp && Math.round(n * (1 + x.tax / 100) * 100) / 100 > x.mrp + 0.005) return { err: "With GST that is above the MRP (" + PA.money(x.mrp) + ")." };
+        return { field: { price: n }, says: "Price: " + PA.money(n) + (x.tax ? " + " + x.tax + "% GST" : "") };
+      }
+      if (l.fix === "hsn") return PA.HSN_RE.test(v) ? { field: { hsn: v }, says: "HSN: " + v } : { err: "An HSN code is 4, 6 or 8 digits." };
+      if (l.fix === "stock") { const n = Number(v); return v !== "" && Number.isInteger(n) && n >= 0 ? { field: { stock: n }, says: "In stock: " + n } : { err: "Type the count as a whole number." }; }
+      return { err: "" };
+    }
+    function doneHtml() {
+      const d = cv.done; if (!d) return "";
+      return '<div class="ct-rd">' + ILLUS + '<h3 class="ct-rd-t">' + esc(d.title) + '</h3><p class="ct-rd-s">' + esc(d.sub) + "</p>" +
+        '<section class="ct-rd-card"><h4>What changed</h4><dl>' + d.rows.map(function (r) { return "<div><dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd></div>"; }).join("") +
+        '<div><dt>Status</dt><dd><span class="ct-rd-pill' + (d.grey ? " is-grey" : "") + '">' + esc(d.pill) + "</span></dd></div></dl></section></div>";
+    }
+    const pane = function (k, html, label) {
+      return '<div class="ct-dm" data-pane="' + k + '" data-pos="' + posOf(k) + '"' + (k === cv.view ? "" : " inert") + (label ? ' aria-label="' + label + '"' : "") + '><div class="ct-dm-in">' + html + "</div></div>";
+    };
+    sheet(function () {
+      const x = item();
+      return { modal: true, title: x ? x.name : "Product", cls: "is-" + cv.view,
+        barLeft: '<div class="ct-dm-bl"' + (cv.view === "act" ? "" : " inert") + '><button type="button" class="ct-dm-bk" data-a="nav-back" aria-label="Back">' + I.arrowL + "</button>" +
+          "<h2>" + esc(cv.view === "act" && cv.fix ? PF_TITLE[cv.fix.fix] : "") + "</h2></div>",
+        body: pane("main", mainHtml()) + pane("act", actHtml(), "Fix") + pane("done", doneHtml(), "Done"),
+        bind: function (el) {
+          const vp = $(".ct-dm-vp", el);
+          const P = function (k) { return $('.ct-dm[data-pane="' + k + '"]', el); };
+          const sync = function () { const p = P(cv.view); if (p) vp.style.height = $(".ct-dm-in", p).offsetHeight + "px"; };
+          const fill = function (k, html) { const p = P(k); if (p) $(".ct-dm-in", p).innerHTML = html; sync(); };
+          const nav = function (to) {
+            cv.view = to;
+            el.className = el.className.replace(/\bis-(main|act|done)\b/, "is-" + to);
+            $$(".ct-dm[data-pane]", el).forEach(function (p) { p.dataset.pos = posOf(p.dataset.pane); p.inert = p.dataset.pane !== to; });
+            const bl = $(".ct-dm-bl", el); bl.inert = to !== "act"; $("h2", bl).textContent = to === "act" && cv.fix ? PF_TITLE[cv.fix.fix] : "";
+            sync();
+          };
+          const err = function (m) { const e = $(".ct-ap-err", P("act")); if (e) { e.hidden = !m; e.textContent = m || ""; } sync(); };
+          const conf = function (on) {
+            const foot = $(".ct-rs-foot", P("act")); if (!foot) return;
+            const box = $(".ct-rs-conf", foot), go = $(".ct-rs-go", foot);
+            if (on) { const c = change(); $(".ct-rs-conf-t", box).innerHTML = "<b>" + esc(c.says) + "</b><small>" + esc(item().name + " · kept in FoodBridge") + "</small>"; }
+            foot.classList.toggle("is-confirm", on); go.hidden = on; box.hidden = !on; cv.confirming = on; sync();
+          };
+          sync();
+          if (window.ResizeObserver) { const ro = new ResizeObserver(function () { if (el.isConnected) sync(); else ro.disconnect(); }); $$(".ct-dm-in", el).forEach(function (n) { ro.observe(n); }); }
+          el.addEventListener("input", function (ev) { const t = ev.target; if (t.dataset && t.dataset.tx && cv.as) { cv.as[t.dataset.tx] = t.value; err(null); if (cv.confirming) conf(false); } });
+          el.addEventListener("click", function (ev) {
+            const pf = ev.target.closest("[data-pf]");
+            if (pf) {
+              const k = pf.dataset.pf, x = item();
+              if (k === "ask") { cv.ask = true; return fill("main", mainHtml()); }
+              if (k === "ask-no") { cv.ask = false; return fill("main", mainHtml()); }
+              if (k === "ask-go") { closeAll(); return go("#/product-master/finished-goods"); }
+              if (k === "fix" && x && x.lead) { cv.fix = x.lead; cv.as = fixInit(x, x.lead); cv.confirming = false; fill("act", actHtml()); return nav("act"); }
+              return;
+            }
+            const pk = ev.target.closest("[data-pk]");
+            if (pk && cv.as) { cv.as[pk.dataset.pk] = pk.dataset.v; err(null); fill("act", actHtml()); return; }
+            const a = ev.target.closest("[data-a]"); if (!a) return;
+            if (a.dataset.a === "nav-back") { if (cv.confirming) conf(false); return nav("main"); }
+            if (a.dataset.a === "ap-go") { const c = change(); if (c.err) return err(c.err); return conf(true); }
+            if (a.dataset.a === "ap-no") return conf(false);
+            if (a.dataset.a === "ap-yes") {
+              const c = change(); if (c.err) return err(c.err);
+              const before = item(), fixes = jget(PFIX_KEY, {}) || {};
+              /* One spelling is the whole brand's: every product spelled either way takes it. */
+              const ids = c.field.brand ? pm().items.filter(function (y) { return y.brand && y.brand.toLowerCase() === before.brand.toLowerCase(); }).map(function (y) { return y.id; }) : [id];
+              ids.forEach(function (k) { fixes[k] = Object.assign({}, fixes[k] || {}, c.field, { at: Date.now() }); });
+              jput(PFIX_KEY, fixes);
+              compute(); draw();
+              const after = item();
+              cv.done = { title: after && after.lead ? "Saved" : "Ready to sell!", sub: after && after.lead ? "One fix done. " + after.lead.label + " is next on this product." : before.hidden ? "It goes back on sale in its catalogues." : "Nothing left to fix on this product.",
+                rows: [["Product", before.name], ["Changed", c.says], ["Was", before.lead.label]], pill: after && after.lead ? after.lead.label : "Ready to sell", grey: !!(after && after.lead) };
+              fill("main", mainHtml()); fill("done", doneHtml());
+              return nav("done");
+            }
+          });
+          el.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && cv.view === "act") { ev.preventDefault(); ev.stopPropagation(); if (cv.confirming) conf(false); else nav("main"); } });
+        } };
+    }, push);
+  }
+
+  /* ── A step's card: the tower's item sheet (DESIGN §4.10) ──────────────
+     Title, where it stands, what happened, what to do, one button. A button
+     that leaves the tower for a platform screen asks inline first. */
+  function stepSheet(r, push) {
+    const st = { ask: false };
+    sheet(function () {
+      const n = jr.ev && jr.ev.node(r.jstep); if (!n) return { title: r.title, body: "" };
+      const p = n.payload, lv = lever();
+      const done = n.state === "done", open = n.state === "available";
+      const b = jr.ev.blockers(n.id) || { nodes: [] };
+      const say = window.CTJourneyView.line(n, jr.facts);
+      const tell = [done ? { tone: "good", text: "Done" } : null,
+        !done && !open ? { tone: "bad", text: "Not open yet", why: b.nodes.length ? "It opens after " + b.nodes.map(function (k) { return jr.ev.node(k).label.toLowerCase(); }).join(" and ") + "." : lv && lv.locked ? "Its area opens later." : null } : null,
+        open && say !== (p.ask || n.label) ? { tone: "bad", text: say } : null];
+      const stats = p.reward && p.reward.freeDays ? [{ label: "Earns", value: days(p.reward.freeDays), tone: done ? "good" : null }] : [];
+      const todo = done ? "Nothing to do here." : !open ? "Finish what is open first." : (p.how || p.ask || n.label);
+      let foot = "";
+      if (open) {
+        if (p.flow) foot = '<button class="ct-btn" data-sa>' + esc(p.action || p.ask) + "</button>";
+        else if (p.screen) foot = st.ask
+          ? '<div class="ct-pask ct-jpask"><p>Open <b>' + esc(p.screen.label) + "</b> on the platform?</p>" +
+              '<button type="button" class="ct-btn is-ghost" data-sno>Not now</button><button type="button" class="ct-btn" data-sgo>Open</button></div>'
+          : '<button class="ct-btn" data-sask>' + esc(p.action || "Open " + p.screen.label) + "</button>";
+        if (p.demo && !st.ask) foot += '<button class="ct-btn is-ghost" data-sdemo>' + esc(p.demo.label) + "<small>Demo</small></button>";
+      }
+      return { title: p.ask || n.label, sub: (lv ? lv.label + " · " : "") + (done ? "Done" : open ? "To do now" : "Opens later"),
+        body: detail({ stats: stats, tell: tell.filter(Boolean), todo: todo }), foot: foot,
+        bind: function (el) {
+          /* On the sheet itself: the layer outlives a repaint, the sheet doesn't. */
+          el.addEventListener("click", function (e) {
+            if (e.target.closest("[data-sa]")) { closeAll(); return openFlow(p.flow); }
+            if (e.target.closest("[data-sask]")) { st.ask = true; return paint(); }
+            if (e.target.closest("[data-sno]")) { st.ask = false; return paint(); }
+            if (e.target.closest("[data-sgo]")) { closeAll(); return go(p.screen.route); }
+            if (e.target.closest("[data-sdemo]")) return demoStep(n.id);
+          });
+        } };
+    }, push);
+  }
+
   /* The new-store demo: a step's demo button puts in the facts the step
      would have made, as the store's own records would. */
   function demoStep(id) {
@@ -1422,8 +1692,9 @@
   }
   function openItem(r, push) {
     if (!r) return;
-    /* A journey area's row: the step to do now does it; the rest only say. */
-    if (r.jstep !== undefined) { if (r.now) journeyAct(lever().action); return; }
+    /* A journey area's rows open their cards: a product its modal, a step its sheet. */
+    if (r.kind === "jproduct") return productFixSheet(r.id, push);
+    if (r.jstep !== undefined) return stepSheet(r, push);
     if (lever() && lever().journey) return;
     if (r.kind === "customer") return customerSheet(r.id, push, r);
     if (r.kind === "product") return productSheet(r.id, push);

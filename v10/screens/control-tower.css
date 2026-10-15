@@ -1064,15 +1064,7 @@ html.ct-desk .ct-dlv .ct-ptabs { grid-template-columns: 1fr; }
 .ct-jempty-i .i { width: 24px; height: 24px; }
 .ct-jempty b { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
 .ct-jempty p { margin: 0; max-width: 32ch; font-size: 14px; line-height: 20px; color: var(--ink-2); }
-/* The page's one button, docked above the footer like a primary action;
-   the page scrolls under it. On a big screen it sits under the page. */
-.ct-jbar { position: fixed; left: 0; right: 0; bottom: calc(var(--foot) + var(--safe)); z-index: 38; padding: 18px var(--pad) 10px;
-  background: linear-gradient(rgba(255, 255, 255, 0), var(--canvas) 16px); }
-.ct-jbar .ct-connect { margin-top: 0; }
-.ct-jbar .ct-jdemo { margin-top: 4px; }
-.ct-main:has(.ct-jbar) { padding-bottom: calc(var(--foot) + 130px + var(--safe)); }
-html.ct-desk .ct-jbar { position: static; padding: 20px 0 0; background: none; max-width: 420px; }
-html.ct-desk .ct-main:has(.ct-jbar) { padding-bottom: 32px; }
-/* A toast clears the docked button. */
-body:has(.ct-jbar) .ct-toast { bottom: calc(var(--foot) + 104px + var(--safe)); }
-html.ct-desk body:has(.ct-jbar) .ct-toast { bottom: calc(var(--foot) + 12px + var(--safe)); }
+/* A step's inline ask, in the sheet's foot (the way Production's rows ask). */
+.ct-sf .ct-jpask { flex: 1 1 100%; margin: 0; }
+/* A product's card: its figures sit clear of the title block. */
+.ct-dm-in > .ct-dm-facts { margin: 12px 0 4px; }

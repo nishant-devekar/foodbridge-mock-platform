@@ -161,8 +161,10 @@ to them draws, whatever its nodes are called.
 
 The tower draws a journey **its original way** (owner, 15 Oct 2026): home is the greeting, the chapter's
 line and one card per area; a card opens that area's page, with the back bar, the headline, the On track /
-Needs work / Urgent tiles and their list, and one button in the page where the original preview put its
-Connect. There are no journey sheets. `journey-view.js lever()` gives each area that isn't live yet the
+Needs work / Urgent tiles and the list under the open tile. Every act starts from a row: a product opens its
+modal card (fix it in place with Save, confirm in place, a done card; or Open in Finished Goods, asked inline
+first), a step opens its item sheet. There is no button on the page (DESIGN §4.8), except an empty area's one
+way in, as the original Preview had. `journey-view.js lever()` gives each area that isn't live yet the
 tower's own lever shape, so the same page draws it. A live area is its real lever.
 
 | Where | `payload` field | What the tower does with it |
@@ -173,12 +175,13 @@ tower's own lever shape, so the same page draws it. A live area is its real leve
 | any node | `area` | this node is that area of the tower: a home card, a footer slot, an area page |
 | | `locked` | the card's and the page's reason ("Opens when your store is ready"); otherwise built from its blockers |
 | | `promise` | under the headline: what the area does for the owner |
-| | `tiles` | `[{ k: "good" \| "bad" \| "ugly", word, fact }]`: the page's three tiles from facts. Without it, the tiles count the area's steps (Done · To do) and list them |
+| | `model: "products"` | the tiles are the tower's Products model (`assets/ct/products-area.js`): what Finished Goods holds, each product under the tile its worst problem puts it, with that problem as its pill; a row opens the product's card |
+| | `tiles` | `[{ k: "good" \| "bad" \| "ugly", word, fact }]`: the page's three tiles from facts. Without it (or a model), the tiles count the area's steps (Done · To do) and list them; a step's row opens its item sheet |
 | | `source: "store-activation"` | the tiles' lists are what store activation saved, and what still waits in its import |
 | | `announce` | `{ on, title }`: a one-line toast when that moment comes ("Customers is open · +1 free day") |
 | a step under an area | `ask`, `how` | the page's headline and the line under it; `ask` is the card's line |
 | | `count` + `say` | `say` with `{n}` replaced by the fact in `count` ("3 still need a fix") |
-| | `action` | the page's button |
+| | `action` | the button on the step's item sheet (and, for an area with nothing in it yet, its one way in on the page) |
 | | `flow` | `{ module: "store-activation", step, mode }`: the button opens that module's own modal over the tower |
 | | `screen` | `{ route, label }`: else the button opens that platform screen |
 | | `demo` | `{ label, facts }`: in the new-store demo, a quiet link under the button that merges these facts in |

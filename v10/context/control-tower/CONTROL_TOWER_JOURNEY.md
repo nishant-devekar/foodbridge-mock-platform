@@ -323,3 +323,15 @@ back bar, the headline, On track / Needs work / Urgent, the list) with one butto
 done is a one-line toast. The quest sheet, the step sheet, the unlock sheet, the chapter trail and the
 locked list are gone. Store activation's modal still opens from the Products and Customers page
 buttons.
+
+**Later the same day: back to the tower's incident flow.** In the owner's words: "it has to have incidents list below each On
+track, Needs work and Urgent, and on click open the modal, where the user solves things or navigates to
+the platform page with inline confirmation". Products now reads Finished Goods (product-management's frozen
+discovery v7) with that page's own rules (`assets/ct/products-area.js`). Its banner's hidden-from-customers
+rule (no unit, no price, no category) and its Needs Attention chips (short for open orders, out of stock,
+below cost, above MRP, brand spelled two ways, no HSN) become one pill per product, under Urgent or Needs
+work. A row opens the delivery-style modal. The lead fix (unit, price, category, brand spelling, HSN, a
+stock count) slides in, is confirmed in place and ends on a done card. "Open in Finished Goods" asks inline
+first. A fix is kept as the tower's own (`fb.v7.ct.productFixes`); the frozen page still shows its seed. The
+docked page button is gone (§4.8). Step rows open the tower's item sheet, and a platform screen asks inline
+before leaving.

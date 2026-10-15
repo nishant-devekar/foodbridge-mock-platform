@@ -29,7 +29,7 @@ test("a new store's home: chapter line, Products the focus card, the rest locked
 test("the focus card's line carries the counted fact", () => {
   const h = home({ products: { count: 42, broken: 3, incomplete: 8 } });
   assert.equal(h.cards[0].area, "products");
-  assert.equal(h.cards[0].line, "3 still need a fix");
+  assert.equal(h.cards[0].line, "3 hidden from customers");
   assert.equal(h.cards[1].area, "customers");
   assert.equal(h.cards[1].tone, "todo");
 });
@@ -39,7 +39,7 @@ test("store active: Orders leads, optional work stays offered, the footer re-pin
   assert.equal(h.chapter.line, "Your store is ready · take your first order");
   assert.equal(h.cards[0].area, "order");
   assert.equal(h.cards[0].tone, "focus");
-  assert.deepEqual(h.cards.filter((c) => c.tone === "optional").map((c) => c.line), ["8 have no MRP", "12 have no delivery pin"]);
+  assert.deepEqual(h.cards.filter((c) => c.tone === "optional").map((c) => c.line), ["8 need work", "12 have no delivery pin"]);
   assert.deepEqual(h.pins, ["order", "customers"]);
 });
 
@@ -55,12 +55,12 @@ test("an area's step sheet: its steps, the next one, its screen and demo", () =>
   const f = Facts.blank({ products: { count: 42, broken: 3, incomplete: 8 } });
   const a = V.area(L.evaluate(f), f, "products");
   assert.deepEqual(a.steps.map((s) => s.label + ":" + s.state), ["Added:done", "Fixed:available", "Complete:locked"]);
-  assert.equal(a.next.ask, "Fix the products that would break an order");
-  assert.equal(a.next.say, "3 still need a fix");
-  assert.deepEqual(a.next.flow, { module: "store-activation", step: "items", mode: "setup" });
-  assert.equal(a.next.action, "Review your products");
+  assert.equal(a.next.ask, "Fix the products hidden from customers");
+  assert.equal(a.next.say, "3 hidden from customers");
+  assert.equal(a.next.flow, null, "fixing happens on the rows, not in an import");
+  assert.equal(a.next.screen.label, "Finished Goods");
   assert.equal(a.next.screen.route, "#/product-master/finished-goods");
-  assert.deepEqual(a.next.demo.facts, { products: { broken: 0 } });
+  assert.equal(a.next.demo, null);
 });
 
 test("a moment: the highest announce wins, rewards add up", () => {
@@ -95,12 +95,9 @@ test("a journey area in the tower's lever shape: headline, three tiles, one acti
   const ev = L.evaluate(f);
   const p = V.lever(ev, f, "products");
   assert.equal(p.journey, true);
-  assert.equal(p.status, "ugly", "rows that would break an order are Urgent");
-  assert.equal(p.headline.value, "3 still need a fix");
-  assert.deepEqual(["good", "bad", "ugly"].map((k) => p.tiles[k].label + ":" + p.tiles[k].word + ":" + p.tiles[k].count),
-    ["On track:Ready:42", "Needs work:No MRP:8", "Urgent:To fix:3"]);
-  assert.equal(p.action.label, "Review your products");
-  assert.deepEqual(p.action.flow, { module: "store-activation", step: "items", mode: "setup" });
+  assert.equal(p.headline.value, "3 hidden from customers");
+  assert.equal(p.action.label, "Fix the products hidden from customers");
+  assert.equal(p.action.screen.label, "Finished Goods");
   const o = V.lever(ev, f, "order");
   assert.equal(o.status, "preview");
   assert.equal(o.word, "Opens later");
