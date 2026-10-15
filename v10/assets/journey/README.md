@@ -172,6 +172,9 @@ to them draws, whatever its nodes are called.
 | | `screen` | `{ route, label }`: the green button, opening that platform screen |
 | | `demo` | `{ label, facts }`: in the new-store demo, a button that merges these facts in, as if the step were done |
 | | `reward` | `{ freeDays }`: shown on the step; summed on the unlock sheet or a toast when it is done |
+| | `flow` | `{ module: "store-activation", step, mode }`: the green button opens that module's own modal over the tower (`modules/foodbridge-store-activation`) |
+| | `action` | the green button's words ("Add your products") |
+| | `cheer` | what the assistant says over the step, in the step sheet |
 
 **The new-store demo.** More → Start as a new store, or `#/control-tower?journey=new`, starts it.
 More → Back to the demo business, or `?journey=off`, leaves it. Its facts are its own

@@ -258,6 +258,16 @@ new-store demo a button does the step. The journey is opt-in: More → Start as 
 setup tiles inside Products and Customers, rewards beyond the free-days count (fast start,
 redemption), and Timeline news for unlocks.
 
+**Same day, the owner's next ask: "make it look like gamification, so the user feels facilitated", and
+use store activation's own product and customer add as is.** The step sheet is now a quest: the
+assistant says what to do in one line; the area's steps form a path, each with the free days it earns;
+the step to do now is open on the path; the store's progress and the free days earned sit under it;
+one green button. The focus card carries its reward chip, and an unlock is the assistant, proud, with
+confetti. Products and Customers open **store activation v0.1.12, as released**
+(`modules/foodbridge-store-activation`): the module's own modal over the tower, on its in-memory API,
+with what it saves read back as the journey's facts. As released it is desktop only; on a phone it
+shows its own "Activate your store on a computer" screen, and the step's demo link remains.
+
 Pure models, the tower's pattern: no DOM, no storage, no clock; tested under node.
 
 | Piece | What |

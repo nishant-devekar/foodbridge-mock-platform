@@ -1095,3 +1095,63 @@ html.ct-desk .ct-jdesk .ct-cards { grid-template-columns: repeat(3, minmax(0, 1f
 .ct-jcheck .i { width: 34px; height: 34px; stroke-width: 2.6; }
 .ct-jfoot { display: grid; gap: 8px; width: 100%; }
 .ct-jfoot .ct-btn { width: 100%; }
+
+/* ── The step sheet as a quest (15 Oct 2026) ───────────────────────────
+   The assistant's line, the area's steps as a path with what each earns,
+   the store's progress and free days, one green button. */
+.ct-quest { display: grid; gap: 16px; }
+.ct-qhead { display: flex; align-items: flex-end; gap: 10px; }
+.ct-qmascot { width: 56px; height: 56px; flex: none; border-radius: 50%; object-fit: cover; object-position: 30% 0; background: var(--brand-t); }
+.ct-qbubble { position: relative; margin: 0 0 6px; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: var(--fill); font-size: 15px; line-height: 21px; color: var(--ink); }
+.ct-qpath { position: relative; margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.ct-qpath li { position: relative; display: grid; grid-template-columns: 32px 1fr auto; align-items: start; gap: 12px; padding: 8px 0; }
+.ct-qpath li + li::before { content: ""; position: absolute; left: 15px; top: -10px; height: 18px; width: 2px; background: var(--line); }
+.ct-qpath li[data-s="done"] + li::before { background: #22A45D; }
+.ct-qnode { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--fill); color: var(--ink-3); font-size: 14px; font-weight: 700; }
+.ct-qnode .i { width: 16px; height: 16px; stroke-width: 2.4; }
+.ct-qpath li[data-s="done"] .ct-qnode { background: #22A45D; color: #fff; }
+.ct-qpath li[data-s="now"] .ct-qnode { background: var(--brand); color: #fff; box-shadow: 0 0 0 4px var(--brand-t); animation: ct-qpulse 1.8s ease-out infinite; }
+.ct-qpath li[data-s="locked"] .ct-qnode .i { width: 14px; height: 14px; }
+@keyframes ct-qpulse { 0% { box-shadow: 0 0 0 0 rgba(30, 122, 70, .35); } 70% { box-shadow: 0 0 0 10px rgba(30, 122, 70, 0); } 100% { box-shadow: 0 0 0 0 rgba(30, 122, 70, 0); } }
+.ct-qt { display: grid; gap: 2px; min-width: 0; padding-top: 5px; }
+.ct-qt b { font-size: 15px; line-height: 21px; font-weight: 600; color: var(--ink-2); }
+.ct-qt b small { font-weight: 500; color: var(--ink-3); }
+.ct-qpath li[data-s="done"] .ct-qt b { color: var(--ink-3); text-decoration: line-through; text-decoration-color: rgba(17, 20, 24, .25); }
+.ct-qpath li[data-s="now"] .ct-qt b { color: var(--brand); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+.ct-qask { font-size: 19px; line-height: 25px; font-weight: 700; color: var(--ink); }
+.ct-qsay { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ugly); }
+.ct-qhow { font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.ct-qrw { display: inline-flex; align-items: center; gap: 3px; margin-top: 5px; padding: 3px 9px; border-radius: 99px; background: #FFF4DE; color: #8A5300; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ct-qrw.is-earned { background: var(--brand-t); color: var(--brand); }
+.ct-qrw .i { width: 12px; height: 12px; stroke-width: 2.6; }
+.ct-qstore { display: grid; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--fill); }
+.ct-qstore-t { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink-2); }
+.ct-qcoin { color: #8A5300; }
+.ct-qbar { height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.ct-qbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #22A45D, #7BC96F); }
+.ct-qgo { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.ct-qgo .i { width: 18px; height: 18px; }
+.ct-qlinks { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 18px; }
+.ct-qlinks .ct-link { padding: 6px 2px; font-size: 14px; }
+.ct-link.is-quiet { color: var(--ink-3); font-weight: 500; }
+/* The reward on the focus card: why to tap it now. */
+.ct-jchip { flex: none; margin-left: auto; padding: 4px 9px; border-radius: 99px; background: #FFF4DE; color: #8A5300; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ct-jcard[data-t="focus"] .ct-jchip + .ct-go { margin-left: 6px; }
+/* The unlock: the assistant, proud, and a burst of confetti. */
+.ct-junlock { position: relative; overflow: hidden; }
+.ct-jcheck img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 30% 0; }
+.ct-jcheck { background: var(--brand-t); box-shadow: 0 0 0 4px #22A45D; }
+.ct-confetti { position: absolute; inset: 0 0 auto; height: 120px; pointer-events: none; }
+.ct-confetti i { position: absolute; top: -10px; width: 7px; height: 11px; border-radius: 2px; opacity: 0; animation: ct-conf 1.4s ease-out forwards; }
+.ct-confetti i:nth-child(odd) { background: #22A45D; } .ct-confetti i:nth-child(3n) { background: #F2B53A; } .ct-confetti i:nth-child(4n) { background: #E07B24; } .ct-confetti i:nth-child(5n) { background: #4C8DF6; }
+.ct-confetti i:nth-child(1) { left: 6%; animation-delay: .02s; } .ct-confetti i:nth-child(2) { left: 13%; animation-delay: .12s; } .ct-confetti i:nth-child(3) { left: 20%; animation-delay: .05s; }
+.ct-confetti i:nth-child(4) { left: 27%; animation-delay: .18s; } .ct-confetti i:nth-child(5) { left: 34%; animation-delay: .08s; } .ct-confetti i:nth-child(6) { left: 41%; animation-delay: .22s; }
+.ct-confetti i:nth-child(7) { left: 48%; animation-delay: .03s; } .ct-confetti i:nth-child(8) { left: 55%; animation-delay: .15s; } .ct-confetti i:nth-child(9) { left: 62%; animation-delay: .09s; }
+.ct-confetti i:nth-child(10) { left: 69%; animation-delay: .2s; } .ct-confetti i:nth-child(11) { left: 76%; animation-delay: .06s; } .ct-confetti i:nth-child(12) { left: 83%; animation-delay: .16s; }
+.ct-confetti i:nth-child(13) { left: 90%; animation-delay: .1s; } .ct-confetti i:nth-child(14) { left: 96%; animation-delay: .24s; }
+@keyframes ct-conf { 0% { opacity: 1; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(110px) rotate(320deg); } }
+@media (prefers-reduced-motion: reduce) { .ct-confetti { display: none; } .ct-qpath li[data-s="now"] .ct-qnode { animation: none; } }
+/* Store activation's own modal, in one frame over the tower. */
+#ct-flow { position: fixed; inset: 0; z-index: 2000; }
+#ct-flow[hidden] { display: none; }
+#ct-flow iframe { width: 100%; height: 100%; border: 0; background: transparent; color-scheme: normal; }

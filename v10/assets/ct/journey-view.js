@@ -12,7 +12,8 @@
      payload.area           the node IS that area of the tower
      a node under an area   a step: payload.ask · how · say ("{n} …" with
                             the fact named by payload.count) · screen ·
-                            demo · reward
+                            demo · reward · flow (a module the tower opens) ·
+                            action (its button) · cheer (the assistant's line)
      payload.announce       { on: "available"|"done", title, line, button,
                             open } — the unlock sheet for that moment
 
@@ -112,9 +113,10 @@
     const b = ev.blockers(a.id) || { nodes: [] };
     return {
       area: key, id: a.id, label: a.label, state: a.state,
-      steps: leaves.map(function (n) { return { id: n.id, label: n.label, state: n.state, optional: n.optional, now: n.id === nextId }; }),
+      steps: leaves.map(function (n) { return { id: n.id, label: n.label, state: n.state, optional: n.optional, now: n.id === nextId, reward: n.payload.reward || null }; }),
       next: next ? { id: next.id, label: next.label, ask: next.payload.ask || next.label, how: next.payload.how || "", say: line(next, facts) !== (next.payload.ask || next.label) ? line(next, facts) : "",
-                     screen: next.payload.screen || null, demo: next.payload.demo || null, reward: next.payload.reward || null, optional: next.optional } : null,
+                     screen: next.payload.screen || null, demo: next.payload.demo || null, reward: next.payload.reward || null, optional: next.optional,
+                     flow: next.payload.flow || null, action: next.payload.action || null, cheer: next.payload.cheer || null } : null,
       waits: a.state === "locked" ? (a.payload.locked || "") : "",
       blockers: b.nodes,
     };

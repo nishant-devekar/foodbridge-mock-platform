@@ -1,12 +1,12 @@
 {
   "schema": "fb.journey/1",
   "id": "store-journey",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "label": "Store journey",
   "meta": {
     "source": "context/control-tower/CONTROL_TOWER_JOURNEY.md (proposal, 15 Oct 2026)",
     "facts": "assets/ct/journey-facts.js",
-    "note": "Types and payloads are read by the Control Tower (assets/ct/journey-view.js), never by the engine. say: {n} is the fact named by count. demo.facts are merged into the new-store demo's facts when its demo button is pressed."
+    "note": "Types and payloads are read by the Control Tower (assets/ct/journey-view.js), never by the engine. say: {n} is the fact named by count. demo.facts are merged into the new-store demo's facts when its demo button is pressed. flow names a module the tower opens for the step (store-activation: its own modal); action is the step's button; cheer is what the assistant says over it."
   },
   "nodes": [
     { "id": "setup", "type": "chapter", "label": "Set up your store",
@@ -16,12 +16,12 @@
 
     { "id": "products", "type": "area", "parent": "setup", "label": "Products", "payload": { "area": "products" } },
     { "id": "products.added", "type": "stage", "parent": "products", "label": "Added",
-      "payload": { "stage": "added", "ask": "Add your products", "how": "Any file, a photo, or pick from a ready list",
+      "payload": { "stage": "added", "ask": "Add your products", "how": "Drop your rate list or item master. Any XLSX or CSV works; I read it and lay it out like a sheet.", "cheer": "Let's fill your shelf first. Bring the file you already have.", "action": "Add your products", "flow": { "module": "store-activation", "step": "items", "mode": "setup" }, 
                    "screen": { "route": "#/product-master/finished-goods", "label": "Product Master" },
                    "demo": { "label": "Add 42 sample products", "facts": { "products": { "count": 42, "broken": 3, "incomplete": 8 } } } },
       "done": { "fact": "products.count", "gte": 1 } },
     { "id": "products.fixed", "type": "stage", "parent": "products", "label": "Fixed", "requires": ["products.added"],
-      "payload": { "stage": "fixed", "ask": "Fix the products that would break an order", "count": "products.broken", "say": "{n} would break an order",
+      "payload": { "stage": "fixed", "ask": "Fix the products that would break an order", "count": "products.broken", "say": "{n} still need a fix", "how": "Red cells first. One tap answers most of them.", "cheer": "Almost there. Fix the red cells and your products are ready to sell.", "action": "Review your products", "flow": { "module": "store-activation", "step": "items", "mode": "setup" }, 
                    "reward": { "freeDays": 1 }, "screen": { "route": "#/product-master/finished-goods", "label": "Product Master" },
                    "demo": { "label": "Fix the 3 products", "facts": { "products": { "broken": 0 } } } },
       "done": { "all": [ { "fact": "products.count", "gte": 1 }, { "fact": "products.broken", "eq": 0 } ] } },
@@ -35,12 +35,12 @@
       "payload": { "area": "customers", "locked": "after your first product",
                    "announce": { "on": "available", "title": "Customers is open", "line": "Add the shops you sell to, straight from your phone contacts.", "button": "Add your customers", "open": "customers" } } },
     { "id": "customers.added", "type": "stage", "parent": "customers", "label": "Added",
-      "payload": { "stage": "added", "ask": "Add your customers", "how": "From your phone contacts, a file or a khata photo",
+      "payload": { "stage": "added", "ask": "Add your customers", "how": "Drop your customer list. Any XLSX or CSV works; names and phone numbers are enough.", "cheer": "Now the shops you sell to. A list with names and numbers is enough.", "action": "Add your customers", "flow": { "module": "store-activation", "step": "customers", "mode": "setup" }, 
                    "screen": { "route": "#/customer-management/b2b-customers", "label": "B2B Customers" },
                    "demo": { "label": "Add 18 sample customers", "facts": { "customers": { "count": 18, "broken": 2, "incomplete": 12 } } } },
       "done": { "fact": "customers.count", "gte": 1 } },
     { "id": "customers.fixed", "type": "stage", "parent": "customers", "label": "Fixed", "requires": ["customers.added"],
-      "payload": { "stage": "fixed", "ask": "Give every customer a phone number", "count": "customers.broken", "say": "{n} have no phone that works",
+      "payload": { "stage": "fixed", "ask": "Fix the customers that can't be reached", "count": "customers.broken", "say": "{n} still need a fix", "how": "Every customer needs a name and a phone that works.", "cheer": "One more push. Fix these and your store is ready for orders.", "action": "Review your customers", "flow": { "module": "store-activation", "step": "customers", "mode": "setup" }, 
                    "reward": { "freeDays": 1 }, "screen": { "route": "#/customer-management/b2b-customers", "label": "B2B Customers" },
                    "demo": { "label": "Fix the 2 phone numbers", "facts": { "customers": { "broken": 0 } } } },
       "done": { "all": [ { "fact": "customers.count", "gte": 1 }, { "fact": "customers.broken", "eq": 0 } ] } },

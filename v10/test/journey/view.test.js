@@ -29,7 +29,7 @@ test("a new store's home: chapter line, Products the focus card, the rest locked
 test("the focus card's line carries the counted fact", () => {
   const h = home({ products: { count: 42, broken: 3, incomplete: 8 } });
   assert.equal(h.cards[0].area, "products");
-  assert.equal(h.cards[0].line, "3 would break an order");
+  assert.equal(h.cards[0].line, "3 still need a fix");
   assert.equal(h.cards[1].area, "customers");
   assert.equal(h.cards[1].tone, "todo");
 });
@@ -56,7 +56,9 @@ test("an area's step sheet: its steps, the next one, its screen and demo", () =>
   const a = V.area(L.evaluate(f), f, "products");
   assert.deepEqual(a.steps.map((s) => s.label + ":" + s.state), ["Added:done", "Fixed:available", "Complete:locked"]);
   assert.equal(a.next.ask, "Fix the products that would break an order");
-  assert.equal(a.next.say, "3 would break an order");
+  assert.equal(a.next.say, "3 still need a fix");
+  assert.deepEqual(a.next.flow, { module: "store-activation", step: "items", mode: "setup" });
+  assert.equal(a.next.action, "Review your products");
   assert.equal(a.next.screen.route, "#/product-master/finished-goods");
   assert.deepEqual(a.next.demo.facts, { products: { broken: 0 } });
 });

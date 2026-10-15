@@ -233,7 +233,7 @@
      moved by each step's demo button; the live demo business is untouched.
      ════════════════════════════════════════════════════════════════════ */
   const JKEY = { on: "fb.v7.ct.journey.on", snap: "fb.v7.ct.journey.snap", demo: "fb.v7.ct.journey.demo", graph: "fb.v7.ct.journey.graph" };
-  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW1";
+  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW2";
   const jr = { on: false, J: null, snap: null, facts: null, ev: null, home: null, moment: null };
   function jget(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function jput(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* per device only */ } }
@@ -244,19 +244,65 @@
       .then(function (g) { jr.J = window.FBJourney.load(g); })
       .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: journey", e && (e.errors || e.message)); });
   }
-  function journeyStart() { jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jr.on = true; jr.snap = null; }
+  function journeyStart() {
+    jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jput(SA_KEY, null); jr.on = true; jr.snap = null;
+    const f = typeof document !== "undefined" && document.getElementById("ct-flow"); if (f) f.remove();   // a new store: the module starts fresh too
+  }
   function journeyStop() { jput(JKEY.on, false); jr.on = false; jr.home = null; jr.ev = null; }
   function journeyPass() {
     if (!jr.on || !jr.J) { jr.home = null; return; }
-    jr.facts = window.CTJourneyFacts.blank(jget(JKEY.demo, {}));
+    jr.facts = window.CTJourneyFacts.merge(window.CTJourneyFacts.blank(jget(JKEY.demo, {})), saFacts());
     const r = jr.J.step(jr.snap, jr.facts, Date.now());
     jr.snap = r.snapshot; jput(JKEY.snap, jr.snap);
     jr.ev = r.ev;
     jr.home = window.CTJourneyView.home(r.ev, jr.facts);
     const m = window.CTJourneyView.moment(r.events, r.ev);
-    if (m.announce || m.freeDays) jr.moment = m;            // shown once the screen is drawn
+    if (!m.announce && !m.freeDays) return;
+    /* Shown once the screen is drawn. Moments that pile up meanwhile (the
+       store-activation module open over the tower) add up: the rewards and
+       what earned them; the latest announce wins. */
+    const was = jr.moment;
+    jr.moment = was ? { announce: m.announce || was.announce, freeDays: was.freeDays + m.freeDays, done: was.done.concat(m.done) } : m;
   }
   function inJourney() { return !!(jr.home && jr.home.mode === "journey"); }
+
+  /* Store activation, as released (modules/foodbridge-store-activation: the
+     module's own modal on its in-memory API). Its products and customers are
+     kept in fb.v7.sa.store; what is saved, and what is still waiting in an
+     open import, are the journey's facts for those two areas. */
+  const SA_KEY = "fb.v7.sa.store";
+  const SA_URL = "../modules/foodbridge-store-activation/app/index.html";
+  function saFacts() {
+    const s = jget(SA_KEY, null);
+    if (!s || !Array.isArray(s.products)) return {};
+    const open = s.open || {}, out = {};
+    if (s.products.length || open.items) out.products = { count: s.products.length, broken: open.items || 0, incomplete: 0 };
+    const cs = s.customers || [];
+    if (cs.length || open.customers) out.customers = { count: cs.length, broken: open.customers || 0,
+      incomplete: cs.filter(function (c) { return !c.deliveryLocation && !c.billingAddressLine; }).length };
+    return out;
+  }
+  /* One frame over the tower, kept for as long as the tower is open, so an
+     import half fixed is still there the next time. */
+  function openFlow(f) {
+    if (!f || f.module !== "store-activation") return;
+    closeAll();
+    let w = $("#ct-flow");
+    if (!w) {
+      w = document.createElement("div"); w.id = "ct-flow";
+      w.innerHTML = '<iframe title="Activate your store" src="' + SA_URL + "?step=" + encodeURIComponent(f.step || "items") + "&mode=" + encodeURIComponent(f.mode || "setup") + '"></iframe>';
+      document.body.appendChild(w);
+    } else {
+      w.hidden = false;
+      w.querySelector("iframe").contentWindow.postMessage({ type: "fb:sa:open", step: f.step, mode: f.mode }, location.origin);
+    }
+    ui.flow = true; document.body.classList.add("ct-locked");
+  }
+  function flowClosed() {
+    const w = $("#ct-flow"); if (w) w.hidden = true;
+    ui.flow = false; document.body.classList.remove("ct-locked");
+    compute(); draw();
+  }
   function jArea(k) { return jr.home && jr.home.areas[k]; }
   function days(n) { return n + (n === 1 ? " free day" : " free days"); }
 
@@ -273,12 +319,18 @@
       return '<button class="ct-lcard ct-jcard" data-jarea="' + esc(c.area) + '" data-t="' + c.tone + '" aria-label="' + esc(c.label + ", " + c.line) + '">' +
         '<span class="ct-lcard-i">' + (ICON_OF[c.area] || I.check) + "</span>" +
         '<span class="ct-lcard-t"><span class="ct-lcard-n">' + esc(c.label) + '</span><span class="ct-lcard-w">' + esc(c.line) + "</span></span>" +
-        (c.tone === "focus" ? '<span class="ct-go">' + I.chev + "</span>" : "") + "</button>";
+        (c.tone === "focus" ? focusChip(c) + '<span class="ct-go">' + I.chev + "</span>" : "") + "</button>";
     }).join("");
     const locked = h.locked.length ? '<p class="ct-jsub">Opens as your store grows</p><ul class="ct-jlocked">' + h.locked.map(function (x) {
       return '<li><button type="button" data-jarea="' + esc(x.area) + '"><span class="ct-jlk">' + I.lock + "</span><span><b>" + esc(x.label) + "</b> · " + esc(x.line) + "</span></button></li>";
     }).join("") + "</ul>" : "";
     return { line: h.chapter.line, earned: earned, html: trail + '<div class="ct-cards ct-jcards">' + cards + "</div>" + locked };
+  }
+  /* What the focus step earns, on its card: a reason to tap it now. */
+  function focusChip(c) {
+    const n = c.step && jr.ev.node(c.step);
+    const fd = n && n.payload.reward && n.payload.reward.freeDays;
+    return fd ? '<span class="ct-jchip">+' + esc(days(fd)) + "</span>" : "";
   }
   function journeyHome() {
     const b = journeyBody();
@@ -300,33 +352,51 @@
     sheet(function () {
       const a = window.CTJourneyView.area(jr.ev, jr.facts, k);
       if (!a) return { title: k, body: "" };
-      const n = a.next;
-      const done = a.steps.filter(function (s) { return s.state === "done"; }).length;
-      const steps = '<ol class="ct-jsteps">' + a.steps.map(function (s) {
-        return '<li data-s="' + (s.state === "done" ? "done" : s.now ? "now" : "todo") + '">' + (s.state === "done" ? I.check : "") + esc(s.label) + (s.optional ? " <small>optional</small>" : "") + "</li>";
-      }).join("") + "</ol>";
-      let body = steps, foot = "";
-      if (a.state === "locked") body += '<p class="ct-jask">' + I.lock + "Opens " + esc(a.waits || "later") + "</p>";
-      else if (!n) {
-        body += '<p class="ct-jask">' + esc(a.label) + " is set up</p>";
-        if (lever(k)) foot = '<button class="ct-btn is-wide" data-jopen="' + esc(k) + '">Open ' + esc(leverName(k)) + "</button>";
-      } else {
-        body += '<p class="ct-jask">' + esc(n.ask) + "</p>" + (n.say ? '<p class="ct-jsay">' + esc(n.say) + "</p>" : "") + (n.how ? '<p class="ct-jhow">' + esc(n.how) + "</p>" : "") +
-          (n.reward && n.reward.freeDays ? '<p class="ct-jreward">+' + esc(days(n.reward.freeDays)) + " when it's done</p>" : "");
-        /* One green button: where it is done on the platform. The demo's
-           button sits under it, quiet, and says it is the demo. */
-        foot = '<div class="ct-jfoot">' + (n.screen ? '<button class="ct-btn" data-jscreen="' + esc(n.screen.route) + '">Open ' + esc(n.screen.label) + "</button>" : "") +
-          (n.demo ? '<button class="ct-btn is-ghost" data-jdemo="' + esc(n.id) + '">' + esc(n.demo.label) + "<small>Demo: as if you did it</small></button>" : "") + "</div>";
-      }
-      return { title: a.label, sub: a.steps.length ? done + " of " + a.steps.length + " steps done" : "", body: body, foot: foot,
-        bind: function (el) {
-          el.addEventListener("click", function (e) {
-            const s = e.target.closest("[data-jscreen]"); if (s) { closeAll(); go(s.dataset.jscreen); return; }
-            const d = e.target.closest("[data-jdemo]"); if (d) { demoStep(d.dataset.jdemo); return; }
-            const o = e.target.closest("[data-jopen]"); if (o) openLever(o.dataset.jopen);
-          });
-        } };
+      return questSheet(a, k);
     }, push);
+  }
+  /* The step sheet as a quest (owner, 15 Oct 2026: "make it look like
+     gamification, so the user feels facilitated"): the assistant says what
+     to do in a line; the area's steps are a path, each with what it earns;
+     the one to do now is open on the path; the store's own progress and the
+     free days earned sit under it. One green button does the step. */
+  function questSheet(a, k) {
+    const n = a.next;
+    const mascot = function (img) { return '<img class="ct-qmascot" src="../assets/ct/mascot/' + img + '" alt="">'; };
+    const done = a.steps.filter(function (s) { return s.state === "done"; }).length;
+    const bubble = a.state === "locked" ? "This one opens " + (a.waits || "later") + ". Finish what's open first."
+      : !n ? a.label + " is all set. Nicely done!"
+      : (n.cheer || n.how || n.ask);
+    const path = '<ol class="ct-qpath">' + a.steps.map(function (s, i) {
+      const st = s.state === "done" ? "done" : s.now ? "now" : a.state === "locked" || s.state === "locked" ? "locked" : "todo";
+      const rw = s.reward && s.reward.freeDays ? (st === "done" ? '<span class="ct-qrw is-earned">' + I.check + "Earned</span>" : '<span class="ct-qrw">+' + esc(days(s.reward.freeDays)) + "</span>") : "";
+      const open = st === "now" && n ? '<span class="ct-qask">' + esc(n.ask) + "</span>" + (n.say ? '<span class="ct-qsay">' + esc(n.say) + "</span>" : "") + (n.cheer && n.how ? '<span class="ct-qhow">' + esc(n.how) + "</span>" : "") : "";
+      return '<li data-s="' + st + '"><span class="ct-qnode">' + (st === "done" ? I.check : st === "locked" ? I.lock : String(i + 1)) + "</span>" +
+        '<span class="ct-qt">' + (open ? '<b class="ct-qnow">Now</b>' + open : "<b>" + esc(s.label) + (s.optional ? " <small>optional</small>" : "") + "</b>") + "</span>" + rw + "</li>";
+    }).join("") + "</ol>";
+    const p = jr.ev.progress(), earned = window.CTJourneyView.earned(jr.ev);
+    const store = '<div class="ct-qstore"><div class="ct-qstore-t"><span>Your store · ' + p.done + " of " + p.total + " steps</span>" +
+      (earned ? '<b class="ct-qcoin">' + esc(days(earned)) + " earned</b>" : "") + '</div><div class="ct-qbar"><i style="width:' + Math.round(p.ratio * 100) + '%"></i></div></div>';
+    const body = '<div class="ct-quest"><div class="ct-qhead">' + mascot(!n && a.state !== "locked" ? "proud.png" : "present.png") +
+      '<p class="ct-qbubble">' + esc(bubble) + "</p></div>" + path + store + "</div>";
+    let foot = "";
+    if (a.state !== "locked" && n) {
+      const main = n.flow ? '<button class="ct-btn ct-qgo" data-jflow="' + esc(n.id) + '">' + I.spark + esc(n.action || n.ask) + "</button>"
+        : n.screen ? '<button class="ct-btn ct-qgo" data-jscreen="' + esc(n.screen.route) + '">' + esc(n.action || "Open " + n.screen.label) + "</button>" : "";
+      const links = [n.flow && n.screen ? '<button class="ct-link" data-jscreen="' + esc(n.screen.route) + '">Open ' + esc(n.screen.label) + "</button>" : "",
+        n.demo ? '<button class="ct-link is-quiet" data-jdemo="' + esc(n.id) + '">' + esc(n.demo.label) + " · demo</button>" : ""].filter(Boolean).join("");
+      foot = '<div class="ct-jfoot">' + main + (links ? '<div class="ct-qlinks">' + links + "</div>" : "") + "</div>";
+    } else if (!n && lever(k)) foot = '<div class="ct-jfoot"><button class="ct-btn ct-qgo" data-jopen="' + esc(k) + '">Open ' + esc(leverName(k)) + "</button></div>";
+    return { title: a.label, sub: a.steps.length ? "Step " + Math.min(done + 1, a.steps.length) + " of " + a.steps.length + (done === a.steps.length ? " · done" : "") : "",
+      body: body, foot: foot,
+      bind: function (el) {
+        el.addEventListener("click", function (e) {
+          const f = e.target.closest("[data-jflow]"); if (f) { const node = jr.ev.node(f.dataset.jflow); if (node) openFlow(node.payload.flow); return; }
+          const s = e.target.closest("[data-jscreen]"); if (s) { closeAll(); go(s.dataset.jscreen); return; }
+          const d = e.target.closest("[data-jdemo]"); if (d) { demoStep(d.dataset.jdemo); return; }
+          const o = e.target.closest("[data-jopen]"); if (o) openLever(o.dataset.jopen);
+        });
+      } };
   }
   /* The new-store demo: a step's demo button puts in the facts the step
      would have made, as the store's own records would. */
@@ -343,14 +413,15 @@
      a line at the bottom of the screen. */
   function showMoment() {
     const m = jr.moment;
-    if (!m || isOpen()) return;
+    if (!m || isOpen() || ui.flow) return;
     jr.moment = null;
     if (!m.announce) { if (m.freeDays) toast("+" + days(m.freeDays) + " · " + m.done.join(", ")); return; }
     const a = m.announce;
     const t = $("#ct-toast"); if (t) t.remove();            // the moment says it all; no line under it
     sheet(function () {
       return { title: a.title,
-        body: '<div class="ct-junlock"><span class="ct-jcheck">' + I.check + "</span>" + (a.line ? "<p>" + esc(a.line) + "</p>" : "") +
+        body: '<div class="ct-junlock"><span class="ct-confetti" aria-hidden="true">' + "<i></i>".repeat(14) + "</span>" +
+          '<span class="ct-jcheck"><img src="../assets/ct/mascot/proud.png" alt=""></span>' + (a.line ? "<p>" + esc(a.line) + "</p>" : "") +
           (m.freeDays ? '<p class="ct-jreward">+' + esc(days(m.freeDays)) + " · " + esc(m.done.join(", ")) + "</p>" : "") + "</div>",
         foot: '<button class="ct-btn is-ghost" data-close>Later</button><button class="ct-btn" data-jgo autofocus>' + esc(a.button || "Continue") + "</button>",
         bind: function (el) {
@@ -452,7 +523,7 @@
     syncFooter();
     syncTop();
     /* A journey moment (an area opened, a reward) shows once the screen is drawn. */
-    if (jr.moment && !isOpen()) setTimeout(showMoment, 0);
+    if (jr.moment && !isOpen() && !ui.flow) setTimeout(showMoment, 0);
   }
 
   /* ════════════════════════════════════════════════════════════════════
@@ -1167,6 +1238,10 @@
   }
   function wireGlobal() {
     $("#ct").addEventListener("click", onClick);
+    /* Store activation's modal closed: back to the tower, which reads what it saved. */
+    window.addEventListener("message", function (e) {
+      if (e.origin === location.origin && e.data && e.data.type === "fb:sa:closed") flowClosed();
+    });
     window.addEventListener("storage", function (e) {
       if (!e.key || e.key.indexOf("fb.v7.") !== 0) return;
       clearTimeout(ui.st);
