@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  DELIVERY MANAGEMENT — the route-delivery app as a static prototype.
+
+  A port of storefront-frontend's src/route-delivery-app (React) into plain
+  HTML/CSS/JS, so the UX can be shown to customers and stakeholders and edited
+  against their feedback without a build step. Open a file, change it, reload.
+
+  Each script owns one thing and hangs itself off a single global, so load order
+  is the only dependency wiring there is:
+
+    seed.inline.js   RD_DB   the in-memory database (routes, stops, customers)
+    services.js      RD_SDK  the service layer that reads and writes it
+    shell.js         RD_UI   design tokens, chrome and shared controls
+    delivery-core.js RD      router, app state, mount()
+    delivery-*.js            the screens, each registering itself via RD.screen
+
+  Served over HTTP -- open it through the platform shell or a local server, not
+  as a file:// path.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <!-- viewport-fit=cover so the safe-area insets the header/footer read are
+       non-zero on a notched phone. maximum-scale is deliberate: this is a
+       one-handed field app, and pinch-zoom on a numpad mis-taps. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="theme-color" content="#1B6272" />
+  <title>Delivery Management — FoodBridge</title>
+
+  <!-- Inter, self-hosted in this folder. Not Google Fonts and not v5/vendor:
+       the module has to keep rendering correctly offline and when the folder is
+       copied somewhere else on its own. -->
+  <link rel="stylesheet" href="fonts/inter.css" />
+  <link rel="stylesheet" href="styles.css?v=20260918E2" />
+  <link rel="stylesheet" href="delivery.css?v=20260925TS1" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- ?v= busts the browser cache. Neither GitHub Pages nor python3's
+       http.server sends a useful Cache-Control for these, so without it an
+       edit can sit behind a stale copy through a real reload. Bump the tag on
+       any edit to the file it is attached to. -->
+  <!-- The end-of-demo sheet, shared with every other screen that offers a
+       way out: v7/assets/exit-demo.js. The bar itself is NOT mounted here —
+       this app has its own tab bar, and EXIT DEMO in it opens the sheet. -->
+  <!-- Demo clock first, so every script below reads the same time. Off
+       unless fb.v7.demoClock is set (see the file). -->
+  <script src="../../../../assets/fb-clock.js?v=20260924CL2"></script>
+  <script src="../../../../assets/exit-demo.js?v=20260923DX2"></script>
+  <!-- The platform's event stream: what happens here reaches the Control
+       Tower as it happens (24 Sep 2026). -->
+  <!-- Photos attached to what the driver tells the office, shared with the tower. -->
+  <script src="../../../../assets/fb-media.js?v=20260925SE1"></script>
+  <script src="../../../../assets/fb-events.js?v=20260924IN1"></script>
+  <script src="../../../../assets/production/production-api.js?v=20261003FL1"></script>
+  <script src="seed.inline.js?v=20261003SH1"></script>
+  <script src="services.js?v=20260930BT2"></script>
+  <script src="vasu-sync.js?v=20260929VF2"></script>
+  <script src="models.js?v=20260924OC1"></script>
+  <script src="validation.js?v=20260918E2"></script>
+  <script src="shell.js?v=20260925NV1"></script>
+  <script src="delivery-core.js?v=20260925SE1"></script>
+  <!-- The office channel first among the screens: it hears every
+       navigation before the router draws it (delivery-office.js). -->
+  <script src="delivery-office.js?v=20260925SE2"></script>
+  <!-- Speak a note instead of typing it: every note field's mic. -->
+  <script src="delivery-voice.js?v=20260925NV1"></script>
+
+  <!-- Screens. Each registers itself with RD.screen(), so this list is the only
+       place a new screen file needs mentioning. -->
+  <script src="delivery-home.js?v=20260930BT2"></script>
+  <script src="delivery-start.js?v=20260924OC1"></script>
+  <script src="delivery-stops.js?v=20260925SE1"></script>
+  <script src="delivery-settle.js?v=20260925NV1"></script>
+  <script src="delivery-aside.js?v=20260925NV1"></script>
+  <script src="delivery-report.js?v=20260925SE3"></script>
+
+  <script>RD.mount(document.getElementById("app"));</script>
+</body>
+</html>

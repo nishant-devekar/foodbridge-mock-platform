@@ -1,0 +1,14 @@
+{
+  "_about": [
+    "Tenant variants: overrides deep-merged over tenant.json, for the flags production ships OFF by default.",
+    "The prototype takes one with ?tenant=<name>; the parity oracle serves the same merged tenant, so both",
+    "screens are compared under the same configuration.",
+    "  all-features   every optional toolbar action and column the Sales Orders screen has"
+  ],
+  "all-features": {
+    "appProp": {
+      "orderManagementFeatures": { "orderForecast": true, "demandReport": true, "downloadAllOrders": true, "allocationStatus": true },
+      "googleSheet": { "view": true, "edit": true }
+    }
+  }
+}

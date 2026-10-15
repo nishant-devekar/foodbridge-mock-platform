@@ -1,0 +1,65 @@
+{
+  "version": "v5",
+  "owner": "nishant-devekar",
+  "state": "PUBLISHED",
+  "sourceMaster": "master @ 1568888",
+  "created": "2026-09-16",
+  "useCase": "A new FoodBridge signup \u2014 the owner or back-office person at a small or mid-sized distributor \u2014 already keeps customers, products and suppliers in Tally, Zoho, Vyapar, Excel or in invoices and challans. Done when FoodBridge holds that business, they can see it was understood correctly, and they have taken one meaningful first action \u2014 without re-entering by hand what they already have.",
+  "scenario": "The first session after signing up: the owner or back-office person of a small or mid-sized distributor, on a phone, minutes after creating their account, with their customers, products and orders already in Tally, Zoho, Vyapar, or a folder of invoices and challans.",
+  "persona": "",
+  "purpose": "A new FoodBridge signup \u2014 the owner or back-office person at a small or mid-sized distributor \u2014 already keeps customers, products and suppliers in Tally, Zoho, Vyapar, Excel or in invoices and challans. Done when FoodBridge holds that business, they can see it was understood correctly, and they have taken one meaningful first action \u2014 without re-entering by hand what they already have.",
+  "hypothesis": "A new distributor who already has business data in an existing system or files can get to a meaningful first action in FoodBridge in one onboarding session, with minimal manual data entry, because FoodBridge does the ingestion and setup work for them.",
+  "customers": [
+    "Target distributors on Tally / Zoho / Vyapar / Excel \u2014 not yet recruited"
+  ],
+  "definition": {
+    "kind": "UX",
+    "readiness": "READY_FOR_IMPLEMENTATION",
+    "approvedBy": "Nishant Devekar",
+    "on": "2026-09-16",
+    "uxLockId": "b556ecf1e4cdbe35",
+    "uxDigest": "d15c3fb4169128ed829e67785f7df43ee933c2f880f8713d32a230027eb6004b"
+  },
+  "release": {
+    "current": "5.2",
+    "working": "",
+    "kind": "UX"
+  },
+  "learning": [
+    "L-012",
+    "L-013"
+  ],
+  "ux": {
+    "opportunity": "O-001",
+    "lockId": "b556ecf1e4cdbe35",
+    "lockedOn": "2026-09-16",
+    "approvedBy": "Nishant Devekar",
+    "screens": 5
+  },
+  "publishedUrl": "https://foodbridge-pmf.vercel.app/v5/",
+  "dataStatus": "SEEDED",
+  "integrations": [],
+  "entryPoints": [
+    "index.html",
+    "index.html#/onboarding"
+  ],
+  "prototypeOnly": [
+    "State lives in the browser's localStorage. Clearing site data loses it.",
+    "Tally / Zoho / Vyapar connections are SIMULATED. Nothing is contacted; choosing one reveals the records this repository already holds.",
+    "Document upload, photograph, extraction, mapping and validation are SIMULATED. The interaction is real; there is no ingestion, and the flow says so rather than inventing a result.",
+    "GST verification is SIMULATED. Nothing is looked up; the business name is filled from this tenant's own seed.",
+    "?evidence=none withholds the order history so the below-floor state of S03 can be walked. It removes real data; it never adds fake data.",
+    "Recording a follow-up is SIMULATED. Nothing is stored beyond the session, there is no backend, and the next snapshot is not built in this version."
+  ],
+  "baseline": {
+    "from": "master",
+    "ref": "1568888",
+    "digest": "8c7d2f433d465627badc07fc687632e0f1daba40dcd71a74650d415db9c46355"
+  },
+  "provenance": {
+    "migratedFrom": "",
+    "originalPath": "",
+    "migratedOn": "",
+    "migration": "created from master on 2026-09-16"
+  }
+}

@@ -1,0 +1,183 @@
+{
+ "_about": "The QA store sidebar and header (assets/mock-shell.js) — shared with the other module mockups.",
+ "store": {
+  "name": "QA store"
+ },
+ "user": {
+  "displayName": "Mahesh",
+  "role": "Admin",
+  "image": null
+ },
+ "storefrontMenus": [
+  {
+   "name": "Dashboard",
+   "path": "/dashboard",
+   "component": "dashboard",
+   "icon": "layoutGrid"
+  },
+  {
+   "name": "Product Master",
+   "path": "/products",
+   "component": "products",
+   "icon": "package",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Finished Goods",
+     "path": "/products"
+    },
+    {
+     "name": "Product Categories",
+     "path": "/categories"
+    },
+    {
+     "name": "Raw Materials",
+     "path": "/raw-materials"
+    },
+    {
+     "name": "Image Gallery",
+     "path": "/image-gallery"
+    }
+   ]
+  },
+  {
+   "name": "Customer Management",
+   "path": "/customers",
+   "component": "customers",
+   "icon": "usersRound",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Retail Customers",
+     "path": "/retail-customers"
+    },
+    {
+     "name": "Customer Locations",
+     "path": "/customer-locations"
+    }
+   ]
+  },
+  {
+   "name": "Sales Orders",
+   "path": "/orders",
+   "component": "orders",
+   "icon": "shoppingCart"
+  },
+  {
+   "name": "Distribution & Logistics",
+   "path": "/distribution",
+   "component": "distribution",
+   "icon": "usersShare",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Dispatch",
+     "path": "/dispatch"
+    },
+    {
+     "name": "Delivery",
+     "path": "/delivery"
+    },
+    {
+     "name": "Manage Routes",
+     "path": "/manage-routes"
+    }
+   ]
+  },
+  {
+   "name": "Production",
+   "path": "/production",
+   "component": "production",
+   "icon": "factory",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Recipes",
+     "path": "/production/recipes"
+    },
+    {
+     "name": "Batches",
+     "path": "/production/batches"
+    }
+   ]
+  },
+  {
+   "name": "Inventory",
+   "path": "/inventory",
+   "component": "inventory",
+   "icon": "warehouse",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Inventory",
+     "path": "/inventory"
+    },
+    {
+     "name": "Raw Material Inventory",
+     "path": "/raw-material-inventory"
+    },
+    {
+     "name": "Stock Counts",
+     "path": "/stock-counts"
+    }
+   ]
+  },
+  {
+   "name": "Stock Audit Settlement",
+   "path": "/stock-audit",
+   "component": "stock-audit",
+   "icon": "clipboardCheck",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Audits",
+     "path": "/stock-audit/audits"
+    },
+    {
+     "name": "Settlements",
+     "path": "/stock-audit/settlements"
+    }
+   ]
+  },
+  {
+   "name": "Procurement",
+   "path": "/procurement",
+   "component": "procurement",
+   "icon": "shoppingBag",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Purchase Orders",
+     "path": "/sourcing-orders"
+    },
+    {
+     "name": "Suppliers",
+     "path": "/procurement/suppliers"
+    }
+   ]
+  },
+  {
+   "name": "Finance",
+   "path": "/finance",
+   "component": "finance",
+   "icon": "banknote",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Invoices",
+     "path": "/finance/invoices"
+    },
+    {
+     "name": "Payments",
+     "path": "/finance/payments"
+    }
+   ]
+  },
+  {
+   "name": "Workforce Management",
+   "path": "/our-staff",
+   "component": "our-staff",
+   "icon": "userCog"
+  }
+ ]
+}

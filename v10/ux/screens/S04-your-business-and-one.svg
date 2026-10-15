@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 844" width="800" height="844" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <!-- S04 — Your business · SCREEN + DRAWER. LOW FIDELITY.
+       Flow node: F12. Redrawn against D-018. This screen was the worst
+       offender under the must-have rule, and all of it was my own copy.
+
+       MOVED into "Why this matters": the buying-rhythm paragraph, the
+       where-to-look line, and the coverage sentence — methodology, explanation
+       and provenance.
+       REMOVED: both unlock lines, duplicated from S03.
+       COMPRESSED: the two supporting opportunities lost their sub-lines and
+       carry their scope in the label instead.
+       NO STEP COUNTER: onboarding is Steps 1-3. This is activation.
+       HEADLINE names the fact — "past their usual order date" — so the
+       key-fact line came off with it. "Usual" is per shop, and how that is
+       derived stays in the drawer. -->
+  <rect x="0" y="0" width="800" height="844" fill="#ffffff"/>
+
+  <!-- ======================== business pulse ======================== -->
+  <rect x="0" y="0" width="390" height="844" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <text x="24" y="44" font-size="13" font-weight="600" fill="#111111">FoodBridge</text>
+  <line x1="0" y1="66" x2="390" y2="66" stroke="#e5e7eb" stroke-width="1"/>
+
+  <text x="24" y="104" font-size="10" font-weight="700" fill="#999999">WHAT WE NOTICED</text>
+
+  <!-- HEADLINE — it carries the fact itself, so no key-fact line sits under it.
+       "their usual" is the whole point: each shop is measured against its own
+       date, never against an average. The DEEPER form of that — how the date
+       was derived — is in Why this matters, and only there. -->
+  <text x="24" y="150" font-size="25" font-weight="700" fill="#111111">23 shops are past</text>
+  <text x="24" y="182" font-size="25" font-weight="700" fill="#111111">their usual order date</text>
+
+  <!-- the reasoning lives behind this, not on the screen -->
+  <text x="24" y="226" font-size="14" font-weight="600" fill="#111111">Why this matters  &#8250;</text>
+
+  <line x1="24" y1="270" x2="366" y2="270" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="24" y="288" width="34" height="34" rx="9" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="72" y="311" font-size="14" fill="#111111">25 of 86 products out of stock</text>
+  <text x="358" y="311" font-size="13" fill="#cccccc" text-anchor="end">&#8250;</text>
+  <line x1="24" y1="344" x2="366" y2="344" stroke="#e5e7eb" stroke-width="1"/>
+  <rect x="24" y="362" width="34" height="34" rx="9" fill="none" stroke="#999999" stroke-width="1.5"/>
+  <text x="72" y="385" font-size="14" fill="#111111">32 shops ready for a reorder</text>
+  <text x="358" y="385" font-size="13" fill="#cccccc" text-anchor="end">&#8250;</text>
+  <line x1="24" y1="418" x2="366" y2="418" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- ACTION -->
+  <rect x="20" y="694" width="350" height="54" rx="10" fill="#111111"/>
+  <text x="195" y="728" font-size="16" fill="#ffffff" text-anchor="middle">Start here</text>
+  <text x="195" y="778" font-size="14" fill="#666666" text-anchor="middle">Not now</text>
+
+  <!-- ===================== why this matters ========================= -->
+  <rect x="410" y="0" width="390" height="844" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <rect x="410" y="0" width="390" height="844" fill="#f6f8f7" opacity="0.6"/>
+  <rect x="410" y="180" width="390" height="664" rx="18" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+  <rect x="580" y="198" width="50" height="4" rx="2" fill="#e5e7eb"/>
+
+  <text x="434" y="256" font-size="21" font-weight="600" fill="#111111">Why this matters</text>
+
+  <text x="434" y="300" font-size="10" font-weight="700" fill="#999999">WHAT WE LOOKED AT</text>
+  <text x="434" y="328" font-size="14" fill="#111111">532 orders from 39 of your 40 shops,</text>
+  <text x="434" y="350" font-size="14" fill="#111111">over two years.</text>
+
+  <text x="434" y="396" font-size="10" font-weight="700" fill="#999999">HOW WE READ IT</text>
+  <text x="434" y="424" font-size="14" fill="#111111">Every shop has its own buying rhythm.</text>
+  <text x="434" y="446" font-size="14" fill="#111111">We compared each one against its own,</text>
+  <text x="434" y="468" font-size="14" fill="#111111">not against an average.</text>
+
+  <text x="434" y="514" font-size="10" font-weight="700" fill="#999999">WHAT WE FOUND</text>
+  <rect x="430" y="526" width="350" height="146" rx="10" fill="none" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="446" y="556" font-size="13" fill="#666666">Shops past their cycle</text>
+  <text x="764" y="556" font-size="14" font-weight="700" fill="#111111" text-anchor="end">23</text>
+  <line x1="446" y1="572" x2="764" y2="572" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="600" font-size="13" fill="#666666">Longest overdue</text>
+  <text x="764" y="600" font-size="14" font-weight="700" fill="#111111" text-anchor="end">171 days</text>
+  <line x1="446" y1="616" x2="764" y2="616" stroke="#f1f5f9" stroke-width="1"/>
+  <text x="446" y="644" font-size="13" fill="#666666">We can prepare a reorder for</text>
+  <text x="764" y="644" font-size="14" font-weight="700" fill="#111111" text-anchor="end">16</text>
+
+  <rect x="430" y="742" width="350" height="50" rx="10" fill="none" stroke="#111111" stroke-width="1.5"/>
+  <text x="605" y="773" font-size="15" fill="#111111" text-anchor="middle">Close</text>
+</svg>

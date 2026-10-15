@@ -1,0 +1,142 @@
+{
+  "_about": [
+    "The tenant configuration the Sales Orders screen runs under — the QA store's, as the production",
+    "app received it on 25 Sep 2026 (/v2/multiAdmin/setup). Only the keys this screen reads are kept;",
+    "every credential, key, contact and real location in the original was removed.",
+    "Each flag changes what renders. Flip one here to see the tenant variant it produces:",
+    "  orderManagementFeatures.*   toolbar buttons and the Allocation Status column",
+    "  googleSheet.view/edit       the Google Sheet toolbar and the mobile Export/History buttons",
+    "  showOrderInvoiceAction      the Invoice column",
+    "  orderWorkflow               status options per row, which rows can be invoiced and edited",
+    "  storefrontMenus             the label the screen calls itself ('Sales Orders')"
+  ],
+  "storefrontMenus": [
+    { "name": "Dashboard", "path": "dashboard", "submenus": [] },
+    { "name": "Product Master", "path": null, "submenus": [] },
+    { "name": "Customer Management", "path": null, "submenus": [] },
+    { "name": "Sales Orders", "path": "orders", "submenus": [] },
+    { "name": "Distribution & Logistics", "path": null, "submenus": [] },
+    { "name": "Production", "path": null, "submenus": [] },
+    { "name": "Inventory", "path": null, "submenus": [] },
+    { "name": "Procurement", "path": null, "submenus": [] },
+    { "name": "Finance", "path": null, "submenus": [] },
+    { "name": "Workforce Management", "path": "our-staff", "submenus": [] }
+  ],
+  "role": "WHOLESALER_ADMIN",
+  "subRole": "DEFAULT",
+  "username": "Mahesh",
+  "multiLoc": true,
+  "routeDeliveryPrivileges": ["STOCK_LOAD", "DELIVERY", "VIEW_REPORT"],
+  "customerTypeList": [{ "id": 1, "name": "Standard" }, { "id": 2, "name": "Premium" }],
+  "sellerLocation": { "_id": "5a0000000000000000000001", "name": "QA Store — Pune Depot", "status": "ACTIVE" },
+  "orderWorkflow": {
+    "itemStatuses": ["Accepted", "Cancel"],
+    "deliveryAllowedStatuses": ["InProgress", "Ready for dispatch", "Dispatch Created", "Return Accepted"],
+    "reOrderAllowedStatuses": [],
+    "editAllowedStatuses": [],
+    "invoiceAllowedStatuses": ["Delivered", "Ready for dispatch", "InProgress", "In Delivery"],
+    "partialDeliveredStatus": "Partial Delivered",
+    "completeDeliveredStatus": "Delivered",
+    "sellerStockUpdateOnStatus": ["Delivered", "Return Accepted"],
+    "buyerStockUpdateOnStatus": ["Delivered", "Return Accepted"],
+    "stockReservationOnStatus": ["Pending"],
+    "eligibleStatus": {
+      "ORDER": { "forDispatch": ["Ready for dispatch"] },
+      "DISPATCH": { "forDelivery": ["Dispatch Created"], "forReturn": ["Delivered"] },
+      "DELIVERY": { "forTracking": ["Out for Delivery"] },
+      "RETURN": { "forDispatch": ["Return Created"] },
+      "RETURN_DISPATCH": { "forDelivery": ["Return Dispatch Created", "Return Accepted"] }
+    },
+    "statusWorkFlow": {
+      "ORDER": [
+        { "status": "Pending", "nextStatuses": ["Ready for dispatch"], "isAuditAllowed": true },
+        { "status": "Ready for dispatch", "nextStatuses": [], "isAuditAllowed": true }
+      ],
+      "DISPATCH": [
+        { "status": "Dispatch Created", "nextStatuses": ["Delivered"], "isAuditAllowed": true },
+        { "status": "Delivered", "nextStatuses": [], "isAuditAllowed": true }
+      ],
+      "DELIVERY": [
+        { "status": "Delivery Created", "nextStatuses": ["Vehicle Loading Completed"], "isAuditAllowed": true },
+        { "status": "Vehicle Loading Completed", "nextStatuses": ["Out for Delivery"], "isAuditAllowed": true },
+        { "status": "Out for Delivery", "nextStatuses": [] }
+      ],
+      "RETURN": [{ "status": "Return Created", "nextStatuses": [] }],
+      "RETURN_DISPATCH": [{ "status": "Return Accepted", "nextStatuses": [] }],
+      "PURCHASE_ORDER": [
+        { "status": "InProgress", "nextStatuses": ["Delivered"], "isAuditAllowed": true },
+        { "status": "Delivered", "nextStatuses": [] }
+      ]
+    }
+  },
+  "appProp": {
+    "logoText": "QA store",
+    "currency": "₹",
+    "amountConfiguration": { "displayRoundedAmounts": true },
+    "orderManagementFeatures": {
+      "bulkProxyOrder": true,
+      "downloadAllOrders": false,
+      "demandReport": false,
+      "allocationStatus": false,
+      "createDelivery": true
+    },
+    "googleSheet": { "view": false, "edit": false },
+    "showOrderInvoiceAction": true,
+    "allowOrderPriceOverride": true,
+    "orderPageFilters": [
+      { "name": "PENDING", "value": "Pending", "key": "STATUS" },
+      { "name": "IN-PROGRESS", "value": "Inprogress", "key": "STATUS" },
+      { "name": "SHIPPING", "value": "Shipping", "key": "STATUS" }
+    ],
+    "paymentMethods": {
+      "isActive": "pod,payOnline",
+      "stripe": { "isActive": false },
+      "QR": { "isActive": false, "tooltip": "Scan to Pay and enter your transaction id", "qrImageUrl": "", "qrNetBankingId": "qrNetBankingId" },
+      "pod": { "isActive": true }
+    },
+    "shippingMethods": {
+      "isDeliverToMeEnabled": false, "isShippingConfigured": false, "isDeliveryAreaEnabled": false,
+      "isSelfPickUpEnabled": false, "selfPickUpPoints": [],
+      "shippingMethodsConfigList": { "isCifEnabled": false, "isCipEnabled": false, "isDdpEnabled": false, "isDeliveryAreaEnabled": false, "isFobEnabled": false, "isSelfPickUpEnabled": false }
+    },
+    "mobileFooterConfig": { "addCustomer": "false", "addProduct": "true", "barcodeScanner": "false", "filterCategory": "true", "placeOrder": "true", "Prislista": "true", "proxyOrder": "true", "selectLocation": "true", "transport": true, "storeConfig": true },
+    "invoice": { "customConfig": { "cinNumber": "", "fssaiNumber": "", "panNumber": "", "uinNumber": "", "pdfOptions": { "format": "A4", "border": { "bottom": "0.5cm", "top": "0.5cm", "left": "0.25cm", "right": "0.25cm" } } } },
+    "bypassDispatchStage": false,
+    "bypassDeliveryStage": true,
+    "isRouteDeliveryEnabled": true,
+    "orderDeliveryRoute": { "multi": true, "single": true },
+    "isInventoryEnabled": "false",
+    "allowOversell": true,
+    "showAlertForOversell": true,
+    "showOrderingUnitBreakdown": false,
+    "isPalletCalculationEnabled": false,
+    "isTransportCostEnabled": true,
+    "transportationExpression": "price + (transportationCost / (product.pallets * product.boxes))",
+    "priceCalc": {
+      "type": "BOX",
+      "palletExpression": "parseFloat(itemPrice.split(\"/\")[0]) * parseInt(item.qty) * item.boxes * item.pallets",
+      "boxExpression": "parseFloat(itemPrice.split(\"/\")[0]) * parseInt(item.qty) * item.boxes"
+    },
+    "splitPaymentEnabled": true,
+    "directDeliveryEnabled": true,
+    "isProxyUsersEnabled": "true",
+    "isAddProductEnabled": true,
+    "multiImagesEnabled": true,
+    "isStoreQrCode": { "isEnabled": true },
+    "isThermalPrintSetupEnabled": true,
+    "isTagFeatureEnabled": true,
+    "customerTypeList": [{ "id": 1, "name": "Standard" }, { "id": 2, "name": "Premium" }],
+    "unitConfig": { "demandReport": { "displayUnit": 0 } },
+    "priceCalculationUnitIndex": 0,
+    "supportedUnitIndexLevel": 1,
+    "unitMap": {
+      "Pouch": { "units": ["Pouch", "Crate"], "strUnits": "Pouch/Crate" },
+      "Pack": { "units": ["Pack", "Box"], "strUnits": "Pack/Box" },
+      "Cup": { "units": ["Cup", "Crate"], "strUnits": "Cup/Crate" },
+      "Bag": { "units": ["Bag", "Bundle"], "strUnits": "Bag/Bundle" },
+      "Bottle": { "units": ["Bottle", "Case"], "strUnits": "Bottle/Case" },
+      "Pkt": { "units": ["Pkt", "Carton"], "strUnits": "Pkt/Carton" }
+    },
+    "taxConfig": { "taxStateCodeList": [{ "code": "27", "name": "Maharashtra" }] }
+  }
+}

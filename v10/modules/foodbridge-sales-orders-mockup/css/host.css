@@ -1,0 +1,11 @@
+/*
+  The host page the Sales Orders screen lives in (storefront-frontend), as far as it reaches the
+  screen: a white page, and the global density scale — the ROOT font-size steps down on tablets
+  and phones, so every rem-based size on the screen shrinks with it. (Tailwind's base supplies the
+  rest: the system font, line-height 1.5, no body margin.)
+  Source: storefront-frontend/src/assets/css/custom.css, "GLOBAL MOBILE & TABLET COMPACT LAYOUT".
+*/
+html, body, :root { background-color: #ffffff !important; color: #000000 !important; color-scheme: light !important; }
+@media (min-width: 640px) and (max-width: 1023px) { html { font-size: 15px; } }
+@media (max-width: 639px) { html { font-size: 14.5px; } }
+@media (max-width: 419px) { html { font-size: 13.5px; } }

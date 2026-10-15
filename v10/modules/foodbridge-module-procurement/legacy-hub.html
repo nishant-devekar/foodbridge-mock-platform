@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  The previous, hand-ported Procurement screens, kept for reference. The platform now opens
+  index.html for Purchase Orders (the pixel-parity prototype — README.md); Supplier Management
+  still opens screens/screen-09.html.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procurement — Legacy Screens</title>
+  <style>
+    :root { color-scheme: light; --fg: #0f172a; --muted: #64748b; --line: #e2e8f0; --brand: #059669; --bg: #f8fafc; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; color: var(--fg); background: var(--bg); line-height: 1.55; }
+    .wrap { max-width: 64rem; margin: 0 auto; padding: 2.25rem 1rem 4rem; }
+    h1 { font-size: 1.5rem; margin: 0 0 .4rem; letter-spacing: -.02em; }
+    .sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .95rem; }
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+    a.card { display: block; text-decoration: none; color: inherit; background: #fff; border: 1px solid var(--line); border-radius: .6rem; padding: .9rem 1rem; }
+    a.card:hover { border-color: #6ee7b7; }
+    .card-id { font-size: .68rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--brand); }
+    .card-title { font-weight: 600; font-size: .95rem; margin: .15rem 0 .2rem; }
+    .card-desc { color: var(--muted); font-size: .82rem; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Procurement — legacy screens</h1>
+    <p class="sub">The earlier hand-ported screens, kept for reference. For Purchase Orders, open
+      <a href="index.html">the current prototype</a>.</p>
+    <div class="grid">
+      <a class="card" href="screens/screen-02.html"><div class="card-id">Screen 02</div><div class="card-title">Sourcing Orders</div><p class="card-desc">The purchase-order list.</p></a>
+      <a class="card" href="screens/screen-03.html"><div class="card-id">Screen 03</div><div class="card-title">Purchase Forecast Drawer</div><p class="card-desc">The forecast drawer over the list.</p></a>
+      <a class="card" href="screens/screen-04.html"><div class="card-id">Screen 04</div><div class="card-title">Create Order Drawer</div><p class="card-desc">Creating a purchase order.</p></a>
+      <a class="card" href="screens/screen-09.html"><div class="card-id">Screen 09</div><div class="card-title">Supplier Management</div><p class="card-desc">Still the platform's Supplier Management screen.</p></a>
+    </div>
+  </div>
+</body>
+</html>

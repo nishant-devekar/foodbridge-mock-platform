@@ -1,0 +1,1076 @@
+/* ==========================================================================
+   ONBOARDING — the visual layer. v7, 17 Sep 2026: the UI flip.
+
+   The target is ONE image — the eleven-screen onboarding board the product
+   owner supplied (ux/target/onboarding-target.jpg). It is the visual source of
+   truth: layout, type scale, spacing, colour, radii, icon scale, illustration.
+   The approved UX (ux/FLOW-MAP.md, VERSION.md) stays the behavioural source of
+   truth; every screen below is an existing UX state wearing the image's
+   treatment, never a screen the image implies but the flow does not have.
+
+   THE UNIT. Every measurement was taken off the image, where one phone screen
+   is 220px wide. 1rem = 10 image px, and the root font size scales the image's
+   220px column to the device (capped at 402px, the iPhone 16 Pro, which is
+   what the flow is validated on). So `1.38rem` reads "13.8 image px", and
+   proportions hold at every width instead of drifting at 375 or 430.
+   The single exception is an editable field's text: iOS zooms the page on
+   focus below 16px, so inputs are max(16px, their image size).
+
+   Measured tokens (image px → rem):
+     brand green  #0e8a3c  CTA, progress, ticks, links
+     title        13.8 / 17 bold      compact title 11.5 / 15 bold
+     subtitle     8.4 / 13 regular #4b5058
+     row          34 tall, 5.5 gap, radius 5.5, label 8.55 semibold
+     CTA          26 tall, radius 4.5, 9.2 semibold, 15 gutter
+     progress     4 segments, 3.8 tall, x 42→197
+   ========================================================================== */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(../../../vendor/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --g: #0e8a3c;
+  --g-d: #0b7534;
+  --g-dd: #095f2b;
+  --g-50: #e8f5ec;
+  --g-100: #d0e6d7;
+  --g-tint: #f3faf5;
+
+  --ink: #0d0f12;
+  --ink-2: #2b2f35;
+  --sub: #4b5058;
+  --muted: #6b7079;
+  --muted-2: #9ca1a9;
+  --line: #e6e8eb;
+  --line-2: #f0f1f3;
+  --prog: #e2e3e7;
+  --card: #ffffff;
+  --surface: #f4f5f7;
+
+  --red: #e03a3e;
+  --red-bg: #fdf1f1;
+  --red-line: #f4d3d4;
+  --amber: #a15c07;
+  --amber-bg: #fdf7ea;
+  --amber-line: #f1e0b8;
+
+  --font: "Inter", system-ui, -apple-system, sans-serif;
+  --shadow-row: 0 .05rem .15rem rgba(16, 24, 40, .035);
+  --ob-kb: 0px;
+  --ob-top-h: calc(3.4rem + env(safe-area-inset-top, 0px));   /* the title bar; the card's is taller */
+}
+
+/* 1rem = 10 image px. */
+html { font-size: calc(min(100vw, 402px) / 22); }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Held by applyScrollLock() while a sheet is open. */
+body.ob-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; overscroll-behavior: none; }
+
+button { font-family: var(--font); }
+
+.ob-app {
+  max-width: 402px; margin: 0 auto; background: var(--card);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+/* svh: the viewport with Safari's toolbar showing. dvh measured 22pt taller than
+   what iOS 26 Safari shows, which made every short screen scroll. */
+#ob-root { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
+
+/* ── chrome ───────────────────────────────────────────────────────────────
+   Back arrow at x 17→29, the four-segment progress at x 42→197, both centred
+   25 image px below the top of the screen. The status bar sits above that. */
+/* Sticky, on every screen that has it (17 Sep 2026). Back is navigation: on a
+   long screen 5 it scrolled away and the only way out was to scroll back up.
+   The safe-area inset stays inside the header's own height, so pinned at top:0
+   it keeps the status bar clear rather than sliding content under the clock.
+   z-index 6 clears the sticky footer's 5 and stays far below the sheets' 40. */
+.ob-top {
+  position: sticky; top: 0; z-index: 6; flex: 0 0 auto;
+  height: calc(3.4rem + env(safe-area-inset-top, 0px));
+  background: var(--card);
+}
+/* Rows dissolve under the header instead of being cut in half by its edge --
+   the mirror of the footer's fade. */
+.ob-top::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: .8rem;
+  background: linear-gradient(to bottom, var(--card), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+.ob-back {
+  position: absolute; left: 1.1rem; top: calc(1.3rem + env(safe-area-inset-top, 0px));
+  display: grid; place-items: center;
+  width: 2.4rem; height: 2.4rem; min-width: 44px; min-height: 44px; margin: -.2rem 0 0 -.2rem;
+  padding: 0; border: 0; background: none; color: #25282e; cursor: pointer; border-radius: 50%;
+}
+.ob-back > svg { width: 1.35rem; height: 1.35rem; }
+.ob-back:active { background: var(--line-2); }
+.ob-prog {
+  position: absolute; left: 4.2rem; right: 2.3rem;
+  top: calc(2.31rem + env(safe-area-inset-top, 0px));
+  display: flex; gap: .28rem;
+}
+.ob-prog i { flex: 1; height: .38rem; border-radius: 99px; background: var(--prog); transition: background .35s ease; }
+.ob-prog i.on { background: var(--g); }
+
+/* The titled bar (Create Order): a chevron and a centred title. */
+.ob-top.is-titled .ob-back { left: 1.2rem; }
+.ob-top-t {
+  position: absolute; left: 4.5rem; right: 4.5rem; top: calc(1.6rem + env(safe-area-inset-top, 0px));
+  margin: 0; text-align: center; font-size: 1.04rem; line-height: 1.4rem; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* The wordmark: Food in ink, Bridge in green, centred. */
+.ob-wordmark {
+  flex: 0 0 auto; margin: 0; padding-top: calc(1.82rem + env(safe-area-inset-top, 0px));
+  text-align: center; font-size: 1.58rem; line-height: 2rem; font-weight: 700; letter-spacing: 0; color: var(--ink);
+}
+.ob-wordmark { display: flex; justify-content: center; line-height: 0; padding-top: calc(1.2rem + env(safe-area-inset-top, 0px)); }
+.ob-wordmark .ob-logo { width: 1.75rem; height: 1.75rem; border-radius: .45rem; display: block; }
+.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { padding-top: calc(2.52rem + env(safe-area-inset-top, 0px)); }
+
+.ob-main { flex: 1 1 auto; padding: 0 1.5rem 2rem; }
+
+/* ── type ──────────────────────────────────────────────────────────────── */
+.ob-h1 {
+  margin: 2.09rem .5rem 0; font-size: 1.38rem; line-height: 1.7rem; font-weight: 700;
+  letter-spacing: -.012em; color: var(--ink);
+}
+.ob-h1.is-center { text-align: center; margin-left: 0; margin-right: 0; }
+.ob-h1.is-m { font-size: 1.15rem; line-height: 1.5rem; }
+.ob-sub {
+  margin: .55rem .5rem 0; font-size: .84rem; line-height: 1.3rem; font-weight: 400; color: var(--sub);
+}
+.ob-sub.is-center { text-align: center; margin-left: 1rem; margin-right: 1rem; }
+button.ob-sub { display: block; width: calc(100% - 2rem); padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--font); }
+button.ob-sub.is-left { width: calc(100% - 1rem); text-align: left; }
+.ob-sub .ob-sub-more { color: var(--g); font-weight: 600; white-space: nowrap; }
+
+/* ── lists of rows (screens 2, 5, 6) ───────────────────────────────────── */
+.ob-list { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.3rem; }
+.ob-row {
+  display: flex; align-items: center; gap: 1.1rem; width: 100%;
+  min-height: 3.45rem; padding: .7rem 1.25rem .7rem 1.2rem;
+  text-align: left; font-family: var(--font); color: var(--ink);
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem;
+  box-shadow: var(--shadow-row);
+}
+button.ob-row, label.ob-row { cursor: pointer; }
+button.ob-row:active, label.ob-row:active { background: #fafbfa; }
+@media (hover: hover) { button.ob-row:hover, label.ob-row:hover { border-color: #d6dad9; } }
+.ob-row[disabled], .ob-row.is-soon { cursor: default; }
+.ob-row-ic { flex: 0 0 auto; display: grid; place-items: center; width: 1.3rem; color: var(--g); }
+.ob-row-ic > svg { width: 1.3rem; height: 1.3rem; }
+.ob-row-ic.is-bad { color: var(--red); }
+.ob-row-ic.is-muted { color: var(--muted-2); }
+.ob-row-logo { flex: 0 0 auto; display: grid; place-items: center; width: 2rem; height: 2rem; }
+.ob-row-logo img { display: block; max-width: 2rem; max-height: 1.8rem; object-fit: contain; }
+.ob-row-logo.is-cluster { grid-template-columns: 1fr 1fr; gap: .12rem; }
+.ob-row-logo.is-cluster img { width: .92rem; height: .92rem; }
+.ob-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.ob-row-t { font-size: .855rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); }
+.ob-row-s { font-size: .74rem; line-height: 1.12rem; font-weight: 400; color: var(--muted); }
+.ob-row-s.is-ok { color: var(--g); font-weight: 600; }
+.ob-row-s.is-bad { color: var(--red); font-weight: 600; }
+.ob-row-n { flex: 0 0 auto; font-size: .83rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-row-tick { flex: 0 0 auto; display: grid; place-items: center; width: 1.3rem; color: var(--g); margin-right: 1.4rem; }
+.ob-row-tick > svg { width: 1.05rem; height: 1.05rem; }
+.ob-row-tick.is-bad { color: var(--red); font-size: 1.05rem; font-weight: 800; }
+.ob-row-miss { flex: 0 0 auto; font-size: .78rem; font-weight: 500; color: var(--red); }
+.ob-row-add { flex: 0 0 auto; font-size: .83rem; font-weight: 600; color: var(--g); }
+.ob-row-chev { flex: 0 0 auto; display: grid; place-items: center; color: #5b6068; margin-left: -.3rem; }
+.ob-row-chev > svg { width: 1rem; height: 1rem; }
+.ob-row-soon {
+  flex: 0 0 auto; padding: .22rem .6rem; border-radius: 99px;
+  font-size: .66rem; font-weight: 600; color: var(--muted); background: var(--line-2);
+}
+.ob-row.is-soon { background: #fbfbfc; box-shadow: none; }
+.ob-row.is-soon .ob-row-t { color: var(--muted); }
+.ob-row.is-soon .ob-row-logo img { opacity: .6; filter: grayscale(.3); }
+.ob-row.is-on { border-color: var(--g-100); background: var(--g-tint); }
+.ob-row.is-failed { border-color: var(--red-line); }
+.ob-row .ob-spin { color: var(--g); }
+
+/* A label inside a list, as "Add Items" / "Order Details" are labelled. */
+.ob-sec { margin: 1.6rem .5rem -.5rem; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-list + .ob-sec { margin-top: 1.7rem; }
+
+/* ── screen 6: the data manifest ─────────────────────────────────────────
+   Redesigned 17 Sep 2026. It had been twelve separate rounded cards, each
+   with its own border, a big green tick and a chunky outlined button — a
+   reward chart, not a summary of a business's books. A manifest is a dense,
+   quiet thing: one card per group, hairline rules between rows, the counts
+   right-aligned on tabular figures so the column reads down, and colour spent
+   only where there is something wrong. */
+.ob-glabel {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  margin: 1.45rem .2rem .45rem;
+  font-size: .68rem; line-height: 1rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted-2);
+}
+.ob-glabel span { font-size: .68rem; font-weight: 500; letter-spacing: .02em; text-transform: none; color: var(--muted-2); }
+.ob-group {
+  border: 1px solid var(--line); border-radius: .6rem;
+  background: var(--card); box-shadow: var(--shadow-row); overflow: hidden;
+}
+.ob-grow {
+  display: flex; align-items: center; gap: .8rem; width: 100%;
+  min-height: 2.85rem; padding: .4rem 1rem;
+  margin: 0; background: none; border: 0; text-align: left;
+  font-family: var(--font); color: var(--ink); cursor: default;
+}
+button.ob-grow { cursor: pointer; }
+button.ob-grow:active { background: var(--line-2); }
+.ob-grow + .ob-grow { border-top: 1px solid var(--line-2); }
+.ob-grow-ic { flex: 0 0 auto; display: grid; place-items: center; width: 1.15rem; color: var(--muted-2); }
+.ob-grow-ic > svg { width: 1.15rem; height: 1.15rem; }
+.ob-grow-t { flex: 1 1 auto; min-width: 0; font-size: .88rem; line-height: 1.2rem; font-weight: 500; }
+.ob-grow-n {
+  flex: 0 0 auto; font-size: .88rem; line-height: 1.2rem; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.ob-grow-s { flex: 0 0 auto; font-size: .8rem; line-height: 1.2rem; color: var(--muted-2); }
+.ob-grow-go { flex: 0 0 auto; display: grid; place-items: center; width: .85rem; color: var(--muted-2); margin-right: -.2rem; }
+.ob-grow-go > svg { width: .85rem; height: .85rem; }
+/* The one place colour is spent: a must-have the product cannot run without. */
+.ob-grow.is-need .ob-grow-ic, .ob-grow.is-need .ob-grow-s { color: var(--red); }
+
+/* The sticky footer lifts over the end of the flow, and the last row here can
+   carry an action. */
+.ob-main.is-check { padding-bottom: 6.4rem; }
+
+/* ── the green link (screen 6 "I'll do this later", screen 7 "+ Add another") */
+.ob-link {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  width: 100%; min-height: 44px; margin: .3rem 0 0; padding: 0 1rem;
+  font-family: var(--font); font-size: .94rem; font-weight: 600; color: var(--g);
+  background: none; border: 0; cursor: pointer; text-align: center;
+}
+.ob-link > svg { width: 1.05rem; height: 1.05rem; }
+.ob-link:active { opacity: .6; }
+.ob-link.is-warn { color: var(--red); }
+.ob-link.is-quiet { color: var(--muted); font-weight: 500; }
+.ob-link.is-sm { font-size: .84rem; }
+label.ob-link { position: relative; }
+.ob-link.is-inlist { margin-top: 1.25rem; }
+
+/* ── callout (screen 6) ─────────────────────────────────────────────────── */
+.ob-callout {
+  display: flex; align-items: flex-start; gap: .95rem;
+  margin-top: 1.2rem; padding: .95rem 1.2rem 1rem 1.15rem;
+  background: var(--g-50); border: 1px solid var(--g-100); border-radius: .5rem;
+  font-size: .8rem; line-height: 1.3rem; color: #3b5646;
+}
+.ob-callout > svg { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: .12rem; color: var(--g); }
+.ob-callout p { margin: 0; }
+.ob-callout b { color: var(--ink); font-weight: 600; }
+.ob-callout.is-warn { background: var(--amber-bg); border-color: var(--amber-line); color: #6b4a12; }
+.ob-callout.is-warn > svg { color: var(--amber); }
+.ob-callout.is-bad { background: var(--red-bg); border-color: var(--red-line); color: #7a2a2c; }
+.ob-callout.is-bad > svg { color: var(--red); }
+.ob-callout .ob-cl-main { flex: 1 1 auto; min-width: 0; }
+.ob-callout .ob-cl-act {
+  display: inline-block; min-height: 32px; margin-top: .2rem; padding: .3rem 0 0;
+  font-family: var(--font); font-size: .8rem; font-weight: 600; color: inherit;
+  background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.ob-callout .ob-cl-legal { margin: .1rem 0 .1rem; font-size: .86rem; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+
+/* ── footer, CTA ────────────────────────────────────────────────────────── */
+.ob-foot {
+  position: sticky; bottom: 0; z-index: 5; flex: 0 0 auto;
+  padding: 1rem 1.45rem calc(1.75rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--card) 1rem);
+}
+.ob-foot.is-inline { position: static; background: none; padding: 1.1rem .1rem 2rem; }
+/* screen 1: wordmark → title → subtitle → fields, measured */
+.s01-h { margin-top: 1.55rem; font-size: 1.33rem; display: flex; align-items: center; justify-content: center; gap: .55rem; }
+.s01-h .ob-logo { width: 1.75rem; height: 1.75rem; border-radius: .45rem; flex: none; }
+.ob-sub.s01-sub { margin-top: .28rem; font-size: .76rem; line-height: 1.1rem; }
+.s01-sub + .ob-fields { margin-top: 1.3rem; }
+.s01-h + .ob-fields { margin-top: 1.3rem; }
+.ob-cta {
+  display: flex; align-items: center; justify-content: center; gap: .6rem;
+  width: 100%; min-height: 2.6rem; padding: 0 1rem;
+  font-family: var(--font); font-size: .92rem; font-weight: 600; color: #fff; text-align: center;
+  background: var(--g); border: 0; border-radius: .45rem; cursor: pointer;
+  box-shadow: 0 .1rem .25rem rgba(14, 138, 60, .22);
+  transition: background .15s ease;
+}
+@media (hover: hover) { .ob-cta:hover { background: var(--g-d); } }
+.ob-cta:active { background: var(--g-dd); }
+.ob-cta:disabled { background: #e3e5e8; color: #9ca1a9; box-shadow: none; cursor: default; }
+.ob-cta.is-warn { background: var(--red); box-shadow: none; }
+.ob-cta.is-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); box-shadow: none; }
+/* A second action, not a dismissal: carries the green so it reads as a way
+   ON, where is-ghost's grey reads as a way out. */
+.ob-cta.is-alt { background: var(--card); color: var(--g); border: 1.5px solid var(--g); box-shadow: none; }
+@media (hover: hover) { .ob-cta.is-alt:hover { background: var(--g-tint); } }
+.ob-cta.is-alt:active { background: var(--g-tint); }
+
+/* Screen 8's fork. The two ways on were cards with a hairline and a grey
+   chevron -- the same clothes the data manifest wears, so they read as rows of
+   information rather than as things to press. They are buttons now, with what
+   each one does said underneath rather than inside. */
+.ob-pick { margin-top: 1.75rem; }
+.ob-pick .ob-cta { min-height: 3rem; font-size: .95rem; }
+.ob-pick-s { margin: .55rem .7rem 0; text-align: center; font-size: .78rem; line-height: 1.1rem; color: var(--muted); }
+.ob-pick-s + .ob-cta { margin-top: 1.3rem; }
+.ob-pick .ob-cta + .ob-cta { margin-top: .75rem; }
+/* 21 Sep 2026 — "You're all set": the result centred, a touch above the middle; the choices pinned below. */
+.ob-main.is-ready { display: flex; flex-direction: column; justify-content: center; padding-bottom: 3.5rem; }
+.ob-done { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.ob-done-tick { width: 3.5rem; height: 3.5rem; border-radius: 50%; box-shadow: 0 0 0 .6rem var(--g-50); animation: ob-done-in .45s cubic-bezier(.2,.8,.2,1.2) both; }
+.ob-done .ob-h1 { margin: 1.6rem 0 0; font-size: 1.45rem; }
+@keyframes ob-done-in { from { transform: scale(.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ob-done-tick { animation: none; } }
+.ob-foot.is-ready .ob-cta + .ob-cta { margin-top: .7rem; }
+.ob-cta .ob-spin { color: rgba(255,255,255,.85); }
+.ob-cta:disabled .ob-spin { color: var(--muted-2); }
+label.ob-cta { position: relative; }
+.ob-foot-note { margin: 1.1rem 0 0; text-align: center; font-size: .74rem; line-height: 1.1rem; color: var(--muted); }
+
+.ob-spin {
+  display: inline-block; flex: 0 0 auto;
+  width: .9rem; height: .9rem; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: ob-spin .7s linear infinite;
+}
+@keyframes ob-spin { to { transform: rotate(360deg); } }
+
+/* ── hero marks: the confetti check (screens 5, 10) and the illustrations ── */
+.ob-hero { position: relative; display: block; margin: 0 auto; }
+.ob-hero svg { display: block; width: 100%; height: 100%; }
+/* Offsets measured off the image: each mark's top, then the title's line box. */
+.ob-hero.is-check { width: 13rem; height: 7.4rem; margin-top: 3.6rem; }
+.ob-hero.is-check.is-top { margin-top: -.2rem; }
+.ob-hero.is-cloud { width: 17rem; height: 10.3rem; margin-top: 3.4rem; }
+.ob-hero.is-clip { width: 10.6rem; height: 10.4rem; margin-top: 2.9rem; }
+.ob-hero.is-store { width: 17rem; height: 10.2rem; margin-top: 1.4rem; }
+.ob-hero.is-logo { width: 7rem; height: 3.6rem; margin-top: 3.8rem; display: grid; place-items: center; }
+.ob-hero.is-logo img { max-width: 7rem; max-height: 3.4rem; object-fit: contain; }
+.ob-hero + .ob-h1 { margin-top: 2.1rem; }
+.ob-hero.is-check + .ob-h1 { margin-top: 1.5rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: .7rem; }
+.ob-hero.is-logo + .ob-h1 { margin-top: 2.2rem; }
+.ob-hero.is-clip + .ob-h1 { margin-top: 1.9rem; }
+.ob-hero.is-store + .ob-h1 { margin-top: 3.1rem; }
+.ob-h1.s03b-h { margin-top: 3.48rem; }
+.ob-wordmark + .ob-main > .ob-h1.s11-h:first-child, .ob-wordmark + .ob-main > .ob-undo + .ob-h1 { margin-top: 1.6rem; }
+.ob-h1.is-center + .ob-list { margin-top: 2.05rem; }
+
+/* Screen 5 with a rich channel: up to eleven kinds of record. The full hero
+   leaves room for three rows, so the list the screen is FOR sits under the
+   fold. Dense trades illustration for findings -- smaller check, tighter rows. */
+.ob-hero.is-check.is-dense { width: 8.2rem; height: 4.7rem; margin-top: 1.1rem; }
+.ob-hero.is-check.is-dense + .ob-h1 { margin-top: .9rem; }
+.ob-h1.is-dense + .ob-sub { margin-top: .5rem; }
+.ob-h1.is-center.is-dense + .ob-sub + .ob-group { margin-top: 1.15rem; }
+.ob-group.is-found { margin-top: 1.15rem; }
+.ob-h1.is-found-h { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-top: 1.6rem; }
+.ob-h1.is-found-h .ob-found-tick { width: 1.4rem; height: 1.4rem; flex: none; }
+.ob-h1.is-found-h + .ob-group.is-found { margin-top: 1.3rem; }
+.ob-sub.is-center + .ob-list { margin-top: 2.05rem; }
+
+/* ── consent features (screen 3) ───────────────────────────────────────── */
+.ob-feats { display: flex; flex-direction: column; gap: 1.55rem; margin: 3.9rem .7rem 0; }
+.ob-feat { display: flex; align-items: flex-start; gap: 1.2rem; font-size: .81rem; line-height: 1.2rem; color: var(--ink-2); }
+.ob-feat > svg { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; color: var(--g); margin-top: .08rem; }
+
+/* ── checklist (screen 4) ──────────────────────────────────────────────── */
+.ob-checks { margin: 2.5rem .45rem 0; }
+.ob-ck { display: flex; align-items: center; gap: .85rem; min-height: 2.42rem; font-size: .81rem; color: var(--ink-2); }
+.ob-ck-dot {
+  flex: 0 0 auto; display: grid; place-items: center; width: .98rem; height: .98rem; border-radius: 50%;
+  border: 1.5px solid #d9dbdf; background: var(--card); color: #fff;
+}
+.ob-ck-dot > svg { width: .64rem; height: .64rem; stroke-width: 3.2; }
+.ob-ck.is-done .ob-ck-dot { background: var(--g); border-color: var(--g); }
+.ob-ck-t { flex: 1 1 auto; min-width: 0; }
+.ob-ck.is-wait .ob-ck-t { color: var(--sub); }
+.ob-ck-v { flex: 0 0 auto; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-ck-end { flex: 0 0 auto; display: grid; place-items: center; width: .98rem; height: .98rem; }
+.ob-ck-end .ob-spin { width: .9rem; height: .9rem; border-width: 1.5px; color: #4b5058; border-right-color: transparent; border-top-color: #d9dbdf; }
+
+/* ── bordered cards (screens 8, 10) ────────────────────────────────────── */
+.ob-card {
+  margin-top: 1.4rem; padding: .35rem 1.1rem; background: var(--card);
+  border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-card-row {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 2.9rem;
+  padding: 0; font-family: var(--font); font-size: .805rem; color: var(--ink-2);
+  background: none; border: 0; text-align: left;
+}
+button.ob-card-row { cursor: pointer; }
+button.ob-card-row:active { opacity: .6; }
+.ob-card-row > .ob-ck-dot { background: var(--g); border-color: var(--g); }
+.ob-card-row > .ob-card-ic { flex: 0 0 auto; display: grid; place-items: center; width: .98rem; color: var(--g); }
+.ob-card-row > .ob-card-ic > svg { width: 1.05rem; height: 1.05rem; }
+.ob-card-row .ob-card-t { flex: 1 1 auto; min-width: 0; }
+.ob-card-row .ob-row-chev > svg { width: .9rem; height: .9rem; }
+.ob-card.is-kv { padding: 1.2rem 1.1rem .75rem; }
+.ob-card-h { margin: 0 0 .35rem; font-size: .805rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-kvr { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2rem; font-size: .755rem; color: var(--sub); }
+.ob-kvr b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── S01 fields (screen 1) ─────────────────────────────────────────────── */
+.ob-fields { display: flex; flex-direction: column; gap: .8rem; margin: 2.4rem .45rem 0; }
+.ob-field {
+  display: flex; align-items: center; gap: 1rem; min-height: 3.35rem; padding: 0 1rem 0 1rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .5rem; box-shadow: var(--shadow-row);
+}
+.ob-field:focus-within { border-color: #b9d8c3; }
+.ob-field > svg { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; color: #2f333a; stroke-width: 1.8; }
+.ob-field-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-self: stretch; padding: .45rem 0; }
+.ob-field label { font-size: .66rem; line-height: .9rem; color: var(--muted); cursor: text; }
+.ob-field input {
+  width: 100%; min-height: 1.5rem; padding: .15rem 0 0; border: 0; outline: none; background: none;
+  font-family: var(--font); font-weight: 500; color: var(--ink);
+  /* iOS zooms on focus below 16px. The image sets this at 7.75 image px. */
+  font-size: max(16px, .775rem);
+}
+.ob-field input::placeholder { color: var(--muted-2); font-weight: 400; }
+.ob-field input:disabled { color: var(--ink-2); -webkit-text-fill-color: var(--ink-2); opacity: 1; }
+.ob-field.is-ok { border-color: var(--g-100); }
+.ob-field-end { flex: 0 0 auto; display: flex; align-items: center; color: var(--g); }
+.ob-field-end > svg { width: 1.15rem; height: 1.15rem; }
+.ob-verify {
+  flex: 0 0 auto; min-height: 44px; margin-right: -.6rem; padding: 0 .6rem;
+  font-family: var(--font); font-size: .84rem; font-weight: 600; color: var(--g);
+  background: none; border: 0; cursor: pointer;
+}
+.ob-verify:disabled { color: var(--muted-2); cursor: default; }
+.ob-verify.is-busy { display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); cursor: default; }
+.ob-fields + .ob-callout { margin: .9rem .45rem 0; }
+#f-gstin { text-transform: uppercase; }
+#f-gstin::placeholder { text-transform: none; }
+
+/* ── S05 choose (screen 7) ─────────────────────────────────────────────── */
+.ob-selbar { display: flex; align-items: center; justify-content: space-between; margin: 1.2rem .5rem -.4rem; min-height: 44px; }
+.ob-selbar-n { font-size: .8rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-selbar-a { min-height: 44px; padding: 0; font-family: var(--font); font-size: .8rem; font-weight: 600; color: var(--g); background: none; border: 0; cursor: pointer; }
+  display: flex; align-items: center; gap: .85rem; min-height: 4.2rem; padding: .7rem .5rem .7rem .8rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+  flex: 0 0 auto; display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  font-size: .72rem; font-weight: 600; color: #2b2f35; background: #dcdde0;
+}
+.ob-pick {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .5rem;
+  min-width: 6rem; min-height: 2.3rem; padding: 0 .65rem 0 .75rem;
+  font-family: var(--font); font-size: .75rem; font-weight: 500; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .35rem; cursor: pointer;
+}
+.ob-pick > svg { width: .85rem; height: .85rem; color: var(--muted); }
+.ob-pick[aria-pressed="true"] { color: #fff; background: var(--g); border-color: var(--g); }
+.ob-pick[aria-pressed="true"] > svg { color: #fff; }
+
+/* ── Create Order (screen 9) — the draft, edited ───────────────────────── */
+.ob-main.is-order { padding-top: .4rem; }
+.ob-ocard {
+  margin-top: 1rem; background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-ocard.is-cust { display: flex; align-items: center; gap: 1rem; min-height: 5rem; padding: .9rem 1.2rem; }
+.ob-ocard-main { flex: 1 1 auto; min-width: 0; }
+.ob-ocard-l { margin: 0; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-ocard-v { margin: .25rem 0 0; font-size: .8rem; line-height: 1.2rem; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-ocard-a { flex: 0 0 auto; min-height: 44px; padding: 0 .1rem; font-family: var(--font); font-size: .84rem; font-weight: 500; color: var(--g); background: none; border: 0; cursor: pointer; }
+.ob-ocard.is-items { padding: 1.2rem 1.2rem .6rem; }
+.ob-osearch {
+  display: flex; align-items: center; gap: .8rem; margin-top: .95rem; min-height: 2.75rem; padding: 0 1rem;
+  border: 1px solid var(--line); border-radius: .45rem; background: var(--card);
+}
+.ob-osearch > svg { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; color: #3a3e45; }
+.ob-osearch input {
+  flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: none; padding: 0;
+  font-family: var(--font); font-size: max(16px, .8rem); color: var(--ink);
+}
+.ob-osearch input::placeholder { color: var(--muted); }
+.ob-ohits { margin: .4rem 0 .2rem; border: 1px solid var(--line); border-radius: .45rem; overflow: hidden; }
+.ob-ohit {
+  display: flex; align-items: center; gap: .8rem; width: 100%; min-height: 44px; padding: .5rem .9rem;
+  font-family: var(--font); font-size: .8rem; color: var(--ink); text-align: left;
+  background: var(--card); border: 0; border-top: 1px solid var(--line-2); cursor: pointer;
+}
+.ob-ohit:first-child { border-top: 0; }
+.ob-ohit > span { flex: 1 1 auto; min-width: 0; }
+.ob-ohit > svg { flex: 0 0 auto; width: 1rem; height: 1rem; color: var(--g); }
+.ob-ohit-none { margin: .7rem 0 .2rem; font-size: .8rem; color: var(--muted); }
+.ob-oline { display: grid; grid-template-columns: 2.35rem minmax(0, 1fr) auto; align-items: center; column-gap: 1rem; row-gap: .5rem; padding: 1.05rem 0; border-top: 1px solid var(--line-2); }
+.ob-oline:first-of-type { border-top: 0; }
+.ob-othumb { width: 2.35rem; height: 2.35rem; display: grid; place-items: center; border-radius: .4rem; border: 1px solid var(--line-2); background: #f7faf8; color: var(--g); }
+.ob-othumb > svg { width: 1.15rem; height: 1.15rem; }
+.ob-oline-main { min-width: 0; }
+.ob-oline-n { margin: 0; font-size: .81rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ob-oline-s { margin: .2rem 0 0; font-size: .78rem; line-height: 1.1rem; color: var(--muted); }
+.ob-oline-s em { font-style: normal; font-weight: 600; color: var(--amber); }
+.ob-step {
+  grid-column: 3; display: inline-grid; grid-template-columns: 2.1rem 2.9rem 2.1rem; align-items: center;
+  height: 2.2rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--card); overflow: hidden;
+}
+.ob-step button {
+  height: 100%; min-height: 44px; margin: -6px 0; padding: 0; border: 0; background: none; cursor: pointer;
+  display: grid; place-items: center; color: #3a3e45;
+}
+.ob-step button > svg { width: .9rem; height: .9rem; }
+.ob-step button.is-rm { color: var(--red); }
+.ob-step input {
+  width: 100%; height: 100%; border: 0; border-left: 1px solid var(--line-2); border-right: 1px solid var(--line-2);
+  text-align: center; outline: none; background: none; padding: 0;
+  font-family: var(--font); font-size: max(16px, .8rem); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.ob-step input::-webkit-outer-spin-button, .ob-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ob-oadd { display: inline-flex; align-items: center; gap: .6rem; min-height: 44px; margin: .2rem 0 0; padding: 0; font-family: var(--font); font-size: .8rem; font-weight: 500; color: var(--g); background: none; border: 0; cursor: pointer; }
+.ob-oadd > svg { width: .95rem; height: .95rem; }
+.ob-ototal {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin-top: 0; min-height: 4.2rem; padding: 0 1.2rem;
+  border: 1px solid var(--line); border-top: 0; border-radius: 0 0 .55rem .55rem; background: var(--card);
+  font-size: .845rem; color: var(--ink-2);
+}
+.ob-ocard.is-items.has-total { border-radius: .55rem .55rem 0 0; }
+.ob-ototal b { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-oempty { margin: 1rem 0 .4rem; font-size: .8rem; line-height: 1.25rem; color: var(--muted); }
+
+/* ── the sheet ─────────────────────────────────────────────────────────── */
+.ob-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(13, 15, 18, .36); animation: ob-fade .18s ease; }
+.ob-sheet {
+  position: fixed; z-index: 41; left: 0; right: 0; bottom: var(--ob-kb);
+  display: flex; flex-direction: column;
+  max-height: calc(88dvh - var(--ob-kb));
+  background: var(--card); border-radius: 1.1rem 1.1rem 0 0;
+  box-shadow: 0 -1rem 2.5rem -1rem rgba(13, 15, 18, .28);
+  animation: ob-rise .26s cubic-bezier(.22, 1, .36, 1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: bottom .18s ease, max-height .18s ease;
+}
+@keyframes ob-fade { from { opacity: 0; } }
+@keyframes ob-rise { from { transform: translateY(14px); opacity: .6; } }
+.ob-sheet-grip { width: 2.2rem; height: .25rem; border-radius: 99px; background: #dfe1e5; margin: .6rem auto 0; }
+.ob-sheet-h { display: flex; align-items: center; gap: .8rem; padding: .9rem 1.5rem .5rem; }
+.ob-sheet-h h2 { margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.04rem; line-height: 1.4rem; font-weight: 600; color: var(--ink); }
+.ob-sheet-n { font-size: 1.04rem; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ob-sheet-x {
+  position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 2rem; height: 2rem;
+  border-radius: 50%; border: 0; background: var(--line-2); color: var(--sub); cursor: pointer;
+}
+.ob-sheet-x > svg { width: 1rem; height: 1rem; }
+.ob-sheet-x::after { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.ob-sheet-b { flex: 1 1 auto; overflow-y: auto; padding: .3rem 1.5rem 1.2rem; -webkit-overflow-scrolling: touch; }
+.ob-sheet-f { flex: 0 0 auto; padding: .9rem 1.45rem 1.2rem; border-top: 1px solid var(--line-2); }
+.ob-sheet-f .ob-link { margin-top: .35rem; }
+.ob-sheet-p { margin: 0 0 .6rem; font-size: .84rem; line-height: 1.3rem; color: var(--sub); }
+.ob-sheet-sec { margin: 1.2rem 0 .5rem; font-size: .8rem; line-height: 1.2rem; font-weight: 600; color: var(--ink); }
+.ob-sheet-b > .ob-sheet-sec:first-child { margin-top: .3rem; }
+.ob-sheet-ul { margin: 0; padding: 0; list-style: none; }
+.ob-sheet-ul li { position: relative; padding: .2rem 0 .2rem 1.6rem; font-size: .81rem; line-height: 1.25rem; color: var(--ink-2); }
+.ob-sheet-ul li::before {
+  content: ""; position: absolute; left: .15rem; top: .45rem; width: .75rem; height: .75rem; border-radius: 50%;
+  background: var(--g) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 62% no-repeat;
+}
+.ob-sheet-ul.is-no li::before { background: var(--line) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7079' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E") center / 58% no-repeat; }
+.ob-sheet-b .ob-list { margin-top: .4rem; gap: .45rem; }
+.ob-sheet-b .ob-row { min-height: 3rem; padding: .55rem 1rem; gap: .8rem; }
+.ob-sheet-b .ob-card { margin-top: .4rem; }
+.ob-sheet-b .ob-card.is-kv { padding: .5rem 1.1rem; }
+.ob-sheet-b .ob-callout { margin-top: .4rem; }
+
+/* choices in a sheet: an organisation, or what a file contains */
+.ob-choices { display: flex; flex-direction: column; gap: .45rem; margin-top: .3rem; }
+.ob-choice {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 3.1rem;
+  padding: .6rem 1rem; text-align: left; cursor: pointer; font-family: var(--font);
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem;
+}
+.ob-choice.is-on { border-color: var(--g); background: var(--g-tint); }
+/* Screen 8's fork: the two ways on, as choices rather than one CTA and a link. */
+.ob-choices.is-next { margin-top: 1.6rem; gap: .55rem; }
+.ob-choices.is-next .ob-choice { min-height: 3.6rem; padding: .7rem 1.1rem; box-shadow: var(--shadow-row); }
+.ob-choices.is-next .ob-choice-main { flex: 1 1 auto; }
+.ob-radio { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; border-radius: 50%; border: 1.5px solid #c9ccd1; background: var(--card); }
+.ob-choice.is-on .ob-radio { border-color: var(--g); box-shadow: inset 0 0 0 .22rem var(--card); background: var(--g); }
+.ob-tick { flex: 0 0 auto; display: grid; place-items: center; width: 1.05rem; height: 1.05rem; border-radius: .25rem; border: 1.5px solid #c9ccd1; background: var(--card); color: transparent; }
+.ob-tick > svg { width: .75rem; height: .75rem; }
+.ob-choice.is-on .ob-tick { border-color: var(--g); background: var(--g); color: #fff; }
+.ob-choice-main { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.ob-choice-t { font-size: .855rem; font-weight: 600; color: var(--ink); }
+.ob-choice-s { font-size: .74rem; color: var(--muted); }
+
+/* files inside a sheet (S03 "add later") */
+.ob-addbtns { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 .3rem; }
+.ob-chip {
+  position: relative; display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: 0 .9rem;
+  font-family: var(--font); font-size: .8rem; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .45rem; cursor: pointer;
+}
+.ob-chip > svg { width: .95rem; height: .95rem; }
+.ob-chip.key { color: var(--g); border-color: var(--g-100); background: var(--g-tint); }
+.ob-have { display: flex; flex-wrap: wrap; gap: .35rem; margin: .5rem 0 .1rem; }
+.ob-have-i { display: inline-flex; align-items: center; gap: .25rem; padding: .2rem .6rem; border-radius: 99px; font-size: .7rem; font-weight: 600; color: var(--muted); background: var(--line-2); }
+.ob-have-i.is-on { color: var(--g); background: var(--g-50); }
+.ob-have-i > svg { width: .75rem; height: .75rem; }
+.ob-quiet-s { margin: .8rem 0 0; font-size: .74rem; line-height: 1.1rem; color: var(--muted); }
+.ob-seg { display: inline-flex; padding: .12rem; border-radius: .45rem; background: var(--line-2); }
+.ob-seg-b { min-height: 34px; padding: 0 .7rem; border: 0; border-radius: .35rem; background: none; cursor: pointer; font-family: var(--font); font-size: .74rem; font-weight: 600; color: var(--muted); }
+.ob-seg-b.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(13,15,18,.12); }
+.ob-rmx { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; margin: -.6rem -.8rem -.6rem 0; padding: 0; border: 0; background: none; color: var(--muted-2); cursor: pointer; }
+.ob-rmx > svg { width: .95rem; height: .95rem; }
+.ob-flink { font: inherit; color: inherit; background: none; border: 0; padding: .2rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.ob-row-s .ob-flink { font-weight: 600; }
+.ob-row .ob-rowbtn { position: relative; z-index: 1; }
+
+/* ── records and facts inside sheets, in the row and card language ─────── */
+.ob-reclist { display: flex; flex-direction: column; gap: .45rem; margin-top: .4rem; }
+.ob-rec {
+  display: flex; align-items: center; justify-content: space-between; gap: .9rem; min-height: 3rem; padding: .55rem 1rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-rec-a { flex: 1 1 auto; min-width: 0; font-size: .8rem; line-height: 1.15rem; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.ob-rec-b { flex: 0 0 auto; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; display: inline-flex; }
+.ob-rec-b > svg { width: 1rem; height: 1rem; color: var(--g); }
+button.ob-rec { width: 100%; text-align: left; font-family: var(--font); cursor: pointer; }
+.ob-prov-lines p { margin: 0 0 .25rem; font-size: .8rem; line-height: 1.2rem; color: var(--sub); }
+.ob-kv { margin-top: .4rem; padding: .35rem 1.1rem; border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row); }
+.ob-kv-r { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2.3rem; font-size: .78rem; color: var(--sub); }
+.ob-kv-r + .ob-kv-r { border-top: 1px solid var(--line-2); }
+.ob-kv-r b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ob-dlist { display: flex; flex-direction: column; gap: .5rem; margin-top: .4rem; }
+.ob-drow {
+  display: flex; align-items: center; gap: .9rem; width: 100%; min-height: 3.45rem; padding: .6rem 1.1rem .6rem 1.2rem;
+  font-family: var(--font); text-align: left; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); border-radius: .55rem; box-shadow: var(--shadow-row);
+}
+.ob-drow:active { background: #fafbfa; }
+.ob-drow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.ob-drow-n { font-size: .83rem; line-height: 1.15rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-drow-s { font-size: .72rem; color: var(--muted); }
+.ob-drow-e { flex: 0 0 auto; padding: .15rem .5rem; border-radius: 99px; font-size: .62rem; font-weight: 700; color: var(--amber); background: var(--amber-bg); }
+.ob-drow .ob-chev, .ob-drow .ob-row-chev { color: #5b6068; display: grid; }
+.ob-drow .ob-chev > svg { width: 1rem; height: 1rem; }
+.ob-undo {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  margin: 1.2rem 0 0; padding: .6rem .6rem .6rem 1.1rem; border-radius: .5rem;
+  background: var(--ink); color: #fff; font-size: .8rem;
+}
+.ob-undo button { min-height: 40px; padding: 0 .6rem; background: none; border: 0; font-family: var(--font); font-size: .8rem; font-weight: 700; color: #fff; text-decoration: underline; cursor: pointer; }
+
+/* ── keyboard ─────────────────────────────────────────────────────────── */
+.ob-kb-open .ob-foot:not(.is-inline) {
+  position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 402px; bottom: var(--ob-kb);
+  padding-bottom: .9rem; background: var(--card); border-top: 1px solid var(--line-2);
+}
+.ob-kb-open .ob-main { padding-bottom: 6rem; }
+.ob-kb-open .ob-sheet { padding-bottom: 0; }
+
+/* ══ BIGGER SCREENS (21 Sep 2026) ══════════════════════════════════════════
+   THE PHONE LAYOUT IS LOCKED. Everything above this block is the phone, as
+   signed off; nothing below reaches a screen narrower than 768px. A change
+   for bigger screens goes in here, under a min-width query, and is checked
+   against the phone fingerprint (every screen at 320-767px, before and after)
+   rather than by eye.
+
+     768+            sheets are centred dialogs, not bottom sheets
+     768+, 600 tall  the flow on a card: 540 wide, the type still the phone's
+                     402px scale (1rem = 18.27px), the gutters wider
+     1100+, 600 tall the setup rail beside the card: the four stages and
+                     where you are in them (#ob-rail, drawn by drawRail())
+
+   The height floor keeps a phone on its side (844 x 390) out of the card: a
+   card with margins on a 390px screen is mostly margin. It keeps the phone's
+   own column instead. */
+.ob-rail { display: none; }
+
+@media (min-width: 768px) {
+  html { font-size: calc(402px / 22); }
+  .ob-sheet {
+    left: 50%; right: auto; top: 50%; bottom: auto;
+    width: 480px; max-width: calc(100vw - 32px); max-height: 76vh; transform: translate(-50%, -50%);
+    border-radius: 1.1rem; animation: ob-pop .2s cubic-bezier(.22, 1, .36, 1);
+  }
+  @keyframes ob-pop { from { transform: translate(-50%, -48%) scale(.98); opacity: .5; } }
+  .ob-sheet-grip { display: none; }
+  .ob-sheet-h { padding-top: 1.3rem; }
+  .ob-sheet-h, .ob-sheet-b { padding-left: 1.8rem; padding-right: 1.8rem; }
+  .ob-sheet-f { padding-left: 1.75rem; padding-right: 1.75rem; }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  /* Both: body ends where the card does, and on a tall tablet the root's
+     white would show under it. */
+  html, body { background: var(--surface); }
+  /* ONE HEIGHT FOR EVERY SCREEN (21 Sep 2026, product owner). The card is
+     sized by the viewport, not by what is on it -- it used to grow and shrink
+     step by step with the content. Content scrolls inside the card, under the
+     header and above the footer, which both stick to the card's own edges.
+     Capped at 900px so a very tall monitor does not get a sliver of a card. */
+  :root { --ob-card-h: min(900px, calc(100vh - 96px)); --ob-top-h: calc(3.8rem + env(safe-area-inset-top, 0px)); }
+  .ob-app {
+    width: 100%; max-width: 540px; height: var(--ob-card-h);
+    margin: max(48px, calc((100vh - var(--ob-card-h)) / 2)) auto;
+    border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 24px 48px -24px rgba(13, 15, 18, .18);
+  }
+  #ob-root {
+    height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: #d6d9dd transparent;
+  }
+  .ob-top { height: calc(3.8rem + env(safe-area-inset-top, 0px)); }
+  .ob-back { left: 1.5rem; top: calc(1.5rem + env(safe-area-inset-top, 0px)); }
+  .ob-prog { left: 4.8rem; right: 2.6rem; top: calc(2.51rem + env(safe-area-inset-top, 0px)); }
+  .ob-top.is-titled .ob-back { left: 1.5rem; }
+  .ob-top-t { top: calc(1.91rem + env(safe-area-inset-top, 0px)); }
+  .ob-main { padding-left: 2.4rem; padding-right: 2.4rem; }
+  .ob-foot { padding-left: 2.4rem; padding-right: 2.4rem; }
+  .ob-foot.is-inline { padding-left: .1rem; padding-right: .1rem; }
+  /* .ob-app first: order-stockaudit.css loads after this sheet and sets the
+     same padding at the same specificity. */
+  .ob-app .ob-so.sah-foot { padding-left: 2.4rem; padding-right: 2.4rem; }
+  /* The keyboard's fixed footer (iPad) spans the card, not the phone column. */
+  .ob-kb-open .ob-foot:not(.is-inline) { max-width: 540px; }
+  /* A pointer: rows answer the hover the way they answer a tap. */
+  button.ob-rec:hover, .ob-drow:hover { border-color: #d6dad9; }
+}
+
+@media (min-width: 1100px) and (min-height: 600px) {
+  body.has-rail { display: grid; grid-template-columns: minmax(360px, 38%) minmax(0, 1fr); min-height: 100vh; }
+  body.has-rail .ob-app { align-self: start; }
+  body.has-rail .ob-rail {
+    display: flex; align-items: center;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    padding: 3.2rem clamp(2rem, 4vw, 4.4rem);
+    background: var(--g-tint); border-right: 1px solid var(--g-100);
+  }
+  .ob-rail-in { width: 100%; max-width: 22rem; margin-left: auto; }
+  .ob-rail-brand { display: flex; align-items: center; gap: .6rem; margin: 0; font-size: 1rem; font-weight: 700; color: var(--ink); }
+  .ob-rail-brand .ob-logo { width: 1.75rem; height: 1.75rem; border-radius: .45rem; display: block; }
+  .ob-rail-h { margin: 2.6rem 0 0; font-size: 1.6rem; line-height: 2.05rem; font-weight: 700; letter-spacing: -.015em; color: var(--ink); }
+  .ob-rail-s { margin: .7rem 0 0; font-size: .86rem; line-height: 1.35rem; color: var(--sub); }
+  .ob-rs { list-style: none; margin: 2.2rem 0 0; padding: 0; }
+  .ob-rs li { position: relative; display: flex; align-items: center; gap: .9rem; min-height: 2.9rem; font-size: .88rem; font-weight: 500; color: var(--muted); }
+  /* The line joining one stage to the next, green once it is behind you. */
+  .ob-rs li + li::before {
+    content: ""; position: absolute; left: .69rem; bottom: calc(50% + .85rem); height: 1.2rem; width: 2px;
+    border-radius: 2px; background: var(--g-100);
+  }
+  .ob-rs li.is-done + li::before, .ob-rs li.is-now::before { background: var(--g); }
+  .ob-rs-dot {
+    flex: 0 0 auto; display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    border: 2px solid #cfd8d2; background: var(--card); font-size: .68rem; font-weight: 700; color: var(--muted);
+  }
+  .ob-rs-dot > svg { width: .8rem; height: .8rem; stroke-width: 3; }
+  .ob-rs li.is-done { color: var(--ink-2); }
+  .ob-rs li.is-done .ob-rs-dot { background: var(--g); border-color: var(--g); color: #fff; }
+  .ob-rs li.is-now { color: var(--ink); font-weight: 700; }
+  .ob-rs li.is-now .ob-rs-dot { border-color: var(--g); color: var(--g); box-shadow: 0 0 0 .25rem var(--g-50); }
+  .ob-rail-foot { display: flex; align-items: center; gap: .55rem; margin: 2.6rem 0 0; font-size: .74rem; line-height: 1.1rem; color: var(--muted); }
+  .ob-rail-foot > svg { flex: 0 0 auto; width: .9rem; height: .9rem; color: var(--g); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ══ The image's own components, 17 Sep 2026 (second pass: the image's flow) ══ */
+
+/* 1 · Sign Up */
+.ob-field.is-bad { border-color: #f1b5b7; }
+.ob-eye { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; margin-right: -.9rem; padding: 0; border: 0; background: none; color: #3a3e45; cursor: pointer; }
+.ob-eye > svg { width: 1.15rem; height: 1.15rem; }
+.ob-err { margin: .7rem .45rem 0; font-size: .76rem; line-height: 1.15rem; color: var(--red); }
+/* Last and quietest, under a hairline: the legal line is not an action, and on
+   this screen it used to sit between two of them. It takes the leftover height
+   so it rests on the bottom of the screen — the foot of screen 1 ended in mid
+   air, with the empty half of the screen below it. On a screen too short for
+   that (the keyboard open), `auto` collapses and the padding holds. */
+.ob-terms { margin: 1.5rem 0 0; padding-top: 1.15rem; border-top: 1px solid var(--line-2); text-align: center; font-size: .74rem; line-height: 1.15rem; color: var(--muted); }
+/* The inline footer carries the bottom padding here, so main does not pay it
+   twice and leave the legal line floating two gaps above the edge. */
+.ob-main.is-s01 { display: flex; flex-direction: column; padding-bottom: 0; }
+.ob-main.is-s01 > .ob-foot { display: flex; flex-direction: column; flex: 1 1 auto; }
+.ob-main.is-s01 .ob-terms { margin-top: auto; }
+/* auto collapses to nothing on a short screen, so the gap above the rule is
+   the login line's own margin, which no leftover height can take away. */
+.ob-main.is-s01 .ob-login { margin-bottom: 1.3rem; }
+.ob-tlink { padding: .2rem 0; border: 0; background: none; cursor: pointer; font-family: var(--font); font-size: inherit; color: #2e7d53; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: #9fcdb3; }
+.ob-tlink.is-g { color: var(--g); font-weight: 600; text-decoration: none; margin-left: 1rem; min-height: 44px; }
+/* The returning user's line: a different task from the two above it, so it
+   stands apart from them and sits a step quieter. */
+.ob-login { margin: 1.6rem 0 0; text-align: center; font-size: .82rem; font-weight: 500; color: var(--sub); }
+/* The guest link: the other way past screen 1, and out of the Log in sheet.
+   It sits right under the button it is an alternative to — close enough to read
+   as the second half of one choice, with `or` carrying the fork. */
+.ob-guest-line { margin: .7rem 0 0; text-align: center; font-size: .82rem; line-height: 1.2rem; color: var(--muted); }
+.ob-guest-line .ob-tlink { margin-left: .1rem; min-height: 44px; }
+.ob-guest-line.is-src { margin-top: 1.1rem; }
+.ob-sheet-f .ob-guest-line { margin-top: .5rem; }
+.ob-fields.is-sheet { margin: .2rem 0 0; }
+.ob-busy { display: flex; align-items: center; gap: .6rem; }
+
+/* 2 · Where is your data? — its rows sit 17px in, labels at 42 */
+.ob-h1.s02-h { margin-top: 2.09rem; }
+.ob-sub.s02-sub { margin-top: .5rem; font-size: .8rem; line-height: 1.2rem; }
+.ob-list.is-src { margin: 1.32rem .25rem 0; gap: .5rem; }
+.ob-list.is-src .ob-row { min-height: 3.5rem; gap: 1rem; padding: .6rem 1.1rem .6rem 1.2rem; }
+.ob-row-logo svg { width: 1.8rem; height: auto; display: block; }
+.ob-row-logo > img { width: 1.9rem; height: 1.9rem; }
+.ob-row-logo.is-wide { width: 3.3rem; margin-right: -.6rem; }
+.ob-row-logo.is-wide svg { width: 3.3rem; }
+.ob-list.is-src .ob-row-s { font-size: .72rem; line-height: 1.15rem; }
+
+/* 3 · Connect your account */
+.ob-hero.is-logo svg { width: 5.7rem; height: auto; }
+.ob-hero.is-logo img { width: 3rem; height: 3rem; }
+.ob-hero.is-logo + .ob-h1 + .ob-sub { margin-top: .66rem; }
+.ob-feats { margin-top: 2.85rem; margin-left: .8rem; }
+.ob-foot.is-connect { padding-bottom: calc(3.1rem + env(safe-area-inset-bottom, 0px)); }
+.ob-foot.is-connect .ob-foot-note { margin-top: .9rem; }
+
+/* 4 · Importing */
+.ob-checks { margin-top: 1.55rem; }
+.ob-ck-dot.is-on { background: var(--g); border-color: var(--g); }
+
+/* 6 · Data check — the tick sits in one column whatever the count */
+.ob-row.is-check { position: relative; }
+.ob-row.is-check .ob-row-tick { position: absolute; left: 12.05rem; margin: 0; }
+.ob-h1.s06-h { margin-top: 2.09rem; font-size: 1.345rem; }
+/* 21 Sep 2026: Data check opens on a slim completeness bar, not a title. */
+.ob-dq { margin: 2.09rem .2rem 0; }
+.ob-dq-t { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 .45rem; font-size: .72rem; line-height: 1rem; font-weight: 600; color: var(--sub); }
+.ob-dq-t b { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-dq i { display: block; position: relative; height: .25rem; border-radius: 1rem; background: var(--prog); overflow: hidden; }
+.ob-dq i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p); border-radius: inherit; background: var(--g); animation: ob-dq-fill .7s cubic-bezier(.2,.7,.2,1) both; }
+.ob-dq.is-short i::after { background: var(--amber); }
+.ob-dq.is-short .ob-dq-t b { color: var(--amber); }
+@keyframes ob-dq-fill { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .ob-dq i::after { animation: none; } }
+.ob-dq + .ob-sub { margin-top: .9rem; }
+.ob-list + .ob-callout { margin-top: 1.3rem; }
+label.ob-row.is-check { cursor: pointer; }
+
+/* 7 · Staff */
+  position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: .4rem;
+  min-width: 5.9rem; height: 2.3rem; padding: 0 .6rem 0 .8rem;
+  font-size: .75rem; font-weight: 500; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line); border-radius: .35rem;
+}
+
+/* 8 · Ready */
+.ob-sub.s08-sub { line-height: 1.3rem; }
+.ob-card { padding: .57rem 1rem .33rem; }
+.ob-card-row { gap: .8rem; font-size: .805rem; }
+.ob-card-row > .ob-ck-dot { width: 1.05rem; height: 1.05rem; }
+
+/* 9 · Create Order */
+.ob-top-t { top: calc(1.71rem + env(safe-area-inset-top, 0px)); }
+.ob-main.is-order { padding-top: 0; }
+.ob-main.is-order > .ob-ocard.is-cust { margin-top: 1rem; min-height: 5.1rem; padding: .7rem 1.2rem; }
+.ob-ocard-v .is-ph { color: var(--muted); }
+.ob-ocard.is-items { margin-top: .45rem; }
+.ob-osearch { margin-top: .6rem; }
+.ob-osearch.is-sheet { margin: .2rem 0 .6rem; }
+.ob-oline { grid-template-columns: 2.35rem minmax(0, 1fr) auto auto; column-gap: .8rem; padding: .95rem 0; }
+.ob-oline-t { grid-column: 4; min-width: 3.9rem; text-align: right; font-size: .78rem; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ob-step { grid-column: 3; grid-template-columns: 2rem 2.3rem 2rem; height: 2.2rem; border-radius: .7rem; }
+.ob-foot.is-order { padding-top: .8rem; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
+
+/* 10 · Order created */
+.ob-top.is-bare { height: calc(3.4rem + env(safe-area-inset-top, 0px)); }
+.ob-h1.s10-h { margin-top: .69rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.63rem; }
+.ob-kvr b { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-card.is-kv + .ob-card.is-kv { margin-top: .8rem; }
+
+/* 11 · You're ready */
+.ob-wordmark + .ob-main > .ob-hero.is-store:first-child { margin-top: .68rem; }
+
+/* 2 · second pass against the overlay */
+.ob-list.is-src .ob-row { gap: .75rem; }
+.ob-list.is-src .ob-row-logo { width: 2.25rem; }
+.ob-list.is-src .ob-row-logo svg { width: 2.2rem; }
+.ob-list.is-src .ob-row-logo.is-wide { width: 3.3rem; margin-right: -.35rem; }
+.ob-list.is-src .ob-row-logo.is-wide svg { width: 3.3rem; }
+.ob-list.is-src .ob-row-logo > svg[stroke] { width: 1.3rem; color: #5b6270; stroke-width: 1.5; }
+.ob-list.is-src .ob-row-logo.is-folder svg { width: 1.45rem; }
+.ob-row-chev { color: #6b7079; }
+.ob-h1.s02-h { font-size: 1.41rem; }
+.ob-list.is-src .ob-row { padding-left: .95rem; }
+.ob-list.is-src .ob-row-logo { width: 2.5rem; justify-items: start; }
+.ob-list.is-src .ob-row-logo > svg:not([stroke]):not([role]) { width: 1.25rem; }
+.ob-list.is-src .ob-row-logo > svg[aria-label="Vyapar"] { width: 1.3rem; }
+.ob-hero.is-logo svg[aria-label="Vyapar"] { width: 2.8rem; }
+.ob-feat.is-last { margin-top: .35rem; }
+.ob-foot.is-connect { padding-bottom: calc(1.9rem + env(safe-area-inset-bottom, 0px)); }
+/* 5, 10 · the wider confetti keeps the disc where it was */
+.ob-hero.is-check { width: 15rem; height: 9rem; margin-top: 2.8rem; }
+.ob-hero.is-check + .ob-h1 { margin-top: .7rem; }
+.ob-hero.is-check.is-top { margin-top: -1rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: -.11rem; }
+/* 6 · second pass against the overlay */
+.s06-h + .ob-sub { margin-top: .68rem; }
+.s06-h + .ob-sub + .ob-list { margin-top: 2.2rem; }
+.ob-row.is-check { padding-left: .85rem; padding-right: .85rem; gap: .75rem; }
+/* 5 · the same row, measured on screen 5 */
+.ob-hero.is-check ~ .ob-list .ob-row { padding-left: 1.05rem; padding-right: 1rem; }
+/* 7 · second pass against the overlay */
+.ob-sub.s08-sub { font-size: .875rem; line-height: 1.35rem; margin-left: .2rem; margin-right: .2rem; }
+/* 9 · the image draws Create Order on a card 362px wide; a phone is 220. The
+   same components, with the stepper and the line total on the row under the
+   name so a real product name is not broken one word per line. */
+.ob-oline { grid-template-columns: 2.35rem minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: .55rem; }
+.ob-oline > .ob-othumb { grid-column: 1; grid-row: 1; align-self: start; }
+.ob-oline > .ob-oline-main { grid-column: 2 / 4; grid-row: 1; }
+.ob-oline > .ob-step { grid-column: 2; grid-row: 2; justify-self: start; }
+.ob-oline > .ob-oline-t { grid-column: 3; grid-row: 2; align-self: center; }
+.ob-oline-n { overflow-wrap: normal; word-break: normal; }
+.ob-osearch { gap: .55rem; padding: 0 .7rem; }
+.ob-osearch > svg { width: 1rem; height: 1rem; }
+.ob-osearch input::placeholder { font-size: 15px; }
+/* 10 · second pass against the overlay (the image draws this card 236 wide) */
+.ob-hero.is-check.is-top { margin-top: -1.3rem; }
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: -.45rem; }
+.s10-h + .ob-sub { margin-top: .3rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.25rem; }
+.ob-card.is-kv .ob-kvr { min-height: 1.9rem; }
+/* 11 · second pass against the overlay (the image draws this card 235 wide) */
+.ob-hero.is-store + .ob-h1 { margin-top: 2.3rem; }
+.ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .35rem; }
+.s04-h + .ob-sub + .ob-checks { margin-top: 1.9rem; margin-left: .55rem; margin-right: .5rem; }
+/* 10 · corrected against the like-for-like overlay (centre 220 of the 236 card) */
+.ob-hero.is-check.is-top + .ob-h1 { margin-top: .15rem; }
+.s10-h + .ob-sub { margin-top: .5rem; }
+.s10-h + .ob-sub + .ob-card { margin-top: 1.65rem; }
+.s10-h + .ob-card { margin-top: 1.5rem; }  /* 21 Sep 2026: no line under the title */
+.ob-card.is-kv .ob-kvr { min-height: 2rem; }
+/* 11 · corrected against the like-for-like overlay (centre 220 of the 235 card) */
+.ob-wordmark:has(+ .ob-main > .ob-hero.is-store) { padding-top: calc(2.35rem + env(safe-area-inset-top, 0px)); }
+.ob-hero.is-store { width: 18.5rem; height: 11.1rem; }
+.ob-hero.is-store + .ob-h1 { margin-top: 2.2rem; }
+.ob-hero.is-store + .ob-h1 + .ob-sub { margin-top: .6rem; }
+/* 1 · four fields (17 Sep 2026): the GST number's Verify sits where the image's eye does */
+.ob-gst-end { flex: 0 0 auto; display: flex; align-items: center; }
+.ob-verify.is-busy .ob-spin { width: .8rem; height: .8rem; }
+#f-gstin { text-transform: uppercase; }
+#gst-block:empty { display: none; }
+/* 21 Sep 2026 — "Get verified": the optional fields folded into one row. */
+.ob-getv { display: flex; align-items: center; gap: .75rem; width: 100%; min-height: 3.1rem; padding: 0 1rem;
+  border: 1px dashed #d5d9de; border-radius: .5rem; background: none; cursor: pointer;
+  font: inherit; font-size: .88rem; font-weight: 600; color: var(--sub); text-align: left; }
+.ob-getv > svg:first-child { color: var(--g); flex: none; }
+.ob-getv > span { flex: 1; }
+.ob-getv > svg:last-child { color: var(--muted-2); transition: transform .2s; flex: none; }
+.ob-getv .ob-opt { flex: none; padding: .1rem .5rem; border-radius: 1rem; background: var(--surface); font-style: normal; font-size: .7rem; font-weight: 600; color: var(--muted); }
+.ob-getv[aria-expanded="true"] { border-style: solid; border-color: var(--line); }
+.ob-getv[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
+.ob-vbox { display: flex; flex-direction: column; gap: .8rem; }
+.ob-vbox[hidden] { display: none; }
+.ob-vbox .ob-callout { margin: 0; }
+#gst-block > .ob-callout { margin: .9rem .45rem 0; }
+
+/* ══ 1 · Sign Up: gated button, inline help and errors (17 Sep 2026) ══════ */
+.ob-fwrap { display: flex; flex-direction: column; }
+.ob-field-row { display: flex; align-items: center; gap: .35rem; min-width: 0; }
+.ob-field-row > input { flex: 1 1 auto; min-width: 0; }
+.ob-prefix { flex: 0 0 auto; padding-top: .15rem; font-size: max(16px, .775rem); font-weight: 500; color: var(--muted); }
+.ob-field input::placeholder { color: var(--muted-2); }
+
+/* A field is only ever red after it has been judged; the border does the
+   talking, the hint says what to do. */
+.ob-field { transition: border-color .18s ease, background-color .18s ease; }
+.ob-field.is-bad { border-color: #eca3a6; background: #fffafa; }
+.ob-field.is-bad > svg { color: var(--red); }
+.ob-field.is-bad:focus-within { border-color: var(--red); }
+.ob-field.is-shake { animation: ob-shake .32s cubic-bezier(.36, .07, .19, .97); }
+@keyframes ob-shake {
+  20% { transform: translateX(-3px); } 40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); } 80% { transform: translateX(1px); }
+}
+
+.ob-hint {
+  display: flex; align-items: flex-start; gap: .4rem;
+  max-height: 0; opacity: 0; overflow: hidden; margin: 0 .2rem;
+  font-size: .74rem; line-height: 1.12rem; color: var(--muted);
+  transition: max-height .2s ease, opacity .2s ease, margin .2s ease;
+}
+.ob-hint.is-bad, .ob-hint.is-help { max-height: 4rem; opacity: 1; margin-top: .4rem; }
+.ob-hint.is-bad { color: #c72d31; }
+.ob-hint > svg { flex: 0 0 auto; width: .85rem; height: .85rem; margin-top: .12rem; }
+.ob-hint-act {
+  padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--g); text-decoration: underline; text-underline-offset: 2px;
+}
+
+/* A quiet tick once a required field is right. */
+.ob-okmark { flex: 0 0 auto; display: grid; place-items: center; color: var(--g); opacity: 0; transform: scale(.6); transition: opacity .18s ease, transform .18s ease; }
+.ob-okmark > svg { width: 1rem; height: 1rem; }
+.ob-okmark.is-on { opacity: 1; transform: none; }
+
+/* Disabled until the required fields are right — but it still answers a tap,
+   by pointing at what is missing. */
+.ob-cta.is-disabled { background: #e3e5e8; color: #9ca1a9; box-shadow: none; cursor: default; }
+.ob-cta.is-disabled:active { background: #dcdee2; }
+.ob-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) { .ob-field.is-shake { animation: none; } }
+/* 2 · Xero live beside Zoho; Tally and Vyapar listed as Coming soon (17 Sep 2026) */
+.ob-list.is-src .ob-row-logo > svg[aria-label="Xero"] { width: 1.65rem; height: 1.65rem; }
+.ob-hero.is-logo svg[aria-label="Xero"] { width: 3.4rem; height: 3.4rem; }
+.ob-list.is-src .ob-row.is-soon { background: #fafbfb; border-color: var(--line-2); box-shadow: none; }
+.ob-list.is-src .ob-row.is-soon .ob-row-t { color: var(--muted-2); }
+.ob-list.is-src .ob-row.is-soon .ob-row-logo > * { opacity: .45; filter: grayscale(1); }
+.ob-list.is-src .ob-row.is-soon .ob-row-soon { margin-right: -.2rem; }
+.ob-hero.is-logo svg[aria-label="Xero"] { width: 4.4rem; height: 4.4rem; }
+
+/* 21 Sep 2026 — Create Order in three steps: customer, how to start, build. */
+.ob-main.is-ocust { padding-top: .2rem; }
+.ob-main.is-ocust .ob-reclist { margin-top: .8rem; padding-bottom: 1rem; }
+button.ob-rec { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+button.ob-rec:active { background: #fafbfa; }
+.ob-rec-none { margin: 1.2rem 0; text-align: center; font-size: .8rem; color: var(--muted); }
+.ob-row-tag {
+  flex: 0 0 auto; padding: .2rem .6rem; border-radius: 99px;
+  font-size: .66rem; font-weight: 700; color: var(--g-d); background: var(--g-50);
+}
+.ob-main.is-ostart .ob-ostart-h { margin: 1.6rem .2rem 0; font-size: 1.15rem; line-height: 1.5rem; }
+.ob-list.is-start { margin: 1rem 0 0; gap: .6rem; }
+.ob-list.is-start .ob-row-main { flex: 1 1 auto; }
+.ob-list.is-start .ob-row.is-pick { border-color: var(--g-100); background: var(--g-tint); }
+.ob-main.is-ostart .ws-head { margin-top: .5rem; }
+
+/* 21 Sep 2026 — Create Order: what you search with stays in reach (product
+   owner). Pinned under the title bar while the list scrolls, on the phone and
+   on the card alike: the customer search on step 1; who the order is for and
+   the product search on the build step. Nothing moves at rest -- sticky only
+   acts once the list scrolls. z-index 7 sits over the title bar's fade (6)
+   and under the sheets (40). --ob-top-h is the title bar's height, and is
+   declared in :root and redefined for the card (bigger screens). */
+.ob-main.is-ocust .ob-osearch {
+  position: sticky; top: var(--ob-top-h); z-index: 7;
+  /* A white band under the box, so names disappear below it rather than
+     scrolling up against its edge. In the gap above the list at rest. */
+  box-shadow: 0 .6rem 0 var(--card);
+}
+/* The band here is a shadow, not flow-root: containing the search row's 12px
+   margin would stop it collapsing with the list heading's 4px and push every
+   line 4px down at rest. */
+.ob-so-pin { position: sticky; top: var(--ob-top-h); z-index: 7; background: var(--card); box-shadow: 0 12px 0 var(--card); }

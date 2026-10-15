@@ -1,0 +1,9 @@
+Order Date,SalesOrder ID,Status,Customer ID,Customer Name,Item Name,Product ID,QuantityOrdered,QuantityCancelled,Usage unit,Item Total
+2026-08-11,SO1,invoiced,C1,Ashok Sweets,Mango Pickle 250g,P1,6,0,pcs,300
+2026-08-11,SO1,invoiced,C1,Ashok Sweets,Lime Pickle 250g,P2,6,2,pcs,200
+2026-08-11,SO2,confirmed,C1,Ashok Sweets,Mango Pickle 250g,P1,2,0,pcs,100
+2026-07-21,SO3,invoiced,C1,Ashok Sweets,Mango Pickle 250g,P1,4,0,pcs,200
+2026-07-01,SO4,draft,C1,Ashok Sweets,Mango Pickle 250g,P1,4,0,pcs,200
+2026-07-02,SO5,void,C2,"Home Essential, Store",Mango Pickle 250g,P1,4,0,pcs,200
+2026-07-03,SO6,invoiced,C2,"Home Essential, Store",Loose Chilli,P9,500,0,g,90
+2026-07-04,SO7,invoiced,C2,"Home Essential, Store",Mango Pickle 250g,P1,3,0,pcs,150

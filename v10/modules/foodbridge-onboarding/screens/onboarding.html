@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+  FOODBRIDGE v7 — NEW USER ONBOARDING
+
+  The eleven screens of ux/target/onboarding-target.jpg, in its order. The image
+  is the UI; the capabilities behind each screen are listed at the top of
+  onboarding.js and in ../../../VERSION.md (17 Sep 2026, the UI flip).
+
+  LOAD ORDER MATTERS:
+    icons.js, integration-config.js   the bridge to call (?fbapi= points it)
+    predictive-order.js   window.FB_PREDICT — prefills Create order
+    dataset.js            window.FB_DATASET — files and Zoho records → Dataset
+    evidence.js           window.FB_EVIDENCE — which shop is overdue
+    readers.js            window.FB_READERS — the real Zoho and file readers, and
+                          the guard deciding whether dev stand-ins may load
+    [dev only]            order-history.js + seed.inline.js + readers-mock.js,
+                          written in ONLY on localhost with ?fbmock=…
+    onboarding.js         the screens
+
+  Linked with ?v= from assets/modules.json: Safari otherwise serves a stale copy
+  of this page on the way back from the Zoho sign-in.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome to FoodBridge</title>
+<link rel="stylesheet" href="onboarding.css?v=20260921C10">
+<link rel="stylesheet" href="order-stockaudit.css?v=20260920C1">
+</head>
+<body>
+  <!-- The setup rail: drawn by onboarding.js, shown only on a wide screen
+       (onboarding.css, "bigger screens"). On a phone it is display:none. -->
+  <aside class="ob-rail" id="ob-rail" aria-label="Setup steps"></aside>
+  <div class="ob-app"><div id="ob-root"></div></div>
+
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/icons.js?v=20260920C1"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/integration-config.js?v=20260920C1"></script>
+  <script src="../../foodbridge-customer-mockup/v3/screens/customers/predictive-order.js?v=20260920C1"></script>
+  <script src="dataset.js?v=20260920C1"></script>
+  <script src="evidence.js?v=20260920C1"></script>
+  <script src="readers.js?v=20260920C1"></script>
+  <script>
+    /* Development stand-ins, and the demonstration records they serve. Written
+       in only when readers.js's guard is satisfied; see readers.js. */
+    if (window.FB_READERS && window.FB_READERS.mock.active) {
+      document.write('<script src="../../foodbridge-customer-mockup/v3/screens/customers/order-history.js?v=20260920C1"><\/script>' +
+                     '<script src="../../foodbridge-customer-mockup/v3/screens/customers/seed.inline.js?v=20261003SH1"><\/script>' +
+                     '<script src="readers-mock.js?v=20260920C1"><\/script>');
+    }
+  </script>
+  <script src="onboarding.js?v=20260921C10"></script>
+  <script>window.FB_ONBOARDING.mount();</script>
+</body>
+</html>

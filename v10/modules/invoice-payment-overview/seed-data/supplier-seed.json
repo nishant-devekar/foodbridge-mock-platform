@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "id": "mayur", "name": "Mayur", "phone": "777755555", "code": "SUP-001", "invoices": 0,
+      "invoiced": 0, "collected": 0, "outstanding": 0, "advance": 100, "date": "2026-08-05",
+      "orders": [],
+      "payments": []
+    },
+    {
+      "id": "freshfarms", "name": "Fresh Farms Pvt Ltd", "phone": "9820011223", "code": "SUP-002", "invoices": 14,
+      "invoiced": 18900, "collected": 6500, "outstanding": 12400, "advance": 0, "date": "2026-08-02",
+      "orders": [
+        { "invoiceNo": "2026080209331201", "date": "2 Aug 2026", "invoiced": 8400, "netPayable": 8400, "items": [ { "name": "Maida", "sku": "RM-MAIDA", "unitPrice": 42, "unit": "Kg", "qty": 200, "total": 8400 } ] },
+        { "invoiceNo": "2026072814550880", "date": "28 Jul 2026", "invoiced": 10500, "netPayable": 4000, "items": [ { "name": "Refined Sugar", "sku": "RM-SUGAR", "unitPrice": 52.5, "unit": "Kg", "qty": 200, "total": 10500 } ] }
+      ],
+      "payments": [ { "method": "Bank", "date": "3 Aug 2026", "amount": 6500 } ]
+    },
+    {
+      "id": "greenmills", "name": "Green Mills Flour", "phone": "9811556677", "code": "SUP-003", "invoices": 4,
+      "invoiced": 7420, "collected": 7420, "outstanding": 0, "advance": 0, "date": "2026-08-01",
+      "orders": [
+        { "invoiceNo": "2026080110020455", "date": "1 Aug 2026", "invoiced": 7420, "netPayable": 0, "items": [ { "name": "Whole Wheat Flour", "sku": "RM-ATTA", "unitPrice": 37.1, "unit": "Kg", "qty": 200, "total": 7420 } ] }
+      ],
+      "payments": [ { "method": "UPI", "date": "1 Aug 2026", "amount": 7420 } ]
+    },
+    {
+      "id": "sunrise", "name": "Sunrise Packaging", "phone": "7507207348", "code": "SUP-004", "invoices": 43,
+      "invoiced": 30845, "collected": 30760, "outstanding": 85, "advance": 0, "date": "2026-07-31",
+      "orders": [
+        { "invoiceNo": "2026073116400312", "date": "31 Jul 2026", "invoiced": 30845, "netPayable": 85, "items": [ { "name": "Printed Cartons", "sku": "PK-CART", "unitPrice": 6.169, "unit": "Pc", "qty": 5000, "total": 30845 } ] }
+      ],
+      "payments": [ { "method": "Bank", "date": "31 Jul 2026", "amount": 30760 } ]
+    },
+    {
+      "id": "spicehub", "name": "Spice Hub Traders", "phone": "9615248704", "code": "SUP-005", "invoices": 61,
+      "invoiced": 52771, "collected": 50508, "outstanding": 2263, "advance": 0, "date": "2026-07-28",
+      "orders": [
+        { "invoiceNo": "2026072813200781", "date": "28 Jul 2026", "invoiced": 52771, "netPayable": 2263, "items": [ { "name": "Mixed Spices & Masala", "sku": "RM-SPICE", "unitPrice": 263.855, "unit": "Kg", "qty": 200, "total": 52771 } ] }
+      ],
+      "payments": [ { "method": "Bank", "date": "28 Jul 2026", "amount": 50508 } ]
+    },
+    {
+      "id": "amuloils", "name": "Amul Oils & Fats", "phone": "9817780326", "code": "SUP-006", "invoices": 20,
+      "invoiced": 43795, "collected": 43795, "outstanding": 0, "advance": 500, "date": "2026-07-30",
+      "orders": [
+        { "invoiceNo": "2026073009110623", "date": "30 Jul 2026", "invoiced": 43795, "netPayable": 0, "items": [ { "name": "Refined Oil (15L Tin)", "sku": "RM-OIL", "unitPrice": 1751.8, "unit": "Tin", "qty": 25, "total": 43795 } ] }
+      ],
+      "payments": [ { "method": "Bank", "date": "30 Jul 2026", "amount": 43795 } ]
+    }
+  ]
+}

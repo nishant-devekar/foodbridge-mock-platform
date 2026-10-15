@@ -1,0 +1,8628 @@
+{
+  "_comment": "PROTOTYPE SEED — a simulated distributor, not a set of UI test cases. A product master, a 12-customer book, 90 days of trading, a replenishment policy and a purchase pipeline were simulated; stock, batch expiry, demand, velocity and every classification fall out of that. No SKU was authored to be short, overstocked or declining — those are consequences of its trend, its buyer's ordering and its shelf life. ALL OF IT IS ILLUSTRATIVE: there is no sales history and no promised delivery date in the real source systems (model addendum-003 §9), which is exactly what this stands in for. Sales history is generated from a base rate, an annualised trend, a weekday shape and noise; run rates are measured from it rather than assigned. Demand is the sum of open order lines by promised delivery date. Batches are receipts consumed oldest-first by the sales that actually happened, so expiry spread, mixed-batch SKUs and expired stock all emerge. Untraced stock represents legacy transfers and manual counts that arrived without a batch. Cost is landed purchase cost; a SKU with no batch has no cost basis and is excluded from every rupee figure. See addendum-006.",
+  "asOf": "2026-08-15",
+  "policy": {
+    "replenishmentDays": {
+      "fresh": 2,
+      "short": 7,
+      "long": 21
+    },
+    "safetyDays": {
+      "fresh": 1,
+      "short": 3,
+      "long": 7
+    },
+    "overstockAt": 1.25,
+    "understockAt": 0.75,
+    "_note": "PROTOTYPE BUSINESS POLICY, not a rule discovered in the data. Target stock = replenishment-period demand + safety stock, both from the SKU's own 30-day run rate. Sellable/target above 1.25 reads Overstock, below 0.75 Understocked."
+  },
+  "horizons": [
+    {
+      "key": "d0",
+      "days": 0,
+      "label": "Today"
+    },
+    {
+      "key": "d1",
+      "days": 1,
+      "label": "Tomorrow"
+    },
+    {
+      "key": "d2",
+      "days": 2,
+      "label": "D+2"
+    },
+    {
+      "key": "d3",
+      "days": 3,
+      "label": "Next 3 days"
+    },
+    {
+      "key": "d7",
+      "days": 7,
+      "label": "Next 7 days"
+    }
+  ],
+  "customers": [
+    {
+      "id": "c-01",
+      "name": "Sharma Supermarket",
+      "type": "Supermarket",
+      "cadence": 2,
+      "basket": [
+        "fg-001",
+        "fg-002",
+        "fg-014",
+        "fg-003",
+        "fg-005",
+        "fg-008",
+        "fg-007",
+        "fg-006"
+      ]
+    },
+    {
+      "id": "c-02",
+      "name": "Fresh Mart Kondhwa",
+      "type": "Supermarket",
+      "cadence": 2,
+      "basket": [
+        "fg-001",
+        "fg-004",
+        "fg-021",
+        "fg-003",
+        "fg-002",
+        "fg-024"
+      ]
+    },
+    {
+      "id": "c-03",
+      "name": "Ganraj Kirana",
+      "type": "Kirana",
+      "cadence": 3,
+      "basket": [
+        "fg-001",
+        "fg-007",
+        "fg-022",
+        "fg-009",
+        "fg-016",
+        "fg-002"
+      ]
+    },
+    {
+      "id": "c-04",
+      "name": "Aai Mata General Store",
+      "type": "Kirana",
+      "cadence": 3,
+      "basket": [
+        "fg-001",
+        "fg-006",
+        "fg-007",
+        "fg-008",
+        "fg-013",
+        "fg-002"
+      ]
+    },
+    {
+      "id": "c-05",
+      "name": "Laxmi Provision",
+      "type": "Kirana",
+      "cadence": 4,
+      "basket": [
+        "fg-007",
+        "fg-006",
+        "fg-022",
+        "fg-016",
+        "fg-020",
+        "fg-008"
+      ]
+    },
+    {
+      "id": "c-06",
+      "name": "Shree Ram Super",
+      "type": "Supermarket",
+      "cadence": 2,
+      "basket": [
+        "fg-001",
+        "fg-003",
+        "fg-014",
+        "fg-021",
+        "fg-009",
+        "fg-024",
+        "fg-010"
+      ]
+    },
+    {
+      "id": "c-07",
+      "name": "Krishna Kirana",
+      "type": "Kirana",
+      "cadence": 5,
+      "basket": [
+        "fg-007",
+        "fg-022",
+        "fg-005",
+        "fg-009",
+        "fg-008"
+      ]
+    },
+    {
+      "id": "c-08",
+      "name": "New Bharat Store",
+      "type": "Kirana",
+      "cadence": 4,
+      "basket": [
+        "fg-001",
+        "fg-002",
+        "fg-006",
+        "fg-007",
+        "fg-013"
+      ]
+    },
+    {
+      "id": "c-09",
+      "name": "Vaibhav Kirana",
+      "type": "Kirana",
+      "cadence": 5,
+      "basket": [
+        "fg-005",
+        "fg-022",
+        "fg-016",
+        "fg-023",
+        "fg-012"
+      ]
+    },
+    {
+      "id": "c-10",
+      "name": "Balaji Cafe Supplies",
+      "type": "HoReCa",
+      "cadence": 3,
+      "basket": [
+        "fg-001",
+        "fg-014",
+        "fg-021",
+        "fg-004",
+        "fg-011",
+        "fg-017"
+      ]
+    },
+    {
+      "id": "c-11",
+      "name": "Sunrise Bakery",
+      "type": "HoReCa",
+      "cadence": 4,
+      "basket": [
+        "fg-014",
+        "fg-006",
+        "fg-019",
+        "fg-011",
+        "fg-017"
+      ]
+    },
+    {
+      "id": "c-12",
+      "name": "Deepak Mart",
+      "type": "Supermarket",
+      "cadence": 3,
+      "basket": [
+        "fg-001",
+        "fg-002",
+        "fg-024",
+        "fg-010",
+        "fg-013",
+        "fg-019"
+      ]
+    }
+  ],
+  "openOrders": [
+    {
+      "orderId": "SO-26001",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 2,
+      "promisedInDays": 0,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 211
+        },
+        {
+          "productId": "fg-002",
+          "qty": 77
+        },
+        {
+          "productId": "fg-014",
+          "qty": 23
+        },
+        {
+          "productId": "fg-003",
+          "qty": 250
+        },
+        {
+          "productId": "fg-005",
+          "qty": 117
+        },
+        {
+          "productId": "fg-008",
+          "qty": 68
+        },
+        {
+          "productId": "fg-006",
+          "qty": 34
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26002",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 0,
+      "promisedInDays": 2,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 178
+        },
+        {
+          "productId": "fg-014",
+          "qty": 24
+        },
+        {
+          "productId": "fg-003",
+          "qty": 286
+        },
+        {
+          "productId": "fg-005",
+          "qty": 94
+        },
+        {
+          "productId": "fg-008",
+          "qty": 64
+        },
+        {
+          "productId": "fg-007",
+          "qty": 75
+        },
+        {
+          "productId": "fg-006",
+          "qty": 42
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26003",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 0,
+      "promisedInDays": 4,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-002",
+          "qty": 58
+        },
+        {
+          "productId": "fg-014",
+          "qty": 32
+        },
+        {
+          "productId": "fg-005",
+          "qty": 140
+        },
+        {
+          "productId": "fg-007",
+          "qty": 64
+        },
+        {
+          "productId": "fg-006",
+          "qty": 51
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26004",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 2,
+      "promisedInDays": 6,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 242
+        },
+        {
+          "productId": "fg-002",
+          "qty": 57
+        },
+        {
+          "productId": "fg-014",
+          "qty": 24
+        },
+        {
+          "productId": "fg-005",
+          "qty": 96
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26005",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 2,
+      "promisedInDays": 8,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 168
+        },
+        {
+          "productId": "fg-002",
+          "qty": 59
+        },
+        {
+          "productId": "fg-014",
+          "qty": 21
+        },
+        {
+          "productId": "fg-003",
+          "qty": 238
+        },
+        {
+          "productId": "fg-005",
+          "qty": 158
+        },
+        {
+          "productId": "fg-007",
+          "qty": 93
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26006",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 0,
+      "promisedInDays": 10,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 260
+        },
+        {
+          "productId": "fg-005",
+          "qty": 116
+        },
+        {
+          "productId": "fg-008",
+          "qty": 95
+        },
+        {
+          "productId": "fg-007",
+          "qty": 87
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26007",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 0,
+      "promisedInDays": 12,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 274
+        },
+        {
+          "productId": "fg-002",
+          "qty": 73
+        },
+        {
+          "productId": "fg-014",
+          "qty": 28
+        },
+        {
+          "productId": "fg-005",
+          "qty": 125
+        },
+        {
+          "productId": "fg-008",
+          "qty": 55
+        },
+        {
+          "productId": "fg-007",
+          "qty": 93
+        },
+        {
+          "productId": "fg-006",
+          "qty": 35
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26008",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 0,
+      "promisedInDays": 14,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 248
+        },
+        {
+          "productId": "fg-002",
+          "qty": 64
+        },
+        {
+          "productId": "fg-003",
+          "qty": 209
+        },
+        {
+          "productId": "fg-005",
+          "qty": 143
+        },
+        {
+          "productId": "fg-007",
+          "qty": 64
+        },
+        {
+          "productId": "fg-006",
+          "qty": 53
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26009",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 3,
+      "promisedInDays": 16,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-002",
+          "qty": 82
+        },
+        {
+          "productId": "fg-014",
+          "qty": 30
+        },
+        {
+          "productId": "fg-003",
+          "qty": 281
+        },
+        {
+          "productId": "fg-005",
+          "qty": 93
+        },
+        {
+          "productId": "fg-007",
+          "qty": 80
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26010",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 2,
+      "promisedInDays": 18,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-002",
+          "qty": 45
+        },
+        {
+          "productId": "fg-014",
+          "qty": 18
+        },
+        {
+          "productId": "fg-003",
+          "qty": 198
+        },
+        {
+          "productId": "fg-005",
+          "qty": 86
+        },
+        {
+          "productId": "fg-008",
+          "qty": 55
+        },
+        {
+          "productId": "fg-007",
+          "qty": 56
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26011",
+      "customerId": "c-01",
+      "customer": "Sharma Supermarket",
+      "placedDaysAgo": 2,
+      "promisedInDays": 20,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-002",
+          "qty": 83
+        },
+        {
+          "productId": "fg-014",
+          "qty": 26
+        },
+        {
+          "productId": "fg-003",
+          "qty": 232
+        },
+        {
+          "productId": "fg-005",
+          "qty": 124
+        },
+        {
+          "productId": "fg-008",
+          "qty": 76
+        },
+        {
+          "productId": "fg-007",
+          "qty": 91
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26012",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 1,
+      "promisedInDays": 1,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 224
+        },
+        {
+          "productId": "fg-004",
+          "qty": 78
+        },
+        {
+          "productId": "fg-021",
+          "qty": 17
+        },
+        {
+          "productId": "fg-003",
+          "qty": 216
+        },
+        {
+          "productId": "fg-002",
+          "qty": 76
+        },
+        {
+          "productId": "fg-024",
+          "qty": 41
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26013",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 2,
+      "promisedInDays": 3,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 255
+        },
+        {
+          "productId": "fg-004",
+          "qty": 77
+        },
+        {
+          "productId": "fg-021",
+          "qty": 26
+        },
+        {
+          "productId": "fg-003",
+          "qty": 253
+        },
+        {
+          "productId": "fg-024",
+          "qty": 67
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26014",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 1,
+      "promisedInDays": 5,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 241
+        },
+        {
+          "productId": "fg-004",
+          "qty": 87
+        },
+        {
+          "productId": "fg-021",
+          "qty": 27
+        },
+        {
+          "productId": "fg-003",
+          "qty": 267
+        },
+        {
+          "productId": "fg-002",
+          "qty": 54
+        },
+        {
+          "productId": "fg-024",
+          "qty": 42
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26015",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 2,
+      "promisedInDays": 7,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 222
+        },
+        {
+          "productId": "fg-004",
+          "qty": 84
+        },
+        {
+          "productId": "fg-003",
+          "qty": 189
+        },
+        {
+          "productId": "fg-002",
+          "qty": 72
+        },
+        {
+          "productId": "fg-024",
+          "qty": 55
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26016",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 2,
+      "promisedInDays": 9,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 215
+        },
+        {
+          "productId": "fg-021",
+          "qty": 18
+        },
+        {
+          "productId": "fg-002",
+          "qty": 59
+        },
+        {
+          "productId": "fg-024",
+          "qty": 39
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26017",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 0,
+      "promisedInDays": 11,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 173
+        },
+        {
+          "productId": "fg-004",
+          "qty": 84
+        },
+        {
+          "productId": "fg-003",
+          "qty": 234
+        },
+        {
+          "productId": "fg-002",
+          "qty": 68
+        },
+        {
+          "productId": "fg-024",
+          "qty": 69
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26018",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 2,
+      "promisedInDays": 13,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 168
+        },
+        {
+          "productId": "fg-004",
+          "qty": 87
+        },
+        {
+          "productId": "fg-021",
+          "qty": 20
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26019",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 3,
+      "promisedInDays": 15,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 248
+        },
+        {
+          "productId": "fg-004",
+          "qty": 77
+        },
+        {
+          "productId": "fg-003",
+          "qty": 285
+        },
+        {
+          "productId": "fg-002",
+          "qty": 61
+        },
+        {
+          "productId": "fg-024",
+          "qty": 62
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26020",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 2,
+      "promisedInDays": 17,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 251
+        },
+        {
+          "productId": "fg-021",
+          "qty": 19
+        },
+        {
+          "productId": "fg-024",
+          "qty": 54
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26021",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 0,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-004",
+          "qty": 61
+        },
+        {
+          "productId": "fg-021",
+          "qty": 30
+        },
+        {
+          "productId": "fg-003",
+          "qty": 284
+        },
+        {
+          "productId": "fg-002",
+          "qty": 66
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26022",
+      "customerId": "c-02",
+      "customer": "Fresh Mart Kondhwa",
+      "placedDaysAgo": 3,
+      "promisedInDays": 21,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 234
+        },
+        {
+          "productId": "fg-003",
+          "qty": 186
+        },
+        {
+          "productId": "fg-002",
+          "qty": 71
+        },
+        {
+          "productId": "fg-024",
+          "qty": 43
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26023",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 3,
+      "promisedInDays": 2,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 87
+        },
+        {
+          "productId": "fg-022",
+          "qty": 40
+        },
+        {
+          "productId": "fg-009",
+          "qty": 210
+        },
+        {
+          "productId": "fg-016",
+          "qty": 37
+        },
+        {
+          "productId": "fg-002",
+          "qty": 95
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26024",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 0,
+      "promisedInDays": 5,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 390
+        },
+        {
+          "productId": "fg-007",
+          "qty": 129
+        },
+        {
+          "productId": "fg-009",
+          "qty": 152
+        },
+        {
+          "productId": "fg-016",
+          "qty": 31
+        },
+        {
+          "productId": "fg-002",
+          "qty": 78
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26025",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 0,
+      "promisedInDays": 8,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 82
+        },
+        {
+          "productId": "fg-016",
+          "qty": 51
+        },
+        {
+          "productId": "fg-002",
+          "qty": 98
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26026",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 0,
+      "promisedInDays": 11,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 283
+        },
+        {
+          "productId": "fg-007",
+          "qty": 138
+        },
+        {
+          "productId": "fg-022",
+          "qty": 37
+        },
+        {
+          "productId": "fg-016",
+          "qty": 31
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26027",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 2,
+      "promisedInDays": 14,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 363
+        },
+        {
+          "productId": "fg-007",
+          "qty": 81
+        },
+        {
+          "productId": "fg-022",
+          "qty": 48
+        },
+        {
+          "productId": "fg-009",
+          "qty": 174
+        },
+        {
+          "productId": "fg-002",
+          "qty": 110
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26028",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 0,
+      "promisedInDays": 17,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 322
+        },
+        {
+          "productId": "fg-007",
+          "qty": 96
+        },
+        {
+          "productId": "fg-022",
+          "qty": 53
+        },
+        {
+          "productId": "fg-009",
+          "qty": 206
+        },
+        {
+          "productId": "fg-002",
+          "qty": 91
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26029",
+      "customerId": "c-03",
+      "customer": "Ganraj Kirana",
+      "placedDaysAgo": 3,
+      "promisedInDays": 20,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 145
+        },
+        {
+          "productId": "fg-022",
+          "qty": 47
+        },
+        {
+          "productId": "fg-009",
+          "qty": 158
+        },
+        {
+          "productId": "fg-016",
+          "qty": 38
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26030",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 2,
+      "promisedInDays": 1,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 219
+        },
+        {
+          "productId": "fg-006",
+          "qty": 66
+        },
+        {
+          "productId": "fg-007",
+          "qty": 78
+        },
+        {
+          "productId": "fg-008",
+          "qty": 110
+        },
+        {
+          "productId": "fg-013",
+          "qty": 77
+        },
+        {
+          "productId": "fg-002",
+          "qty": 81
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26031",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 1,
+      "promisedInDays": 4,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-006",
+          "qty": 76
+        },
+        {
+          "productId": "fg-007",
+          "qty": 94
+        },
+        {
+          "productId": "fg-013",
+          "qty": 76
+        },
+        {
+          "productId": "fg-002",
+          "qty": 81
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26032",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 0,
+      "promisedInDays": 7,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 373
+        },
+        {
+          "productId": "fg-006",
+          "qty": 68
+        },
+        {
+          "productId": "fg-013",
+          "qty": 59
+        },
+        {
+          "productId": "fg-002",
+          "qty": 94
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26033",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 1,
+      "promisedInDays": 10,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 305
+        },
+        {
+          "productId": "fg-006",
+          "qty": 78
+        },
+        {
+          "productId": "fg-007",
+          "qty": 129
+        },
+        {
+          "productId": "fg-008",
+          "qty": 83
+        },
+        {
+          "productId": "fg-013",
+          "qty": 61
+        },
+        {
+          "productId": "fg-002",
+          "qty": 105
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26034",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 3,
+      "promisedInDays": 13,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 370
+        },
+        {
+          "productId": "fg-006",
+          "qty": 47
+        },
+        {
+          "productId": "fg-007",
+          "qty": 87
+        },
+        {
+          "productId": "fg-013",
+          "qty": 65
+        },
+        {
+          "productId": "fg-002",
+          "qty": 114
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26035",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 1,
+      "promisedInDays": 16,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 308
+        },
+        {
+          "productId": "fg-006",
+          "qty": 61
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26036",
+      "customerId": "c-04",
+      "customer": "Aai Mata General Store",
+      "placedDaysAgo": 0,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 321
+        },
+        {
+          "productId": "fg-006",
+          "qty": 55
+        },
+        {
+          "productId": "fg-007",
+          "qty": 98
+        },
+        {
+          "productId": "fg-013",
+          "qty": 75
+        },
+        {
+          "productId": "fg-002",
+          "qty": 84
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26037",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 1,
+      "promisedInDays": 0,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 141
+        },
+        {
+          "productId": "fg-006",
+          "qty": 108
+        },
+        {
+          "productId": "fg-022",
+          "qty": 55
+        },
+        {
+          "productId": "fg-016",
+          "qty": 63
+        },
+        {
+          "productId": "fg-020",
+          "qty": 54
+        },
+        {
+          "productId": "fg-008",
+          "qty": 165
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26038",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 2,
+      "promisedInDays": 4,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 121
+        },
+        {
+          "productId": "fg-006",
+          "qty": 67
+        },
+        {
+          "productId": "fg-016",
+          "qty": 55
+        },
+        {
+          "productId": "fg-008",
+          "qty": 154
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26039",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 3,
+      "promisedInDays": 8,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 165
+        },
+        {
+          "productId": "fg-006",
+          "qty": 101
+        },
+        {
+          "productId": "fg-022",
+          "qty": 69
+        },
+        {
+          "productId": "fg-008",
+          "qty": 127
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26040",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 3,
+      "promisedInDays": 12,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 163
+        },
+        {
+          "productId": "fg-022",
+          "qty": 91
+        },
+        {
+          "productId": "fg-008",
+          "qty": 139
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26041",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 0,
+      "promisedInDays": 16,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 160
+        },
+        {
+          "productId": "fg-006",
+          "qty": 71
+        },
+        {
+          "productId": "fg-016",
+          "qty": 55
+        },
+        {
+          "productId": "fg-020",
+          "qty": 69
+        },
+        {
+          "productId": "fg-008",
+          "qty": 183
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26042",
+      "customerId": "c-05",
+      "customer": "Laxmi Provision",
+      "placedDaysAgo": 1,
+      "promisedInDays": 20,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-006",
+          "qty": 68
+        },
+        {
+          "productId": "fg-016",
+          "qty": 64
+        },
+        {
+          "productId": "fg-020",
+          "qty": 55
+        },
+        {
+          "productId": "fg-008",
+          "qty": 110
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26043",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 1,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 204
+        },
+        {
+          "productId": "fg-003",
+          "qty": 306
+        },
+        {
+          "productId": "fg-009",
+          "qty": 123
+        },
+        {
+          "productId": "fg-010",
+          "qty": 50
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26044",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 3,
+      "promisedInDays": 3,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 148
+        },
+        {
+          "productId": "fg-003",
+          "qty": 284
+        },
+        {
+          "productId": "fg-014",
+          "qty": 33
+        },
+        {
+          "productId": "fg-021",
+          "qty": 30
+        },
+        {
+          "productId": "fg-024",
+          "qty": 60
+        },
+        {
+          "productId": "fg-010",
+          "qty": 76
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26045",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 2,
+      "promisedInDays": 5,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 206
+        },
+        {
+          "productId": "fg-014",
+          "qty": 22
+        },
+        {
+          "productId": "fg-021",
+          "qty": 17
+        },
+        {
+          "productId": "fg-009",
+          "qty": 82
+        },
+        {
+          "productId": "fg-024",
+          "qty": 56
+        },
+        {
+          "productId": "fg-010",
+          "qty": 47
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26046",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 7,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 234
+        },
+        {
+          "productId": "fg-014",
+          "qty": 18
+        },
+        {
+          "productId": "fg-009",
+          "qty": 94
+        },
+        {
+          "productId": "fg-024",
+          "qty": 65
+        },
+        {
+          "productId": "fg-010",
+          "qty": 77
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26047",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 0,
+      "promisedInDays": 9,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 207
+        },
+        {
+          "productId": "fg-003",
+          "qty": 255
+        },
+        {
+          "productId": "fg-014",
+          "qty": 21
+        },
+        {
+          "productId": "fg-021",
+          "qty": 19
+        },
+        {
+          "productId": "fg-009",
+          "qty": 94
+        },
+        {
+          "productId": "fg-024",
+          "qty": 43
+        },
+        {
+          "productId": "fg-010",
+          "qty": 62
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26048",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 3,
+      "promisedInDays": 11,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 228
+        },
+        {
+          "productId": "fg-003",
+          "qty": 226
+        },
+        {
+          "productId": "fg-014",
+          "qty": 25
+        },
+        {
+          "productId": "fg-009",
+          "qty": 137
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26049",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 13,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 152
+        },
+        {
+          "productId": "fg-014",
+          "qty": 24
+        },
+        {
+          "productId": "fg-021",
+          "qty": 23
+        },
+        {
+          "productId": "fg-009",
+          "qty": 122
+        },
+        {
+          "productId": "fg-024",
+          "qty": 48
+        },
+        {
+          "productId": "fg-010",
+          "qty": 65
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26050",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 0,
+      "promisedInDays": 15,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 192
+        },
+        {
+          "productId": "fg-003",
+          "qty": 230
+        },
+        {
+          "productId": "fg-014",
+          "qty": 30
+        },
+        {
+          "productId": "fg-021",
+          "qty": 24
+        },
+        {
+          "productId": "fg-010",
+          "qty": 45
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26051",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 17,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 265
+        },
+        {
+          "productId": "fg-003",
+          "qty": 275
+        },
+        {
+          "productId": "fg-021",
+          "qty": 28
+        },
+        {
+          "productId": "fg-024",
+          "qty": 64
+        },
+        {
+          "productId": "fg-010",
+          "qty": 44
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26052",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 235
+        },
+        {
+          "productId": "fg-003",
+          "qty": 206
+        },
+        {
+          "productId": "fg-014",
+          "qty": 21
+        },
+        {
+          "productId": "fg-021",
+          "qty": 28
+        },
+        {
+          "productId": "fg-024",
+          "qty": 51
+        },
+        {
+          "productId": "fg-010",
+          "qty": 74
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26053",
+      "customerId": "c-06",
+      "customer": "Shree Ram Super",
+      "placedDaysAgo": 1,
+      "promisedInDays": 21,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 28
+        },
+        {
+          "productId": "fg-009",
+          "qty": 112
+        },
+        {
+          "productId": "fg-024",
+          "qty": 48
+        },
+        {
+          "productId": "fg-010",
+          "qty": 64
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26054",
+      "customerId": "c-07",
+      "customer": "Krishna Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 0,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-022",
+          "qty": 65
+        },
+        {
+          "productId": "fg-009",
+          "qty": 245
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26055",
+      "customerId": "c-07",
+      "customer": "Krishna Kirana",
+      "placedDaysAgo": 3,
+      "promisedInDays": 5,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 155
+        },
+        {
+          "productId": "fg-022",
+          "qty": 118
+        },
+        {
+          "productId": "fg-005",
+          "qty": 333
+        },
+        {
+          "productId": "fg-008",
+          "qty": 211
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26056",
+      "customerId": "c-07",
+      "customer": "Krishna Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 10,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 185
+        },
+        {
+          "productId": "fg-022",
+          "qty": 85
+        },
+        {
+          "productId": "fg-005",
+          "qty": 342
+        },
+        {
+          "productId": "fg-009",
+          "qty": 219
+        },
+        {
+          "productId": "fg-008",
+          "qty": 212
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26057",
+      "customerId": "c-07",
+      "customer": "Krishna Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 15,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-007",
+          "qty": 152
+        },
+        {
+          "productId": "fg-022",
+          "qty": 89
+        },
+        {
+          "productId": "fg-005",
+          "qty": 409
+        },
+        {
+          "productId": "fg-009",
+          "qty": 316
+        },
+        {
+          "productId": "fg-008",
+          "qty": 181
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26058",
+      "customerId": "c-07",
+      "customer": "Krishna Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 20,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-022",
+          "qty": 64
+        },
+        {
+          "productId": "fg-005",
+          "qty": 388
+        },
+        {
+          "productId": "fg-009",
+          "qty": 287
+        },
+        {
+          "productId": "fg-008",
+          "qty": 231
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26059",
+      "customerId": "c-08",
+      "customer": "New Bharat Store",
+      "placedDaysAgo": 2,
+      "promisedInDays": 3,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 438
+        },
+        {
+          "productId": "fg-006",
+          "qty": 58
+        },
+        {
+          "productId": "fg-007",
+          "qty": 137
+        },
+        {
+          "productId": "fg-013",
+          "qty": 123
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26060",
+      "customerId": "c-08",
+      "customer": "New Bharat Store",
+      "placedDaysAgo": 0,
+      "promisedInDays": 7,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 440
+        },
+        {
+          "productId": "fg-006",
+          "qty": 80
+        },
+        {
+          "productId": "fg-007",
+          "qty": 165
+        },
+        {
+          "productId": "fg-013",
+          "qty": 82
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26061",
+      "customerId": "c-08",
+      "customer": "New Bharat Store",
+      "placedDaysAgo": 3,
+      "promisedInDays": 11,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 360
+        },
+        {
+          "productId": "fg-002",
+          "qty": 137
+        },
+        {
+          "productId": "fg-007",
+          "qty": 153
+        },
+        {
+          "productId": "fg-013",
+          "qty": 89
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26062",
+      "customerId": "c-08",
+      "customer": "New Bharat Store",
+      "placedDaysAgo": 1,
+      "promisedInDays": 15,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 449
+        },
+        {
+          "productId": "fg-002",
+          "qty": 96
+        },
+        {
+          "productId": "fg-006",
+          "qty": 87
+        },
+        {
+          "productId": "fg-007",
+          "qty": 175
+        },
+        {
+          "productId": "fg-013",
+          "qty": 114
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26063",
+      "customerId": "c-08",
+      "customer": "New Bharat Store",
+      "placedDaysAgo": 0,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 394
+        },
+        {
+          "productId": "fg-013",
+          "qty": 106
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26064",
+      "customerId": "c-09",
+      "customer": "Vaibhav Kirana",
+      "placedDaysAgo": 2,
+      "promisedInDays": 4,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-005",
+          "qty": 355
+        },
+        {
+          "productId": "fg-023",
+          "qty": 5
+        },
+        {
+          "productId": "fg-012",
+          "qty": 57
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26065",
+      "customerId": "c-09",
+      "customer": "Vaibhav Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 9,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-005",
+          "qty": 284
+        },
+        {
+          "productId": "fg-016",
+          "qty": 79
+        },
+        {
+          "productId": "fg-023",
+          "qty": 4
+        },
+        {
+          "productId": "fg-012",
+          "qty": 57
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26066",
+      "customerId": "c-09",
+      "customer": "Vaibhav Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 14,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-005",
+          "qty": 380
+        },
+        {
+          "productId": "fg-022",
+          "qty": 102
+        },
+        {
+          "productId": "fg-016",
+          "qty": 78
+        },
+        {
+          "productId": "fg-023",
+          "qty": 5
+        },
+        {
+          "productId": "fg-012",
+          "qty": 50
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26067",
+      "customerId": "c-09",
+      "customer": "Vaibhav Kirana",
+      "placedDaysAgo": 1,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-005",
+          "qty": 341
+        },
+        {
+          "productId": "fg-022",
+          "qty": 101
+        },
+        {
+          "productId": "fg-023",
+          "qty": 6
+        },
+        {
+          "productId": "fg-012",
+          "qty": 61
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26068",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 2,
+      "promisedInDays": 1,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 389
+        },
+        {
+          "productId": "fg-014",
+          "qty": 30
+        },
+        {
+          "productId": "fg-021",
+          "qty": 27
+        },
+        {
+          "productId": "fg-004",
+          "qty": 82
+        },
+        {
+          "productId": "fg-011",
+          "qty": 30
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26069",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 1,
+      "promisedInDays": 4,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 393
+        },
+        {
+          "productId": "fg-014",
+          "qty": 27
+        },
+        {
+          "productId": "fg-021",
+          "qty": 47
+        },
+        {
+          "productId": "fg-011",
+          "qty": 25
+        },
+        {
+          "productId": "fg-017",
+          "qty": 23
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26070",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 3,
+      "promisedInDays": 7,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 260
+        },
+        {
+          "productId": "fg-014",
+          "qty": 28
+        },
+        {
+          "productId": "fg-004",
+          "qty": 107
+        },
+        {
+          "productId": "fg-011",
+          "qty": 44
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26071",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 0,
+      "promisedInDays": 10,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 237
+        },
+        {
+          "productId": "fg-014",
+          "qty": 33
+        },
+        {
+          "productId": "fg-004",
+          "qty": 94
+        },
+        {
+          "productId": "fg-011",
+          "qty": 36
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26072",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 2,
+      "promisedInDays": 13,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 342
+        },
+        {
+          "productId": "fg-014",
+          "qty": 30
+        },
+        {
+          "productId": "fg-021",
+          "qty": 30
+        },
+        {
+          "productId": "fg-011",
+          "qty": 30
+        },
+        {
+          "productId": "fg-017",
+          "qty": 34
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26073",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 1,
+      "promisedInDays": 16,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 299
+        },
+        {
+          "productId": "fg-014",
+          "qty": 46
+        },
+        {
+          "productId": "fg-004",
+          "qty": 123
+        },
+        {
+          "productId": "fg-011",
+          "qty": 38
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26074",
+      "customerId": "c-10",
+      "customer": "Balaji Cafe Supplies",
+      "placedDaysAgo": 0,
+      "promisedInDays": 19,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 388
+        },
+        {
+          "productId": "fg-014",
+          "qty": 32
+        },
+        {
+          "productId": "fg-021",
+          "qty": 34
+        },
+        {
+          "productId": "fg-011",
+          "qty": 39
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26075",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 1,
+      "promisedInDays": 1,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-006",
+          "qty": 75
+        },
+        {
+          "productId": "fg-019",
+          "qty": 46
+        },
+        {
+          "productId": "fg-011",
+          "qty": 33
+        },
+        {
+          "productId": "fg-017",
+          "qty": 35
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26076",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 3,
+      "promisedInDays": 5,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 54
+        },
+        {
+          "productId": "fg-006",
+          "qty": 79
+        },
+        {
+          "productId": "fg-019",
+          "qty": 31
+        },
+        {
+          "productId": "fg-011",
+          "qty": 54
+        },
+        {
+          "productId": "fg-017",
+          "qty": 28
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26077",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 0,
+      "promisedInDays": 9,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 50
+        },
+        {
+          "productId": "fg-019",
+          "qty": 29
+        },
+        {
+          "productId": "fg-011",
+          "qty": 48
+        },
+        {
+          "productId": "fg-017",
+          "qty": 29
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26078",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 3,
+      "promisedInDays": 13,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 53
+        },
+        {
+          "productId": "fg-006",
+          "qty": 77
+        },
+        {
+          "productId": "fg-019",
+          "qty": 32
+        },
+        {
+          "productId": "fg-017",
+          "qty": 39
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26079",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 1,
+      "promisedInDays": 17,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 46
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26080",
+      "customerId": "c-11",
+      "customer": "Sunrise Bakery",
+      "placedDaysAgo": 0,
+      "promisedInDays": 21,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-014",
+          "qty": 50
+        },
+        {
+          "productId": "fg-006",
+          "qty": 103
+        },
+        {
+          "productId": "fg-017",
+          "qty": 29
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26081",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 3,
+      "promisedInDays": 0,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 347
+        },
+        {
+          "productId": "fg-002",
+          "qty": 123
+        },
+        {
+          "productId": "fg-024",
+          "qty": 74
+        },
+        {
+          "productId": "fg-013",
+          "qty": 95
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26082",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 3,
+      "promisedInDays": 3,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-002",
+          "qty": 118
+        },
+        {
+          "productId": "fg-010",
+          "qty": 78
+        },
+        {
+          "productId": "fg-013",
+          "qty": 72
+        },
+        {
+          "productId": "fg-019",
+          "qty": 31
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26083",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 2,
+      "promisedInDays": 6,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 219
+        },
+        {
+          "productId": "fg-024",
+          "qty": 77
+        },
+        {
+          "productId": "fg-010",
+          "qty": 124
+        },
+        {
+          "productId": "fg-013",
+          "qty": 98
+        },
+        {
+          "productId": "fg-019",
+          "qty": 37
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26084",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 0,
+      "promisedInDays": 9,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-024",
+          "qty": 71
+        },
+        {
+          "productId": "fg-010",
+          "qty": 103
+        },
+        {
+          "productId": "fg-013",
+          "qty": 56
+        },
+        {
+          "productId": "fg-019",
+          "qty": 39
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26085",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 3,
+      "promisedInDays": 12,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 252
+        },
+        {
+          "productId": "fg-002",
+          "qty": 121
+        },
+        {
+          "productId": "fg-024",
+          "qty": 92
+        },
+        {
+          "productId": "fg-010",
+          "qty": 107
+        },
+        {
+          "productId": "fg-013",
+          "qty": 69
+        },
+        {
+          "productId": "fg-019",
+          "qty": 22
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26086",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 3,
+      "promisedInDays": 15,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-024",
+          "qty": 86
+        },
+        {
+          "productId": "fg-010",
+          "qty": 114
+        },
+        {
+          "productId": "fg-013",
+          "qty": 65
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26087",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 1,
+      "promisedInDays": 18,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 238
+        },
+        {
+          "productId": "fg-002",
+          "qty": 124
+        },
+        {
+          "productId": "fg-024",
+          "qty": 85
+        },
+        {
+          "productId": "fg-010",
+          "qty": 91
+        },
+        {
+          "productId": "fg-013",
+          "qty": 65
+        },
+        {
+          "productId": "fg-019",
+          "qty": 41
+        }
+      ]
+    },
+    {
+      "orderId": "SO-26088",
+      "customerId": "c-12",
+      "customer": "Deepak Mart",
+      "placedDaysAgo": 1,
+      "promisedInDays": 21,
+      "status": "Confirmed",
+      "lines": [
+        {
+          "productId": "fg-001",
+          "qty": 269
+        },
+        {
+          "productId": "fg-002",
+          "qty": 76
+        },
+        {
+          "productId": "fg-024",
+          "qty": 80
+        },
+        {
+          "productId": "fg-013",
+          "qty": 83
+        },
+        {
+          "productId": "fg-019",
+          "qty": 34
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "id": "fg-001",
+      "name": "Amul Taaza Toned Milk 1L",
+      "brand": "Amul",
+      "category": "Dairy",
+      "pack": "1 L",
+      "unit": "Ltr",
+      "cost": 32.0,
+      "sell": 36.0,
+      "tax": 5,
+      "supplier": "Konkan Dairy Co-op",
+      "shelfLifeDays": 5,
+      "shelfBand": "fresh",
+      "isKVI": true,
+      "physical": 2927,
+      "traced": 2927,
+      "untraced": 0,
+      "unitCost": 32.0,
+      "replenishmentDays": 2,
+      "safetyDays": 1,
+      "targetStock": 2477,
+      "batches": [
+        {
+          "batchId": "B-4101",
+          "batchNumber": "BATCH-30101",
+          "qty": 312,
+          "mfgDaysAgo": 7,
+          "expiryInDays": -2,
+          "cost": 32.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4102",
+          "batchNumber": "BATCH-30102",
+          "qty": 875,
+          "mfgDaysAgo": 4,
+          "expiryInDays": 1,
+          "cost": 32.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4103",
+          "batchNumber": "BATCH-30103",
+          "qty": 1740,
+          "mfgDaysAgo": 3,
+          "expiryInDays": 2,
+          "cost": 32.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 821.9,
+        "d30": 825.7,
+        "d90": 814.5,
+        "last14": [
+          806,
+          779,
+          956,
+          993,
+          834,
+          774,
+          749,
+          790,
+          812,
+          994,
+          927,
+          710,
+          731,
+          789
+        ]
+      },
+      "demandByDay": [
+        558,
+        1036,
+        178,
+        841,
+        393,
+        837,
+        461,
+        1529,
+        168,
+        422,
+        802,
+        1044,
+        526,
+        1032,
+        611,
+        889,
+        607,
+        838,
+        238,
+        1338,
+        0,
+        503
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 211
+        },
+        {
+          "orderId": "SO-26081",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 0,
+          "qty": 347
+        },
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 224
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 219
+        },
+        {
+          "orderId": "SO-26043",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 1,
+          "qty": 204
+        },
+        {
+          "orderId": "SO-26068",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 1,
+          "qty": 389
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 178
+        },
+        {
+          "orderId": "SO-26013",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 3,
+          "qty": 255
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 148
+        },
+        {
+          "orderId": "SO-26059",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 3,
+          "qty": 438
+        },
+        {
+          "orderId": "SO-26069",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 4,
+          "qty": 393
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 241
+        },
+        {
+          "orderId": "SO-26024",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 5,
+          "qty": 390
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 206
+        },
+        {
+          "orderId": "SO-26004",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 6,
+          "qty": 242
+        },
+        {
+          "orderId": "SO-26083",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 6,
+          "qty": 219
+        },
+        {
+          "orderId": "SO-26015",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 7,
+          "qty": 222
+        },
+        {
+          "orderId": "SO-26032",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 7,
+          "qty": 373
+        },
+        {
+          "orderId": "SO-26046",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 7,
+          "qty": 234
+        },
+        {
+          "orderId": "SO-26060",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 7,
+          "qty": 440
+        },
+        {
+          "orderId": "SO-26070",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 7,
+          "qty": 260
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 168
+        },
+        {
+          "orderId": "SO-26016",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 9,
+          "qty": 215
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 207
+        },
+        {
+          "orderId": "SO-26006",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 10,
+          "qty": 260
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 305
+        },
+        {
+          "orderId": "SO-26071",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 10,
+          "qty": 237
+        },
+        {
+          "orderId": "SO-26017",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 11,
+          "qty": 173
+        },
+        {
+          "orderId": "SO-26026",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 11,
+          "qty": 283
+        },
+        {
+          "orderId": "SO-26048",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 11,
+          "qty": 228
+        },
+        {
+          "orderId": "SO-26061",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 11,
+          "qty": 360
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 274
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 252
+        },
+        {
+          "orderId": "SO-26018",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 13,
+          "qty": 168
+        },
+        {
+          "orderId": "SO-26034",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 13,
+          "qty": 370
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 152
+        },
+        {
+          "orderId": "SO-26072",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 13,
+          "qty": 342
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 248
+        },
+        {
+          "orderId": "SO-26027",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 14,
+          "qty": 363
+        },
+        {
+          "orderId": "SO-26019",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 15,
+          "qty": 248
+        },
+        {
+          "orderId": "SO-26050",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 15,
+          "qty": 192
+        },
+        {
+          "orderId": "SO-26062",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 15,
+          "qty": 449
+        },
+        {
+          "orderId": "SO-26035",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 16,
+          "qty": 308
+        },
+        {
+          "orderId": "SO-26073",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 16,
+          "qty": 299
+        },
+        {
+          "orderId": "SO-26020",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 17,
+          "qty": 251
+        },
+        {
+          "orderId": "SO-26028",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 17,
+          "qty": 322
+        },
+        {
+          "orderId": "SO-26051",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 17,
+          "qty": 265
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 238
+        },
+        {
+          "orderId": "SO-26036",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 19,
+          "qty": 321
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 235
+        },
+        {
+          "orderId": "SO-26063",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 19,
+          "qty": 394
+        },
+        {
+          "orderId": "SO-26074",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 19,
+          "qty": 388
+        },
+        {
+          "orderId": "SO-26022",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 21,
+          "qty": 234
+        },
+        {
+          "orderId": "SO-26088",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 21,
+          "qty": 269
+        }
+      ],
+      "committed": 14851
+    },
+    {
+      "id": "fg-003",
+      "name": "Nandini Curd 500g",
+      "brand": "Nandini",
+      "category": "Dairy",
+      "pack": "500 g",
+      "unit": "Cup",
+      "cost": 24.0,
+      "sell": 30.0,
+      "tax": 5,
+      "supplier": "Konkan Dairy Co-op",
+      "shelfLifeDays": 7,
+      "shelfBand": "fresh",
+      "isKVI": true,
+      "physical": 2440,
+      "traced": 2440,
+      "untraced": 0,
+      "unitCost": 24.0,
+      "replenishmentDays": 2,
+      "safetyDays": 1,
+      "targetStock": 1071,
+      "batches": [
+        {
+          "batchId": "B-4104",
+          "batchNumber": "BATCH-30104",
+          "qty": 172,
+          "mfgDaysAgo": 12,
+          "expiryInDays": -5,
+          "cost": 24.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4105",
+          "batchNumber": "BATCH-30105",
+          "qty": 369,
+          "mfgDaysAgo": 7,
+          "expiryInDays": 0,
+          "cost": 24.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4106",
+          "batchNumber": "BATCH-30106",
+          "qty": 591,
+          "mfgDaysAgo": 3,
+          "expiryInDays": 4,
+          "cost": 24.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4107",
+          "batchNumber": "BATCH-30107",
+          "qty": 691,
+          "mfgDaysAgo": 2,
+          "expiryInDays": 5,
+          "cost": 24.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4108",
+          "batchNumber": "BATCH-30108",
+          "qty": 617,
+          "mfgDaysAgo": 2,
+          "expiryInDays": 5,
+          "cost": 24.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 365.0,
+        "d30": 356.9,
+        "d90": 343.1,
+        "last14": [
+          264,
+          371,
+          402,
+          462,
+          353,
+          327,
+          306,
+          325,
+          446,
+          385,
+          415,
+          318,
+          427,
+          239
+        ]
+      },
+      "demandByDay": [
+        250,
+        522,
+        286,
+        537,
+        0,
+        267,
+        0,
+        189,
+        238,
+        255,
+        0,
+        460,
+        0,
+        0,
+        209,
+        515,
+        281,
+        275,
+        198,
+        490,
+        232,
+        186
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 250
+        },
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 216
+        },
+        {
+          "orderId": "SO-26043",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 1,
+          "qty": 306
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 286
+        },
+        {
+          "orderId": "SO-26013",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 3,
+          "qty": 253
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 284
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 267
+        },
+        {
+          "orderId": "SO-26015",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 7,
+          "qty": 189
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 238
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 255
+        },
+        {
+          "orderId": "SO-26017",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 11,
+          "qty": 234
+        },
+        {
+          "orderId": "SO-26048",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 11,
+          "qty": 226
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 209
+        },
+        {
+          "orderId": "SO-26019",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 15,
+          "qty": 285
+        },
+        {
+          "orderId": "SO-26050",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 15,
+          "qty": 230
+        },
+        {
+          "orderId": "SO-26009",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 16,
+          "qty": 281
+        },
+        {
+          "orderId": "SO-26051",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 17,
+          "qty": 275
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 198
+        },
+        {
+          "orderId": "SO-26021",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 19,
+          "qty": 284
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 206
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 232
+        },
+        {
+          "orderId": "SO-26022",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 21,
+          "qty": 186
+        }
+      ],
+      "committed": 5390
+    },
+    {
+      "id": "fg-004",
+      "name": "Farm Fresh Paneer 200g",
+      "brand": "Farm Fresh",
+      "category": "Dairy",
+      "pack": "200 g",
+      "unit": "Pkt",
+      "cost": 78.0,
+      "sell": 95.0,
+      "tax": 5,
+      "supplier": "Konkan Dairy Co-op",
+      "shelfLifeDays": 5,
+      "shelfBand": "fresh",
+      "isKVI": false,
+      "physical": 448,
+      "traced": 448,
+      "untraced": 0,
+      "unitCost": 78.0,
+      "replenishmentDays": 2,
+      "safetyDays": 1,
+      "targetStock": 200,
+      "batches": [
+        {
+          "batchId": "B-4109",
+          "batchNumber": "BATCH-30109",
+          "qty": 17,
+          "mfgDaysAgo": 18,
+          "expiryInDays": -13,
+          "cost": 78.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4110",
+          "batchNumber": "BATCH-30110",
+          "qty": 68,
+          "mfgDaysAgo": 17,
+          "expiryInDays": -12,
+          "cost": 78.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4111",
+          "batchNumber": "BATCH-30111",
+          "qty": 116,
+          "mfgDaysAgo": 16,
+          "expiryInDays": -11,
+          "cost": 78.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4112",
+          "batchNumber": "BATCH-30112",
+          "qty": 111,
+          "mfgDaysAgo": 6,
+          "expiryInDays": -1,
+          "cost": 78.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4113",
+          "batchNumber": "BATCH-30113",
+          "qty": 136,
+          "mfgDaysAgo": 4,
+          "expiryInDays": 1,
+          "cost": 78.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 82.4,
+        "d30": 66.6,
+        "d90": 64.7,
+        "last14": [
+          42,
+          39,
+          85,
+          18,
+          116,
+          67,
+          30,
+          36,
+          55,
+          115,
+          111,
+          119,
+          83,
+          58
+        ]
+      },
+      "demandByDay": [
+        0,
+        160,
+        0,
+        77,
+        0,
+        87,
+        0,
+        191,
+        0,
+        0,
+        94,
+        84,
+        0,
+        87,
+        0,
+        77,
+        123,
+        0,
+        0,
+        61,
+        0,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26068",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 1,
+          "qty": 82
+        },
+        {
+          "orderId": "SO-26013",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 3,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26015",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 7,
+          "qty": 84
+        },
+        {
+          "orderId": "SO-26070",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 7,
+          "qty": 107
+        },
+        {
+          "orderId": "SO-26071",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 10,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26017",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 11,
+          "qty": 84
+        },
+        {
+          "orderId": "SO-26018",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 13,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26019",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 15,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26073",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 16,
+          "qty": 123
+        },
+        {
+          "orderId": "SO-26021",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 19,
+          "qty": 61
+        }
+      ],
+      "committed": 1041
+    },
+    {
+      "id": "fg-014",
+      "name": "Mother Dairy Butter 500g",
+      "brand": "Mother Dairy",
+      "category": "Dairy",
+      "pack": "500 g",
+      "unit": "Pkt",
+      "cost": 245.0,
+      "sell": 275.0,
+      "tax": 12,
+      "supplier": "Konkan Dairy Co-op",
+      "shelfLifeDays": 60,
+      "shelfBand": "short",
+      "isKVI": true,
+      "physical": 1105,
+      "traced": 608,
+      "untraced": 497,
+      "unitCost": 245.0,
+      "replenishmentDays": 7,
+      "safetyDays": 3,
+      "targetStock": 492,
+      "batches": [
+        {
+          "batchId": "B-4114",
+          "batchNumber": "BATCH-30114",
+          "qty": 270,
+          "mfgDaysAgo": 11,
+          "expiryInDays": 49,
+          "cost": 245.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4115",
+          "batchNumber": "BATCH-30115",
+          "qty": 338,
+          "mfgDaysAgo": 5,
+          "expiryInDays": 55,
+          "cost": 245.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 54.0,
+        "d30": 49.2,
+        "d90": 49.0,
+        "last14": [
+          40,
+          53,
+          50,
+          56,
+          41,
+          51,
+          43,
+          44,
+          56,
+          70,
+          64,
+          47,
+          51,
+          46
+        ]
+      },
+      "demandByDay": [
+        23,
+        30,
+        24,
+        33,
+        59,
+        76,
+        24,
+        46,
+        21,
+        71,
+        33,
+        25,
+        28,
+        107,
+        0,
+        30,
+        76,
+        46,
+        18,
+        53,
+        26,
+        78
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 23
+        },
+        {
+          "orderId": "SO-26068",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 1,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 24
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 33
+        },
+        {
+          "orderId": "SO-26003",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 4,
+          "qty": 32
+        },
+        {
+          "orderId": "SO-26069",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 4,
+          "qty": 27
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 22
+        },
+        {
+          "orderId": "SO-26076",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 5,
+          "qty": 54
+        },
+        {
+          "orderId": "SO-26004",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 6,
+          "qty": 24
+        },
+        {
+          "orderId": "SO-26046",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 7,
+          "qty": 18
+        },
+        {
+          "orderId": "SO-26070",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 7,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 21
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 21
+        },
+        {
+          "orderId": "SO-26077",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 9,
+          "qty": 50
+        },
+        {
+          "orderId": "SO-26071",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 10,
+          "qty": 33
+        },
+        {
+          "orderId": "SO-26048",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 11,
+          "qty": 25
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 24
+        },
+        {
+          "orderId": "SO-26072",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 13,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26078",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 13,
+          "qty": 53
+        },
+        {
+          "orderId": "SO-26050",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 15,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26009",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 16,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26073",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 16,
+          "qty": 46
+        },
+        {
+          "orderId": "SO-26079",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 17,
+          "qty": 46
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 18
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 21
+        },
+        {
+          "orderId": "SO-26074",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 19,
+          "qty": 32
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 26
+        },
+        {
+          "orderId": "SO-26053",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 21,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26080",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 21,
+          "qty": 50
+        }
+      ],
+      "committed": 927
+    },
+    {
+      "id": "fg-021",
+      "name": "Amul Cheese Slices 200g",
+      "brand": "Amul",
+      "category": "Dairy",
+      "pack": "200 g",
+      "unit": "Pkt",
+      "cost": 118.0,
+      "sell": 140.0,
+      "tax": 12,
+      "supplier": "Konkan Dairy Co-op",
+      "shelfLifeDays": 90,
+      "shelfBand": "short",
+      "isKVI": true,
+      "physical": 2996,
+      "traced": 1648,
+      "untraced": 1348,
+      "unitCost": 118.0,
+      "replenishmentDays": 7,
+      "safetyDays": 3,
+      "targetStock": 352,
+      "batches": [
+        {
+          "batchId": "B-4116",
+          "batchNumber": "BATCH-30116",
+          "qty": 294,
+          "mfgDaysAgo": 29,
+          "expiryInDays": 61,
+          "cost": 118.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4117",
+          "batchNumber": "BATCH-30117",
+          "qty": 290,
+          "mfgDaysAgo": 22,
+          "expiryInDays": 68,
+          "cost": 118.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4118",
+          "batchNumber": "BATCH-30118",
+          "qty": 377,
+          "mfgDaysAgo": 16,
+          "expiryInDays": 74,
+          "cost": 118.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4119",
+          "batchNumber": "BATCH-30119",
+          "qty": 283,
+          "mfgDaysAgo": 10,
+          "expiryInDays": 80,
+          "cost": 118.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        },
+        {
+          "batchId": "B-4120",
+          "batchNumber": "BATCH-30120",
+          "qty": 404,
+          "mfgDaysAgo": 3,
+          "expiryInDays": 87,
+          "cost": 118.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Konkan Dairy Co-op"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 35.6,
+        "d30": 35.2,
+        "d90": 36.9,
+        "last14": [
+          33,
+          51,
+          21,
+          53,
+          44,
+          26,
+          38,
+          39,
+          46,
+          50,
+          16,
+          48,
+          34,
+          16
+        ]
+      },
+      "demandByDay": [
+        0,
+        44,
+        0,
+        56,
+        47,
+        44,
+        0,
+        0,
+        0,
+        37,
+        0,
+        0,
+        0,
+        73,
+        0,
+        24,
+        0,
+        47,
+        0,
+        92,
+        0,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 17
+        },
+        {
+          "orderId": "SO-26068",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 1,
+          "qty": 27
+        },
+        {
+          "orderId": "SO-26013",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 3,
+          "qty": 26
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26069",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 4,
+          "qty": 47
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 27
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 17
+        },
+        {
+          "orderId": "SO-26016",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 9,
+          "qty": 18
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 19
+        },
+        {
+          "orderId": "SO-26018",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 13,
+          "qty": 20
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 23
+        },
+        {
+          "orderId": "SO-26072",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 13,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26050",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 15,
+          "qty": 24
+        },
+        {
+          "orderId": "SO-26020",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 17,
+          "qty": 19
+        },
+        {
+          "orderId": "SO-26051",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 17,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26021",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 19,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26074",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 19,
+          "qty": 34
+        }
+      ],
+      "committed": 464
+    },
+    {
+      "id": "fg-002",
+      "name": "Britannia Brown Bread 400g",
+      "brand": "Britannia",
+      "category": "Bakery",
+      "pack": "400 g",
+      "unit": "Pkt",
+      "cost": 38.0,
+      "sell": 45.0,
+      "tax": 5,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 4,
+      "shelfBand": "fresh",
+      "isKVI": true,
+      "physical": 659,
+      "traced": 659,
+      "untraced": 0,
+      "unitCost": 38.0,
+      "replenishmentDays": 2,
+      "safetyDays": 1,
+      "targetStock": 554,
+      "batches": [
+        {
+          "batchId": "B-4121",
+          "batchNumber": "BATCH-30121",
+          "qty": 17,
+          "mfgDaysAgo": 9,
+          "expiryInDays": -5,
+          "cost": 38.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4122",
+          "batchNumber": "BATCH-30122",
+          "qty": 231,
+          "mfgDaysAgo": 4,
+          "expiryInDays": 0,
+          "cost": 38.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4123",
+          "batchNumber": "BATCH-30123",
+          "qty": 411,
+          "mfgDaysAgo": 2,
+          "expiryInDays": 2,
+          "cost": 38.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9405",
+          "qty": 345,
+          "etaInDays": 1,
+          "supplier": "Deccan Foods Pvt Ltd",
+          "note": "replenishment cycle in transit"
+        }
+      ],
+      "sales": {
+        "d7": 183.4,
+        "d30": 184.5,
+        "d90": 187.5,
+        "last14": [
+          168,
+          167,
+          214,
+          200,
+          199,
+          191,
+          169,
+          178,
+          169,
+          218,
+          201,
+          190,
+          153,
+          175
+        ]
+      },
+      "demandByDay": [
+        200,
+        157,
+        95,
+        118,
+        139,
+        132,
+        57,
+        166,
+        157,
+        59,
+        105,
+        205,
+        194,
+        114,
+        174,
+        157,
+        82,
+        91,
+        169,
+        150,
+        83,
+        147
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26081",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 0,
+          "qty": 123
+        },
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 76
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 81
+        },
+        {
+          "orderId": "SO-26023",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 2,
+          "qty": 95
+        },
+        {
+          "orderId": "SO-26082",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 3,
+          "qty": 118
+        },
+        {
+          "orderId": "SO-26003",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 4,
+          "qty": 58
+        },
+        {
+          "orderId": "SO-26031",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 4,
+          "qty": 81
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 54
+        },
+        {
+          "orderId": "SO-26024",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 5,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26004",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 6,
+          "qty": 57
+        },
+        {
+          "orderId": "SO-26015",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 7,
+          "qty": 72
+        },
+        {
+          "orderId": "SO-26032",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 7,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 59
+        },
+        {
+          "orderId": "SO-26025",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 8,
+          "qty": 98
+        },
+        {
+          "orderId": "SO-26016",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 9,
+          "qty": 59
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 105
+        },
+        {
+          "orderId": "SO-26017",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 11,
+          "qty": 68
+        },
+        {
+          "orderId": "SO-26061",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 11,
+          "qty": 137
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 73
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 121
+        },
+        {
+          "orderId": "SO-26034",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 13,
+          "qty": 114
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 64
+        },
+        {
+          "orderId": "SO-26027",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 14,
+          "qty": 110
+        },
+        {
+          "orderId": "SO-26019",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 15,
+          "qty": 61
+        },
+        {
+          "orderId": "SO-26062",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 15,
+          "qty": 96
+        },
+        {
+          "orderId": "SO-26009",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 16,
+          "qty": 82
+        },
+        {
+          "orderId": "SO-26028",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 17,
+          "qty": 91
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 45
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 124
+        },
+        {
+          "orderId": "SO-26021",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 19,
+          "qty": 66
+        },
+        {
+          "orderId": "SO-26036",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 19,
+          "qty": 84
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 83
+        },
+        {
+          "orderId": "SO-26022",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 21,
+          "qty": 71
+        },
+        {
+          "orderId": "SO-26088",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 21,
+          "qty": 76
+        }
+      ],
+      "committed": 2951
+    },
+    {
+      "id": "fg-005",
+      "name": "Sunfeast Marie Light 250g",
+      "brand": "Sunfeast",
+      "category": "Biscuits",
+      "pack": "250 g",
+      "unit": "Pkt",
+      "cost": 26.0,
+      "sell": 32.0,
+      "tax": 18,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 180,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 15571,
+      "traced": 15571,
+      "untraced": 0,
+      "unitCost": 26.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 5169,
+      "batches": [
+        {
+          "batchId": "B-4124",
+          "batchNumber": "BATCH-30124",
+          "qty": 1704,
+          "mfgDaysAgo": 50,
+          "expiryInDays": 130,
+          "cost": 26.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4125",
+          "batchNumber": "BATCH-30125",
+          "qty": 6289,
+          "mfgDaysAgo": 29,
+          "expiryInDays": 151,
+          "cost": 26.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4126",
+          "batchNumber": "BATCH-30126",
+          "qty": 7578,
+          "mfgDaysAgo": 8,
+          "expiryInDays": 172,
+          "cost": 26.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9486",
+          "qty": 3877,
+          "etaInDays": 6,
+          "supplier": "Deccan Foods Pvt Ltd",
+          "note": "ordered before the current decline"
+        }
+      ],
+      "sales": {
+        "d7": 181.1,
+        "d30": 184.6,
+        "d90": 203.7,
+        "last14": [
+          136,
+          208,
+          177,
+          217,
+          177,
+          197,
+          155,
+          136,
+          153,
+          250,
+          220,
+          199,
+          160,
+          150
+        ]
+      },
+      "demandByDay": [
+        117,
+        0,
+        94,
+        0,
+        495,
+        333,
+        96,
+        0,
+        158,
+        284,
+        458,
+        0,
+        125,
+        0,
+        523,
+        409,
+        93,
+        0,
+        86,
+        341,
+        512,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 117
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26003",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 4,
+          "qty": 140
+        },
+        {
+          "orderId": "SO-26064",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 4,
+          "qty": 355
+        },
+        {
+          "orderId": "SO-26055",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 5,
+          "qty": 333
+        },
+        {
+          "orderId": "SO-26004",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 6,
+          "qty": 96
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 158
+        },
+        {
+          "orderId": "SO-26065",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 9,
+          "qty": 284
+        },
+        {
+          "orderId": "SO-26006",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 10,
+          "qty": 116
+        },
+        {
+          "orderId": "SO-26056",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 10,
+          "qty": 342
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 125
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 143
+        },
+        {
+          "orderId": "SO-26066",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 14,
+          "qty": 380
+        },
+        {
+          "orderId": "SO-26057",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 15,
+          "qty": 409
+        },
+        {
+          "orderId": "SO-26009",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 16,
+          "qty": 93
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 86
+        },
+        {
+          "orderId": "SO-26067",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 19,
+          "qty": 341
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 124
+        },
+        {
+          "orderId": "SO-26058",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 20,
+          "qty": 388
+        }
+      ],
+      "committed": 4124
+    },
+    {
+      "id": "fg-022",
+      "name": "Parle-G Gold 1kg",
+      "brand": "Parle",
+      "category": "Biscuits",
+      "pack": "1 kg",
+      "unit": "Pkt",
+      "cost": 92.0,
+      "sell": 110.0,
+      "tax": 18,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 240,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 4254,
+      "traced": 4254,
+      "untraced": 0,
+      "unitCost": 92.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 1994,
+      "batches": [
+        {
+          "batchId": "B-4127",
+          "batchNumber": "BATCH-30127",
+          "qty": 1676,
+          "mfgDaysAgo": 28,
+          "expiryInDays": 212,
+          "cost": 92.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4128",
+          "batchNumber": "BATCH-30128",
+          "qty": 2578,
+          "mfgDaysAgo": 8,
+          "expiryInDays": 232,
+          "cost": 92.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9407",
+          "qty": 2605,
+          "etaInDays": 2,
+          "supplier": "Deccan Foods Pvt Ltd",
+          "note": "replenishment cycle in transit"
+        }
+      ],
+      "sales": {
+        "d7": 66.6,
+        "d30": 71.2,
+        "d90": 79.1,
+        "last14": [
+          60,
+          71,
+          84,
+          70,
+          77,
+          72,
+          63,
+          53,
+          70,
+          89,
+          60,
+          71,
+          66,
+          57
+        ]
+      },
+      "demandByDay": [
+        120,
+        0,
+        40,
+        0,
+        0,
+        118,
+        0,
+        0,
+        69,
+        0,
+        85,
+        37,
+        91,
+        0,
+        150,
+        89,
+        0,
+        53,
+        0,
+        101,
+        111,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26054",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 0,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26023",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 2,
+          "qty": 40
+        },
+        {
+          "orderId": "SO-26055",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 5,
+          "qty": 118
+        },
+        {
+          "orderId": "SO-26039",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 8,
+          "qty": 69
+        },
+        {
+          "orderId": "SO-26056",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 10,
+          "qty": 85
+        },
+        {
+          "orderId": "SO-26026",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 11,
+          "qty": 37
+        },
+        {
+          "orderId": "SO-26040",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 12,
+          "qty": 91
+        },
+        {
+          "orderId": "SO-26027",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 14,
+          "qty": 48
+        },
+        {
+          "orderId": "SO-26066",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 14,
+          "qty": 102
+        },
+        {
+          "orderId": "SO-26057",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 15,
+          "qty": 89
+        },
+        {
+          "orderId": "SO-26028",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 17,
+          "qty": 53
+        },
+        {
+          "orderId": "SO-26067",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 19,
+          "qty": 101
+        },
+        {
+          "orderId": "SO-26029",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 20,
+          "qty": 47
+        },
+        {
+          "orderId": "SO-26058",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 20,
+          "qty": 64
+        }
+      ],
+      "committed": 1064
+    },
+    {
+      "id": "fg-009",
+      "name": "Maggi Noodles 70g x12",
+      "brand": "Nestle",
+      "category": "Snacks",
+      "pack": "12 pk",
+      "unit": "Pkt",
+      "cost": 144.0,
+      "sell": 168.0,
+      "tax": 12,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 270,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 2221,
+      "traced": 2221,
+      "untraced": 0,
+      "unitCost": 144.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 4575,
+      "batches": [
+        {
+          "batchId": "B-4129",
+          "batchNumber": "BATCH-30129",
+          "qty": 2221,
+          "mfgDaysAgo": 5,
+          "expiryInDays": 265,
+          "cost": 144.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 168.7,
+        "d30": 163.4,
+        "d90": 157.0,
+        "last14": [
+          135,
+          149,
+          217,
+          182,
+          144,
+          165,
+          169,
+          156,
+          158,
+          211,
+          192,
+          148,
+          181,
+          135
+        ]
+      },
+      "demandByDay": [
+        245,
+        123,
+        210,
+        0,
+        0,
+        234,
+        0,
+        94,
+        0,
+        94,
+        219,
+        137,
+        0,
+        122,
+        174,
+        316,
+        0,
+        206,
+        0,
+        0,
+        445,
+        112
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26054",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 0,
+          "qty": 245
+        },
+        {
+          "orderId": "SO-26043",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 1,
+          "qty": 123
+        },
+        {
+          "orderId": "SO-26023",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 2,
+          "qty": 210
+        },
+        {
+          "orderId": "SO-26024",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 5,
+          "qty": 152
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 82
+        },
+        {
+          "orderId": "SO-26046",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 7,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26056",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 10,
+          "qty": 219
+        },
+        {
+          "orderId": "SO-26048",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 11,
+          "qty": 137
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 122
+        },
+        {
+          "orderId": "SO-26027",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 14,
+          "qty": 174
+        },
+        {
+          "orderId": "SO-26057",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 15,
+          "qty": 316
+        },
+        {
+          "orderId": "SO-26028",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 17,
+          "qty": 206
+        },
+        {
+          "orderId": "SO-26029",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 20,
+          "qty": 158
+        },
+        {
+          "orderId": "SO-26058",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 20,
+          "qty": 287
+        },
+        {
+          "orderId": "SO-26053",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 21,
+          "qty": 112
+        }
+      ],
+      "committed": 2731
+    },
+    {
+      "id": "fg-013",
+      "name": "Haldiram Aloo Bhujia 400g",
+      "brand": "Haldiram",
+      "category": "Snacks",
+      "pack": "400 g",
+      "unit": "Pkt",
+      "cost": 88.0,
+      "sell": 105.0,
+      "tax": 12,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 180,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 1376,
+      "traced": 1376,
+      "untraced": 0,
+      "unitCost": 88.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 2192,
+      "batches": [
+        {
+          "batchId": "B-4130",
+          "batchNumber": "BATCH-30130",
+          "qty": 1376,
+          "mfgDaysAgo": 18,
+          "expiryInDays": 162,
+          "cost": 88.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 60.1,
+        "d30": 78.3,
+        "d90": 77.0,
+        "last14": [
+          63,
+          69,
+          69,
+          54,
+          55,
+          47,
+          50,
+          45,
+          60,
+          70,
+          67,
+          57,
+          55,
+          67
+        ]
+      },
+      "demandByDay": [
+        95,
+        77,
+        0,
+        195,
+        76,
+        0,
+        98,
+        141,
+        0,
+        56,
+        61,
+        89,
+        69,
+        65,
+        0,
+        179,
+        0,
+        0,
+        65,
+        181,
+        0,
+        83
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26081",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 0,
+          "qty": 95
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26059",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 3,
+          "qty": 123
+        },
+        {
+          "orderId": "SO-26082",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 3,
+          "qty": 72
+        },
+        {
+          "orderId": "SO-26031",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 4,
+          "qty": 76
+        },
+        {
+          "orderId": "SO-26083",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 6,
+          "qty": 98
+        },
+        {
+          "orderId": "SO-26032",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 7,
+          "qty": 59
+        },
+        {
+          "orderId": "SO-26060",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 7,
+          "qty": 82
+        },
+        {
+          "orderId": "SO-26084",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 9,
+          "qty": 56
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 61
+        },
+        {
+          "orderId": "SO-26061",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 11,
+          "qty": 89
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 69
+        },
+        {
+          "orderId": "SO-26034",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 13,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26062",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 15,
+          "qty": 114
+        },
+        {
+          "orderId": "SO-26086",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 15,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26036",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 19,
+          "qty": 75
+        },
+        {
+          "orderId": "SO-26063",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 19,
+          "qty": 106
+        },
+        {
+          "orderId": "SO-26088",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 21,
+          "qty": 83
+        }
+      ],
+      "committed": 1530
+    },
+    {
+      "id": "fg-018",
+      "name": "Bikano Soan Papdi 500g",
+      "brand": "Bikano",
+      "category": "Sweets",
+      "pack": "500 g",
+      "unit": "Box",
+      "cost": 132.0,
+      "sell": 160.0,
+      "tax": 12,
+      "supplier": "Deccan Foods Pvt Ltd",
+      "shelfLifeDays": 120,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 690,
+      "traced": 566,
+      "untraced": 124,
+      "unitCost": 132.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 188,
+      "batches": [
+        {
+          "batchId": "B-4131",
+          "batchNumber": "BATCH-30131",
+          "qty": 24,
+          "mfgDaysAgo": 49,
+          "expiryInDays": 71,
+          "cost": 132.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4132",
+          "batchNumber": "BATCH-30132",
+          "qty": 312,
+          "mfgDaysAgo": 33,
+          "expiryInDays": 87,
+          "cost": 132.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        },
+        {
+          "batchId": "B-4133",
+          "batchNumber": "BATCH-30133",
+          "qty": 230,
+          "mfgDaysAgo": 11,
+          "expiryInDays": 109,
+          "cost": 132.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Deccan Foods Pvt Ltd"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9490",
+          "qty": 141,
+          "etaInDays": 2,
+          "supplier": "Deccan Foods Pvt Ltd",
+          "note": "ordered before the current decline"
+        }
+      ],
+      "sales": {
+        "d7": 6.4,
+        "d30": 6.7,
+        "d90": 7.7,
+        "last14": [
+          6,
+          6,
+          9,
+          6,
+          5,
+          6,
+          6,
+          5,
+          7,
+          9,
+          6,
+          6,
+          6,
+          6
+        ]
+      },
+      "demandByDay": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "demandOrders": [],
+      "committed": 0
+    },
+    {
+      "id": "fg-006",
+      "name": "Aashirvaad Atta 5kg",
+      "brand": "Aashirvaad",
+      "category": "Staples",
+      "pack": "5 kg",
+      "unit": "Bag",
+      "cost": 245.0,
+      "sell": 272.0,
+      "tax": 0,
+      "supplier": "Sunrise Agro Traders",
+      "shelfLifeDays": 180,
+      "shelfBand": "long",
+      "isKVI": true,
+      "physical": 1430,
+      "traced": 1273,
+      "untraced": 157,
+      "unitCost": 245.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 2920,
+      "batches": [
+        {
+          "batchId": "B-4134",
+          "batchNumber": "BATCH-30134",
+          "qty": 1273,
+          "mfgDaysAgo": 9,
+          "expiryInDays": 171,
+          "cost": 245.0,
+          "tax": 0,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 102.6,
+        "d30": 104.3,
+        "d90": 102.9,
+        "last14": [
+          92,
+          105,
+          125,
+          107,
+          92,
+          112,
+          108,
+          100,
+          88,
+          121,
+          114,
+          105,
+          95,
+          95
+        ]
+      },
+      "demandByDay": [
+        142,
+        141,
+        42,
+        58,
+        194,
+        79,
+        0,
+        148,
+        101,
+        0,
+        78,
+        0,
+        35,
+        124,
+        53,
+        87,
+        132,
+        0,
+        0,
+        55,
+        68,
+        103
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 34
+        },
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 108
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 66
+        },
+        {
+          "orderId": "SO-26075",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 1,
+          "qty": 75
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 42
+        },
+        {
+          "orderId": "SO-26059",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 3,
+          "qty": 58
+        },
+        {
+          "orderId": "SO-26003",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 4,
+          "qty": 51
+        },
+        {
+          "orderId": "SO-26031",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 4,
+          "qty": 76
+        },
+        {
+          "orderId": "SO-26038",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 4,
+          "qty": 67
+        },
+        {
+          "orderId": "SO-26076",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 5,
+          "qty": 79
+        },
+        {
+          "orderId": "SO-26032",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 7,
+          "qty": 68
+        },
+        {
+          "orderId": "SO-26060",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 7,
+          "qty": 80
+        },
+        {
+          "orderId": "SO-26039",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 8,
+          "qty": 101
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 35
+        },
+        {
+          "orderId": "SO-26034",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 13,
+          "qty": 47
+        },
+        {
+          "orderId": "SO-26078",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 13,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 53
+        },
+        {
+          "orderId": "SO-26062",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 15,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26035",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 16,
+          "qty": 61
+        },
+        {
+          "orderId": "SO-26041",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 16,
+          "qty": 71
+        },
+        {
+          "orderId": "SO-26036",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 19,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26042",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 20,
+          "qty": 68
+        },
+        {
+          "orderId": "SO-26080",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 21,
+          "qty": 103
+        }
+      ],
+      "committed": 1640
+    },
+    {
+      "id": "fg-007",
+      "name": "Tata Salt 1kg",
+      "brand": "Tata",
+      "category": "Staples",
+      "pack": "1 kg",
+      "unit": "Pkt",
+      "cost": 22.0,
+      "sell": 28.0,
+      "tax": 0,
+      "supplier": "Sunrise Agro Traders",
+      "shelfLifeDays": 540,
+      "shelfBand": "long",
+      "isKVI": true,
+      "physical": 5612,
+      "traced": 5612,
+      "untraced": 0,
+      "unitCost": 22.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 6006,
+      "batches": [
+        {
+          "batchId": "B-4135",
+          "batchNumber": "BATCH-30135",
+          "qty": 251,
+          "mfgDaysAgo": 36,
+          "expiryInDays": 504,
+          "cost": 22.0,
+          "tax": 0,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        },
+        {
+          "batchId": "B-4136",
+          "batchNumber": "BATCH-30136",
+          "qty": 5361,
+          "mfgDaysAgo": 15,
+          "expiryInDays": 525,
+          "cost": 22.0,
+          "tax": 0,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 226.1,
+        "d30": 214.5,
+        "d90": 215.1,
+        "last14": [
+          170,
+          208,
+          257,
+          252,
+          220,
+          200,
+          186,
+          167,
+          253,
+          309,
+          222,
+          223,
+          221,
+          188
+        ]
+      },
+      "demandByDay": [
+        141,
+        78,
+        162,
+        137,
+        279,
+        284,
+        0,
+        165,
+        340,
+        0,
+        401,
+        291,
+        256,
+        87,
+        145,
+        327,
+        240,
+        96,
+        56,
+        98,
+        236,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 141
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 75
+        },
+        {
+          "orderId": "SO-26023",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 2,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26059",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 3,
+          "qty": 137
+        },
+        {
+          "orderId": "SO-26003",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 4,
+          "qty": 64
+        },
+        {
+          "orderId": "SO-26031",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 4,
+          "qty": 94
+        },
+        {
+          "orderId": "SO-26038",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 4,
+          "qty": 121
+        },
+        {
+          "orderId": "SO-26024",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 5,
+          "qty": 129
+        },
+        {
+          "orderId": "SO-26055",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 5,
+          "qty": 155
+        },
+        {
+          "orderId": "SO-26060",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 7,
+          "qty": 165
+        },
+        {
+          "orderId": "SO-26005",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 8,
+          "qty": 93
+        },
+        {
+          "orderId": "SO-26025",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 8,
+          "qty": 82
+        },
+        {
+          "orderId": "SO-26039",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 8,
+          "qty": 165
+        },
+        {
+          "orderId": "SO-26006",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 10,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 129
+        },
+        {
+          "orderId": "SO-26056",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 10,
+          "qty": 185
+        },
+        {
+          "orderId": "SO-26026",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 11,
+          "qty": 138
+        },
+        {
+          "orderId": "SO-26061",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 11,
+          "qty": 153
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 93
+        },
+        {
+          "orderId": "SO-26040",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 12,
+          "qty": 163
+        },
+        {
+          "orderId": "SO-26034",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 13,
+          "qty": 87
+        },
+        {
+          "orderId": "SO-26008",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 14,
+          "qty": 64
+        },
+        {
+          "orderId": "SO-26027",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 14,
+          "qty": 81
+        },
+        {
+          "orderId": "SO-26057",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 15,
+          "qty": 152
+        },
+        {
+          "orderId": "SO-26062",
+          "customer": "New Bharat Store",
+          "customerId": "c-08",
+          "promisedInDays": 15,
+          "qty": 175
+        },
+        {
+          "orderId": "SO-26009",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 16,
+          "qty": 80
+        },
+        {
+          "orderId": "SO-26041",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 16,
+          "qty": 160
+        },
+        {
+          "orderId": "SO-26028",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 17,
+          "qty": 96
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 56
+        },
+        {
+          "orderId": "SO-26036",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 19,
+          "qty": 98
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 91
+        },
+        {
+          "orderId": "SO-26029",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 20,
+          "qty": 145
+        }
+      ],
+      "committed": 3819
+    },
+    {
+      "id": "fg-008",
+      "name": "Fortune Sunflower Oil 1L",
+      "brand": "Fortune",
+      "category": "Oils",
+      "pack": "1 L",
+      "unit": "Btl",
+      "cost": 128.0,
+      "sell": 145.0,
+      "tax": 5,
+      "supplier": "Western Oils & Fats",
+      "shelfLifeDays": 270,
+      "shelfBand": "long",
+      "isKVI": true,
+      "physical": 10613,
+      "traced": 5837,
+      "untraced": 4776,
+      "unitCost": 128.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 4026,
+      "batches": [
+        {
+          "batchId": "B-4137",
+          "batchNumber": "BATCH-30137",
+          "qty": 1588,
+          "mfgDaysAgo": 34,
+          "expiryInDays": 236,
+          "cost": 128.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Western Oils & Fats"
+        },
+        {
+          "batchId": "B-4138",
+          "batchNumber": "BATCH-30138",
+          "qty": 4249,
+          "mfgDaysAgo": 14,
+          "expiryInDays": 256,
+          "cost": 128.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Western Oils & Fats"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9413",
+          "qty": 2975,
+          "etaInDays": 3,
+          "supplier": "Western Oils & Fats",
+          "note": "replenishment cycle in transit"
+        }
+      ],
+      "sales": {
+        "d7": 147.3,
+        "d30": 143.8,
+        "d90": 147.2,
+        "last14": [
+          139,
+          164,
+          190,
+          155,
+          149,
+          129,
+          140,
+          129,
+          167,
+          170,
+          162,
+          158,
+          132,
+          113
+        ]
+      },
+      "demandByDay": [
+        233,
+        110,
+        64,
+        0,
+        154,
+        211,
+        0,
+        0,
+        127,
+        0,
+        390,
+        0,
+        194,
+        0,
+        0,
+        181,
+        183,
+        0,
+        55,
+        0,
+        417,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26001",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 0,
+          "qty": 68
+        },
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 165
+        },
+        {
+          "orderId": "SO-26030",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 1,
+          "qty": 110
+        },
+        {
+          "orderId": "SO-26002",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 2,
+          "qty": 64
+        },
+        {
+          "orderId": "SO-26038",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 4,
+          "qty": 154
+        },
+        {
+          "orderId": "SO-26055",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 5,
+          "qty": 211
+        },
+        {
+          "orderId": "SO-26039",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 8,
+          "qty": 127
+        },
+        {
+          "orderId": "SO-26006",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 10,
+          "qty": 95
+        },
+        {
+          "orderId": "SO-26033",
+          "customer": "Aai Mata General Store",
+          "customerId": "c-04",
+          "promisedInDays": 10,
+          "qty": 83
+        },
+        {
+          "orderId": "SO-26056",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 10,
+          "qty": 212
+        },
+        {
+          "orderId": "SO-26007",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 12,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26040",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 12,
+          "qty": 139
+        },
+        {
+          "orderId": "SO-26057",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 15,
+          "qty": 181
+        },
+        {
+          "orderId": "SO-26041",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 16,
+          "qty": 183
+        },
+        {
+          "orderId": "SO-26010",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 18,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26011",
+          "customer": "Sharma Supermarket",
+          "customerId": "c-01",
+          "promisedInDays": 20,
+          "qty": 76
+        },
+        {
+          "orderId": "SO-26042",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 20,
+          "qty": 110
+        },
+        {
+          "orderId": "SO-26058",
+          "customer": "Krishna Kirana",
+          "customerId": "c-07",
+          "promisedInDays": 20,
+          "qty": 231
+        }
+      ],
+      "committed": 2319
+    },
+    {
+      "id": "fg-017",
+      "name": "Saffola Gold Oil 5L",
+      "brand": "Saffola",
+      "category": "Oils",
+      "pack": "5 L",
+      "unit": "Can",
+      "cost": 720.0,
+      "sell": 810.0,
+      "tax": 5,
+      "supplier": "Western Oils & Fats",
+      "shelfLifeDays": 270,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 284,
+      "traced": 284,
+      "untraced": 0,
+      "unitCost": 720.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 493,
+      "batches": [
+        {
+          "batchId": "B-4139",
+          "batchNumber": "BATCH-30139",
+          "qty": 284,
+          "mfgDaysAgo": 6,
+          "expiryInDays": 264,
+          "cost": 720.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Western Oils & Fats"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 17.1,
+        "d30": 17.6,
+        "d90": 16.6,
+        "last14": [
+          18,
+          27,
+          32,
+          11,
+          9,
+          15,
+          19,
+          20,
+          9,
+          13,
+          23,
+          9,
+          32,
+          14
+        ]
+      },
+      "demandByDay": [
+        0,
+        35,
+        0,
+        0,
+        23,
+        28,
+        0,
+        0,
+        0,
+        29,
+        0,
+        0,
+        0,
+        73,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        29
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26075",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 1,
+          "qty": 35
+        },
+        {
+          "orderId": "SO-26069",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 4,
+          "qty": 23
+        },
+        {
+          "orderId": "SO-26076",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 5,
+          "qty": 28
+        },
+        {
+          "orderId": "SO-26077",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 9,
+          "qty": 29
+        },
+        {
+          "orderId": "SO-26072",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 13,
+          "qty": 34
+        },
+        {
+          "orderId": "SO-26078",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 13,
+          "qty": 39
+        },
+        {
+          "orderId": "SO-26080",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 21,
+          "qty": 29
+        }
+      ],
+      "committed": 217
+    },
+    {
+      "id": "fg-015",
+      "name": "Del Monte Olive Oil 500ml",
+      "brand": "Del Monte",
+      "category": "Oils",
+      "pack": "500 ml",
+      "unit": "Btl",
+      "cost": 430.0,
+      "sell": 520.0,
+      "tax": 12,
+      "supplier": "Western Oils & Fats",
+      "shelfLifeDays": 540,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 185,
+      "traced": 185,
+      "untraced": 0,
+      "unitCost": 430.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 129,
+      "batches": [
+        {
+          "batchId": "B-4140",
+          "batchNumber": "BATCH-30140",
+          "qty": 60,
+          "mfgDaysAgo": 31,
+          "expiryInDays": 509,
+          "cost": 430.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Western Oils & Fats"
+        },
+        {
+          "batchId": "B-4141",
+          "batchNumber": "BATCH-30141",
+          "qty": 125,
+          "mfgDaysAgo": 7,
+          "expiryInDays": 533,
+          "cost": 430.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Western Oils & Fats"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 4.6,
+        "d30": 4.6,
+        "d90": 4.8,
+        "last14": [
+          4,
+          4,
+          5,
+          6,
+          5,
+          4,
+          4,
+          4,
+          4,
+          5,
+          5,
+          5,
+          5,
+          4
+        ]
+      },
+      "demandByDay": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "demandOrders": [],
+      "committed": 0
+    },
+    {
+      "id": "fg-010",
+      "name": "Red Label Tea 500g",
+      "brand": "Brooke Bond",
+      "category": "Beverages",
+      "pack": "500 g",
+      "unit": "Pkt",
+      "cost": 245.0,
+      "sell": 285.0,
+      "tax": 5,
+      "supplier": "Sunrise Agro Traders",
+      "shelfLifeDays": 540,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 1200,
+      "traced": 1200,
+      "untraced": 0,
+      "unitCost": 245.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 1728,
+      "batches": [
+        {
+          "batchId": "B-4142",
+          "batchNumber": "BATCH-30142",
+          "qty": 32,
+          "mfgDaysAgo": 24,
+          "expiryInDays": 516,
+          "cost": 245.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        },
+        {
+          "batchId": "B-4143",
+          "batchNumber": "BATCH-30143",
+          "qty": 1168,
+          "mfgDaysAgo": 5,
+          "expiryInDays": 535,
+          "cost": 245.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 61.3,
+        "d30": 61.7,
+        "d90": 61.5,
+        "last14": [
+          66,
+          69,
+          80,
+          55,
+          59,
+          47,
+          54,
+          52,
+          59,
+          76,
+          63,
+          62,
+          61,
+          56
+        ]
+      },
+      "demandByDay": [
+        0,
+        50,
+        0,
+        154,
+        0,
+        47,
+        124,
+        77,
+        0,
+        165,
+        0,
+        0,
+        107,
+        65,
+        0,
+        159,
+        0,
+        44,
+        91,
+        74,
+        0,
+        64
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26043",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 1,
+          "qty": 50
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 76
+        },
+        {
+          "orderId": "SO-26082",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 3,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 47
+        },
+        {
+          "orderId": "SO-26083",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 6,
+          "qty": 124
+        },
+        {
+          "orderId": "SO-26046",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 7,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 62
+        },
+        {
+          "orderId": "SO-26084",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 9,
+          "qty": 103
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 107
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26050",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 15,
+          "qty": 45
+        },
+        {
+          "orderId": "SO-26086",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 15,
+          "qty": 114
+        },
+        {
+          "orderId": "SO-26051",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 17,
+          "qty": 44
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 91
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 74
+        },
+        {
+          "orderId": "SO-26053",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 21,
+          "qty": 64
+        }
+      ],
+      "committed": 1221
+    },
+    {
+      "id": "fg-011",
+      "name": "Nescafe Classic 100g",
+      "brand": "Nestle",
+      "category": "Beverages",
+      "pack": "100 g",
+      "unit": "Jar",
+      "cost": 310.0,
+      "sell": 360.0,
+      "tax": 18,
+      "supplier": "Sunrise Agro Traders",
+      "shelfLifeDays": 540,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 346,
+      "traced": 325,
+      "untraced": 21,
+      "unitCost": 310.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 652,
+      "batches": [
+        {
+          "batchId": "B-4144",
+          "batchNumber": "BATCH-30144",
+          "qty": 325,
+          "mfgDaysAgo": 10,
+          "expiryInDays": 530,
+          "cost": 310.0,
+          "tax": 18,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        }
+      ],
+      "incoming": [
+        {
+          "poNumber": "PO-9417",
+          "qty": 443,
+          "etaInDays": 2,
+          "supplier": "Sunrise Agro Traders",
+          "note": "replenishment cycle in transit"
+        }
+      ],
+      "sales": {
+        "d7": 23.1,
+        "d30": 23.3,
+        "d90": 22.7,
+        "last14": [
+          22,
+          25,
+          28,
+          24,
+          20,
+          21,
+          21,
+          24,
+          25,
+          23,
+          22,
+          27,
+          19,
+          22
+        ]
+      },
+      "demandByDay": [
+        0,
+        63,
+        0,
+        0,
+        25,
+        54,
+        0,
+        44,
+        0,
+        48,
+        36,
+        0,
+        0,
+        30,
+        0,
+        0,
+        38,
+        0,
+        0,
+        39,
+        0,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26068",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 1,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26075",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 1,
+          "qty": 33
+        },
+        {
+          "orderId": "SO-26069",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 4,
+          "qty": 25
+        },
+        {
+          "orderId": "SO-26076",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 5,
+          "qty": 54
+        },
+        {
+          "orderId": "SO-26070",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 7,
+          "qty": 44
+        },
+        {
+          "orderId": "SO-26077",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 9,
+          "qty": 48
+        },
+        {
+          "orderId": "SO-26071",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 10,
+          "qty": 36
+        },
+        {
+          "orderId": "SO-26072",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 13,
+          "qty": 30
+        },
+        {
+          "orderId": "SO-26073",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 16,
+          "qty": 38
+        },
+        {
+          "orderId": "SO-26074",
+          "customer": "Balaji Cafe Supplies",
+          "customerId": "c-10",
+          "promisedInDays": 19,
+          "qty": 39
+        }
+      ],
+      "committed": 377
+    },
+    {
+      "id": "fg-024",
+      "name": "Real Fruit Juice Mixed 1L",
+      "brand": "Dabur",
+      "category": "Beverages",
+      "pack": "1 L",
+      "unit": "Btl",
+      "cost": 92.0,
+      "sell": 110.0,
+      "tax": 12,
+      "supplier": "Sunrise Agro Traders",
+      "shelfLifeDays": 180,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 101,
+      "traced": 73,
+      "untraced": 28,
+      "unitCost": 92.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 2209,
+      "batches": [
+        {
+          "batchId": "B-4145",
+          "batchNumber": "BATCH-30145",
+          "qty": 73,
+          "mfgDaysAgo": 15,
+          "expiryInDays": 165,
+          "cost": 92.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Sunrise Agro Traders"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 80.3,
+        "d30": 78.9,
+        "d90": 75.4,
+        "last14": [
+          82,
+          67,
+          100,
+          92,
+          72,
+          79,
+          71,
+          81,
+          84,
+          73,
+          70,
+          87,
+          83,
+          84
+        ]
+      },
+      "demandByDay": [
+        74,
+        41,
+        0,
+        127,
+        0,
+        98,
+        77,
+        120,
+        0,
+        153,
+        0,
+        69,
+        92,
+        48,
+        0,
+        148,
+        0,
+        118,
+        85,
+        51,
+        0,
+        171
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26081",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 0,
+          "qty": 74
+        },
+        {
+          "orderId": "SO-26012",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 1,
+          "qty": 41
+        },
+        {
+          "orderId": "SO-26013",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 3,
+          "qty": 67
+        },
+        {
+          "orderId": "SO-26044",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 3,
+          "qty": 60
+        },
+        {
+          "orderId": "SO-26014",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 5,
+          "qty": 42
+        },
+        {
+          "orderId": "SO-26045",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 5,
+          "qty": 56
+        },
+        {
+          "orderId": "SO-26083",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 6,
+          "qty": 77
+        },
+        {
+          "orderId": "SO-26015",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 7,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26046",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 7,
+          "qty": 65
+        },
+        {
+          "orderId": "SO-26016",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 9,
+          "qty": 39
+        },
+        {
+          "orderId": "SO-26047",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 9,
+          "qty": 43
+        },
+        {
+          "orderId": "SO-26084",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 9,
+          "qty": 71
+        },
+        {
+          "orderId": "SO-26017",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 11,
+          "qty": 69
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 92
+        },
+        {
+          "orderId": "SO-26049",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 13,
+          "qty": 48
+        },
+        {
+          "orderId": "SO-26019",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 15,
+          "qty": 62
+        },
+        {
+          "orderId": "SO-26086",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 15,
+          "qty": 86
+        },
+        {
+          "orderId": "SO-26020",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 17,
+          "qty": 54
+        },
+        {
+          "orderId": "SO-26051",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 17,
+          "qty": 64
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 85
+        },
+        {
+          "orderId": "SO-26052",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 19,
+          "qty": 51
+        },
+        {
+          "orderId": "SO-26022",
+          "customer": "Fresh Mart Kondhwa",
+          "customerId": "c-02",
+          "promisedInDays": 21,
+          "qty": 43
+        },
+        {
+          "orderId": "SO-26053",
+          "customer": "Shree Ram Super",
+          "customerId": "c-06",
+          "promisedInDays": 21,
+          "qty": 48
+        },
+        {
+          "orderId": "SO-26088",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 21,
+          "qty": 80
+        }
+      ],
+      "committed": 1472
+    },
+    {
+      "id": "fg-016",
+      "name": "Everest Garam Masala 100g",
+      "brand": "Everest",
+      "category": "Condiments",
+      "pack": "100 g",
+      "unit": "Pkt",
+      "cost": 62.0,
+      "sell": 78.0,
+      "tax": 5,
+      "supplier": "Nilgiri Spice House",
+      "shelfLifeDays": 365,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 2358,
+      "traced": 2358,
+      "untraced": 0,
+      "unitCost": 62.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 1086,
+      "batches": [
+        {
+          "batchId": "B-4146",
+          "batchNumber": "BATCH-30146",
+          "qty": 32,
+          "mfgDaysAgo": 48,
+          "expiryInDays": 317,
+          "cost": 62.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        },
+        {
+          "batchId": "B-4147",
+          "batchNumber": "BATCH-30147",
+          "qty": 1317,
+          "mfgDaysAgo": 32,
+          "expiryInDays": 333,
+          "cost": 62.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        },
+        {
+          "batchId": "B-4148",
+          "batchNumber": "BATCH-30148",
+          "qty": 1009,
+          "mfgDaysAgo": 14,
+          "expiryInDays": 351,
+          "cost": 62.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 39.3,
+        "d30": 38.8,
+        "d90": 41.3,
+        "last14": [
+          34,
+          44,
+          42,
+          42,
+          36,
+          36,
+          34,
+          38,
+          45,
+          49,
+          43,
+          37,
+          32,
+          31
+        ]
+      },
+      "demandByDay": [
+        63,
+        0,
+        37,
+        0,
+        55,
+        31,
+        0,
+        0,
+        51,
+        79,
+        0,
+        31,
+        0,
+        0,
+        78,
+        0,
+        55,
+        0,
+        0,
+        0,
+        102,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 63
+        },
+        {
+          "orderId": "SO-26023",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 2,
+          "qty": 37
+        },
+        {
+          "orderId": "SO-26038",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 4,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26024",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 5,
+          "qty": 31
+        },
+        {
+          "orderId": "SO-26025",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 8,
+          "qty": 51
+        },
+        {
+          "orderId": "SO-26065",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 9,
+          "qty": 79
+        },
+        {
+          "orderId": "SO-26026",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 11,
+          "qty": 31
+        },
+        {
+          "orderId": "SO-26066",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 14,
+          "qty": 78
+        },
+        {
+          "orderId": "SO-26041",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 16,
+          "qty": 55
+        },
+        {
+          "orderId": "SO-26029",
+          "customer": "Ganraj Kirana",
+          "customerId": "c-03",
+          "promisedInDays": 20,
+          "qty": 38
+        },
+        {
+          "orderId": "SO-26042",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 20,
+          "qty": 64
+        }
+      ],
+      "committed": 582
+    },
+    {
+      "id": "fg-020",
+      "name": "Catch Black Pepper 100g",
+      "brand": "Catch",
+      "category": "Condiments",
+      "pack": "100 g",
+      "unit": "Pkt",
+      "cost": 148.0,
+      "sell": 175.0,
+      "tax": 5,
+      "supplier": "Nilgiri Spice House",
+      "shelfLifeDays": 365,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 662,
+      "traced": 589,
+      "untraced": 73,
+      "unitCost": 148.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 487,
+      "batches": [
+        {
+          "batchId": "B-4149",
+          "batchNumber": "BATCH-30149",
+          "qty": 121,
+          "mfgDaysAgo": 21,
+          "expiryInDays": 344,
+          "cost": 148.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        },
+        {
+          "batchId": "B-4150",
+          "batchNumber": "BATCH-30150",
+          "qty": 468,
+          "mfgDaysAgo": 5,
+          "expiryInDays": 360,
+          "cost": 148.0,
+          "tax": 5,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 17.7,
+        "d30": 17.4,
+        "d90": 17.5,
+        "last14": [
+          16,
+          19,
+          20,
+          18,
+          16,
+          16,
+          16,
+          14,
+          18,
+          20,
+          20,
+          16,
+          19,
+          17
+        ]
+      },
+      "demandByDay": [
+        54,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        69,
+        0,
+        0,
+        0,
+        55,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26037",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 0,
+          "qty": 54
+        },
+        {
+          "orderId": "SO-26041",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 16,
+          "qty": 69
+        },
+        {
+          "orderId": "SO-26042",
+          "customer": "Laxmi Provision",
+          "customerId": "c-05",
+          "promisedInDays": 20,
+          "qty": 55
+        }
+      ],
+      "committed": 178
+    },
+    {
+      "id": "fg-023",
+      "name": "MDH Chana Masala 100g",
+      "brand": "MDH",
+      "category": "Condiments",
+      "pack": "100 g",
+      "unit": "Pkt",
+      "cost": 54.0,
+      "sell": 68.0,
+      "tax": 5,
+      "supplier": "Nilgiri Spice House",
+      "shelfLifeDays": 365,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 21,
+      "traced": 0,
+      "untraced": 21,
+      "unitCost": null,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 28,
+      "batches": [],
+      "incoming": [],
+      "sales": {
+        "d7": 0.9,
+        "d30": 1.0,
+        "d90": 1.3,
+        "last14": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0
+        ]
+      },
+      "demandByDay": [
+        0,
+        0,
+        0,
+        0,
+        5,
+        0,
+        0,
+        0,
+        0,
+        4,
+        0,
+        0,
+        0,
+        0,
+        5,
+        0,
+        0,
+        0,
+        0,
+        6,
+        0,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26064",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 4,
+          "qty": 5
+        },
+        {
+          "orderId": "SO-26065",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 9,
+          "qty": 4
+        },
+        {
+          "orderId": "SO-26066",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 14,
+          "qty": 5
+        },
+        {
+          "orderId": "SO-26067",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 19,
+          "qty": 6
+        }
+      ],
+      "committed": 20
+    },
+    {
+      "id": "fg-012",
+      "name": "Kissan Mixed Fruit Jam 700g",
+      "brand": "Kissan",
+      "category": "Condiments",
+      "pack": "700 g",
+      "unit": "Jar",
+      "cost": 165.0,
+      "sell": 195.0,
+      "tax": 12,
+      "supplier": "Nilgiri Spice House",
+      "shelfLifeDays": 365,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 629,
+      "traced": 629,
+      "untraced": 0,
+      "unitCost": 165.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 280,
+      "batches": [
+        {
+          "batchId": "B-4155",
+          "batchNumber": "BATCH-30155",
+          "qty": 290,
+          "mfgDaysAgo": 27,
+          "expiryInDays": 338,
+          "cost": 165.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        },
+        {
+          "batchId": "B-4156",
+          "batchNumber": "BATCH-30156",
+          "qty": 339,
+          "mfgDaysAgo": 5,
+          "expiryInDays": 360,
+          "cost": 165.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 7.3,
+        "d30": 10.0,
+        "d90": 11.1,
+        "last14": [
+          8,
+          9,
+          10,
+          8,
+          8,
+          6,
+          6,
+          5,
+          7,
+          8,
+          7,
+          8,
+          8,
+          8
+        ]
+      },
+      "demandByDay": [
+        0,
+        0,
+        0,
+        0,
+        57,
+        0,
+        0,
+        0,
+        0,
+        57,
+        0,
+        0,
+        0,
+        0,
+        50,
+        0,
+        0,
+        0,
+        0,
+        61,
+        0,
+        0
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26064",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 4,
+          "qty": 57
+        },
+        {
+          "orderId": "SO-26065",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 9,
+          "qty": 57
+        },
+        {
+          "orderId": "SO-26066",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 14,
+          "qty": 50
+        },
+        {
+          "orderId": "SO-26067",
+          "customer": "Vaibhav Kirana",
+          "customerId": "c-09",
+          "promisedInDays": 19,
+          "qty": 61
+        }
+      ],
+      "committed": 225
+    },
+    {
+      "id": "fg-019",
+      "name": "Dabur Honey 500g",
+      "brand": "Dabur",
+      "category": "Condiments",
+      "pack": "500 g",
+      "unit": "Btl",
+      "cost": 245.0,
+      "sell": 290.0,
+      "tax": 12,
+      "supplier": "Nilgiri Spice House",
+      "shelfLifeDays": 730,
+      "shelfBand": "long",
+      "isKVI": false,
+      "physical": 305,
+      "traced": 305,
+      "untraced": 0,
+      "unitCost": 245.0,
+      "replenishmentDays": 21,
+      "safetyDays": 7,
+      "targetStock": 568,
+      "batches": [
+        {
+          "batchId": "B-4157",
+          "batchNumber": "BATCH-30157",
+          "qty": 305,
+          "mfgDaysAgo": 3,
+          "expiryInDays": 727,
+          "cost": 245.0,
+          "tax": 12,
+          "source": "receipt",
+          "supplier": "Nilgiri Spice House"
+        }
+      ],
+      "incoming": [],
+      "sales": {
+        "d7": 15.9,
+        "d30": 20.3,
+        "d90": 20.3,
+        "last14": [
+          18,
+          16,
+          21,
+          17,
+          15,
+          12,
+          13,
+          11,
+          13,
+          17,
+          15,
+          19,
+          18,
+          18
+        ]
+      },
+      "demandByDay": [
+        0,
+        46,
+        0,
+        31,
+        0,
+        31,
+        37,
+        0,
+        0,
+        68,
+        0,
+        0,
+        22,
+        32,
+        0,
+        0,
+        0,
+        0,
+        41,
+        0,
+        0,
+        34
+      ],
+      "demandOrders": [
+        {
+          "orderId": "SO-26075",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 1,
+          "qty": 46
+        },
+        {
+          "orderId": "SO-26082",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 3,
+          "qty": 31
+        },
+        {
+          "orderId": "SO-26076",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 5,
+          "qty": 31
+        },
+        {
+          "orderId": "SO-26083",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 6,
+          "qty": 37
+        },
+        {
+          "orderId": "SO-26077",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 9,
+          "qty": 29
+        },
+        {
+          "orderId": "SO-26084",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 9,
+          "qty": 39
+        },
+        {
+          "orderId": "SO-26085",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 12,
+          "qty": 22
+        },
+        {
+          "orderId": "SO-26078",
+          "customer": "Sunrise Bakery",
+          "customerId": "c-11",
+          "promisedInDays": 13,
+          "qty": 32
+        },
+        {
+          "orderId": "SO-26087",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 18,
+          "qty": 41
+        },
+        {
+          "orderId": "SO-26088",
+          "customer": "Deepak Mart",
+          "customerId": "c-12",
+          "promisedInDays": 21,
+          "qty": 34
+        }
+      ],
+      "committed": 342
+    }
+  ],
+  "demandSignals": [
+    {
+      "id": "sig-033",
+      "createdAt": "2026-08-15",
+      "productRef": "fg-011",
+      "unlistedProduct": null,
+      "customerRef": "c-04",
+      "customerName": "Aai Mata General Store",
+      "quantity": 8,
+      "unit": "Jar",
+      "expectedPrice": 360.0,
+      "reason": "extra-qty",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-011",
+      "createdAt": "2026-08-13",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-10",
+      "customerName": "Balaji Cafe Supplies",
+      "quantity": 23,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-024",
+      "createdAt": "2026-08-13",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-10",
+      "customerName": "Balaji Cafe Supplies",
+      "quantity": 15,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "not-found",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-014",
+      "createdAt": "2026-08-12",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-12",
+      "customerName": "Deepak Mart",
+      "quantity": 21,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "asked",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-007",
+      "createdAt": "2026-08-11",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-10",
+      "customerName": "Balaji Cafe Supplies",
+      "quantity": 24,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "new-assortment",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-010",
+      "createdAt": "2026-08-11",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-08",
+      "customerName": "New Bharat Store",
+      "quantity": 13,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "not-found",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-017",
+      "createdAt": "2026-08-11",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-12",
+      "customerName": "Deepak Mart",
+      "quantity": 34,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "new-assortment",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-019",
+      "createdAt": "2026-08-11",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-09",
+      "customerName": "Vaibhav Kirana",
+      "quantity": 12,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-021",
+      "createdAt": "2026-08-11",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-08",
+      "customerName": "New Bharat Store",
+      "quantity": 12,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "not-found",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-012",
+      "createdAt": "2026-08-08",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-01",
+      "customerName": "Sharma Supermarket",
+      "quantity": 23,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "new-assortment",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-006",
+      "createdAt": "2026-08-05",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-03",
+      "customerName": "Ganraj Kirana",
+      "quantity": 18,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "not-found",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-022",
+      "createdAt": "2026-08-05",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-08",
+      "customerName": "New Bharat Store",
+      "quantity": 11,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-028",
+      "createdAt": "2026-08-05",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-02",
+      "customerName": "Fresh Mart Kondhwa",
+      "quantity": 25,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "lost-sale",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-025",
+      "createdAt": "2026-08-04",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-03",
+      "customerName": "Ganraj Kirana",
+      "quantity": 9,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "new-assortment",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-029",
+      "createdAt": "2026-08-02",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-09",
+      "customerName": "Vaibhav Kirana",
+      "quantity": 11,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "new-assortment",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-031",
+      "createdAt": "2026-07-31",
+      "productRef": "fg-023",
+      "unlistedProduct": null,
+      "customerRef": "c-04",
+      "customerName": "Aai Mata General Store",
+      "quantity": 15,
+      "unit": "Pkt",
+      "expectedPrice": 68.0,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-026",
+      "createdAt": "2026-07-28",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 7,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-027",
+      "createdAt": "2026-07-27",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-11",
+      "customerName": "Sunrise Bakery",
+      "quantity": 11,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "not-found",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-009",
+      "createdAt": "2026-07-26",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-05",
+      "customerName": "Laxmi Provision",
+      "quantity": 8,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "lost-sale",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-023",
+      "createdAt": "2026-07-26",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Masti Dahi 1kg",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "1 kg"
+      },
+      "customerRef": "c-05",
+      "customerName": "Laxmi Provision",
+      "quantity": 8,
+      "unit": "Box",
+      "expectedPrice": 95,
+      "reason": "asked",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-032",
+      "createdAt": "2026-07-26",
+      "productRef": "fg-011",
+      "unlistedProduct": null,
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 6,
+      "unit": "Jar",
+      "expectedPrice": 360.0,
+      "reason": "lost-sale",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-002",
+      "createdAt": "2026-07-24",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-05",
+      "customerName": "Laxmi Provision",
+      "quantity": 11,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "lost-sale",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-013",
+      "createdAt": "2026-07-24",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 9,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-018",
+      "createdAt": "2026-07-24",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-11",
+      "customerName": "Sunrise Bakery",
+      "quantity": 17,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "new-assortment",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-020",
+      "createdAt": "2026-07-24",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 16,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-003",
+      "createdAt": "2026-07-23",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-06",
+      "customerName": "Shree Ram Super",
+      "quantity": 13,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "lost-sale",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-004",
+      "createdAt": "2026-07-23",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-04",
+      "customerName": "Aai Mata General Store",
+      "quantity": 18,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "new-assortment",
+      "frequency": "one-off",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-005",
+      "createdAt": "2026-07-22",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-08",
+      "customerName": "New Bharat Store",
+      "quantity": 6,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "lost-sale",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-016",
+      "createdAt": "2026-07-22",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Cold Coffee 200ml (case of 24)",
+        "brand": "Nescafe",
+        "category": "Beverages",
+        "pack": "24 pk"
+      },
+      "customerRef": "c-08",
+      "customerName": "New Bharat Store",
+      "quantity": 6,
+      "unit": "Box",
+      "expectedPrice": 600,
+      "reason": "lost-sale",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-030",
+      "createdAt": "2026-07-22",
+      "productRef": "fg-023",
+      "unlistedProduct": null,
+      "customerRef": "c-11",
+      "customerName": "Sunrise Bakery",
+      "quantity": 11,
+      "unit": "Pkt",
+      "expectedPrice": 68.0,
+      "reason": "extra-qty",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-001",
+      "createdAt": "2026-07-19",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 11,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-008",
+      "createdAt": "2026-07-19",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Amul Greek Yogurt 500g",
+        "brand": "Amul",
+        "category": "Dairy",
+        "pack": "500 g"
+      },
+      "customerRef": "c-07",
+      "customerName": "Krishna Kirana",
+      "quantity": 13,
+      "unit": "Box",
+      "expectedPrice": 180,
+      "reason": "asked",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    },
+    {
+      "id": "sig-015",
+      "createdAt": "2026-07-19",
+      "productRef": null,
+      "unlistedProduct": {
+        "name": "Protein Bread 400g",
+        "brand": "Britannia",
+        "category": "Bakery",
+        "pack": "400 g"
+      },
+      "customerRef": "c-06",
+      "customerName": "Shree Ram Super",
+      "quantity": 23,
+      "unit": "Box",
+      "expectedPrice": 700,
+      "reason": "new-assortment",
+      "frequency": "regular",
+      "notes": "",
+      "status": "open",
+      "source": "simulated"
+    }
+  ],
+  "signalReasons": [
+    {
+      "key": "asked",
+      "label": "Customer asked for this SKU"
+    },
+    {
+      "key": "not-found",
+      "label": "Could not find it / out of stock"
+    },
+    {
+      "key": "lost-sale",
+      "label": "Lost the sale"
+    },
+    {
+      "key": "extra-qty",
+      "label": "Wants more than we carry"
+    },
+    {
+      "key": "competitor",
+      "label": "Asked for a competitor product"
+    },
+    {
+      "key": "rep-spotted",
+      "label": "Sales rep spotted demand"
+    },
+    {
+      "key": "new-assortment",
+      "label": "New assortment request"
+    }
+  ]
+}

@@ -88,6 +88,16 @@
       "autoPort": true
     },
     {
+      "name": "foodbridge-v10",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "python3 v10/serve.py \"$PORT\""
+      ],
+      "port": 8010,
+      "autoPort": true
+    },
+    {
       "name": "mock-platform-live",
       "runtimeExecutable": "python3",
       "runtimeArgs": [

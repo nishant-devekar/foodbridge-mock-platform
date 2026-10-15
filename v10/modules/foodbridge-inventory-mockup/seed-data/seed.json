@@ -1,0 +1,1882 @@
+{
+ "_comment": "Fake but representative data used only in discovery role-play. Never imported by development/. Shapes mirror what the live storefront-frontend receives: OrderServices.getStockSummary({catalogueType}) -> {data:{products:[...]}} and ProductBatch.list() -> [...]. A product's batchStock[] cross-references batches[] by batchId, which is exactly how InventoryHealth joins expiry dates onto live stock.",
+ "_source": "Ported from storefront-frontend@develop -- src/pages/Inventory.jsx (/inventory) and src/pages/RawMaterialsInventory.jsx (/raw-material-inventory). See discovery/instructions/addendum-002-live-inventory-port.md.",
+ "_dateComment": "Batch dates are stored as OFFSETS (createdDaysAgo, mfgDaysAgo, expiryInDays) and resolved to real dates at load time. Live the API returns absolute ISO dates; offsets are used here so the expired / near-expiry (<=30d) / healthy buckets stay correct however long after freezing this prototype is opened. A negative expiryInDays is already-expired.",
+ "store": {
+  "name": "QA store"
+ },
+ "user": {
+  "displayName": "Mahesh",
+  "role": "Admin",
+  "image": null
+ },
+ "appProp": {
+  "isStoreQrCode": {
+   "isEnabled": true
+  },
+  "isRouteDeliveryEnabled": true,
+  "notification": {
+   "isEnabled": true
+  },
+  "priceCalculationUnitIndex": 0,
+  "_unitIndexComment": "getUnitIndex() reads this from localStorage.appProp, defaulting to 0. At 0 quantities render in the base unit and displayUnitConversion() returns no hint -- the live default."
+ },
+ "suppliers": [
+  {
+   "name": "Sunrise Agro Traders",
+   "contact": "5550301001"
+  },
+  {
+   "name": "Deccan Foods Pvt Ltd",
+   "contact": "5550301002"
+  },
+  {
+   "name": "Konkan Dairy Co-op",
+   "contact": "5550301003"
+  },
+  {
+   "name": "Nilgiri Spice House",
+   "contact": "5550301004"
+  },
+  {
+   "name": "Western Oils & Fats",
+   "contact": "5550301005"
+  }
+ ],
+ "stockSummary": {
+  "FINISHED-GOODS": [
+   {
+    "_id": "fg-001",
+    "productName": "Amul Taaza Toned Milk 1L",
+    "articleNumber": "FG-1001",
+    "unit": "Ltr-Crate-Pallet",
+    "boxes": 12,
+    "pallets": 40,
+    "availableStock": 4820,
+    "requiredStock": 3100,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-001",
+      "stock": 2400,
+      "remainingStock": 2400
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-002",
+    "productName": "Britannia Brown Bread 400g",
+    "articleNumber": "FG-1002",
+    "unit": "Pkt-Tray-Pallet",
+    "boxes": 10,
+    "pallets": 30,
+    "availableStock": 640,
+    "requiredStock": 890,
+    "outstandingStock": 250,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-006",
+      "stock": 320,
+      "remainingStock": 320
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-003",
+    "productName": "Nandini Curd 500g",
+    "articleNumber": "FG-1003",
+    "unit": "Cup-Crate-Pallet",
+    "boxes": 24,
+    "pallets": 25,
+    "availableStock": 2160,
+    "requiredStock": 1200,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-001",
+      "stock": 1200,
+      "remainingStock": 1200
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-004",
+    "productName": "Farm Fresh Paneer 200g",
+    "articleNumber": "FG-1004",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 20,
+    "pallets": 20,
+    "availableStock": 380,
+    "requiredStock": 520,
+    "outstandingStock": 140,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-006",
+      "stock": 190,
+      "remainingStock": 190
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-005",
+    "productName": "Sunfeast Marie Light 250g",
+    "articleNumber": "FG-1005",
+    "unit": "Pkt-Carton-Pallet",
+    "boxes": 48,
+    "pallets": 20,
+    "availableStock": 9600,
+    "requiredStock": 4200,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-002",
+      "stock": 4800,
+      "remainingStock": 4800
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-006",
+    "productName": "Aashirvaad Atta 5kg",
+    "articleNumber": "FG-1006",
+    "unit": "Bag-Box-Pallet",
+    "boxes": 5,
+    "pallets": 30,
+    "availableStock": 1450,
+    "requiredStock": 980,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-003",
+      "stock": 900,
+      "remainingStock": 900
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-007",
+    "productName": "Tata Salt 1kg",
+    "articleNumber": "FG-1007",
+    "unit": "Pkt-Carton-Pallet",
+    "boxes": 24,
+    "pallets": 40,
+    "availableStock": 7200,
+    "requiredStock": 2100,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-003",
+      "stock": 3600,
+      "remainingStock": 3600
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-008",
+    "productName": "Fortune Sunflower Oil 1L",
+    "articleNumber": "FG-1008",
+    "unit": "Btl-Carton-Pallet",
+    "boxes": 12,
+    "pallets": 30,
+    "availableStock": 3240,
+    "requiredStock": 3600,
+    "outstandingStock": 360,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-004",
+      "stock": 1620,
+      "remainingStock": 1620
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-009",
+    "productName": "Maggi Noodles 70g x12",
+    "articleNumber": "FG-1009",
+    "unit": "Pkt-Carton-Pallet",
+    "boxes": 12,
+    "pallets": 50,
+    "availableStock": 5400,
+    "requiredStock": 1800,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-002",
+      "stock": 2700,
+      "remainingStock": 2700
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-010",
+    "productName": "Red Label Tea 500g",
+    "articleNumber": "FG-1010",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 20,
+    "pallets": 25,
+    "availableStock": 1900,
+    "requiredStock": 2400,
+    "outstandingStock": 500,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-005",
+      "stock": 950,
+      "remainingStock": 950
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-011",
+    "productName": "Nescafe Classic 100g",
+    "articleNumber": "FG-1011",
+    "unit": "Jar-Box-Pallet",
+    "boxes": 12,
+    "pallets": 24,
+    "availableStock": 720,
+    "requiredStock": 410,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-007",
+      "stock": 360,
+      "remainingStock": 360
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-012",
+    "productName": "Kissan Mixed Fruit Jam 700g",
+    "articleNumber": "FG-1012",
+    "unit": "Jar-Box-Pallet",
+    "boxes": 6,
+    "pallets": 30,
+    "availableStock": 540,
+    "requiredStock": 300,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-007",
+      "stock": 270,
+      "remainingStock": 270
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-013",
+    "productName": "Haldiram Aloo Bhujia 400g",
+    "articleNumber": "FG-1013",
+    "unit": "Pkt-Carton-Pallet",
+    "boxes": 24,
+    "pallets": 30,
+    "availableStock": 2880,
+    "requiredStock": 1150,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-008",
+      "stock": 1440,
+      "remainingStock": 1440
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-014",
+    "productName": "Mother Dairy Butter 500g",
+    "articleNumber": "FG-1014",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 20,
+    "pallets": 20,
+    "availableStock": 800,
+    "requiredStock": 1240,
+    "outstandingStock": 440,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-001",
+      "stock": 400,
+      "remainingStock": 400
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-015",
+    "productName": "Del Monte Olive Oil 500ml",
+    "articleNumber": "FG-1015",
+    "unit": "Btl-Box-Pallet",
+    "boxes": 12,
+    "pallets": 24,
+    "availableStock": 288,
+    "requiredStock": 190,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-016",
+    "productName": "Everest Garam Masala 100g",
+    "articleNumber": "FG-1016",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 50,
+    "pallets": 20,
+    "availableStock": 3000,
+    "requiredStock": 900,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-003",
+      "stock": 1500,
+      "remainingStock": 1500
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-017",
+    "productName": "Saffola Gold Oil 5L",
+    "articleNumber": "FG-1017",
+    "unit": "Can-Box-Pallet",
+    "boxes": 4,
+    "pallets": 30,
+    "availableStock": 480,
+    "requiredStock": 620,
+    "outstandingStock": 140,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-004",
+      "stock": 240,
+      "remainingStock": 240
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-018",
+    "productName": "Bikano Soan Papdi 500g",
+    "articleNumber": "FG-1018",
+    "unit": "Box-Carton-Pallet",
+    "boxes": 12,
+    "pallets": 25,
+    "availableStock": 900,
+    "requiredStock": 340,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-008",
+      "stock": 450,
+      "remainingStock": 450
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-019",
+    "productName": "Dabur Honey 500g",
+    "articleNumber": "FG-1019",
+    "unit": "Btl-Box-Pallet",
+    "boxes": 12,
+    "pallets": 24,
+    "availableStock": 600,
+    "requiredStock": 410,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-007",
+      "stock": 300,
+      "remainingStock": 300
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-020",
+    "productName": "Catch Black Pepper 100g",
+    "articleNumber": "FG-1020",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 50,
+    "pallets": 20,
+    "availableStock": 1500,
+    "requiredStock": 700,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-005",
+      "stock": 750,
+      "remainingStock": 750
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-021",
+    "productName": "Amul Cheese Slices 200g",
+    "articleNumber": "FG-1021",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 20,
+    "pallets": 20,
+    "availableStock": 420,
+    "requiredStock": 680,
+    "outstandingStock": 260,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-006",
+      "stock": 210,
+      "remainingStock": 210
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-022",
+    "productName": "Parle-G Gold 1kg",
+    "articleNumber": "FG-1022",
+    "unit": "Pkt-Carton-Pallet",
+    "boxes": 12,
+    "pallets": 40,
+    "availableStock": 2400,
+    "requiredStock": 950,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-002",
+      "stock": 1200,
+      "remainingStock": 1200
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-023",
+    "productName": "MDH Chana Masala 100g",
+    "articleNumber": "FG-1023",
+    "unit": "Pkt-Box-Pallet",
+    "boxes": 50,
+    "pallets": 20,
+    "availableStock": 0,
+    "requiredStock": 0,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": null
+   },
+   {
+    "_id": "fg-024",
+    "productName": "Real Fruit Juice Mixed 1L",
+    "articleNumber": "FG-1024",
+    "unit": "Btl-Crate-Pallet",
+    "boxes": 12,
+    "pallets": 30,
+    "availableStock": 1440,
+    "requiredStock": 600,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-008",
+      "stock": 720,
+      "remainingStock": 720
+     }
+    ],
+    "stockThreshold": null
+   }
+  ],
+  "RAW-MATERIAL": [
+   {
+    "_id": "rm-001",
+    "productName": "Refined Wheat Flour (Maida)",
+    "articleNumber": "RM-2001",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 25,
+    "pallets": 40,
+    "availableStock": 8400,
+    "requiredStock": 5200,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-009",
+      "stock": 4200,
+      "remainingStock": 4200
+     }
+    ],
+    "stockThreshold": 6000
+   },
+   {
+    "_id": "rm-002",
+    "productName": "Cane Sugar S-30",
+    "articleNumber": "RM-2002",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 50,
+    "pallets": 20,
+    "availableStock": 6000,
+    "requiredStock": 4100,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-009",
+      "stock": 3000,
+      "remainingStock": 3000
+     }
+    ],
+    "stockThreshold": 7500
+   },
+   {
+    "_id": "rm-003",
+    "productName": "Palm Oil Bulk",
+    "articleNumber": "RM-2003",
+    "unit": "Ltr-Drum-Pallet",
+    "boxes": 20,
+    "pallets": 12,
+    "availableStock": 1800,
+    "requiredStock": 2400,
+    "outstandingStock": 600,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-010",
+      "stock": 900,
+      "remainingStock": 900
+     }
+    ],
+    "stockThreshold": 2400
+   },
+   {
+    "_id": "rm-004",
+    "productName": "Skimmed Milk Powder",
+    "articleNumber": "RM-2004",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 25,
+    "pallets": 30,
+    "availableStock": 2250,
+    "requiredStock": 1600,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-011",
+      "stock": 1125,
+      "remainingStock": 1125
+     }
+    ],
+    "stockThreshold": 1800
+   },
+   {
+    "_id": "rm-005",
+    "productName": "Cocoa Powder Natural",
+    "articleNumber": "RM-2005",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 10,
+    "pallets": 24,
+    "availableStock": 480,
+    "requiredStock": 720,
+    "outstandingStock": 240,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-010",
+      "stock": 240,
+      "remainingStock": 240
+     }
+    ],
+    "stockThreshold": 900
+   },
+   {
+    "_id": "rm-006",
+    "productName": "Iodised Salt Bulk",
+    "articleNumber": "RM-2006",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 50,
+    "pallets": 20,
+    "availableStock": 4000,
+    "requiredStock": 900,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-012",
+      "stock": 2000,
+      "remainingStock": 2000
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "rm-007",
+    "productName": "Baking Soda Food Grade",
+    "articleNumber": "RM-2007",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 25,
+    "pallets": 20,
+    "availableStock": 750,
+    "requiredStock": 400,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": 600
+   },
+   {
+    "_id": "rm-008",
+    "productName": "Yeast Instant Dry",
+    "articleNumber": "RM-2008",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 5,
+    "pallets": 30,
+    "availableStock": 150,
+    "requiredStock": 260,
+    "outstandingStock": 110,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-010",
+      "stock": 75,
+      "remainingStock": 75
+     }
+    ],
+    "stockThreshold": 400
+   },
+   {
+    "_id": "rm-009",
+    "productName": "Sunflower Oil Bulk",
+    "articleNumber": "RM-2009",
+    "unit": "Ltr-Drum-Pallet",
+    "boxes": 20,
+    "pallets": 12,
+    "availableStock": 2400,
+    "requiredStock": 1500,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-013",
+      "stock": 1200,
+      "remainingStock": 1200
+     }
+    ],
+    "stockThreshold": null
+   },
+   {
+    "_id": "rm-010",
+    "productName": "Corn Starch",
+    "articleNumber": "RM-2010",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 25,
+    "pallets": 30,
+    "availableStock": 1500,
+    "requiredStock": 800,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-012",
+      "stock": 750,
+      "remainingStock": 750
+     }
+    ],
+    "stockThreshold": 1200
+   },
+   {
+    "_id": "rm-011",
+    "productName": "Citric Acid Food Grade",
+    "articleNumber": "RM-2011",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 10,
+    "pallets": 24,
+    "availableStock": 240,
+    "requiredStock": 380,
+    "outstandingStock": 140,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-013",
+      "stock": 120,
+      "remainingStock": 120
+     }
+    ],
+    "stockThreshold": 500
+   },
+   {
+    "_id": "rm-012",
+    "productName": "Cardamom Green Whole",
+    "articleNumber": "RM-2012",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 5,
+    "pallets": 20,
+    "availableStock": 60,
+    "requiredStock": 95,
+    "outstandingStock": 35,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-013",
+      "stock": 30,
+      "remainingStock": 30
+     }
+    ],
+    "stockThreshold": 150
+   },
+   {
+    "_id": "rm-013",
+    "productName": "Black Pepper Whole",
+    "articleNumber": "RM-2013",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 5,
+    "pallets": 20,
+    "availableStock": 100,
+    "requiredStock": 40,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-012",
+      "stock": 50,
+      "remainingStock": 50
+     }
+    ],
+    "stockThreshold": 80
+   },
+   {
+    "_id": "rm-014",
+    "productName": "Vanilla Essence Bulk",
+    "articleNumber": "RM-2014",
+    "unit": "Ltr-Box-Pallet",
+    "boxes": 10,
+    "pallets": 24,
+    "availableStock": 180,
+    "requiredStock": 120,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": null
+   },
+   {
+    "_id": "rm-015",
+    "productName": "Milk Solids (Khoya)",
+    "articleNumber": "RM-2015",
+    "unit": "Kg-Crate-Pallet",
+    "boxes": 10,
+    "pallets": 20,
+    "availableStock": 300,
+    "requiredStock": 540,
+    "outstandingStock": 240,
+    "imagesUrl": [],
+    "batchStock": [
+     {
+      "batchId": "batch-011",
+      "stock": 150,
+      "remainingStock": 150
+     }
+    ],
+    "stockThreshold": 450
+   },
+   {
+    "_id": "rm-016",
+    "productName": "Edible Gelatin",
+    "articleNumber": "RM-2016",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 10,
+    "pallets": 24,
+    "availableStock": 200,
+    "requiredStock": 130,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": 150
+   },
+   {
+    "_id": "rm-017",
+    "productName": "Food Colour Permitted",
+    "articleNumber": "RM-2017",
+    "unit": "Kg-Box-Pallet",
+    "boxes": 5,
+    "pallets": 20,
+    "availableStock": 40,
+    "requiredStock": 0,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": 120
+   },
+   {
+    "_id": "rm-018",
+    "productName": "Wheat Bran",
+    "articleNumber": "RM-2018",
+    "unit": "Kg-Bag-Pallet",
+    "boxes": 40,
+    "pallets": 20,
+    "availableStock": 0,
+    "requiredStock": 0,
+    "outstandingStock": 0,
+    "imagesUrl": [],
+    "batchStock": [],
+    "stockThreshold": 500
+   }
+  ]
+ },
+ "batches": [
+  {
+   "_id": "batch-001",
+   "batchNumber": "BATCH-20260728-0913",
+   "batchName": "BATCH-20260728-0913",
+   "createdDaysAgo": 14,
+   "products": [
+    {
+     "_id": "fg-001",
+     "name": "Amul Taaza Toned Milk 1L",
+     "articleNo": "FG-1001",
+     "unit": "Ltr-Crate-Pallet",
+     "boxes": 12,
+     "pallets": 40,
+     "stock": 2400,
+     "remainingStock": 2400,
+     "mfgDaysAgo": 20,
+     "expiryInDays": 9,
+     "price": 32.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Konkan Dairy Co-op",
+      "contact": "5550301003"
+     }
+    },
+    {
+     "_id": "fg-003",
+     "name": "Nandini Curd 500g",
+     "articleNo": "FG-1003",
+     "unit": "Cup-Crate-Pallet",
+     "boxes": 24,
+     "pallets": 25,
+     "stock": 1200,
+     "remainingStock": 1200,
+     "mfgDaysAgo": 18,
+     "expiryInDays": 12,
+     "price": 28.5,
+     "tax": 5,
+     "supplierData": {
+      "name": "Konkan Dairy Co-op",
+      "contact": "5550301003"
+     }
+    },
+    {
+     "_id": "fg-014",
+     "name": "Mother Dairy Butter 500g",
+     "articleNo": "FG-1014",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 20,
+     "pallets": 20,
+     "stock": 400,
+     "remainingStock": 400,
+     "mfgDaysAgo": 25,
+     "expiryInDays": -6,
+     "price": 265.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Konkan Dairy Co-op",
+      "contact": "5550301003"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-002",
+   "batchNumber": "BATCH-20260722-1642",
+   "batchName": "BATCH-20260722-1642",
+   "createdDaysAgo": 20,
+   "products": [
+    {
+     "_id": "fg-005",
+     "name": "Sunfeast Marie Light 250g",
+     "articleNo": "FG-1005",
+     "unit": "Pkt-Carton-Pallet",
+     "boxes": 48,
+     "pallets": 20,
+     "stock": 4800,
+     "remainingStock": 4800,
+     "mfgDaysAgo": 40,
+     "expiryInDays": 180,
+     "price": 45.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    },
+    {
+     "_id": "fg-009",
+     "name": "Maggi Noodles 70g x12",
+     "articleNo": "FG-1009",
+     "unit": "Pkt-Carton-Pallet",
+     "boxes": 12,
+     "pallets": 50,
+     "stock": 2700,
+     "remainingStock": 2700,
+     "mfgDaysAgo": 35,
+     "expiryInDays": 150,
+     "price": 14.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    },
+    {
+     "_id": "fg-022",
+     "name": "Parle-G Gold 1kg",
+     "articleNo": "FG-1022",
+     "unit": "Pkt-Carton-Pallet",
+     "boxes": 12,
+     "pallets": 40,
+     "stock": 1200,
+     "remainingStock": 1200,
+     "mfgDaysAgo": 30,
+     "expiryInDays": 120,
+     "price": 60.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-003",
+   "batchNumber": "BATCH-20260715-1105",
+   "batchName": "BATCH-20260715-1105",
+   "createdDaysAgo": 27,
+   "products": [
+    {
+     "_id": "fg-006",
+     "name": "Aashirvaad Atta 5kg",
+     "articleNo": "FG-1006",
+     "unit": "Bag-Box-Pallet",
+     "boxes": 5,
+     "pallets": 30,
+     "stock": 900,
+     "remainingStock": 900,
+     "mfgDaysAgo": 45,
+     "expiryInDays": 240,
+     "price": 255.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "fg-007",
+     "name": "Tata Salt 1kg",
+     "articleNo": "FG-1007",
+     "unit": "Pkt-Carton-Pallet",
+     "boxes": 24,
+     "pallets": 40,
+     "stock": 3600,
+     "remainingStock": 3600,
+     "mfgDaysAgo": 50,
+     "expiryInDays": 300,
+     "price": 22.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "fg-016",
+     "name": "Everest Garam Masala 100g",
+     "articleNo": "FG-1016",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 50,
+     "pallets": 20,
+     "stock": 1500,
+     "remainingStock": 1500,
+     "mfgDaysAgo": 42,
+     "expiryInDays": 210,
+     "price": 68.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-004",
+   "batchNumber": "BATCH-20260709-0830",
+   "batchName": "BATCH-20260709-0830",
+   "createdDaysAgo": 33,
+   "products": [
+    {
+     "_id": "fg-008",
+     "name": "Fortune Sunflower Oil 1L",
+     "articleNo": "FG-1008",
+     "unit": "Btl-Carton-Pallet",
+     "boxes": 12,
+     "pallets": 30,
+     "stock": 1620,
+     "remainingStock": 1620,
+     "mfgDaysAgo": 60,
+     "expiryInDays": -12,
+     "price": 155.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    },
+    {
+     "_id": "fg-017",
+     "name": "Saffola Gold Oil 5L",
+     "articleNo": "FG-1017",
+     "unit": "Can-Box-Pallet",
+     "boxes": 4,
+     "pallets": 30,
+     "stock": 240,
+     "remainingStock": 240,
+     "mfgDaysAgo": 55,
+     "expiryInDays": 25,
+     "price": 720.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-005",
+   "batchNumber": "BATCH-20260701-1420",
+   "batchName": "BATCH-20260701-1420",
+   "createdDaysAgo": 41,
+   "products": [
+    {
+     "_id": "fg-010",
+     "name": "Red Label Tea 500g",
+     "articleNo": "FG-1010",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 20,
+     "pallets": 25,
+     "stock": 950,
+     "remainingStock": 950,
+     "mfgDaysAgo": 70,
+     "expiryInDays": 18,
+     "price": 240.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    },
+    {
+     "_id": "fg-020",
+     "name": "Catch Black Pepper 100g",
+     "articleNo": "FG-1020",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 50,
+     "pallets": 20,
+     "stock": 750,
+     "remainingStock": 750,
+     "mfgDaysAgo": 65,
+     "expiryInDays": 150,
+     "price": 95.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-006",
+   "batchNumber": "BATCH-20260624-1015",
+   "batchName": "BATCH-20260624-1015",
+   "createdDaysAgo": 48,
+   "products": [
+    {
+     "_id": "fg-002",
+     "name": "Britannia Brown Bread 400g",
+     "articleNo": "FG-1002",
+     "unit": "Pkt-Tray-Pallet",
+     "boxes": 10,
+     "pallets": 30,
+     "stock": 320,
+     "remainingStock": 320,
+     "mfgDaysAgo": 10,
+     "expiryInDays": 4,
+     "price": 42.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    },
+    {
+     "_id": "fg-004",
+     "name": "Farm Fresh Paneer 200g",
+     "articleNo": "FG-1004",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 20,
+     "pallets": 20,
+     "stock": 190,
+     "remainingStock": 190,
+     "mfgDaysAgo": 12,
+     "expiryInDays": -3,
+     "price": 88.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    },
+    {
+     "_id": "fg-021",
+     "name": "Amul Cheese Slices 200g",
+     "articleNo": "FG-1021",
+     "unit": "Pkt-Box-Pallet",
+     "boxes": 20,
+     "pallets": 20,
+     "stock": 210,
+     "remainingStock": 210,
+     "mfgDaysAgo": 11,
+     "expiryInDays": 7,
+     "price": 120.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Deccan Foods Pvt Ltd",
+      "contact": "5550301002"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-007",
+   "batchNumber": "BATCH-20260618-0945",
+   "batchName": "BATCH-20260618-0945",
+   "createdDaysAgo": 54,
+   "products": [
+    {
+     "_id": "fg-011",
+     "name": "Nescafe Classic 100g",
+     "articleNo": "FG-1011",
+     "unit": "Jar-Box-Pallet",
+     "boxes": 12,
+     "pallets": 24,
+     "stock": 360,
+     "remainingStock": 360,
+     "mfgDaysAgo": 80,
+     "expiryInDays": 400,
+     "price": 310.0,
+     "tax": 18,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    },
+    {
+     "_id": "fg-012",
+     "name": "Kissan Mixed Fruit Jam 700g",
+     "articleNo": "FG-1012",
+     "unit": "Jar-Box-Pallet",
+     "boxes": 6,
+     "pallets": 30,
+     "stock": 270,
+     "remainingStock": 270,
+     "mfgDaysAgo": 75,
+     "expiryInDays": 365,
+     "price": 180.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    },
+    {
+     "_id": "fg-019",
+     "name": "Dabur Honey 500g",
+     "articleNo": "FG-1019",
+     "unit": "Btl-Box-Pallet",
+     "boxes": 12,
+     "pallets": 24,
+     "stock": 300,
+     "remainingStock": 300,
+     "mfgDaysAgo": 72,
+     "expiryInDays": 330,
+     "price": 210.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-008",
+   "batchNumber": "BATCH-20260610-1330",
+   "batchName": "BATCH-20260610-1330",
+   "createdDaysAgo": 62,
+   "products": [
+    {
+     "_id": "fg-013",
+     "name": "Haldiram Aloo Bhujia 400g",
+     "articleNo": "FG-1013",
+     "unit": "Pkt-Carton-Pallet",
+     "boxes": 24,
+     "pallets": 30,
+     "stock": 1440,
+     "remainingStock": 1440,
+     "mfgDaysAgo": 85,
+     "expiryInDays": 95,
+     "price": 72.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "fg-018",
+     "name": "Bikano Soan Papdi 500g",
+     "articleNo": "FG-1018",
+     "unit": "Box-Carton-Pallet",
+     "boxes": 12,
+     "pallets": 25,
+     "stock": 450,
+     "remainingStock": 450,
+     "mfgDaysAgo": 88,
+     "expiryInDays": 140,
+     "price": 135.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "fg-024",
+     "name": "Real Fruit Juice Mixed 1L",
+     "articleNo": "FG-1024",
+     "unit": "Btl-Crate-Pallet",
+     "boxes": 12,
+     "pallets": 30,
+     "stock": 720,
+     "remainingStock": 720,
+     "mfgDaysAgo": 90,
+     "expiryInDays": 60,
+     "price": 110.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-009",
+   "batchNumber": "BATCH-20260730-1120",
+   "batchName": "BATCH-20260730-1120",
+   "createdDaysAgo": 12,
+   "products": [
+    {
+     "_id": "rm-001",
+     "name": "Refined Wheat Flour (Maida)",
+     "articleNo": "RM-2001",
+     "unit": "Kg-Bag-Pallet",
+     "boxes": 25,
+     "pallets": 40,
+     "stock": 4200,
+     "remainingStock": 4200,
+     "mfgDaysAgo": 15,
+     "expiryInDays": 300,
+     "price": 34.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "rm-002",
+     "name": "Cane Sugar S-30",
+     "articleNo": "RM-2002",
+     "unit": "Kg-Bag-Pallet",
+     "boxes": 50,
+     "pallets": 20,
+     "stock": 3000,
+     "remainingStock": 3000,
+     "mfgDaysAgo": 14,
+     "expiryInDays": 420,
+     "price": 42.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-010",
+   "batchNumber": "BATCH-20260724-1745",
+   "batchName": "BATCH-20260724-1745",
+   "createdDaysAgo": 18,
+   "products": [
+    {
+     "_id": "rm-003",
+     "name": "Palm Oil Bulk",
+     "articleNo": "RM-2003",
+     "unit": "Ltr-Drum-Pallet",
+     "boxes": 20,
+     "pallets": 12,
+     "stock": 900,
+     "remainingStock": 900,
+     "mfgDaysAgo": 22,
+     "expiryInDays": 11,
+     "price": 118.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    },
+    {
+     "_id": "rm-005",
+     "name": "Cocoa Powder Natural",
+     "articleNo": "RM-2005",
+     "unit": "Kg-Box-Pallet",
+     "boxes": 10,
+     "pallets": 24,
+     "stock": 240,
+     "remainingStock": 240,
+     "mfgDaysAgo": 20,
+     "expiryInDays": -8,
+     "price": 640.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    },
+    {
+     "_id": "rm-008",
+     "name": "Yeast Instant Dry",
+     "articleNo": "RM-2008",
+     "unit": "Kg-Box-Pallet",
+     "boxes": 5,
+     "pallets": 30,
+     "stock": 75,
+     "remainingStock": 75,
+     "mfgDaysAgo": 19,
+     "expiryInDays": 6,
+     "price": 290.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-011",
+   "batchNumber": "BATCH-20260716-0900",
+   "batchName": "BATCH-20260716-0900",
+   "createdDaysAgo": 26,
+   "products": [
+    {
+     "_id": "rm-004",
+     "name": "Skimmed Milk Powder",
+     "articleNo": "RM-2004",
+     "unit": "Kg-Bag-Pallet",
+     "boxes": 25,
+     "pallets": 30,
+     "stock": 1125,
+     "remainingStock": 1125,
+     "mfgDaysAgo": 30,
+     "expiryInDays": 210,
+     "price": 320.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Konkan Dairy Co-op",
+      "contact": "5550301003"
+     }
+    },
+    {
+     "_id": "rm-015",
+     "name": "Milk Solids (Khoya)",
+     "articleNo": "RM-2015",
+     "unit": "Kg-Crate-Pallet",
+     "boxes": 10,
+     "pallets": 20,
+     "stock": 150,
+     "remainingStock": 150,
+     "mfgDaysAgo": 28,
+     "expiryInDays": -4,
+     "price": 410.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Konkan Dairy Co-op",
+      "contact": "5550301003"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-012",
+   "batchNumber": "BATCH-20260705-1530",
+   "batchName": "BATCH-20260705-1530",
+   "createdDaysAgo": 37,
+   "products": [
+    {
+     "_id": "rm-006",
+     "name": "Iodised Salt Bulk",
+     "articleNo": "RM-2006",
+     "unit": "Kg-Bag-Pallet",
+     "boxes": 50,
+     "pallets": 20,
+     "stock": 2000,
+     "remainingStock": 2000,
+     "mfgDaysAgo": 44,
+     "expiryInDays": 500,
+     "price": 18.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "rm-010",
+     "name": "Corn Starch",
+     "articleNo": "RM-2010",
+     "unit": "Kg-Bag-Pallet",
+     "boxes": 25,
+     "pallets": 30,
+     "stock": 750,
+     "remainingStock": 750,
+     "mfgDaysAgo": 40,
+     "expiryInDays": 260,
+     "price": 55.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Sunrise Agro Traders",
+      "contact": "5550301001"
+     }
+    },
+    {
+     "_id": "rm-013",
+     "name": "Black Pepper Whole",
+     "articleNo": "RM-2013",
+     "unit": "Kg-Box-Pallet",
+     "boxes": 5,
+     "pallets": 20,
+     "stock": 50,
+     "remainingStock": 50,
+     "mfgDaysAgo": 38,
+     "expiryInDays": 190,
+     "price": 850.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    }
+   ]
+  },
+  {
+   "_id": "batch-013",
+   "batchNumber": "BATCH-20260626-1210",
+   "batchName": "BATCH-20260626-1210",
+   "createdDaysAgo": 46,
+   "products": [
+    {
+     "_id": "rm-009",
+     "name": "Sunflower Oil Bulk",
+     "articleNo": "RM-2009",
+     "unit": "Ltr-Drum-Pallet",
+     "boxes": 20,
+     "pallets": 12,
+     "stock": 1200,
+     "remainingStock": 1200,
+     "mfgDaysAgo": 55,
+     "expiryInDays": 150,
+     "price": 112.0,
+     "tax": 5,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    },
+    {
+     "_id": "rm-011",
+     "name": "Citric Acid Food Grade",
+     "articleNo": "RM-2011",
+     "unit": "Kg-Box-Pallet",
+     "boxes": 10,
+     "pallets": 24,
+     "stock": 120,
+     "remainingStock": 120,
+     "mfgDaysAgo": 52,
+     "expiryInDays": 20,
+     "price": 240.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Western Oils & Fats",
+      "contact": "5550301005"
+     }
+    },
+    {
+     "_id": "rm-012",
+     "name": "Cardamom Green Whole",
+     "articleNo": "RM-2012",
+     "unit": "Kg-Box-Pallet",
+     "boxes": 5,
+     "pallets": 20,
+     "stock": 30,
+     "remainingStock": 30,
+     "mfgDaysAgo": 50,
+     "expiryInDays": 3,
+     "price": 2100.0,
+     "tax": 12,
+     "supplierData": {
+      "name": "Nilgiri Spice House",
+      "contact": "5550301004"
+     }
+    }
+   ]
+  }
+ ],
+ "_menusComment": "Live equivalent: setupData.data.storefrontMenus, which drives the sidebar. ASSUMPTION: no reference screenshot was supplied for this module, so the menu tree is carried over from the staff module's screenshot of the same QA store tenant, with the two inventory routes placed as children of the Inventory submenu. The parent/child labels are a best guess; the tenant's real storefrontMenus is authoritative and may name them differently.",
+ "_submenuOpenComment": "`initiallyOpen` is a DISCOVERY-ONLY field with no live counterpart. SidebarSubMenu.jsx uses useState(true) so live every submenu is expanded on first paint; here only the Inventory submenu is opened so the active route is visible without noise.",
+ "storefrontMenus": [
+  {
+   "name": "Dashboard",
+   "path": "/dashboard",
+   "component": "dashboard",
+   "icon": "layoutGrid"
+  },
+  {
+   "name": "Product Master",
+   "path": "/products",
+   "component": "products",
+   "icon": "package",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Finished Goods",
+     "path": "/products"
+    },
+    {
+     "name": "Product Categories",
+     "path": "/categories"
+    },
+    {
+     "name": "Raw Materials",
+     "path": "/raw-materials"
+    },
+    {
+     "name": "Image Gallery",
+     "path": "/image-gallery"
+    }
+   ]
+  },
+  {
+   "name": "Customer Management",
+   "path": "/customers",
+   "component": "customers",
+   "icon": "usersRound",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Retail Customers",
+     "path": "/retail-customers"
+    },
+    {
+     "name": "Customer Locations",
+     "path": "/customer-locations"
+    }
+   ]
+  },
+  {
+   "name": "Sales Orders",
+   "path": "/orders",
+   "component": "orders",
+   "icon": "shoppingCart"
+  },
+  {
+   "name": "Distribution & Logistics",
+   "path": "/distribution",
+   "component": "distribution",
+   "icon": "usersShare",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Dispatch",
+     "path": "/dispatch"
+    },
+    {
+     "name": "Delivery",
+     "path": "/delivery"
+    },
+    {
+     "name": "Manage Routes",
+     "path": "/manage-routes"
+    }
+   ]
+  },
+  {
+   "name": "Production",
+   "path": "/production",
+   "component": "production",
+   "icon": "factory",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Recipes",
+     "path": "/production/recipes"
+    },
+    {
+     "name": "Batches",
+     "path": "/production/batches"
+    }
+   ]
+  },
+  {
+   "name": "Inventory",
+   "path": "/inventory",
+   "component": "inventory",
+   "icon": "warehouse",
+   "initiallyOpen": true,
+   "submenus": [
+    {
+     "name": "Inventory",
+     "path": "/inventory"
+    },
+    {
+     "name": "Raw Material Inventory",
+     "path": "/raw-material-inventory"
+    },
+    {
+     "name": "Stock Counts",
+     "path": "/stock-counts"
+    }
+   ]
+  },
+  {
+   "name": "Stock Audit Settlement",
+   "path": "/stock-audit",
+   "component": "stock-audit",
+   "icon": "clipboardCheck",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Audits",
+     "path": "/stock-audit/audits"
+    },
+    {
+     "name": "Settlements",
+     "path": "/stock-audit/settlements"
+    }
+   ]
+  },
+  {
+   "name": "Procurement",
+   "path": "/procurement",
+   "component": "procurement",
+   "icon": "shoppingBag",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Purchase Orders",
+     "path": "/procurement/purchase-orders"
+    },
+    {
+     "name": "Suppliers",
+     "path": "/procurement/suppliers"
+    }
+   ]
+  },
+  {
+   "name": "Finance",
+   "path": "/finance",
+   "component": "finance",
+   "icon": "banknote",
+   "initiallyOpen": false,
+   "submenus": [
+    {
+     "name": "Invoices",
+     "path": "/finance/invoices"
+    },
+    {
+     "name": "Payments",
+     "path": "/finance/payments"
+    }
+   ]
+  },
+  {
+   "name": "Workforce Management",
+   "path": "/our-staff",
+   "component": "our-staff",
+   "icon": "userCog"
+  }
+ ],
+ "_thresholdComment": "`stockThreshold` is the Reorder Level. LowStockSection shows a product only when stockThreshold is set AND availableStock <= stockThreshold, and computes needToOrder as the gap. Three raw materials deliberately have it unset (null) so the 'not tracked' case is represented; finished goods have none at all, which is why /inventory has no Low Stock tab.",
+ "_categoryComment": "Live equivalent: ProductServices.getCategoryProductTree({catalogueType}), which feeds the left-hand product picker inside AddBatchDrawer.",
+ "categoryTree": {
+  "RAW-MATERIAL": [
+   {
+    "_id": "cat-rm-1",
+    "name": "Flours & Grains",
+    "productIds": [
+     "rm-001",
+     "rm-010",
+     "rm-018"
+    ]
+   },
+   {
+    "_id": "cat-rm-2",
+    "name": "Sweeteners",
+    "productIds": [
+     "rm-002"
+    ]
+   },
+   {
+    "_id": "cat-rm-3",
+    "name": "Oils & Fats",
+    "productIds": [
+     "rm-003",
+     "rm-009"
+    ]
+   },
+   {
+    "_id": "cat-rm-4",
+    "name": "Dairy Solids",
+    "productIds": [
+     "rm-004",
+     "rm-015"
+    ]
+   },
+   {
+    "_id": "cat-rm-5",
+    "name": "Spices & Flavourings",
+    "productIds": [
+     "rm-005",
+     "rm-012",
+     "rm-013",
+     "rm-014"
+    ]
+   },
+   {
+    "_id": "cat-rm-6",
+    "name": "Additives & Agents",
+    "productIds": [
+     "rm-006",
+     "rm-007",
+     "rm-008",
+     "rm-011",
+     "rm-016",
+     "rm-017"
+    ]
+   }
+  ],
+  "FINISHED-GOODS": [
+   {
+    "_id": "cat-fg-1",
+    "name": "Dairy",
+    "productIds": [
+     "fg-001",
+     "fg-003",
+     "fg-004",
+     "fg-014",
+     "fg-021"
+    ]
+   },
+   {
+    "_id": "cat-fg-2",
+    "name": "Bakery & Snacks",
+    "productIds": [
+     "fg-002",
+     "fg-005",
+     "fg-013",
+     "fg-018",
+     "fg-022"
+    ]
+   },
+   {
+    "_id": "cat-fg-3",
+    "name": "Staples",
+    "productIds": [
+     "fg-006",
+     "fg-007",
+     "fg-009"
+    ]
+   },
+   {
+    "_id": "cat-fg-4",
+    "name": "Oils",
+    "productIds": [
+     "fg-008",
+     "fg-015",
+     "fg-017"
+    ]
+   },
+   {
+    "_id": "cat-fg-5",
+    "name": "Beverages",
+    "productIds": [
+     "fg-010",
+     "fg-011",
+     "fg-024"
+    ]
+   },
+   {
+    "_id": "cat-fg-6",
+    "name": "Condiments & Spices",
+    "productIds": [
+     "fg-012",
+     "fg-016",
+     "fg-019",
+     "fg-020",
+     "fg-023"
+    ]
+   }
+  ]
+ }
+}

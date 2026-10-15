@@ -1,0 +1,589 @@
+{
+  "_comment": "Fake but representative data used only in discovery role-play. Never imported by development/.",
+  "items": [
+    {
+      "id": "seed-1",
+      "title": "Example item one",
+      "description": "Replace with a realistic example for this module's domain."
+    },
+    {
+      "id": "seed-2",
+      "title": "Example item two",
+      "description": "Add enough variety to cover the edge cases you want to role-play."
+    }
+  ],
+  "_sourcingOrderComment": "Shapes below mirror storefront-frontend's SourcingOrder.jsx allOrders/order/seller objects (see addendum-002).",
+  "setupData": {
+    "productRawMaterialMapping": true,
+    "sourcingOrderManagementFeature": {
+      "finishedGoodsPurchaseForecastEnabled": true
+    }
+  },
+  "sellers": [
+    {
+      "_id": "sup-1",
+      "name": "Central Warehouse",
+      "phone": "+91 98200 11223",
+      "_sourceType": "internalSupplier",
+      "supplierType": "INTERNAL",
+      "active": true,
+      "email": "",
+      "supplierCode": "SUP-001",
+      "gstRegistered": true,
+      "gstin": "27AAAAA0000A1Z5",
+      "address": "Plot 14, MIDC Industrial Area, Pune",
+      "state": "Maharashtra"
+    },
+    {
+      "_id": "sup-2",
+      "name": "Fresh Farms Co.",
+      "phone": "+91 90040 55667",
+      "_sourceType": "externalSupplier",
+      "supplierType": "EXTERNAL",
+      "active": true,
+      "email": "accounts@freshfarms.co.in",
+      "supplierCode": "",
+      "gstRegistered": true,
+      "gstin": "29BBBBB1111B2Z6",
+      "address": "",
+      "state": "Karnataka"
+    },
+    {
+      "_id": "sup-3",
+      "name": "Bakery Department",
+      "phone": "+91 98220 33445",
+      "_sourceType": "internalSupplier",
+      "supplierType": "DEPARTMENT",
+      "active": true,
+      "email": "",
+      "supplierCode": "",
+      "gstRegistered": false,
+      "gstin": "",
+      "address": "",
+      "state": ""
+    },
+    {
+      "_id": "sup-4",
+      "name": "Dairy Direct Ltd.",
+      "phone": "+91 90120 77889",
+      "_sourceType": "externalSupplier",
+      "supplierType": "EXTERNAL",
+      "active": true,
+      "email": "",
+      "supplierCode": "SUP-004",
+      "gstRegistered": true,
+      "gstin": "",
+      "address": "Sector 8, Dairy Colony, Anand",
+      "state": "Gujarat"
+    },
+    {
+      "_id": "sup-5",
+      "name": "Green Valley Produce",
+      "phone": "+91 90330 99001",
+      "_sourceType": "externalSupplier",
+      "supplierType": "EXTERNAL",
+      "active": true,
+      "email": "",
+      "supplierCode": "",
+      "gstRegistered": false,
+      "gstin": "",
+      "address": "",
+      "state": ""
+    }
+  ],
+  "purchaseOrders": [
+    {
+      "_id": "po-1042",
+      "order_number": "PO-1042",
+      "status": "delivered",
+      "supplier_id": "sup-1",
+      "created_date": "2026-08-05T09:12:00Z",
+      "total": 42350,
+      "tax": 2117,
+      "item_list": [
+        {
+          "_id": "i1",
+          "name": "Basmati Rice 25kg",
+          "articleNumber": "ART-2201",
+          "qty": 12,
+          "orderingUnit": "bag",
+          "brand": "India Gate"
+        },
+        {
+          "_id": "i2",
+          "name": "Sunflower Oil 15L",
+          "articleNumber": "ART-2214",
+          "qty": 8,
+          "orderingUnit": "can",
+          "brand": "Fortune"
+        },
+        {
+          "_id": "i3",
+          "name": "Wheat Flour 50kg",
+          "articleNumber": "ART-2230",
+          "qty": 6,
+          "orderingUnit": "bag",
+          "brand": "Aashirvaad"
+        }
+      ]
+    },
+    {
+      "_id": "po-1041",
+      "order_number": "PO-1041",
+      "status": "shipping",
+      "supplier_id": "sup-2",
+      "created_date": "2026-08-07T14:40:00Z",
+      "total": 18920,
+      "tax": 946,
+      "item_list": [
+        {
+          "_id": "i4",
+          "name": "Tomatoes (Crate)",
+          "articleNumber": "ART-3110",
+          "qty": 20,
+          "orderingUnit": "crate",
+          "brand": "Local Farm"
+        },
+        {
+          "_id": "i5",
+          "name": "Onions (Crate)",
+          "articleNumber": "ART-3111",
+          "qty": 15,
+          "orderingUnit": "crate",
+          "brand": "Local Farm"
+        }
+      ]
+    },
+    {
+      "_id": "po-1040",
+      "order_number": "PO-1040",
+      "status": "pending",
+      "supplier_id": "sup-3",
+      "created_date": "2026-08-09T08:05:00Z",
+      "total": 6540,
+      "tax": 327,
+      "item_list": [
+        {
+          "_id": "i6",
+          "name": "Yeast (500g)",
+          "articleNumber": "ART-4402",
+          "qty": 10,
+          "orderingUnit": "pack",
+          "brand": "Bakels"
+        }
+      ]
+    },
+    {
+      "_id": "po-1039",
+      "order_number": "PO-1039",
+      "status": "inprogress",
+      "supplier_id": "sup-4",
+      "created_date": "2026-08-08T11:22:00Z",
+      "total": 65200,
+      "tax": 3260,
+      "amountPaid": 20000,
+      "item_list": [
+        {
+          "_id": "i7",
+          "name": "Milk 1L (Case of 12)",
+          "articleNumber": "ART-5010",
+          "qty": 25,
+          "orderingUnit": "case",
+          "brand": "Amul"
+        },
+        {
+          "_id": "i8",
+          "name": "Paneer 1kg",
+          "articleNumber": "ART-5033",
+          "qty": 18,
+          "orderingUnit": "block",
+          "brand": "Amul"
+        },
+        {
+          "_id": "i9",
+          "name": "Butter 500g",
+          "articleNumber": "ART-5041",
+          "qty": 14,
+          "orderingUnit": "pack",
+          "brand": "Amul"
+        }
+      ]
+    },
+    {
+      "_id": "po-1038",
+      "order_number": "PO-1038",
+      "status": "not accepted",
+      "supplier_id": "sup-1",
+      "created_date": "2026-08-04T16:50:00Z",
+      "total": 9800,
+      "tax": 490,
+      "item_list": [
+        {
+          "_id": "i10",
+          "name": "Sugar 50kg",
+          "articleNumber": "ART-2245",
+          "qty": 4,
+          "orderingUnit": "bag",
+          "brand": "Madhur"
+        }
+      ]
+    },
+    {
+      "_id": "po-1037",
+      "order_number": "PO-1037",
+      "status": "delivered",
+      "supplier_id": "sup-5",
+      "created_date": "2026-08-02T10:15:00Z",
+      "total": 28150,
+      "tax": 1408,
+      "item_list": [
+        {
+          "_id": "i11",
+          "name": "Capsicum (Crate)",
+          "articleNumber": "ART-3120",
+          "qty": 9,
+          "orderingUnit": "crate",
+          "brand": "Green Valley"
+        },
+        {
+          "_id": "i12",
+          "name": "Cucumber (Crate)",
+          "articleNumber": "ART-3121",
+          "qty": 11,
+          "orderingUnit": "crate",
+          "brand": "Green Valley"
+        }
+      ]
+    }
+  ],
+  "forecastRecommendations": [
+    {
+      "articleNumber": "ART-2201",
+      "sku": "SKU-2201",
+      "productId": "prod-1",
+      "name": "Basmati Rice 25kg",
+      "category": "Grains",
+      "demand": 120,
+      "currentStock": 30,
+      "recommendedQuantity": 90,
+      "moq": 10,
+      "offerPrice": 1450,
+      "measurement": "bag",
+      "supplier": "Central Warehouse"
+    },
+    {
+      "articleNumber": "ART-2214",
+      "sku": "SKU-2214",
+      "productId": "prod-2",
+      "name": "Sunflower Oil 15L",
+      "category": "Oils",
+      "demand": 80,
+      "currentStock": 15,
+      "recommendedQuantity": 65,
+      "moq": 5,
+      "offerPrice": 2100,
+      "measurement": "can",
+      "supplier": "Central Warehouse"
+    },
+    {
+      "articleNumber": "ART-5010",
+      "sku": "SKU-5010",
+      "productId": "prod-3",
+      "name": "Milk 1L (Case of 12)",
+      "category": "Dairy",
+      "demand": 200,
+      "currentStock": 150,
+      "recommendedQuantity": 50,
+      "moq": 20,
+      "offerPrice": 720,
+      "measurement": "case",
+      "supplier": "Dairy Direct Ltd."
+    },
+    {
+      "articleNumber": "ART-2230",
+      "sku": "SKU-2230",
+      "productId": "prod-4",
+      "name": "Wheat Flour 50kg",
+      "category": "Grains",
+      "demand": 60,
+      "currentStock": 55,
+      "recommendedQuantity": 15,
+      "moq": 10,
+      "offerPrice": 1800,
+      "measurement": "bag",
+      "supplier": "Central Warehouse"
+    },
+    {
+      "articleNumber": "ART-4402",
+      "sku": "SKU-4402",
+      "productId": "prod-5",
+      "name": "Yeast (500g)",
+      "category": "Bakery",
+      "demand": 45,
+      "currentStock": 8,
+      "recommendedQuantity": 37,
+      "moq": 5,
+      "offerPrice": 210,
+      "measurement": "pack",
+      "supplier": "Bakery Department"
+    },
+    {
+      "articleNumber": "ART-3110",
+      "sku": "SKU-3110",
+      "productId": "prod-6",
+      "name": "Tomatoes (Crate)",
+      "category": "Produce",
+      "demand": 90,
+      "currentStock": 20,
+      "recommendedQuantity": 70,
+      "moq": 10,
+      "offerPrice": 640,
+      "measurement": "crate",
+      "supplier": "Fresh Farms Co."
+    }
+  ],
+  "warehouseLocations": [
+    "Central Warehouse - Bay A",
+    "Central Warehouse - Bay B",
+    "Cold Storage Unit 2",
+    "Dry Goods Annex"
+  ],
+  "productCatalogue": [
+    {
+      "_id": "prod-101",
+      "name": "Basmati Rice 25kg",
+      "articleNumber": "ART-2201",
+      "brand": "India Gate",
+      "price": 1450,
+      "inventoryPrice": 1400,
+      "taxPercent": 5,
+      "stock": 30,
+      "unit": "bag",
+      "catalogueType": "finishedGoods",
+      "category": "Grains & Staples",
+      "subcategory": "Rice",
+      "policy": "warranty",
+      "units": [
+        {
+          "label": "Bag",
+          "price": 1450
+        },
+        {
+          "label": "Pallet",
+          "price": 34800
+        }
+      ]
+    },
+    {
+      "_id": "prod-102",
+      "name": "Sona Masoori Rice 25kg",
+      "articleNumber": "ART-2202",
+      "brand": "Daawat",
+      "price": 1320,
+      "inventoryPrice": 1280,
+      "taxPercent": 5,
+      "stock": 18,
+      "unit": "bag",
+      "catalogueType": "finishedGoods",
+      "category": "Grains & Staples",
+      "subcategory": "Rice",
+      "policy": null
+    },
+    {
+      "_id": "prod-103",
+      "name": "Wheat Flour 50kg",
+      "articleNumber": "ART-2230",
+      "brand": "Aashirvaad",
+      "price": 1800,
+      "inventoryPrice": 1750,
+      "taxPercent": 5,
+      "stock": 55,
+      "unit": "bag",
+      "catalogueType": "finishedGoods",
+      "category": "Grains & Staples",
+      "subcategory": "Flour",
+      "policy": null
+    },
+    {
+      "_id": "prod-104",
+      "name": "Orange Juice 1L (Case of 12)",
+      "articleNumber": "ART-3301",
+      "brand": "Real",
+      "price": 950,
+      "inventoryPrice": 900,
+      "taxPercent": 12,
+      "stock": 40,
+      "unit": "case",
+      "catalogueType": "finishedGoods",
+      "category": "Beverages",
+      "subcategory": "Juices",
+      "policy": "guarantee",
+      "units": [
+        {
+          "label": "Case",
+          "price": 950
+        },
+        {
+          "label": "Pallet",
+          "price": 11000
+        }
+      ]
+    },
+    {
+      "_id": "prod-105",
+      "name": "Cola 300ml (Case of 24)",
+      "articleNumber": "ART-3320",
+      "brand": "Coca-Cola",
+      "price": 620,
+      "inventoryPrice": 580,
+      "taxPercent": 18,
+      "stock": 0,
+      "unit": "case",
+      "catalogueType": "finishedGoods",
+      "category": "Beverages",
+      "subcategory": "Soft Drinks",
+      "policy": null
+    },
+    {
+      "_id": "prod-106",
+      "name": "Milk 1L (Case of 12)",
+      "articleNumber": "ART-5010",
+      "brand": "Amul",
+      "price": 720,
+      "inventoryPrice": 690,
+      "taxPercent": 5,
+      "stock": 150,
+      "unit": "case",
+      "catalogueType": "finishedGoods",
+      "category": "Dairy & Chilled",
+      "subcategory": "Milk",
+      "policy": "warranty"
+    },
+    {
+      "_id": "prod-107",
+      "name": "Cheddar Cheese 1kg",
+      "articleNumber": "ART-5044",
+      "brand": "Amul",
+      "price": 540,
+      "inventoryPrice": 500,
+      "taxPercent": 5,
+      "stock": 25,
+      "unit": "block",
+      "catalogueType": "finishedGoods",
+      "category": "Dairy & Chilled",
+      "subcategory": "Cheese",
+      "policy": null,
+      "units": [
+        {
+          "label": "Block",
+          "price": 540
+        },
+        {
+          "label": "Carton",
+          "price": 6200
+        }
+      ]
+    },
+    {
+      "_id": "prod-108",
+      "name": "Corrugated Box (Medium)",
+      "articleNumber": "RM-1001",
+      "brand": "PackRight",
+      "price": 45,
+      "inventoryPrice": 40,
+      "taxPercent": 18,
+      "stock": 500,
+      "unit": "pcs",
+      "catalogueType": "rawMaterial",
+      "category": "Packaging",
+      "subcategory": "Boxes",
+      "policy": null
+    },
+    {
+      "_id": "prod-109",
+      "name": "Shipping Label Roll",
+      "articleNumber": "RM-1020",
+      "brand": "LabelPro",
+      "price": 220,
+      "inventoryPrice": 200,
+      "taxPercent": 18,
+      "stock": 80,
+      "unit": "roll",
+      "catalogueType": "rawMaterial",
+      "category": "Packaging",
+      "subcategory": "Labels",
+      "policy": null
+    },
+    {
+      "_id": "prod-110",
+      "name": "Black Pepper Powder 1kg",
+      "articleNumber": "RM-2010",
+      "brand": "SpiceKing",
+      "price": 380,
+      "inventoryPrice": 350,
+      "taxPercent": 5,
+      "stock": 20,
+      "unit": "pack",
+      "catalogueType": "rawMaterial",
+      "category": "Ingredients",
+      "subcategory": "Spices",
+      "policy": null
+    },
+    {
+      "_id": "prod-111",
+      "name": "Sodium Benzoate 1kg",
+      "articleNumber": "RM-2033",
+      "brand": "ChemPure",
+      "price": 290,
+      "inventoryPrice": 260,
+      "taxPercent": 5,
+      "stock": 15,
+      "unit": "pack",
+      "catalogueType": "rawMaterial",
+      "category": "Ingredients",
+      "subcategory": "Preservatives",
+      "policy": "warranty"
+    }
+  ],
+  "_billOfMaterialsComment": "Synthetic BOM (not in the source pass) so the Raw Material Calculator has something to aggregate. finishedGoodsProductId -> [{ rawMaterialProductId, qtyPerUnit }].",
+  "billOfMaterials": {
+    "prod-101": [
+      {
+        "rawMaterialProductId": "prod-108",
+        "qtyPerUnit": 1
+      },
+      {
+        "rawMaterialProductId": "prod-109",
+        "qtyPerUnit": 1
+      }
+    ],
+    "prod-102": [
+      {
+        "rawMaterialProductId": "prod-108",
+        "qtyPerUnit": 1
+      }
+    ],
+    "prod-103": [
+      {
+        "rawMaterialProductId": "prod-108",
+        "qtyPerUnit": 1
+      }
+    ],
+    "prod-104": [
+      {
+        "rawMaterialProductId": "prod-109",
+        "qtyPerUnit": 2
+      }
+    ],
+    "prod-106": [
+      {
+        "rawMaterialProductId": "prod-108",
+        "qtyPerUnit": 1
+      },
+      {
+        "rawMaterialProductId": "prod-109",
+        "qtyPerUnit": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "_comment": "Version-5-only fixtures (Addendum 011). Additive to seed.json and seed.v2.json — never edits them. Shaped like API responses so it can be swapped for a real backend later.",
+
+  "customer": {
+    "profileComplete": false,
+    "name": "",
+    "mobile": "",
+    "email": "",
+    "avatarInitials": "RA",
+    "addresses": [],
+    "notifications": { "orderUpdates": true, "promotions": false }
+  },
+
+  "storeDetails": {
+    "mapQuery": "Gupta Wholesale Store, 14 Industrial Estate Road, Amritsar, Punjab"
+  },
+
+  "paymentConfig": {
+    "allowPartialPayment": true,
+    "methods": [
+      { "id": "cash", "label": "Cash on Delivery (COD)" },
+      { "id": "online", "label": "Pay Online" }
+    ]
+  },
+
+  "productsV5": [
+    { "id": "v2-kinley-250", "name": "250ml PET Bottle", "brand": "Kinley", "category": "water", "packSize": "Pack of 24", "price": 252, "mrp": 288, "discount": 12, "available": 39, "offer": true, "buyAgain": true, "addedDate": "2026-05-02" },
+    { "id": "v2-coke-500", "name": "500ml PET Bottle", "brand": "Coca-Cola", "category": "soda", "packSize": "Pack of 24", "price": 378, "mrp": 432, "discount": 13, "available": 58, "offer": true, "buyAgain": true, "addedDate": "2026-04-18" },
+    { "id": "v2-natural-water", "name": "Natural Water", "brand": "Bisleri", "category": "water", "packSize": "Pack of 24", "price": 310, "mrp": 344, "discount": 10, "available": 100, "offer": true, "buyAgain": true, "addedDate": "2026-03-11" },
+    { "id": "v2-fanta-orange", "name": "Fanta Orange", "brand": "Fanta", "category": "soda", "packSize": "Pack of 12", "price": 410, "mrp": 468, "discount": 12, "available": 18, "offer": true, "buyAgain": false, "addedDate": "2026-06-20" },
+    { "id": "v2-sprite-600", "name": "Sprite 600ml", "brand": "Sprite", "category": "soda", "packSize": "Pack of 24", "price": 410, "mrp": 468, "discount": 12, "available": 44, "offer": false, "buyAgain": true, "addedDate": "2026-02-14" },
+    { "id": "v2-real-juice", "name": "Mixed Fruit Juice 1L", "brand": "Real", "category": "juices", "packSize": "Pack of 12", "price": 540, "mrp": 600, "discount": 10, "available": 26, "offer": true, "buyAgain": false, "addedDate": "2026-07-05" },
+    { "id": "v2-sting-energy", "name": "Sting Energy Drink", "brand": "Sting", "category": "energy", "packSize": "Pack of 24", "price": 480, "mrp": 528, "discount": 9, "available": 32, "offer": false, "buyAgain": false, "addedDate": "2026-01-22" },
+    { "id": "v2-limca-500", "name": "Limca 500ml", "brand": "Limca", "category": "new", "packSize": "Pack of 24", "price": 395, "mrp": 440, "discount": 10, "available": 21, "offer": false, "buyAgain": false, "addedDate": "2026-07-20" }
+  ],
+
+  "purchasesV5": {
+    "thisMonthTotal": 24600,
+    "openOrders": 2,
+    "delivered": 8,
+    "pendingActive": 2,
+    "orders": [
+      {
+        "id": "ORD-2025-00089", "date": "2026-07-30", "time": "08:45 AM", "status": "Delivered", "total": 6240,
+        "items": [
+          { "name": "250ml PET Bottle", "brand": "Kinley", "qty": 20, "price": 252, "total": 5040 },
+          { "name": "Sprite 600ml", "brand": "Sprite", "qty": 3, "price": 400, "total": 1200 }
+        ],
+        "subtotal": 6240, "discount": 0, "deliveryCharge": 0, "paymentMode": "UPI", "paymentStatus": "Paid",
+        "deliveryAddress": "Shop – Main, 12 MG Road, Bengaluru 560001",
+        "timeline": [
+          { "step": "Order Placed", "at": "30 Jul, 08:45 AM", "done": true },
+          { "step": "Packed", "at": "30 Jul, 10:10 AM", "done": true },
+          { "step": "Out for Delivery", "at": "30 Jul, 01:20 PM", "done": true },
+          { "step": "Delivered", "at": "30 Jul, 04:05 PM", "done": true }
+        ]
+      },
+      {
+        "id": "ORD-2025-00088", "date": "2026-07-28", "time": "11:20 AM", "status": "Active", "total": 4320,
+        "items": [
+          { "name": "500ml PET Bottle", "brand": "Coca-Cola", "qty": 8, "price": 378, "total": 3024 },
+          { "name": "Fanta Orange", "brand": "Fanta", "qty": 3, "price": 410, "total": 1230 }
+        ],
+        "subtotal": 4254, "discount": 0, "deliveryCharge": 66, "paymentMode": "Cash + UPI (split)", "paymentStatus": "Paid",
+        "deliveryAddress": "Shop – Main, 12 MG Road, Bengaluru 560001",
+        "timeline": [
+          { "step": "Order Placed", "at": "28 Jul, 11:20 AM", "done": true },
+          { "step": "Packed", "at": "28 Jul, 01:40 PM", "done": true },
+          { "step": "Out for Delivery", "at": "28 Jul, 03:00 PM", "done": true },
+          { "step": "Delivered", "at": "", "done": false }
+        ]
+      },
+      {
+        "id": "ORD-2025-00087", "date": "2026-07-26", "time": "03:15 PM", "status": "Pending", "total": 3960,
+        "items": [ { "name": "Mixed Fruit Juice 1L", "brand": "Real", "qty": 7, "price": 540, "total": 3780 } ],
+        "subtotal": 3780, "discount": 0, "deliveryCharge": 0, "paymentMode": "Unpaid — outstanding balance", "paymentStatus": "Pending",
+        "deliveryAddress": "Warehouse, Plot 4, Peenya Industrial Area, Bengaluru 560058",
+        "timeline": [
+          { "step": "Order Placed", "at": "26 Jul, 03:15 PM", "done": true },
+          { "step": "Packed", "at": "", "done": false },
+          { "step": "Out for Delivery", "at": "", "done": false },
+          { "step": "Delivered", "at": "", "done": false }
+        ]
+      },
+      {
+        "id": "ORD-2025-00086", "date": "2026-07-22", "time": "10:05 AM", "status": "Delivered", "total": 5750,
+        "items": [
+          { "name": "250ml PET Bottle", "brand": "Kinley", "qty": 15, "price": 252, "total": 3780 },
+          { "name": "Natural Water", "brand": "Bisleri", "qty": 6, "price": 310, "total": 1860 }
+        ],
+        "subtotal": 5640, "discount": 0, "deliveryCharge": 110, "paymentMode": "UPI", "paymentStatus": "Paid",
+        "deliveryAddress": "Shop – Main, 12 MG Road, Bengaluru 560001",
+        "timeline": [
+          { "step": "Order Placed", "at": "22 Jul, 10:05 AM", "done": true },
+          { "step": "Packed", "at": "22 Jul, 12:00 PM", "done": true },
+          { "step": "Out for Delivery", "at": "22 Jul, 02:30 PM", "done": true },
+          { "step": "Delivered", "at": "22 Jul, 05:15 PM", "done": true }
+        ]
+      },
+      {
+        "id": "ORD-2025-00085", "date": "2026-07-18", "time": "02:35 PM", "status": "Delivered", "total": 4330,
+        "items": [ { "name": "Sprite 600ml", "brand": "Sprite", "qty": 9, "price": 410, "total": 3690 }, { "name": "Limca 500ml", "brand": "Limca", "qty": 1, "price": 395, "total": 395 } ],
+        "subtotal": 4085, "discount": 0, "deliveryCharge": 0, "paymentMode": "UPI", "paymentStatus": "Paid",
+        "deliveryAddress": "Shop – Main, 12 MG Road, Bengaluru 560001",
+        "timeline": [
+          { "step": "Order Placed", "at": "18 Jul, 02:35 PM", "done": true },
+          { "step": "Packed", "at": "18 Jul, 04:00 PM", "done": true },
+          { "step": "Out for Delivery", "at": "18 Jul, 05:45 PM", "done": true },
+          { "step": "Delivered", "at": "18 Jul, 07:30 PM", "done": true }
+        ]
+      },
+      {
+        "id": "ORD-2025-00084", "date": "2026-07-15", "time": "09:50 AM", "status": "Cancelled", "total": 2400,
+        "items": [ { "name": "Sting Energy Drink", "brand": "Sting", "qty": 5, "price": 480, "total": 2400 } ],
+        "subtotal": 2400, "discount": 0, "deliveryCharge": 0, "paymentMode": "—", "paymentStatus": "Refunded",
+        "deliveryAddress": "Shop – Main, 12 MG Road, Bengaluru 560001",
+        "timeline": [
+          { "step": "Order Placed", "at": "15 Jul, 09:50 AM", "done": true },
+          { "step": "Cancelled", "at": "15 Jul, 11:30 AM", "done": true }
+        ]
+      }
+    ]
+  }
+}
