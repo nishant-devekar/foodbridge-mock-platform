@@ -233,7 +233,7 @@
      moved by each step's demo button; the live demo business is untouched.
      ════════════════════════════════════════════════════════════════════ */
   const JKEY = { on: "fb.v7.ct.journey.on", snap: "fb.v7.ct.journey.snap", demo: "fb.v7.ct.journey.demo", graph: "fb.v7.ct.journey.graph" };
-  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW3";
+  const JGRAPH_URL = "../assets/journey/graphs/store-journey.json?v=20261015JW5";
   const jr = { on: false, J: null, snap: null, facts: null, ev: null, home: null, moment: null };
   function jget(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function jput(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* per device only */ } }
@@ -337,14 +337,30 @@
       '<div class="ct-cards">' + keys.map(function (k) { const x = lever(k); return x ? leverCard(x) : ""; }).join("") + "</div>";
   }
   /* The area page of a journey area: the original head, tiles and list,
-     then its one button (or why it is not open yet). */
+     its one button docked above the footer like any primary action. An
+     area with nothing in it yet says so in a proper empty state instead of
+     three zero tiles and "Nothing here". */
   function journeyPage(lv) {
-    const sel = selectedTile(lv);
-    ui.sel = sel;
     const a = lv.action;
-    return head(lv) + tiles(lv, sel) + list(lv.tiles[sel].rows, lv, sel) +
-      (a ? '<button class="ct-connect" data-jact>' + esc(a.label) + "</button>" +
-           (a.demo ? '<button class="ct-link ct-jdemo" data-jdemo="' + esc(a.step) + '">' + esc(a.demo.label) + " · demo</button>" : "") : "");
+    const empty = ["good", "bad", "ugly"].every(function (k) { return !lv.tiles[k].count && !(lv.tiles[k].rows || []).length; });
+    let body;
+    if (empty) {
+      body = head(lv) + '<div class="ct-jempty"><span class="ct-jempty-i">' + (ICON_OF[lv.id] || "") + "</span>" +
+        "<b>No " + esc(lv.label.toLowerCase()) + " yet</b>" + (lv.promise ? "<p>" + esc(lv.promise) + "</p>" : "") + "</div>";
+    } else {
+      const sel = selectedTile(lv);
+      ui.sel = sel;
+      const t = lv.tiles[sel];
+      /* Figures with no rows to list (they are still in the import, or the
+         demo made them): say where to see them, never leave a gap. */
+      body = head(lv) + tiles(lv, sel) + (t.rows.length || !t.count ? list(t.rows, lv, sel)
+        : '<p class="ct-empty">' + (a && a.screen ? "See the " + esc(t.value) + " in " + esc(a.screen.label) + "." : a ? "Tap \u201c" + esc(a.label) + "\u201d to see the " + esc(t.value) + "." : "") + "</p>");
+    }
+    /* On a big screen the page opens on the tower's own area header (the way back, the name, where it stands). */
+    if (ui.desk) body = deskLeverHead(lv) + '<div class="ct-jdesk">' + body;
+    return body + (a ? '<div class="ct-jbar"><button class="ct-connect" data-jact>' + esc(a.label) + "</button>" +
+      (a.demo ? '<button class="ct-link ct-jdemo" data-jdemo="' + esc(a.step) + '">' + esc(a.demo.label) + " · demo</button>" : "") + "</div>" : "") +
+      (ui.desk ? "</div>" : "");
   }
   /* The page's button: store activation's own modal, else the platform
      screen where the step is done, else (the new-store demo) the step's demo. */

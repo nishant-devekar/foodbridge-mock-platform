@@ -98,7 +98,7 @@ test("a journey area in the tower's lever shape: headline, three tiles, one acti
   assert.equal(p.status, "ugly", "rows that would break an order are Urgent");
   assert.equal(p.headline.value, "3 still need a fix");
   assert.deepEqual(["good", "bad", "ugly"].map((k) => p.tiles[k].label + ":" + p.tiles[k].word + ":" + p.tiles[k].count),
-    ["On track:Ready:42", "Needs work:Incomplete:8", "Urgent:To fix:3"]);
+    ["On track:Ready:42", "Needs work:No MRP:8", "Urgent:To fix:3"]);
   assert.equal(p.action.label, "Review your products");
   assert.deepEqual(p.action.flow, { module: "store-activation", step: "items", mode: "setup" });
   const o = V.lever(ev, f, "order");

@@ -1058,3 +1058,21 @@ html.ct-desk .ct-dlv .ct-ptabs { grid-template-columns: 1fr; }
 #ct-flow { position: fixed; inset: 0; z-index: 2000; }
 #ct-flow[hidden] { display: none; }
 #ct-flow iframe { width: 100%; height: 100%; border: 0; background: transparent; color-scheme: normal; }
+/* An area with nothing in it yet: what it will hold, not three zeros. */
+.ct-jempty { display: grid; justify-items: center; gap: 8px; margin-top: 20px; padding: 28px 20px; border: 1px dashed var(--line); border-radius: var(--r); background: var(--fill); text-align: center; }
+.ct-jempty-i { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--canvas); color: var(--ink-2); box-shadow: 0 1px 3px rgba(17, 20, 24, .08); }
+.ct-jempty-i .i { width: 24px; height: 24px; }
+.ct-jempty b { font-size: 17px; line-height: 24px; font-weight: 700; color: var(--ink); }
+.ct-jempty p { margin: 0; max-width: 32ch; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+/* The page's one button, docked above the footer like a primary action;
+   the page scrolls under it. On a big screen it sits under the page. */
+.ct-jbar { position: fixed; left: 0; right: 0; bottom: calc(var(--foot) + var(--safe)); z-index: 38; padding: 18px var(--pad) 10px;
+  background: linear-gradient(rgba(255, 255, 255, 0), var(--canvas) 16px); }
+.ct-jbar .ct-connect { margin-top: 0; }
+.ct-jbar .ct-jdemo { margin-top: 4px; }
+.ct-main:has(.ct-jbar) { padding-bottom: calc(var(--foot) + 130px + var(--safe)); }
+html.ct-desk .ct-jbar { position: static; padding: 20px 0 0; background: none; max-width: 420px; }
+html.ct-desk .ct-main:has(.ct-jbar) { padding-bottom: 32px; }
+/* A toast clears the docked button. */
+body:has(.ct-jbar) .ct-toast { bottom: calc(var(--foot) + 104px + var(--safe)); }
+html.ct-desk body:has(.ct-jbar) .ct-toast { bottom: calc(var(--foot) + 12px + var(--safe)); }

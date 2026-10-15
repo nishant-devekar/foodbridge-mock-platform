@@ -157,7 +157,7 @@
     const status = locked ? "preview" : !n ? "good" : tiles.ugly.count ? "ugly" : "bad";
     const say = n ? line(n, facts) : "";
     return {
-      id: key, label: a.label, journey: true, status: status, locked: locked,
+      id: key, label: a.label, journey: true, status: status, locked: locked, promise: p.promise || "",
       word: locked ? "Opens later" : null,
       cardLine: locked ? "Opens " + (a.waits || "later") : !n ? null : say,
       headline: locked ? { value: "Opens " + (a.waits || "later"), context: p.promise || "" }
