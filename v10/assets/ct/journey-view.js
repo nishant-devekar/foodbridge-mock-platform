@@ -21,7 +21,8 @@
    or how many there are. Nothing here names a node id.
 
      home(ev, facts)        → { mode, chapter, trail, cards, locked, pins, areas }
-     area(ev, facts, key)   → the step sheet of one area
+     area(ev, facts, key)   → one area: its steps and the next one
+     lever(ev, facts, key)  → that area in the tower's lever shape
      moment(events, ev)     → { announce, freeDays, done } from one step
 
    Pure: no DOM, no storage, no clock. Runs under node.
@@ -114,11 +115,57 @@
     return {
       area: key, id: a.id, label: a.label, state: a.state,
       steps: leaves.map(function (n) { return { id: n.id, label: n.label, state: n.state, optional: n.optional, now: n.id === nextId, reward: n.payload.reward || null }; }),
-      next: next ? { id: next.id, label: next.label, ask: next.payload.ask || next.label, how: next.payload.how || "", say: line(next, facts) !== (next.payload.ask || next.label) ? line(next, facts) : "",
+      next: next ? { id: next.id, label: next.label, payload: next.payload, ask: next.payload.ask || next.label, how: next.payload.how || "", say: line(next, facts) !== (next.payload.ask || next.label) ? line(next, facts) : "",
                      screen: next.payload.screen || null, demo: next.payload.demo || null, reward: next.payload.reward || null, optional: next.optional,
                      flow: next.payload.flow || null, action: next.payload.action || null, cheer: next.payload.cheer || null } : null,
       waits: a.state === "locked" ? (a.payload.locked || "") : "",
       blockers: b.nodes,
+    };
+  }
+
+  /* One journey area as the tower's own lever shape (levers.js): headline,
+     On track / Needs work / Urgent tiles with rows, a status — so the
+     tower's original area page draws it with its own head, tiles and list.
+     Tiles come from the area's payload.tiles ([{ k, word, fact }]) when the
+     graph gives them, else from its steps (done · to do). `action` is the
+     one button the page carries. */
+  const TILE = { good: "On track", bad: "Needs work", ugly: "Urgent" };
+  function lever(ev, facts, key) {
+    const a = area(ev, facts, key);
+    if (!a) return null;
+    const node = areas(ev).filter(function (n) { return n.payload.area === key; })[0];
+    const p = node.payload, n = a.next, locked = a.state === "locked";
+    const tile = function (k, word, c, rows) { return { label: TILE[k], word: word, value: String(c), count: c, rows: rows || [] }; };
+    const stepRow = function (st) {
+      return { title: st.label, note: st.state === "done" ? "Done" : st.now ? "Do this now" : locked || st.state === "locked" ? "Opens later" : "Next",
+               next: st.reward && st.reward.freeDays && st.state !== "done" ? "+" + st.reward.freeDays + (st.reward.freeDays === 1 ? " free day" : " free days") : "",
+               jstep: st.id, now: !!st.now };
+    };
+    const tiles = {};
+    if (Array.isArray(p.tiles)) {
+      ["good", "bad", "ugly"].forEach(function (k) {
+        const d = p.tiles.filter(function (t) { return t.k === k; })[0];
+        const v = d ? factAt(facts, d.fact) : 0;
+        tiles[k] = tile(k, d ? d.word : "", typeof v === "number" ? v : 0);
+      });
+    } else {
+      const done = a.steps.filter(function (st) { return st.state === "done"; }), todo = a.steps.filter(function (st) { return st.state !== "done"; });
+      tiles.good = tile("good", "Done", done.length, done.map(stepRow));
+      tiles.bad = tile("bad", "To do", todo.length, todo.map(stepRow));
+      tiles.ugly = tile("ugly", "Stuck", 0);
+    }
+    const status = locked ? "preview" : !n ? "good" : tiles.ugly.count ? "ugly" : "bad";
+    const say = n ? line(n, facts) : "";
+    return {
+      id: key, label: a.label, journey: true, status: status, locked: locked,
+      word: locked ? "Opens later" : null,
+      cardLine: locked ? "Opens " + (a.waits || "later") : !n ? null : say,
+      headline: locked ? { value: "Opens " + (a.waits || "later"), context: p.promise || "" }
+        : !n ? { value: a.label + " is set up", context: p.promise || "" }
+        : { value: say, context: say !== (n.payload.ask || n.label) ? (n.payload.ask || n.label) : (n.payload.how || "") },
+      tiles: tiles,
+      steps: a.steps,
+      action: n && !locked ? { step: n.id, label: n.payload.action || n.payload.ask || n.label, flow: n.payload.flow || null, screen: n.payload.screen || null, demo: n.payload.demo || null } : null,
     };
   }
 
@@ -147,7 +194,7 @@
       .reduce(function (s, n) { return s + (Number(n.payload.reward.freeDays) || 0); }, 0);
   }
 
-  const API = { home: home, area: area, moment: moment, earned: earned, line: line };
+  const API = { home: home, area: area, lever: lever, moment: moment, earned: earned, line: line };
   root.CTJourneyView = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

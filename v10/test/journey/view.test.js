@@ -89,3 +89,24 @@ test("a graph with other names still draws: the view reads payloads, never ids",
   assert.equal(h.locked[0].line, "Opens after x");
   assert.deepEqual(h.pins, ["x", "y"]);
 });
+
+test("a journey area in the tower's lever shape: headline, three tiles, one action", () => {
+  const f = Facts.blank({ products: { count: 42, broken: 3, incomplete: 8 } });
+  const ev = L.evaluate(f);
+  const p = V.lever(ev, f, "products");
+  assert.equal(p.journey, true);
+  assert.equal(p.status, "ugly", "rows that would break an order are Urgent");
+  assert.equal(p.headline.value, "3 still need a fix");
+  assert.deepEqual(["good", "bad", "ugly"].map((k) => p.tiles[k].label + ":" + p.tiles[k].word + ":" + p.tiles[k].count),
+    ["On track:Ready:42", "Needs work:Incomplete:8", "Urgent:To fix:3"]);
+  assert.equal(p.action.label, "Review your products");
+  assert.deepEqual(p.action.flow, { module: "store-activation", step: "items", mode: "setup" });
+  const o = V.lever(ev, f, "order");
+  assert.equal(o.status, "preview");
+  assert.equal(o.word, "Opens later");
+  assert.equal(o.cardLine, "Opens when your store is ready");
+  assert.equal(o.action, null, "a locked area has no button");
+  const d = V.lever(L.evaluate(Facts.blank({ products: { count: 1, broken: 0 }, customers: { count: 1, broken: 0 }, orders: { count: 1, days: 1 } })), Facts.blank(), "deliveries");
+  assert.deepEqual(["good", "bad"].map((k) => d.tiles[k].word + ":" + d.tiles[k].count), ["Done:0", "To do:3"], "an area without its own tiles counts its steps");
+  assert.equal(d.tiles.bad.rows[0].now, true);
+});

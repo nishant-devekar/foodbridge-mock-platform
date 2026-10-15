@@ -315,3 +315,11 @@ Most lift figures in these sources are vendor case studies: hypotheses to test, 
 
 Out of scope for now: leaderboards, referral rewards, cash rewards, levels or badges beyond the
 chapters.
+
+**Later the same day the owner rejected the sheets.** In the owner's words: "this new bottom sheet flow is trash. I want to stick to
+that exact original control tower UI-UX flow". The journey is now drawn only with the tower's own
+pieces. Home is the greeting, the chapter's line and the area cards. A card opens the area page (the
+back bar, the headline, On track / Needs work / Urgent, the list) with one button in the page. A step
+done is a one-line toast. The quest sheet, the step sheet, the unlock sheet, the chapter trail and the
+locked list are gone. Store activation's modal still opens from the Products and Customers page
+buttons.
