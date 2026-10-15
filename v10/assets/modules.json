@@ -92,14 +92,14 @@
       "icon": "package",
       "submenus": [
         {
+          "_why": "15 Oct 2026 (owner): Finished Goods is product-management's frozen discovery v7 Products page (locked 13 Oct 2026, Addendum 019, commit f377dfa), cloned as is into modules/foodbridge-module-product-management/discovery/versions/v7 -- a copy, not the module's build. No sidebar or header of its own (clipLeft 0, mHeaderH 0); on a phone its own bottom bar takes EXIT DEMO. The earlier foodbridge-module-products page stays in its folder.",
           "id": "finished-goods",
-          "exitIn": "#mfooter",
+          "exitIn": "div.fixed.bottom-0.z-40",
           "name": "Finished Goods",
-          "url": "modules/foodbridge-module-products/discovery/paths/products-directory/screens/products/all-products.html?v=20261003SH1",
-          "clipLeft": 250,
-          "mHeaderH": 67,
-          "owner": "exagon-ai/foodbridge-module-products",
-          "hideBurger": true
+          "url": "modules/foodbridge-module-product-management/discovery/versions/v7/screens/products-list.html?v=20261015PM1",
+          "clipLeft": 0,
+          "mHeaderH": 0,
+          "owner": "foodbridge-module-product-management (discovery v7, locked)"
         },
         {
           "id": "product-categories",
