@@ -335,3 +335,33 @@ stock count) slides in, is confirmed in place and ends on a done card. "Open in 
 first. A fix is kept as the tower's own (`fb.v7.ct.productFixes`); the frozen page still shows its seed. The
 docked page button is gone (§4.8). Step rows open the tower's item sheet, and a platform screen asks inline
 before leaving.
+
+**16 Oct 2026: a slim home and a coin wallet.** In the owner's words: "too much content and cognitive load … show his
+immediate attention item and next to it … rewards coins wallet … remove all the subtext". Research behind it:
+progressive disclosure (one next step, the rest unlocked as the user goes; [Userpilot](https://userpilot.com/blog/progressive-disclosure/),
+[Guidejar](https://www.guidejar.com/blog/7-saas-onboarding-best-practices-for-2025-that-actually-work)), and Indian merchant
+rewards tied to real milestones and spendable on the product itself (Paytm's merchant points for vouchers and devices,
+[Channel Drive](https://channeldrive.in/applications/paytm-debuts-new-loyalty-program-for-kirana-stores/); Google Pay for
+Business's scratch card on finishing setup, [Google](https://support.google.com/pay/india/answer/9845811)).
+
+The home shows the greeting with the wallet, the step to do now (a big card, its title and its coins), "Up next"
+(one muted card, a padlock if it isn't open yet), and the areas already running (name and colour only). The locked
+list and every subline are gone. Each step has a `title` and `coins` (50–200; 500 for a running store). Coins come
+only from proven steps. The wallet is its own page (the coin chip, or More → Wallet), with the balance, Earn next,
+Spend (100 WhatsApp messages 300, a setup call 500, a month free 1,000; an inline ask before spending) and History.
+A finished step says "+100 coins · …" in the tower's toast, and the chip bumps.
+
+**16 Oct 2026, the principle that settles the home.** In the owner's words: "it's not just about activation … the user should get
+familiar enough that he also has to use it in the day-in, day-out flow". So setup has no screen of its own. A
+new store's home **is** the everyday tower home: the greeting, "Here is what needs your attention today", and the
+tinted area cards with their one line, showing only the areas the store has opened so far. Setting up is
+clearing incidents in the same lists the owner will use every day. An area with nothing in it yet has one Urgent
+row ("No products yet · Not set up") that opens its step. Hidden products are Urgent rows, and products that
+cost money or break an invoice are Needs work rows. A row opens the same modal or item sheet. Coins come with
+the done card and the toast; the wallet lives in More. The setup-guide card, the hero card and the coin chip are
+gone. The owner learns one interface, on day one, and it is the one they keep.
+
+**16 Oct 2026, Now (Ek kaam).** After five themed experiments, the owner chose one card at a time. The home is
+now **Now**: one stack of cards from every area, with a strip of counts above it. It is the same stack on day one,
+where setup rows are its first cards, and on day 60. Business keeps the tower home described above, and the
+Wallet has its own footer tab. Spec: CONTROL_TOWER_NOW.md.

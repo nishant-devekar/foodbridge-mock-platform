@@ -69,9 +69,9 @@ test("a moment: the highest announce wins, rewards add up", () => {
   const m = V.moment(r.events, r.ev);
   assert.equal(m.announce.title, "Your store is ready");
   assert.equal(m.announce.open, "order");
-  assert.equal(m.freeDays, 2);
-  assert.deepEqual(m.done, ["Products · fixed", "Customers · fixed"]);
-  assert.equal(V.earned(r.ev), 2);
+  assert.equal(m.coins, 200, "100 coins each for fixing products and customers");
+  assert.deepEqual(m.done, ["Fix products", "Fix customers"]);
+  assert.equal(V.earned(r.ev), 300, "and the 50 + 50 for adding them, earned on the first step");
 });
 
 test("a graph with other names still draws: the view reads payloads, never ids", () => {
@@ -106,4 +106,13 @@ test("a journey area in the tower's lever shape: headline, three tiles, one acti
   const d = V.lever(L.evaluate(Facts.blank({ products: { count: 1, broken: 0 }, customers: { count: 1, broken: 0 }, orders: { count: 1, days: 1 } })), Facts.blank(), "deliveries");
   assert.deepEqual(["good", "bad"].map((k) => d.tiles[k].word + ":" + d.tiles[k].count), ["Done:0", "To do:3"], "an area without its own tiles counts its steps");
   assert.equal(d.tiles.bad.rows[0].now, true);
+});
+
+test("home shows only the step to do now and the one after it, in a few words, with their coins", () => {
+  const h = home();
+  assert.deepEqual([h.now.title, h.now.area, h.now.coins], ["Add products", "products", 50]);
+  assert.deepEqual([h.after.title, h.after.state], ["Fix products", "locked"]);
+  const h2 = home({ products: { count: 52, broken: 6, incomplete: 41 } });
+  assert.equal(h2.now.title, "Fix 6 products", "the count goes in the title");
+  assert.equal(h2.after.title, "Add customers", "an open step elsewhere comes before a locked one");
 });

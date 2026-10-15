@@ -12,10 +12,12 @@
      payload.area           the node IS that area of the tower
      a node under an area   a step: payload.ask · how · say ("{n} …" with
                             the fact named by payload.count) · screen ·
-                            demo · reward · flow (a module the tower opens) ·
+                            demo · coins · flow (a module the tower opens) ·
                             action (its button) · cheer (the assistant's line)
-     payload.announce       { on: "available"|"done", title, line, button,
-                            open } — the unlock sheet for that moment
+     payload.announce       { on: "available"|"done", title, … } — the toast
+                            for that moment
+     payload.title · coins  a step in a few words (the home card) and what
+                            finishing it puts in the wallet
 
    Any graph that keeps to these fields draws, whatever its nodes are called
    or how many there are. Nothing here names a node id.
@@ -23,7 +25,7 @@
      home(ev, facts)        → { mode, chapter, trail, cards, locked, pins, areas }
      area(ev, facts, key)   → one area: its steps and the next one
      lever(ev, facts, key)  → that area in the tower's lever shape
-     moment(events, ev)     → { announce, freeDays, done } from one step
+     moment(events, ev)     → { announce, coins, done } from one step
 
    Pure: no DOM, no storage, no clock. Runs under node.
    ========================================================================== */
@@ -42,6 +44,17 @@
       if (typeof n === "number") return p.say.replace("{n}", String(n));
     }
     return p.ask || stage.label;
+  }
+
+  /* A step in a few words, for the home card: its `title`, with the counted
+     fact in it ("Fix {n} products" → "Fix 6 products"). */
+  function title(stage, facts) {
+    if (!stage) return "";
+    const p = stage.payload || {};
+    if (!p.title) return p.ask || stage.label;
+    if (p.title.indexOf("{n}") === -1) return p.title;
+    const n = p.count ? factAt(facts, p.count) : undefined;
+    return typeof n === "number" && n > 0 ? p.title.replace("{n}", String(n)) : p.title.replace("{n} ", "");   // no "Fix 0 products"
   }
 
   function areaOf(ev, id) {
@@ -89,12 +102,27 @@
     cards.sort(function (x, y) { return rank[x.tone] - rank[y.tone]; });
 
     const pins = (Array.isArray(chapter.payload.pins) ? chapter.payload.pins : []).filter(function (k) { return byKey[k]; });
+    /* The one thing to do now, and the one after it: home shows these two
+       (progressive disclosure: nothing further out is on the screen). */
+    const card = function (id) {
+      const n = id && ev.node(id); if (!n) return null;
+      const ar = areaOf(ev, id);
+      return { id: id, title: title(n, facts), area: ar ? ar.payload.area : null, coins: Number(n.payload.coins) || 0, state: n.state };
+    };
+    const firstLeaf = function (id) { let k = id; while (ev.children(k).length) k = ev.children(k)[0]; return k; };
+    let nextId = null;
+    if (focusId) {
+      const open = ev.frontier().filter(function (id) { return id !== focusId && !ev.node(id).optional; });
+      nextId = open[0] || ev.next(focusId).map(firstLeaf).filter(function (id) { return id !== focusId && ev.state(id) !== "done" && ev.state(id) !== "skipped"; })[0] || null;
+    }
     return {
       mode: running ? "running" : "journey",
       chapter: { id: chapter.id, label: chapter.label, line: chapter.payload.line || chapter.label },
       trail: ev.roots().map(function (id) { return ev.node(id); }).filter(function (n) { return n.state !== "skipped"; })
         .map(function (n) { return { id: n.id, label: n.label, state: n.state, now: n.id === chapterId }; }),
       focus: focusId ? { id: focusId, area: focusArea ? focusArea.payload.area : null, line: line(ev.node(focusId), facts) } : null,
+      now: card(focusId),
+      after: card(nextId),
       cards: cards,
       locked: locked,
       pins: pins.length === 2 ? pins : null,
@@ -114,9 +142,9 @@
     const b = ev.blockers(a.id) || { nodes: [] };
     return {
       area: key, id: a.id, label: a.label, state: a.state,
-      steps: leaves.map(function (n) { return { id: n.id, label: n.label, state: n.state, optional: n.optional, now: n.id === nextId, reward: n.payload.reward || null }; }),
+      steps: leaves.map(function (n) { return { id: n.id, label: n.label, title: title(n, facts), state: n.state, optional: n.optional, now: n.id === nextId, coins: Number(n.payload.coins) || 0 }; }),
       next: next ? { id: next.id, label: next.label, payload: next.payload, ask: next.payload.ask || next.label, how: next.payload.how || "", say: line(next, facts) !== (next.payload.ask || next.label) ? line(next, facts) : "",
-                     screen: next.payload.screen || null, demo: next.payload.demo || null, reward: next.payload.reward || null, optional: next.optional,
+                     screen: next.payload.screen || null, demo: next.payload.demo || null, coins: Number(next.payload.coins) || 0, optional: next.optional,
                      flow: next.payload.flow || null, action: next.payload.action || null, cheer: next.payload.cheer || null } : null,
       waits: a.state === "locked" ? (a.payload.locked || "") : "",
       blockers: b.nodes,
@@ -138,7 +166,7 @@
     const tile = function (k, word, c, rows) { return { label: TILE[k], word: word, value: String(c), count: c, rows: rows || [] }; };
     const stepRow = function (st) {
       return { title: st.label, note: st.state === "done" ? "Done" : st.now ? "Do this now" : locked || st.state === "locked" ? "Opens later" : "Next",
-               next: st.reward && st.reward.freeDays && st.state !== "done" ? "+" + st.reward.freeDays + (st.reward.freeDays === 1 ? " free day" : " free days") : "",
+               next: st.coins && st.state !== "done" ? "+" + st.coins + " coins" : "",
                jstep: st.id, now: !!st.now };
     };
     const tiles = {};
@@ -179,22 +207,23 @@
       if (!a || "node." + a.on !== e.type) return;
       if (!best || n.depth < best.n.depth) best = { n: n, a: a };
     });
-    const done = (events || []).filter(function (e) { return e.type === "node.done"; });
-    const freeDays = done.reduce(function (s, e) { return s + (Number(e.payload && e.payload.reward && e.payload.reward.freeDays) || 0); }, 0);
-    const labels = done.filter(function (e) { return e.payload && e.payload.reward; }).map(function (e) {
-      const ar = areaOf(ev, e.node), n = ev.node(e.node);
-      return ar && ar.id !== n.id ? ar.label + " · " + n.label.toLowerCase() : n.label;
-    });
-    return { announce: best ? Object.assign({ node: best.n.id }, best.a) : null, freeDays: freeDays, done: labels };
+    const done = (events || []).filter(function (e) { return e.type === "node.done" && Number(e.payload && e.payload.coins); });
+    const coins = done.reduce(function (s, e) { return s + Number(e.payload.coins); }, 0);
+    const labels = done.map(function (e) { const n = ev.node(e.node); return n.payload.title ? n.payload.title.replace("{n} ", "") : n.label; });
+    return { announce: best ? Object.assign({ node: best.n.id }, best.a) : null, coins: coins, done: labels };
   }
 
-  /* Free days earned so far: every rewarded node that is done. */
+  /* Coins earned so far: every node with coins that is done, with when. */
   function earned(ev) {
-    return ev.nodes().filter(function (n) { return n.state === "done" && n.payload.reward; })
-      .reduce(function (s, n) { return s + (Number(n.payload.reward.freeDays) || 0); }, 0);
+    return ev.nodes().filter(function (n) { return n.state === "done" && Number(n.payload.coins); })
+      .reduce(function (s, n) { return s + Number(n.payload.coins); }, 0);
+  }
+  function earnings(ev, facts) {
+    return ev.nodes().filter(function (n) { return n.state === "done" && Number(n.payload.coins); })
+      .map(function (n) { return { id: n.id, title: n.payload.title ? n.payload.title.replace("{n} ", "") : n.label, coins: Number(n.payload.coins) }; });
   }
 
-  const API = { home: home, area: area, lever: lever, moment: moment, earned: earned, line: line };
+  const API = { home: home, area: area, lever: lever, moment: moment, earned: earned, earnings: earnings, line: line, title: title };
   root.CTJourneyView = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

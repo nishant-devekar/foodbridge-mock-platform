@@ -159,8 +159,9 @@ Events are what other modules listen to. A rewards module reads `payload.reward`
 `assets/ct/journey-view.js` reads these fields. It never reads a node id, so any graph that keeps
 to them draws, whatever its nodes are called.
 
-The tower draws a journey **its original way** (owner, 15 Oct 2026): home is the greeting, the chapter's
-line and one card per area; a card opens that area's page, with the back bar, the headline, the On track /
+The tower draws a journey **its everyday way** (owner, 16 Oct 2026: the owner must learn the tower they will run
+every day). Home is the everyday home: the greeting, the line, and the area cards, for the areas the store has
+opened so far. Setup is incidents: an empty area has one Urgent "Not set up" row that opens its step. A card opens its area; a card opens that area's page, with the back bar, the headline, the On track /
 Needs work / Urgent tiles and the list under the open tile. Every act starts from a row: a product opens its
 modal card (fix it in place with Save, confirm in place, a done card; or Open in Finished Goods, asked inline
 first), a step opens its item sheet. There is no button on the page (DESIGN §4.8), except an empty area's one
@@ -185,7 +186,8 @@ tower's own lever shape, so the same page draws it. A live area is its real leve
 | | `flow` | `{ module: "store-activation", step, mode }`: the button opens that module's own modal over the tower |
 | | `screen` | `{ route, label }`: else the button opens that platform screen |
 | | `demo` | `{ label, facts }`: in the new-store demo, a quiet link under the button that merges these facts in |
-| | `reward` | `{ freeDays }`: on the step's row, and added up in the toast when it is done |
+| | `title` | the step in a few words for the home card ("Fix {n} products" → "Fix 6 products"; a zero count is left out) |
+| | `coins` | what finishing it puts in the wallet: on the home card, the step's row and item sheet, and in the toast when it is done |
 
 **The new-store demo.** More → Start as a new store, or `#/control-tower?journey=new`, starts it.
 More → Back to the demo business, or `?journey=off`, leaves it. Its facts are its own
