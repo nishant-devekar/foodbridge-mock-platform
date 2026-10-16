@@ -551,6 +551,21 @@
         if (!lv.locked && pm.items.length) lv.status = pm.tiles.ugly.count ? "ugly" : pm.tiles.bad.count ? "bad" : "good";
       }
     }
+    /* Store activation's customers: what it saved, and what still waits in
+       its import, each tile counting its own rows. With nothing saved or
+       waiting, the area is empty and gets the way in below, as Products
+       does (owner, 17 Oct 2026: Customers had a "1 To do" and no row). */
+    if (pay.source === "store-activation") {
+      const s = jget(SA_KEY, null) || {}, open = (s.open || {}).customers || 0;
+      const saved = s.customers || [];
+      const step = lv.action && lv.action.step;
+      const set = function (t, rows) { lv.tiles[t] = Object.assign({}, lv.tiles[t], { rows: rows, count: rows.length, value: String(rows.length) }); };
+      const noAddress = function (c) { return !c.deliveryLocation && !c.billingAddressLine; };
+      set("good", saved.filter(function (c) { return !noAddress(c); }).map(function (r) { return { title: r.organizationName, note: r.phone, jstep: step, now: false }; }));
+      set("bad", saved.filter(noAddress).map(function (c) { return { title: c.organizationName, note: "No address", next: "Add it", jstep: step, now: true }; }));
+      set("ugly", open ? [{ title: L.plural(open, "row") + " waiting in your import", note: "Not saved yet", next: "Review", jstep: step, now: true }] : []);
+      if (!lv.locked && (saved.length || open)) lv.status = open ? "ugly" : lv.tiles.bad.count ? "bad" : lv.status;
+    }
     /* Setting up is clearing incidents, in the same list the owner will use
        every day: an area with nothing in it yet has one Urgent row, and the
        row opens the step that fills it. */
@@ -560,16 +575,6 @@
       lv.tiles.ugly = { label: "Urgent", word: "Not set up", value: "1", count: 1,
         rows: [{ title: "No " + lv.label.toLowerCase() + " yet", note: why, next: lv.action.label, tag: { type: "setup", label: "Not set up", tone: "ugly" }, jstep: lv.action.step, now: true }] };
       lv.status = "ugly";
-    }
-    /* Store activation's customers: what it saved, and what still waits in its import. */
-    if (pay.source === "store-activation") {
-      const s = jget(SA_KEY, null) || {}, open = (s.open || {}).customers || 0;
-      const saved = s.customers || [];
-      const step = lv.action && lv.action.step;
-      lv.tiles.good.rows = saved.map(function (r) { return { title: r.organizationName, note: r.phone, jstep: step, now: false }; });
-      lv.tiles.bad.rows = saved.filter(function (c) { return !c.deliveryLocation && !c.billingAddressLine; })
-        .map(function (c) { return { title: c.organizationName, note: "No address", next: "Add it", jstep: step, now: true }; });
-      if (open) lv.tiles.ugly.rows = [{ title: L.plural(open, "row") + " waiting in your import", note: "Not saved yet", next: "Review", jstep: step, now: true }];
     }
     return lv;
   }
