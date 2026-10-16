@@ -311,7 +311,8 @@
     const m = /(?:^#|[#&])graph=([A-Za-z0-9_-]+)/.exec(location.hash || "");
     if (!m) return;
     const t = /[#&]trial=(T-[a-z0-9]{6,16})(?:&|$)/.exec(location.hash || "");
-    decodeGraph(m[1]).then(function (g) { showIncoming(g, null, t ? t[1] : null); })
+    const a = /[#&]as=([A-Za-z0-9_-]+)/.exec(location.hash || "");
+    decodeGraph(m[1]).then(function (g) { showIncoming(g, null, t ? t[1] : null, a ? readAs(a[1]) : null); })
       .catch(function () { showIncoming(null, "The link's graph could not be read. Copy the link again from the editor."); });
   }
   function decodeGraph(b64) {
@@ -320,6 +321,16 @@
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
     return new Response(stream).text().then(function (t) { return JSON.parse(t); });
+  }
+  /* The store the editor tested the flow on ("Test as"): a new store with
+     its numbers, or the trading business standing on its own records. */
+  function readAs(b64) {
+    try {
+      const x = JSON.parse(decodeURIComponent(escape(atob(b64.replace(/-/g, "+").replace(/_/g, "/")))));
+      if (!x || (x.mode !== "new" && x.mode !== "trading")) return null;
+      const facts = x.mode === "new" && x.facts && typeof x.facts === "object" && !Array.isArray(x.facts) ? x.facts : {};
+      return { mode: x.mode, label: String(x.label || "").slice(0, 60), facts: facts };
+    } catch (e) { return null; }
   }
   function clearIncomingLink() {
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* keep the address */ }
@@ -333,7 +344,7 @@
     Object.keys(A).forEach(function (k) { if (!B[k]) removed++; });
     return { added: added, removed: removed, changed: changed, areas: JSON.stringify((a && a.areas) || {}) !== JSON.stringify((b && b.areas) || {}) };
   }
-  function showIncoming(g, problem, trial) {
+  function showIncoming(g, problem, trial, as) {
     let bar = $("#ct-incoming");
     if (!bar) { bar = document.createElement("div"); bar.id = "ct-incoming"; bar.setAttribute("role", "alertdialog"); bar.setAttribute("aria-label", "New tower graph"); document.body.appendChild(bar); }
     const v = g && window.FBFlow ? window.FBFlow.validate(g) : null;
@@ -342,6 +353,7 @@
     const what = d ? [d.added ? d.added + " added" : "", d.removed ? d.removed + " removed" : "", d.changed ? d.changed + " changed" : "", d.areas ? "areas changed" : ""].filter(Boolean).join(", ") || "no differences" : "";
     bar.innerHTML = '<div class="ct-inc-t"><b>' + (problem ? "This flow can't be used" : "New flow from the editor") + "</b>" +
       "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "step") + " · " + what + " compared with the one in use")) + "</span>" +
+      (as && !problem ? "<span>Opens as: " + esc(as.label || (as.mode === "trading" ? "the trading business" : "a new store")) + (as.mode === "new" ? ", starting the store's setup afresh" : "") + ".</span>" : "") +
       (trial && !problem ? '<span>You are trying it for the FoodBridge team: how far you get on it (each step and when) goes to them, under your name.</span>' +
         '<input class="ct-inc-name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" aria-label="Your name" value="' + esc((jget(TRIAL_KEY, null) || {}).name || "") + '">' : "") + "</div>" +
       '<div class="ct-inc-a">' + (problem ? "" : '<button type="button" class="ct-btn" data-inc="apply">Apply</button>') +
@@ -353,6 +365,8 @@
         b.disabled = true;
         const nm = bar.querySelector(".ct-inc-name");
         startTrial(trial && g ? { id: trial, name: nm ? nm.value.trim().slice(0, 60) : "", flow: g.id, version: g.version || "" } : null);
+        if (as && as.mode === "trading") journeyStop();
+        else if (as) { journeyStart(); jput(JKEY.demo, as.facts); }
         Promise.resolve(useGraph(g)).then(function (r) {
           bar.remove();
           toast(r && r.ok === false ? "The graph wasn't applied: " + r.errors[0].message : "Tower updated from the editor");
@@ -415,9 +429,10 @@
   function graphFacts() {
     if (jr.on) {
       const f = window.CTJourneyFacts.merge(window.CTJourneyFacts.blank(jget(JKEY.demo, {})), saFacts());
-      /* Products are what Finished Goods holds, read with its own rules. */
+      /* Products are what Finished Goods holds, read with its own rules;
+         while it holds none, the numbers a test store was opened with. */
       const pm = productsModel();
-      if (pm) f.products = Object.assign({}, f.products, pm.facts);
+      if (pm && (pm.facts.count || !((jget(JKEY.demo, {}) || {}).products || {}).count)) f.products = Object.assign({}, f.products, pm.facts);
       return window.CTJourneyFacts.derive(window.CTJourneyFacts.merge(f, { store: { new: true } }));
     }
     return window.CTJourneyFacts.facts(view, { store: { new: false }, business: { makes: !!ui.prod }, production: ui.prod ? { recipes: 1, batches: 1 } : {} });
@@ -3762,8 +3777,8 @@
     /* The store journey: the same graph walked by a new store from day one. */
     journey: {
       inject: function (graph, facts) {
+        if (!jr.on) journeyStart();                          // first: a start clears the demo facts
         if (facts) jput(JKEY.demo, facts);
-        if (!jr.on) journeyStart();
         return useGraph(graph);
       },
       reset: function () { jput(JKEY.graph, null); startTrial(null); journeyStart(); return reloadGraph(); },

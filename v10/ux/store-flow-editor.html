@@ -842,7 +842,8 @@ button.nc:hover { border-color: var(--ink-3); }
         '<div class="row"><input id="f-note" type="text" placeholder="What you are trying, in a few words (optional)" aria-label="Note"><button class="btn" type="button" data-act="no">Cancel</button><button class="btn is-primary" type="button" data-act="save-yes">Save version ' + rev + "</button></div></div>";
     } else if (a && a.kind === "share") {
       const ready = !!a.here;
-      html += '<div class="ask" role="group" aria-label="Try in the tower"><h2>Try this flow in the Control Tower</h2>' + (isDirty() ? "<p>This sends the flow as you see it now. Save a version first if you want to come back to it.</p>" : "") +
+      html += '<div class="ask" role="group" aria-label="Try in the tower"><h2>Try this flow in the Control Tower</h2>' +
+        "<p>The tower opens as <b>" + esc(S.pick === "mine" ? "your made-up store" : FACTS[S.pick].label) + "</b>" + (S.pick === "trading" ? ", standing where its own records say" : ", a new store starting its setup with these numbers") + ". Change it with Test as at the top.</p>" + (isDirty() ? "<p>This sends the flow as you see it now. Save a version first if you want to come back to it.</p>" : "") +
         '<div class="opts">' +
         '<div class="opt"><b>On this computer</b><p>Opens the tower with this flow. Nothing changes until you press Apply there. More › Store flow in the tower goes back.</p>' +
           (ready ? '<a class="btn is-primary" href="' + esc(a.here) + '" target="_blank" rel="noopener">Open the tower</a>' : '<span class="hint">Preparing…</span>') + "</div>" +
@@ -875,7 +876,13 @@ button.nc:hover { border-color: var(--ink-3); }
   function openShare() {
     S.ask = { kind: "share" }; drawAsk();
     const t = trialFor();
-    packed().then((h) => { if (S.ask && S.ask.kind === "share") { h += "&trial=" + t.id; S.ask.trial = t.id; S.ask.here = TOWER_HERE + h; S.ask.live = TOWER_LIVE + h; drawAsk(); } }).catch(() => toast("This browser can't build the link"));
+    packed().then((h) => { if (S.ask && S.ask.kind === "share") { h += "&trial=" + t.id + "&as=" + asParam(); S.ask.trial = t.id; S.ask.here = TOWER_HERE + h; S.ask.live = TOWER_LIVE + h; drawAsk(); } }).catch(() => toast("This browser can't build the link"));
+  }
+  /* The store picked in Test as, for the tower to open as. The trading
+     business is the tower's own; the others are a new store with these numbers. */
+  function asParam() {
+    const x = S.pick === "trading" ? { mode: "trading", label: FACTS.trading.label } : { mode: "new", label: S.pick === "mine" ? "My made-up store" : FACTS[S.pick].label, facts: factsNow() };
+    return btoa(unescape(encodeURIComponent(JSON.stringify(x)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
   async function copy(text, done) { try { await navigator.clipboard.writeText(text); toast(done); } catch (e) { toast("Copy didn't work here; select the text and copy it"); } }
   function download() {
@@ -1076,13 +1083,13 @@ button.nc:hover { border-color: var(--ink-3); }
   });
   document.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.id === "facts-pick") { S.pick = t.value; if (S.pick === "mine" && !S.mine) S.mine = clone(FACTS.new.facts); writeStore({ pick: S.pick }); refresh(); return; }
+    if (t.id === "facts-pick") { S.pick = t.value; if (S.pick === "mine" && !S.mine) S.mine = clone(FACTS.new.facts); writeStore({ pick: S.pick }); refresh(); if (S.ask && S.ask.kind === "share") openShare(); return; }
     if (t.id === "f-trial") { S.trial = t.value; S.users = null; loadUsers(); return; }
     if (t.id === "f-minefrom") { if (!t.value) return; S.mine = clone(FACTS[t.value].facts); S.pick = "mine"; writeStore({ mine: S.mine, pick: "mine" }); refresh(); return; }
     if (t.dataset.fact) {
       S.mine = S.mine || clone(factsNow());
       setPath(S.mine, t.dataset.fact, t.type === "checkbox" ? t.checked : Math.max(0, Number(t.value) || 0));
-      S.mine = JF.derive(S.mine); S.pick = "mine"; writeStore({ mine: S.mine, pick: "mine" }); refresh(); return;
+      S.mine = JF.derive(S.mine); S.pick = "mine"; writeStore({ mine: S.mine, pick: "mine" }); refresh(); if (S.ask && S.ask.kind === "share") openShare(); return;
     }
     if (t.dataset.area) {
       const k = t.dataset.area, key = t.dataset.k, v = t.value.trim();
