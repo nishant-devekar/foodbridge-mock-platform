@@ -219,6 +219,7 @@
       if (deep.item) { const r = findRow(deep.item); if (r) openItem(r); }
       if (deep.chat) setTimeout(openAssistant, 0);            // after the chat's own script has mounted
       wireGlobal();
+      readIncoming();
     });
   }
   function compute() {
@@ -258,7 +259,7 @@
     if (!window.FBJourney || !window.CTJourneyView || !window.FBTower) return Promise.resolve();
     const injected = jget(JKEY.graph, null);
     return (injected ? Promise.resolve(injected) : fetch(GRAPH_URL).then(function (r) { return r.json(); }))
-      .then(function (g) { jr.J = window.FBJourney.load(g); })
+      .then(function (g) { jr.J = window.FBJourney.load(g); jr.raw = g; })
       .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: graph", e && (e.errors || e.message)); })
       .then(loadFinishedGoods);
   }
@@ -282,6 +283,62 @@
       if (t && !t.querySelector("[data-tabs]")) t.insertAdjacentHTML("afterbegin", "<span data-tabs></span>");
       draw();
     });
+  }
+  /* ── A graph handed over by the Tower Graph Editor (17 Oct 2026) ─────
+     The editor (a claude.ai artifact) cannot reach this page's storage, so
+     it opens the tower with the graph in the link: #graph=<gzip, base64url>.
+     Nothing changes until the owner says so: a bar at the top says what
+     arrived and how it differs from the graph in use, with Apply and Not
+     now. Apply keeps it on this device (api.graph.inject); More → Tower
+     graph goes back to the shipped one. The link's graph is cleared from
+     the address either way. */
+  function readIncoming() {
+    const m = /(?:^#|[#&])graph=([A-Za-z0-9_-]+)/.exec(location.hash || "");
+    if (!m) return;
+    decodeGraph(m[1]).then(function (g) { showIncoming(g, null); })
+      .catch(function () { showIncoming(null, "The link's graph could not be read. Copy the link again from the editor."); });
+  }
+  function decodeGraph(b64) {
+    const bin = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    return new Response(stream).text().then(function (t) { return JSON.parse(t); });
+  }
+  function clearIncomingLink() {
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* keep the address */ }
+  }
+  function graphDiff(a, b) {
+    const A = {}, B = {};
+    ((a && a.nodes) || []).forEach(function (n) { A[n.id] = n; });
+    ((b && b.nodes) || []).forEach(function (n) { B[n.id] = n; });
+    let added = 0, removed = 0, changed = 0;
+    Object.keys(B).forEach(function (k) { if (!A[k]) added++; else if (JSON.stringify(A[k]) !== JSON.stringify(B[k])) changed++; });
+    Object.keys(A).forEach(function (k) { if (!B[k]) removed++; });
+    return { added: added, removed: removed, changed: changed };
+  }
+  function showIncoming(g, problem) {
+    let bar = $("#ct-incoming");
+    if (!bar) { bar = document.createElement("div"); bar.id = "ct-incoming"; bar.setAttribute("role", "alertdialog"); bar.setAttribute("aria-label", "New tower graph"); document.body.appendChild(bar); }
+    const v = g && window.FBJourney ? window.FBJourney.validate(g) : null;
+    if (!problem && v && !v.ok) problem = "It has " + L.plural(v.errors.length, "problem") + " and can't be used: " + v.errors.slice(0, 2).map(function (e) { return e.path + " " + e.message; }).join("; ") + ".";
+    const d = g ? graphDiff(jr.raw, g) : null;
+    const what = d ? [d.added ? d.added + " added" : "", d.removed ? d.removed + " removed" : "", d.changed ? d.changed + " changed" : ""].filter(Boolean).join(", ") || "no differences" : "";
+    bar.innerHTML = '<div class="ct-inc-t"><b>' + (problem ? "This graph can't be used" : "New tower graph from the editor") + "</b>" +
+      "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "node") + " · " + what + " compared with the one in use")) + "</span></div>" +
+      '<div class="ct-inc-a">' + (problem ? "" : '<button type="button" class="ct-btn" data-inc="apply">Apply</button>') +
+      '<button type="button" class="ct-btn is-ghost" data-inc="no">' + (problem ? "Close" : "Not now") + "</button></div>";
+    bar.onclick = function (e) {
+      const b = e.target.closest("[data-inc]"); if (!b) return;
+      clearIncomingLink();
+      if (b.dataset.inc === "apply") {
+        b.disabled = true;
+        Promise.resolve(useGraph(g)).then(function (r) {
+          bar.remove();
+          toast(r && r.ok === false ? "The graph wasn't applied: " + r.errors[0].message : "Tower updated from the editor");
+        });
+      } else bar.remove();
+    };
   }
   function journeyStop() { jput(JKEY.on, false); jr.on = false; jr.snap = jget(snapKey(), null); }
   /* The facts the graph is walked on: the new store's own, or the trading
@@ -1955,6 +2012,7 @@
         body: '<p class="ct-mo-h">Your business</p>' +
           row('data-mo="timeline"', I.updates, "Business Timeline", "What happened, newest first", null, fresh ? '<em class="ct-new">New</em>' : "") +
           row('data-mo="assistant"', ASSIST_FACE, "Assistant", "Ask about your business", "assist") +
+          (jget(JKEY.graph, null) ? row('data-mo="graph-reset"', I.updates, "Tower graph: from the editor", "Go back to the shipped graph", null) : "") +
           (jr.on ? row('data-mo="journey-off"', I.tower, "Back to the demo business", "Leave the new store", null)
                  : row('data-mo="journey-on"', I.tag, "Start as a new store", "Set up a store from day one", null)) +
           '<div class="ct-mo-sep"></div>' +
@@ -1964,6 +2022,7 @@
             const m = e.target.closest("[data-mo]"); if (!m) return;
             if (m.dataset.mo === "timeline") { closeAll(); goUpdates(); }
             else if (m.dataset.mo === "assistant") openAssistant();
+            else if (m.dataset.mo === "graph-reset") { closeAll(); jput(JKEY.graph, null); reloadGraph().then(function () { toast("Back to the shipped tower graph"); }); }
             else if (m.dataset.mo === "journey-on" || m.dataset.mo === "journey-off") {
               closeAll();
               if (m.dataset.mo === "journey-on") journeyStart(); else journeyStop();
