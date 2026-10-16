@@ -1,0 +1,1260 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Store Flow Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* The Store Flow Editor, for the business team (17 Oct 2026). Same flow, same
+   engine as the tower (assets/journey/flow.js); every rule is built from the
+   store's numbers in plain words, and the flow goes to the tower in one press.
+   Layout: a sticky bar, the dialogs under it, the flow (one row per area,
+   steps left to right in the order they open), and a drawer on the right for
+   the picked step, what the owner sees, the areas, the versions or the test
+   store. */
+:root {
+  --bg: #F3F6F4; --surface: #FFFFFF; --sunk: #EAF0EC; --ink: #15201A; --ink-2: #4A5A51; --ink-3: #7C8A82; --line: #D9E2DC; --edge: #B3C2B9;
+  --accent: #1E7A46; --accent-ink: #FFFFFF; --accent-soft: #DDF0E5; --warn: #A86A12; --warn-soft: #FBF0DB; --bad: #B8352B; --bad-soft: #FBE7E4;
+  --st-open: #8A5A00; --st-open-bg: #FFF1C7; --st-enough: #1D5FA8; --st-enough-bg: #E2EEFB; --st-done: #136B3A; --st-done-bg: #D9F2E3;
+  --st-lock: #6B7280; --st-lock-bg: #ECEFF1; --st-skip: #9AA3AA; --st-skip-bg: #F4F5F6;
+  --ui: "Figtree", "Segoe UI", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E1412; --surface: #151D1A; --sunk: #111816; --ink: #E5EEE9; --ink-2: #A3B5AC; --ink-3: #75867E; --line: #25312C; --edge: #3D4F47;
+  --accent: #4CC38A; --accent-ink: #06130C; --accent-soft: #173A29; --warn: #E8B45A; --warn-soft: #3A2C12; --bad: #F08A7E; --bad-soft: #3B1A16;
+  --st-open: #F1C760; --st-open-bg: #3A2F12; --st-enough: #8CB8F0; --st-enough-bg: #172A40; --st-done: #6BD69A; --st-done-bg: #15301F;
+  --st-lock: #93A1AA; --st-lock-bg: #1E2629; --st-skip: #66727A; --st-skip-bg: #171D20; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0E1412; --surface: #151D1A; --sunk: #111816; --ink: #E5EEE9; --ink-2: #A3B5AC; --ink-3: #75867E; --line: #25312C; --edge: #3D4F47;
+  --accent: #4CC38A; --accent-ink: #06130C; --accent-soft: #173A29; --warn: #E8B45A; --warn-soft: #3A2C12; --bad: #F08A7E; --bad-soft: #3B1A16;
+  --st-open: #F1C760; --st-open-bg: #3A2F12; --st-enough: #8CB8F0; --st-enough-bg: #172A40; --st-done: #6BD69A; --st-done-bg: #15301F;
+  --st-lock: #93A1AA; --st-lock-bg: #1E2629; --st-skip: #66727A; --st-skip-bg: #171D20; color-scheme: dark; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.45 var(--ui); padding-inline: 16px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── bar ─────────────────────────────────────────────────────────────── */
+.bar { position: sticky; top: 0; z-index: 20; margin-inline: -16px; padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.brand { display: grid; gap: 1px; min-width: 0; margin-right: auto; }
+.brand h1 { margin: 0; font-size: 18px; line-height: 22px; font-weight: 800; letter-spacing: -.01em; }
+.brand small { color: var(--ink-3); font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 14px; font-size: 12.5px; font-weight: 700; background: var(--accent-soft); color: var(--accent); border: 0; white-space: nowrap; }
+.pill.is-bad { background: var(--bad-soft); color: var(--bad); }
+.pill.is-dirty { background: var(--warn-soft); color: var(--warn); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.walk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.walk select { height: 32px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); padding: 0 8px; font-weight: 700; max-width: 220px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 13px; text-decoration: none; color: inherit; white-space: nowrap; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.is-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.is-danger { background: var(--bad); color: #fff; border-color: transparent; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn svg { width: 15px; height: 15px; }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
+.btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.menu { position: relative; }
+.menu-list { position: absolute; right: 0; top: 40px; z-index: 30; width: 290px; padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .45); display: grid; }
+.menu-list[hidden] { display: none; }
+.menu-list button { display: grid; gap: 1px; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; font-weight: 700; font-size: 13px; }
+.menu-list button small { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+.menu-list button:hover { background: var(--sunk); }
+.menu-list hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+
+/* ── dialogs under the bar ───────────────────────────────────────────── */
+.ask { margin: 12px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 10px; }
+.ask h2 { margin: 0; font-size: 15px; }
+.ask p { margin: 0; color: var(--ink-2); max-width: 75ch; }
+.ask .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ask ul { margin: 0; padding-left: 18px; color: var(--ink-2); display: grid; gap: 2px; }
+.ask input[type=text] { flex: 1 1 260px; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); }
+.ask textarea { width: 100%; min-height: 180px; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font-family: var(--mono); font-size: 12px; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.opt { display: grid; gap: 6px; align-content: start; padding: 12px 14px; border-radius: 12px; background: var(--sunk); border: 1px solid var(--line); }
+.opt b { font-size: 14px; }
+.opt p { font-size: 13px; }
+.opt .btn { justify-self: start; margin-top: 4px; }
+.problems { display: grid; gap: 6px; }
+.problems button { text-align: left; border: 0; background: var(--bad-soft); color: var(--bad); border-radius: 9px; padding: 8px 10px; font-size: 13px; font-weight: 600; }
+
+/* ── the flow ───────────────────────────────────────────────────────── */
+.pane { margin-block: 14px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.dia { position: relative; height: calc(100vh - var(--bar-h, 64px) - 40px); min-height: 460px; overflow: hidden; touch-action: none; cursor: grab;
+  background: radial-gradient(circle, var(--line) 1px, transparent 1.3px) 0 0 / 22px 22px, var(--sunk); }
+.dia.is-panning { cursor: grabbing; }
+.canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.lane { position: absolute; left: 0; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--tint, transparent) 40%, transparent); }
+.lane:nth-of-type(even) { background: color-mix(in srgb, var(--tint, transparent) 22%, transparent); }
+.lane.drop-lane { background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: -3px; }
+.lane-h { position: absolute; left: 14px; top: 12px; display: grid; gap: 4px; width: 124px; justify-items: start; }
+.lane-h b { font-size: 13px; font-weight: 800; color: var(--deep, var(--ink)); display: flex; align-items: center; gap: 6px; }
+.lane-h b::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--bright, var(--ink-3)), var(--deep, var(--ink-3))); }
+.lane-h small { font-size: 11px; color: var(--ink-3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lane-h b { color: var(--bright, var(--ink)); } }
+:root[data-theme="dark"] .lane-h b { color: var(--bright, var(--ink)); }
+.lane-add { border: 1px dashed var(--edge); background: var(--surface); color: var(--ink-2); border-radius: 8px; height: 24px; padding: 0 8px; font-size: 11.5px; font-weight: 700; }
+.lane-add:hover { border-color: var(--accent); color: var(--accent); }
+.lane-empty { position: absolute; font-size: 12px; color: var(--ink-3); }
+.edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.edges .e { fill: none; stroke: var(--edge); stroke-width: 1.8; stroke-dasharray: 6 5; }
+.edges .e.is-pass { stroke: var(--accent); stroke-dasharray: none; }
+.edges .e.is-sel { stroke: var(--warn); stroke-width: 3; stroke-dasharray: none; }
+.edges .hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.edges .tmp { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-dasharray: 4 4; }
+.cols { position: absolute; font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.dn { position: absolute; box-sizing: border-box; display: grid; align-content: center; gap: 2px; padding: 7px 12px 7px 15px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--line); box-shadow: inset 4px 0 0 var(--deep, var(--ink-3)), 0 1px 2px rgba(0, 0, 0, .06), 0 8px 18px -12px rgba(0, 0, 0, .35); cursor: pointer; user-select: none; -webkit-user-select: none; }
+.dn:hover { border-color: var(--ink-3); }
+.dn-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dn-c { font-size: 11px; font-weight: 800; color: var(--warn); }
+.dn .st { margin-left: auto; }
+.st { flex: none; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+.st[data-s="open"] { background: var(--st-open-bg); color: var(--st-open); }
+.st[data-s="enough"] { background: var(--st-enough-bg); color: var(--st-enough); }
+.st[data-s="done"] { background: var(--st-done-bg); color: var(--st-done); }
+.st[data-s="locked"] { background: var(--st-lock-bg); color: var(--st-lock); }
+.st[data-s="skipped"] { background: var(--st-skip-bg); color: var(--st-skip); }
+.dn b { font-size: 13.5px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dn small { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dn[aria-selected="true"] { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+.dn.is-focus { box-shadow: inset 4px 0 0 var(--deep, var(--ink-3)), 0 0 0 3px var(--st-open-bg), 0 0 0 4.5px var(--st-open); }
+.dn.is-dim { opacity: .25; }
+.dn.has-error { border-color: var(--bad); }
+.dn.has-error b { color: var(--bad); }
+.dn.is-dragging { opacity: .3; }
+.dn-u { position: absolute; top: -10px; right: 10px; padding: 1px 7px; border-radius: 8px; font-size: 10.5px; font-weight: 800; background: var(--st-enough-bg); color: var(--st-enough); border: 1px solid var(--surface); white-space: nowrap; }
+.dn-u.is-stuck { background: var(--bad-soft); color: var(--bad); }
+.dn.drop-on { outline: 2.5px dashed var(--accent); outline-offset: 4px; background: var(--accent-soft); }
+.dn.no-drop { outline: 2.5px dashed var(--bad); outline-offset: 4px; }
+.port { position: absolute; right: -8px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); cursor: crosshair; opacity: 0; transition: opacity .12s; }
+.dn:hover .port, .dn[aria-selected="true"] .port { opacity: 1; }
+@media (hover: none) { .port { opacity: 1; } }
+.dia-tools { position: absolute; z-index: 3; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none; }
+.dia-tools > * { pointer-events: auto; }
+.tool { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-size: 12.5px; font-weight: 700; box-shadow: 0 4px 14px -8px rgba(0, 0, 0, .35); }
+.tool input[type=search] { border: 0; outline: 0; background: none; width: 150px; height: 30px; }
+.zoom { margin-left: auto; padding: 0; overflow: hidden; gap: 0; }
+.zoom button { border: 0; background: none; height: 32px; min-width: 34px; padding: 0 8px; font-weight: 800; color: var(--ink-2); }
+.zoom button + button { border-left: 1px solid var(--line); }
+.legend { position: absolute; z-index: 3; left: 10px; bottom: 10px; max-width: calc(100% - 20px); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 7px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font-size: 11.5px; color: var(--ink-2); }
+.legend .k { display: inline-block; width: 20px; vertical-align: middle; border-top: 2px solid var(--accent); }
+.legend .k.is-wait { border-top: 2px dashed var(--edge); }
+.pop { position: absolute; z-index: 6; min-width: 220px; max-width: 300px; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .45); display: grid; gap: 8px; }
+.pop p { margin: 0; font-size: 13px; color: var(--ink-2); }
+.pop .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.empty { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 20px; text-align: center; color: var(--ink-2); }
+.empty[hidden] { display: none; }
+.ghost { position: fixed; z-index: 50; pointer-events: none; transform: translate(14px, 14px); padding: 8px 12px; border-radius: 10px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 13px; box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .5); }
+
+/* ── the drawer ──────────────────────────────────────────────────────── */
+.drawer { position: fixed; z-index: 15; top: calc(var(--bar-h, 64px) + 10px); right: 12px; bottom: 12px; width: min(440px, calc(100% - 24px)); overflow: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .45); }
+.drawer[hidden] { display: none; }
+.dr-h { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.dr-h h2 { flex: 1; margin: 0; font-size: 14px; font-weight: 800; }
+.x { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-size: 16px; color: var(--ink-2); }
+.dr { padding: 14px 16px 20px; display: grid; gap: 20px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sec { display: grid; gap: 10px; }
+.sec > h4 { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.sec > p, .hint { margin: 0; color: var(--ink-2); font-size: 13px; }
+.hint { color: var(--ink-3); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.f { display: grid; gap: 4px; min-width: 0; }
+.f > span { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.f input[type=text], .f input[type=number], .f select, .f textarea { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); }
+.f textarea { height: auto; min-height: 60px; padding: 8px 10px; resize: vertical; }
+.f textarea.code { font-family: var(--mono); font-size: 12px; }
+.f.big input { height: 42px; font-size: 18px; font-weight: 800; }
+.f .is-err, .is-err { border-color: var(--bad) !important; }
+.check, .radio { display: flex; align-items: flex-start; gap: 8px; font-weight: 600; font-size: 13px; }
+.check input, .radio input { margin-top: 3px; }
+.radios { display: grid; gap: 8px; }
+.req { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px 0 10px; border-radius: 14px; background: var(--sunk); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; }
+.req button { width: 22px; height: 22px; border-radius: 11px; border: 0; background: none; color: var(--ink-3); }
+.chips select { height: 28px; border-radius: 14px; border: 1px dashed var(--line); background: var(--bg); padding: 0 8px; font-size: 12.5px; }
+.rule { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: var(--sunk); border: 1px solid var(--line); }
+.rrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rrow select, .rrow input { height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); padding: 0 8px; min-width: 0; }
+.rrow select.what { flex: 1 1 170px; }
+.rrow input[type=number] { width: 72px; }
+.rrow .w { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+.rx { width: 28px; height: 28px; border-radius: 8px; border: 0; background: none; color: var(--ink-3); font-size: 15px; }
+.rx:hover { background: var(--surface); color: var(--bad); }
+.rule .add { display: flex; flex-wrap: wrap; gap: 6px; }
+.rule .plain { margin: 0; font-size: 13px; color: var(--ink-2); }
+details.more { border-top: 1px solid var(--line); padding-top: 12px; }
+details.more > summary { cursor: pointer; font-weight: 800; font-size: 13px; color: var(--ink-2); }
+details.more[open] > summary { margin-bottom: 12px; }
+details.more > .sec + .sec { margin-top: 16px; }
+.danger { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.danger p { margin: 0; flex: 1 1 220px; color: var(--ink-2); font-size: 13px; }
+.list { display: grid; gap: 8px; }
+.li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--sunk); border: 0; text-align: left; width: 100%; }
+.li div { flex: 1; min-width: 0; display: grid; }
+.li small { color: var(--ink-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n1 { flex: none; width: 22px; height: 22px; border-radius: 11px; background: var(--sunk); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--ink-2); }
+/* A sketch of a card on the owner's Now. */
+.nc { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: inset 4px 0 0 var(--deep, var(--ink-3)), 0 8px 18px -14px rgba(0, 0, 0, .4); text-align: left; width: 100%; box-sizing: border-box; }
+button.nc:hover { border-color: var(--ink-3); }
+.nc-top { display: flex; align-items: center; gap: 8px; }
+.nc-area { font-size: 11px; font-weight: 800; color: var(--deep, var(--ink-2)); text-transform: uppercase; letter-spacing: .06em; }
+.nc-coin { margin-left: auto; font-size: 11.5px; font-weight: 800; color: var(--warn); }
+.nc b { font-size: 15px; }
+.nc p { margin: 0; font-size: 13px; color: var(--ink-2); }
+.nc small { font-size: 12px; color: var(--ink-3); }
+.nc-btn { justify-self: start; margin-top: 6px; padding: 6px 12px; border-radius: 9px; background: var(--deep, var(--accent)); color: #fff; font-weight: 700; font-size: 12.5px; }
+.feed { display: grid; gap: 8px; }
+.feed-row { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; }
+.feed-row .n1 { margin-top: 12px; }
+.bar-p { height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden; }
+.bar-p i { display: block; height: 100%; background: var(--accent); }
+.colours { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.colours input[type=color] { width: 44px; height: 30px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+.tester { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 10px 12px; border-radius: 12px; background: var(--sunk); border: 0; text-align: left; width: 100%; }
+.tester b { font-size: 14px; }
+.tester small { color: var(--ink-3); font-size: 12px; }
+.tester .tag { grid-row: span 2; align-self: center; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 8px; background: var(--st-open-bg); color: var(--st-open); }
+.tester .tag.is-stuck { background: var(--bad-soft); color: var(--bad); }
+.tester .tag.is-done { background: var(--st-done-bg); color: var(--st-done); }
+.who { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.who b { flex: none; }
+.who span { color: var(--ink-2); }
+.who.is-stuck span { color: var(--bad); font-weight: 600; }
+.toast { position: fixed; z-index: 40; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--ink); color: var(--bg); font-weight: 700; box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .5); }
+@media (max-width: 640px) { .legend { display: none; } .tool { height: 30px; padding: 0 8px; font-size: 12px; } .tool input[type=search] { width: 96px; } .zoom button { height: 28px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand"><h1>Store flow</h1><small id="meta">The steps a store walks in the Control Tower</small></div>
+  <span class="pill" id="health">Loading</span>
+  <label class="walk">Test as <select id="facts-pick" aria-label="Which store to test the flow on"></select></label>
+  <div class="actions">
+    <button class="btn" id="undo" type="button" data-act="undo" disabled title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
+    <button class="btn" type="button" data-act="panel-preview" aria-pressed="false">What the owner sees</button>
+    <button class="btn" type="button" data-act="panel-versions" aria-pressed="false">Versions</button>
+    <button class="btn" type="button" data-act="panel-users" aria-pressed="false">Real users</button>
+    <div class="menu">
+      <button class="btn" type="button" data-act="menu" aria-expanded="false" aria-haspopup="true">More ▾</button>
+      <div class="menu-list" id="menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-act="panel-areas">Areas and colours<small>Name, colour and icon of each row</small></button>
+        <button type="button" role="menuitem" data-act="panel-store">Make up a test store<small>Set its numbers and see where it stands</small></button>
+        <hr>
+        <button type="button" role="menuitem" data-act="download">Download the flow file<small>To send to the platform team</small></button>
+        <button type="button" role="menuitem" data-act="open-file">Open a flow file<small>A file someone sent you</small></button>
+        <button type="button" role="menuitem" data-act="json">See it as text (JSON)<small>Copy it, or paste one in</small></button>
+        <hr>
+        <button type="button" role="menuitem" data-act="blank">Start a blank flow<small>One step to begin with</small></button>
+        <button type="button" role="menuitem" data-act="platform">Go back to the platform's flow<small>The one every store runs today</small></button>
+      </div>
+    </div>
+    <button class="btn" id="save" type="button" data-act="save" disabled>Save version</button>
+    <button class="btn is-primary" id="share" type="button" data-act="share">Try in the tower</button>
+  </div>
+</header>
+<div id="askslot"></div>
+
+<main class="pane" aria-label="The flow">
+  <div class="dia" id="dia">
+    <div class="canvas" id="canvas" role="group" aria-label="Steps"></div>
+    <div class="empty" id="empty"><b>Loading the flow…</b></div>
+    <div class="dia-tools">
+      <button type="button" class="tool" data-act="add">+ Add a step</button>
+      <label class="tool"><input id="find" type="search" placeholder="Find a step" aria-label="Find a step"></label>
+      <div class="tool zoom" role="group" aria-label="Zoom"><button type="button" data-zoom="out" aria-label="Zoom out">−</button><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-zoom="fit">Fit</button></div>
+    </div>
+    <div class="legend" aria-hidden="true"><span class="st" data-s="open">To do</span><span class="st" data-s="enough">Optional</span><span class="st" data-s="done">Done</span><span class="st" data-s="locked">Waiting</span><span class="st" data-s="skipped">Not needed</span>
+      <span><i class="k"></i> has started</span><span><i class="k is-wait"></i> still waiting</span>
+      <span>Drag a step onto another to make it wait for that one · into another row to change its area · drag its ● onto a step to make that step wait for it · click an arrow to remove it</span></div>
+  </div>
+</main>
+<aside class="drawer" id="drawer" aria-label="Details" hidden>
+  <div class="dr-h"><h2 id="drawer-t">Step</h2><button class="x" type="button" data-act="close" aria-label="Close">✕</button></div>
+  <div class="dr" id="dr"></div>
+</aside>
+<input type="file" id="file" accept=".json,application/json" hidden>
+
+<!-- The tower's own engine and fact names: the editor walks a flow exactly as the tower does. -->
+<script src="../assets/journey/flow.js?v=20261017FL3"></script>
+<script src="../assets/ct/journey-facts.js?v=20261017FL3"></script>
+<script>
+(function () {
+  "use strict";
+  const FL = window.FBFlow, JF = window.CTJourneyFacts;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  const L = (n, w) => n + " " + (n === 1 ? w : w + "s");
+  const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+  const own = (o, k) => !!o && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k);
+  const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "step";
+
+  const FLOW_URL = "../assets/tower/graphs/store-journey.json";
+  const MODULES_URL = "../assets/modules.json";
+  const TOWER_HERE = new URL("../screens/control-tower.html", location.href).href;
+  const TOWER_LIVE = "https://nishant-devekar.github.io/foodbridge-mock-platform/v10/screens/control-tower.html";
+  const KEY = "fb.v10.flowEditor";
+  const BRIDGE = "https://zoho-function-nu.vercel.app", BRIDGE_LOCAL = "http://localhost:8787";
+  const STUCK = 24 * 3600e3;                   // a tester on one step this long is stuck there             // this browser: the working flow, its versions, the made-up store
+
+  /* The store's numbers a rule can test, in the owner's words. The names are
+     the tower's own (assets/ct/journey-facts.js). "derived" ones work
+     themselves out from the others. */
+  const FACT_GROUPS = [
+    ["Products", [["products.count", "products added"], ["products.correct", "products ready to sell", "derived"], ["products.broken", "products with a problem"], ["products.incomplete", "products with no MRP"]]],
+    ["Customers", [["customers.count", "customers added"], ["customers.correct", "customers you can reach", "derived"], ["customers.broken", "customers with a bad phone number"], ["customers.incomplete", "customers with no address"], ["customers.noTerms", "customers who owe, with no credit limit"]]],
+    ["Orders", [["orders.count", "orders taken"], ["orders.days", "days with orders"], ["orders.sent", "invoices sent"]]],
+    ["Deliveries", [["deliveries.count", "deliveries recorded"], ["deliveries.vans", "vans used"], ["deliveries.daysClosed", "days with deliveries"]]],
+    ["Money", [["payments.count", "payments recorded"], ["dues.imported", "has brought in old dues", "yesno"]]],
+    ["Stock", [["stock.counted", "products counted"], ["stock.unknown", "products with unknown stock"]]],
+    ["Buying", [["suppliers.count", "suppliers added"], ["suppliers.unmapped", "products with no supplier"], ["purchases.count", "purchase orders made"], ["purchases.received", "purchase orders received"]]],
+    ["Production", [["production.recipes", "recipes"], ["production.batches", "production batches"], ["business.makes", "makes its own products", "yesno"]]],
+    ["The store", [["store.new", "is a new store", "yesno"]]],
+  ];
+  const FACT = {};
+  FACT_GROUPS.forEach((g) => g[1].forEach((x) => { FACT[x[0]] = { key: x[0], label: x[1], group: g[0], yesno: x[2] === "yesno", derived: x[2] === "derived" }; }));
+  const factLabel = (k) => (FACT[k] ? FACT[k].label : k);
+  /* The first number a new rule in an area tests. */
+  const AREA_FACT = { products: "products.count", customers: "customers.count", order: "orders.count", orders: "orders.count", deliveries: "deliveries.count",
+    collections: "payments.count", inventory: "stock.counted", purchase: "purchases.count", production: "production.batches" };
+
+  const NUM_OPS = [["gte", "at least"], ["lte", "at most"], ["eq", "exactly"], ["gt", "more than"], ["lt", "fewer than"], ["ne", "anything but"]];
+  const IS = [["done", "is done"], ["ready", "has started the next steps"], ["skipped", "is not needed"]];
+  const IS_VAL = { done: "done", ready: ["enough", "done"], skipped: "skipped" };
+  const WORD = { open: "To do", enough: "Optional", done: "Done", locked: "Waiting", skipped: "Not needed" };
+  const ICONS = [["tag", "Price tag"], ["users", "People"], ["cart", "Cart"], ["truck", "Truck"], ["rupee", "Rupee"], ["box", "Box"], ["clip", "Clipboard"], ["factory", "Factory"], ["coin", "Coin"], ["now", "Bell"], ["tower", "Tower"]];
+
+  /* Test stores: what the flow looks like for each. */
+  const store = (x) => JF.blank(clone(x));
+  const FACTS = {
+    new: { label: "A store created today", facts: store({ store: { new: true } }) },
+    some: { label: "3 products added, 1 ready", facts: store({ store: { new: true }, products: { count: 3, broken: 2 } }) },
+    five: { label: "5 products ready to sell", facts: store({ store: { new: true }, products: { count: 8, broken: 2, incomplete: 3 } }) },
+    cust: { label: "5 customers ready", facts: store({ store: { new: true }, products: { count: 8, broken: 2, incomplete: 3 }, customers: { count: 7, broken: 2, incomplete: 7 } }) },
+    order: { label: "First order taken", facts: store({ store: { new: true }, products: { count: 8, incomplete: 3 }, customers: { count: 7, incomplete: 2 }, orders: { count: 1, days: 1 } }) },
+    trading: { label: "A busy trading business", facts: store({ store: { new: false }, products: { count: 86, incomplete: 23 }, customers: { count: 40, broken: 1, incomplete: 3, noTerms: 10 },
+      orders: { count: 176, days: 95, sent: 3 }, deliveries: { count: 23, vans: 2, daysClosed: 9 }, payments: { count: 189 }, dues: { imported: true }, stock: { counted: 86, unknown: 0 },
+      suppliers: { count: 6, unmapped: 0 }, purchases: { count: 54, received: 54 }, production: { recipes: 1, batches: 1 }, business: { makes: true } }) },
+    mine: { label: "My made-up store", facts: null },
+  };
+
+  const S = { graph: null, undo: [], sel: null, edge: null, pop: null, panel: null, pick: "new", mine: null, find: "", ask: null, menu: false,
+              valid: false, problems: [], errors: {}, states: {}, focus: null, open: [], progress: null, fresh: {}, screens: [], platform: null, versions: [],
+              trials: [], trial: null, users: null, teamKey: "",
+              empty: "<b>Loading the flow…</b>" };
+
+  /* ── this browser's copy ───────────────────────────────────────────── */
+  function readStore() { try { return JSON.parse(localStorage.getItem(KEY) || "null") || {}; } catch (e) { return {}; } }
+  function writeStore(patch) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(readStore(), patch))); return true; } catch (e) { return false; } }
+  let keptJson = null;
+  function keepDraft() { const j = S.graph ? JSON.stringify(S.graph) : null; if (j === keptJson) return; keptJson = j; writeStore({ draft: S.graph }); }
+
+  /* ── reading the flow ──────────────────────────────────────────────── */
+  const nodes = () => (S.graph ? S.graph.nodes : []);
+  const byId = () => { const m = {}; nodes().forEach((n) => { m[n.id] = n; }); return m; };
+  const areasOf = () => (S.graph && S.graph.areas) || {};
+  /* A row per area the flow lists (an empty one takes dragged steps), then any area a step names. */
+  function laneKeys() {
+    const keys = Object.keys(areasOf());
+    nodes().forEach((n) => { const k = n.area || ""; if (keys.indexOf(k) === -1) keys.push(k); });
+    return keys;
+  }
+  const nameOf = (n) => (n ? n.label || (n.card && n.card.title ? n.card.title.replace("{n} ", "") : n.id) : "");
+  const areaName = (k) => (k ? (areasOf()[k] && (areasOf()[k].label || areasOf()[k].word)) || cap(k) : "No area");
+  function upstream(id) { const m = byId(), out = {}; const go = (x) => { ((m[x] && m[x].after) || []).forEach((a) => { if (!out[a]) { out[a] = 1; go(a); } }); }; go(id); return out; }
+  const upstreamOf = (id, target) => !!upstream(id)[target] || id === target;
+  const baseJson = () => (S.versions[0] ? S.versions[0].json : S.platform);
+  const isDirty = () => !!S.graph && JSON.stringify(S.graph) !== baseJson();
+  const factsNow = () => (S.pick === "mine" ? JF.derive(clone(S.mine || FACTS.new.facts)) : FACTS[S.pick].facts);
+  const pickLabel = () => (S.pick === "mine" ? "your made-up store" : "“" + FACTS[S.pick].label + "”");
+
+  function check() {
+    const v = S.graph ? FL.validate(S.graph) : { ok: false, errors: [] };
+    S.valid = v.ok; S.problems = v.errors || []; S.errors = {};
+    S.problems.forEach((e) => { const m = /^\$\.nodes\[(\d+)\]/.exec(e.path); const n = m && nodes()[+m[1]]; if (n) (S.errors[n.id] = S.errors[n.id] || []).push(e); });
+  }
+  function walk() {
+    S.states = {}; S.focus = null; S.open = []; S.progress = null;
+    if (!S.graph || !S.valid) return;
+    try { const ev = FL.load(S.graph).evaluate(factsNow()); nodes().forEach((n) => { S.states[n.id] = ev.state(n.id); }); S.focus = ev.focus(); S.open = ev.open(); S.progress = ev.progress(); } catch (e) { /* not walkable */ }
+  }
+
+  /* ── rules: built from rows, read back in plain words ───────────────
+     A rule the builder can show is one row, or rows that all (or any one)
+     must hold; a row tests one of the store's numbers, or another step.
+     Anything else stays as written and is shown as code. */
+  function rowOf(c) {
+    if (!c || typeof c !== "object" || Array.isArray(c)) return null;
+    const ks = Object.keys(c);
+    if (own(c, "node")) {
+      if (ks.length !== 2 || !own(c, "is")) return null;
+      const is = [].concat(c.is).slice().sort().join(",");
+      const m = { done: "done", "done,enough": "ready", skipped: "skipped" }[is];
+      return m ? { t: "node", node: c.node, is: m } : null;
+    }
+    if (own(c, "fact")) {
+      const ops = ks.filter((k) => k !== "fact"); if (ops.length !== 1) return null;
+      const op = ops[0], v = c[op];
+      if (typeof v === "boolean") return op === "eq" ? { t: "fact", fact: c.fact, op: "eq", val: v } : null;
+      if (typeof v !== "number" || !NUM_OPS.some((o) => o[0] === op)) return null;
+      return { t: "fact", fact: c.fact, op: op, val: v };
+    }
+    return null;
+  }
+  function parseRule(c) {
+    if (c === undefined) return { mode: "all", rows: [] };
+    if (!c || typeof c !== "object") return null;
+    if (own(c, "all") || own(c, "any")) {
+      const k = own(c, "all") ? "all" : "any";
+      if (Object.keys(c).length !== 1 || !Array.isArray(c[k])) return null;
+      const rows = c[k].map(rowOf); return rows.every(Boolean) ? { mode: k, rows: rows } : null;
+    }
+    if (own(c, "fact")) {
+      const ops = Object.keys(c).filter((k) => k !== "fact");
+      if (ops.length > 1) { const rows = ops.map((op) => rowOf({ fact: c.fact, [op]: c[op] })); return rows.every(Boolean) ? { mode: "all", rows: rows } : null; }
+    }
+    const r = rowOf(c); return r ? { mode: "all", rows: [r] } : null;
+  }
+  function buildRule(m) {
+    const cs = m.rows.map((r) => (r.t === "node" ? { node: r.node, is: IS_VAL[r.is] } : { fact: r.fact, [r.op]: r.val }));
+    return !cs.length ? undefined : cs.length === 1 ? cs[0] : { [m.mode]: cs };
+  }
+  function rowWords(r) {
+    if (r.t === "node") return "“" + nameOf(byId()[r.node]) + "” " + IS.find((x) => x[0] === r.is)[1];
+    const label = factLabel(r.fact);
+    if (typeof r.val === "boolean") return "it " + label + (r.val ? "" : ": no");
+    if (r.op === "eq" && r.val === 0) return "no " + label;
+    return (NUM_OPS.find((o) => o[0] === r.op) || [0, r.op])[1] + " " + r.val + " " + label;
+  }
+  function words(c) {
+    if (c === undefined) return "";
+    if (c === true) return "always"; if (c === false) return "never";
+    const m = parseRule(c);
+    if (m) return m.rows.map(rowWords).join(m.mode === "any" ? " or " : " and ");
+    if (c && c.not) return "not (" + words(c.not) + ")";
+    if (c && c.all) return c.all.map(words).join(" and ");
+    if (c && c.any) return "(" + c.any.map(words).join(" or ") + ")";
+    return "a rule written as code";
+  }
+
+  /* ── changing the flow: every change can be undone ─────────────────── */
+  function commit(mutate, note) {
+    S.undo.push(JSON.stringify(S.graph)); if (S.undo.length > 80) S.undo.shift();
+    mutate(); refresh(); if (note) toast(note);
+  }
+  function replaceGraph(g, note) {
+    if (S.graph) S.undo.push(JSON.stringify(S.graph));
+    S.graph = g; S.sel = null; S.edge = null; S.pop = null; S.ask = null; fitted = false; refresh(); if (note) toast(note);
+  }
+  const getPath = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
+  /* Set a dotted path; an emptied value goes, and so does any object it leaves empty. */
+  function setPath(obj, path, value) {
+    const keys = path.split("."), chain = [obj];
+    for (let i = 0; i < keys.length - 1; i++) { const o = chain[i]; if (typeof o[keys[i]] !== "object" || !o[keys[i]]) o[keys[i]] = {}; chain.push(o[keys[i]]); }
+    const last = chain[chain.length - 1], k = keys[keys.length - 1];
+    if (value === undefined) delete last[k]; else last[k] = value;
+    for (let i = chain.length - 1; i > 0; i--) { if (Object.keys(chain[i]).length) break; delete chain[i - 1][keys[i - 1]]; }
+  }
+  function uniqueId(base, except) { const m = byId(); let id = base, i = 2; while (m[id] && id !== except) id = base + "-" + i++; return id; }
+  function renameId(from, to) {
+    const walkC = (c) => { if (!c || typeof c !== "object") return; if (c.node === from) c.node = to; ["all", "any"].forEach((k) => { if (Array.isArray(c[k])) c[k].forEach(walkC); }); if (c.not) walkC(c.not); };
+    nodes().forEach((n) => {
+      if (n.id === from) n.id = to;
+      if (Array.isArray(n.after)) n.after = n.after.map((a) => (a === from ? to : a));
+      ["done", "enough", "skip", "when"].forEach((k) => walkC(n[k]));
+    });
+  }
+  function addStep(area, after) {
+    const id = uniqueId("new-step");
+    const n = { id: id, label: "New step", area: area || undefined, after: after ? [after] : undefined, card: { title: "New step", ask: "", coins: 50 } };
+    if (!n.area) delete n.area; if (!n.after) delete n.after;
+    S.fresh[id] = 1;
+    commit(() => { nodes().push(n); S.sel = id; S.panel = null; }, "Added a step" + (after ? " after " + nameOf(byId()[after]) : ""));
+    setTimeout(() => { const f = $("#f-name"); if (f) { f.focus(); f.select(); } }, 0);
+  }
+  function deleteStep(id) {
+    const name = nameOf(byId()[id]);
+    commit(() => {
+      S.graph.nodes = nodes().filter((n) => n.id !== id);
+      nodes().forEach((n) => { if (Array.isArray(n.after)) { n.after = n.after.filter((a) => a !== id); if (!n.after.length) { delete n.after; delete n.join; } } });
+      S.sel = null; S.ask = null;
+    }, "Deleted “" + name + "”. Undo brings it back.");
+  }
+  function relink(id, target, how) {
+    const n = byId()[id];
+    commit(() => { n.after = how === "also" ? (n.after || []).filter((a) => a !== target).concat(target) : [target]; if (n.after.length < 2) delete n.join; S.sel = id; },
+      nameOf(n) + (how === "also" ? " now also waits for " : " now starts after ") + nameOf(byId()[target]));
+  }
+  function connect(from, to) {
+    const t = byId()[to];
+    if ((t.after || []).indexOf(from) !== -1) { toast("It already waits for that step"); return; }
+    commit(() => { t.after = (t.after || []).concat(from); S.edge = { from: from, to: to }; }, nameOf(t) + " now waits for " + nameOf(byId()[from]));
+  }
+  function unlink(from, to) {
+    const t = byId()[to];
+    commit(() => { t.after = (t.after || []).filter((a) => a !== from); if (!t.after.length) delete t.after; if ((t.after || []).length < 2) delete t.join; S.edge = null; }, nameOf(t) + " no longer waits for " + nameOf(byId()[from]));
+  }
+  function moveToArea(id, area) {
+    const n = byId()[id];
+    commit(() => { if (area) n.area = area; else delete n.area; S.sel = id; }, nameOf(n) + " moved to " + areaName(area));
+  }
+  /* An area's three colours from the one picked: deep as picked, a brighter one and a pale tint. */
+  function hexMix(hex, to, t) {
+    const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const a = p(hex), b = p(to);
+    return "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join("").toUpperCase();
+  }
+  const colourSet = (deep) => ({ deep: deep.toUpperCase(), bright: hexMix(deep, "#FFFFFF", 0.32), tint: hexMix(deep, "#FFFFFF", 0.88) });
+  function bump(v) { const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v || ""); return m ? m[1] + "." + m[2] + "." + (+m[3] + 1) : "1.0.0"; }
+
+  /* ── what changed since the last version ───────────────────────────── */
+  function diffText(baseJ, g) {
+    const A = baseJ ? JSON.parse(baseJ) : { nodes: [] }, a = {}, b = {}, added = [], removed = [], changed = [], relinked = [];
+    (A.nodes || []).forEach((n) => { a[n.id] = n; }); g.nodes.forEach((n) => { b[n.id] = n; });
+    Object.keys(b).forEach((k) => {
+      if (!a[k]) return added.push(nameOf(b[k]));
+      const x = Object.assign({}, a[k]), y = Object.assign({}, b[k]);
+      if (JSON.stringify(x.after || []) !== JSON.stringify(y.after || [])) relinked.push(nameOf(b[k]));
+      delete x.after; delete y.after;
+      if (JSON.stringify(x) !== JSON.stringify(y)) changed.push(nameOf(b[k]));
+    });
+    Object.keys(a).forEach((k) => { if (!b[k]) removed.push(nameOf(a[k])); });
+    const few = (xs) => xs.slice(0, 4).join(", ") + (xs.length > 4 ? "…" : "");
+    const p = [];
+    if (added.length) p.push(L(added.length, "step") + " added: " + few(added));
+    if (changed.length) p.push(L(changed.length, "step") + " changed: " + few(changed));
+    if (relinked.length) p.push(L(relinked.length, "step") + " now wait for different steps: " + few(relinked));
+    if (removed.length) p.push(L(removed.length, "step") + " removed: " + few(removed));
+    if (JSON.stringify(A.areas || {}) !== JSON.stringify(g.areas || {})) p.push("the areas changed");
+    return p;
+  }
+  /* A problem the engine found, said in plain words. */
+  const RULE_NAME = { done: "Done when", enough: "Next steps can start", skip: "Not needed when", when: "Only shows when", after: "Starts after", join: "Starts after", id: "Step code" };
+  function friendly(e) {
+    const m = /^\$\.nodes\[(\d+)\]\.?(\w+)?/.exec(e.path), n = m && nodes()[+m[1]], who = n ? "“" + nameOf(n) + "”" : "";
+    if (/edges loop: (.+)$/.test(e.message)) return "These steps wait for each other in a circle, so none can start: " + RegExp.$1.split(" → ").map((id) => nameOf(byId()[id]) || id).join(" → ");
+    if (!n) return e.path === "$.nodes" ? "The flow needs at least one step." : "The flow file has a problem: " + e.path + " " + e.message;
+    if (m[2] === "after" && /names no node/.test(e.message)) return who + " waits for a step that no longer exists. Remove it under Starts after.";
+    if (/can't come after itself/.test(e.message)) return who + " waits for itself.";
+    if (m[2] === "id") return "Two steps share the code “" + n.id + "”. Change one under For the platform team.";
+    if (RULE_NAME[m[2]]) return who + ": the rule “" + RULE_NAME[m[2]] + "” isn't complete (" + e.message + ").";
+    return who + ": " + e.message;
+  }
+
+  /* ── the flow, drawn: a row per area, a column per step of the way ─── */
+  const G = { NW: 200, NH: 70, GX: 70, GY: 12, LANE_PAD: 16, LEFT: 158, TOP: 44, EMPTY_H: 84 };
+  const V = { x: 0, y: 0, k: 1 };
+  let lay = null, fitted = false;
+  function layout() {
+    const m = byId(), col = {}, lanes = laneKeys(), L2 = {};
+    const colOf = (id, seen) => {
+      if (col[id] !== undefined) return col[id];
+      if (seen[id]) return 0;
+      seen[id] = 1;
+      const after = ((m[id] && m[id].after) || []).filter((a) => m[a]);
+      col[id] = after.length ? 1 + Math.max(...after.map((a) => colOf(a, seen))) : 0;
+      return col[id];
+    };
+    nodes().forEach((n) => colOf(n.id, {}));
+    let y = G.TOP, maxCol = 0;
+    const laneBox = [];
+    lanes.forEach((k) => {
+      const mine = nodes().filter((n) => (n.area || "") === k);
+      const cells = {};
+      mine.forEach((n) => { const c = col[n.id]; (cells[c] = cells[c] || []).push(n.id); maxCol = Math.max(maxCol, c); });
+      const rows = Math.max(1, ...Object.keys(cells).map((c) => cells[c].length));
+      const h = mine.length ? rows * (G.NH + G.GY) - G.GY + G.LANE_PAD * 2 : G.EMPTY_H;
+      Object.keys(cells).forEach((c) => cells[c].forEach((id, i) => { L2[id] = { x: G.LEFT + +c * (G.NW + G.GX), y: y + G.LANE_PAD + i * (G.NH + G.GY), col: +c, lane: k }; }));
+      laneBox.push({ key: k, y: y, h: h, n: mine.length });
+      y += h;
+    });
+    const W = G.LEFT + (maxCol + 1) * (G.NW + G.GX) + 30;
+    return { L: L2, lanes: laneBox, W: Math.max(W, 640), H: y + 60, cols: maxCol + 1 };
+  }
+  function edgePath(a, b) {
+    const x1 = a.x + G.NW, y1 = a.y + G.NH / 2, x2 = b.x, y2 = b.y + G.NH / 2, h = Math.max(30, (x2 - x1) / 2);
+    return "M" + x1 + " " + y1 + "C" + (x1 + h) + " " + y1 + " " + (x2 - h) + " " + y2 + " " + x2 + " " + y2;
+  }
+  function summary(n) {
+    if (n.done === undefined) return "No finish rule yet";
+    const w = words(n.done); return "Done: " + w;
+  }
+  function draw() {
+    const cv = $("#canvas"), empty = $("#empty");
+    if (!S.graph) { cv.innerHTML = ""; empty.hidden = false; empty.innerHTML = S.empty; return; }
+    empty.hidden = true;
+    lay = layout();
+    const m = byId(), q = S.find.trim().toLowerCase(), A = areasOf();
+    const hit = (n) => !q || (nameOf(n) + " " + ((n.card && n.card.title) || "") + " " + areaName(n.area)).toLowerCase().indexOf(q) !== -1;
+    const html = [], svg = [];
+    lay.lanes.forEach((l) => {
+      const a = A[l.key] || {}, c = a.colour || {};
+      html.push('<div class="lane" data-lane="' + esc(l.key) + '" style="top:' + l.y + "px;height:" + l.h + "px;width:" + lay.W + "px;--tint:" + esc(c.tint || "transparent") + ";--deep:" + esc(c.deep || "") + ";--bright:" + esc(c.bright || "") + '">' +
+        '<div class="lane-h"><b>' + esc(areaName(l.key)) + "</b><small>" + (l.n ? L(l.n, "step") : "No steps yet") + '</small><button type="button" class="lane-add" data-addin="' + esc(l.key) + '">+ Step here</button></div>' +
+        (l.n ? "" : '<div class="lane-empty" style="left:' + G.LEFT + 'px;top:' + (l.h / 2 - 9) + 'px">Drag a step here to move it into ' + esc(areaName(l.key)) + "</div>") + "</div>");
+    });
+    for (let c = 0; c < lay.cols; c++) html.push('<div class="cols" style="left:' + (G.LEFT + c * (G.NW + G.GX)) + 'px;top:14px">' + "Step " + (c + 1) + "</div>");
+    nodes().forEach((n) => (n.after || []).forEach((a) => {
+      const pa = lay.L[a], pb = lay.L[n.id]; if (!pa || !pb) return;
+      const pass = { enough: 1, done: 1, skipped: 1 }[S.states[a]];
+      const sel = S.edge && S.edge.from === a && S.edge.to === n.id;
+      const d = edgePath(pa, pb);
+      svg.push('<path class="e' + (pass ? " is-pass" : "") + (sel ? " is-sel" : "") + '" d="' + d + '" marker-end="url(#' + (sel ? "aws" : pass ? "awp" : "aww") + ')"/>');
+      svg.push('<path class="hit" data-from="' + esc(a) + '" data-to="' + esc(n.id) + '" d="' + d + '"><title>' + esc(nameOf(n) + " waits for " + nameOf(m[a])) + "</title></path>");
+    }));
+    nodes().forEach((n) => {
+      const p = lay.L[n.id]; if (!p) return;
+      const c = (A[n.area || ""] || {}).colour || {}, s = S.states[n.id], coins = n.card && Number(n.card.coins), u = usersOn(n.id);
+      html.push('<div class="dn' + (S.errors[n.id] ? " has-error" : "") + (S.focus === n.id ? " is-focus" : "") + (q && !hit(n) ? " is-dim" : "") + '" tabindex="0" role="button" data-id="' + esc(n.id) + '" aria-selected="' + (S.sel === n.id) + '"' +
+        ' style="left:' + p.x + "px;top:" + p.y + "px;width:" + G.NW + "px;height:" + G.NH + "px;--deep:" + esc(c.deep || "") + '" title="' + esc(nameOf(n) + (s ? " · " + WORD[s] : "") + " · " + summary(n)) + '">' +
+        '<span class="dn-top">' + (coins ? '<span class="dn-c">+' + coins + " coins</span>" : "") + (s ? '<span class="st" data-s="' + s + '">' + WORD[s] + "</span>" : "") + "</span>" +
+        (u && (u.here || u.done) ? '<span class="dn-u' + (u.stuck ? " is-stuck" : "") + '" title="Real users on this step">' + esc([u.stuck ? u.stuck + " stuck" : "", u.here - u.stuck > 0 ? (u.here - u.stuck) + " here" : "", u.done ? u.done + " done" : ""].filter(Boolean).join(" · ")) + "</span>" : "") +
+        "<b>" + esc(nameOf(n)) + "</b><small>" + esc(summary(n)) + '</small><span class="port" data-port="' + esc(n.id) + '" title="Drag onto a step to make it wait for this one"></span></div>');
+    });
+    const mk = (id, col) => '<marker id="' + id + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:' + col + '"/></marker>';
+    cv.style.width = lay.W + "px"; cv.style.height = lay.H + "px";
+    cv.innerHTML = html.slice(0, lay.lanes.length).join("") + '<svg class="edges" width="' + lay.W + '" height="' + lay.H + '"><defs>' + mk("awp", "var(--accent)") + mk("aww", "var(--edge)") + mk("aws", "var(--warn)") + "</defs>" + svg.join("") + '<path class="tmp" id="tmp" d=""/></svg>' + html.slice(lay.lanes.length).join("");
+    drawPop();
+    if (!fitted && $("#dia").clientWidth) { fit(0.55); fitted = true; } else applyV();
+  }
+  function applyV() { $("#canvas").style.transform = "translate(" + V.x + "px," + V.y + "px) scale(" + V.k + ")"; }
+  function fit(minK) {
+    if (!lay) return;
+    const el = $("#dia"), vw = el.clientWidth, vh = el.clientHeight, top = 54;
+    V.k = Math.max(minK, Math.min(1, vw / lay.W, (vh - top - 40) / lay.H));
+    V.x = lay.W * V.k <= vw ? (vw - lay.W * V.k) / 2 : 8;
+    V.y = top;
+    applyV();
+  }
+  function zoomAt(px, py, f) { const k = Math.min(1.6, Math.max(0.2, V.k * f)); V.x = px - ((px - V.x) * k) / V.k; V.y = py - ((py - V.y) * k) / V.k; V.k = k; applyV(); }
+  function reveal(id) {
+    const n = lay && lay.L[id]; if (!n) return;
+    const el = $("#dia"), dr = $("#drawer"), vw = el.clientWidth - (dr.hidden ? 0 : 460), vh = el.clientHeight;
+    const sx = V.x + n.x * V.k, sy = V.y + n.y * V.k;
+    if (sx < 0 || sy < 50 || sx + G.NW * V.k > vw || sy + G.NH * V.k > vh) { V.x = vw / 2 - (n.x + G.NW / 2) * V.k; V.y = vh / 2 - (n.y + G.NH / 2) * V.k; applyV(); }
+  }
+
+  /* The small question over the flow after a drop. */
+  function drawPop() {
+    const old = $("#pop"); if (old) old.remove();
+    const p = S.pop; if (!p) return;
+    const d = document.createElement("div"); d.className = "pop"; d.id = "pop"; d.setAttribute("role", "dialog");
+    const m = byId();
+    if (p.kind === "node") d.innerHTML = "<p>When does <b>" + esc(nameOf(m[p.id])) + "</b> start?</p>" +
+      '<div class="row"><button class="btn is-primary" type="button" data-pop="after">After ' + esc(nameOf(m[p.target])) + ' only</button><button class="btn" type="button" data-pop="also">Also after ' + esc(nameOf(m[p.target])) + '</button><button class="btn" type="button" data-pop="no">Cancel</button></div>';
+    else if (p.kind === "lane") d.innerHTML = "<p>Move <b>" + esc(nameOf(m[p.id])) + "</b> into <b>" + esc(areaName(p.area)) + "</b>? What it waits for stays the same.</p>" +
+      '<div class="row"><button class="btn is-primary" type="button" data-pop="lane">Move it</button><button class="btn" type="button" data-pop="no">Cancel</button></div>';
+    else if (p.kind === "edge") d.innerHTML = "<p><b>" + esc(nameOf(m[p.to])) + "</b> waits for <b>" + esc(nameOf(m[p.from])) + "</b>.</p>" +
+      '<div class="row"><button class="btn is-danger" type="button" data-pop="unlink">Stop waiting for it</button><button class="btn" type="button" data-pop="no">Keep</button></div>';
+    const box = $("#dia"), r = box.getBoundingClientRect();
+    d.style.left = Math.max(8, Math.min(p.x - r.left, r.width - 320)) + "px"; d.style.top = Math.max(56, Math.min(p.y - r.top + 10, r.height - 140)) + "px";
+    box.appendChild(d);
+  }
+
+  /* ── the drawer ─────────────────────────────────────────────────────── */
+  const sec = (title, body, extra) => '<div class="sec"' + (extra || "") + ">" + (title ? "<h4>" + title + "</h4>" : "") + body + "</div>";
+  const opt = (val, txt, cur) => '<option value="' + esc(val) + '"' + (String(cur == null ? "" : cur) === String(val) ? " selected" : "") + ">" + esc(txt) + "</option>";
+  /* A field on the step. hash: "#" stands for the number the card shows ({n} in the flow). */
+  function field(label, path, n, o) {
+    o = o || {};
+    let v = getPath(n, path);
+    if (o.hash && typeof v === "string") v = v.replace(/\{n\}/g, "#");
+    const attrs = ' data-path="' + path + '"' + (o.num ? ' data-num="1"' : "") + (o.hash ? ' data-hash="1"' : "") + (o.json ? ' data-json="1"' : "");
+    const hint = o.hint ? '<small class="hint">' + esc(o.hint) + "</small>" : "";
+    if (o.select) return '<label class="f"><span>' + label + "</span><select" + attrs + ">" + (o.blank === false ? "" : opt("", o.blank || "—", v)) + o.select.map((x) => opt(x[0], x[1], v)).join("") + "</select>" + hint + "</label>";
+    if (o.area || o.json) return '<label class="f"><span>' + label + "</span><textarea" + attrs + (o.json ? ' class="code" spellcheck="false"' : "") + ' rows="' + (o.rows || 2) + '">' + esc(v === undefined ? "" : o.json ? JSON.stringify(v, null, 1) : v) + "</textarea>" + hint + "</label>";
+    return '<label class="f"><span>' + label + '</span><input type="' + (o.num ? "number" : "text") + '"' + (o.num ? ' min="0"' : "") + attrs + ' value="' + esc(v === undefined ? "" : v) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : "") + ">" + hint + "</label>";
+  }
+  function factOptions(cur, onlyNumbers) {
+    let h = "";
+    FACT_GROUPS.forEach((g) => {
+      const xs = g[1].filter((x) => !onlyNumbers || x[2] !== "yesno");
+      if (xs.length) h += '<optgroup label="' + esc(g[0]) + '">' + xs.map((x) => opt(x[0], cap(x[1]), cur)).join("") + "</optgroup>";
+    });
+    if (cur && !FACT[cur]) h += opt(cur, cur, cur);
+    return h;
+  }
+  /* A rule, as rows anyone can read and change. */
+  function ruleHtml(key, n, emptyText) {
+    const c = n[key], m = parseRule(c), others = nodes().filter((x) => x.id !== n.id);
+    if (!m) return '<div class="rule"><p class="plain">' + esc(cap(words(c))) + '.</p><p class="hint">This rule was written as code, so it can only be changed here as code.</p>' +
+      field("The rule as code", key, n, { json: true, rows: 4 }) + '<div class="add"><button class="btn sm" type="button" data-rule-clear="' + key + '">Clear it and build it again</button></div></div>';
+    const row = (r, i) => {
+      const attr = ' data-rule="' + key + '" data-i="' + i + '"';
+      const x = '<button class="rx" type="button" data-rule-del="' + key + '" data-i="' + i + '" aria-label="Remove this condition">×</button>';
+      if (r.t === "node") return '<div class="rrow"><span class="w">Step</span><select class="what"' + attr + ' data-part="node">' + others.map((o) => opt(o.id, nameOf(o), r.node)).join("") + (byId()[r.node] ? "" : opt(r.node, "(deleted step)", r.node)) + "</select>" +
+        "<select" + attr + ' data-part="is">' + IS.map((o) => opt(o[0], o[1], r.is)).join("") + "</select>" + x + "</div>";
+      const yes = typeof r.val === "boolean" || (FACT[r.fact] && FACT[r.fact].yesno);
+      return '<div class="rrow">' + (yes
+        ? '<select class="what"' + attr + ' data-part="fact">' + factOptions(r.fact) + "</select><select" + attr + ' data-part="yes" aria-label="Yes or no">' + opt("yes", "Yes", r.val === false ? "no" : "yes") + opt("no", "No", r.val === false ? "no" : "yes") + "</select>"
+        : "<select" + attr + ' data-part="op">' + NUM_OPS.map((o) => opt(o[0], cap(o[1]), r.op)).join("") + '</select><input type="number" min="0"' + attr + ' data-part="val" value="' + esc(r.val) + '" aria-label="Number"><select class="what"' + attr + ' data-part="fact">' + factOptions(r.fact) + "</select>") + x + "</div>";
+    };
+    return '<div class="rule">' + (m.rows.length > 1 ? '<div class="rrow"><span class="w">Needs</span><select data-rule="' + key + '" data-part="mode">' + opt("all", "all of these", m.mode) + opt("any", "any one of these", m.mode) + "</select></div>" : "") +
+      (m.rows.length ? m.rows.map(row).join("") : '<p class="plain">' + esc(emptyText) + "</p>") +
+      '<div class="add"><button class="btn sm" type="button" data-rule-add="' + key + '" data-kind="fact">+ A number</button>' + (others.length ? '<button class="btn sm" type="button" data-rule-add="' + key + '" data-kind="node">+ Another step</button>' : "") + "</div></div>";
+  }
+  function cardHtml(n, tag) {
+    const c = n.card || {}, a = areasOf()[n.area] || {}, col = a.colour || {};
+    const cnt = c.count ? FL.factAt(factsNow(), c.count) : undefined;
+    const fill = (t) => String(t || "").replace(/\{n\}/g, cnt == null ? "#" : cnt);
+    const btn = c.action || (c.screen && c.screen.label ? "Open " + c.screen.label : "");
+    return "<" + (tag || "div") + ' class="nc"' + (tag === "button" ? ' type="button" data-goto="' + esc(n.id) + '"' : "") + ' style="--deep:' + esc(col.deep || "") + '">' +
+      '<span class="nc-top"><span class="nc-area">' + esc(a.word || areaName(n.area)) + "</span>" + (Number(c.coins) ? '<span class="nc-coin">+' + Number(c.coins) + " coins</span>" : "") + "</span>" +
+      "<b>" + esc(fill(c.title || nameOf(n))) + "</b>" + (c.ask ? "<p>" + esc(fill(c.ask)) + "</p>" : "") + (c.say && cnt != null ? "<small>" + esc(fill(c.say)) + "</small>" : "") +
+      (btn ? '<span class="nc-btn">' + esc(btn) + "</span>" : "") + "</" + (tag || "div") + ">";
+  }
+  function stepHtml(n) {
+    const m = byId(), s = S.states[n.id];
+    const can = nodes().filter((x) => x.id !== n.id && (n.after || []).indexOf(x.id) === -1 && !upstreamOf(x.id, n.id));
+    const nexts = nodes().filter((x) => (x.after || []).indexOf(n.id) !== -1);
+    const blockers = (n.after || []).filter((a) => !{ enough: 1, done: 1, skipped: 1 }[S.states[a]]);
+    const areaOpts = laneKeys().filter(Boolean).map((k) => [k, areaName(k)]);
+    const screens = S.screens.slice(); const sc = (n.card && n.card.screen) || null;
+    if (sc && sc.route && !screens.some((x) => x.route === sc.route)) screens.unshift({ route: sc.route, label: sc.label || sc.route, group: "" });
+    const e = n.enough, enoughMode = e === undefined ? "done" : e === true ? "now" : "rule";
+    const moreOpen = n.skip !== undefined || n.when !== undefined || n.sticky;
+    const after = n.after || [];
+    return '<div class="sec"><label class="f big"><span>Step name</span><input type="text" id="f-name" data-name="1" value="' + esc(nameOf(n)) + '"></label>' +
+        '<div class="chips">' + (s ? '<span class="st" data-s="' + s + '">' + WORD[s] + "</span><small class=\"hint\">for " + esc(pickLabel()) + "</small>" : "") +
+        (s === "locked" && blockers.length ? '<small class="hint">· waits for ' + esc(blockers.map((a) => nameOf(m[a])).join(", ")) + "</small>" : "") + "</div>" +
+        (S.errors[n.id] ? '<div class="problems">' + S.errors[n.id].map((x) => "<button type=\"button\">" + esc(friendly(x)) + "</button>").join("") + "</div>" : "") +
+        '<div class="grid2">' + field("Area", "area", n, { select: areaOpts, blank: "No area" }) + "</div></div>" +
+      sec("Starts after", "<p>" + (after.length ? "It shows up once " + (after.length > 1 ? (n.join === "any" ? "any one of these has" : "all of these have") : "this has") + " started the next steps:" : "It shows up as soon as the store is created.") + "</p>" +
+        '<div class="chips">' + after.map((a) => '<span class="req">' + esc(nameOf(m[a]) || "(deleted step)") + ' <button type="button" data-unafter="' + esc(a) + '" aria-label="Stop waiting for ' + esc(nameOf(m[a]) || a) + '">×</button></span>').join("") +
+        '<select id="f-addafter" aria-label="Add a step it waits for">' + opt("", "+ wait for a step…", "") + can.map((x) => opt(x.id, nameOf(x) + " · " + areaName(x.area), "")).join("") + "</select></div>" +
+        (after.length > 1 ? '<div class="grid2">' + field("It needs", "join", n, { select: [["", "all of them"], ["any", "any one of them"]], blank: false }) + "</div>" : "") +
+        (nexts.length ? '<p class="hint">Steps waiting for this one: ' + esc(nexts.map(nameOf).join(", ")) + ".</p>" : "")) +
+      usersStepHtml(n) +
+      sec("Done when", ruleHtml("done", n, "No rule yet: it stays on the owner's list and is never done.")) +
+      sec("The next steps can start", '<div class="radios">' +
+        '<label class="radio"><input type="radio" name="enough-mode" value="done"' + (enoughMode === "done" ? " checked" : "") + "> Only once this step is done</label>" +
+        '<label class="radio"><input type="radio" name="enough-mode" value="now"' + (enoughMode === "now" ? " checked" : "") + "> Straight away; this step stays on the list as optional</label>" +
+        '<label class="radio"><input type="radio" name="enough-mode" value="rule"' + (enoughMode === "rule" ? " checked" : "") + "> When… (it then stays on the list as optional until done)</label></div>" +
+        (enoughMode === "rule" ? ruleHtml("enough", n, "Add a condition.") : "")) +
+      '<details class="more"' + (moreOpen ? " open" : "") + "><summary>More rules</summary>" +
+        sec("Not needed when", '<p class="hint">For stores this step doesn\'t fit. It is skipped and the steps after it go ahead.</p>' + ruleHtml("skip", n, "Every store needs it.")) +
+        sec("Only shows when", '<p class="hint">An extra condition, on top of the steps it waits for.</p>' + ruleHtml("when", n, "No extra condition.")) +
+        sec("", '<label class="check"><input type="checkbox" data-path="sticky" data-bool="1"' + (n.sticky ? " checked" : "") + "> Once done, it stays done, even if the numbers drop later</label>") + "</details>" +
+      sec("What the owner sees", '<p class="hint">A sketch of its card on Now' + (s === "open" || s === "enough" ? "" : " (it isn't on Now for " + esc(pickLabel()) + " yet)") + ".</p>" + cardHtml(n) +
+        '<div class="grid2">' + field("Title on the card", "card.title", n, { hash: true }) + field("Coins it earns", "card.coins", n, { num: true }) + "</div>" +
+        field("What it asks the owner", "card.ask", n, { hash: true }) +
+        field("How to do it", "card.how", n, { area: true, rows: 2 }) +
+        field("A word of encouragement", "card.cheer", n, { area: true, rows: 2, hint: "Shown when the step is first offered." }) +
+        '<div class="grid2">' + field("Button", "card.action", n, { ph: "e.g. Upload your list" }) +
+          '<label class="f"><span>Takes the owner to</span><select data-screen="1">' + opt("", "No screen", sc && sc.route) +
+          screens.map((x) => opt(x.route, (x.group ? x.group + " › " : "") + x.label, sc && sc.route)).join("") + "</select></label></div>" +
+        '<div class="grid2">' + field("Number on the card", "card.count", n, { select: FACT_GROUPS.reduce((a, g) => a.concat(g[1].filter((x) => x[2] !== "yesno").map((x) => [x[0], cap(x[1])])), []), blank: "No number" }) +
+          field("Progress line", "card.say", n, { hash: true, ph: "e.g. # of 5 products in" }) + "</div>" +
+        '<p class="hint">Write # where the number goes, in the title or the progress line.</p>') +
+      '<details class="more"><summary>For the platform team</summary>' +
+        sec("", '<div class="grid2"><label class="f"><span>Step code</span><input type="text" data-rename="1" value="' + esc(n.id) + '" style="font-family:var(--mono);font-size:12px"></label></div>' +
+          field("Opens a guided flow", "card.flow", n, { json: true, rows: 3 }) + field("Sample button (label, sample numbers)", "card.demo", n, { json: true, rows: 3 }) + field("Announcement when it opens", "card.announce", n, { json: true, rows: 3 })) + "</details>" +
+      (S.ask && S.ask.kind === "delete" && S.ask.id === n.id
+        ? '<div class="danger"><p>Delete <b>' + esc(nameOf(n)) + "</b>? Steps that waited for it stop waiting. Undo brings it back.</p><button class=\"btn\" type=\"button\" data-act=\"nodel\">Keep it</button><button class=\"btn is-danger\" type=\"button\" data-act=\"del-yes\">Delete</button></div>"
+        : '<div class="danger"><p></p><button class="btn" type="button" data-act="add-after">+ Add a step after it</button><button class="btn" type="button" data-act="del">Delete…</button></div>');
+  }
+  function previewHtml() {
+    const m = byId();
+    if (!S.valid) return sec("", "<p>Fix the problems at the top first; the tower only runs a flow without problems.</p>");
+    const p = S.progress || { done: 0, total: 0, ratio: 0 };
+    return sec("", "<p>For " + esc(pickLabel()) + ", the owner's Now shows " + (S.open.length ? L(S.open.length, "card") + ", in this order: what is to do first, then the optional ones." : "no setup cards: every step is done, waiting or not needed.") + "</p>" +
+        '<div class="bar-p" aria-hidden="true"><i style="width:' + Math.round(p.ratio * 100) + '%"></i></div><p class="hint">' + p.done + " of " + L(p.total, "step") + " done · change the store at the top (Test as)</p>") +
+      '<div class="feed">' + S.open.map((id, i) => '<div class="feed-row"><span class="n1">' + (i + 1) + "</span>" + cardHtml(m[id], "button") + "</div>").join("") + "</div>" +
+      sec("", '<p class="hint">A trading store also gets its live work here (a missed drop, a payment due), from its own records.</p>');
+  }
+  function areasHtml() {
+    const A = areasOf(), keys = Object.keys(A);
+    return sec("", "<p>Each row of the flow is an area of the business. The order here is the order of the rows, and of the rings on the tower.</p>") +
+      keys.map((k, i) => {
+        const a = A[k], c = a.colour || {}, used = nodes().filter((n) => n.area === k).length;
+        return '<div class="sec" style="border-top:1px solid var(--line);padding-top:14px"><h4>' + esc(a.label || k) + " · " + L(used, "step") + "</h4>" +
+          '<div class="grid2"><label class="f"><span>Name</span><input type="text" data-area="' + esc(k) + '" data-k="label" value="' + esc(a.label || "") + '"></label>' +
+          '<label class="f"><span>Short word on the tower</span><input type="text" data-area="' + esc(k) + '" data-k="word" value="' + esc(a.word || "") + '"></label>' +
+          '<label class="f"><span>Icon</span><select data-area="' + esc(k) + '" data-k="icon">' + ICONS.map((x) => opt(x[0], x[1], a.icon)).join("") + "</select></label>" +
+          '<label class="f"><span>Colour</span><span class="colours"><input type="color" data-area="' + esc(k) + '" data-k="colour" value="' + esc((c.deep || "#4B5563").toLowerCase()) + '" aria-label="Colour"></span></label></div>' +
+          '<label class="f"><span>What it does for the owner</span><input type="text" data-area="' + esc(k) + '" data-k="promise" value="' + esc(a.promise || "") + '"></label>' +
+          '<div class="colours"><button class="btn sm" type="button" data-amove="' + esc(k) + '" data-dir="-1"' + (i ? "" : " disabled") + '>Move up</button><button class="btn sm" type="button" data-amove="' + esc(k) + '" data-dir="1"' + (i < keys.length - 1 ? "" : " disabled") + ">Move down</button>" +
+          (used ? "" : '<button class="btn sm" type="button" data-adel="' + esc(k) + '">Remove</button>') + "</div></div>";
+      }).join("") +
+      '<div class="sec" style="border-top:1px solid var(--line);padding-top:14px"><h4>New area</h4><div class="chips"><input id="f-newarea" type="text" placeholder="e.g. Returns" style="height:34px;border-radius:9px;border:1px solid var(--line);background:var(--bg);padding:0 10px"><button class="btn" type="button" data-act="area-add">Add area</button></div></div>';
+  }
+  function versionsHtml() {
+    const cur = JSON.stringify(S.graph);
+    const row = (title, sub, json, key) => '<div class="li"><div><b>' + esc(title) + "</b><small>" + esc(sub) + "</small></div>" +
+      (json === cur ? '<span class="pill">Open</span>' : '<button class="btn sm" type="button" data-load="' + esc(key) + '">Open</button>') + "</div>";
+    return sec("", "<p>Versions are kept in this browser. Save one before you try a change with users, so you can compare and go back.</p>") +
+      '<div class="list">' + S.versions.map((v) => row("Version " + v.rev + (v.note ? ": " + v.note : ""), ago(v.savedAt) + (v.summary ? " · " + v.summary : ""), v.json, String(v.rev))).join("") +
+      (S.platform ? row("The platform's flow", "What every store runs today", S.platform, "platform") : "") + "</div>";
+  }
+  function storeHtml() {
+    const f = factsNow();
+    return sec("", "<p>Set the numbers for a store and watch the flow move. Ready to sell and you can reach work themselves out.</p>" +
+        '<div class="chips"><span class="hint">Start from</span><select id="f-minefrom">' + opt("", "…", "") + Object.keys(FACTS).filter((k) => k !== "mine").map((k) => opt(k, FACTS[k].label, "")).join("") + "</select></div>") +
+      FACT_GROUPS.map((g) => sec(esc(g[0]), '<div class="grid2">' + g[1].map((x) => {
+        const v = FL.factAt(f, x[0]);
+        if (x[2] === "yesno") return '<label class="check"><input type="checkbox" data-fact="' + x[0] + '"' + (v ? " checked" : "") + "> " + esc(cap(x[1])) + "</label>";
+        return '<label class="f"><span>' + esc(cap(x[1])) + '</span><input type="number" min="0" data-fact="' + x[0] + '" value="' + esc(v == null ? 0 : v) + '"' + (x[2] === "derived" ? " disabled" : "") + "></label>";
+      }).join("") + "</div>")).join("");
+  }
+  function drawDrawer() {
+    const dr = $("#drawer"), el = $("#dr"), n = byId()[S.sel];
+    const mode = n ? "step" : S.panel;
+    dr.hidden = !mode || !S.graph;
+    document.querySelectorAll("[data-act^=panel-]").forEach((b) => { if (b.hasAttribute("aria-pressed")) b.setAttribute("aria-pressed", String(!n && S.panel === b.dataset.act.slice(6))); });
+    if (dr.hidden) { el.innerHTML = ""; return; }
+    const top = dr.scrollTop, same = dr.dataset.mode === mode + ":" + (n ? n.id : "");
+    $("#drawer-t").textContent = { step: "Step", preview: "What the owner sees", areas: "Areas and colours", versions: "Versions", store: "My made-up store", users: "Real users" }[mode];
+    el.innerHTML = mode === "step" ? stepHtml(n) : mode === "preview" ? previewHtml() : mode === "areas" ? areasHtml() : mode === "store" ? storeHtml() : mode === "users" ? usersHtml() : versionsHtml();
+    dr.dataset.mode = mode + ":" + (n ? n.id : "");
+    dr.scrollTop = same ? top : 0;
+  }
+
+  /* ── the bar and the dialogs ───────────────────────────────────────── */
+  function drawBar() {
+    const h = $("#health"), dirty = isDirty(), last = S.versions[0];
+    h.className = "pill" + (!S.graph ? "" : !S.valid ? " is-bad" : dirty ? " is-dirty" : "");
+    h.textContent = !S.graph ? "No flow" : !S.valid ? L(S.problems.length, "problem") + " to fix" : dirty ? "Draft" : last ? "Version " + last.rev : "The platform's flow";
+    h.title = !S.graph ? "" : !S.valid ? "The tower can't run this flow until these are fixed" : dirty ? "Changes since " + (last ? "version " + last.rev : "the platform's flow") + ", kept in this browser" : "";
+    $("#meta").textContent = S.graph ? (S.graph.label || "Store flow") + (S.graph.version ? " v" + S.graph.version : "") + " · " + L(nodes().length, "step") + " · kept in this browser" : "The steps a store walks in the Control Tower";
+    $("#facts-pick").innerHTML = Object.keys(FACTS).map((k) => opt(k, FACTS[k].label, S.pick)).join("");
+    $("#undo").disabled = !S.undo.length;
+    $("#save").disabled = !S.graph || !dirty || !S.valid;
+    $("#save").title = !S.valid ? "Fix the problems first" : !dirty ? "Nothing changed since the last version" : "";
+    $("#share").disabled = !S.graph || !S.valid;
+    $("#menu").hidden = !S.menu; $("[data-act=menu]").setAttribute("aria-expanded", String(S.menu));
+  }
+  function drawAsk() {
+    const slot = $("#askslot"), a = S.ask;
+    let html = "";
+    if (S.graph && !S.valid) html += '<div class="ask"><h2>Fix ' + (S.problems.length === 1 ? "this" : "these") + " before trying it in the tower</h2><div class=\"problems\">" + S.problems.slice(0, 8).map((e) => {
+      const mm = /^\$\.nodes\[(\d+)\]/.exec(e.path), n = mm && nodes()[+mm[1]];
+      return "<button type=\"button\"" + (n ? ' data-goto="' + esc(n.id) + '"' : "") + ">" + esc(friendly(e)) + "</button>";
+    }).join("") + "</div></div>";
+    if (a && a.kind === "save") {
+      const lines = diffText(baseJson(), S.graph), rev = (S.versions[0] ? S.versions[0].rev : 0) + 1;
+      html += '<div class="ask" role="group" aria-label="Save version"><h2>Save as version ' + rev + "?</h2><p>Changes since " + (S.versions[0] ? "version " + S.versions[0].rev : "the platform's flow") + ":</p>" +
+        (lines.length ? "<ul>" + lines.map((l) => "<li>" + esc(l) + "</li>").join("") + "</ul>" : "<p>No step changed; the flow's own settings did.</p>") +
+        '<div class="row"><input id="f-note" type="text" placeholder="What you are trying, in a few words (optional)" aria-label="Note"><button class="btn" type="button" data-act="no">Cancel</button><button class="btn is-primary" type="button" data-act="save-yes">Save version ' + rev + "</button></div></div>";
+    } else if (a && a.kind === "share") {
+      const ready = !!a.here;
+      html += '<div class="ask" role="group" aria-label="Try in the tower"><h2>Try this flow in the Control Tower</h2>' + (isDirty() ? "<p>This sends the flow as you see it now. Save a version first if you want to come back to it.</p>" : "") +
+        '<div class="opts">' +
+        '<div class="opt"><b>On this computer</b><p>Opens the tower with this flow. Nothing changes until you press Apply there. More › Store flow in the tower goes back.</p>' +
+          (ready ? '<a class="btn is-primary" href="' + esc(a.here) + '" target="_blank" rel="noopener">Open the tower</a>' : '<span class="hint">Preparing…</span>') + "</div>" +
+        '<div class="opt"><b>With someone else</b><p>Send them this link on WhatsApp or email. It opens the live tower with this flow; it changes only their device, once they press Apply.</p>' +
+          (ready ? '<button class="btn" type="button" data-act="copy-live">Copy the link</button>' : '<span class="hint">Preparing…</span>') + "</div>" +
+        '<div class="opt"><b>For every store</b><p>Download the flow file and send it to the platform team (or ask Claude) to make it the platform\'s flow.</p><button class="btn" type="button" data-act="download">Download the flow file</button></div>' +
+        '</div><p class="hint">Whoever applies it from this link shows up under Real users, with how far they get on it.</p><div class="row"><button class="btn" type="button" data-act="no">Close</button></div></div>';
+    } else if (a && a.kind === "json") {
+      html += '<div class="ask" role="group" aria-label="The flow as text"><h2>The flow as text (JSON)</h2><p>Copy it to send it, or paste a flow here and press Use this.</p><textarea id="f-json" spellcheck="false" aria-label="Flow as text">' + esc(a.text) + "</textarea>" +
+        '<div class="row"><button class="btn" type="button" data-act="copy-json">Copy</button><button class="btn" type="button" data-act="use-json">Use this</button><button class="btn" type="button" data-act="no">Close</button>' + (a.err ? '<span style="color:var(--bad);font-weight:600">' + esc(a.err) + "</span>" : "") + "</div></div>";
+    } else if (a && a.kind === "confirm") {
+      html += '<div class="ask" role="group"><h2>' + esc(a.title) + "</h2><p>" + esc(a.text) + '</p><div class="row"><button class="btn" type="button" data-act="no">Cancel</button><button class="btn is-primary" type="button" data-act="confirm-yes">' + esc(a.yes) + "</button></div></div>";
+    }
+    slot.innerHTML = html;
+    barH();
+  }
+  function refresh() { check(); walk(); keepDraft(); drawBar(); draw(); drawDrawer(); drawAsk(); }
+  function ago(iso) { const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000); return s < 60 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? Math.round(s / 3600) + " h ago" : new Date(iso).toLocaleDateString(); }
+  let toastT;
+  function toast(msg) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2800); }
+  const barH = () => document.documentElement.style.setProperty("--bar-h", ($(".bar").offsetHeight + $("#askslot").offsetHeight) + "px");
+
+  /* ── to the tower: the flow in the link, #graph=<gzip, base64url> ──── */
+  async function packed() {
+    const s = new Blob([JSON.stringify(S.graph)]).stream().pipeThrough(new CompressionStream("gzip"));
+    const buf = new Uint8Array(await new Response(s).arrayBuffer());
+    let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return "#graph=" + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function openShare() {
+    S.ask = { kind: "share" }; drawAsk();
+    const t = trialFor();
+    packed().then((h) => { if (S.ask && S.ask.kind === "share") { h += "&trial=" + t.id; S.ask.trial = t.id; S.ask.here = TOWER_HERE + h; S.ask.live = TOWER_LIVE + h; drawAsk(); } }).catch(() => toast("This browser can't build the link"));
+  }
+  async function copy(text, done) { try { await navigator.clipboard.writeText(text); toast(done); } catch (e) { toast("Copy didn't work here; select the text and copy it"); } }
+  function download() {
+    const g = S.graph; if (!g) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(g, null, 1) + "\n"], { type: "application/json" }));
+    a.download = (g.id || "store-flow") + (g.version ? "-v" + g.version : "") + ".json";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    toast("Downloaded " + a.download);
+  }
+  /* A flow from outside (a file or pasted text): a problem in words, or null when it is taken. */
+  function takeFlow(text) {
+    let g; try { g = JSON.parse(text); } catch (e) { return "That isn't a flow file (it can't be read)."; }
+    if (!g || typeof g !== "object" || !Array.isArray(g.nodes)) return "That isn't a store flow: it has no steps.";
+    if (g.schema !== FL.SCHEMA) return "That flow is in an older format (" + (g.schema || "unknown") + "); this editor reads " + FL.SCHEMA + ".";
+    replaceGraph(g, "Opened " + (g.label || "the flow") + (g.version ? " v" + g.version : ""));
+    return null;
+  }
+  function saveVersion(note) {
+    const rev = (S.versions[0] ? S.versions[0].rev : 0) + 1, summary = diffText(baseJson(), S.graph).join("; ").slice(0, 200);
+    S.graph.version = bump(S.graph.version);
+    S.versions.unshift({ rev: rev, savedAt: new Date().toISOString(), note: note || "", summary: summary, json: JSON.stringify(S.graph) });
+    S.versions = S.versions.slice(0, 40);
+    if (!writeStore({ versions: S.versions })) toast("This browser wouldn't keep it; download the flow file instead");
+    S.ask = null; refresh(); toast("Saved as version " + rev + " (v" + S.graph.version + ")");
+  }
+
+  /* ── real users: testers of a flow sent from here ───────────────────
+     Each link to the tower carries a trial id; a tester who applies it
+     reports where they stand on it to the bridge (/api/journeys) every
+     time that changes. Here the testers of a trial are read back and
+     drawn on the steps: who is on a step, for how long, who is done. */
+  function bridge() {
+    let b = ""; try { b = localStorage.getItem("fb-api-base") || ""; } catch (e) { /* private window */ }
+    if (b) return b.replace(/\/+$/, "");
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? BRIDGE_LOCAL : BRIDGE;
+  }
+  /* The trial for the flow as it is now: the same flow sent twice is one trial. */
+  function trialFor() {
+    const json = JSON.stringify(S.graph);
+    let t = S.trials.find((x) => x.json === json);
+    if (!t) {
+      t = { id: "T-" + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4), at: new Date().toISOString(), version: S.graph.version || "", note: (S.versions[0] && S.versions[0].json === json && S.versions[0].note) || "", json: json };
+      S.trials.unshift(t); S.trials = S.trials.slice(0, 30); writeStore({ trials: S.trials });
+    }
+    S.trial = t.id;
+    return t;
+  }
+  let usersT = null;
+  function loadUsers() {
+    clearTimeout(usersT);
+    const id = S.trial; if (!id) { drawDrawer(); return; }
+    S.users = Object.assign({}, S.users && S.users.trial === id ? S.users : { trial: id, testers: [] }, { loading: true, err: null });
+    drawDrawer();
+    const headers = S.teamKey ? { "X-FB-Team": S.teamKey } : {};
+    fetch(bridge() + "/api/journeys?trial=" + encodeURIComponent(id), { headers: headers, cache: "no-store" })
+      .then((r) => r.json().catch(() => ({})).then((j) => ({ status: r.status, j: j })))
+      .then((x) => {
+        if (S.trial !== id) return;
+        if (x.status === 401) S.users = { trial: id, testers: [], err: "key", loading: false };
+        else if (x.status !== 200) S.users = { trial: id, testers: [], err: x.status === 503 ? "The bridge has no store set up yet." : "The bridge didn't answer (" + x.status + ").", loading: false };
+        else S.users = { trial: id, testers: x.j.testers || [], at: Date.now(), loading: false };
+        draw(); drawDrawer();
+      })
+      .catch(() => { if (S.trial === id) { S.users = { trial: id, testers: [], err: "The FoodBridge bridge can't be reached from here.", loading: false }; drawDrawer(); } })
+      .then(() => { if (S.trial === id) usersT = setTimeout(() => { if (!document.hidden && S.trial === id) loadUsers(); }, 60e3); });
+  }
+  const testers = () => (S.users && S.users.trial === S.trial && !S.users.err ? S.users.testers : []);
+  function dur(ms) { const h = ms / 3600e3; return h < 1 ? Math.max(1, Math.round(ms / 60e3)) + " min" : h < 48 ? Math.round(h) + " h" : Math.round(h / 24) + " days"; }
+  const isHere = (s) => s === "open" || s === "enough";
+  const stuckOn = (t, id) => isHere(t.states[id]) && t.opened && t.opened[id] && (t.at || Date.now()) - t.opened[id] > STUCK && t.states[id] === "open";
+  function usersOn(id) {
+    const xs = testers(); if (!xs.length) return null;
+    const u = { here: 0, done: 0, stuck: 0 };
+    xs.forEach((t) => { const s = t.states[id]; if (s === "open") { u.here++; if (stuckOn(t, id)) u.stuck++; } else if (s === "done") u.done++; });
+    return u;
+  }
+  const who = (t) => t.tester.name || "A tester with no name";
+  function whereIs(t) {
+    const m = byId(), open = Object.keys(t.states).filter((k) => t.states[k] === "open");
+    const live = Object.keys(t.states).filter((k) => t.states[k] !== "skipped"), done = live.filter((k) => t.states[k] === "done").length;
+    const on = t.focus && t.states[t.focus] === "open" ? t.focus : open[0];
+    return { on: on, name: on ? nameOf(m[on]) || on : "", since: on && t.opened ? t.opened[on] : null, done: done, total: live.length, stuck: on ? stuckOn(t, on) : false };
+  }
+  function usersHtml() {
+    if (!S.trials.length) return sec("", "<p>No flow has gone to testers yet. Press <b>Try in the tower</b>, copy the link and send it to someone. Whoever applies it shows up here, with how far they get.</p>");
+    const u = S.users && S.users.trial === S.trial ? S.users : { loading: true, testers: [] };
+    const t = S.trials.find((x) => x.id === S.trial) || S.trials[0];
+    const changed = t && t.json !== JSON.stringify(S.graph);
+    let h = sec("", '<label class="f"><span>The flow you sent</span><select id="f-trial">' + S.trials.map((x) => opt(x.id, (x.version ? "v" + x.version : "Flow") + " · sent " + ago(x.at) + (x.note ? " · " + x.note : ""), S.trial)).join("") + "</select></label>" +
+      (changed ? '<p class="hint">You have changed the flow since you sent it. Testers are on the flow you sent; they show on the steps that still exist.</p>' : ""));
+    if (u.err === "key") return h + sec("", "<p>The team key lets you read testers' progress. Ask the FoodBridge team for it; it is kept in this browser.</p>" +
+      '<div class="chips"><input id="f-teamkey" type="password" autocomplete="off" placeholder="Team key" style="height:34px;border-radius:9px;border:1px solid var(--line);background:var(--bg);padding:0 10px"><button class="btn is-primary" type="button" data-act="team-key">Use it</button></div>' + (S.teamKey ? '<p class="hint" style="color:var(--bad)">That key wasn\'t accepted.</p>' : ""));
+    if (u.err) return h + sec("", "<p>" + esc(u.err) + '</p><div class="chips"><button class="btn sm" type="button" data-act="users-refresh">Try again</button></div>');
+    const xs = u.testers || [];
+    const stuck = xs.filter((x) => whereIs(x).stuck).length;
+    h += sec("", "<p>" + (u.loading && !xs.length ? "Looking for testers…" : !xs.length ? "No one has applied this flow yet. Testers show up here as soon as they press Apply in the tower." :
+        L(xs.length, "tester") + (stuck ? " · <b style=\"color:var(--bad)\">" + stuck + " stuck</b> (on one step over a day)" : "")) + "</p>" +
+      '<div class="chips"><button class="btn sm" type="button" data-act="users-refresh"' + (u.loading ? " disabled" : "") + ">" + (u.loading ? "Refreshing…" : "Refresh") + "</button>" + (u.at ? '<span class="hint">updated ' + ago(new Date(u.at).toISOString()) + "</span>" : "") + "</div>");
+    if (xs.length) h += '<div class="list">' + xs.map((x) => {
+      const w = whereIs(x);
+      return '<button class="tester" type="button"' + (w.on && byId()[w.on] ? ' data-goto="' + esc(w.on) + '"' : "") + "><b>" + esc(who(x)) + "</b>" +
+        '<span class="tag' + (w.stuck ? " is-stuck" : !w.on ? " is-done" : "") + '">' + (w.stuck ? "Stuck" : !w.on ? "Nothing to do" : "On a step") + "</span>" +
+        "<small>" + esc((w.on ? "On “" + w.name + "”" + (w.since ? " for " + dur((x.at || Date.now()) - w.since) : "") : "Every step done or waiting") + " · " + w.done + " of " + w.total + " done · seen " + ago(new Date(x.at).toISOString())) + "</small></button>";
+    }).join("") + "</div>";
+    return h + sec("", '<p class="hint">Each tester\'s place on the flow updates whenever a step opens or is done on their device. A trading business stands where its records say, so its testers may start part-way.</p>');
+  }
+  function usersStepHtml(n) {
+    const xs = testers(); if (!xs.length) return "";
+    const rows = xs.map((t) => {
+      const s = t.states[n.id], op = t.opened && t.opened[n.id], dn = t.doneAt && t.doneAt[n.id], st = stuckOn(t, n.id);
+      const txt = s === "open" ? "on it" + (op ? " for " + dur((t.at || Date.now()) - op) : "") : s === "enough" ? "past the minimum, can do more" : s === "done" ? "done" + (op && dn && dn >= op ? " in " + dur(dn - op) : "") : s === "skipped" ? "not needed" : s === "locked" ? "not there yet" : "not in their flow";
+      return '<div class="who' + (st ? " is-stuck" : "") + '"><b>' + esc(who(t)) + "</b><span>" + esc(txt) + (st ? " (stuck)" : "") + "</span></div>";
+    });
+    return sec("Real users on this step", rows.join(""));
+  }
+
+  /* ── wiring ───────────────────────────────────────────────────────── */
+  document.addEventListener("click", (e) => {
+    if (S.menu && !e.target.closest(".menu")) { S.menu = false; drawBar(); }
+    const b = e.target.closest("button, a, [data-goto]"); if (!b || b.closest(".dn")) return;
+    const d = b.dataset, n = byId()[S.sel];
+    if (b.closest(".menu-list")) { S.menu = false; drawBar(); }
+    if (d.pop) {
+      const p = S.pop; S.pop = null;
+      if (d.pop === "after" || d.pop === "also") relink(p.id, p.target, d.pop);
+      else if (d.pop === "lane") moveToArea(p.id, p.area);
+      else if (d.pop === "unlink") unlink(p.from, p.to);
+      else { S.edge = null; draw(); }
+      return;
+    }
+    if (d.goto) { S.sel = d.goto; S.panel = null; refresh(); reveal(d.goto); return; }
+    if (d.addin !== undefined) { addStep(d.addin, null); return; }
+    if (d.unafter && n) { commit(() => { n.after = n.after.filter((a) => a !== d.unafter); if (!n.after.length) delete n.after; if ((n.after || []).length < 2) delete n.join; }); return; }
+    if (d.ruleAdd && n) {
+      const m = parseRule(n[d.ruleAdd]); if (!m) return;
+      const other = nodes().find((x) => x.id !== n.id && (n.after || []).indexOf(x.id) !== -1) || nodes().find((x) => x.id !== n.id);
+      m.rows.push(d.kind === "node" ? { t: "node", node: other.id, is: "done" } : { t: "fact", fact: AREA_FACT[n.area] || "products.count", op: "gte", val: 1 });
+      commit(() => setPath(n, d.ruleAdd, buildRule(m))); return;
+    }
+    if (d.ruleDel && n) { const m = parseRule(n[d.ruleDel]); if (!m) return; m.rows.splice(+d.i, 1); commit(() => setPath(n, d.ruleDel, buildRule(m))); return; }
+    if (d.ruleClear && n) { commit(() => setPath(n, d.ruleClear, undefined), "Cleared; build the rule again below"); return; }
+    if (d.zoom) { const el = $("#dia"); if (d.zoom === "fit") fit(0.2); else zoomAt(el.clientWidth / 2, el.clientHeight / 2, d.zoom === "in" ? 1.2 : 1 / 1.2); return; }
+    if (d.load) {
+      const json = d.load === "platform" ? S.platform : (S.versions.find((x) => String(x.rev) === d.load) || {}).json; if (!json) return;
+      replaceGraph(JSON.parse(json), (d.load === "platform" ? "Opened the platform's flow" : "Opened version " + d.load) + ". Undo brings your draft back."); S.panel = "versions"; drawDrawer(); return;
+    }
+    if (d.amove) { const keys = Object.keys(areasOf()), i = keys.indexOf(d.amove), j = i + +d.dir; if (j < 0 || j >= keys.length) return; [keys[i], keys[j]] = [keys[j], keys[i]]; const A = areasOf(); commit(() => { const o = {}; keys.forEach((k) => { o[k] = A[k]; }); S.graph.areas = o; }); return; }
+    if (d.adel) { const nm = areaName(d.adel); commit(() => { delete S.graph.areas[d.adel]; }, "Removed the area " + nm); return; }
+    switch (d.act) {
+      case "menu": S.menu = !S.menu; drawBar(); break;
+      case "users-refresh": loadUsers(); break;
+      case "team-key": { const v = (($("#f-teamkey") || {}).value || "").trim(); S.teamKey = v; writeStore({ teamKey: v }); loadUsers(); break; }
+      case "undo": if (S.undo.length) { S.graph = JSON.parse(S.undo.pop()); if (S.sel && !byId()[S.sel]) S.sel = null; S.edge = null; S.pop = null; refresh(); } break;
+      case "save": S.ask = { kind: "save" }; drawAsk(); setTimeout(() => { const f = $("#f-note"); if (f) f.focus(); }, 0); break;
+      case "save-yes": saveVersion((($("#f-note") || {}).value || "").trim()); break;
+      case "share": openShare(); break;
+      case "copy-live": if (S.ask && S.ask.live) copy(S.ask.live, "Link copied: send it to whoever tries the flow"); break;
+      case "download": download(); break;
+      case "open-file": $("#file").value = ""; $("#file").click(); break;
+      case "json": S.ask = { kind: "json", text: JSON.stringify(S.graph || { schema: FL.SCHEMA, id: "store-journey", areas: {}, nodes: [] }, null, 1) }; drawAsk(); break;
+      case "copy-json": copy(($("#f-json") || {}).value || "", "Copied"); break;
+      case "use-json": { const t = $("#f-json").value, err = takeFlow(t); if (err) { S.ask.err = err; S.ask.text = t; drawAsk(); } break; }
+      case "blank": S.ask = { kind: "confirm", what: "blank", title: "Start a blank flow?", text: "You start with one step and the same areas. Undo brings this flow back, and saved versions stay.", yes: "Start blank" }; drawAsk(); break;
+      case "platform": S.ask = { kind: "confirm", what: "platform", title: "Go back to the platform's flow?", text: "Your draft is replaced by the flow every store runs today. Undo brings it back, and saved versions stay.", yes: "Go back" }; drawAsk(); break;
+      case "confirm-yes": {
+        const what = S.ask && S.ask.what; S.ask = null;
+        if (what === "platform" && S.platform) replaceGraph(JSON.parse(S.platform), "Back to the platform's flow");
+        if (what === "blank") {
+          const area = Object.keys(areasOf())[0];
+          S.fresh["first-step"] = 1;
+          replaceGraph({ schema: FL.SCHEMA, id: (S.graph && S.graph.id) || "store-journey", label: "New store flow", version: "1.0.0", areas: clone(areasOf()),
+            nodes: [{ id: "first-step", label: "First step", area: area, card: { title: "First step", ask: "", coins: 50 } }] }, "A blank flow: name its first step");
+          S.sel = "first-step"; drawDrawer();
+        }
+        break;
+      }
+      case "no": S.ask = null; drawAsk(); drawDrawer(); break;
+      case "add": addStep(n ? n.area : laneKeys()[0], n ? n.id : null); break;
+      case "add-after": if (n) addStep(n.area, n.id); break;
+      case "del": S.ask = { kind: "delete", id: S.sel }; drawDrawer(); break;
+      case "nodel": S.ask = null; drawDrawer(); break;
+      case "del-yes": deleteStep(S.sel); break;
+      case "close": S.sel = null; S.panel = null; S.ask = S.ask && S.ask.kind === "delete" ? null : S.ask; draw(); drawDrawer(); break;
+      case "panel-preview": case "panel-areas": case "panel-versions": case "panel-store": case "panel-users": {
+        const p = d.act.slice(6); S.panel = S.panel === p && !S.sel ? null : p; S.sel = null;
+        if (p === "users" && S.panel) { if (!S.trial && S.trials[0]) S.trial = S.trials[0].id; loadUsers(); }
+        if (p === "store" && S.panel) { if (!S.mine) S.mine = clone(factsNow()); S.pick = "mine"; refresh(); } else { draw(); drawDrawer(); }
+        break;
+      }
+      case "area-add": {
+        const name = (($("#f-newarea") || {}).value || "").trim(); if (!name) return;
+        let k = slug(name), i = 2; while (areasOf()[k]) k = slug(name) + "-" + i++;
+        commit(() => { S.graph.areas = Object.assign({}, areasOf(), { [k]: { label: name, word: name, icon: "box", colour: colourSet("#4B5563"), promise: "" } }); }, "Added the area " + name);
+        break;
+      }
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.id === "facts-pick") { S.pick = t.value; if (S.pick === "mine" && !S.mine) S.mine = clone(FACTS.new.facts); writeStore({ pick: S.pick }); refresh(); return; }
+    if (t.id === "f-trial") { S.trial = t.value; S.users = null; loadUsers(); return; }
+    if (t.id === "f-minefrom") { if (!t.value) return; S.mine = clone(FACTS[t.value].facts); S.pick = "mine"; writeStore({ mine: S.mine, pick: "mine" }); refresh(); return; }
+    if (t.dataset.fact) {
+      S.mine = S.mine || clone(factsNow());
+      setPath(S.mine, t.dataset.fact, t.type === "checkbox" ? t.checked : Math.max(0, Number(t.value) || 0));
+      S.mine = JF.derive(S.mine); S.pick = "mine"; writeStore({ mine: S.mine, pick: "mine" }); refresh(); return;
+    }
+    if (t.dataset.area) {
+      const k = t.dataset.area, key = t.dataset.k, v = t.value.trim();
+      commit(() => { const a = S.graph.areas[k]; if (key === "colour") a.colour = colourSet(t.value); else setPath(a, key, v === "" ? undefined : v); });
+      return;
+    }
+    const n = byId()[S.sel];
+    if (t.id === "f-addafter") { if (!t.value || !n) return; const v = t.value; commit(() => { n.after = (n.after || []).concat(v); }); return; }
+    if (!n) return;
+    if (t.name === "enough-mode") {
+      const v = t.value;
+      const firstDone = (parseRule(n.done) || { rows: [] }).rows.find((r) => r.t === "fact");
+      commit(() => setPath(n, "enough", v === "done" ? undefined : v === "now" ? true : buildRule({ mode: "all", rows: [firstDone ? { t: "fact", fact: firstDone.fact, op: "gte", val: 1 } : { t: "fact", fact: AREA_FACT[n.area] || "products.count", op: "gte", val: 1 }] })));
+      return;
+    }
+    if (t.dataset.rule) {
+      const key = t.dataset.rule, m = parseRule(n[key]); if (!m) return;
+      if (t.dataset.part === "mode") m.mode = t.value;
+      else {
+        const r = m.rows[+t.dataset.i], part = t.dataset.part;
+        if (part === "fact") { r.fact = t.value; if (FACT[r.fact] && FACT[r.fact].yesno) { r.op = "eq"; r.val = true; } else if (typeof r.val !== "number") { r.op = "gte"; r.val = 1; } }
+        else if (part === "op") r.op = t.value;
+        else if (part === "val") r.val = Math.max(0, Number(t.value) || 0);
+        else if (part === "yes") r.val = t.value === "yes";
+        else if (part === "node") r.node = t.value;
+        else if (part === "is") r.is = t.value;
+      }
+      commit(() => setPath(n, key, buildRule(m)));
+      return;
+    }
+    if (t.dataset.name) {
+      const v = t.value.trim(), old = nameOf(n); if (!v || v === old) return;
+      commit(() => {
+        n.label = v; n.card = n.card || {};
+        if (!n.card.title || n.card.title === old) n.card.title = v;
+        if (S.fresh[n.id]) { const to = uniqueId(slug(v), n.id); if (to !== n.id) { const from = n.id; renameId(from, to); delete S.fresh[from]; S.fresh[to] = 1; S.sel = to; } }
+      });
+      return;
+    }
+    if (t.dataset.screen) {
+      const sc = S.screens.find((x) => x.route === t.value) || (n.card && n.card.screen && n.card.screen.route === t.value ? n.card.screen : null);
+      commit(() => setPath(n, "card.screen", t.value ? { route: t.value, label: sc ? sc.label : t.value } : undefined)); return;
+    }
+    if (t.dataset.rename) {
+      const v = slug(t.value.trim());
+      if (!v || v === n.id) return;
+      if (byId()[v]) { t.classList.add("is-err"); toast("Another step already has the code " + v); return; }
+      const from = n.id; commit(() => { renameId(from, v); delete S.fresh[from]; S.sel = v; }, "Step code is now " + v); return;
+    }
+    const path = t.dataset.path; if (!path) return;
+    let v;
+    if (t.dataset.bool) v = t.checked ? true : undefined;
+    else if (t.dataset.json) { const raw = t.value.trim(); if (!raw) v = undefined; else { try { v = JSON.parse(raw); } catch (err) { t.classList.add("is-err"); toast("That isn't valid code: " + err.message); return; } } }
+    else if (t.dataset.num) v = t.value === "" ? undefined : Math.max(0, Number(t.value) || 0);
+    else { v = t.value === "" ? undefined : t.value; if (t.dataset.hash && v) v = v.replace(/#/g, "{n}"); }
+    commit(() => setPath(n, path, v));
+  });
+  $("#file").addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    f.text().then((t) => { const err = takeFlow(t); if (err) toast(err); }).catch(() => toast("That file couldn't be read"));
+  });
+  $("#find").addEventListener("input", (e) => { S.find = e.target.value; draw(); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { e.preventDefault(); $("#undo").click(); }
+    if (e.key === "Escape") { if (S.menu) { S.menu = false; drawBar(); } else if (S.pop) { S.pop = null; S.edge = null; draw(); } else if (S.ask) { S.ask = null; drawAsk(); drawDrawer(); } else if (S.sel || S.panel) { S.sel = null; S.panel = null; draw(); drawDrawer(); } }
+    if (e.key === "Enter" && e.target.id === "f-note") { e.preventDefault(); saveVersion(e.target.value.trim()); }
+    if (e.key === "Enter" && e.target.id === "f-newarea") { e.preventDefault(); const b = $("[data-act=area-add]"); if (b) b.click(); }
+    const nd = e.target.closest && e.target.closest(".dn");
+    if (nd && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(nd.dataset.id); }
+  });
+  function pick(id) { S.sel = id; S.panel = null; S.edge = null; S.pop = null; if (S.ask && S.ask.kind === "delete") S.ask = null; draw(); drawDrawer(); reveal(id); }
+
+  /* The flow: press a step and let go to pick it; press and move to drag it
+     (onto a step: wait for it; into a row: change its area); press its ●
+     and move to make another step wait for it; press the background to
+     pan; click an arrow to remove it. The wheel pans, Ctrl or pinch zooms. */
+  const dia = $("#dia");
+  let P = null, ghost = null;
+  const marks = () => dia.querySelectorAll(".drop-on,.no-drop,.drop-lane").forEach((r) => r.classList.remove("drop-on", "no-drop", "drop-lane"));
+  const toCanvas = (cx, cy) => { const r = dia.getBoundingClientRect(); return [(cx - r.left - V.x) / V.k, (cy - r.top - V.y) / V.k]; };
+  dia.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest(".dia-tools,.legend,.pop,.empty,.lane-add")) return;
+    const port = e.target.closest(".port"), nd = e.target.closest(".dn"), edge = e.target.closest(".hit");
+    if (edge) { P = { mode: "edge", from: edge.dataset.from, to: edge.dataset.to, sx: e.clientX, sy: e.clientY, moved: false }; return; }
+    P = { id: nd ? nd.dataset.id : null, sx: e.clientX, sy: e.clientY, ox: V.x, oy: V.y, moved: false, target: null, mode: port ? "link" : nd ? "press" : "pan" };
+    try { dia.setPointerCapture(e.pointerId); } catch (err) { /* fine */ }
+  });
+  dia.addEventListener("pointermove", (e) => {
+    if (!P || P.mode === "edge") return;
+    const dx = e.clientX - P.sx, dy = e.clientY - P.sy;
+    if (!P.moved && Math.hypot(dx, dy) < 6) return;
+    P.moved = true;
+    if (P.mode === "pan") { V.x = P.ox + dx; V.y = P.oy + dy; applyV(); dia.classList.add("is-panning"); return; }
+    if (P.mode === "press") {
+      P.mode = "drag";
+      ghost = document.createElement("div"); ghost.className = "ghost"; ghost.textContent = "Move " + nameOf(byId()[P.id]); document.body.appendChild(ghost);
+      const src = dia.querySelector('.dn[data-id="' + CSS.escape(P.id) + '"]'); if (src) src.classList.add("is-dragging");
+      S.pop = null; drawPop();
+    }
+    const r = dia.getBoundingClientRect(), edgeZ = 44;
+    const ax = e.clientX < r.left + edgeZ ? 14 : e.clientX > r.right - edgeZ ? -14 : 0, ay = e.clientY < r.top + edgeZ ? 14 : e.clientY > r.bottom - edgeZ ? -14 : 0;
+    if (ax || ay) { V.x += ax; V.y += ay; applyV(); }
+    marks(); P.target = null;
+    const el = document.elementFromPoint(e.clientX, e.clientY), t = el && el.closest(".dn"), lane = el && el.closest(".lane");
+    if (P.mode === "link") {
+      const a = lay.L[P.id], c = toCanvas(e.clientX, e.clientY);
+      $("#tmp").setAttribute("d", "M" + (a.x + G.NW) + " " + (a.y + G.NH / 2) + "L" + c[0] + " " + c[1]);
+      if (t && dia.contains(t) && t.dataset.id !== P.id) {
+        const ok = !upstreamOf(P.id, t.dataset.id);
+        t.classList.add(ok ? "drop-on" : "no-drop"); if (ok) P.target = { id: t.dataset.id };
+      }
+      return;
+    }
+    ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px";
+    if (t && dia.contains(t) && t.dataset.id !== P.id) {
+      const ok = !upstreamOf(t.dataset.id, P.id);
+      t.classList.add(ok ? "drop-on" : "no-drop"); if (ok) P.target = { kind: "node", id: t.dataset.id };
+    } else if (lane && !t && (byId()[P.id].area || "") !== lane.dataset.lane && lane.dataset.lane) {
+      lane.classList.add("drop-lane"); P.target = { kind: "lane", area: lane.dataset.lane };
+    }
+  });
+  function endPress(e, cancel) {
+    if (!P) return;
+    const p = P; P = null; dia.classList.remove("is-panning"); marks();
+    if (ghost) { ghost.remove(); ghost = null; }
+    const tmp = $("#tmp"); if (tmp) tmp.setAttribute("d", "");
+    if (cancel) { draw(); return; }
+    if (p.mode === "edge") { S.edge = { from: p.from, to: p.to }; S.pop = { kind: "edge", from: p.from, to: p.to, x: e.clientX, y: e.clientY }; draw(); return; }
+    if (p.mode === "link") { if (p.target) connect(p.id, p.target.id); else draw(); return; }
+    if (p.mode === "drag") {
+      if (p.target && p.target.kind === "node") S.pop = { kind: "node", id: p.id, target: p.target.id, x: e.clientX, y: e.clientY };
+      else if (p.target && p.target.kind === "lane") S.pop = { kind: "lane", id: p.id, area: p.target.area, x: e.clientX, y: e.clientY };
+      draw(); return;
+    }
+    if (!p.moved && p.mode === "press") pick(p.id);
+    else if (!p.moved && p.mode === "pan" && (S.pop || S.edge)) { S.pop = null; S.edge = null; draw(); }
+  }
+  dia.addEventListener("pointerup", (e) => endPress(e, false));
+  dia.addEventListener("pointercancel", (e) => endPress(e, true));
+  dia.addEventListener("wheel", (e) => {
+    if (e.target.closest(".dia-tools,.legend,.pop")) return;
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) { const r = dia.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01)); }
+    else { V.x -= e.deltaX; V.y -= e.deltaY; applyV(); }
+  }, { passive: false });
+  let fitT;
+  window.addEventListener("resize", () => { clearTimeout(fitT); fitT = setTimeout(() => { barH(); if (lay) fit(0.55); }, 200); });
+
+  /* ── start: this browser's draft, else the platform's flow ─────────── */
+  function screensFrom(m) {
+    const out = [];
+    (m.nav || []).forEach((g) => {
+      if (!g || g.hidden || !g.id) return;
+      if (Array.isArray(g.submenus) && g.submenus.length) g.submenus.forEach((s) => { if (s && !s.hidden && s.id) out.push({ route: "#/" + g.id + "/" + s.id, label: s.name || s.id, group: g.name || "" }); });
+      else if (g.url) out.push({ route: "#/" + g.id, label: g.name || g.id, group: "" });
+    });
+    return out;
+  }
+  barH(); refresh();
+  (async () => {
+    const st = readStore();
+    S.versions = Array.isArray(st.versions) ? st.versions : [];
+    S.trials = Array.isArray(st.trials) ? st.trials : []; S.teamKey = st.teamKey || "";
+    S.mine = st.mine || null; if (st.pick && FACTS[st.pick] && (st.pick !== "mine" || S.mine)) S.pick = st.pick;
+    fetch(MODULES_URL).then((r) => r.json()).then((m) => { S.screens = screensFrom(m); if (S.sel) drawDrawer(); }).catch(() => { /* the screen list stays as the flow names them */ });
+    try { const r = await fetch(FLOW_URL, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); S.platform = JSON.stringify(await r.json()); } catch (e) { S.platform = null; }
+    const draft = st.draft && Array.isArray(st.draft.nodes) ? st.draft : null;
+    S.graph = draft || (S.platform ? JSON.parse(S.platform) : null);
+    keptJson = S.graph ? JSON.stringify(S.graph) : null;
+    if (!S.graph) S.empty = "<b>The platform's flow couldn't be read</b><span>Open a flow file to start.</span><button class=\"btn is-primary\" type=\"button\" data-act=\"open-file\">Open a flow file</button>";
+    refresh();
+  })();
+})();
+</script>
+</body></html>

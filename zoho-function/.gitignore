@@ -9,3 +9,5 @@ node_modules
 feedback.jsonl
 # Store Builder builds kept by the local stores store (dev only): real customer data, never committed.
 stores-data/
+# Testers' progress on Store Flow Editor trials, kept by the local journeys store (dev only).
+journeys-data/

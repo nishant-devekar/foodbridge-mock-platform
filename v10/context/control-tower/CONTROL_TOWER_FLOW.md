@@ -42,6 +42,12 @@ flow.
   - drag a step's ● to link a step after it, and click an arrow to remove it;
   - walk the flow on sample facts or your own and see what Now shows;
   - save versions, and apply to the tower: the tower shows Apply / Not now.
+- **Real users** (17 Oct 2026): every tower link from the editor carries a trial id (`#graph=…&trial=T-…`).
+  A tester who presses Apply (and gives a name) reports where they stand on that flow whenever a step opens or
+  is done: the flow's steps, their states and times, never the store's records. It goes to the bridge
+  (`zoho-function/api/journeys.js`, private Blob; local `journeys-data/`), and the editor's Real users panel
+  reads it back behind the team key: who is on which step, for how long, who is stuck (one step over a day).
+  Going back to the shipped flow ends the trial.
 - `FBControlTower.api.graph.inject(flow)` from a script. Validated first; kept on the device; More → Store
   flow goes back.
 

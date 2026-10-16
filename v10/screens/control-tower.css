@@ -1313,6 +1313,8 @@ html.ct-desk .ct-stories { margin-left: 0; margin-right: 0; padding-left: 0; pad
 .ct-inc-t { flex: 1 1 260px; display: grid; gap: 3px; min-width: 0; }
 .ct-inc-t b { font-size: 15px; line-height: 20px; }
 .ct-inc-t span { font-size: 13px; line-height: 18px; color: #C9CDD3; overflow-wrap: anywhere; }
+.ct-inc-name { margin-top: 6px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .22); background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-size: 14px; }
+.ct-inc-name::placeholder { color: #9AA1AB; }
 .ct-inc-a { display: flex; gap: 8px; flex: none; }
 .ct-inc-a .ct-btn { flex: none; height: 40px; padding: 0 16px; border-radius: 12px; font-size: 14px; }
 .ct-inc-a .ct-btn.is-ghost { background: rgba(255, 255, 255, .12); color: #fff; border: 0; }

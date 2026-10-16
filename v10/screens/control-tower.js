@@ -310,7 +310,8 @@
   function readIncoming() {
     const m = /(?:^#|[#&])graph=([A-Za-z0-9_-]+)/.exec(location.hash || "");
     if (!m) return;
-    decodeGraph(m[1]).then(function (g) { showIncoming(g, null); })
+    const t = /[#&]trial=(T-[a-z0-9]{6,16})(?:&|$)/.exec(location.hash || "");
+    decodeGraph(m[1]).then(function (g) { showIncoming(g, null, t ? t[1] : null); })
       .catch(function () { showIncoming(null, "The link's graph could not be read. Copy the link again from the editor."); });
   }
   function decodeGraph(b64) {
@@ -332,7 +333,7 @@
     Object.keys(A).forEach(function (k) { if (!B[k]) removed++; });
     return { added: added, removed: removed, changed: changed, areas: JSON.stringify((a && a.areas) || {}) !== JSON.stringify((b && b.areas) || {}) };
   }
-  function showIncoming(g, problem) {
+  function showIncoming(g, problem, trial) {
     let bar = $("#ct-incoming");
     if (!bar) { bar = document.createElement("div"); bar.id = "ct-incoming"; bar.setAttribute("role", "alertdialog"); bar.setAttribute("aria-label", "New tower graph"); document.body.appendChild(bar); }
     const v = g && window.FBFlow ? window.FBFlow.validate(g) : null;
@@ -340,7 +341,9 @@
     const d = g ? graphDiff(jr.raw, g) : null;
     const what = d ? [d.added ? d.added + " added" : "", d.removed ? d.removed + " removed" : "", d.changed ? d.changed + " changed" : "", d.areas ? "areas changed" : ""].filter(Boolean).join(", ") || "no differences" : "";
     bar.innerHTML = '<div class="ct-inc-t"><b>' + (problem ? "This flow can't be used" : "New flow from the editor") + "</b>" +
-      "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "step") + " · " + what + " compared with the one in use")) + "</span></div>" +
+      "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "step") + " · " + what + " compared with the one in use")) + "</span>" +
+      (trial && !problem ? '<span>You are trying it for the FoodBridge team: how far you get on it (each step and when) goes to them, under your name.</span>' +
+        '<input class="ct-inc-name" type="text" maxlength="60" autocomplete="name" placeholder="Your name" aria-label="Your name" value="' + esc((jget(TRIAL_KEY, null) || {}).name || "") + '">' : "") + "</div>" +
       '<div class="ct-inc-a">' + (problem ? "" : '<button type="button" class="ct-btn" data-inc="apply">Apply</button>') +
       '<button type="button" class="ct-btn is-ghost" data-inc="no">' + (problem ? "Close" : "Not now") + "</button></div>";
     bar.onclick = function (e) {
@@ -348,12 +351,62 @@
       clearIncomingLink();
       if (b.dataset.inc === "apply") {
         b.disabled = true;
+        const nm = bar.querySelector(".ct-inc-name");
+        startTrial(trial && g ? { id: trial, name: nm ? nm.value.trim().slice(0, 60) : "", flow: g.id, version: g.version || "" } : null);
         Promise.resolve(useGraph(g)).then(function (r) {
           bar.remove();
           toast(r && r.ok === false ? "The graph wasn't applied: " + r.errors[0].message : "Tower updated from the editor");
         });
       } else bar.remove();
     };
+  }
+  /* ── A trial from the Store Flow Editor (17 Oct 2026) ───────────────
+     A flow sent to testers carries a trial id in its link (#…&trial=T-…).
+     Once a tester applies it, every change in where they stand on it (a
+     step opening, one done) goes to the bridge (/api/journeys), so the
+     team that wrote the flow sees how far each tester got and where they
+     stall (ux/store-flow-editor.html, Real users). Only the flow's own
+     steps, their states and times, and the name the tester gave; never
+     the store's records. Going back to the shipped flow ends the trial. */
+  const TRIAL_KEY = "fb.v10.ct.trial", TESTER_KEY = "fb.v10.ct.tester";
+  const BRIDGE = "https://zoho-function-nu.vercel.app", BRIDGE_LOCAL = "http://localhost:8787";
+  function bridgeBase() {
+    let b = ""; try { b = localStorage.getItem("fb-api-base") || ""; } catch (e) { /* private window */ }
+    if (b) return b.replace(/\/+$/, "");
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? BRIDGE_LOCAL : BRIDGE;
+  }
+  function startTrial(t) {
+    if (!t) { jput(TRIAL_KEY, null); return; }
+    const was = jget(TRIAL_KEY, null);
+    jput(TRIAL_KEY, was && was.id === t.id ? Object.assign(was, { name: t.name || was.name, sent: null }) : Object.assign(t, { since: Date.now(), opened: {} }));
+  }
+  function testerId() {
+    let id = jget(TESTER_KEY, null);
+    if (!/^d-[a-z0-9]{6,24}$/.test(id || "")) { id = "d-" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); jput(TESTER_KEY, id); }
+    return id;
+  }
+  let trialBusy = false;
+  function reportTrial(ev) {
+    const t = jget(TRIAL_KEY, null);
+    if (!t || !t.id || !ev || !jr.base || trialBusy || typeof fetch !== "function") return;
+    const now = Date.now(), states = {}, opened = Object.assign({}, t.opened || {}), doneAt = {}, d = (jr.snap && jr.snap.doneAt) || {};
+    (jr.base.nodes || []).forEach(function (n) {
+      const s = ev.state(n.id); if (!s) return;
+      states[n.id] = s;
+      if ((s === "open" || s === "enough") && !opened[n.id]) opened[n.id] = now;      // when the tester first had it to do
+      if (s === "done" && d[n.id]) doneAt[n.id] = d[n.id];
+    });
+    if (JSON.stringify(opened) !== JSON.stringify(t.opened || {})) { t.opened = opened; jput(TRIAL_KEY, t); }
+    const sig = JSON.stringify([states, t.name || ""]);
+    if (sig === t.sent) return;
+    const body = { trial: t.id, tester: { id: testerId(), name: t.name || "" }, flow: { id: jr.base.id, version: jr.base.version || "" }, mode: jr.on ? "new" : "trading",
+      states: states, opened: opened, doneAt: doneAt, focus: ev.focus(), since: t.since, at: now };
+    const sent = function () { const cur = jget(TRIAL_KEY, null); if (cur && cur.id === t.id) { cur.sent = sig; jput(TRIAL_KEY, cur); } };
+    trialBusy = true;
+    fetch(bridgeBase() + "/api/journeys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true })
+      .then(function (r) { if (r.ok || (r.status >= 400 && r.status < 500)) sent(); })   // a refusal won't pass on a retry either
+      .catch(function () { /* offline: the next change, or the next visit, sends it */ })
+      .then(function () { trialBusy = false; });
   }
   function journeyStop() { jput(JKEY.on, false); jr.on = false; jr.snap = jget(snapKey(), null); }
   /* The facts the graph is walked on: the new store's own, or the trading
@@ -383,6 +436,7 @@
     catch (e) { if (window.console) console.warn("Control Tower: flow", e && (e.errors || e.message)); jr.home = null; jr.ev = null; tw = null; return; }
     jr.snap = r.snapshot; jput(snapKey(), jr.snap);
     jr.ev = r.ev;
+    reportTrial(r.ev);
     jr.home = window.CTJourneyView.home(r.ev, jr.facts);
     tw = window.FBTower.read(r.ev, jr.rules, SHELL_TABS);
     /* Moments and step coins belong to a store walking its setup; a trading
@@ -2081,7 +2135,7 @@
             const m = e.target.closest("[data-mo]"); if (!m) return;
             if (m.dataset.mo === "timeline") { closeAll(); goUpdates(); }
             else if (m.dataset.mo === "assistant") openAssistant();
-            else if (m.dataset.mo === "graph-reset") { closeAll(); jput(JKEY.graph, null); reloadGraph().then(function () { toast("Back to the shipped store flow"); }); }
+            else if (m.dataset.mo === "graph-reset") { closeAll(); jput(JKEY.graph, null); startTrial(null); reloadGraph().then(function () { toast("Back to the shipped store flow"); }); }
             else if (m.dataset.mo === "journey-on" || m.dataset.mo === "journey-off") {
               closeAll();
               if (m.dataset.mo === "journey-on") journeyStart(); else journeyStop();
@@ -3701,7 +3755,7 @@
        this device until reset. */
     graph: {
       inject: function (graph) { return useGraph(graph); },
-      reset: function () { jput(JKEY.graph, null); return reloadGraph(); },
+      reset: function () { jput(JKEY.graph, null); startTrial(null); return reloadGraph(); },
       read: function () { return tw; },
       where: where,
     },
@@ -3712,7 +3766,7 @@
         if (!jr.on) journeyStart();
         return useGraph(graph);
       },
-      reset: function () { jput(JKEY.graph, null); journeyStart(); return reloadGraph(); },
+      reset: function () { jput(JKEY.graph, null); startTrial(null); journeyStart(); return reloadGraph(); },
       stop: function () { journeyStop(); return reloadGraph(); },
       where: function () { return jr.on ? where() : null; },
       home: function () { return jr.home; },
