@@ -1,0 +1,205 @@
+{
+ "about": "How the tower reads a store's live records into work: where each area's rows come from, how alike rows become one card, how names are written. Business rules for the writer (assets/tower/writer.js), never for the flow engine.",
+ "text": {
+  "keepUpper": [
+   "MRP",
+   "GST",
+   "HSN",
+   "SBI",
+   "ODC",
+   "LLP",
+   "FMCG",
+   "M",
+   "K",
+   "S",
+   "R"
+  ],
+  "units": {
+   "GM": "gm",
+   "KG": "kg",
+   "ML": "ml",
+   "LTR": "ltr",
+   "G": "g",
+   "L": "l",
+   "PCS": "pcs"
+  },
+  "drop": [
+   "\\(?\\s*OLD MRP\\s*\\d+\\s*\\)?,?",
+   ",?\\s*NEW MRP\\s*\\d+"
+  ],
+  "codes": [
+   "^[A-Z]{2}[-\\s]?\\d{1,2}[-\\s]?[A-Z]{0,3}[-\\s]?\\d{3,4}$",
+   "^[A-Z]{1,4}-\\d{3,}(-\\d+)*$",
+   "^#?\\d{5,}$"
+  ]
+ },
+ "feed": {
+  "oneCardPer": [
+   "product"
+  ],
+  "minGroup": 2
+ },
+ "areas": {
+  "products": {
+   "source": "products",
+   "rank": 0,
+   "model": "products",
+   "feed": {
+    "noun": [
+     "product",
+     "products"
+    ],
+    "families": {
+     "noUnit": "hidden",
+     "noPrice": "hidden",
+     "noCategory": "hidden",
+     "short": "stock",
+     "out": "stock",
+     "belowCost": "price",
+     "aboveMrp": "price",
+     "brand": "paperwork",
+     "noHsn": "paperwork"
+    },
+    "groups": {
+     "fam:hidden": "{n} products are hidden from customers",
+     "fam:stock": "{n} products are short or out of stock",
+     "fam:price": "{n} products are priced wrong",
+     "fam:paperwork": "{n} products need tidying for invoices"
+    },
+    "kickers": {}
+   }
+  },
+  "customers": {
+   "source": "store-activation",
+   "rank": 1,
+   "feed": {
+    "noun": [
+     "customer",
+     "customers"
+    ],
+    "groups": {},
+    "kickers": {}
+   }
+  },
+  "deliveries": {
+   "source": "lever:deliveries",
+   "rank": 2,
+   "feed": {
+    "noun": [
+     "delivery",
+     "deliveries"
+    ],
+    "groups": {},
+    "kickers": {}
+   }
+  },
+  "collections": {
+   "source": "lever:collections",
+   "rank": 3,
+   "feed": {
+    "noun": [
+     "customer",
+     "customers"
+    ],
+    "groups": {
+     "Call to collect": "{n} customers owe {sum}, long overdue",
+     "Ask for a payment date": "{n} customers are late paying {sum}"
+    },
+    "kickers": {
+     "Call to collect": "Long overdue",
+     "Ask for a payment date": "Late paying"
+    }
+   },
+   "board": {
+    "line": "**{owed}** outstanding"
+   }
+  },
+  "inventory": {
+   "source": "lever:inventory",
+   "rank": 6,
+   "feed": {
+    "noun": [
+     "product",
+     "products"
+    ],
+    "groups": {
+     "Order today": "{n} products are out of stock",
+     "Offer to past buyers": "{n} products haven't sold: {sum} on the shelf",
+     "Reorder soon": "{n} products run low soon"
+    },
+    "kickers": {
+     "Order today": "Out of stock",
+     "Offer to past buyers": "Not selling",
+     "Reorder soon": "Running low"
+    }
+   },
+   "board": {
+    "line": "{n|product} at risk"
+   }
+  },
+  "order": {
+   "source": "lever:order",
+   "rank": 7,
+   "feed": {
+    "noun": [
+     "customer",
+     "customers"
+    ],
+    "groups": {
+     "Call to find out why": "{n} customers stopped ordering",
+     "Call to reorder": "{n} customers are late to reorder"
+    },
+    "kickers": {
+     "Call to find out why": "Stopped ordering",
+     "Call to reorder": "Late to reorder"
+    }
+   }
+  },
+  "production": {
+   "source": "lever:production",
+   "rank": 4,
+   "feed": {
+    "noun": [
+     "batch",
+     "batches"
+    ],
+    "groups": {
+     "Approve for production": "{n} products to approve for production",
+     "alert": "{n} batches need you on the floor",
+     "tab:or": "{n} products short for orders",
+     "Create order": "{n} materials to order for production"
+    },
+    "kickers": {
+     "Approve for production": "To approve",
+     "Create order": "Material to order",
+     "Call the supplier": "Late from the supplier",
+     "Approve in Purchase Orders": "Waiting for approval",
+     "tab:or": "Short for orders",
+     "alert": "On the floor"
+    }
+   },
+   "open": {
+    "ask": "Open **{tabLabel}** on the Production board?",
+    "route": "#/production/production-board?tab={tab}"
+   }
+  },
+  "purchase": {
+   "source": "lever:purchase",
+   "rank": 5,
+   "feed": {
+    "noun": [
+     "product",
+     "products"
+    ],
+    "groups": {
+     "Order today": "{n} products to buy today",
+     "Order this week": "{n} products to buy this week"
+    },
+    "kickers": {
+     "Order today": "Buy today",
+     "Order this week": "Buy this week"
+    }
+   }
+  }
+ }
+}

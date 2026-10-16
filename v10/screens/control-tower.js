@@ -231,51 +231,66 @@
   }
 
   /* ════════════════════════════════════════════════════════════════════
-     THE TOWER GRAPH (17 Oct 2026; context/control-tower/CONTROL_TOWER_GRAPH.md)
-     The whole tower is one graph, assets/tower/graphs/control-tower.json
-     (or one injected): the footer's tabs, every area (its words, icon,
-     colours, rank, data source, how its cards group and read), each
-     area's setup steps with their gates and coins, the milestones. The
-     journey engine walks it and knows no business; assets/tower/runtime.js
-     reads it for this screen by field, never by name. This file names no
-     area: what it draws is whatever the graph opened.
+     THE STORE'S FLOW (17 Oct 2026; context/control-tower/CONTROL_TOWER_FLOW.md)
+     The tower runs on one flow (contract fb.journey/2): nodes joined by
+     edges, each node one thing to do, its area a field on it. The flow
+     engine (assets/journey/flow.js) walks it on the store's facts and knows
+     no business: locked, open, enough (optional), done, skipped.
 
-     One graph for a store's whole life. The facts decide where it stands:
-     a new store (More → Start as a new store, or ?journey=new) walks it
-     from its first step on the new store's own facts; the trading business
-     walks it on facts read from its records, so it stands where a trading
-     store stands, its areas open on proof. Change the graph (a new file,
-     or FBControlTower.api.graph.inject) and the whole tower follows.
+       the journey   assets/tower/graphs/store-journey.json, or a flow handed
+                     over by the editor or by Claude (api.graph.inject)
+       live work     the store's records, read by the rules
+                     (assets/tower/store-rules.json) and written into the
+                     flow as nodes by assets/tower/writer.js, the stand-in
+                     for Claude writing a store's nodes from its database
+
+     Now is the walk's open nodes, in its order; the rings are the areas
+     its nodes name. The tabs are the shell's own (SHELL_TABS), not the
+     store's. This file names no node and no area.
      ════════════════════════════════════════════════════════════════════ */
   const JKEY = { on: "fb.v7.ct.journey.on", snap: "fb.v7.ct.journey.snap", demo: "fb.v7.ct.journey.demo", graph: "fb.v7.ct.journey.graph" };
-  const GRAPH_URL = "../assets/tower/graphs/control-tower.json?v=20261017GR1";
-  const jr = { on: false, J: null, snap: null, facts: null, ev: null, home: null, moment: null };
-  let tw = null;                                             // the graph as the screen reads it (FBTower.read)
+  const GRAPH_URL = "../assets/tower/graphs/store-journey.json?v=20261017FL3";
+  const RULES_URL = "../assets/tower/store-rules.json?v=20261017FL3";
+  const SHELL_TABS = [
+    { id: "now", label: "Now", view: "feed", icon: "now", home: true },
+    { id: "business", label: "Business", view: "board", icon: "tower" },
+    { id: "wallet", label: "Wallet", view: "wallet", icon: "coin" },
+    { id: "more", label: "More", view: "menu", icon: "more" },
+  ];
+  const jr = { on: false, base: null, rules: null, snap: null, facts: null, ev: null, home: null, moment: null, live: {}, stack: null };
+  let tw = null;                                             // the walked flow as the screen reads it (FBTower.read)
   /* Each way of standing keeps its own place in the walk. */
   function snapKey() { return jr.on ? JKEY.snap : JKEY.snap + ".live"; }
   function jget(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function jput(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* per device only */ } }
   function loadGraph() {
-    if (!window.FBJourney || !window.CTJourneyView || !window.FBTower) return Promise.resolve();
+    if (!window.FBFlow || !window.CTJourneyView || !window.FBTower || !window.CTWriter) return Promise.resolve();
     const injected = jget(JKEY.graph, null);
-    return (injected ? Promise.resolve(injected) : fetch(GRAPH_URL).then(function (r) { return r.json(); }))
-      .then(function (g) { jr.J = window.FBJourney.load(g); jr.raw = g; })
-      .catch(function (e) { jr.J = null; if (window.console) console.warn("Control Tower: graph", e && (e.errors || e.message)); })
+    const flow = injected && injected.schema === window.FBFlow.SCHEMA ? Promise.resolve(injected) : fetch(GRAPH_URL).then(function (r) { return r.json(); });
+    const rules = jr.rules ? Promise.resolve(jr.rules) : fetch(RULES_URL).then(function (r) { return r.json(); });
+    return Promise.all([flow, rules])
+      .then(function (x) {
+        const v = window.FBFlow.validate(x[0]);
+        if (!v.ok) throw window.FBFlow.FlowError(v.errors);
+        jr.base = x[0]; jr.raw = x[0]; jr.rules = x[1];
+      })
+      .catch(function (e) { jr.base = null; if (window.console) console.warn("Control Tower: flow", e && (e.errors || e.message)); })
       .then(loadFinishedGoods);
   }
+  function where() { return jr.ev ? { focus: jr.ev.focus(), open: jr.ev.open(), progress: jr.ev.progress() } : null; }
   function journeyStart() {
     jput(JKEY.on, true); jput(JKEY.snap, null); jput(JKEY.demo, null); jput(SA_KEY, null); jput(PFIX_KEY, null); jput(WALLET_KEY, null); jput(NOW_KEY + ".journey", null); jput(COINS_KEY, null); jr.on = true; jr.snap = null;
     const f = typeof document !== "undefined" && document.getElementById("ct-flow"); if (f) f.remove();   // a new store: the module starts fresh too
   }
   /* A new graph: validated, kept, and the whole tower redrawn from it. */
   function useGraph(graph) {
-    const v = window.FBJourney ? window.FBJourney.validate(graph) : { ok: false, errors: [{ path: "$", message: "journey engine not loaded" }] };
+    const v = window.FBFlow ? window.FBFlow.validate(graph) : { ok: false, errors: [{ path: "$", message: "flow engine not loaded" }] };
     if (!v.ok) return v;
     jput(JKEY.graph, graph);
-    return reloadGraph().then(function () { return { ok: true, where: jr.J.where(jr.snap, jr.facts) }; });
+    return reloadGraph().then(function () { return { ok: true, where: where() }; });
   }
   function reloadGraph() {
-    jr.J = null; jr.snap = jget(snapKey(), null);
+    jr.base = null; jr.snap = jget(snapKey(), null);
     return loadGraph().then(function () {
       nowReset(); compute(); jr.moment = null;
       if (ui.page !== "updates") { ui.tab = "overview"; ui.page = homePage(); }
@@ -315,17 +330,17 @@
     let added = 0, removed = 0, changed = 0;
     Object.keys(B).forEach(function (k) { if (!A[k]) added++; else if (JSON.stringify(A[k]) !== JSON.stringify(B[k])) changed++; });
     Object.keys(A).forEach(function (k) { if (!B[k]) removed++; });
-    return { added: added, removed: removed, changed: changed };
+    return { added: added, removed: removed, changed: changed, areas: JSON.stringify((a && a.areas) || {}) !== JSON.stringify((b && b.areas) || {}) };
   }
   function showIncoming(g, problem) {
     let bar = $("#ct-incoming");
     if (!bar) { bar = document.createElement("div"); bar.id = "ct-incoming"; bar.setAttribute("role", "alertdialog"); bar.setAttribute("aria-label", "New tower graph"); document.body.appendChild(bar); }
-    const v = g && window.FBJourney ? window.FBJourney.validate(g) : null;
+    const v = g && window.FBFlow ? window.FBFlow.validate(g) : null;
     if (!problem && v && !v.ok) problem = "It has " + L.plural(v.errors.length, "problem") + " and can't be used: " + v.errors.slice(0, 2).map(function (e) { return e.path + " " + e.message; }).join("; ") + ".";
     const d = g ? graphDiff(jr.raw, g) : null;
-    const what = d ? [d.added ? d.added + " added" : "", d.removed ? d.removed + " removed" : "", d.changed ? d.changed + " changed" : ""].filter(Boolean).join(", ") || "no differences" : "";
-    bar.innerHTML = '<div class="ct-inc-t"><b>' + (problem ? "This graph can't be used" : "New tower graph from the editor") + "</b>" +
-      "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "node") + " · " + what + " compared with the one in use")) + "</span></div>" +
+    const what = d ? [d.added ? d.added + " added" : "", d.removed ? d.removed + " removed" : "", d.changed ? d.changed + " changed" : "", d.areas ? "areas changed" : ""].filter(Boolean).join(", ") || "no differences" : "";
+    bar.innerHTML = '<div class="ct-inc-t"><b>' + (problem ? "This flow can't be used" : "New flow from the editor") + "</b>" +
+      "<span>" + esc(problem || ((g.label || g.id || "Graph") + (g.version ? " v" + g.version : "") + " · " + L.plural((g.nodes || []).length, "step") + " · " + what + " compared with the one in use")) + "</span></div>" +
       '<div class="ct-inc-a">' + (problem ? "" : '<button type="button" class="ct-btn" data-inc="apply">Apply</button>') +
       '<button type="button" class="ct-btn is-ghost" data-inc="no">' + (problem ? "Close" : "Not now") + "</button></div>";
     bar.onclick = function (e) {
@@ -350,18 +365,26 @@
       /* Products are what Finished Goods holds, read with its own rules. */
       const pm = productsModel();
       if (pm) f.products = Object.assign({}, f.products, pm.facts);
-      return window.CTJourneyFacts.merge(f, { store: { new: true } });
+      return window.CTJourneyFacts.derive(window.CTJourneyFacts.merge(f, { store: { new: true } }));
     }
-    return window.CTJourneyFacts.facts(view, { store: { new: false }, business: { makes: !!ui.prod } });
+    return window.CTJourneyFacts.facts(view, { store: { new: false }, business: { makes: !!ui.prod }, production: ui.prod ? { recipes: 1, batches: 1 } : {} });
   }
   function journeyPass() {
-    if (!jr.J) { jr.home = null; tw = null; return; }
+    if (!jr.base) { jr.home = null; jr.ev = null; tw = null; return; }
     jr.facts = graphFacts();
-    const r = jr.J.step(jr.snap, jr.facts, Date.now());
+    /* The store's live work, read from its records the way the rules say,
+       written into the flow as nodes. A store walking its setup has no
+       records yet: its flow is the journey alone. */
+    const st = !jr.on && window.CTStack && model ? window.CTStack.build(liveLists(), liveOpts()) : null;
+    const w = window.CTWriter.write(jr.base, st ? st.cards : []);
+    jr.facts.live = w.facts.live; jr.live = w.cards; jr.stack = st;
+    let r;
+    try { r = window.FBFlow.load(w.graph).step(jr.snap, jr.facts, Date.now()); }
+    catch (e) { if (window.console) console.warn("Control Tower: flow", e && (e.errors || e.message)); jr.home = null; jr.ev = null; tw = null; return; }
     jr.snap = r.snapshot; jput(snapKey(), jr.snap);
     jr.ev = r.ev;
     jr.home = window.CTJourneyView.home(r.ev, jr.facts);
-    tw = window.FBTower.read(r.ev);
+    tw = window.FBTower.read(r.ev, jr.rules, SHELL_TABS);
     /* Moments and step coins belong to a store walking its setup; a trading
        business standing where it stands is not news. */
     if (!jr.on) return;
@@ -373,7 +396,25 @@
     const was = jr.moment;
     jr.moment = was ? { announce: m.announce || was.announce, coins: was.coins + m.coins, done: was.done.concat(m.done) } : m;
   }
-  /* An area of the graph, as the screen reads it; its icon, its colours. */
+  /* The areas whose rows come from the store's records (a `lever:<id>`
+     source in the rules), each the tower's lever for it. */
+  function liveLists() {
+    const areas = (jr.rules && jr.rules.areas) || {};
+    return Object.keys(areas).map(function (k) {
+      const m = /^lever:(.+)$/.exec(areas[k].source || "");
+      return m ? model.levers.filter(function (x) { return x.id === m[1]; })[0] || null : null;
+    }).filter(Boolean);
+  }
+  /* How alike rows become one card, from the rules and the flow's words. */
+  function liveOpts() {
+    const looks = jr.base.areas || {}, R = jr.rules || {};
+    const areas = Object.keys(R.areas || {}).map(function (k) {
+      const h = R.areas[k], l = looks[k] || {};
+      return { key: k, rank: typeof h.rank === "number" ? h.rank : 999, word: l.word || l.label || k, feed: h.feed || {} };
+    });
+    return window.FBTower.stackOpts({ areas: areas, text: R.text || {}, feed: R.feed || {} }, { money: L.rupees });
+  }
+  /* An area of the flow, as the screen reads it; its icon, its colours. */
   function areaOf(k) { return tw ? tw.area(k) : null; }
   function iconOf(k) { const a = areaOf(k); return (a && I[a.icon]) || ""; }
   function wordOf(k) { const a = areaOf(k); return a ? a.word : ""; }
@@ -418,7 +459,6 @@
     ui.flow = false; document.body.classList.remove("ct-locked");
     compute(); draw();
   }
-  function jArea(k) { return jr.home && jr.home.areas[k]; }
   function coinsText(n) { return Number(n).toLocaleString("en-IN") + (n === 1 ? " coin" : " coins"); }
 
   /* ── Journey areas, drawn the tower's original way (owner, 15 Oct 2026:
@@ -430,9 +470,9 @@
      so lever() hands it to the same page; its one button sits in the page,
      where the original preview put its Connect. No journey sheets. */
   function journeyLever(k) {
-    const lv = window.CTJourneyView.lever(jr.ev, jr.facts, k);
+    const lv = jr.ev ? window.CTJourneyView.lever(jr.ev, jr.facts, k) : null;
     if (!lv) return null;
-    const pay = jArea(k).payload;
+    const pay = areaOf(k) || {};
     /* Products: the tiles are what Finished Goods holds, each product under
        the tile its worst problem puts it, with that problem as its pill. */
     if (pay.model === "products") {
@@ -484,8 +524,8 @@
   function sourceOf(a) {
     if (!a) return null;
     const m = /^lever:(.+)$/.exec(a.source || "");
-    if (m && !jr.on) return model.levers.filter(function (x) { return x.id === m[1]; })[0] || null;
-    return jr.on ? journeyLever(a.key) : null;
+    const lv = m && !jr.on ? model.levers.filter(function (x) { return x.id === m[1]; })[0] : null;
+    return lv || journeyLever(a.key);
   }
 
   /* ── The wallet (16 Oct 2026) ──────────────────────────────────────────
@@ -584,10 +624,29 @@
   /* The stack, and the day moved on by it. A thing the owner worked on
      (its card's button, or its line in a card) that has left pays coins;
      the first empty stack of the day pays the day. */
+  /* Now's cards are the walk's open nodes, in its order (what is to be done
+     first, then the optional): a live node is its record's own card, a
+     journey node a step card. The rings are the live areas. */
+  function flowCards() {
+    const ev = jr.ev, cards = [];
+    ev.open().forEach(function (id) { cards.push(jr.live[id] || stepCard(ev.node(id))); });
+    const areas = tw.open.map(function (a) {
+      const mine = cards.filter(function (c) { return c.area === a.key; });
+      return { id: a.key, label: a.label, name: a.word, count: mine.length,
+               tone: mine.some(function (c) { return c.tone === "ugly"; }) ? "ugly" : mine.length ? "bad" : "good" };
+    });
+    return { cards: cards, areas: areas, waiting: jr.stack ? jr.stack.waiting : [], total: cards.length };
+  }
+  function stepCard(n) {
+    const c = n.card || {}, opt = n.state === "enough";
+    const t = window.CTJourneyView.title(n, jr.facts), say = window.CTJourneyView.line(n, jr.facts);
+    return { key: "step:" + n.id, step: n.id, kind: "one", area: n.area, areaName: wordOf(n.area), tone: opt ? "bad" : "ugly",
+             sev: opt ? "Optional" : "Next step", kicker: say !== t ? say : "", title: t, value: 0, facts: [],
+             action: c.action || c.ask || n.label, items: ["step:" + n.id], rows: [{ jstep: n.id, title: t, kind: "jstep" }] };
+  }
   function stackNow() {
-    if (!window.CTStack || !model) return null;
-    if (!tw) return null;
-    const st = window.CTStack.build(homeLevers(), window.FBTower.stackOpts(tw, { money: L.rupees }));
+    if (!jr.ev || !tw) return null;
+    const st = flowCards();
     const d = nowDay(), live = {};
     st.cards.forEach(function (c) { c.items.forEach(function (k, i) { live[k] = c.kind === "one" ? c.title : (c.list[i] && c.list[i].name) || c.title; }); });
     st.firstLook = !Object.keys(d.items).length;
@@ -668,7 +727,7 @@
   function stepOf(row) { return row && row.jstep !== undefined && jr.ev ? jr.ev.node(row.jstep) : null; }
   function coinsOf(c) {
     const n = c.kind === "one" ? stepOf(c.rows[0]) : null;
-    return CARD_COINS + (n && Number(n.payload.coins) || 0);
+    return CARD_COINS + (n && Number((n.card || {}).coins) || 0);
   }
   function drawNow() {
     const st = stackNow();
@@ -824,13 +883,13 @@
     return (t && TAG_ICON[TAG_OF[t.type] || t.type]) || iconOf(c.area) || "";
   }
   function reelHtml(c, i, n) {
-    const sev = c.tone === "ugly" ? "Urgent" : "Needs work";
+    const sev = c.sev || (c.tone === "ugly" ? "Urgent" : "Needs work");
     const showMoney = c.kind === "one" && c.value && c.title.indexOf(L.rupees(c.value)) === -1;
     const SHOW = 3;
     const list = c.kind === "group" ? '<div class="ct-rlist">' + c.list.slice(0, SHOW).map(function (x, j) {
         return '<button type="button" class="ct-rli" data-nrow="' + j + '"><b>' + esc(x.name) + "</b><small>" + esc(x.value ? L.rupees(x.value) : x.what) + "</small>" + I.chev + "</button>";
       }).join("") + (c.list.length > SHOW ? '<button type="button" class="ct-rmore" data-nmore>+ ' + (c.list.length - SHOW) + " more</button>" : "") + "</div>" : "";
-    const step = c.kind === "one" ? stepOf(c.rows[0]) : null, demo = step && step.state === "available" && step.payload.demo;
+    const step = c.kind === "one" ? stepOf(c.rows[0]) : null, demo = step && (step.state === "open" || step.state === "enough") && (step.card || {}).demo;
     const label = c.kind === "group" ? "Fix " + c.list[0].name : c.action;
     const ask = ui.nowAsk === c.key
       ? '<div class="ct-rask" role="group"><p>' + bold(window.FBTower.fill(areaOf(c.area).open.ask, c.rows[0])) + "</p>" +
@@ -916,12 +975,12 @@
     ui.nowKey = key;
     /* An area whose rows leave for a screen (the graph's `open`) asks in place first. */
     const ar = areaOf(c.area);
-    if (ar && ar.open && ar.open.route) { touch(c.items); ui.nowAsk = c.key; return draw(); }
+    if (!c.step && ar && ar.open && ar.open.route) { touch(c.items); ui.nowAsk = c.key; return draw(); }
     if (c.kind === "group") { touch([c.items[0]]); return openFix(c.list[0].row, c.area, c.list[0].row.next || (c.list[0].row.tag && c.list[0].row.tag.label)); }
     touch(c.items);
     const row = c.rows[0], n = stepOf(row);
     /* A setup step: store activation's own modal straight away; else its card. */
-    if (n && n.payload.flow && n.state === "available") return openFlow(n.payload.flow);
+    if (n && (n.card || {}).flow && (n.state === "open" || n.state === "enough")) return openFlow(n.card.flow);
     if (n) { ui.itemLever = c.area; return stepSheet(row); }
     openFix(row, c.area, c.action);
   }
@@ -1223,8 +1282,8 @@
     const st = { ask: false };
     sheet(function () {
       const n = jr.ev && jr.ev.node(r.jstep); if (!n) return { title: r.title, body: "" };
-      const p = n.payload, lv = lever(ui.itemLever || ui.tab);
-      const done = n.state === "done", open = n.state === "available";
+      const p = n.card || {}, lv = lever(ui.itemLever || ui.tab);
+      const done = n.state === "done", open = n.state === "open" || n.state === "enough";
       const b = jr.ev.blockers(n.id) || { nodes: [] };
       const say = window.CTJourneyView.line(n, jr.facts);
       const tell = [done ? { tone: "good", text: "Done" } : null,
@@ -1260,9 +1319,9 @@
      would have made, as the store's own records would. */
   function demoStep(id) {
     const n = jr.ev && jr.ev.node(id);
-    if (!n || !n.payload.demo) return;
+    if (!n || !(n.card || {}).demo) return;
     const cur = jget(JKEY.demo, {}) || {};
-    window.CTJourneyFacts.merge(cur, JSON.parse(JSON.stringify(n.payload.demo.facts || {})));
+    window.CTJourneyFacts.merge(cur, JSON.parse(JSON.stringify(n.card.demo.facts || {})));
     jput(JKEY.demo, cur);
     closeAll(); compute(); draw();
   }
@@ -2012,7 +2071,7 @@
         body: '<p class="ct-mo-h">Your business</p>' +
           row('data-mo="timeline"', I.updates, "Business Timeline", "What happened, newest first", null, fresh ? '<em class="ct-new">New</em>' : "") +
           row('data-mo="assistant"', ASSIST_FACE, "Assistant", "Ask about your business", "assist") +
-          (jget(JKEY.graph, null) ? row('data-mo="graph-reset"', I.updates, "Tower graph: from the editor", "Go back to the shipped graph", null) : "") +
+          (jget(JKEY.graph, null) ? row('data-mo="graph-reset"', I.updates, "Store flow: from the editor", "Go back to the shipped flow", null) : "") +
           (jr.on ? row('data-mo="journey-off"', I.tower, "Back to the demo business", "Leave the new store", null)
                  : row('data-mo="journey-on"', I.tag, "Start as a new store", "Set up a store from day one", null)) +
           '<div class="ct-mo-sep"></div>' +
@@ -2022,7 +2081,7 @@
             const m = e.target.closest("[data-mo]"); if (!m) return;
             if (m.dataset.mo === "timeline") { closeAll(); goUpdates(); }
             else if (m.dataset.mo === "assistant") openAssistant();
-            else if (m.dataset.mo === "graph-reset") { closeAll(); jput(JKEY.graph, null); reloadGraph().then(function () { toast("Back to the shipped tower graph"); }); }
+            else if (m.dataset.mo === "graph-reset") { closeAll(); jput(JKEY.graph, null); reloadGraph().then(function () { toast("Back to the shipped store flow"); }); }
             else if (m.dataset.mo === "journey-on" || m.dataset.mo === "journey-off") {
               closeAll();
               if (m.dataset.mo === "journey-on") journeyStart(); else journeyStop();
@@ -3635,16 +3694,16 @@
     act: function (id) { openLever(id); const lv = lever(id); if (lv && lv.action) doAction(); },
     openTimeline: function () { if (model) goUpdates(); },
     sheetOpen: function () { return isOpen(); },
-    /* The tower's graph, from outside (a script, the Journey Lab, or Claude
-       writing one from a store's database): hand the tower a graph
-       (fb.journey/1) and the whole tower follows it: tabs, areas, words,
-       colours, order, card rules, steps. It is validated first; nothing
-       changes unless it is valid. It is kept on this device until reset. */
+    /* The store's flow, from outside (the Tower Graph Editor, a script, or
+       Claude writing one from a store's database): hand the tower a flow
+       (fb.journey/2) and Now, the rings and the areas follow it. It is
+       validated first; nothing changes unless it is valid. It is kept on
+       this device until reset. */
     graph: {
       inject: function (graph) { return useGraph(graph); },
       reset: function () { jput(JKEY.graph, null); return reloadGraph(); },
       read: function () { return tw; },
-      where: function () { return jr.J ? jr.J.where(jr.snap, jr.facts) : null; },
+      where: where,
     },
     /* The store journey: the same graph walked by a new store from day one. */
     journey: {
@@ -3655,7 +3714,7 @@
       },
       reset: function () { jput(JKEY.graph, null); journeyStart(); return reloadGraph(); },
       stop: function () { journeyStop(); return reloadGraph(); },
-      where: function () { return jr.J && jr.on ? jr.J.where(jr.snap, jr.facts) : null; },
+      where: function () { return jr.on ? where() : null; },
       home: function () { return jr.home; },
     },
   };

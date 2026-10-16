@@ -41,7 +41,7 @@
       dues: { imported: false },
       stock: { counted: 0, unknown: 0 },
       suppliers: { count: 0, unmapped: 0 },
-      purchases: { received: 0 },
+      purchases: { count: 0, received: 0 },
       production: { recipes: 0, batches: 0 },
       business: { makes: false },
     }, extra);
@@ -92,7 +92,7 @@
       dues: { imported: !!(ledger && ledger.invoices && ledger.invoices.length) },
       stock: { counted: counted, unknown: products.filter(function (p) { return typeof p.stock !== "number"; }).length },
       suppliers: { count: suppliers.length, unmapped: suppliers.length ? 0 : products.length },
-      purchases: { received: pos.filter(function (p) { return /receiv|closed|billed/i.test(String(p.status || "")); }).length },
+      purchases: { count: pos.length, received: pos.filter(function (p) { return /receiv|closed|billed/i.test(String(p.status || "")); }).length },
       production: { recipes: 0, batches: 0 },
       business: { makes: false },
     }, extra);
@@ -109,7 +109,17 @@
     return base;
   }
 
-  const API = { facts: facts, blank: blank, merge: merge };
+  /* What a flow counts as right: the products and customers with nothing
+     broken (no name, unit, phone; not listed twice; for Finished Goods,
+     not hidden from customers). */
+  function derive(f) {
+    ["products", "customers"].forEach(function (k) {
+      const x = f[k]; if (x) x.correct = Math.max(0, (x.count || 0) - (x.broken || 0));
+    });
+    return f;
+  }
+
+  const API = { facts: function (view, extra) { return derive(facts(view, extra)); }, blank: function (extra) { return derive(blank(extra)); }, merge: merge, derive: derive };
   root.CTJourneyFacts = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);

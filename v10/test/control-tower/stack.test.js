@@ -11,14 +11,18 @@ window.CTLevers = L;
 window.FB_DATASET = F.dataset;
 const D = require("../../assets/ct/demo.js");
 const K = require("../../assets/ct/stack.js");
-const J = require("../../assets/journey/engine.js");
+const FL = require("../../assets/journey/flow.js");
 const R = require("../../assets/tower/runtime.js");
-const GRAPH = require("../../assets/tower/graphs/control-tower.json");
+const GRAPH = require("../../assets/tower/graphs/store-journey.json");
+const STORE_RULES = require("../../assets/tower/store-rules.json");
 
-/* The stack's rules come from the tower graph: here every area the graph
-   has, as if all were open, so each test can use any of them. */
-const MODEL = R.read(J.load(GRAPH).evaluate({}, null));
-const RULES = R.stackOpts(Object.assign({}, MODEL, { open: MODEL.areas }));
+/* The stack's rules come from the store rules and the flow's words, as the
+   tower builds them (liveOpts): every area the rules read records for. */
+const MODEL = { text: STORE_RULES.text, feed: STORE_RULES.feed, areas: Object.keys(STORE_RULES.areas).map((k) => {
+  const h = STORE_RULES.areas[k], l = GRAPH.areas[k] || {};
+  return { key: k, rank: typeof h.rank === "number" ? h.rank : 999, word: l.word || l.label || k, feed: h.feed || {} };
+}) };
+const RULES = R.stackOpts(MODEL);
 const RANK = Object.fromEntries(MODEL.areas.map((a) => [a.key, a.rank]));
 const opts = (extra) => Object.assign({}, RULES, extra || {});
 const TEXT = MODEL.text;
@@ -145,7 +149,7 @@ test("a product moving to its next hidden problem stays the same card", () => {
 });
 
 /* The stack and the runtime know no business: every word with meaning is
-   in the graph. The same check as the engine's (test/journey/engine.test.js). */
+   in the flow or the store rules. The same check as the engine's. */
 test("zero context: the stack and the runtime name no area and no business", () => {
   const fs = require("node:fs"), path = require("node:path");
   const WORDS = /\b(deliver\w*|collection\w*|product\w*|customer\w*|orders?|stock|invoice\w*|purchase\w*|production|inventory|supplier\w*|shop\w*|van|rupee\w*|MRP|GST|HSN|lever\w*)\b|₹/i;
@@ -156,11 +160,11 @@ test("zero context: the stack and the runtime name no area and no business", () 
   }
 });
 
-test("the graph is the tower: change a word in it and the stack says the new word", () => {
+test("the flow names the words: change an area's word in it and the stack says the new word", () => {
   const g = JSON.parse(JSON.stringify(GRAPH));
-  g.nodes.find((n) => n.payload && n.payload.area === "collections").payload.word = "Money in";
-  const m = R.read(J.load(g).evaluate({}, null));
-  const st = K.build([lv("collections", [{ id: "a", kind: "customer", title: "A", value: 5, next: "Call to collect" }])], R.stackOpts(Object.assign({}, m, { open: m.areas })));
+  g.areas.collections.word = "Money in";
+  const m = R.read(FL.load(g).evaluate({}), STORE_RULES, []);
+  const st = K.build([lv("collections", [{ id: "a", kind: "customer", title: "A", value: 5, next: "Call to collect" }])], R.stackOpts(m));
   assert.equal(st.areas[0].label, "Money in");
   assert.equal(st.cards[0].areaName, "Money in");
 });

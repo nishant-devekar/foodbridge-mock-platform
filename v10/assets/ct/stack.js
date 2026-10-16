@@ -1,11 +1,11 @@
 /* ==========================================================================
-   NOW — the day as one stack of cards. (16 Oct 2026; rules from the graph
+   NOW — the day as one stack of cards. (16 Oct 2026; rules from the store rules
    since 17 Oct 2026)
 
    Ek kaam, one thing at a time: the rows of every open area in one stack,
    worst first, alike rows as one card. This file holds the mechanics only.
-   Every rule with meaning comes in `opts`, read from the tower graph
-   (assets/tower/graphs/control-tower.json through assets/tower/runtime.js):
+   Every rule with meaning comes in `opts`, read from the store rules and
+   the flow's words (assets/tower/store-rules.json through assets/tower/runtime.js):
 
      opts.areas    { <key>: { rank, word, feed: { noun, groups, kickers,
                    families } } } — what closes first, the area's word, how

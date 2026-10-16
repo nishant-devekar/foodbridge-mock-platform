@@ -1,0 +1,595 @@
+{
+ "schema": "fb.journey/2",
+ "id": "store-journey",
+ "label": "Store journey",
+ "version": "2.1.0",
+ "about": "One store's way in, node by node: add products, get five right, then customers, then the first order and what follows. A node opens when the nodes it comes after are enough or done; enough lets the next ones open and keeps it as optional; done closes it. The engine reads only after, join, when, enough, done, skip and sticky; area and card are for the tower.",
+ "areas": {
+  "products": {
+   "label": "Products",
+   "word": "Products",
+   "icon": "tag",
+   "colour": {
+    "deep": "#A04A05",
+    "bright": "#E3940B",
+    "tint": "#FFF2DC"
+   },
+   "promise": "What you sell, with its unit, rate and GST: every order and invoice starts here"
+  },
+  "customers": {
+   "label": "Customers",
+   "word": "Customers",
+   "icon": "users",
+   "colour": {
+    "deep": "#0F4FA8",
+    "bright": "#2EA2E8",
+    "tint": "#E2F2FD"
+   },
+   "promise": "The shops you sell to, with a phone that works: orders, invoices and reminders go to them"
+  },
+  "order": {
+   "label": "Orders",
+   "word": "Orders",
+   "icon": "cart",
+   "colour": {
+    "deep": "#A3134F",
+    "bright": "#E83E8C",
+    "tint": "#FDE7F1"
+   },
+   "promise": "Take an order in two taps; the invoice goes to the customer on WhatsApp"
+  },
+  "deliveries": {
+   "label": "Deliveries",
+   "word": "Deliveries",
+   "icon": "truck",
+   "colour": {
+    "deep": "#2742B8",
+    "bright": "#4F6BF0",
+    "tint": "#E8ECFF"
+   },
+   "promise": "Every order to the door: delivered, missed or returned, with the money and empties"
+  },
+  "collections": {
+   "label": "Collections",
+   "word": "Collections",
+   "icon": "rupee",
+   "colour": {
+    "deep": "#046C4E",
+    "bright": "#10A673",
+    "tint": "#E3F7EE"
+   },
+   "promise": "Who owes you, how much and since when, and the nudge for each"
+  },
+  "inventory": {
+   "label": "Inventory",
+   "word": "Stock",
+   "icon": "box",
+   "colour": {
+    "deep": "#0B6E83",
+    "bright": "#13A3BD",
+    "tint": "#E2F6FA"
+   },
+   "promise": "What is in stock, what runs out next and what is not moving"
+  },
+  "purchase": {
+   "label": "Purchase",
+   "word": "Buying",
+   "icon": "clip",
+   "colour": {
+    "deep": "#5B25C4",
+    "bright": "#8B5CF6",
+    "tint": "#F0E9FF"
+   },
+   "promise": "What to buy, from whom, before you run out"
+  },
+  "production": {
+   "label": "Production",
+   "word": "Production",
+   "icon": "factory",
+   "colour": {
+    "deep": "#B23B0E",
+    "bright": "#F2711C",
+    "tint": "#FFEDE2"
+   },
+   "promise": "Your production plan: what to make for the orders you have"
+  }
+ },
+ "nodes": [
+  {
+   "id": "add-products",
+   "label": "Add products",
+   "area": "products",
+   "enough": {
+    "fact": "products.count",
+    "gte": 1
+   },
+   "done": {
+    "fact": "products.count",
+    "gte": 5
+   },
+   "card": {
+    "title": "Add products",
+    "coins": 50,
+    "ask": "Add your products",
+    "how": "Drop your rate list or item master. Any XLSX or CSV works; I read it and lay it out like a sheet.",
+    "cheer": "Let's fill your shelf first. Bring the file you already have.",
+    "action": "Upload your product list",
+    "flow": {
+     "module": "store-activation",
+     "step": "items",
+     "mode": "setup"
+    },
+    "screen": {
+     "route": "#/product-master/finished-goods",
+     "label": "Finished Goods"
+    },
+    "demo": {
+     "label": "Add the sample products",
+     "facts": {
+      "products": {
+       "sample": true
+      }
+     }
+    },
+    "say": "{n} of 5 products in",
+    "count": "products.count"
+   }
+  },
+  {
+   "id": "fix-products",
+   "label": "Fix products",
+   "area": "products",
+   "after": [
+    "add-products"
+   ],
+   "enough": {
+    "fact": "products.correct",
+    "gte": 5
+   },
+   "done": {
+    "all": [
+     {
+      "fact": "products.correct",
+      "gte": 5
+     },
+     {
+      "fact": "products.broken",
+      "eq": 0
+     }
+    ]
+   },
+   "card": {
+    "title": "Fix products",
+    "coins": 100,
+    "ask": "Get 5 products ready to sell",
+    "count": "products.correct",
+    "say": "{n} ready to sell",
+    "how": "A product sells once it has its unit, price and category. Five ready opens your customers.",
+    "screen": {
+     "route": "#/product-master/finished-goods",
+     "label": "Finished Goods"
+    }
+   }
+  },
+  {
+   "id": "tidy-products",
+   "label": "Tidy products",
+   "area": "products",
+   "after": [
+    "fix-products"
+   ],
+   "enough": true,
+   "done": {
+    "all": [
+     {
+      "fact": "products.count",
+      "gte": 1
+     },
+     {
+      "fact": "products.incomplete",
+      "eq": 0
+     }
+    ]
+   },
+   "card": {
+    "title": "Tidy {n} products",
+    "coins": 50,
+    "ask": "Clear what costs money or breaks an invoice",
+    "count": "products.incomplete",
+    "say": "{n} need work",
+    "how": "Below cost, above MRP, a brand spelled two ways, no HSN code.",
+    "screen": {
+     "route": "#/product-master/finished-goods",
+     "label": "Finished Goods"
+    }
+   }
+  },
+  {
+   "id": "add-customers",
+   "label": "Add customers",
+   "area": "customers",
+   "after": [
+    "fix-products"
+   ],
+   "enough": {
+    "fact": "customers.count",
+    "gte": 1
+   },
+   "done": {
+    "fact": "customers.count",
+    "gte": 5
+   },
+   "card": {
+    "title": "Add customers",
+    "coins": 50,
+    "ask": "Add your customers",
+    "how": "Drop your customer list. Any XLSX or CSV works; names and phone numbers are enough.",
+    "cheer": "Now the shops you sell to. A list with names and numbers is enough.",
+    "action": "Upload your customer list",
+    "flow": {
+     "module": "store-activation",
+     "step": "customers",
+     "mode": "setup"
+    },
+    "screen": {
+     "route": "#/customer-management/b2b-customers",
+     "label": "B2B Customers"
+    },
+    "demo": {
+     "label": "Add 18 sample customers",
+     "facts": {
+      "customers": {
+       "count": 18,
+       "broken": 2,
+       "incomplete": 12
+      }
+     }
+    },
+    "say": "{n} of 5 customers in",
+    "count": "customers.count"
+   }
+  },
+  {
+   "id": "fix-customers",
+   "label": "Fix customers",
+   "area": "customers",
+   "after": [
+    "add-customers"
+   ],
+   "enough": {
+    "fact": "customers.correct",
+    "gte": 5
+   },
+   "done": {
+    "all": [
+     {
+      "fact": "customers.correct",
+      "gte": 5
+     },
+     {
+      "fact": "customers.broken",
+      "eq": 0
+     }
+    ]
+   },
+   "card": {
+    "title": "Fix customers",
+    "coins": 100,
+    "ask": "Get 5 customers you can reach",
+    "count": "customers.correct",
+    "say": "{n} reachable",
+    "how": "Every customer needs a name and a phone that works.",
+    "cheer": "One more push. Fix these and your store is ready for orders.",
+    "action": "Review your customers",
+    "flow": {
+     "module": "store-activation",
+     "step": "customers",
+     "mode": "setup"
+    },
+    "screen": {
+     "route": "#/customer-management/b2b-customers",
+     "label": "B2B Customers"
+    },
+    "demo": {
+     "label": "Fix the 2 phone numbers",
+     "facts": {
+      "customers": {
+       "broken": 0
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "pin-customers",
+   "label": "Pin customers",
+   "area": "customers",
+   "after": [
+    "fix-customers"
+   ],
+   "enough": true,
+   "done": {
+    "all": [
+     {
+      "fact": "customers.count",
+      "gte": 1
+     },
+     {
+      "fact": "customers.incomplete",
+      "eq": 0
+     }
+    ]
+   },
+   "card": {
+    "title": "Pin {n} customers",
+    "coins": 50,
+    "ask": "Pin where each customer is, for Deliveries",
+    "count": "customers.incomplete",
+    "say": "{n} have no delivery pin",
+    "action": "Pin your customers",
+    "screen": {
+     "route": "#/customer-management/b2b-customers",
+     "label": "B2B Customers"
+    },
+    "demo": {
+     "label": "Pin the 12 customers",
+     "facts": {
+      "customers": {
+       "incomplete": 0
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "first-order",
+   "label": "Take your first order",
+   "area": "order",
+   "after": [
+    "fix-products",
+    "fix-customers"
+   ],
+   "sticky": true,
+   "done": {
+    "fact": "orders.count",
+    "gte": 1
+   },
+   "card": {
+    "title": "Take your first order",
+    "coins": 200,
+    "ask": "Take your first order",
+    "how": "Tap a customer, then tap + on what they want",
+    "screen": {
+     "route": "#/sales-orders",
+     "label": "Sales Orders"
+    },
+    "demo": {
+     "label": "Take a sample order",
+     "facts": {
+      "orders": {
+       "count": 1,
+       "days": 1
+      }
+     }
+    },
+    "announce": {
+     "on": "done",
+     "title": "Your first order is in",
+     "line": "Deliveries and Collections are open: deliver it and get paid."
+    }
+   }
+  },
+  {
+   "id": "keep-ordering",
+   "label": "Keep taking orders",
+   "area": "order",
+   "after": [
+    "first-order"
+   ],
+   "done": {
+    "fact": "orders.days",
+    "gte": 3
+   },
+   "card": {
+    "title": "Keep taking orders",
+    "coins": 150,
+    "ask": "Take new orders on 3 different days",
+    "count": "orders.days",
+    "say": "Orders on {n} of 3 days",
+    "screen": {
+     "route": "#/sales-orders",
+     "label": "Sales Orders"
+    },
+    "demo": {
+     "label": "Take orders on 3 days",
+     "facts": {
+      "orders": {
+       "count": 4,
+       "days": 3
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "first-delivery",
+   "label": "Record a delivery",
+   "area": "deliveries",
+   "after": [
+    "first-order"
+   ],
+   "sticky": true,
+   "done": {
+    "fact": "deliveries.count",
+    "gte": 1
+   },
+   "card": {
+    "title": "Record a delivery",
+    "coins": 150,
+    "ask": "Record your first delivery",
+    "screen": {
+     "route": "#/distribution-logistics/delivery-management",
+     "label": "Delivery Management"
+    },
+    "demo": {
+     "label": "Record a sample delivery",
+     "facts": {
+      "deliveries": {
+       "count": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "send-invoice",
+   "label": "Send the invoice",
+   "area": "order",
+   "after": [
+    "first-delivery"
+   ],
+   "done": {
+    "fact": "orders.sent",
+    "gte": 1
+   },
+   "card": {
+    "title": "Send the invoice",
+    "coins": 50,
+    "ask": "Send the invoice to your customer on WhatsApp",
+    "screen": {
+     "route": "#/sales-orders",
+     "label": "Sales Orders"
+    },
+    "demo": {
+     "label": "Send its invoice",
+     "facts": {
+      "orders": {
+       "sent": 1
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "first-payment",
+   "label": "Record a payment",
+   "area": "collections",
+   "after": [
+    "first-delivery"
+   ],
+   "sticky": true,
+   "done": {
+    "fact": "payments.count",
+    "gte": 1
+   },
+   "card": {
+    "title": "Record a payment",
+    "coins": 150,
+    "ask": "Record your first payment",
+    "how": "Paid at the counter counts",
+    "screen": {
+     "route": "#/finance/customer-receivables",
+     "label": "Customer Receivables"
+    },
+    "demo": {
+     "label": "Record a sample payment",
+     "facts": {
+      "payments": {
+       "count": 1
+      },
+      "customers": {
+       "noTerms": 3
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "count-stock",
+   "label": "Count your stock",
+   "area": "inventory",
+   "after": [
+    "send-invoice",
+    "first-payment"
+   ],
+   "enough": {
+    "fact": "stock.counted",
+    "gte": 1
+   },
+   "done": {
+    "all": [
+     {
+      "fact": "stock.counted",
+      "gte": 1
+     },
+     {
+      "fact": "stock.unknown",
+      "eq": 0
+     }
+    ]
+   },
+   "card": {
+    "title": "Count your stock",
+    "coins": 100,
+    "ask": "Count your opening stock",
+    "screen": {
+     "route": "#/customer-management/stock-audit-health",
+     "label": "Stock Audit"
+    },
+    "demo": {
+     "label": "Count 42 products",
+     "facts": {
+      "stock": {
+       "counted": 42,
+       "unknown": 5
+      }
+     }
+    },
+    "say": "{n} products counted",
+    "count": "stock.counted"
+   }
+  },
+  {
+   "id": "create-purchase",
+   "label": "Create a purchase order",
+   "area": "purchase",
+   "after": [
+    "count-stock"
+   ],
+   "done": {
+    "all": [
+     {
+      "fact": "suppliers.count",
+      "gte": 1
+     },
+     {
+      "fact": "purchases.count",
+      "gte": 1
+     }
+    ]
+   },
+   "card": {
+    "title": "Create a purchase order",
+    "coins": 200,
+    "ask": "Order stock from your supplier",
+    "how": "Pick what is running low. If the supplier is new, add them right there, with the order.",
+    "action": "Create a purchase order",
+    "screen": {
+     "route": "#/procurement/purchase-orders",
+     "label": "Purchase Orders"
+    },
+    "demo": {
+     "label": "Order from a sample supplier",
+     "facts": {
+      "suppliers": {
+       "count": 1
+      },
+      "purchases": {
+       "count": 1
+      }
+     }
+    }
+   }
+  }
+ ]
+}

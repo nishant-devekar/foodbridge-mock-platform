@@ -1,3 +1,5 @@
+> **Superseded 17 Oct 2026 by [CONTROL_TOWER_FLOW.md](CONTROL_TOWER_FLOW.md).** The owner rejected this design: app, tabs, area containers and milestones don't belong in the graph. The tower now walks a flat flow of steps (fb.journey/2). Kept for the record.
+
 # Control Tower · one graph drives the whole tower
 
 17 Oct 2026. The owner said: "establish the engine for end to end control tower where nothing is statically
