@@ -1143,15 +1143,8 @@ html.ct-ov .ct-now { padding-top: 10px; }
 .ct-story[data-cur] .ct-sring { transform: scale(1.05); }
 @media (prefers-reduced-motion: no-preference) { .ct-sring { transition: transform .2s ease; } }
 
-/* ── the areas' colours: each card wears its own ───────────────────── */
-[data-area="deliveries"] { --a1: #2742B8; --a2: #4F6BF0; --at: #E8ECFF; }
-[data-area="collections"] { --a1: #046C4E; --a2: #10A673; --at: #E3F7EE; }
-[data-area="production"] { --a1: #B23B0E; --a2: #F2711C; --at: #FFEDE2; }
-[data-area="purchase"] { --a1: #5B25C4; --a2: #8B5CF6; --at: #F0E9FF; }
-[data-area="inventory"] { --a1: #0B6E83; --a2: #13A3BD; --at: #E2F6FA; }
-[data-area="order"] { --a1: #A3134F; --a2: #E83E8C; --at: #FDE7F1; }
-[data-area="products"] { --a1: #A04A05; --a2: #E3940B; --at: #FFF2DC; }
-[data-area="customers"] { --a1: #0F4FA8; --a2: #2EA2E8; --at: #E2F2FD; }
+/* ── the areas' colours: each card and ring wears its own, set inline from
+   the graph (an area's payload.colour → --a1 deep, --a2 bright, --at tint). */
 
 /* ── the feed: reels ────────────────────────────────────────────────── */
 .ct-feed { position: relative; flex: 1; min-height: 0; margin-top: 10px; }
