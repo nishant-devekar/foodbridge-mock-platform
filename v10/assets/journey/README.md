@@ -13,6 +13,7 @@ graph Claude writes from a store's database by writing new JSON, never by changi
 | File | What |
 | --- | --- |
 | `engine.js` | the engine, `window.FBJourney` / `require()` |
+| `fb.journey-1.schema.json` | the contract as JSON Schema (2020-12): the graph, conditions, and the payload fields the tower reads |
 | `graphs/store-journey.json` | the store journey (proposal: `context/control-tower/CONTROL_TOWER_JOURNEY.md`) |
 | `../ct/journey-facts.js` | the one place that knows the business: a tower pass → facts |
 | `../../screens/journey-lab.html` | inject a graph and facts, watch it walk |

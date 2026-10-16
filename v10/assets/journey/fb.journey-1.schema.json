@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nishant-devekar.github.io/foodbridge-mock-platform/v10/assets/journey/fb.journey-1.schema.json",
+  "title": "fb.journey/1 — the node tree that drives the Control Tower's store journey",
+  "description": "Two layers. (1) The graph: what assets/journey/engine.js validates and walks; it knows no business. (2) node.payload: opaque to the engine; the Control Tower (assets/ct/journey-view.js, screens/control-tower.js) reads the fields in $defs/towerPayload. Rules JSON Schema cannot express, which FBJourney.validate() also enforces: node ids are unique; parent, requires[], edges[].from/to, start and every { node } condition name an existing node; parent chains don't loop; requires (edges and node.requires, expanded through parents to their leaves) never loop. next edges may loop.",
+  "type": "object",
+  "required": ["schema", "id", "nodes"],
+  "properties": {
+    "schema": { "const": "fb.journey/1" },
+    "id": { "type": "string", "minLength": 1, "description": "The graph's id; kept in every snapshot." },
+    "version": { "type": "string", "description": "Kept in snapshots; a new version may take over an old snapshot (marks and done times kept for ids it still has)." },
+    "label": { "type": "string" },
+    "meta": { "type": "object", "description": "Free notes for people (source, facts file); never read." },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "doneNeedsOpen": { "type": "boolean", "default": false, "description": "true: a node can't be done before it is available. Default false: a store that already has the records jumps ahead." }
+      }
+    },
+    "start": { "type": "string", "description": "Where the cursor sits when nothing is in focus. Default: the first root." },
+    "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+  },
+
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1, "description": "Opaque: returned as-is. The store journey uses chapter, area, stage, milestone; the tower reads payload fields, not types." },
+        "label": { "type": "string", "description": "For people; defaults to the id." },
+        "parent": { "type": ["string", "null"], "description": "Makes the tree. A child is never available inside a locked parent; a skipped parent skips its children." },
+        "requires": { "type": "array", "items": { "type": "string" }, "description": "Node ids that must be done or skipped first. Shorthand for requires edges into this node." },
+        "join": { "enum": ["all", "any"], "default": "all", "description": "How requires sources combine." },
+        "available": { "$ref": "#/$defs/condition", "description": "An extra gate on opening." },
+        "done": {
+          "description": "When the node is done. A condition; or \"children\" (default for a node with children: every required child done or skipped); or \"children:any\". A leaf without done is done only when marked with its own id.",
+          "oneOf": [ { "enum": ["children", "children:any"] }, { "$ref": "#/$defs/condition" } ]
+        },
+        "skip": { "$ref": "#/$defs/condition", "description": "True: the node and everything under it is skipped, which counts as passed for whatever it gates." },
+        "optional": { "type": "boolean", "default": false, "description": "Doesn't hold its parent's \"children\" rule, isn't counted in progress, takes the focus only when no required work is open." },
+        "sticky": { "type": "boolean", "default": false, "description": "Once done, stays done even if the facts later drop." },
+        "priority": { "type": "number", "default": 0, "description": "Lower first among siblings; then listing order." },
+        "payload": { "$ref": "#/$defs/towerPayload" }
+      }
+    },
+
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "enum": ["requires", "next"], "default": "requires", "description": "requires gates `to` and must never loop; next only orders next()/prev() and may loop (a daily round, a rotation)." }
+      }
+    },
+
+    "state": { "enum": ["locked", "available", "done", "skipped"] },
+
+    "condition": {
+      "description": "JSON only, no code. The engine decides states in this order: skipped > done > available > locked, repeating until nothing changes, so a condition may test another node's state.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "object", "required": ["all"], "additionalProperties": false, "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "required": ["any"], "additionalProperties": false, "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" } } } },
+        { "type": "object", "required": ["not"], "additionalProperties": false, "properties": { "not": { "$ref": "#/$defs/condition" } } },
+        { "type": "object", "required": ["node", "is"], "additionalProperties": false,
+          "description": "That node is in that state (or one of a list).",
+          "properties": { "node": { "type": "string" }, "is": { "oneOf": [ { "$ref": "#/$defs/state" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/state" } } ] } } },
+        { "type": "object", "required": ["mark"], "additionalProperties": false,
+          "description": "The snapshot holds that mark (J.mark): something no record can show, e.g. \"skip:purchase\".",
+          "properties": { "mark": { "type": "string", "minLength": 1 } } },
+        { "$ref": "#/$defs/factCondition" }
+      ]
+    },
+
+    "factCondition": {
+      "type": "object",
+      "required": ["fact"],
+      "minProperties": 2,
+      "description": "The fact at a dotted path (\"products.broken\", \"list.length\") passes every operator given. A missing number never passes a comparison. \"None missing\" (eq 0) holds in an empty store: pair it with a count gte 1.",
+      "properties": {
+        "fact": { "type": "string", "minLength": 1 },
+        "eq": { "$ref": "#/$defs/operand" }, "ne": { "$ref": "#/$defs/operand" },
+        "gt": { "$ref": "#/$defs/operand" }, "gte": { "$ref": "#/$defs/operand" },
+        "lt": { "$ref": "#/$defs/operand" }, "lte": { "$ref": "#/$defs/operand" },
+        "in": { "$ref": "#/$defs/operand" }, "nin": { "$ref": "#/$defs/operand" },
+        "exists": { "type": "boolean" }, "truthy": { "type": "boolean" },
+        "contains": { "$ref": "#/$defs/operand" }
+      },
+      "additionalProperties": false
+    },
+
+    "operand": {
+      "description": "A value, or another fact: { \"fact\": \"other.path\" }.",
+      "oneOf": [
+        { "type": "object", "required": ["fact"], "additionalProperties": false, "properties": { "fact": { "type": "string", "minLength": 1 } } },
+        { "not": { "type": "object", "required": ["fact"] } }
+      ]
+    },
+
+    "towerPayload": {
+      "type": "object",
+      "description": "Opaque to the engine. These are the fields the Control Tower reads; anything else is carried through untouched (the store journey also keeps stage, live, opens, event for people and other listeners).",
+      "properties": {
+        "line": { "type": "string", "description": "Root node (chapter, milestone): the line under the greeting while it is the chapter." },
+        "pins": { "type": "array", "items": { "type": "string" }, "description": "Root node: the two areas the footer pinned (Business tab)." },
+        "mode": { "const": "running", "description": "Root node: when this is the chapter, the journey is over and home is the everyday tower." },
+
+        "area": { "type": "string", "description": "This node IS that area of the tower: an area card, an area page, a story ring and cards on Now. Known areas: products, customers, order, deliveries, collections, inventory, purchase, production." },
+        "locked": { "type": "string", "description": "Area: why it is locked, shown on its card and page. Default: built from its blockers." },
+        "promise": { "type": "string", "description": "Area: what it does for the owner, under the headline." },
+        "model": { "const": "products", "description": "Area: its tiles are the tower's Products model (Finished Goods' own rules, assets/ct/products-area.js); each product is a row, and on Now a card." },
+        "source": { "const": "store-activation", "description": "Area: its lists are what store activation saved and what waits in its import." },
+        "tiles": {
+          "type": "array",
+          "description": "Area: the page's On track / Needs work / Urgent tiles from facts. Without tiles or a model, the tiles count the area's steps (Done · To do).",
+          "items": { "type": "object", "required": ["k", "fact"], "properties": {
+            "k": { "enum": ["good", "bad", "ugly"] }, "word": { "type": "string" }, "fact": { "type": "string" } } }
+        },
+        "announce": {
+          "type": "object", "required": ["on", "title"],
+          "description": "A one-line moment when the node reaches that state (shown once).",
+          "properties": { "on": { "enum": ["available", "done", "reopened", "locked", "skipped"] }, "title": { "type": "string" },
+            "line": { "type": "string" }, "button": { "type": "string" }, "open": { "type": "string" } }
+        },
+
+        "title": { "type": "string", "description": "Step: the step in a few words; {n} is replaced by the fact in count and left out at zero (\"Fix {n} products\"). Also what Now's coin burst says, in the past tense (\"Products added\")." },
+        "coins": { "type": "number", "minimum": 0, "description": "Step: what finishing it puts in the wallet. Paid once, on node.done, only when facts prove it. Shown on the card's button with the card's own +10." },
+        "ask": { "type": "string", "description": "Step: the headline of its page and its sheet's title." },
+        "how": { "type": "string", "description": "Step: the line under it (What to do)." },
+        "count": { "type": "string", "description": "Step: a fact path; its value is {n} in say and title." },
+        "say": { "type": "string", "description": "Step: the progress line, with {n} (\"{n} hidden from customers\")." },
+        "action": { "type": "string", "description": "Step: the button's words (Now's card, the step's sheet, an empty area's one way in)." },
+        "cheer": { "type": "string", "description": "Step: what the assistant says over it." },
+        "flow": {
+          "type": "object", "required": ["module"],
+          "description": "Step: the button opens this module's own modal over the tower (Now opens it straight away).",
+          "properties": { "module": { "const": "store-activation" }, "step": { "type": "string" }, "mode": { "type": "string" } }
+        },
+        "screen": {
+          "type": "object", "required": ["route", "label"],
+          "description": "Step: else the button opens this platform screen, after an inline ask.",
+          "properties": { "route": { "type": "string" }, "label": { "type": "string" } }
+        },
+        "demo": {
+          "type": "object", "required": ["label", "facts"],
+          "description": "Step, new-store demo only: a quiet link on the card that merges these facts into the store's demo facts.",
+          "properties": { "label": { "type": "string" }, "facts": { "type": "object" } }
+        }
+      }
+    }
+  }
+}
