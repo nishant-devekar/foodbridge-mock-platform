@@ -85,11 +85,15 @@
   };
   const KEEP_UP = { MRP: 1, GST: 1, HSN: 1, SBI: 1, ODC: 1, LLP: 1, FMCG: 1, "M": 1, "K": 1, "S": 1, "R": 1 };
   const UNITS = { GM: "gm", KG: "kg", ML: "ml", LTR: "ltr", G: "g", L: "l", PCS: "pcs" };
+  /* Codes a person never reads: a vehicle number, an order or delivery number. */
+  const CODE = [/^[A-Z]{2}[-\s]?\d{1,2}[-\s]?[A-Z]{0,3}[-\s]?\d{3,4}$/, /^[A-Z]{1,4}-\d{3,}(-\d+)*$/, /^#?\d{5,}$/];
   /* A name as people write it: "MAA KAMAKHYA RETAILS" → "Maa Kamakhya
      Retails"; a catalog's old-price notes go ("(OLD MRP 100), NEW MRP 95"). */
   function nice(name) {
     let t = String(name == null ? "" : name)
       .replace(/\(?\s*OLD MRP\s*\d+\s*\)?,?/gi, "").replace(/,?\s*NEW MRP\s*\d+/gi, "").replace(/\s{2,}/g, " ").replace(/\s+,/g, ",").replace(/[,\s]+$/, "").trim();
+    /* A vehicle or order number in a name goes too ("Van 1 · PB-11-CX-4412" → "Van 1"). */
+    t = t.split(/\s+·\s+/).filter(function (x) { return !CODE.some(function (re) { return re.test(x.trim()); }); }).join(" · ") || t;
     const words = t.replace(/\([^)]*\)/g, "");                     // "(100 gm)" doesn't make a shouted name a written one
     if (/[a-z]/.test(words) || !/[A-Z]{3}/.test(words)) return t;
     return t.replace(/[A-Za-z][A-Za-z'.&]*/g, function (w) {
@@ -99,8 +103,6 @@
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     });
   }
-  /* Codes a person never reads: a vehicle number, an order or delivery number. */
-  const CODE = [/^[A-Z]{2}[-\s]?\d{1,2}[-\s]?[A-Z]{0,3}[-\s]?\d{3,4}$/, /^[A-Z]{1,4}-\d{3,}(-\d+)*$/, /^#?\d{5,}$/];
   /* A row's small line, as facts: codes dropped, the figure dropped when the
      card shows it big, the kicker not said twice. */
   function facts(note, value, money, kicker) {
